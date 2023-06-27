@@ -71,6 +71,7 @@ type
     key: crypto.PrivateKey
     record: Record
 
+    wakuDiscv5: Option[WakuDiscoveryV5]
     peerStore: Option[WakuPeerStorage]
     dynamicBootstrapNodes: seq[RemotePeerInfo]
 
@@ -196,6 +197,37 @@ proc setupDyamicBootstrapNodes*(app: var App): AppResult[void] =
 
   ok()
 
+## Setup DiscoveryV5
+
+proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
+  let dynamicBootstrapEnrs = app.dynamicBootstrapNodes
+                                .filterIt(it.hasUdpPort())
+                                .mapIt(it.enr.get())
+
+  var discv5BootstrapEnrs: seq[enr.Record]
+
+  # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+  for enrUri in app.conf.discv5BootstrapNodes:
+    addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
+  discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+
+  let discv5Config = DiscoveryConfig.init(app.conf.discv5TableIpLimit,
+                                          app.conf.discv5BucketIpLimit,
+                                          app.conf.discv5BitsPerHop)
+
+  let discv5UdpPort = Port(uint16(app.conf.discv5UdpPort) + app.conf.portsShift)
+
+  let discv5Conf = WakuDiscoveryV5Config(
+    discv5Config: some(discv5Config),
+    address: app.netConf.bindIp,
+    port: discv5UdpPort,
+    privateKey: keys.PrivateKey(app.key.skkey),
+    bootstrapRecords: discv5BootstrapEnrs,
+    autoupdateRecord: app.conf.discv5EnrAutoUpdate,
+  )
+
+  WakuDiscoveryV5.new(app.rng, discv5Conf, some(app.record))
 
 ## Init waku node instance
 
@@ -225,39 +257,6 @@ proc initNode(conf: WakuNodeConf,
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
 
-  var wakuDiscv5 = none(WakuDiscoveryV5)
-
-  if conf.discv5Discovery:
-    let dynamicBootstrapEnrs = dynamicBootstrapNodes
-                                .filterIt(it.hasUdpPort())
-                                .mapIt(it.enr.get())
-    var discv5BootstrapEnrs: seq[enr.Record]
-    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-    for enrUri in conf.discv5BootstrapNodes:
-      addBootstrapNode(enrUri, discv5BootstrapEnrs)
-    discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
-    let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
-                                            conf.discv5BucketIpLimit,
-                                            conf.discv5BitsPerHop)
-    try:
-      wakuDiscv5 = some(WakuDiscoveryV5.new(
-        extIp = netConfig.extIp,
-        extTcpPort = netConfig.extPort,
-        extUdpPort = netConfig.discv5UdpPort,
-        bindIp = netConfig.bindIp,
-        discv5UdpPort = netConfig.discv5UdpPort.get(),
-        bootstrapEnrs = discv5BootstrapEnrs,
-        enrAutoUpdate = conf.discv5EnrAutoUpdate,
-        privateKey = keys.PrivateKey(nodekey.skkey),
-        flags = netConfig.wakuFlags.get(),
-        multiaddrs = netConfig.enrMultiaddrs,
-        rng = rng,
-        conf.topics,
-        discv5Config = discv5Config
-      ))
-    except CatchableError:
-      return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
-
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
@@ -273,20 +272,25 @@ proc initNode(conf: WakuNodeConf,
       sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
       agentString = some(conf.agentString)
   )
-  builder.withWakuDiscv5(wakuDiscv5.get(nil))
   builder.withPeerManagerConfig(maxRelayPeers = some(conf.maxRelayPeers.int))
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
   ok(node)
 
-proc setupWakuNode*(app: var App): AppResult[void] =
+proc setupWakuApp*(app: var App): AppResult[void] =
+
+  ## Discv5
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+
   ## Waku node
   let initNodeRes = initNode(app.conf, app.netConf, app.rng, app.key, app.record, app.peerStore, app.dynamicBootstrapNodes)
   if initNodeRes.isErr():
     return err("failed to init node: " & initNodeRes.error)
 
   app.node = initNodeRes.get()
+
   ok()
 
 
@@ -466,12 +470,6 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   except CatchableError:
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
-  # Start discv5 based discovery service (discovery loop)
-  if conf.discv5Discovery:
-    let startDiscv5Res = await node.startDiscv5()
-    if startDiscv5Res.isErr():
-      return err("failed to start waku discovery v5: " & startDiscv5Res.error)
-
   # Connect to configured static nodes
   if conf.staticnodes.len > 0:
     try:
@@ -501,7 +499,15 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startNode*(app: App): Future[AppResult[void]] {.async.} =
+proc startApp*(app: App): Future[AppResult[void]] {.async.} =
+  if app.wakuDiscv5.isSome():
+    let res = await app.wakuDiscv5.get().start()
+
+    if res.isErr():
+      return err("failed to start waku discovery v5: " & res.error)
+
+    asyncSpawn app.wakuDiscv5.get().searchLoop(app.node.peerManager, some(app.record))
+
   return await startNode(
     app.node,
     app.conf,
@@ -623,6 +629,9 @@ proc stop*(app: App): Future[void] {.async.} =
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()
+
+  if app.wakuDiscv5.isSome():
+    await app.wakuDiscv5.get().stop()
 
   if not app.node.isNil():
     await app.node.stop()

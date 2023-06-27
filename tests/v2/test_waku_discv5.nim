@@ -9,7 +9,6 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  ../../waku/v2/waku_node,
   ../../waku/v2/waku_enr,
   ../../waku/v2/waku_discv5,
   ./testlib/common,
@@ -33,10 +32,10 @@ proc newTestEnrRecord(privKey: libp2p_keys.PrivateKey,
   builder.build().tryGet()
 
 
-proc newTestDiscv5Node(privKey: libp2p_keys.PrivateKey,
+proc newTestDiscv5(privKey: libp2p_keys.PrivateKey,
                        bindIp: string, tcpPort: uint16, udpPort: uint16,
                        record: waku_enr.Record,
-                       bootstrapRecords = newSeq[waku_enr.Record]()): WakuNode =
+                       bootstrapRecords = newSeq[waku_enr.Record]()): WakuDiscoveryV5 =
   let config = WakuDiscoveryV5Config(
       privateKey: eth_keys.PrivateKey(privKey.skkey),
       address: ValidIpAddress.init(bindIp),
@@ -44,16 +43,9 @@ proc newTestDiscv5Node(privKey: libp2p_keys.PrivateKey,
       bootstrapRecords: bootstrapRecords,
   )
 
-  let protocol = WakuDiscoveryV5.new(rng(), config, some(record))
-  let node = newTestWakuNode(
-      nodeKey = privKey,
-      bindIp = ValidIpAddress.init(bindIp),
-      bindPort = Port(tcpPort),
-      wakuDiscv5 = some(protocol)
-    )
+  let discv5 = WakuDiscoveryV5.new(rng(), config, some(record))
 
-  return node
-
+  return discv5
 
 
 procSuite "Waku Discovery v5":
@@ -73,7 +65,7 @@ procSuite "Waku Discovery v5":
         tcpPort = tcpPort1,
         udpPort = udpPort1,
     )
-    let node1 = newTestDiscv5Node(
+    let node1 = newTestDiscv5(
         privKey = privKey1,
         bindIp = bindIp1,
         tcpPort = tcpPort1,
@@ -96,7 +88,7 @@ procSuite "Waku Discovery v5":
         udpPort = udpPort2,
     )
 
-    let node2 = newTestDiscv5Node(
+    let node2 = newTestDiscv5(
         privKey = privKey2,
         bindIp = bindIp2,
         tcpPort = tcpPort2,
@@ -119,7 +111,7 @@ procSuite "Waku Discovery v5":
         udpPort = udpPort3,
     )
 
-    let node3 = newTestDiscv5Node(
+    let node3 = newTestDiscv5(
         privKey = privKey3,
         bindIp = bindIp3,
         tcpPort = tcpPort3,
@@ -131,11 +123,7 @@ procSuite "Waku Discovery v5":
     await allFutures(node1.start(), node2.start(), node3.start())
 
     ## When
-    # Starting discv5 via `WakuNode.startDiscV5()` starts the discv5 background task.
-    await allFutures(node1.startDiscv5(), node2.startDiscv5(), node3.startDiscv5())
-
-    await sleepAsync(5.seconds) # Wait for discv5 discovery loop to run
-    let res = await node1.wakuDiscv5.findRandomPeers()
+    let res = await node3.findRandomPeers()
 
     ## Then
     check:
@@ -209,7 +197,7 @@ procSuite "Waku Discovery v5":
 
 
     # Nodes
-    let node1 = newTestDiscv5Node(
+    let node1 = newTestDiscv5(
         privKey = privKey1,
         bindIp = bindIp1,
         tcpPort = tcpPort1,
@@ -217,7 +205,7 @@ procSuite "Waku Discovery v5":
         record = record1,
         bootstrapRecords = @[record2]
     )
-    let node2 = newTestDiscv5Node(
+    let node2 = newTestDiscv5(
         privKey = privKey2,
         bindIp = bindIp2,
         tcpPort = tcpPort2,
@@ -226,7 +214,7 @@ procSuite "Waku Discovery v5":
         bootstrapRecords = @[record3, record4]
     )
 
-    let node3 = newTestDiscv5Node(
+    let node3 = newTestDiscv5(
         privKey = privKey3,
         bindIp = bindIp3,
         tcpPort = tcpPort3,
@@ -234,7 +222,7 @@ procSuite "Waku Discovery v5":
         record = record3
     )
 
-    let node4 = newTestDiscv5Node(
+    let node4 = newTestDiscv5(
         privKey = privKey4,
         bindIp = bindIp4,
         tcpPort = tcpPort4,
@@ -243,11 +231,6 @@ procSuite "Waku Discovery v5":
     )
 
     # Start nodes' discoveryV5 protocols
-    require node1.wakuDiscV5.start().isOk()
-    require node2.wakuDiscV5.start().isOk()
-    require node3.wakuDiscV5.start().isOk()
-    require node4.wakuDiscV5.start().isOk()
-
     await allFutures(node1.start(), node2.start(), node3.start(), node4.start())
 
     ## Given
@@ -264,13 +247,7 @@ procSuite "Waku Discovery v5":
 
 
     ## When
-    # # Do a random peer search with a predicate multiple times
-    # var peers = initHashSet[waku_enr.Record]()
-    # for i in 0..<10:
-    #   for peer in await node1.wakuDiscv5.findRandomPeers(pred=recordPredicate):
-    #     peers.incl(peer)
-    await sleepAsync(5.seconds) # Wait for discv5 discvery loop to run
-    let peers = await node1.wakuDiscv5.findRandomPeers(some(recordPredicate))
+    let peers = await node1.findRandomPeers(some(recordPredicate))
 
     ## Then
     check:

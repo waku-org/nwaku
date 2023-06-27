@@ -15,6 +15,7 @@ import
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
 import
+  ../../waku/v2/node/peer_manager/peer_manager,
   ./waku_core,
   ./waku_enr
 
@@ -121,34 +122,6 @@ proc new*(T: type WakuDiscoveryV5,
 
   WakuDiscoveryV5.new(rng, conf, some(record))
 
-
-proc start*(wd: WakuDiscoveryV5): Result[void, string] =
-  if wd.listening:
-    return err("already listening")
-
-  # Start listening on configured port
-  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
-  try:
-    wd.protocol.open()
-  except CatchableError:
-    return err("failed to open udp port: " & getCurrentExceptionMsg())
-
-  wd.listening = true
-
-  # Start Discovery v5
-  trace "start discv5 service"
-  wd.protocol.start()
-
-  ok()
-
-proc closeWait*(wd: WakuDiscoveryV5) {.async.} =
-  debug "closing Waku discovery v5 node"
-  if not wd.listening:
-    return
-
-  wd.listening = false
-  await wd.protocol.closeWait()
-
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
 
@@ -185,6 +158,64 @@ proc findRandomPeers*(wd: WakuDiscoveryV5, pred = none(WakuDiscv5Predicate)): Fu
 
   return discoveredRecords
 
+#TODO abstract away PeerManager
+proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager, record: Option[enr.Record]) {.async.} =
+  ## Continuously add newly discovered nodes
+
+  info "Starting discovery v5 search"
+
+  let shardPredOp =
+    if record.isSome():
+      shardingPredicate(record.get())
+    else:
+      none(WakuDiscv5Predicate)
+
+  while wd.listening:
+    trace "running discv5 discovery loop"
+    let discoveredRecords = await wd.findRandomPeers(shardPredOp)
+    let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
+
+    for peer in discoveredPeers:
+      # Peers added are filtered by the peer manager
+      peerManager.addPeer(peer, PeerOrigin.Discv5)
+
+    # Discovery `queryRandom` can have a synchronous fast path for example
+    # when no peers are in the routing table. Don't run it in continuous loop.
+    #
+    # Also, give some time to dial the discovered nodes and update stats, etc.
+    await sleepAsync(5.seconds)
+
+proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
+  if wd.listening:
+    return err("already listening")
+
+  info "Starting discovery v5 service"
+
+  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
+  try:
+    wd.protocol.open()
+  except CatchableError:
+    return err("failed to open udp port: " & getCurrentExceptionMsg())
+
+  wd.listening = true
+
+  trace "start discv5 service"
+  wd.protocol.start()
+
+  debug "Successfully started discovery v5 service"
+  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
+
+proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
+  if not wd.listening:
+      return
+
+  info "Stopping discovery v5 service"
+
+  wd.listening = false
+  trace "Stop listening on discv5 port"
+  await wd.protocol.closeWait()
+
+  debug "Successfully stopped discovery v5 service"
 
 ## Helper functions
 

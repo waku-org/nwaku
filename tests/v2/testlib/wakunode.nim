@@ -36,7 +36,6 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       sendSignedPeerRecord = false,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
-                      wakuDiscv5 = none(WakuDiscoveryV5),
                       agentString = none(string),
                       peerStoreCapacity = none(int)): WakuNode =
   let netConfigRes = NetConfig.init(
@@ -69,6 +68,5 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     agentString = agentString,
 
   )
-  builder.withWakuDiscv5(wakuDiscv5.get(nil))
 
   return builder.build().get()

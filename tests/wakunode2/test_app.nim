@@ -63,9 +63,9 @@ suite "Wakunode2 - App initialization":
     var wakunode2 = App.init(rng(), conf)
     require wakunode2.setupPeerPersistence().isOk()
     require wakunode2.setupDyamicBootstrapNodes().isOk()
-    require wakunode2.setupWakuNode().isOk()
+    require wakunode2.setupWakuApp().isOk()
     require isOk(waitFor wakunode2.setupAndMountProtocols())
-    require isOk(waitFor wakunode2.startNode())
+    require isOk(waitFor wakunode2.startApp())
     require wakunode2.setupMonitoringAndExternalInterfaces().isOk()
 
     ## Then

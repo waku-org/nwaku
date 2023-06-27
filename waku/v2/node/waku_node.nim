@@ -813,65 +813,6 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-proc runDiscv5Loop(node: WakuNode) {.async.} =
-  ## Continuously add newly discovered nodes using Node Discovery v5
-  if node.wakuDiscv5.isNil():
-    warn "Trying to run discovery v5 while it's disabled"
-    return
-
-  info "starting discv5 discovery loop"
-
-  let shardPredOp = shardingPredicate(node.enr)
-
-  while node.wakuDiscv5.listening:
-    trace "running discv5 discovery loop"
-    let discoveredRecords = await node.wakuDiscv5.findRandomPeers(shardPredOp)
-    let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
-
-    for peer in discoveredPeers:
-      let isNew = not node.peerManager.peerStore[AddressBook].contains(peer.peerId)
-      if isNew:
-        debug "new peer discovered", peer= $peer, origin= "discv5"
-
-      node.peerManager.addPeer(peer, PeerOrigin.Discv5)
-
-    # Discovery `queryRandom` can have a synchronous fast path for example
-    # when no peers are in the routing table. Don't run it in continuous loop.
-    #
-    # Also, give some time to dial the discovered nodes and update stats, etc.
-    await sleepAsync(5.seconds)
-
-proc startDiscv5*(node: WakuNode): Future[Result[void, string]] {.async.} =
-  ## Start Discovery v5 service
-  if node.wakuDiscv5.isNil():
-    return err("discovery v5 is disabled")
-
-  info "Starting discovery v5 service"
-  let res = node.wakuDiscv5.start()
-  if res.isErr():
-    return err("error in startDiscv5: " & res.error)
-
-  trace "Start discovering new peers using discv5"
-  asyncSpawn node.runDiscv5Loop()
-
-  debug "Successfully started discovery v5 service"
-  info "Discv5: discoverable ENR ", enr = node.wakuDiscV5.protocol.localNode.record.toUri()
-  return ok()
-
-
-proc stopDiscv5*(node: WakuNode): Future[bool] {.async.} =
-  ## Stop Discovery v5 service
-
-  if not node.wakuDiscv5.isNil():
-    info "Stopping discovery v5 service"
-
-    ## Stop Discovery v5 process and close listening port
-    if node.wakuDiscv5.listening:
-      trace "Stop listening on discv5 port"
-      await node.wakuDiscv5.closeWait()
-
-    debug "Successfully stopped discovery v5 service"
-
 proc mountRendezvous*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting rendezvous discovery protocol"
 
@@ -922,9 +863,6 @@ proc start*(node: WakuNode) {.async.} =
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil():
     await node.wakuRelay.stop()
-
-  if not node.wakuDiscv5.isNil():
-    discard await node.stopDiscv5()
 
   await node.switch.stop()
   node.peerManager.stop()
