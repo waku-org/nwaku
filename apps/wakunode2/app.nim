@@ -501,7 +501,7 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
 proc startApp*(app: App): Future[AppResult[void]] {.async.} =
   if app.wakuDiscv5.isSome():
-    let res = await app.wakuDiscv5.get().start()
+    let res = app.wakuDiscv5.get().start()
 
     if res.isErr():
       return err("failed to start waku discovery v5: " & res.error)

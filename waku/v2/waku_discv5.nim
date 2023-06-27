@@ -185,7 +185,7 @@ proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager, record: Option[e
     # Also, give some time to dial the discovered nodes and update stats, etc.
     await sleepAsync(5.seconds)
 
-proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
+proc start*(wd: WakuDiscoveryV5): Result[void, string] =
   if wd.listening:
     return err("already listening")
 
@@ -204,6 +204,8 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
 
   debug "Successfully started discovery v5 service"
   info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
+
+  ok()
 
 proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
   if not wd.listening:
