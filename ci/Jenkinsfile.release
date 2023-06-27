@@ -67,6 +67,14 @@ pipeline {
       } }
     }
 
+    stage('Check') {
+      steps { script {
+        image.inside('--entrypoint=""') { c ->
+          sh '/usr/bin/wakunode --version'
+        }
+      } }
+    }
+
     stage('Push') {
       steps { script {
         withDockerRegistry([credentialsId: "dockerhub-statusteam-auto", url: ""]) {
