@@ -23,8 +23,7 @@ proc newTestArchiveDriver(): ArchiveDriver =
   SqliteDriver.new(db).tryGet()
 
 proc newTestWakuArchive(driver: ArchiveDriver): WakuArchive =
-  let validator: MessageValidator = DefaultMessageValidator()
-  WakuArchive.new(driver, validator=some(validator))
+  WakuArchive.new(driver).get()
 
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
   ArchiveCursor(

@@ -3,7 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/[options, sequtils],
   stew/[results, byteutils],
@@ -14,11 +13,9 @@ import
   ../../../waku_core,
   ./cursor
 
-
 const DbTable = "Message"
 
 type SqlQueryStr = string
-
 
 ### SQLite column helper methods
 
@@ -83,13 +80,13 @@ proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
 
-
 ## Create indices
 
 proc createOldestMessageTimestampIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_ts ON " & table & " (storedAt);"
 
-proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void] =
+proc createOldestMessageTimestampIndex*(db: SqliteDatabase):
+                                        DatabaseResult[void] =
   let query = createOldestMessageTimestampIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -133,13 +130,13 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
 
   ok(count)
 
-
 ## Get oldest message receiver timestamp
 
 proc selectOldestMessageTimestampQuery(table: string): SqlQueryStr =
   "SELECT MIN(storedAt) FROM " & table
 
-proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
+proc selectOldestReceiverTimestamp*(db: SqliteDatabase):
+                                    DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     timestamp = queryRowReceiverTimestampCallback(s, 0)
@@ -156,7 +153,8 @@ proc selectOldestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestam
 proc selectNewestMessageTimestampQuery(table: string): SqlQueryStr =
   "SELECT MAX(storedAt) FROM " & table
 
-proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestamp] {.inline.}=
+proc selectNewestReceiverTimestamp*(db: SqliteDatabase):
+                                    DatabaseResult[Timestamp] {.inline.}=
   var timestamp: Timestamp
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     timestamp = queryRowReceiverTimestampCallback(s, 0)
@@ -173,7 +171,8 @@ proc selectNewestReceiverTimestamp*(db: SqliteDatabase): DatabaseResult[Timestam
 proc deleteMessagesOlderThanTimestampQuery(table: string, ts: Timestamp): SqlQueryStr =
   "DELETE FROM " & table & " WHERE storedAt < " & $ts
 
-proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64): DatabaseResult[void] =
+proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64):
+                                       DatabaseResult[void] =
   let query = deleteMessagesOlderThanTimestampQuery(DbTable, ts)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
@@ -188,12 +187,12 @@ proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQuer
   " LIMIT " & $limit &
   ");"
 
-proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int): DatabaseResult[void] =
+proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int):
+                                         DatabaseResult[void] =
   # NOTE: The word `limit` here refers the store capacity/maximum number-of-messages allowed limit
   let query = deleteOldestMessagesNotWithinLimitQuery(DbTable, limit=limit)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
   ok()
-
 
 ## Select all messages
 
@@ -223,7 +222,6 @@ proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic,
     return err(res.error())
 
   ok(rows)
-
 
 ## Select messages by history query with limit
 

@@ -15,7 +15,6 @@ import
   ../v2/testlib/common,
   ../v2/testlib/wakucore
 
-
 proc defaultTestWakuNodeConf(): WakuNodeConf =
   WakuNodeConf(
     listenAddress: ValidIpAddress.init("127.0.0.1"),
@@ -27,7 +26,6 @@ proc defaultTestWakuNodeConf(): WakuNodeConf =
     topics: @["/waku/2/default-waku/proto"],
     relay: true
   )
-
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":
@@ -42,7 +40,6 @@ suite "Wakunode2 - App":
     ## Then
     check:
       version == app.git_version
-
 
 suite "Wakunode2 - App initialization":
   test "peer persistence setup should be successfully mounted":
@@ -65,7 +62,6 @@ suite "Wakunode2 - App initialization":
     ## When
     var wakunode2 = App.init(rng(), conf)
     require wakunode2.setupPeerPersistence().isOk()
-    require wakunode2.setupWakuArchive().isOk()
     require wakunode2.setupDyamicBootstrapNodes().isOk()
     require wakunode2.setupWakuNode().isOk()
     require isOk(waitFor wakunode2.setupAndMountProtocols())

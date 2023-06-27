@@ -156,7 +156,9 @@ procSuite "Waku v2 JSON-RPC API - Admin":
     await node.mountFilter()
     await node.mountFilterClient()
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 

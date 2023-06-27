@@ -20,7 +20,6 @@ import
 logScope:
   topics = "wakunode main"
 
-
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   ## Node setup happens in 6 phases:
@@ -63,12 +62,6 @@ when isMainModule:
   let res1 = wakunode2.setupPeerPersistence()
   if res1.isErr():
     error "1/7 Setting up storage failed", error=res1.error
-    quit(QuitFailure)
-
-  ## Waku archive
-  let res2 = wakunode2.setupWakuArchive()
-  if res2.isErr():
-    error "1/7 Setting up storage failed (waku archive)", error=res2.error
     quit(QuitFailure)
 
   debug "2/7 Retrieve dynamic bootstrap nodes"
