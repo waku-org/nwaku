@@ -151,7 +151,10 @@ procSuite "Waku Peer Exchange":
 
 
     await allFutures(node1.start(), node2.start(), node3.start())
-    await allFutures(disc1.start(), disc2.start())
+    let resultDisc1StartRes = disc1.start()
+    assert resultDisc1StartRes.isOk(), resultDisc1StartRes.error
+    let resultDisc2StartRes = disc2.start()
+    assert resultDisc2StartRes.isOk(), resultDisc2StartRes.error
     asyncSpawn disc1.searchLoop(node1.peerManager, none(enr.Record))
     asyncSpawn disc2.searchLoop(node2.peerManager, none(enr.Record))
 

@@ -69,7 +69,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     await node.mountRelay()
     node.peerManager.start()
 
-    let discv5Res = await wakuDiscv5.start()
+    let discv5Res = wakuDiscv5.start()
     if discv5Res.isErr():
       error "failed to start discv5", error= discv5Res.error
       quit(1)
