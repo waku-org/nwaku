@@ -72,7 +72,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -104,7 +106,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -153,7 +157,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -207,7 +213,10 @@ procSuite "WakuNode - Store":
 
     waitFor filterSource.mountFilter()
     let driver = newTestArchiveDriver()
-    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+
+    let mountArchiveRes = server.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+    
     waitFor server.mountStore()
     waitFor server.mountFilterClient()
     client.mountStoreClient()
