@@ -39,7 +39,7 @@ LABEL commit="unknown"
 EXPOSE 30303 60000 8545
 
 # Referenced in the binary
-RUN apk add --no-cache libgcc pcre-dev
+RUN apk add --no-cache libgcc pcre-dev libpq-dev
 
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
