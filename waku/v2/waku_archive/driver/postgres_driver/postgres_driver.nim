@@ -238,9 +238,10 @@ proc getInt(s: PostgresDriver,
   if fields.len != 1:
     return err("failed in getRow: Expected one field but got " & $fields.len)
 
-  var retInt: int64
+  var retInt = 0'i64
   try:
-    retInt = parseInt(fields[0])
+    if fields[0] != "":
+      retInt = parseInt(fields[0])
   except ValueError:
     return err("exception in getRow, parseInt: " & getCurrentExceptionMsg())
 
@@ -269,7 +270,7 @@ method getNewestMessageTimestamp*(s: PostgresDriver):
 
   let intRes = await s.getInt("SELECT MAX(storedAt) FROM messages")
   if intRes.isErr():
-    return err("error in getOldestMessageTimestamp: " & intRes.error)
+    return err("error in getNewestMessageTimestamp: " & intRes.error)
 
   return ok(Timestamp(intRes.get()))
 
