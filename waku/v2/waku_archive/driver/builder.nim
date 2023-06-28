@@ -6,18 +6,21 @@ else:
 
 import
   stew/results,
-  chronicles
+  chronicles,
+  chronos
 import
   ../driver,
   ../../../common/databases/dburl,
   ../../../common/databases/db_sqlite,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./queue_driver
+  ./queue_driver,
+  ./postgres_driver
 
 export
   sqlite_driver,
-  queue_driver
+  queue_driver,
+  postgres_driver
 
 proc new*(T: type ArchiveDriver,
           url: string,
@@ -68,6 +71,24 @@ proc new*(T: type ArchiveDriver,
       return err("failed to init sqlite archive driver: " & res.error)
 
     return ok(res.get())
+
+  of "postgres":
+    const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
+    let res = PostgresDriver.new(url, MaxNumConns)
+    if res.isErr():
+      return err("failed to init postgres archive driver: " & res.error)
+
+    let driver = res.get()
+
+    try:
+      # The table should exist beforehand.
+      let newTableRes = waitFor driver.createMessageTable()
+      if newTableRes.isErr():
+        return err("error creating table: " & newTableRes.error)
+    except CatchableError:
+      return err("exception creating table: " & getCurrentExceptionMsg())
+
+    return ok(driver)
 
   else:
     debug "setting up in-memory waku archive driver"
