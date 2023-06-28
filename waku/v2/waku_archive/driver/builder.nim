@@ -6,7 +6,8 @@ else:
 
 import
   stew/results,
-  chronicles
+  chronicles,
+  chronos
 import
   ../driver,
   ../../../common/databases/dburl,
@@ -78,8 +79,14 @@ proc new*(T: type ArchiveDriver,
       return err("failed to init postgres archive driver: " & res.error)
 
     let driver = res.get()
-    # The table should exist beforehand.
-    discard driver.createMessageTable()
+
+    try:
+      # The table should exist beforehand.
+      let newTableRes = waitFor driver.createMessageTable()
+      if newTableRes.isErr():
+        return err("error creating table: " & newTableRes.error)
+    except CatchableError:
+      return err("exception creating table: " & getCurrentExceptionMsg())
 
     return ok(driver)
 
