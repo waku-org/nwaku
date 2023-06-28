@@ -52,8 +52,8 @@ proc new*(T: type PostgresDriver,
 
   return ok(PostgresDriver(connPool: connPoolRes.get()))
 
-proc createMessageTable(s: PostgresDriver):
-                        Future[ArchiveDriverResult[void]] {.async.}  =
+proc createMessageTable*(s: PostgresDriver):
+                         Future[ArchiveDriverResult[void]] {.async.}  =
 
   let execRes = await s.connPool.exec(createTableQuery())
   if execRes.isErr():
