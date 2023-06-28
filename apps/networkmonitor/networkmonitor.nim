@@ -270,7 +270,6 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
       udpPort = some(nodeUdpPort),
   )
   builder.withWakuCapabilities(flags)
-  #builder.withMultiaddrs(???)
 
   let recordRes = builder.build()
   let record =
@@ -284,16 +283,16 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
   nodeBuilder.withRecord(record)
   let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
   if res.isErr():
-    return err("node building error" & $ res.error)
+    return err("node building error" & $res.error)
 
   let nodeRes = nodeBuilder.build()
   let node =
     if nodeRes.isErr():
-      return err("node building error" & $ res.error)
+      return err("node building error" & $res.error)
     else: nodeRes.get()
 
   var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
-  if not discv5BootstrapEnrsRes.isOk():
+  if discv5BootstrapEnrsRes.isErr():
     error("failed discovering peers from DNS")
   var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
 
