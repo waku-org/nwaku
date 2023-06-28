@@ -160,6 +160,7 @@ proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
 # crawls the network discovering peers and trying to connect to them
 # metrics are processed and exposed
 proc crawlNetwork(node: WakuNode,
+                  wakuDiscv5: WakuDiscoveryV5,
                   restClient: RestClientRef,
                   conf: NetworkMonitorConf,
                   allPeersRef: CustomPeersTableRef) {.async.} =
@@ -167,10 +168,10 @@ proc crawlNetwork(node: WakuNode,
   let crawlInterval = conf.refreshInterval * 1000
   while true:
     # discover new random nodes
-    let discoveredNodes = await node.wakuDiscv5.protocol.queryRandom()
+    let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
 
     # nodes are nested into bucket, flat it
-    let flatNodes = node.wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
+    let flatNodes = wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
 
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
     setDiscoveredPeersCapabilities(flatNodes)
@@ -242,44 +243,81 @@ proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], 
   except CatchableError:
     error("failed discovering peers from DNS")
 
-proc initAndStartNode(conf: NetworkMonitorConf): Result[WakuNode, string] =
+proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV5), string] =
+  let bindIp = try:
+    ValidIpAddress.init("0.0.0.0")
+  except CatchableError:
+    return err("could not start node: " & getCurrentExceptionMsg())
+
+  let extIp = try:
+    ValidIpAddress.init("127.0.0.1")
+  except CatchableError:
+    return err("could not start node: " & getCurrentExceptionMsg())
+
   let
     # some hardcoded parameters
     rng = keys.newRng()
-    nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    key = crypto.PrivateKey.random(Secp256k1, rng[])[]
     nodeTcpPort = Port(60000)
     nodeUdpPort = Port(9000)
     flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
+  var builder = EnrBuilder.init(key)
+
+  builder.withIpAddressAndPorts(
+      ipAddr = some(extIp),
+      tcpPort = some(nodeTcpPort),
+      udpPort = some(nodeUdpPort),
+  )
+  builder.withWakuCapabilities(flags)
+
+  let recordRes = builder.build()
+  let record =
+    if recordRes.isErr():
+      return err("cannot build record: " & $recordRes.error)
+    else: recordRes.get()
+
+  var nodeBuilder = WakuNodeBuilder.init()
+
+  nodeBuilder.withNodeKey(key)
+  nodeBuilder.withRecord(record)
+  let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
+  if res.isErr():
+    return err("node building error" & $res.error)
+
+  let nodeRes = nodeBuilder.build()
+  let node =
+    if nodeRes.isErr():
+      return err("node building error" & $res.error)
+    else: nodeRes.get()
+
+  var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
+  if discv5BootstrapEnrsRes.isErr():
+    error("failed discovering peers from DNS")
+  var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
+
+  # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+  for enrUri in conf.bootstrapNodes:
+    addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
+  # discv5
+  let discv5Conf = WakuDiscoveryV5Config(
+    discv5Config: none(DiscoveryConfig),
+    address: bindIp,
+    port: nodeUdpPort,
+    privateKey: keys.PrivateKey(key.skkey),
+    bootstrapRecords: discv5BootstrapEnrs,
+    autoupdateRecord: false
+  )
+
+  let wakuDiscv5 = WakuDiscoveryV5.new(node.rng, discv5Conf, some(record))
+
   try:
-    let
-      bindIp = ValidIpAddress.init("0.0.0.0")
-      extIp = ValidIpAddress.init("127.0.0.1")
-
-    var builder = WakuNodeBuilder.init()
-    builder.withNodeKey(nodeKey)
-    ? builder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
-    let node = ? builder.build()
-
-    var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
-    if not discv5BootstrapEnrsRes.isOk():
-      error("failed discovering peers from DNS")
-    var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
-
-    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-    for enrUri in conf.bootstrapNodes:
-      addBootstrapNode(enrUri, discv5BootstrapEnrs)
-
-    # mount discv5
-    node.wakuDiscv5 = WakuDiscoveryV5.new(
-        some(extIp), some(nodeTcpPort), some(nodeUdpPort),
-        bindIp, nodeUdpPort, discv5BootstrapEnrs, false,
-        keys.PrivateKey(nodeKey.skkey), flags, @[], node.rng, @[])
-
-    node.wakuDiscv5.protocol.open()
-    return ok(node)
+    wakuDiscv5.protocol.open()
   except CatchableError:
-    error("could not start node")
+    return err("could not start node: " & getCurrentExceptionMsg())
+
+  ok((node, wakuDiscv5))
 
 proc startRestApiServer(conf: NetworkMonitorConf,
                         allPeersInfo: CustomPeersTableRef,
@@ -366,12 +404,12 @@ when isMainModule:
   let restClient = clientRest.get()
 
   # start waku node
-  let nodeRes = initAndStartNode(conf)
+  let nodeRes = initAndStartApp(conf)
   if nodeRes.isErr():
     error "could not start node"
     quit 1
 
-  let node = nodeRes.get()
+  let (node, discv5) = nodeRes.get()
 
   waitFor node.mountRelay()
 
@@ -380,6 +418,6 @@ when isMainModule:
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
-  asyncSpawn crawlNetwork(node, restClient, conf, allPeersInfo)
+  asyncSpawn crawlNetwork(node, discv5, restClient, conf, allPeersInfo)
 
   runForever()

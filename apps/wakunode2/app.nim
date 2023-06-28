@@ -220,7 +220,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
 
   let discv5Conf = WakuDiscoveryV5Config(
     discv5Config: some(discv5Config),
-    address: app.netConf.bindIp,
+    address: app.conf.listenAddress,
     port: discv5UdpPort,
     privateKey: keys.PrivateKey(app.key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,
@@ -504,7 +504,7 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
     let res = app.wakuDiscv5.get().start()
 
     if res.isErr():
-      return err("failed to start waku discovery v5: " & res.error)
+      return err("failed to start waku discovery v5: " & $res.error)
 
     asyncSpawn app.wakuDiscv5.get().searchLoop(app.node.peerManager, some(app.record))
 
