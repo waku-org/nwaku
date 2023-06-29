@@ -106,14 +106,33 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
       keyRes.get()
 
-  let netConfigRes = networkConfiguration(conf)
+  let netConfigRes = networkConfiguration(conf, clientId)
+
   let netConfig =
     if netConfigRes.isErr():
       error "failed to create internal config", error=netConfigRes.error
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  let recordRes = createRecord(conf.topics, netConfig, key)
+  var enrBuilder = EnrBuilder.init(key)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
+
+  let addShardedTopics = enrBuilder.withShardedTopics(conf.topics)
+  if addShardedTopics.isErr():
+      error "failed to add sharded topics", error=addShardedTopics.error
+      quit(QuitFailure)
+
+  let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error

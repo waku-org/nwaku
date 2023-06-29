@@ -187,6 +187,25 @@ func withWakuRelaySharding*(builder: var EnrBuilder, rs: RelayShards): EnrResult
   else:
     builder.withWakuRelayShardingIndicesList(rs)
 
+func withShardedTopics*(builder: var EnrBuilder,
+                        topics: seq[string]):
+                        Result[void, string] =
+  let relayShardsRes = topicsToRelayShards(topics)
+  let relayShardOp =
+    if relayShardsRes.isErr():
+      return err("building ENR with relay sharding failed: " &
+                 $relayShardsRes.error)
+    else: relayShardsRes.get()
+
+  if relayShardOp.isNone():
+    return ok()
+
+  let res = builder.withWakuRelaySharding(relayShardOp.get())
+
+  if res.isErr():
+    return err($res.error)
+
+  return ok()
 
 # ENR record accessors (e.g., Record, TypedRecord, etc.)
 

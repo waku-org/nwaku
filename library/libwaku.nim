@@ -10,8 +10,11 @@ import
   stew/shims/net
 import
   ../vendor/nim-libp2p/libp2p/crypto/crypto,
+  ../../waku/common/enr/builder,
   ../../waku/common/utils/nat,
   ../../waku/v2/waku_enr/capabilities,
+  ../../waku/v2/waku_enr/multiaddr,
+  ../../waku/v2/waku_enr/sharding,
   ../../waku/v2/waku_core/message/codec,
   ../../waku/v2/waku_core/message/message,
   ../../waku/v2/waku_core/topics/pubsub_topic,
@@ -47,17 +50,12 @@ type
 
 var eventCallback:EventCallback = nil
 
-proc relayEventCallback(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [Defect].} =
+proc relayEventCallback(pubsubTopic: string,
+                        msg: WakuMessage):
+                        Future[void] {.gcsafe, raises: [Defect].} =
   # Callback that hadles the Waku Relay events. i.e. messages or errors.
   if not isNil(eventCallback):
-    let msg = WakuMessage.decode(data)
-    var event: JsonSignal
-    if msg.isOk():
-      event = JsonMessageEvent.new(pubsubTopic, msg.value)
-    else:
-      let errorMsg = string("Error decoding message.") & $msg.error
-      event = JsonErrorEvent.new(errorMsg)
-
+    let event = JsonMessageEvent.new(pubsubTopic, msg)
     try:
       eventCallback(cstring($event))
     except Exception:
@@ -175,9 +173,34 @@ proc waku_new(config: ConfigNode,
                      jsonResp):
     return false
 
+  var enrBuilder = EnrBuilder.init(privateKey)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
+  ## TODO: pass the topics from conf parameter. We will pass it from
+  ## json array in upcoming PRs.
+  let addShardedTopics = enrBuilder.withShardedTopics(@["/waku/2/default-waku/proto"])
+  if addShardedTopics.isErr():
+      return false
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      return false
+    else: recordRes.get()
+
   var builder = WakuNodeBuilder.init()
   builder.withRng(crypto.newRng())
   builder.withNodeKey(privateKey)
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withSwitchConfiguration(
     maxConnections = some(50.int)
@@ -303,7 +326,8 @@ Kindly set it with the 'waku_set_event_callback' function""")
     jsonResp = errResp("Cannot subscribe without Waku Relay enabled.")
     return false
 
-  node.wakuRelay.subscribe(PubsubTopic($pubSubTopic), PubsubRawHandler(relayEventCallback))
+  node.wakuRelay.subscribe(PubsubTopic($pubSubTopic),
+                           WakuRelayHandler(relayEventCallback))
 
   jsonResp = okResp("true")
   return true
@@ -323,7 +347,7 @@ Kindly set it with the 'waku_set_event_callback' function""")
     jsonResp = errResp("Cannot unsubscribe without Waku Relay enabled.")
     return false
 
-  node.wakuRelay.unsubscribeAll(PubsubTopic($pubSubTopic))
+  node.wakuRelay.unsubscribe(PubsubTopic($pubSubTopic))
 
   jsonResp = okResp("true")
   return true
