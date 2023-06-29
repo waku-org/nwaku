@@ -10,8 +10,10 @@ import
   stew/shims/net
 import
   ../vendor/nim-libp2p/libp2p/crypto/crypto,
+  ../../waku/common/enr/builder,
   ../../waku/common/utils/nat,
   ../../waku/v2/waku_enr/capabilities,
+  ../../waku/v2/waku_enr/multiaddr,
   ../../waku/v2/waku_core/message/codec,
   ../../waku/v2/waku_core/message/message,
   ../../waku/v2/waku_core/topics/pubsub_topic,
@@ -175,9 +177,29 @@ proc waku_new(config: ConfigNode,
                      jsonResp):
     return false
 
+  var enrBuilder = EnrBuilder.init(privateKey)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      return false
+    else: recordRes.get()
+
   var builder = WakuNodeBuilder.init()
   builder.withRng(crypto.newRng())
   builder.withNodeKey(privateKey)
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withSwitchConfiguration(
     maxConnections = some(50.int)
