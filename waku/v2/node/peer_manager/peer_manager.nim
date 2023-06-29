@@ -56,7 +56,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(5)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.seconds(60)
+  LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
   ColocationLimit = 5
@@ -71,7 +71,8 @@ type
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
     maxRelayPeers*: int
-    outPeersTarget*: int
+    outRelayPeersTarget: int
+    inRelayPeersTarget: int
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
     started: bool
@@ -376,12 +377,15 @@ proc new*(T: type PeerManager,
         maxBackoff=backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
+  let outRelayPeersTarget = max(maxRelayPeers div 3, 10)
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       outPeersTarget: max(maxConnections div 2, 10),
+                       outRelayPeersTarget: outRelayPeersTarget,
+                       inRelayPeersTarget: maxRelayPeers - outRelayPeersTarget,
                        maxFailedAttempts: maxFailedAttempts,
                        colocationLimit: colocationLimit,
                        maxRelayPeers: maxRelayPeers)
@@ -571,16 +575,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let maxConnections = pm.switch.connManager.inSema.size
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-  let inPeersTarget = maxConnections - pm.outPeersTarget
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  if inRelayPeers.len > inPeersTarget:
-    await pm.pruneInRelayConns(inRelayPeers.len-inPeersTarget)
+  if inRelayPeers.len > pm.inRelayPeersTarget:
+    await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
-  if outRelayPeers.len >= pm.outPeersTarget:
-    return
-
-  # Leave some room for service peers
-  if totalRelayPeers >= (maxConnections - 5):
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
@@ -670,15 +670,14 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
     let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-    let inPeersTarget = maxConnections - pm.outPeersTarget
     let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+    let totalConnections = pm.switch.connManager.getConnections().len
 
     info "Relay peer connections",
-      inRelayConns = $inRelayPeers.len & "/" & $inPeersTarget,
-      outRelayConns = $outRelayPeers.len & "/" & $pm.outPeersTarget,
-      totalRelayConns = totalRelayPeers,
-      maxConnections = maxConnections,
+      inRelayConns = $inRelayPeers.len & "/" & $pm.inRelayPeersTarget,
+      outRelayConns = $outRelayPeers.len & "/" & $pm.outRelayPeersTarget,
+      totalConnections = $totalConnections & "/" & $maxConnections,
       notConnectedPeers = notConnectedPeers.len,
       outsideBackoffPeers = outsideBackoffPeers.len
 
