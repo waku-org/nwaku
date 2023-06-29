@@ -113,7 +113,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  let recordRes = createRecord(conf, netConfig, key)
+  let recordRes = createRecord(conf.topics, netConfig, key)
   let record =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error

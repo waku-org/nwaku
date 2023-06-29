@@ -72,8 +72,11 @@ proc networkConfiguration*(conf: WakuNodeConf): NetConfigResult =
 
   netConfigRes
 
-proc createRecord*(conf: WakuNodeConf, netConf: NetConfig, key: crypto.PrivateKey): Result[enr.Record, string] =
-  let relayShardsRes = topicsToRelayShards(conf.topics)
+proc createRecord*(topics: seq[string],
+                   netConf: NetConfig,
+                   key: crypto.PrivateKey):
+                   Result[enr.Record, string] =
+  let relayShardsRes = topicsToRelayShards(topics)
 
   let relayShardOp =
     if relayShardsRes.isErr():
