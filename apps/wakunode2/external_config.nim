@@ -537,13 +537,6 @@ proc validateDbUrl*(val: string): ConfResult[string] =
   else:
     err("invalid 'db url' option format: " & val)
 
-proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
-  var multiaddrs: seq[MultiAddress]
-  for val in vals:
-    let multiaddr = ? MultiAddress.init(val)
-    multiaddrs.add(multiaddr)
-  ok(multiaddrs)
-
 ## Load
 
 proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
