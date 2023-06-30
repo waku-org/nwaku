@@ -344,7 +344,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
 proc new*(T: type PeerManager,
           switch: Switch,
-          maxRelayPeers: int = 50,
+          maxRelayPeers: Option[int],
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
@@ -359,16 +359,22 @@ proc new*(T: type PeerManager,
          maxConnections = maxConnections
     raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
 
-  if maxRelayPeers > maxConnections:
-    error "Max number of relay peers can't be greater the max amount of connections",
-         maxConnections = maxConnections,
-         maxRelayPeers = maxRelayPeers
-    raise newException(Defect, "Max number of relay peers can't be greater the max amount of connections")
+  var maxRelayPeersValue = 0
+  if maxRelayPeers.isSome():
+    if maxRelayPeers.get() > maxConnections:
+      error "Max number of relay peers can't be greater the max amount of connections",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+      raise newException(Defect, "Max number of relay peers can't be greater the max amount of connections")
 
-  if maxRelayPeers == maxConnections:
-    warn "Max number of relay peers is equal to max amount of connections, peer wont be contribute to service peers",
-         maxConnections = maxConnections,
-         maxRelayPeers = maxRelayPeers
+    if maxRelayPeers.get() == maxConnections:
+      warn "Max number of relay peers is equal to max amount of connections, peer wont be contribute to service peers",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+    maxRelayPeersValue = maxRelayPeers.get()
+  else:
+    # Leave by default 20% of connections for service peers
+    maxRelayPeersValue = maxConnections - (maxConnections div 5)
 
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
   let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
@@ -377,7 +383,7 @@ proc new*(T: type PeerManager,
         maxBackoff=backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
-  let outRelayPeersTarget = max(maxRelayPeers div 3, 10)
+  let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
 
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
@@ -385,10 +391,10 @@ proc new*(T: type PeerManager,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
                        outRelayPeersTarget: outRelayPeersTarget,
-                       inRelayPeersTarget: maxRelayPeers - outRelayPeersTarget,
+                       inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
+                       maxRelayPeers: maxRelayPeersValue,
                        maxFailedAttempts: maxFailedAttempts,
-                       colocationLimit: colocationLimit,
-                       maxRelayPeers: maxRelayPeers)
+                       colocationLimit: colocationLimit)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)

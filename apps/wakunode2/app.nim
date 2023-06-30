@@ -291,7 +291,7 @@ proc initNode(conf: WakuNodeConf,
       sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
       agentString = some(conf.agentString)
   )
-  builder.withPeerManagerConfig(maxRelayPeers = some(conf.maxRelayPeers.int))
+  builder.withPeerManagerConfig(maxRelayPeers = conf.maxRelayPeers)
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
