@@ -344,7 +344,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
 proc new*(T: type PeerManager,
           switch: Switch,
-          maxRelayPeers: Option[int],
+          maxRelayPeers: Option[int] = none(int),
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
