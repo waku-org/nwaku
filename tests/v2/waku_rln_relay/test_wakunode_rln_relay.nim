@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils, tempfiles],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -52,6 +52,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
     ))
 
     await node1.start()
@@ -63,6 +64,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"),
     ))
 
     await node2.start()
@@ -74,6 +76,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"),
     ))
 
     await node3.start()
@@ -138,6 +141,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
     ))
 
     await node1.start()
@@ -149,6 +153,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
     ))
 
     await node2.start()
@@ -160,6 +165,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
     ))
 
     await node3.start()
@@ -241,6 +247,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
     ))
 
     await node1.start()
@@ -253,6 +260,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
     ))
 
     await node2.start()
@@ -265,6 +273,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayPubsubTopic: rlnRelayPubSubTopic,
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
     ))
 
     await node3.start()

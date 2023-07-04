@@ -7,7 +7,7 @@ import
   chronos,
   libp2p/crypto/crypto
 import
-  ../../../waku/common/sqlite,
+  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_archive,
@@ -23,8 +23,7 @@ proc newTestArchiveDriver(): ArchiveDriver =
   SqliteDriver.new(db).tryGet()
 
 proc newTestWakuArchive(driver: ArchiveDriver): WakuArchive =
-  let validator: MessageValidator = DefaultMessageValidator()
-  WakuArchive.new(driver, validator=some(validator))
+  WakuArchive.new(driver).get()
 
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
   ArchiveCursor(

@@ -16,7 +16,8 @@ import
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
-  ../../waku/common/logging
+  ../../waku/common/logging,
+  ../../waku/v2/waku_enr
 
 export
   confTomlDefs,
@@ -91,6 +92,10 @@ type
       desc: "Maximum allowed number of libp2p connections."
       defaultValue: 50
       name: "max-connections" }: uint16
+
+    maxRelayPeers* {.
+      desc: "Maximum allowed number of relay peers."
+      name: "max-relay-peers" }: Option[int]
 
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore."
@@ -214,11 +219,6 @@ type
       desc: "Enable keep-alive for idle connections: true|false",
       defaultValue: false
       name: "keep-alive" }: bool
-
-    topicsDeprecated* {.
-      desc: "Default topics to subscribe to (space separated list). DEPRECATED: please use repeated --topic argument instead."
-      defaultValue: "/waku/2/default-waku/proto"
-      name: "topics" .}: string
 
     topics* {.
       desc: "Default topic to subscribe to. Argument may be repeated."
@@ -535,24 +535,6 @@ proc validateDbUrl*(val: string): ConfResult[string] =
     ok(val)
   else:
     err("invalid 'db url' option format: " & val)
-
-
-let StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
-
-proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
-  let val = val.strip()
-
-  if val == "" or val == "none" or val.match(StoreMessageRetentionPolicyRegex):
-    ok(val)
-  else:
-    err("invalid 'store message retention policy' option format: " & val)
-
-proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
-  var multiaddrs: seq[MultiAddress]
-  for val in vals:
-    let multiaddr = ? MultiAddress.init(val)
-    multiaddrs.add(multiaddr)
-  ok(multiaddrs)
 
 ## Load
 

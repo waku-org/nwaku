@@ -17,7 +17,7 @@ import
   libp2p/protocols/pubsub/rpc/message,
   libp2p/peerid
 import
-  ../../waku/common/sqlite,
+  ../../waku/common/databases/db_sqlite,
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/waku_node,
@@ -607,6 +607,7 @@ procSuite "Peer Manager":
       .withMaxConnections(5)
       .build(),
       maxFailedAttempts = 1,
+      maxRelayPeers = some(5),
       storage = nil)
 
     # Create 15 peers and add them to the peerstore
@@ -659,6 +660,7 @@ procSuite "Peer Manager":
       initialBackoffInSec = 1, # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
       backoffFactor = 2,
       maxFailedAttempts = 10,
+      maxRelayPeers = some(5),
       storage = nil)
     var p1: PeerId
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
@@ -707,6 +709,7 @@ procSuite "Peer Manager":
         .withPeerStore(10)
         .withMaxConnections(5)
         .build(),
+        maxRelayPeers = some(5),
         maxFailedAttempts = 150,
         storage = nil)
 
@@ -718,6 +721,7 @@ procSuite "Peer Manager":
         .withMaxConnections(5)
         .build(),
         maxFailedAttempts = 10,
+        maxRelayPeers = some(5),
         storage = nil)
 
     let pm = PeerManager.new(
@@ -726,6 +730,7 @@ procSuite "Peer Manager":
       .withMaxConnections(5)
       .build(),
       maxFailedAttempts = 5,
+      maxRelayPeers = some(5),
       storage = nil)
 
   asyncTest "colocationLimit is enforced by pruneConnsByIp()":
@@ -738,29 +743,28 @@ procSuite "Peer Manager":
 
     let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
 
+    # force max 1 conn per ip
+    nodes[0].peerManager.colocationLimit = 1
+
     # 2 in connections
     discard await nodes[1].peerManager.connectRelay(pInfos[0])
     discard await nodes[2].peerManager.connectRelay(pInfos[0])
+
+    # but one is pruned
+    check nodes[0].peerManager.switch.connManager.getConnections().len == 1
 
     # 2 out connections
     discard await nodes[0].peerManager.connectRelay(pInfos[3])
     discard await nodes[0].peerManager.connectRelay(pInfos[4])
 
-    # force max 1 conn per ip
-    nodes[0].peerManager.colocationLimit = 1
-    nodes[0].peerManager.updateIpTable()
+    # they are also prunned 
+    check nodes[0].peerManager.switch.connManager.getConnections().len == 1
 
-    # table is updated and we have 4 conns (2in 2out)
-    check:
-      nodes[0].peerManager.ipTable["127.0.0.1"].len == 4
-      nodes[0].peerManager.switch.connManager.getConnections().len == 4
-      nodes[0].peerManager.peerStore.peers().len == 4
-
-    await nodes[0].peerManager.pruneConnsByIp()
-
-    # peers are pruned, max 1 conn per ip
-    nodes[0].peerManager.updateIpTable()
+    # we should have 4 peers (2in/2out) but due to collocation limit
+    # they are pruned to max 1
     check:
       nodes[0].peerManager.ipTable["127.0.0.1"].len == 1
       nodes[0].peerManager.switch.connManager.getConnections().len == 1
       nodes[0].peerManager.peerStore.peers().len == 1
+
+    await allFutures(nodes.mapIt(it.stop()))

@@ -36,7 +36,7 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
 
 suite "Static group manager":
   setup:
-    let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "static"))
+    let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_static"))
     require:
       rlnInstanceRes.isOk()
 

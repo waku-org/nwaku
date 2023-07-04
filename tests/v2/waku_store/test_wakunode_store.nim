@@ -13,7 +13,7 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/sqlite,
+  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/node/peer_manager,
   ../../../waku/v2/waku_archive,
@@ -72,7 +72,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -104,7 +106,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -153,7 +157,9 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start())
 
-    server.mountArchive(some(archiveA), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     waitFor server.mountStore()
 
     client.mountStoreClient()
@@ -207,7 +213,10 @@ procSuite "WakuNode - Store":
 
     waitFor filterSource.mountFilter()
     let driver = newTestArchiveDriver()
-    server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+
+    let mountArchiveRes = server.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+    
     waitFor server.mountStore()
     waitFor server.mountFilterClient()
     client.mountStoreClient()

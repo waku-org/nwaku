@@ -19,7 +19,9 @@ import
   metrics/chronos_httpserver
 import
   ../../waku/common/utils/nat,
-  ../../waku/common/sqlite,
+  ../../waku/common/databases/db_sqlite,
+  ../../waku/v2/waku_archive/driver/builder,
+  ../../waku/v2/waku_archive/retention_policy/builder,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
@@ -27,12 +29,6 @@ import
   ../../waku/v2/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/v2/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/v2/waku_archive,
-  ../../waku/v2/waku_archive/driver/queue_driver,
-  ../../waku/v2/waku_archive/driver/sqlite_driver,
-  ../../waku/v2/waku_archive/driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ../../waku/v2/waku_archive/retention_policy,
-  ../../waku/v2/waku_archive/retention_policy/retention_policy_capacity,
-  ../../waku/v2/waku_archive/retention_policy/retention_policy_time,
   ../../waku/v2/waku_dnsdisc,
   ../../waku/v2/waku_enr,
   ../../waku/v2/waku_discv5,
@@ -41,7 +37,8 @@ import
   ../../waku/v2/waku_lightpush,
   ../../waku/v2/waku_filter,
   ./wakunode2_validator_signed,
-  ./config
+  ./internal_config,
+  ./external_config
 import
   ../../waku/v2/node/message_cache,
   ../../waku/v2/node/rest/server,
@@ -69,11 +66,13 @@ type
   App* = object
     version: string
     conf: WakuNodeConf
-
+    netConf: NetConfig
     rng: ref HmacDrbgContext
+    key: crypto.PrivateKey
+    record: Record
+
+    wakuDiscv5: Option[WakuDiscoveryV5]
     peerStore: Option[WakuPeerStorage]
-    archiveDriver: Option[ArchiveDriver]
-    archiveRetentionPolicy: Option[RetentionPolicy]
     dynamicBootstrapNodes: seq[RemotePeerInfo]
 
     node: WakuNode
@@ -95,47 +94,71 @@ func version*(app: App): string =
 ## Initialisation
 
 proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
-  App(version: git_version, conf: conf, rng: rng, node: nil)
-
-
-## SQLite database
-
-proc setupDatabaseConnection(dbUrl: string): AppResult[Option[SqliteDatabase]] =
-  ## dbUrl mimics SQLAlchemy Database URL schema
-  ## See: https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls
-  if dbUrl == "" or dbUrl == "none":
-    return ok(none(SqliteDatabase))
-
-  let dbUrlParts = dbUrl.split("://", 1)
-  let
-    engine = dbUrlParts[0]
-    path = dbUrlParts[1]
-
-  let connRes = case engine
-    of "sqlite":
-      # SQLite engine
-      # See: https://docs.sqlalchemy.org/en/14/core/engines.html#sqlite
-      SqliteDatabase.new(path)
-
+  let key =
+    if conf.nodeKey.isSome():
+      conf.nodeKey.get()
     else:
-      return err("unknown database engine")
+      let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
 
-  if connRes.isErr():
-    return err("failed to init database connection: " & connRes.error)
+      if keyRes.isErr():
+        error "failed to generate key", error=keyRes.error
+        quit(QuitFailure)
 
-  ok(some(connRes.value))
+      keyRes.get()
+
+  let netConfigRes = networkConfiguration(conf, clientId)
+
+  let netConfig =
+    if netConfigRes.isErr():
+      error "failed to create internal config", error=netConfigRes.error
+      quit(QuitFailure)
+    else: netConfigRes.get()
+
+  var enrBuilder = EnrBuilder.init(key)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+
+  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
+
+  let addShardedTopics = enrBuilder.withShardedTopics(conf.topics)
+  if addShardedTopics.isErr():
+      error "failed to add sharded topics", error=addShardedTopics.error
+      quit(QuitFailure)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      error "failed to create record", error=recordRes.error
+      quit(QuitFailure)
+    else: recordRes.get()
+
+  App(
+    version: git_version,
+    conf: conf,
+    netConf: netConfig,
+    rng: rng,
+    key: key,
+    record: record,
+    node: nil
+  )
 
 
 ## Peer persistence
 
-const PeerPersistenceDbUrl = "sqlite://peers.db"
-
+const PeerPersistenceDbUrl = "peers.db"
 proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
-  let db = ?setupDatabaseConnection(PeerPersistenceDbUrl)
+  let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
 
-  ?peer_store_sqlite_migrations.migrate(db.get())
+  ? peer_store_sqlite_migrations.migrate(db)
 
-  let res = WakuPeerStorage.new(db.get())
+  let res = WakuPeerStorage.new(db)
   if res.isErr():
     return err("failed to init peer store" & res.error)
 
@@ -150,127 +173,6 @@ proc setupPeerPersistence*(app: var App): AppResult[void] =
     return err("failed to setup peer store" & peerStoreRes.error)
 
   app.peerStore = peerStoreRes.get()
-
-  ok()
-
-
-## Waku archive
-
-proc gatherSqlitePageStats(db: SqliteDatabase): AppResult[(int64, int64, int64)] =
-  let
-    pageSize = ?db.getPageSize()
-    pageCount = ?db.getPageCount()
-    freelistCount = ?db.getFreelistCount()
-
-  ok((pageSize, pageCount, freelistCount))
-
-proc performSqliteVacuum(db: SqliteDatabase): AppResult[void] =
-  ## SQLite database vacuuming
-  # TODO: Run vacuuming conditionally based on database page stats
-  # if (pageCount > 0 and freelistCount > 0):
-
-  debug "starting sqlite database vacuuming"
-
-  let resVacuum = db.vacuum()
-  if resVacuum.isErr():
-    return err("failed to execute vacuum: " & resVacuum.error)
-
-  debug "finished sqlite database vacuuming"
-
-proc setupWakuArchiveRetentionPolicy(retentionPolicy: string): AppResult[Option[RetentionPolicy]] =
-  if retentionPolicy == "" or retentionPolicy == "none":
-    return ok(none(RetentionPolicy))
-
-  let rententionPolicyParts = retentionPolicy.split(":", 1)
-  let
-    policy = rententionPolicyParts[0]
-    policyArgs = rententionPolicyParts[1]
-
-
-  if policy == "time":
-    var retentionTimeSeconds: int64
-    try:
-      retentionTimeSeconds = parseInt(policyArgs)
-    except ValueError:
-      return err("invalid time retention policy argument")
-
-    let retPolicy: RetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
-    return ok(some(retPolicy))
-
-  elif policy == "capacity":
-    var retentionCapacity: int
-    try:
-      retentionCapacity = parseInt(policyArgs)
-    except ValueError:
-      return err("invalid capacity retention policy argument")
-
-    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
-    return ok(some(retPolicy))
-
-  else:
-    return err("unknown retention policy")
-
-proc setupWakuArchiveDriver(dbUrl: string, vacuum: bool, migrate: bool): AppResult[ArchiveDriver] =
-  let db = ?setupDatabaseConnection(dbUrl)
-
-  if db.isSome():
-    # SQLite vacuum
-    # TODO: Run this only if the database engine is SQLite
-    let (pageSize, pageCount, freelistCount) = ?gatherSqlitePageStats(db.get())
-    debug "sqlite database page stats", pageSize=pageSize, pages=pageCount, freePages=freelistCount
-
-    if vacuum and (pageCount > 0 and freelistCount > 0):
-      ?performSqliteVacuum(db.get())
-
-  # Database migration
-    if migrate:
-      ?archive_driver_sqlite_migrations.migrate(db.get())
-
-  if db.isSome():
-    debug "setting up sqlite waku archive driver"
-    let res = SqliteDriver.new(db.get())
-    if res.isErr():
-      return err("failed to init sqlite archive driver: " & res.error)
-
-    ok(res.value)
-
-  else:
-    debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
-    ok(driver)
-
-proc setupWakuArchive*(app: var App): AppResult[void] =
-  if not app.conf.store:
-    return ok()
-
-  # Message storage
-  let dbUrlValidationRes = validateDbUrl(app.conf.storeMessageDbUrl)
-  if dbUrlValidationRes.isErr():
-    return err("failed to configure the message store database connection: " & dbUrlValidationRes.error)
-
-  let archiveDriverRes = setupWakuArchiveDriver(dbUrlValidationRes.get(),
-                                                vacuum = app.conf.storeMessageDbVacuum,
-                                                migrate = app.conf.storeMessageDbMigration)
-  if archiveDriverRes.isOk():
-    app.archiveDriver = some(archiveDriverRes.get())
-  else:
-    return err("failed to configure archive driver: " & archiveDriverRes.error)
-
-  # Message store retention policy
-  let storeMessageRetentionPolicyRes = validateStoreMessageRetentionPolicy(app.conf.storeMessageRetentionPolicy)
-  if storeMessageRetentionPolicyRes.isErr():
-    return err("failed to configure the message retention policy: " & storeMessageRetentionPolicyRes.error)
-
-  let archiveRetentionPolicyRes = setupWakuArchiveRetentionPolicy(storeMessageRetentionPolicyRes.get())
-  if archiveRetentionPolicyRes.isOk():
-    app.archiveRetentionPolicy = archiveRetentionPolicyRes.get()
-  else:
-    return err("failed to configure the message retention policy: " & archiveRetentionPolicyRes.error)
-
-  # TODO: Move retention policy execution here
-  # if archiveRetentionPolicy.isSome():
-  #   executeMessageRetentionPolicy(node)
-  #   startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
   ok()
 
@@ -314,11 +216,45 @@ proc setupDyamicBootstrapNodes*(app: var App): AppResult[void] =
 
   ok()
 
+## Setup DiscoveryV5
+
+proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
+  let dynamicBootstrapEnrs = app.dynamicBootstrapNodes
+                                .filterIt(it.hasUdpPort())
+                                .mapIt(it.enr.get())
+
+  var discv5BootstrapEnrs: seq[enr.Record]
+
+  # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+  for enrUri in app.conf.discv5BootstrapNodes:
+    addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
+  discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+
+  let discv5Config = DiscoveryConfig.init(app.conf.discv5TableIpLimit,
+                                          app.conf.discv5BucketIpLimit,
+                                          app.conf.discv5BitsPerHop)
+
+  let discv5UdpPort = Port(uint16(app.conf.discv5UdpPort) + app.conf.portsShift)
+
+  let discv5Conf = WakuDiscoveryV5Config(
+    discv5Config: some(discv5Config),
+    address: app.conf.listenAddress,
+    port: discv5UdpPort,
+    privateKey: keys.PrivateKey(app.key.skkey),
+    bootstrapRecords: discv5BootstrapEnrs,
+    autoupdateRecord: app.conf.discv5EnrAutoUpdate,
+  )
+
+  WakuDiscoveryV5.new(app.rng, discv5Conf, some(app.record))
 
 ## Init waku node instance
 
 proc initNode(conf: WakuNodeConf,
+              netConfig: NetConfig,
               rng: ref HmacDrbgContext,
+              nodeKey: crypto.PrivateKey,
+              record: enr.Record,
               peerStore: Option[WakuPeerStorage],
               dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): AppResult[WakuNode] =
 
@@ -335,119 +271,16 @@ proc initNode(conf: WakuNodeConf,
 
     dnsResolver = DnsResolver.new(nameServers)
 
-  let
-    nodekey = if conf.nodekey.isSome():
-                conf.nodekey.get()
-              else:
-                let nodekeyRes = crypto.PrivateKey.random(Secp256k1, rng[])
-                if nodekeyRes.isErr():
-                  return err("failed to generate nodekey: " & $nodekeyRes.error)
-                nodekeyRes.get()
-
-
-  ## `udpPort` is only supplied to satisfy underlying APIs but is not
-  ## actually a supported transport for libp2p traffic.
-  let udpPort = conf.tcpPort
-  let natRes = setupNat(conf.nat, clientId,
-                        Port(uint16(conf.tcpPort) + conf.portsShift),
-                        Port(uint16(udpPort) + conf.portsShift))
-  if natRes.isErr():
-    return err("failed to setup NAT: " & $natRes.error)
-
-  let (extIp, extTcpPort, _) = natRes.get()
-
-  let
-    dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
-                      else: none(string)
-
-    discv5UdpPort = if conf.discv5Discovery: some(Port(uint16(conf.discv5UdpPort) + conf.portsShift))
-                    else: none(Port)
-
-    ## TODO: the NAT setup assumes a manual port mapping configuration if extIp config is set. This probably
-    ## implies adding manual config item for extPort as well. The following heuristic assumes that, in absence of manual
-    ## config, the external port is the same as the bind port.
-    extPort = if (extIp.isSome() or dns4DomainName.isSome()) and extTcpPort.isNone():
-                some(Port(uint16(conf.tcpPort) + conf.portsShift))
-              else:
-                extTcpPort
-    extMultiAddrs = if (conf.extMultiAddrs.len > 0):
-                      let extMultiAddrsValidationRes = validateExtMultiAddrs(conf.extMultiAddrs)
-                      if extMultiAddrsValidationRes.isErr():
-                        return err("invalid external multiaddress: " & extMultiAddrsValidationRes.error)
-                      else:
-                        extMultiAddrsValidationRes.get()
-                    else:
-                      @[]
-
-    wakuFlags = CapabilitiesBitfield.init(
-        lightpush = conf.lightpush,
-        filter = conf.filter,
-        store = conf.store,
-        relay = conf.relay
-      )
-
   var node: WakuNode
 
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
 
-  let rng = crypto.newRng()
-  # Wrap in none because NetConfig does not have a default constructor
-  # TODO: We could change bindIp in NetConfig to be something less restrictive than ValidIpAddress,
-  # which doesn't allow default construction
-  let netConfigRes = NetConfig.init(
-      bindIp = conf.listenAddress,
-      bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
-      extIp = extIp,
-      extPort = extPort,
-      extMultiAddrs = extMultiAddrs,
-      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-      wsEnabled = conf.websocketSupport,
-      wssEnabled = conf.websocketSecureSupport,
-      dns4DomainName = dns4DomainName,
-      discv5UdpPort = discv5UdpPort,
-      wakuFlags = some(wakuFlags),
-    )
-  if netConfigRes.isErr():
-    return err("failed to create net config instance: " & netConfigRes.error)
-
-  let netConfig = netConfigRes.get()
-  var wakuDiscv5 = none(WakuDiscoveryV5)
-
-  if conf.discv5Discovery:
-    let dynamicBootstrapEnrs = dynamicBootstrapNodes
-                                .filterIt(it.hasUdpPort())
-                                .mapIt(it.enr.get())
-    var discv5BootstrapEnrs: seq[enr.Record]
-    # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-    for enrUri in conf.discv5BootstrapNodes:
-      addBootstrapNode(enrUri, discv5BootstrapEnrs)
-    discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
-    let discv5Config = DiscoveryConfig.init(conf.discv5TableIpLimit,
-                                            conf.discv5BucketIpLimit,
-                                            conf.discv5BitsPerHop)
-    try:
-      wakuDiscv5 = some(WakuDiscoveryV5.new(
-        extIp = netConfig.extIp,
-        extTcpPort = netConfig.extPort,
-        extUdpPort = netConfig.discv5UdpPort,
-        bindIp = netConfig.bindIp,
-        discv5UdpPort = netConfig.discv5UdpPort.get(),
-        bootstrapEnrs = discv5BootstrapEnrs,
-        enrAutoUpdate = conf.discv5EnrAutoUpdate,
-        privateKey = keys.PrivateKey(nodekey.skkey),
-        flags = netConfig.wakuFlags.get(),
-        multiaddrs = netConfig.enrMultiaddrs,
-        rng = rng,
-        discv5Config = discv5Config,
-      ))
-    except CatchableError:
-      return err("failed to create waku discv5 instance: " & getCurrentExceptionMsg())
-
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
   builder.withNodeKey(nodekey)
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
   builder.withSwitchConfiguration(
@@ -458,27 +291,34 @@ proc initNode(conf: WakuNodeConf,
       sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
       agentString = some(conf.agentString)
   )
-  builder.withWakuDiscv5(wakuDiscv5.get(nil))
+  builder.withPeerManagerConfig(maxRelayPeers = conf.maxRelayPeers)
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
   ok(node)
 
-proc setupWakuNode*(app: var App): AppResult[void] =
+proc setupWakuApp*(app: var App): AppResult[void] =
+
+  ## Discv5
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+
   ## Waku node
-  let initNodeRes = initNode(app.conf, app.rng, app.peerStore, app.dynamicBootstrapNodes)
+  let initNodeRes = initNode(app.conf, app.netConf, app.rng, app.key, app.record, app.peerStore, app.dynamicBootstrapNodes)
   if initNodeRes.isErr():
     return err("failed to init node: " & initNodeRes.error)
 
   app.node = initNodeRes.get()
+
   ok()
 
 
 ## Mount protocols
 
-proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
-                    archiveDriver: Option[ArchiveDriver],
-                    archiveRetentionPolicy: Option[RetentionPolicy]): Future[AppResult[void]] {.async.} =
+proc setupProtocols(node: WakuNode,
+                    conf: WakuNodeConf,
+                    nodeKey: crypto.PrivateKey):
+                    Future[AppResult[void]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
@@ -501,17 +341,7 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-
-    var pubsubTopics = @[""]
-    if conf.topicsDeprecated != "/waku/2/default-waku/proto":
-      warn "The 'topics' parameter is deprecated. Better use the 'topic' one instead."
-      if conf.topics != @["/waku/2/default-waku/proto"]:
-        return err("Please don't specify 'topics' and 'topic' simultaneously. Only use the 'topic' parameter")
-
-      # This clause (if conf.topicsDeprecated ) should disapear in >= v0.18.0
-      pubsubTopics = conf.topicsDeprecated.split(" ")
-    else:
-      pubsubTopics = conf.topics
+    let pubsubTopics = conf.topics
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
@@ -552,7 +382,8 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
         rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
         rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
         rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+        rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword,
+        rlnRelayTreePath: conf.rlnRelayTreePath
       )
 
       try:
@@ -562,19 +393,26 @@ proc setupProtocols(node: WakuNode, conf: WakuNodeConf,
 
   if conf.store:
     # Archive setup
-    let messageValidator: MessageValidator = DefaultMessageValidator()
-    mountArchive(node, archiveDriver, messageValidator=some(messageValidator), retentionPolicy=archiveRetentionPolicy)
+    let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
+                                             conf.storeMessageDbVacuum,
+                                             conf.storeMessageDbMigration)
+    if archiveDriverRes.isErr():
+      return err("failed to setup archive driver: " & archiveDriverRes.error)
+
+    let retPolicyRes = RetentionPolicy.new(conf.storeMessageRetentionPolicy)
+    if retPolicyRes.isErr():
+      return err("failed to create retention policy: " & retPolicyRes.error)
+
+    let mountArcRes = node.mountArchive(archiveDriverRes.get(),
+                                        retPolicyRes.get())
+    if mountArcRes.isErr():
+      return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
     # Store setup
     try:
       await mountStore(node)
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
-
-    # TODO: Move this to storage setup phase
-    if archiveRetentionPolicy.isSome():
-      executeMessageRetentionPolicy(node)
-      startMessageRetentionPolicyPeriodicTask(node, interval=WakuArchiveDefaultRetentionPolicyInterval)
 
   mountStoreClient(node)
   if conf.storenode != "":
@@ -634,10 +472,8 @@ proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
   return await setupProtocols(
     app.node,
     app.conf,
-    app.archiveDriver,
-    app.archiveRetentionPolicy
+    app.key
   )
-
 
 ## Start node
 
@@ -652,12 +488,6 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     await node.start()
   except CatchableError:
     return err("failed to start waku node: " & getCurrentExceptionMsg())
-
-  # Start discv5 based discovery service (discovery loop)
-  if conf.discv5Discovery:
-    let startDiscv5Res = await node.startDiscv5()
-    if startDiscv5Res.isErr():
-      return err("failed to start waku discovery v5: " & startDiscv5Res.error)
 
   # Connect to configured static nodes
   if conf.staticnodes.len > 0:
@@ -688,7 +518,15 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startNode*(app: App): Future[AppResult[void]] {.async.} =
+proc startApp*(app: App): Future[AppResult[void]] {.async.} =
+  if app.wakuDiscv5.isSome():
+    let res = app.wakuDiscv5.get().start()
+
+    if res.isErr():
+      return err("failed to start waku discovery v5: " & $res.error)
+
+    asyncSpawn app.wakuDiscv5.get().searchLoop(app.node.peerManager, some(app.record))
+
   return await startNode(
     app.node,
     app.conf,
@@ -810,6 +648,9 @@ proc stop*(app: App): Future[void] {.async.} =
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()
+
+  if app.wakuDiscv5.isSome():
+    await app.wakuDiscv5.get().stop()
 
   if not app.node.isNil():
     await app.node.stop()

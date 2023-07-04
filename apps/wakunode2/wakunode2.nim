@@ -14,12 +14,11 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/common/logging,
-  ./config,
+  ./external_config,
   ./app
 
 logScope:
   topics = "wakunode main"
-
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
@@ -65,12 +64,6 @@ when isMainModule:
     error "1/7 Setting up storage failed", error=res1.error
     quit(QuitFailure)
 
-  ## Waku archive
-  let res2 = wakunode2.setupWakuArchive()
-  if res2.isErr():
-    error "1/7 Setting up storage failed (waku archive)", error=res2.error
-    quit(QuitFailure)
-
   debug "2/7 Retrieve dynamic bootstrap nodes"
 
   let res3 = wakunode2.setupDyamicBootstrapNodes()
@@ -80,7 +73,7 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
-  let res4 = wakunode2.setupWakuNode()
+  let res4 = wakunode2.setupWakuApp()
   if res4.isErr():
     error "3/7 Initializing node failed", error=res4.error
     quit(QuitFailure)
@@ -94,7 +87,7 @@ when isMainModule:
 
   debug "5/7 Starting node and mounted protocols"
 
-  let res6 = waitFor wakunode2.startNode()
+  let res6 = waitFor wakunode2.startApp()
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)

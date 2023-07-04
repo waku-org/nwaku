@@ -36,7 +36,6 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       sendSignedPeerRecord = false,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
-                      wakuDiscv5 = none(WakuDiscoveryV5),
                       agentString = none(string),
                       peerStoreCapacity = none(int)): WakuNode =
   let netConfigRes = NetConfig.init(
@@ -52,12 +51,34 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
   )
-  if netConfigRes.isErr():
-    raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
+  let netConf =
+    if netConfigRes.isErr():
+      raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
+    else:
+      netConfigRes.get()
+
+  var enrBuilder = EnrBuilder.init(nodeKey)
+
+  enrBuilder.withIpAddressAndPorts(
+      ipAddr = netConf.enrIp,
+      tcpPort = netConf.enrPort,
+      udpPort = netConf.discv5UdpPort,
+  )
+  if netConf.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConf.wakuFlags.get())
+  enrBuilder.withMultiaddrs(netConf.enrMultiaddrs)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      raise newException(Defect, "Invalid record: " & $recordRes.error)
+    else:
+      recordRes.get()
 
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng())
   builder.withNodeKey(nodeKey)
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfigRes.get())
   builder.withPeerStorage(peerStorage, capacity = peerStoreCapacity)
   builder.withSwitchConfiguration(
@@ -67,8 +88,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     secureKey = if secureKey != "": some(secureKey) else: none(string),
     secureCert = if secureCert != "": some(secureCert) else: none(string),
     agentString = agentString,
-    
+
   )
-  builder.withWakuDiscv5(wakuDiscv5.get(nil))
 
   return builder.build().get()

@@ -2,7 +2,7 @@
 {.used.}
 
 import
-  std/[options, os, sequtils, times],
+  std/[options, os, sequtils, times, tempfiles],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -21,13 +21,16 @@ import
 const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
 const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
 
+proc createRLNInstanceWrapper(): RLNResult =
+  return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
+
 suite "Waku rln relay":
 
   test "key_gen Nim Wrappers":
     let
       merkleDepth: csize_t = 20
 
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -49,7 +52,7 @@ suite "Waku rln relay":
 
   test "membership Key Generation":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -73,7 +76,7 @@ suite "Waku rln relay":
 
   test "getRoot Nim binding":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -106,7 +109,7 @@ suite "Waku rln relay":
       rootHex1 == rootHex2
   test "getMerkleRoot utils":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -129,7 +132,7 @@ suite "Waku rln relay":
 
   test "update_next_member Nim Wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -149,7 +152,7 @@ suite "Waku rln relay":
 
   test "getMember Nim wrapper":
       # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -182,7 +185,7 @@ suite "Waku rln relay":
 
   test "delete_member Nim wrapper":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     # generate an identity credential
@@ -200,7 +203,7 @@ suite "Waku rln relay":
 
   test "insertMembers rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -213,7 +216,7 @@ suite "Waku rln relay":
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -226,7 +229,7 @@ suite "Waku rln relay":
 
   test "removeMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -238,9 +241,39 @@ suite "Waku rln relay":
     check:
       rln.removeMember(MembershipIndex(0))
 
+  test "setMetadata rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstanceWrapper()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    check:
+      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128)).isOk()
+
+  test "getMetadata rln utils":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rlnInstance = createRLNInstanceWrapper()
+    require:
+      rlnInstance.isOk()
+    let rln = rlnInstance.get()
+    
+    require:
+      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128)).isOk()
+
+    let metadataRes = rln.getMetadata()
+
+    require:
+      metadataRes.isOk()
+
+    let metadata = metadataRes.get()
+
+    check:
+      metadata.lastProcessedBlock == 128
+ 
+
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -316,7 +349,7 @@ suite "Waku rln relay":
 
   test "Merkle tree consistency check between deletion and insertion using rln utils":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -371,7 +404,7 @@ suite "Waku rln relay":
 
   test "hash Nim Wrappers":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -402,7 +435,7 @@ suite "Waku rln relay":
 
   test "sha256 hash utils":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -419,7 +452,7 @@ suite "Waku rln relay":
 
   test "poseidon hash utils":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -437,7 +470,7 @@ suite "Waku rln relay":
         hashRes.get().inHex()
 
   test "create a list of membership keys and construct a Merkle tree based on the list":
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -470,7 +503,7 @@ suite "Waku rln relay":
     # extract the id commitments
     let groupIDCommitments = groupIdCredentials.mapIt(it.idCommitment)
     # calculate the Merkle tree root out of the extracted id commitments
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
@@ -678,7 +711,7 @@ suite "Waku rln relay":
 
   test "toIDCommitment and toUInt256":
     # create an instance of rln
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
@@ -702,7 +735,7 @@ suite "Waku rln relay":
 
   test "Read/Write RLN credentials":
     # create an RLN instance
-    let rlnInstance = createRLNInstance()
+    let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 

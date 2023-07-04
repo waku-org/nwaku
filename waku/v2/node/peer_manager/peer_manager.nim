@@ -56,10 +56,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(5)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.seconds(60)
-
-  # Prune by ip interval
-  PruneByIpInterval = chronos.seconds(30)
+  LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
   ColocationLimit = 5
@@ -73,7 +70,9 @@ type
     maxFailedAttempts*: int
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
-    outPeersTarget*: int
+    maxRelayPeers*: int
+    outRelayPeersTarget: int
+    inRelayPeersTarget: int
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
     started: bool
@@ -284,6 +283,18 @@ proc canBeConnected*(pm: PeerManager,
 # Initialisation #
 ##################
 
+proc getPeerIp(pm: PeerManager, peerId: PeerId): Option[string] =
+  if pm.switch.connManager.getConnections().hasKey(peerId):
+    let conns = pm.switch.connManager.getConnections().getOrDefault(peerId)
+    if conns.len != 0:
+      let observedAddr = conns[0].connection.observedAddr
+      let ip = observedAddr.get.getHostname()
+      if observedAddr.isSome:
+        # TODO: think if circuit relay ips should be handled differently
+        let ip = observedAddr.get.getHostname()
+        return some(ip)
+  return none(string)
+
 # called when a connection i) is created or ii) is closed
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
   case event.kind
@@ -301,38 +312,39 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   if event.kind == PeerEventKind.Joined:
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
+
+    let ip = pm.getPeerIp(peerId)
+    if ip.isSome:
+      pm.ipTable.mgetOrPut(ip.get, newSeq[PeerId]()).add(peerId)
+
+      let peersBehindIp = pm.ipTable[ip.get]
+      if peersBehindIp.len > pm.colocationLimit:
+        # in theory this should always be one, but just in case
+        for peerId in peersBehindIp[0..<(peersBehindIp.len - pm.colocationLimit)]:
+          debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
+          asyncSpawn(pm.switch.disconnect(peerId))
+          pm.peerStore.delete(peerId)
+
   elif event.kind == PeerEventKind.Left:
     direction = UnknownDirection
     connectedness = CanConnect
+
+    # note we cant access the peerId ip here as the connection was already closed
+    for ip, peerIds in pm.ipTable.pairs:
+      if peerIds.contains(peerId):
+        pm.ipTable[ip] = pm.ipTable[ip].filterIt(it != peerId)
+        if pm.ipTable[ip].len == 0:
+          pm.ipTable.del(ip)
+        break
 
   pm.peerStore[ConnectionBook][peerId] = connectedness
   pm.peerStore[DirectionBook][peerId] = direction
   if not pm.storage.isNil:
     pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), connectedness, getTime().toUnix)
 
-proc updateIpTable*(pm: PeerManager) =
-  # clean table
-  pm.ipTable = initTable[string, seq[PeerId]]()
-
-  # populate ip->peerIds from existing out/in connections
-  for peerId, conn in pm.switch.connManager.getConnections():
-    if conn.len == 0:
-      continue
-
-    # we may want to enable it only in inbound peers
-    #if conn[0].connection.transportDir != In:
-    #  continue
-
-    # assumes just one physical connection per peer
-    let observedAddr = conn[0].connection.observedAddr
-    if observedAddr.isSome:
-      # TODO: think if circuit relay ips should be handled differently
-      let ip = observedAddr.get.getHostname()
-      pm.ipTable.mgetOrPut(ip, newSeq[PeerId]()).add(peerId)
-
-
 proc new*(T: type PeerManager,
           switch: Switch,
+          maxRelayPeers: Option[int] = none(int),
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
@@ -347,6 +359,23 @@ proc new*(T: type PeerManager,
          maxConnections = maxConnections
     raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
 
+  var maxRelayPeersValue = 0
+  if maxRelayPeers.isSome():
+    if maxRelayPeers.get() > maxConnections:
+      error "Max number of relay peers can't be greater than the max amount of connections",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+      raise newException(Defect, "Max number of relay peers can't be greater than the max amount of connections")
+
+    if maxRelayPeers.get() == maxConnections:
+      warn "Max number of relay peers is equal to max amount of connections, peer won't be contributing to service peers",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+    maxRelayPeersValue = maxRelayPeers.get()
+  else:
+    # Leave by default 20% of connections for service peers
+    maxRelayPeersValue = maxConnections - (maxConnections div 5)
+
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
   let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
   if backoff.weeks() > 1:
@@ -354,12 +383,16 @@ proc new*(T: type PeerManager,
         maxBackoff=backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
+  let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       outPeersTarget: max(maxConnections div 2, 10),
+                       outRelayPeersTarget: outRelayPeersTarget,
+                       inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
+                       maxRelayPeers: maxRelayPeersValue,
                        maxFailedAttempts: maxFailedAttempts,
                        colocationLimit: colocationLimit)
 
@@ -542,39 +575,18 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
   let connsToPrune = min(amount, inRelayPeers.len)
 
   for p in inRelayPeers[0..<connsToPrune]:
-    await pm.switch.disconnect(p)
-
-proc pruneConnsByIp*(pm: PeerManager) {.async.} =
-  ## prunes connections based on ip colocation, allowing no more
-  ## than ColocationLimit inbound connections from same ip
-  ##
-
-  # update the table tracking ip and the connected peers
-  pm.updateIpTable()
-
-  # trigger disconnections based on colocationLimit
-  for ip, peersInIp in pm.ipTable.pairs:
-    if peersInIp.len > pm.colocationLimit:
-      let connsToPrune = peersInIp.len - pm.colocationLimit
-      for peerId in peersInIp[0..<connsToPrune]:
-        debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
-        await pm.switch.disconnect(peerId)
-        pm.peerStore.delete(peerId)
+    asyncSpawn(pm.switch.disconnect(p))
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let maxConnections = pm.switch.connManager.inSema.size
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-  let inPeersTarget = maxConnections - pm.outPeersTarget
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  if inRelayPeers.len > inPeersTarget:
-    await pm.pruneInRelayConns(inRelayPeers.len-inPeersTarget)
+  if inRelayPeers.len > pm.inRelayPeersTarget:
+    await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
-  if outRelayPeers.len >= pm.outPeersTarget:
-    return
-
-  # Leave some room for service peers
-  if totalRelayPeers >= (maxConnections - 5):
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
@@ -644,12 +656,6 @@ proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
   debug "No peer found for protocol", protocol=proto
   return none(RemotePeerInfo)
 
-proc pruneConnsByIpLoop(pm: PeerManager) {.async.}  =
-  debug "Starting prune peer by ip loop"
-  while pm.started:
-    await pm.pruneConnsByIp()
-    await sleepAsync(PruneByIpInterval)
-
 # Prunes peers from peerstore to remove old/stale ones
 proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
   debug "Starting prune peerstore loop"
@@ -670,15 +676,14 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
     let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-    let inPeersTarget = maxConnections - pm.outPeersTarget
     let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+    let totalConnections = pm.switch.connManager.getConnections().len
 
     info "Relay peer connections",
-      inRelayConns = $inRelayPeers.len & "/" & $inPeersTarget,
-      outRelayConns = $outRelayPeers.len & "/" & $pm.outPeersTarget,
-      totalRelayConns = totalRelayPeers,
-      maxConnections = maxConnections,
+      inRelayConns = $inRelayPeers.len & "/" & $pm.inRelayPeersTarget,
+      outRelayConns = $outRelayPeers.len & "/" & $pm.outRelayPeersTarget,
+      totalConnections = $totalConnections & "/" & $maxConnections,
       notConnectedPeers = notConnectedPeers.len,
       outsideBackoffPeers = outsideBackoffPeers.len
 
@@ -695,7 +700,6 @@ proc start*(pm: PeerManager) =
   pm.started = true
   asyncSpawn pm.relayConnectivityLoop()
   asyncSpawn pm.prunePeerStoreLoop()
-  asyncSpawn pm.pruneConnsByIpLoop()
   asyncSpawn pm.logAndMetrics()
 
 proc stop*(pm: PeerManager) =

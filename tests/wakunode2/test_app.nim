@@ -10,11 +10,10 @@ import
   libp2p/multiaddress,
   libp2p/switch
 import
-  ../../apps/wakunode2/config,
+  ../../apps/wakunode2/external_config,
   ../../apps/wakunode2/app,
   ../v2/testlib/common,
   ../v2/testlib/wakucore
-
 
 proc defaultTestWakuNodeConf(): WakuNodeConf =
   WakuNodeConf(
@@ -27,7 +26,6 @@ proc defaultTestWakuNodeConf(): WakuNodeConf =
     topics: @["/waku/2/default-waku/proto"],
     relay: true
   )
-
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":
@@ -42,7 +40,6 @@ suite "Wakunode2 - App":
     ## Then
     check:
       version == app.git_version
-
 
 suite "Wakunode2 - App initialization":
   test "peer persistence setup should be successfully mounted":
@@ -65,11 +62,10 @@ suite "Wakunode2 - App initialization":
     ## When
     var wakunode2 = App.init(rng(), conf)
     require wakunode2.setupPeerPersistence().isOk()
-    require wakunode2.setupWakuArchive().isOk()
     require wakunode2.setupDyamicBootstrapNodes().isOk()
-    require wakunode2.setupWakuNode().isOk()
+    require wakunode2.setupWakuApp().isOk()
     require isOk(waitFor wakunode2.setupAndMountProtocols())
-    require isOk(waitFor wakunode2.startNode())
+    require isOk(waitFor wakunode2.startApp())
     require wakunode2.setupMonitoringAndExternalInterfaces().isOk()
 
     ## Then

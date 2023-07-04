@@ -57,7 +57,9 @@ procSuite "Waku v2 JSON-RPC API - Store":
       peer = PeerInfo.new(key)
 
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -123,7 +125,9 @@ procSuite "Waku v2 JSON-RPC API - Store":
     server.start()
 
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 

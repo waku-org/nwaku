@@ -85,7 +85,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -153,7 +155,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -249,7 +253,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -321,7 +327,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -410,7 +418,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -465,7 +475,9 @@ procSuite "Waku v2 Rest API - Store":
 
     # WakuStore setup
     let driver: ArchiveDriver = QueueDriver.new()
-    node.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+    
     await node.mountStore()
     node.mountStoreClient()
 

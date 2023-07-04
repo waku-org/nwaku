@@ -10,13 +10,15 @@ import
   chronicles,
   libp2p/crypto/crypto,
   libp2p/builders,
-  libp2p/nameresolving/nameresolver
+  libp2p/nameresolving/nameresolver,
+  libp2p/transports/wstransport
 import
   ../waku_enr,
   ../waku_discv5,
   ./config,
   ./peer_manager,
-  ./waku_node
+  ./waku_node,
+  ./waku_switch
 
 
 type
@@ -25,11 +27,14 @@ type
     nodeRng: Option[ref crypto.HmacDrbgContext]
     nodeKey: Option[crypto.PrivateKey]
     netConfig: Option[NetConfig]
+    record: Option[enr.Record]
 
     # Peer storage and peer manager
     peerStorage: Option[PeerStorage]
     peerStorageCapacity: Option[int]
-    peerManager: Option[PeerManager]
+
+    # Peer manager config
+    maxRelayPeers: Option[int]
 
     # Libp2p switch
     switchMaxConnections: Option[int]
@@ -38,9 +43,6 @@ type
     switchSslSecureKey: Option[string]
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
-
-    # Waku discv5
-    wakuDiscv5: Option[WakuDiscoveryV5]
 
   WakuNodeBuilderResult* = Result[void, string]
 
@@ -59,6 +61,9 @@ proc withRng*(builder: var WakuNodeBuilder, rng: ref crypto.HmacDrbgContext) =
 proc withNodeKey*(builder: var WakuNodeBuilder, nodeKey: crypto.PrivateKey) =
   builder.nodeKey = some(nodeKey)
 
+proc withRecord*(builder: var WakuNodeBuilder, record: enr.Record) =
+  builder.record = some(record)
+
 proc withNetworkConfiguration*(builder: var WakuNodeBuilder, config: NetConfig) =
   builder.netConfig = some(config)
 
@@ -72,8 +77,7 @@ proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
           wsEnabled: bool = false,
           wssEnabled: bool = false,
           wakuFlags = none(CapabilitiesBitfield),
-          dns4DomainName = none(string),
-          discv5UdpPort = none(Port)): WakuNodeBuilderResult {.
+          dns4DomainName = none(string)): WakuNodeBuilderResult {.
   deprecated: "use 'builder.withNetworkConfiguration()' instead".} =
   let netConfig = ? NetConfig.init(
     bindIp = bindIp,
@@ -86,7 +90,6 @@ proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
     wssEnabled = wssEnabled,
     wakuFlags = wakuFlags,
     dns4DomainName = dns4DomainName,
-    discv5UdpPort = discv5UdpPort,
   )
   builder.withNetworkConfiguration(netConfig)
   ok()
@@ -100,8 +103,10 @@ proc withPeerStorage*(builder: var WakuNodeBuilder, peerStorage: PeerStorage, ca
 
   builder.peerStorageCapacity = capacity
 
-proc withPeerManager*(builder: var WakuNodeBuilder, peerManager: PeerManager) =
-  builder.peerManager = some(peerManager)
+proc withPeerManagerConfig*(builder: var WakuNodeBuilder,
+                            maxRelayPeers = none(int)) =
+  builder.maxRelayPeers = maxRelayPeers
+
 
 
 ## Waku switch
@@ -122,14 +127,6 @@ proc withSwitchConfiguration*(builder: var WakuNodeBuilder,
   if not nameResolver.isNil():
     builder.switchNameResolver = some(nameResolver)
 
-
-## Waku discv5
-
-proc withWakuDiscv5*(builder: var WakuNodeBuilder, instance: WakuDiscoveryV5) =
-  if not instance.isNil():
-    builder.wakuDiscv5 = some(instance)
-
-
 ## Build
 
 proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
@@ -145,21 +142,44 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.netConfig.isNone():
     return err("network configuration is required")
 
+  if builder.record.isNone():
+    return err("node record is required")
+
+  var switch: Switch
+  try:
+    switch = newWakuSwitch(
+      privKey = builder.nodekey,
+      address = builder.netConfig.get().hostAddress,
+      wsAddress = builder.netConfig.get().wsHostAddress,
+      transportFlags = {ServerFlags.ReuseAddr, ServerFlags.TcpNoDelay},
+      rng = rng,
+      maxConnections = builder.switchMaxConnections.get(builders.MaxConnections),
+      wssEnabled = builder.netConfig.get().wssEnabled,
+      secureKeyPath = builder.switchSslSecureKey.get(""),
+      secureCertPath = builder.switchSslSecureCert.get(""),
+      nameResolver = builder.switchNameResolver.get(nil),
+      sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
+      agentString = builder.switchAgentString,
+      peerStoreCapacity = builder.peerStorageCapacity,
+      services = @[Service(getAutonatService(rng))],
+    )
+  except CatchableError:
+    return err("failed to create switch: " & getCurrentExceptionMsg())
+
+  let peerManager = PeerManager.new(
+    switch = switch,
+    storage = builder.peerStorage.get(nil),
+    maxRelayPeers = builder.maxRelayPeers,
+  )
+
   var node: WakuNode
   try:
     node = WakuNode.new(
-      rng = rng,
-      nodeKey = builder.nodeKey.get(),
       netConfig = builder.netConfig.get(),
-      peerStorage = builder.peerStorage.get(nil),
-      peerStoreCapacity = builder.peerStorageCapacity,
-      maxConnections = builder.switchMaxConnections.get(builders.MaxConnections),
-      nameResolver = builder.switchNameResolver.get(nil),
-      agentString = builder.switchAgentString,
-      secureKey = builder.switchSslSecureKey.get(""),
-      secureCert = builder.switchSslSecureCert.get(""),
-      sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
-      wakuDiscv5 = builder.wakuDiscv5,
+      enr = builder.record.get(),
+      switch = switch,
+      peerManager = peerManager,
+      rng = rng,
     )
   except Exception:
     return err("failed to build WakuNode instance: " & getCurrentExceptionMsg())

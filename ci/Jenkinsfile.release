@@ -43,7 +43,7 @@ pipeline {
     booleanParam(
       name: 'EXPERIMENTAL',
       description: 'Enable experimental features.',
-      defaultValue: true
+      defaultValue: false
     )
     booleanParam(
       name: 'DEBUG',
@@ -64,6 +64,14 @@ pipeline {
           (params.LOG_LEVEL != null ? "--build-arg=LOG_LEVEL='${params.LOG_LEVEL}' ": "") +
           "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
+      } }
+    }
+
+    stage('Check') {
+      steps { script {
+        image.inside('--entrypoint=""') { c ->
+          sh '/usr/bin/wakunode --version'
+        }
       } }
     }
 

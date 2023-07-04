@@ -3,29 +3,34 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
-  std/[tables, times, sequtils, options, algorithm],
+  std/[tables, times, sequtils, options, algorithm, strutils],
   stew/results,
   chronicles,
   chronos,
+  regex,
   metrics
 import
+  ../../common/databases/dburl,
+  ../../common/databases/db_sqlite,
+  ./driver,
+  ./driver/queue_driver,
+  ./driver/sqlite_driver,
+  ./driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ./driver/postgres_driver/postgres_driver,
+  ./retention_policy,
+  ./retention_policy/retention_policy_capacity,
+  ./retention_policy/retention_policy_time,
   ../waku_core,
   ./common,
-  ./archive_metrics,
-  ./retention_policy,
-  ./driver
-
+  ./archive_metrics
 
 logScope:
   topics = "waku archive"
 
 const
   DefaultPageSize*: uint = 20
-
   MaxPageSize*: uint = 100
-
 
 ## Message validation
 
@@ -36,11 +41,9 @@ type
 
 method validate*(validator: MessageValidator, msg: WakuMessage): ValidationResult {.base.} = discard
 
-
 # Default message validator
 
 const MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
-
 
 type DefaultMessageValidator* = ref object of MessageValidator
 
@@ -61,7 +64,6 @@ method validate*(validator: DefaultMessageValidator, msg: WakuMessage): Validati
 
   ok()
 
-
 ## Archive
 
 type
@@ -72,13 +74,18 @@ type
 
 proc new*(T: type WakuArchive,
           driver: ArchiveDriver,
-          validator = none(MessageValidator),
-          retentionPolicy = none(RetentionPolicy)): T =
-  WakuArchive(
-    driver: driver,
-    validator: validator.get(nil),
-    retentionPolicy: retentionPolicy.get(nil)
-  )
+          retentionPolicy = none(RetentionPolicy)):
+          Result[T, string] =
+
+  let retPolicy = if retentionPolicy.isSome():
+                    retentionPolicy.get()
+                  else:
+                    nil
+
+  let wakuArch = WakuArchive(driver: driver,
+                             validator: DefaultMessageValidator(),
+                             retentionPolicy: retPolicy)
+  return ok(wakuArch)
 
 proc handleMessage*(w: WakuArchive,
                     pubsubTopic: PubsubTopic,
@@ -110,7 +117,6 @@ proc handleMessage*(w: WakuArchive,
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
-
 
 proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
@@ -186,25 +192,52 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
 
 # Retention policy
 
-proc executeMessageRetentionPolicy*(w: WakuArchive) {.async.} =
+proc executeMessageRetentionPolicy*(w: WakuArchive):
+                                    Future[Result[void, string]] {.async.} =
   if w.retentionPolicy.isNil():
-    return
+    return err("retentionPolicy is Nil in executeMessageRetentionPolicy")
 
   if w.driver.isNil():
-    return
+    return err("driver is Nil in executeMessageRetentionPolicy")
 
   let retPolicyRes = await w.retentionPolicy.execute(w.driver)
   if retPolicyRes.isErr():
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
-      error "failed execution of retention policy", error=retPolicyRes.error
+      return err("failed execution of retention policy: " & retPolicyRes.error)
 
-proc reportStoredMessagesMetric*(w: WakuArchive) {.async.} =
+  return ok()
+
+proc reportStoredMessagesMetric*(w: WakuArchive):
+                                 Future[Result[void, string]] {.async.} =
   if w.driver.isNil():
-    return
+    return err("driver is Nil in reportStoredMessagesMetric")
 
   let resCount = await w.driver.getMessagesCount()
   if resCount.isErr():
-    error "failed to get messages count", error=resCount.error
-    return
+    return err("failed to get messages count: " & resCount.error)
 
   waku_archive_messages.set(resCount.value, labelValues = ["stored"])
+
+  return ok()
+
+proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
+                                              interval: timer.Duration) =
+  # Start the periodic message retention policy task
+  # https://github.com/nim-lang/Nim/issues/17369
+
+  var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
+  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} =
+
+    try:
+      let retPolRes = waitFor w.executeMessageRetentionPolicy()
+      if retPolRes.isErr():
+        waku_archive_errors.inc(labelValues = [retPolicyFailure])
+        error "error in periodic retention policy", error = retPolRes.error
+    except CatchableError:
+      waku_archive_errors.inc(labelValues = [retPolicyFailure])
+      error "exception in periodic retention policy",
+            error = getCurrentExceptionMsg()
+
+    discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+
+  discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)

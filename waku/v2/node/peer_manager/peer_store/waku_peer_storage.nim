@@ -10,12 +10,13 @@ import
   sqlite3_abi,
   libp2p/protobuf/minprotobuf
 import
-  ../../../../common/sqlite,
+  ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common,
   ../../../waku_core,
   ../waku_peer_store,
   ./peer_storage
 
-export sqlite
+export db_sqlite
 
 type
   WakuPeerStorage* = ref object of PeerStorage

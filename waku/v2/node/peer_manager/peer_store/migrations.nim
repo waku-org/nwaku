@@ -9,8 +9,8 @@ import
   stew/results,
   chronicles
 import
-  ../../../../common/sqlite,
-  ../../../../common/sqlite/migrations
+  ../../../../common/databases/db_sqlite,
+  ../../../../common/databases/common
 
 
 logScope:
@@ -23,7 +23,7 @@ template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / "
 const PeerStoreMigrationPath: string = projectRoot / "migrations" / "peer_store"
 
 
-proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] = 
+proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
   ## it runs migration scripts if the `user_version` is outdated. The `migrationScriptsDir` path
   ## points to the directory holding the migrations scripts once the db is updated, it sets the

@@ -5,7 +5,7 @@ import
   testutils/unittests,
   chronos
 import
-  ../../../waku/common/sqlite,
+  ../../../waku/common/databases/db_sqlite,
   ../../../waku/v2/waku_archive,
   ../../../waku/v2/waku_archive/driver/sqlite_driver,
   ../../../waku/v2/waku_core,

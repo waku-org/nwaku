@@ -62,6 +62,8 @@ type
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
+const BlockChunkSize* = 100'u64
+
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "OnchainGroupManager is not initialized")
@@ -259,6 +261,13 @@ proc handleEvents(g: OnchainGroupManager,
       raise newException(ValueError, "failed to insert members into the tree")
     trace "new members added to the Merkle tree", commitments=members.mapIt(it[0].idCommitment.inHex())
     g.latestProcessedBlock = some(blockNumber)
+    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
+                            lastProcessedBlock: blockNumber))
+    if metadataSetRes.isErr():
+      # this is not a fatal error, hence we don't raise an exception
+      warn "failed to persist rln metadata", error=metadataSetRes.error()
+    else:
+      info "rln metadata persisted", lastProcessedBlock = blockNumber
 
   return
 
@@ -306,11 +315,35 @@ proc startListeningToEvents(g: OnchainGroupManager): Future[void] {.async.} =
   except CatchableError:
     raise newException(ValueError, "failed to subscribe to block headers: " & getCurrentExceptionMsg())
 
-proc startOnchainSync(g: OnchainGroupManager, fromBlock: BlockNumber = BlockNumber(0)): Future[void] {.async.} =
+proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
 
+  let ethRpc = g.ethRpc.get()
+
+  var fromBlock = if g.latestProcessedBlock.isSome():
+    info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
+    g.latestProcessedBlock.get()
+  else:
+    info "starting onchain sync from scratch"
+    # chunk size is 1000 blocks
+    BlockNumber(0)
+
+  let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
-    await g.getAndHandleEvents(fromBlock, some(fromBlock))
+    # we always want to sync from last processed block => latest
+    if fromBlock == BlockNumber(0) or 
+       fromBlock + BlockNumber(BlockChunkSize) < latestBlock:
+      # chunk events
+      while true:
+        let currentLatestBlock = cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
+        let toBlock = min(fromBlock + BlockNumber(BlockChunkSize), currentLatestBlock)
+        info "chunking events", fromBlock = fromBlock, toBlock = toBlock
+        await g.getAndHandleEvents(fromBlock, some(toBlock))
+        fromBlock = toBlock + 1
+        if fromBlock >= currentLatestBlock:
+          break
+    else:
+      await g.getAndHandleEvents(fromBlock, some(BlockNumber(0)))
   except CatchableError:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
@@ -445,12 +478,20 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     g.idCredentials = some(parsedCreds[g.keystoreIndex].identityCredential)
     g.membershipIndex = some(parsedCreds[g.keystoreIndex].membershipGroups[g.membershipGroupIndex].treeIndex)
 
+  let metadataGetRes = g.rlnInstance.getMetadata()
+  if metadataGetRes.isErr():
+    warn "could not initialize with persisted rln metadata"
+    g.latestProcessedBlock = some(BlockNumber(0))
+  else:
+    let metadata = metadataGetRes.get()
+    g.latestProcessedBlock = some(metadata.lastProcessedBlock)
+
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
     let fromBlock = g.latestProcessedBlock.get()
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
     try:
-      asyncSpawn g.startOnchainSync(fromBlock)
+      asyncSpawn g.startOnchainSync()
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 

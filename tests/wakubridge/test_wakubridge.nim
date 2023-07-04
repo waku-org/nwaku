@@ -19,6 +19,7 @@ import
   ../../waku/v1/protocol/waku_protocol,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node,
+  ../../waku/v2/waku_enr,
   ../../waku/v2/utils/compat,
   ../test_helpers
 
@@ -54,9 +55,16 @@ procSuite "WakuBridge":
 
     # Waku v2 node
     v2NodeKey = crypto.PrivateKey.random(Secp256k1, cryptoRng[])[]
+
+  var builder = EnrBuilder.init(v2NodeKey)
+  builder.withIpAddressAndPorts(none(ValidIpAddress), none(Port), none(Port))
+  let record = builder.build().tryGet()
+
+  let
     v2Node = block:
       var builder = WakuNodeBuilder.init()
       builder.withNodeKey(v2NodeKey)
+      builder.withRecord(record)
       builder.withNetworkConfigurationDetails(ValidIpAddress.init("0.0.0.0"), Port(62203)).tryGet()
       builder.build().tryGet()
 
