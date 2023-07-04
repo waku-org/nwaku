@@ -56,7 +56,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(5)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.seconds(60)
+  LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
   ColocationLimit = 5
@@ -71,7 +71,8 @@ type
     storage: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
     maxRelayPeers*: int
-    outPeersTarget*: int
+    outRelayPeersTarget: int
+    inRelayPeersTarget: int
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
     started: bool
@@ -343,7 +344,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
 proc new*(T: type PeerManager,
           switch: Switch,
-          maxRelayPeers: int = 50,
+          maxRelayPeers: Option[int] = none(int),
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
@@ -358,16 +359,22 @@ proc new*(T: type PeerManager,
          maxConnections = maxConnections
     raise newException(Defect, "Max number of connections can't be greater than PeerManager capacity")
 
-  if maxRelayPeers > maxConnections:
-    error "Max number of relay peers can't be greater the max amount of connections",
-         maxConnections = maxConnections,
-         maxRelayPeers = maxRelayPeers
-    raise newException(Defect, "Max number of relay peers can't be greater the max amount of connections")
+  var maxRelayPeersValue = 0
+  if maxRelayPeers.isSome():
+    if maxRelayPeers.get() > maxConnections:
+      error "Max number of relay peers can't be greater than the max amount of connections",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+      raise newException(Defect, "Max number of relay peers can't be greater than the max amount of connections")
 
-  if maxRelayPeers == maxConnections:
-    warn "Max number of relay peers is equal to max amount of connections, peer wont be contribute to service peers",
-         maxConnections = maxConnections,
-         maxRelayPeers = maxRelayPeers
+    if maxRelayPeers.get() == maxConnections:
+      warn "Max number of relay peers is equal to max amount of connections, peer won't be contributing to service peers",
+           maxConnections = maxConnections,
+           maxRelayPeers = maxRelayPeers.get()
+    maxRelayPeersValue = maxRelayPeers.get()
+  else:
+    # Leave by default 20% of connections for service peers
+    maxRelayPeersValue = maxConnections - (maxConnections div 5)
 
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
   let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
@@ -376,15 +383,18 @@ proc new*(T: type PeerManager,
         maxBackoff=backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
+  let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
+
   let pm = PeerManager(switch: switch,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,
                        backoffFactor: backoffFactor,
-                       outPeersTarget: max(maxConnections div 2, 10),
+                       outRelayPeersTarget: outRelayPeersTarget,
+                       inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
+                       maxRelayPeers: maxRelayPeersValue,
                        maxFailedAttempts: maxFailedAttempts,
-                       colocationLimit: colocationLimit,
-                       maxRelayPeers: maxRelayPeers)
+                       colocationLimit: colocationLimit)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
@@ -571,16 +581,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let maxConnections = pm.switch.connManager.inSema.size
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-  let inPeersTarget = maxConnections - pm.outPeersTarget
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  if inRelayPeers.len > inPeersTarget:
-    await pm.pruneInRelayConns(inRelayPeers.len-inPeersTarget)
+  if inRelayPeers.len > pm.inRelayPeersTarget:
+    await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
-  if outRelayPeers.len >= pm.outPeersTarget:
-    return
-
-  # Leave some room for service peers
-  if totalRelayPeers >= (maxConnections - 5):
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
@@ -670,15 +676,14 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
     let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-    let inPeersTarget = maxConnections - pm.outPeersTarget
     let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+    let totalConnections = pm.switch.connManager.getConnections().len
 
     info "Relay peer connections",
-      inRelayConns = $inRelayPeers.len & "/" & $inPeersTarget,
-      outRelayConns = $outRelayPeers.len & "/" & $pm.outPeersTarget,
-      totalRelayConns = totalRelayPeers,
-      maxConnections = maxConnections,
+      inRelayConns = $inRelayPeers.len & "/" & $pm.inRelayPeersTarget,
+      outRelayConns = $outRelayPeers.len & "/" & $pm.outRelayPeersTarget,
+      totalConnections = $totalConnections & "/" & $maxConnections,
       notConnectedPeers = notConnectedPeers.len,
       outsideBackoffPeers = outsideBackoffPeers.len
 

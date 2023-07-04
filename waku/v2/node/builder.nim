@@ -145,13 +145,6 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.record.isNone():
     return err("node record is required")
 
-  # fallbck to max connections if not set
-  var maxRelayPeers: int
-  if builder.maxRelayPeers.isNone():
-    maxRelayPeers = builder.switchMaxConnections.get(builders.MaxConnections)
-  else:
-    maxRelayPeers = builder.maxRelayPeers.get()
-
   var switch: Switch
   try:
     switch = newWakuSwitch(
@@ -176,7 +169,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),
-    maxRelayPeers = maxRelayPeers,
+    maxRelayPeers = builder.maxRelayPeers,
   )
 
   var node: WakuNode
