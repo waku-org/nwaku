@@ -362,13 +362,13 @@ proc new*(T: type PeerManager,
   var maxRelayPeersValue = 0
   if maxRelayPeers.isSome():
     if maxRelayPeers.get() > maxConnections:
-      error "Max number of relay peers can't be greater the max amount of connections",
+      error "Max number of relay peers can't be greater than the max amount of connections",
            maxConnections = maxConnections,
            maxRelayPeers = maxRelayPeers.get()
-      raise newException(Defect, "Max number of relay peers can't be greater the max amount of connections")
+      raise newException(Defect, "Max number of relay peers can't be greater than the max amount of connections")
 
     if maxRelayPeers.get() == maxConnections:
-      warn "Max number of relay peers is equal to max amount of connections, peer wont be contribute to service peers",
+      warn "Max number of relay peers is equal to max amount of connections, peer won't be contributing to service peers",
            maxConnections = maxConnections,
            maxRelayPeers = maxRelayPeers.get()
     maxRelayPeersValue = maxRelayPeers.get()
