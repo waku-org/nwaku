@@ -5,12 +5,12 @@ import
   testutils/unittests,
   libp2p/protobuf/minprotobuf
 import
-  ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/protocol/waku_archive/driver/queue_driver/queue_driver {.all.},
-  ../../../waku/v2/protocol/waku_archive/driver/queue_driver/index,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/utils/time,
-  ../testlib/common
+  ../../../waku/v2/waku_archive,
+  ../../../waku/v2/waku_archive/driver/queue_driver/queue_driver {.all.},
+  ../../../waku/v2/waku_archive/driver/queue_driver/index,
+  ../../../waku/v2/waku_core,
+  ../testlib/common,
+  ../testlib/wakucore
 
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

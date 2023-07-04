@@ -7,7 +7,7 @@ For ease of explanation, we will refer to them as `Alice`, `Bob`, and `Carol`.
 In this setting, if `Bob` or `Carol` attempts to spam the network by violating the message rate limit then `Alice` will detect their spamming activity, and does not relay the spam messages.
 The message rate is one per epoch.
 At the time of this tutorial, the epoch duration is set to `10` seconds.
-You can inspect its current value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/constants.nim#L245) in the nim-waku codebase.
+You can inspect its current value by checking the following [constant variable](https://github.com/waku-org/nwaku/blob/44c543129ee4149255a00a05f1e7d21f8fa28626/waku/v2/waku_rln_relay/constants.nim#L51) in the nim-waku codebase.
 
 
 # Set up
@@ -28,7 +28,7 @@ The `rln-relay-membership-index` is used to pick one RLN key out of the 100 avai
 We use the first RLN key of the list for `Alice` i.e., `--rln-relay-membership-index:1`.
 
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60010/p2p/16Uiu2HAmKdCdP89q6CwLc6PeFDJnVR1EmM7fTgtphHiacSNBnuAz --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:none --nodekey=f157b19b13e9ee818acfc9d3d7eec6b81f70c0a978dec19def261172acbe26e6 --rln-relay:true --rln-relay-membership-index:1
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60010/p2p/16Uiu2HAmKdCdP89q6CwLc6PeFDJnVR1EmM7fTgtphHiacSNBnuAz --content-topic:/toy-chat/3/mingde/proto --ports-shift=1 --fleet:none --nodekey=f157b19b13e9ee818acfc9d3d7eec6b81f70c0a978dec19def261172acbe26e6 --rln-relay:true --rln-relay-membership-index:1
 
 ```
 
@@ -45,7 +45,7 @@ Now your first chat2 client is ready.
 **Bob setup**:
 Set up the second chat2 client using the command below. Choose `Bob` as the nickname.
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/2/luzhou/proto --ports-shift=2 --fleet:none --nodekey=9ab635854ffe8fed32b17d7ef38e0b2f354ca1f3283b7f78fb77227004d2cbe6 --rln-relay:true --rln-relay-membership-index:2 
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/3/mingde/proto --ports-shift=2 --fleet:none --nodekey=9ab635854ffe8fed32b17d7ef38e0b2f354ca1f3283b7f78fb77227004d2cbe6 --rln-relay:true --rln-relay-membership-index:2 
 
 Choose a nickname >> Bob
 ```
@@ -53,7 +53,7 @@ Choose a nickname >> Bob
 **Carol setup**:
 Run the following command to set up the third chat2 client, and choose `Carol` as the nickname.
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/2/luzhou/proto --ports-shift=3 --fleet:none --nodekey=0aa89d7f27300c9fb4e119acc225c8873a3bf96bbb4c82045c94934bcc6a6af8 --rln-relay:true --rln-relay-membership-index:3
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/3/mingde/proto --ports-shift=3 --fleet:none --nodekey=0aa89d7f27300c9fb4e119acc225c8873a3bf96bbb4c82045c94934bcc6a6af8 --rln-relay:true --rln-relay-membership-index:3
 
 Choose a nickname >> Carol
 
@@ -92,7 +92,7 @@ You can check this fact by looking at the `Alice` console, where `A spam message
 
 Bob
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/2/luzhou/proto --ports-shift=2 --fleet:none --nodekey=9ab635854ffe8fed32b17d7ef38e0b2f354ca1f3283b7f78fb77227004d2cbe6 --rln-relay:true --rln-relay-membership-index:2
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/3/mingde/proto --ports-shift=2 --fleet:none --nodekey=9ab635854ffe8fed32b17d7ef38e0b2f354ca1f3283b7f78fb77227004d2cbe6 --rln-relay:true --rln-relay-membership-index:2
 Choose a nickname >> Bob
 Welcome, Bob!
 Connecting to nodes
@@ -116,7 +116,7 @@ quitting...
 
 Alice
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60010/p2p/16Uiu2HAmKdCdP89q6CwLc6PeFDJnVR1EmM7fTgtphHiacSNBnuAz --content-topic:/toy-chat/2/luzhou/proto --ports-shift=1 --fleet:none --nodekey=f157b19b13e9ee818acfc9d3d7eec6b81f70c0a978dec19def261172acbe26e6 --rln-relay:true --rln-relay-membership-index:1
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60010/p2p/16Uiu2HAmKdCdP89q6CwLc6PeFDJnVR1EmM7fTgtphHiacSNBnuAz --content-topic:/toy-chat/3/mingde/proto --ports-shift=1 --fleet:none --nodekey=f157b19b13e9ee818acfc9d3d7eec6b81f70c0a978dec19def261172acbe26e6 --rln-relay:true --rln-relay-membership-index:1
 
 Choose a nickname >> Alice
 Welcome, Alice!
@@ -133,7 +133,7 @@ quitting...
 
 Carol
 ```
-./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/2/luzhou/proto --ports-shift=3 --fleet:none --nodekey=0aa89d7f27300c9fb4e119acc225c8873a3bf96bbb4c82045c94934bcc6a6af8 --rln-relay:true --rln-relay-membership-index:3
+./build/chat2 --staticnode:/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAkyTos6LeGrj1YJyA3WYzp9qKQGCsxbtvyoBRHSu9PCrQZ --content-topic:/toy-chat/3/mingde/proto --ports-shift=3 --fleet:none --nodekey=0aa89d7f27300c9fb4e119acc225c8873a3bf96bbb4c82045c94934bcc6a6af8 --rln-relay:true --rln-relay-membership-index:3
 Choose a nickname >> Carol
 Welcome, Carol!
 Connecting to nodes

@@ -3,11 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/[os, strutils],
-  stew/byteutils, 
-  stew/ranges/ptr_arith
+  stew/byteutils,
+  stew/ptrops
 
 
 type

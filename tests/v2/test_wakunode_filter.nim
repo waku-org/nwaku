@@ -1,34 +1,34 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/utils/peers,
-  ./testlib/common
+  ../../waku/v2/waku_core,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/waku_node,
+  ./testlib/common,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
 suite "WakuNode - Filter":
- 
+
   asyncTest "subscriber should receive the message handled by the publisher":
     ## Setup
-    let rng = crypto.newRng()
     let
-      serverKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      server = WakuNode.new(serverKey, ValidIpAddress.init("0.0.0.0"), Port(60110))
-      clientKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      client = WakuNode.new(clientKey, ValidIpAddress.init("0.0.0.0"), Port(60111))
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(server.start(), client.start())
+    waitFor allFutures(server.start(), client.start())
 
-    await server.mountFilter()    
-    await client.mountFilterClient()
+    waitFor server.mountFilter()
+    waitFor client.mountFilterClient()
 
     ## Given
     let serverPeerInfo = server.peerInfo.toRemotePeerInfo()
@@ -39,18 +39,18 @@ suite "WakuNode - Filter":
       message = fakeWakuMessage(contentTopic=contentTopic)
 
     var filterPushHandlerFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe, closure.} =
+    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When
     await client.filterSubscribe(pubsubTopic, contentTopic, filterPushHandler, peer=serverPeerInfo)
 
     # Wait for subscription to take effect
-    await sleepAsync(100.millis)
+    waitFor sleepAsync(100.millis)
 
-    await server.filterHandleMessage(pubSubTopic, message)
+    waitFor server.filterHandleMessage(pubSubTopic, message)
 
-    require await filterPushHandlerFut.withTimeout(5.seconds)
+    require waitFor filterPushHandlerFut.withTimeout(5.seconds)
 
     ## Then
     check filterPushHandlerFut.completed()
@@ -60,4 +60,4 @@ suite "WakuNode - Filter":
       filterMessage == message
 
     ## Cleanup
-    await allFutures(client.stop(), server.stop())
+    waitFor allFutures(client.stop(), server.stop())

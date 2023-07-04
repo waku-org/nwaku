@@ -10,9 +10,9 @@ import
   chronos,
   libp2p/protocols/pubsub
 import
-  ../protocol/waku_message
+  ../waku_core
 
-logScope: 
+logScope:
   topics = "waku node message_cache"
 
 const DefaultMessageCacheCapacity*: uint = 30 # Max number of messages cached per topic @TODO make this configurable
@@ -27,7 +27,7 @@ type MessageCache*[K] = ref object
 func init*[K](T: type MessageCache[K], capacity=DefaultMessageCacheCapacity): T =
   MessageCache[K](
     capacity: capacity,
-    table: initTable[K, seq[WakuMessage]]() 
+    table: initTable[K, seq[WakuMessage]]()
   )
 
 
@@ -39,7 +39,7 @@ proc subscribe*[K](t: MessageCache[K], topic: K) =
     return
   t.table[topic] = @[]
 
-proc unsubscribe*[K](t: MessageCache[K], topic: K) = 
+proc unsubscribe*[K](t: MessageCache[K], topic: K) =
   if not t.isSubscribed(topic):
     return
   t.table.del(topic)
@@ -53,12 +53,12 @@ proc addMessage*[K](t: MessageCache, topic: K, msg: WakuMessage) =
   var messages = t.table.getOrDefault(topic, @[])
 
   if messages.len >= t.capacity.int:
-    debug "Topic cache capacity reached", topic=topic
+    trace "Topic cache capacity reached", topic=topic
     # Message cache on this topic exceeds maximum. Delete oldest.
-    # TODO: this may become a bottle neck if called as the norm rather than 
+    # TODO: this may become a bottle neck if called as the norm rather than
     #  exception when adding messages. Performance profile needed.
     messages.delete(0,0)
-  
+
   messages.add(msg)
 
   # Replace indexed entry with copy

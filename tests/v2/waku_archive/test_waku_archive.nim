@@ -4,16 +4,15 @@ import
   std/[options, sequtils],
   testutils/unittests,
   chronicles,
+  chronos,
   libp2p/crypto/crypto
 import
   ../../../waku/common/sqlite,
-  ../../../waku/v2/node/peer_manager/peer_manager,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/utils/time,
+  ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_archive/driver/sqlite_driver,
+  ../../../waku/v2/waku_archive,
   ../testlib/common,
-  ../testlib/switch
+  ../testlib/wakucore
 
 
 proc newTestDatabase(): SqliteDatabase =
@@ -26,6 +25,15 @@ proc newTestArchiveDriver(): ArchiveDriver =
 proc newTestWakuArchive(driver: ArchiveDriver): WakuArchive =
   let validator: MessageValidator = DefaultMessageValidator()
   WakuArchive.new(driver, validator=some(validator))
+
+proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
+  ArchiveCursor(
+    pubsubTopic: pubsubTopic,
+    senderTime: message.timestamp,
+    storeTime: message.timestamp,
+    digest: computeDigest(message)
+  )
+
 
 
 suite "Waku Archive - message handling":
@@ -40,11 +48,11 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ephemeral=false, ts=validSenderTime)
 
     ## When
-    archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessage(DefaultPubSubTopic, message)
 
     ## Then
     check:
-      driver.getMessagesCount().tryGet() == 1
+      (waitFor driver.getMessagesCount()).tryGet() == 1
 
   test "it should not driver an ephemeral message":
     ## Setup
@@ -62,11 +70,11 @@ suite "Waku Archive - message handling":
 
     ## When
     for msg in msgList:
-      archive.handleMessage(DefaultPubsubTopic, msg)
+      waitFor archive.handleMessage(DefaultPubsubTopic, msg)
 
     ## Then
     check:
-      driver.getMessagesCount().tryGet() == 2
+      (waitFor driver.getMessagesCount()).tryGet() == 2
 
   test "it should driver a message with no sender timestamp":
     ## Setup
@@ -78,11 +86,11 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ts=invalidSenderTime)
 
     ## When
-    archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessage(DefaultPubSubTopic, message)
 
     ## Then
     check:
-      driver.getMessagesCount().tryGet() == 1
+      (waitFor driver.getMessagesCount()).tryGet() == 1
 
   test "it should not driver a message with a sender time variance greater than max time variance (future)":
     ## Setup
@@ -92,16 +100,16 @@ suite "Waku Archive - message handling":
     ## Given
     let
       now = now()
-      invalidSenderTime = now + MaxMessageTimestampVariance + 1
+      invalidSenderTime = now + MaxMessageTimestampVariance + 1_000_000_000 # 1 second over the max variance
 
     let message = fakeWakuMessage(ts=invalidSenderTime)
 
     ## When
-    archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessage(DefaultPubSubTopic, message)
 
     ## Then
     check:
-      driver.getMessagesCount().tryGet() == 0
+      (waitFor driver.getMessagesCount()).tryGet() == 0
 
   test "it should not driver a message with a sender time variance greater than max time variance (past)":
     ## Setup
@@ -116,38 +124,38 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ts=invalidSenderTime)
 
     ## When
-    archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessage(DefaultPubSubTopic, message)
 
     ## Then
     check:
-      driver.getMessagesCount().tryGet() == 0
+      (waitFor driver.getMessagesCount()).tryGet() == 0
 
 
 procSuite "Waku Archive - find messages":
   ## Fixtures
   let timeOrigin = now()
+  let msgListA = @[
+    fakeWakuMessage(@[byte 00], contentTopic=ContentTopic("2"), ts=ts(00, timeOrigin)),
+    fakeWakuMessage(@[byte 01], contentTopic=ContentTopic("1"), ts=ts(10, timeOrigin)),
+    fakeWakuMessage(@[byte 02], contentTopic=ContentTopic("2"), ts=ts(20, timeOrigin)),
+    fakeWakuMessage(@[byte 03], contentTopic=ContentTopic("1"), ts=ts(30, timeOrigin)),
+    fakeWakuMessage(@[byte 04], contentTopic=ContentTopic("2"), ts=ts(40, timeOrigin)),
+    fakeWakuMessage(@[byte 05], contentTopic=ContentTopic("1"), ts=ts(50, timeOrigin)),
+    fakeWakuMessage(@[byte 06], contentTopic=ContentTopic("2"), ts=ts(60, timeOrigin)),
+    fakeWakuMessage(@[byte 07], contentTopic=ContentTopic("1"), ts=ts(70, timeOrigin)),
+    fakeWakuMessage(@[byte 08], contentTopic=ContentTopic("2"), ts=ts(80, timeOrigin)),
+    fakeWakuMessage(@[byte 09], contentTopic=ContentTopic("1"), ts=ts(90, timeOrigin))
+  ]
+
   let archiveA = block:
-      let
-        driver = newTestArchiveDriver()
-        archive = newTestWakuArchive(driver)
+    let
+      driver = newTestArchiveDriver()
+      archive = newTestWakuArchive(driver)
 
-      let msgList = @[
-        fakeWakuMessage(@[byte 00], contentTopic=ContentTopic("2"), ts=ts(00, timeOrigin)),
-        fakeWakuMessage(@[byte 01], contentTopic=ContentTopic("1"), ts=ts(10, timeOrigin)),
-        fakeWakuMessage(@[byte 02], contentTopic=ContentTopic("2"), ts=ts(20, timeOrigin)),
-        fakeWakuMessage(@[byte 03], contentTopic=ContentTopic("1"), ts=ts(30, timeOrigin)),
-        fakeWakuMessage(@[byte 04], contentTopic=ContentTopic("2"), ts=ts(40, timeOrigin)),
-        fakeWakuMessage(@[byte 05], contentTopic=ContentTopic("1"), ts=ts(50, timeOrigin)),
-        fakeWakuMessage(@[byte 06], contentTopic=ContentTopic("2"), ts=ts(60, timeOrigin)),
-        fakeWakuMessage(@[byte 07], contentTopic=ContentTopic("1"), ts=ts(70, timeOrigin)),
-        fakeWakuMessage(@[byte 08], contentTopic=ContentTopic("2"), ts=ts(80, timeOrigin)),
-        fakeWakuMessage(@[byte 09], contentTopic=ContentTopic("1"), ts=ts(90, timeOrigin))
-      ]
+    for msg in msgListA:
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
 
-      for msg in msgList:
-        require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-
-      archive
+    archive
 
   test "handle query":
     ## Setup
@@ -160,14 +168,14 @@ procSuite "Waku Archive - find messages":
       msg1 = fakeWakuMessage(contentTopic=topic)
       msg2 = fakeWakuMessage()
 
-    archive.handleMessage("foo", msg1)
-    archive.handleMessage("foo", msg2)
+    waitFor archive.handleMessage("foo", msg1)
+    waitFor archive.handleMessage("foo", msg2)
 
     ## Given
     let req = ArchiveQuery(contentTopics: @[topic])
 
     ## When
-    let queryRes = archive.findMessages(req)
+    let queryRes = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -194,15 +202,15 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(contentTopic=topic2)
       msg3 = fakeWakuMessage(contentTopic=topic3)
 
-    archive.handleMessage("foo", msg1)
-    archive.handleMessage("foo", msg2)
-    archive.handleMessage("foo", msg3)
+    waitFor archive.handleMessage("foo", msg1)
+    waitFor archive.handleMessage("foo", msg2)
+    waitFor archive.handleMessage("foo", msg3)
 
     ## Given
     let req = ArchiveQuery(contentTopics: @[topic1, topic3])
 
     ## When
-    let queryRes = archive.findMessages(req)
+    let queryRes = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -213,6 +221,29 @@ procSuite "Waku Archive - find messages":
       response.messages.len() == 2
       response.messages.anyIt(it == msg1)
       response.messages.anyIt(it == msg3)
+
+  test "handle query with more than 10 content filters":
+    ## Setup
+    let
+      driver = newTestArchiveDriver()
+      archive = newTestWakuArchive(driver)
+
+    let queryTopics = toSeq(1..15).mapIt(ContentTopic($it))
+
+    ## Given
+    let req = ArchiveQuery(contentTopics: queryTopics)
+
+    ## When
+    let queryRes = waitFor archive.findMessages(req)
+
+    ## Then
+    check:
+      queryRes.isErr()
+
+    let error = queryRes.tryError()
+    check:
+      error.kind == ArchiveErrorKind.INVALID_QUERY
+      error.cause == "too many content topics"
 
   test "handle query with pubsub topic filter":
     ## Setup
@@ -234,9 +265,9 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(contentTopic=contentTopic2)
       msg3 = fakeWakuMessage(contentTopic=contentTopic3)
 
-    archive.handleMessage(pubsubtopic1, msg1)
-    archive.handleMessage(pubsubtopic2, msg2)
-    archive.handleMessage(pubsubtopic2, msg3)
+    waitFor archive.handleMessage(pubsubtopic1, msg1)
+    waitFor archive.handleMessage(pubsubtopic2, msg2)
+    waitFor archive.handleMessage(pubsubtopic2, msg3)
 
     ## Given
     # This query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)
@@ -246,7 +277,7 @@ procSuite "Waku Archive - find messages":
     )
 
     ## When
-    let queryRes = archive.findMessages(req)
+    let queryRes = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -272,15 +303,15 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage()
       msg3 = fakeWakuMessage()
 
-    archive.handleMessage(pubsubtopic2, msg1)
-    archive.handleMessage(pubsubtopic2, msg2)
-    archive.handleMessage(pubsubtopic2, msg3)
+    waitFor archive.handleMessage(pubsubtopic2, msg1)
+    waitFor archive.handleMessage(pubsubtopic2, msg2)
+    waitFor archive.handleMessage(pubsubtopic2, msg3)
 
     ## Given
     let req = ArchiveQuery(pubsubTopic: some(pubsubTopic1))
 
     ## When
-    let res = archive.findMessages(req)
+    let res = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -303,15 +334,15 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(payload="TEST-2")
       msg3 = fakeWakuMessage(payload="TEST-3")
 
-    archive.handleMessage(pubsubTopic, msg1)
-    archive.handleMessage(pubsubTopic, msg2)
-    archive.handleMessage(pubsubTopic, msg3)
+    waitFor archive.handleMessage(pubsubTopic, msg1)
+    waitFor archive.handleMessage(pubsubTopic, msg2)
+    waitFor archive.handleMessage(pubsubTopic, msg3)
 
     ## Given
     let req = ArchiveQuery(pubsubTopic: some(pubsubTopic))
 
     ## When
-    let res = archive.findMessages(req)
+    let res = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -325,120 +356,76 @@ procSuite "Waku Archive - find messages":
       response.messages.anyIt(it == msg3)
 
   test "handle query with forward pagination":
-    ## Setup
-    let
-      driver = newTestArchiveDriver()
-      archive = newTestWakuArchive(driver)
-
-    let currentTime = now()
-    let msgList = @[
-        fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=currentTime - 9),
-        fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=currentTime - 8),
-        fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=currentTime - 7),
-        fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=currentTime - 6),
-        fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=currentTime - 5),
-        fakeWakuMessage(@[byte 5], contentTopic=DefaultContentTopic, ts=currentTime - 4),
-        fakeWakuMessage(@[byte 6], contentTopic=DefaultContentTopic, ts=currentTime - 3),
-        fakeWakuMessage(@[byte 7], contentTopic=DefaultContentTopic, ts=currentTime - 2),
-        fakeWakuMessage(@[byte 8], contentTopic=DefaultContentTopic, ts=currentTime - 1),
-        fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=currentTime)
-      ]
-
-    for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-
     ## Given
-    var req = ArchiveQuery(
-      contentTopics: @[DefaultContentTopic],
-      pageSize: 2,
+    let req = ArchiveQuery(
+      pageSize: 4,
       ascending: true
     )
 
     ## When
-    var res = archive.findMessages(req)
-    require res.isOk()
+    var nextReq = req # copy
 
-    var
-      response = res.tryGet()
-      totalMessages = response.messages.len()
-      totalQueries = 1
+    var pages = newSeq[seq[WakuMessage]](3)
+    var cursors = newSeq[Option[ArchiveCursor]](3)
 
-    while response.cursor.isSome():
-      require:
-        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
-        response.messages.len() == 2
-
-      req.cursor = response.cursor
-
-      # Continue querying
-      res = archive.findMessages(req)
+    for i in 0..<3:
+      let res = waitFor archiveA.findMessages(nextReq)
       require res.isOk()
-      response = res.tryGet()
-      totalMessages += response.messages.len()
-      totalQueries += 1
+
+      # Keep query response content
+      let response = res.get()
+      pages[i] = response.messages
+      cursors[i] = response.cursor
+
+      # Set/update the request cursor
+      nextReq.cursor = cursors[i]
 
     ## Then
     check:
-      totalQueries == 4 # 4 queries of pageSize 2
-      totalMessages == 8 # 8 messages in total
+      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[3]))
+      cursors[1] == some(computeTestCursor(DefaultPubsubTopic, msgListA[7]))
+      cursors[2] == none(ArchiveCursor)
+
+    check:
+      pages[0] == msgListA[0..3]
+      pages[1] == msgListA[4..7]
+      pages[2] == msgListA[8..9]
 
   test "handle query with backward pagination":
-    ## Setup
-    let
-      driver = newTestArchiveDriver()
-      archive = newTestWakuArchive(driver)
-
-    let currentTime = now()
-    let msgList = @[
-        fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=currentTime - 9),
-        fakeWakuMessage(@[byte 1], contentTopic=DefaultContentTopic, ts=currentTime - 8),
-        fakeWakuMessage(@[byte 2], contentTopic=DefaultContentTopic, ts=currentTime - 7),
-        fakeWakuMessage(@[byte 3], contentTopic=DefaultContentTopic, ts=currentTime - 6),
-        fakeWakuMessage(@[byte 4], contentTopic=DefaultContentTopic, ts=currentTime - 5),
-        fakeWakuMessage(@[byte 5], contentTopic=DefaultContentTopic, ts=currentTime - 4),
-        fakeWakuMessage(@[byte 6], contentTopic=DefaultContentTopic, ts=currentTime - 3),
-        fakeWakuMessage(@[byte 7], contentTopic=DefaultContentTopic, ts=currentTime - 2),
-        fakeWakuMessage(@[byte 8], contentTopic=DefaultContentTopic, ts=currentTime - 1),
-        fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=currentTime)
-      ]
-
-    for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-
     ## Given
-    var req = ArchiveQuery(
-      contentTopics: @[DefaultContentTopic],
-      pageSize: 2,
-      ascending: false
+    let req = ArchiveQuery(
+      pageSize: 4,
+      ascending: false  # backward
     )
 
     ## When
-    var res = archive.findMessages(req)
-    require res.isOk()
+    var nextReq = req # copy
 
-    var
-      response = res.tryGet()
-      totalMessages = response.messages.len()
-      totalQueries = 1
+    var pages = newSeq[seq[WakuMessage]](3)
+    var cursors = newSeq[Option[ArchiveCursor]](3)
 
-    while response.cursor.isSome():
-      require:
-        totalQueries <= 4 # Sanity check here and guarantee that the test will not run forever
-        response.messages.len() == 2
-
-      req.cursor = response.cursor
-
-      # Continue querying
-      res = archive.findMessages(req)
+    for i in 0..<3:
+      let res = waitFor archiveA.findMessages(nextReq)
       require res.isOk()
-      response = res.tryGet()
-      totalMessages += response.messages.len()
-      totalQueries += 1
+
+      # Keep query response content
+      let response = res.get()
+      pages[i] = response.messages
+      cursors[i] = response.cursor
+
+      # Set/update the request cursor
+      nextReq.cursor = cursors[i]
 
     ## Then
     check:
-      totalQueries == 4 # 4 queries of pageSize 2
-      totalMessages == 8 # 8 messages in total
+      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[6]))
+      cursors[1] == some(computeTestCursor(DefaultPubsubTopic, msgListA[2]))
+      cursors[2] == none(ArchiveCursor)
+
+    check:
+      pages[0] == msgListA[6..9]
+      pages[1] == msgListA[2..5]
+      pages[2] == msgListA[0..1]
 
   test "handle query with no paging info - auto-pagination":
     ## Setup
@@ -460,13 +447,13 @@ procSuite "Waku Archive - find messages":
       ]
 
     for msg in msgList:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
 
     ## Given
     let req = ArchiveQuery(contentTopics: @[DefaultContentTopic])
 
     ## When
-    let res = archive.findMessages(req)
+    let res = waitFor archive.findMessages(req)
 
     ## Then
     check:
@@ -489,7 +476,7 @@ procSuite "Waku Archive - find messages":
     )
 
     ## When
-    let res = archiveA.findMessages(req)
+    let res = waitFor archiveA.findMessages(req)
 
     ## Then
     check res.isOk()
@@ -509,7 +496,7 @@ procSuite "Waku Archive - find messages":
     )
 
     ## When
-    let res = archiveA.findMessages(req)
+    let res = waitFor archiveA.findMessages(req)
 
     ## Then
     check res.isOk()
@@ -528,7 +515,7 @@ procSuite "Waku Archive - find messages":
     )
 
     ## When
-    let res = archiveA.findMessages(req)
+    let res = waitFor archiveA.findMessages(req)
 
     ## Then
     check res.isOk()

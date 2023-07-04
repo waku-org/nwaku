@@ -1,5 +1,7 @@
 # Dingpu testnet
 
+> TODO (2023-05-24): Deprecate or fix
+
 *NOTE: Some of these addresses might change. To get the latest, please see `curl -s https://fleets.status.im | jq '.fleets["wakuv2.test"]'`*
 
 ## Basic chat usage
@@ -19,7 +21,7 @@ Then type messages to publish.
 
 ## Interactively add a node
 
-There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is adviced not to use this until this has been addressed. See https://github.com/status-im/nim-waku/issues/231
+There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is adviced not to use this until this has been addressed. See https://github.com/waku-org/nwaku/issues/231
 
 ## Dingpu cluster node
 

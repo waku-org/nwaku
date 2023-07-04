@@ -7,14 +7,13 @@ import
   chronos
 import
   ../../../waku/common/sqlite,
-  ../../../waku/v2/protocol/waku_archive,
-  ../../../waku/v2/protocol/waku_archive/driver/sqlite_driver,
-  ../../../waku/v2/protocol/waku_archive/retention_policy,
-  ../../../waku/v2/protocol/waku_archive/retention_policy/retention_policy_capacity,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/utils/time,
-  ../utils,
-  ../testlib/common
+  ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_archive,
+  ../../../waku/v2/waku_archive/driver/sqlite_driver,
+  ../../../waku/v2/waku_archive/retention_policy,
+  ../../../waku/v2/waku_archive/retention_policy/retention_policy_capacity,
+  ../testlib/common,
+  ../testlib/wakucore
 
 
 proc newTestDatabase(): SqliteDatabase =
@@ -41,11 +40,11 @@ suite "Waku Archive - Retention policy":
     for i in 1..capacity+excess:
       let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
 
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-      require retentionPolicy.execute(driver).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
-    let numMessages = driver.getMessagesCount().tryGet()
+    let numMessages = (waitFor driver.getMessagesCount()).tryGet()
     check:
       # Expected number of messages is 120 because
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
@@ -53,7 +52,7 @@ suite "Waku Archive - Retention policy":
       numMessages == 120
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")
 
   test "store capacity should be limited":
     ## Given
@@ -77,11 +76,11 @@ suite "Waku Archive - Retention policy":
 
     ## When
     for msg in messages:
-      require driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
-      require retentionPolicy.execute(driver).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
-    let storedMsg = driver.getAllMessages().tryGet()
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     check:
       storedMsg.len == capacity
       storedMsg.all do (item: auto) -> bool:
@@ -90,4 +89,4 @@ suite "Waku Archive - Retention policy":
         pubsubTopic == DefaultPubsubTopic
 
     ## Cleanup
-    driver.close().expect("driver to close")
+    (waitFor driver.close()).expect("driver to close")

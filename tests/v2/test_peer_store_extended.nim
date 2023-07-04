@@ -1,17 +1,18 @@
 {.used.}
 
 import
-  std/[options,sequtils],
+  std/[sequtils, times],
+  chronos,
   libp2p/crypto/crypto,
+  libp2p/peerid,
   libp2p/peerstore,
   libp2p/multiaddress,
   testutils/unittests
 import
   ../../waku/v2/node/peer_manager/peer_manager,
   ../../waku/v2/node/peer_manager/waku_peer_store,
-  ../../waku/v2/node/waku_node,
-  ../test_helpers,
-  ./testlib/testutils
+  ../../waku/v2/waku_node,
+  ./testlib/wakucore
 
 
 suite "Extended nim-libp2p Peer Store":
@@ -22,7 +23,7 @@ suite "Extended nim-libp2p Peer Store":
 
   setup:
     # Setup a nim-libp2p peerstore with some peers
-    let peerStore = PeerStore.new(capacity = 50)
+    let peerStore = PeerStore.new(nil, capacity = 50)
     var p1, p2, p3, p4, p5, p6: PeerId
 
     # create five peers basePeerId + [1-5]
@@ -38,82 +39,101 @@ suite "Extended nim-libp2p Peer Store":
     # Peer1: Connected
     peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
     peerStore[ProtoBook][p1] = @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-    peerStore[KeyBook][p1] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p1] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p1] = "nwaku"
     peerStore[ProtoVersionBook][p1] = "protoVersion1"
     peerStore[ConnectionBook][p1] = Connected
     peerStore[DisconnectBook][p1] = 0
     peerStore[SourceBook][p1] = Discv5
+    peerStore[DirectionBook][p1] = Inbound
+    peerStore[NumberFailedConnBook][p1] = 1
+    peerStore[LastFailedConnBook][p1] = Moment.init(1001, Second)
 
     # Peer2: Connected
     peerStore[AddressBook][p2] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()]
     peerStore[ProtoBook][p2] = @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
-    peerStore[KeyBook][p2] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p2] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p2] = "nwaku"
     peerStore[ProtoVersionBook][p2] = "protoVersion2"
     peerStore[ConnectionBook][p2] = Connected
     peerStore[DisconnectBook][p2] = 0
     peerStore[SourceBook][p2] = Discv5
+    peerStore[DirectionBook][p2] = Inbound
+    peerStore[NumberFailedConnBook][p2] = 2
+    peerStore[LastFailedConnBook][p2] = Moment.init(1002, Second)
 
     # Peer3: Connected
     peerStore[AddressBook][p3] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
     peerStore[ProtoBook][p3] = @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
-    peerStore[KeyBook][p3] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p3] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p3] = "gowaku"
     peerStore[ProtoVersionBook][p3] = "protoVersion3"
     peerStore[ConnectionBook][p3] = Connected
     peerStore[DisconnectBook][p3] = 0
     peerStore[SourceBook][p3] = Discv5
+    peerStore[DirectionBook][p3] = Inbound
+    peerStore[NumberFailedConnBook][p3] = 3
+    peerStore[LastFailedConnBook][p3] = Moment.init(1003, Second)
 
     # Peer4: Added but never connected
     peerStore[AddressBook][p4] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()]
     # unknown: peerStore[ProtoBook][p4]
-    peerStore[KeyBook][p4] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p4] = generateEcdsaKeyPair().pubkey
     # unknown: peerStore[AgentBook][p4]
     # unknown: peerStore[ProtoVersionBook][p4]
     peerStore[ConnectionBook][p4] = NotConnected
     peerStore[DisconnectBook][p4] = 0
     peerStore[SourceBook][p4] = Discv5
+    peerStore[DirectionBook][p4] = Inbound
+    peerStore[NumberFailedConnBook][p4] = 4
+    peerStore[LastFailedConnBook][p4] = Moment.init(1004, Second)
 
     # Peer5: Connecteed in the past
     peerStore[AddressBook][p5] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()]
     peerStore[ProtoBook][p5] = @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
-    peerStore[KeyBook][p5] = KeyPair.random(ECDSA, rng[]).tryGet().pubkey
+    peerStore[KeyBook][p5] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p5] = "gowaku"
     peerStore[ProtoVersionBook][p5] = "protoVersion5"
     peerStore[ConnectionBook][p5] = CanConnect
     peerStore[DisconnectBook][p5] = 1000
     peerStore[SourceBook][p5] = Discv5
+    peerStore[DirectionBook][p5] = Outbound
+    peerStore[NumberFailedConnBook][p5] = 5
+    peerStore[LastFailedConnBook][p5] = Moment.init(1005, Second)
 
   test "get() returns the correct StoredInfo for a given PeerId":
     # When
-    let storedInfoPeer1 = peerStore.get(p1)
-    let storedInfoPeer6 = peerStore.get(p6)
+    let peer1 = peerStore.get(p1)
+    let peer6 = peerStore.get(p6)
 
     # Then
     check:
       # regression on nim-libp2p fields
-      storedInfoPeer1.peerId == p1
-      storedInfoPeer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
-      storedInfoPeer1.protos == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-      storedInfoPeer1.agent == "nwaku"
-      storedInfoPeer1.protoVersion == "protoVersion1"
+      peer1.peerId == p1
+      peer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+      peer1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      peer1.agent == "nwaku"
+      peer1.protoVersion == "protoVersion1"
 
       # our extended fields
-      storedInfoPeer1.connectedness == Connected
-      storedInfoPeer1.disconnectTime == 0
-      storedInfoPeer1.origin == Discv5
+      peer1.connectedness == Connected
+      peer1.disconnectTime == 0
+      peer1.origin == Discv5
+      peer1.numberFailedConn == 1
+      peer1.lastFailedConn == Moment.init(1001, Second)
 
     check:
-      # fields are empty
-      storedInfoPeer6.peerId == p6
-      storedInfoPeer6.addrs.len == 0
-      storedInfoPeer6.protos.len == 0
-      storedInfoPeer6.agent == ""
-      storedInfoPeer6.protoVersion == ""
-      storedInfoPeer6.connectedness == NotConnected
-      storedInfoPeer6.disconnectTime == 0
-      storedInfoPeer6.origin == Unknown
+      # fields are empty, not part of the peerstore
+      peer6.peerId == p6
+      peer6.addrs.len == 0
+      peer6.protocols.len == 0
+      peer6.agent == default(string)
+      peer6.protoVersion == default(string)
+      peer6.connectedness == default(Connectedness)
+      peer6.disconnectTime == default(int)
+      peer6.origin == default(PeerOrigin)
+      peer6.numberFailedConn == default(int)
+      peer6.lastFailedConn == default(Moment)
 
   test "peers() returns all StoredInfo of the PeerStore":
     # When
@@ -133,7 +153,7 @@ suite "Extended nim-libp2p Peer Store":
     check:
       # regression on nim-libp2p fields
       p3.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
-      p3.protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      p3.protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
       p3.agent == "gowaku"
       p3.protoVersion == "protoVersion3"
 
@@ -141,6 +161,8 @@ suite "Extended nim-libp2p Peer Store":
       p3.connectedness == Connected
       p3.disconnectTime == 0
       p3.origin == Discv5
+      p3.numberFailedConn == 3
+      p3.lastFailedConn == Moment.init(1003, Second)
 
   test "peers() returns all StoredInfo matching a specific protocol":
     # When
@@ -158,7 +180,7 @@ suite "Extended nim-libp2p Peer Store":
       # Only p3 supports that protocol
       lpPeers.len == 1
       lpPeers.anyIt(it.peerId == p3)
-      lpPeers[0].protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      lpPeers[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
 
   test "peers() returns all StoredInfo matching a given protocolMatcher":
     # When
@@ -175,28 +197,25 @@ suite "Extended nim-libp2p Peer Store":
       pMatcherStorePeers.anyIt(it.peerId == p5)
 
     check:
-      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protos == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protos == @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protos == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
-      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protos == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protocols == @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
     check:
       pMatcherSwapPeers.len == 1
       pMatcherSwapPeers.anyIt(it.peerId == p5)
-      pMatcherSwapPeers[0].protos == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherSwapPeers[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
   test "toRemotePeerInfo() converts a StoredInfo to a RemotePeerInfo":
     # Given
-    let storedInfoPeer1 = peerStore.get(p1)
-
-    # When
-    let remotePeerInfo1 = storedInfoPeer1.toRemotePeerInfo()
+    let peer1 = peerStore.get(p1)
 
     # Then
     check:
-      remotePeerInfo1.peerId == p1
-      remotePeerInfo1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
-      remotePeerInfo1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      peer1.peerId == p1
+      peer1.addrs == @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+      peer1.protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
 
   test "connectedness() returns the connection status of a given PeerId":
     check:
@@ -245,12 +264,57 @@ suite "Extended nim-libp2p Peer Store":
       peerStore.hasPeers(protocolMatcher("/vac/waku/store/2.0.0"))
       not peerStore.hasPeers(protocolMatcher("/vac/waku/does-not-exist/2.0.0"))
 
-  test "selectPeer() returns if a peer supports a given protocol":
+  test "getPeersByDirection()":
     # When
-    let swapPeer = peerStore.selectPeer("/vac/waku/swap/2.0.0")
+    let inPeers = peerStore.getPeersByDirection(Inbound)
+    let outPeers = peerStore.getPeersByDirection(Outbound)
 
     # Then
     check:
-      swapPeer.isSome()
-      swapPeer.get().peerId == p5
-      swapPeer.get().protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      inPeers.len == 4
+      outPeers.len == 1
+
+  test "getNotConnectedPeers()":
+    # When
+    let disconnedtedPeers = peerStore.getNotConnectedPeers()
+
+    # Then
+    check:
+      disconnedtedPeers.len == 2
+      disconnedtedPeers.anyIt(it.peerId == p4)
+      disconnedtedPeers.anyIt(it.peerId == p5)
+      not disconnedtedPeers.anyIt(it.connectedness == Connected)
+
+  test "del() successfully deletes waku custom books":
+    # Given
+    let peerStore = PeerStore.new(nil, capacity = 5)
+    var p1: PeerId
+    require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW" & "1")
+    peerStore[AddressBook][p1] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()]
+    peerStore[ProtoBook][p1] = @["proto"]
+    peerStore[KeyBook][p1] = generateEcdsaKeyPair().pubkey
+    peerStore[AgentBook][p1] = "agent"
+    peerStore[ProtoVersionBook][p1] = "version"
+    peerStore[LastFailedConnBook][p1] = Moment.init(getTime().toUnix, Second)
+    peerStore[NumberFailedConnBook][p1] = 1
+    peerStore[ConnectionBook][p1] = Connected
+    peerStore[DisconnectBook][p1] = 0
+    peerStore[SourceBook][p1] = Discv5
+    peerStore[DirectionBook][p1] = Inbound
+
+    # When
+    peerStore.del(p1)
+
+    # Then
+    check:
+      peerStore[AddressBook][p1] == newSeq[MultiAddress](0)
+      peerStore[ProtoBook][p1] == newSeq[string](0)
+      peerStore[KeyBook][p1] == default(PublicKey)
+      peerStore[AgentBook][p1] == ""
+      peerStore[ProtoVersionBook][p1] == ""
+      peerStore[LastFailedConnBook][p1] == default(Moment)
+      peerStore[NumberFailedConnBook][p1] == 0
+      peerStore[ConnectionBook][p1] == default(Connectedness)
+      peerStore[DisconnectBook][p1] == 0
+      peerStore[SourceBook][p1] == default(PeerOrigin)
+      peerStore[DirectionBook][p1] == default(PeerDirection)

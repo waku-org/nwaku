@@ -2,49 +2,51 @@
 
 import
   std/[sequtils, tables],
-  testutils/unittests,
   stew/shims/net,
   stew/[base32, results],
+  testutils/unittests,
   chronicles,
   chronos,
   libp2p/crypto/crypto,
   eth/keys,
   discovery/dnsdisc/builder
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
-  ../../waku/v2/node/waku_node,
-  ../test_helpers
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/waku_node,
+  ../../waku/v2/waku_dnsdisc,
+  ./testlib/common,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
-procSuite "Waku DNS Discovery":
+suite "Waku DNS Discovery":
   asyncTest "Waku DNS Discovery end-to-end":
     ## Tests integrated DNS discovery, from building
     ## the tree to connecting to discovered nodes
-    
+
     # Create nodes and ENR. These will be added to the discoverable list
     let
       bindIp = ValidIpAddress.init("0.0.0.0")
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, bindIp, Port(63500))
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, bindIp, Port(63500))
       enr1 = node1.enr
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, bindIp, Port(63502))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, bindIp, Port(63502))
       enr2 = node2.enr
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, bindIp, Port(63503))
+      nodeKey3 = generateSecp256k1Key()
+      node3 = newTestWakuNode(nodeKey3, bindIp, Port(63503))
       enr3 = node3.enr
-    
+
     await node1.mountRelay()
     await node2.mountRelay()
     await node3.mountRelay()
     await allFutures([node1.start(), node2.start(), node3.start()])
-    
+
     # Build and sign tree
     var tree = buildTree(1,                   # Seq no
                          @[enr1, enr2, enr3], # ENR entries
                          @[]).get()           # No link entries
 
-    let treeKeys = keys.KeyPair.random(keys.newRng()[])
+    let treeKeys = keys.KeyPair.random(rng[])
 
     # Sign tree
     check:
@@ -56,21 +58,21 @@ procSuite "Waku DNS Discovery":
       zoneTxts = tree.buildTXT(domain).get()
       username = Base32.encode(treeKeys.pubkey().toRawCompressed())
       location = LinkPrefix & username & "@" & domain # See EIP-1459: https://eips.ethereum.org/EIPS/eip-1459
-    
+
     # Create a resolver for the domain
 
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
       return zoneTxts[domain]
-    
+
     # Create Waku DNS discovery client on a new Waku v2 node using the resolver
 
     let
-      nodeKey4 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node4 = WakuNode.new(nodeKey4, bindIp, Port(63504))
-    
+      nodeKey4 = generateSecp256k1Key()
+      node4 = newTestWakuNode(nodeKey4, bindIp, Port(63504))
+
     await node4.mountRelay()
     await node4.start()
-    
+
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 
     let res = wakuDnsDisc.findPeers()
@@ -82,7 +84,7 @@ procSuite "Waku DNS Discovery":
       res[].mapIt(it.peerId).contains(node1.switch.peerInfo.peerId)
       res[].mapIt(it.peerId).contains(node2.switch.peerInfo.peerId)
       res[].mapIt(it.peerId).contains(node3.switch.peerInfo.peerId)
-    
+
     # Connect to discovered nodes
     await node4.connectToNodes(res[])
 

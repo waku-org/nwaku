@@ -13,7 +13,7 @@ see our [step-by-step guide](./overview.md).
 such as a C compiler, Make, Bash and Git.*
 
 ```bash
-git clone --recurse-submodules https://github.com/status-im/nwaku
+git clone --recurse-submodules https://github.com/waku-org/nwaku
 cd nwaku
 make wakunode2
 ./build/wakunode2 \

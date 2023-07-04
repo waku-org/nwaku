@@ -1,10 +1,12 @@
-# BUILD IMAGE ------------------------------------------------------------------
+# BUILD NIM APP ----------------------------------------------------------------
 
 FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
 ARG EXPERIMENTAL=false
+ARG NIM_COMMIT
+ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
 RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
@@ -16,10 +18,10 @@ COPY . .
 RUN git submodule update --init --recursive
 
 # Slowest build step for the sake of caching layers
-RUN make -j$(nproc) deps
+RUN make -j$(nproc) deps QUICK_AND_DIRTY_COMPILER=1 ${NIM_COMMIT}
 
 # Build the final node binary
-RUN make -j$(nproc) $MAKE_TARGET NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
+RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
 
 
 # PRODUCTION IMAGE -------------------------------------------------------------
@@ -52,13 +54,34 @@ COPY --from=nim-build /app/migrations/ /app/migrations/
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
 
 ENTRYPOINT ["/usr/bin/wakunode"]
+
 # By default just show help if called without arguments
 CMD ["--help"]
 
 
-# EXPERIMENTAL IMAGE -----------------------------------------------------------
+# DEBUG IMAGE ------------------------------------------------------------------
 
-FROM prod AS experimental
+# Build debug tools: heaptrack
+FROM alpine:3.16 AS heaptrack-build
 
-# If RLN enabled, copy RLN resources (WASM ZK circuit, proving and verification keys) used by tests
-COPY --from=nim-build /app/vendor/zerokit/rln/resources/ vendor/zerokit/rln/resources/
+RUN apk update
+RUN apk add -- gdb git g++ make cmake zlib-dev boost-dev libunwind-dev
+RUN git clone https://github.com/KDE/heaptrack.git /heaptrack
+
+WORKDIR /heaptrack/build
+RUN cmake -DCMAKE_BUILD_TYPE=Release ..
+RUN make -j$(nproc)
+
+
+# Debug image
+FROM prod AS debug
+
+RUN apk add --no-cache gdb libunwind
+
+# Add heaptrack
+COPY --from=heaptrack-build /heaptrack/build/ /heaptrack/build/
+
+ENV LD_LIBRARY_PATH=/heaptrack/build/lib/heaptrack/
+RUN ln -s /heaptrack/build/bin/heaptrack /usr/local/bin/heaptrack
+
+ENTRYPOINT ["/heaptrack/build/bin/heaptrack", "/usr/bin/wakunode"]

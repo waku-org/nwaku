@@ -13,42 +13,55 @@ jobs:
       matrix:
         env:
           - { NPROC: 2 }
-        platform: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.platform }}
+        os: [ubuntu-latest, macos-latest]
+        arch: [amd64]
+        include:
+        - os: macos-latest
+          experimental: false
+          arch: arm64
+    runs-on: ${{ matrix.os }}
     env: ${{ matrix.env }}
     timeout-minutes: 60
 
-    name: ${{ matrix.platform }} - ${{ matrix.env.NPROC }} processes
+    name: ${{ matrix.os }} - ${{ matrix.env.NPROC }} processes
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-        # We need to do this because of how github cache works
-        # I am not sure we can move the cache file, so if we do not do this
-        # make update breaks because the cached compiler is there where the submodules
-        # are meant to go.
-      - name: Submodules
+      - name: Get submodules hash
+        id: submodules
         run: |
-          git submodule update --init --recursive
-          
-      - name: Cache nim
-        uses: actions/cache@v1
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
+
+      - name: Cache submodules
+        uses: actions/cache@v3
         with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-${{ matrix.env.NPROC }}-nim-${{ hashFiles('.gitmodules') }}
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-${{matrix.arch}}-submodules-${{ steps.submodules.outputs.hash }}
+
+      - name: prep variables
+        id: vars
+        run: |
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku${EXPERIMENTAL}-${{matrix.arch}}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
+
+          echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
 
       - name: Install dependencies
         run: |
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" V=1 update 
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false wakunode1
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false wakunode2
-          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC}" CI=false chat2
-          tar -cvzf nim-waku-${{ matrix.platform }}.tar.gz ./build/
+          OS=$([[ "${{runner.os}}" == "macOS" ]] && echo "macosx" || echo "linux")
+
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" V=1 update
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" CI=false wakunode1
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" CI=false wakunode2
+          make -j${NPROC} NIMFLAGS="--parallelBuild:${NPROC} -d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" CI=false chat2
+          tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/
 
       - name: Upload asset
         uses: actions/upload-artifact@v2.2.3
         with:
-          name: nim-waku-${{ matrix.platform }}.tar.gz
-          path: nim-waku-${{ matrix.platform }}.tar.gz
+          name: ${{steps.vars.outputs.nwaku}}
+          path: ${{steps.vars.outputs.nwaku}}
           if-no-files-found: error

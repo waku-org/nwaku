@@ -1,11 +1,12 @@
 {.used.}
 
 import
+  std/sequtils,
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles, 
-  chronos, 
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
@@ -13,24 +14,26 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/nameresolving/mockresolver
+  libp2p/nameresolving/mockresolver,
+  eth/p2p/discoveryv5/enr
 import
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_relay,
-  ../../waku/v2/utils/peers
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_node,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/waku_relay,
+  ../../waku/v2/waku_peer_exchange,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
-procSuite "WakuNode":
-  let rng = crypto.newRng()
-   
+suite "WakuNode":
+
   asyncTest "Protocol matcher works as expected":
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61000))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61002))
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61000))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61002))
       pubSubTopic = "/waku/2/default-waku/proto"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -57,14 +60,11 @@ procSuite "WakuNode":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: string, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data)
-      if msg.isOk():
-        let val = msg.value()
-        check:
-          topic == pubSubTopic
-          val.contentTopic == contentTopic
-          val.payload == payload
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      check:
+        topic == pubSubTopic
+        msg.contentTopic == contentTopic
+        msg.payload == payload
       completionFut.complete(true)
 
     node2.subscribe(pubSubTopic, relayHandler)
@@ -84,10 +84,10 @@ procSuite "WakuNode":
     resolver.ipResponses[("localhost", false)] = @["127.0.0.1"]
 
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61020), nameResolver = resolver)
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61022))
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61020), nameResolver = resolver)
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61022))
 
     # Construct DNS multiaddr for node2
     let
@@ -109,14 +109,14 @@ procSuite "WakuNode":
   asyncTest "Maximum connections can be configured":
     let
       maxConnections = 2
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
         Port(60010), maxConnections = maxConnections)
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"),
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
         Port(60012))
-      nodeKey3 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node3 = WakuNode.new(nodeKey3, ValidIpAddress.init("0.0.0.0"),
+      nodeKey3 = generateSecp256k1Key()
+      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"),
         Port(60013))
 
     check:
@@ -135,9 +135,9 @@ procSuite "WakuNode":
     await node3.start()
     await node3.mountRelay()
 
-    discard await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    discard await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
     await sleepAsync(3.seconds)
-    discard await node1.peerManager.dialPeer(node3.switch.peerInfo.toRemotePeerInfo(), WakuRelayCodec)
+    discard await node1.peerManager.connectRelay(node3.switch.peerInfo.toRemotePeerInfo())
 
     check:
       # Verify that only the first connection succeeded
@@ -147,25 +147,24 @@ procSuite "WakuNode":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Messages fails with wrong key path":
-    let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
+    let nodeKey1 = generateSecp256k1Key()
 
-    expect IOError:
+    expect ResultDefect:
       # gibberish
-      discard WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(61004), 
-        wsBindPort = Port(8000), 
-        wssEnabled = true, 
+      discard newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
+        bindPort = Port(61004),
+        wsBindPort = Port(8000),
+        wssEnabled = true,
         secureKey = "../../waku/v2/node/key_dummy.txt")
 
   asyncTest "Peer info updates with correct announced addresses":
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       bindIp = ValidIpAddress.init("0.0.0.0")
       bindPort = Port(61006)
       extIp = some(ValidIpAddress.init("127.0.0.1"))
       extPort = some(Port(61008))
-      node = WakuNode.new(
+      node = newTestWakuNode(
         nodeKey,
         bindIp, bindPort,
         extIp, extPort)
@@ -199,14 +198,14 @@ procSuite "WakuNode":
 
   asyncTest "Node can use dns4 in announced addresses":
     let
-      nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
+      nodeKey = generateSecp256k1Key()
       bindIp = ValidIpAddress.init("0.0.0.0")
       bindPort = Port(61010)
       extIp = some(ValidIpAddress.init("127.0.0.1"))
       extPort = some(Port(61012))
       domainName = "example.com"
       expectedDns4Addr = MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
-      node = WakuNode.new(
+      node = newTestWakuNode(
         nodeKey,
         bindIp, bindPort,
         extIp, extPort,
@@ -216,7 +215,7 @@ procSuite "WakuNode":
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(expectedDns4Addr)
 
-   
+
   asyncTest "Agent string is set and advertised correctly":
     let
       # custom agent string
@@ -226,13 +225,13 @@ procSuite "WakuNode":
       expectedAgentString2 = "nim-libp2p/0.0.1"
     let
       # node with custom agent string
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61014),
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61014),
                            agentString = some(expectedAgentString1))
 
       # node with default agent string from libp2p
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61016))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61016))
 
     await node1.start()
     await node1.mountRelay()
@@ -251,3 +250,62 @@ procSuite "WakuNode":
       node2Agent == expectedAgentString2
 
     await allFutures(node1.stop(), node2.stop())
+
+  asyncTest "Custom multiaddresses are set and advertised correctly":
+    let
+      # custom multiaddress
+      expectedMultiaddress1 = MultiAddress.init("/ip4/200.200.200.200/tcp/1234").get()
+
+    # Note: this could have been done with a single node, but it is useful to
+    # have two nodes to check that the multiaddress is advertised correctly
+    let
+      # node with custom multiaddress
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(61018),
+                           extMultiAddrs = @[expectedMultiaddress1])
+
+      # node with default multiaddress
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(61020))
+
+    await node1.start()
+    await node1.mountRelay()
+
+    await node2.start()
+    await node2.mountRelay()
+
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+    await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
+
+    let node1MultiAddrs = node2.switch.peerStore[AddressBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
+
+    check:
+      node1MultiAddrs.contains(expectedMultiaddress1)
+
+    await allFutures(node1.stop(), node2.stop())
+
+  asyncTest "Function fetchPeerExchangePeers succesfully exchanges px peers":
+    let
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # Start and mount peer exchange
+    await allFutures([node1.start(), node2.start()])
+    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+    # Mock that we discovered a node (to avoid running discv5)
+    var enr = enr.Record()
+    require enr.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
+    node2.wakuPeerExchange.enrCache.add(enr)
+
+    # Set node2 as service peer (default one) for px protocol
+    node1.peerManager.addServicePeer(node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
+
+    # Request 1 peer from peer exchange protocol
+    await node1.fetchPeerExchangePeers(1)
+
+    # Check that the peer ended up in the peerstore
+    let rpInfo = enr.toRemotePeerInfo.get()
+    check:
+      node1.peerManager.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
+      node1.peerManager.peerStore.peers.anyIt(it.addrs == rpInfo.addrs)

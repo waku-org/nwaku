@@ -9,10 +9,12 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[tables, strformat, strutils, times, json, options, random]
+import std/[strformat, strutils, times, json, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, results],
-       nimcrypto/pbkdf2
+       nimcrypto/pbkdf2,
+       metrics,
+       metrics/chronos_httpserver
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
                crypto/crypto,            # cryptographic functions
                stream/connection,        # create and close stream read / write connections
@@ -23,22 +25,25 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver]# define DNS resolution
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_lightpush/rpc,
-  ../../waku/v2/protocol/waku_filter,
-  ../../waku/v2/protocol/waku_store,
-  ../../waku/v2/node/[waku_node, waku_payload, waku_metrics],
-  ../../waku/v2/node/dnsdisc/waku_dnsdisc,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/[peers, time],
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_lightpush,
+  ../../waku/v2/waku_lightpush/rpc,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/waku_store,
+  ../../waku/v2/waku_dnsdisc,
+  ../../waku/v2/waku_node,
+  ../../waku/v2/node/waku_metrics,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/utils/compat,
   ../../waku/common/utils/nat,
   ./config_chat2
 
 when defined(rln):
   import
     libp2p/protocols/pubsub/rpc/messages,
-    libp2p/protocols/pubsub/pubsub,
-    ../../waku/v2/protocol/waku_rln_relay
+    libp2p/protocols/pubsub/pubsub
+  import
+    ../../waku/v2/waku_rln_relay
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
@@ -67,7 +72,7 @@ type Chat = ref object
 
 type
   PrivateKey* = crypto.PrivateKey
-  Topic* = waku_message.PubsubTopic
+  Topic* = waku_core.PubsubTopic
 
 #####################
 ## chat2 protobufs ##
@@ -113,7 +118,7 @@ proc toString*(message: Chat2Message): string =
 
 # Similarly as Status public chats now.
 proc generateSymKey(contentTopic: ContentTopic): SymKey =
-  var ctx: HMAC[sha256]
+  var ctx: HMAC[pbkdf2.sha256]
   var symKey: SymKey
   if pbkdf2(ctx, contentTopic.toBytes(), "", 65356, symKey) != sizeof(SymKey):
     raise (ref Defect)(msg: "Should not occur as array is properly sized")
@@ -201,6 +206,24 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   stdout.write("Choose a nickname >> ")
   stdout.flushFile()
   return await transp.readLine()
+
+
+proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
+  info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
+
+  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
+  if metricsServerRes.isErr():
+    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
+
+  let server = metricsServerRes.value
+  try:
+    waitFor server.start()
+  except CatchableError:
+    return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
+
+  info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
+  ok(metricsServerRes.value)
+
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
@@ -370,30 +393,41 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
     discard waitFor transp.write(line & "\r\n")
 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
-proc processInput(rfd: AsyncFD) {.async.} =
+proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let
     transp = fromPipe(rfd)
     conf = Chat2Conf.load()
+    nodekey = if conf.nodekey.isSome(): conf.nodekey.get()
+              else: PrivateKey.random(Secp256k1, rng[]).tryGet()
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let
-    (extIp, extTcpPort, extUdpPort) = setupNat(conf.nat, clientId,
+  let natRes = setupNat(conf.nat, clientId,
       Port(uint16(conf.tcpPort) + conf.portsShift),
       Port(uint16(conf.udpPort) + conf.portsShift))
-    node = WakuNode.new(conf.nodekey, conf.listenAddress,
-      Port(uint16(conf.tcpPort) + conf.portsShift),
-      extIp, extTcpPort,
-      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-      wsEnabled = conf.websocketSupport,
-      wssEnabled = conf.websocketSecureSupport)
+
+  if natRes.isErr():
+    raise newException(ValueError, "setupNat error " & natRes.error)
+
+  let (extIp, extTcpPort, extUdpPort) = natRes.get()
+
+  let node = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(nodeKey)
+      builder.withNetworkConfigurationDetails(conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
+                                              extIp, extTcpPort,
+                                              wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+                                              wsEnabled = conf.websocketSupport,
+                                              wssEnabled = conf.websocketSecureSupport).tryGet()
+      builder.build().tryGet()
+
   await node.start()
 
   if conf.rlnRelayEthAccountPrivateKey == "" and conf.rlnRelayCredPath == "":
     raise newException(ConfigurationError,
-    "Either rln-relay-eth-private-key or rln-relay-cred-path MUST be passed")
+    "Either rln-relay-eth-account-private-key or rln-relay-cred-path MUST be passed")
 
   if conf.relay:
     await node.mountRelay(conf.topics.split(" "))
@@ -464,16 +498,18 @@ proc processInput(rfd: AsyncFD) {.async.} =
   let listenStr = $peerInfo.addrs[0] & "/p2p/" & $peerInfo.peerId
   echo &"Listening on\n {listenStr}"
 
-  if conf.swap:
-    await node.mountSwap()
-
   if (conf.storenode != "") or (conf.store == true):
     await node.mountStore()
 
     var storenode: Option[RemotePeerInfo]
 
     if conf.storenode != "":
-      storenode = some(parseRemotePeerInfo(conf.storenode))
+      let peerInfo = parsePeerInfo(conf.storenode)
+      if peerInfo.isOk():
+        storenode = some(peerInfo.value)
+      else:
+        error "Incorrect conf.storenode", error = peerInfo.error
+
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
       storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
@@ -483,7 +519,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
       echo "Connecting to storenode: " & $(storenode.get())
 
       node.mountStoreClient()
-      node.setStorePeer(storenode.get())
+      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:
@@ -500,36 +536,39 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   # NOTE Must be mounted after relay
   if conf.lightpushnode != "":
-    await mountLightPush(node)
-
-    node.mountLightPushClient()
-    node.setLightPushPeer(conf.lightpushnode)
+    let peerInfo = parsePeerInfo(conf.lightpushnode)
+    if peerInfo.isOk():
+      await mountLightPush(node)
+      node.mountLightPushClient() 
+      node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
+    else:
+      error "LightPush not mounted. Couldn't parse conf.lightpushnode",
+                error = peerInfo.error
 
   if conf.filternode != "":
-    await node.mountFilter()
-    await node.mountFilterClient()
+    let peerInfo = parsePeerInfo(conf.filternode)
+    if peerInfo.isOk():
+      await node.mountFilter()
+      await node.mountFilterClient()
+      node.peerManager.addServicePeer(peerInfo.value, WakuFilterCodec)
 
-    node.setFilterPeer(parseRemotePeerInfo(conf.filternode))
+      proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
+        trace "Hit filter handler", contentTopic=msg.contentTopic
+        chat.printReceivedMessage(msg)
 
-    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.gcsafe.} =
-      trace "Hit filter handler", contentTopic=msg.contentTopic
+      await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
 
-      chat.printReceivedMessage(msg)
-
-    await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
+    else:
+      error "Filter not mounted. Couldn't parse conf.filternode",
+                error = peerInfo.error
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:
-    proc handler(topic: Topic, data: seq[byte]) {.async, gcsafe.} =
+    proc handler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       trace "Hit subscribe handler", topic
 
-      let decoded = WakuMessage.decode(data)
-
-      if decoded.isOk():
-        if decoded.get().contentTopic == chat.contentTopic:
-          chat.printReceivedMessage(decoded.get())
-      else:
-        trace "Invalid encoded WakuMessage", error = decoded.error
+      if msg.contentTopic == chat.contentTopic:
+        chat.printReceivedMessage(msg)
 
     let topic = DefaultPubsubTopic
     node.subscribe(topic, handler)
@@ -548,7 +587,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
           chat.prompt = false
           showChatPrompt(chat)
         proc registrationHandler(txHash: string) {.gcsafe, closure.} =
-          echo "You are registered to the rln membership contract, find details of your registration transaction in https://goerli.etherscan.io/tx/0x", txHash
+          echo "You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/", txHash
 
         echo "rln-relay preparation is in progress..."
 
@@ -556,7 +595,8 @@ proc processInput(rfd: AsyncFD) {.async.} =
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
           rlnRelayContentTopic: conf.rlnRelayContentTopic,
-          rlnRelayMembershipIndex: conf.rlnRelayMembershipIndex,
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayMembershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
           rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
           rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
@@ -565,22 +605,29 @@ proc processInput(rfd: AsyncFD) {.async.} =
           rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
         )
 
-        await node.mountRlnRelay(rlnConf, 
+        await node.mountRlnRelay(rlnConf,
                                  spamHandler=some(spamHandler),
                                  registrationHandler=some(registrationHandler))
 
-        echo "your membership index is: ", node.wakuRlnRelay.membershipIndex
-        echo "your rln identity trapdoor is: ", node.wakuRlnRelay.identityCredential.idTrapdoor.inHex()
-        echo "your rln identity nullifier is: ", node.wakuRlnRelay.identityCredential.idNullifier.inHex()
-        echo "your rln identity secret hash is: ", node.wakuRlnRelay.identityCredential.idSecretHash.inHex()
-        echo "your rln identity commitment key is: ", node.wakuRlnRelay.identityCredential.idCommitment.inHex()
-
+        let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
+        let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
+        echo "your membership index is: ", membershipIndex
+        echo "your rln identity trapdoor is: ", identityCredential.idTrapdoor.inHex()
+        echo "your rln identity nullifier is: ", identityCredential.idNullifier.inHex()
+        echo "your rln identity secret hash is: ", identityCredential.idSecretHash.inHex()
+        echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
+    else:
+      info "WakuRLNRelay is disabled"
+      if conf.rlnRelay:
+        echo "WakuRLNRelay is disabled, please enable it by compiling with the RLN/EXPERIMENTAL flag"
   if conf.metricsLogging:
     startMetricsLog()
 
   if conf.metricsServer:
-    startMetricsServer(conf.metricsServerAddress,
-                       Port(conf.metricsServerPort + conf.portsShift))
+    let metricsServer = startMetricsServer(
+      conf.metricsServerAddress,
+      Port(conf.metricsServerPort + conf.portsShift)
+    )
 
 
   await chat.readWriteLoop()
@@ -590,7 +637,7 @@ proc processInput(rfd: AsyncFD) {.async.} =
 
   runForever()
 
-proc main() {.async.} =
+proc main(rng: ref HmacDrbgContext) {.async.} =
   let (rfd, wfd) = createAsyncPipe()
   if rfd == asyncInvalidPipe or wfd == asyncInvalidPipe:
     raise newException(ValueError, "Could not initialize pipe!")
@@ -598,7 +645,7 @@ proc main() {.async.} =
   var thread: Thread[AsyncFD]
   thread.createThread(readInput, wfd)
   try:
-    await processInput(rfd)
+    await processInput(rfd, rng)
   # Handle only ConfigurationError for now
   # TODO: Throw other errors from the mounting procedure
   except ConfigurationError as e:
@@ -606,8 +653,9 @@ proc main() {.async.} =
 
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
+  let rng = crypto.newRng()
   try:
-    waitFor(main())
+    waitFor(main(rng))
   except CatchableError as e:
     raise e
 

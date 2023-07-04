@@ -11,10 +11,16 @@ import
 const clientId = "Waku example v1"
 
 proc run(config: WakuNodeConf, rng: ref HmacDrbgContext) =
+
+  let natRes = setupNat(config.nat, clientId,
+                        Port(config.tcpPort + config.portsShift),
+                        Port(config.udpPort + config.portsShift))
+  if natRes.isErr():
+    fatal "setupNat failed", error = natRes.error
+    quit(1)
+
   # Set up the address according to NAT information.
-  let (ipExt, tcpPortExt, udpPortExt) = setupNat(config.nat, clientId,
-    Port(config.tcpPort + config.portsShift),
-    Port(config.udpPort + config.portsShift))
+  let (ipExt, tcpPortExt, udpPortExt) = natRes.get()
   # TODO: EthereumNode should have a better split of binding address and
   # external address. Also, can't have different ports as it stands now.
   let address = if ipExt.isNone():

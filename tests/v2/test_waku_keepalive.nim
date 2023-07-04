@@ -3,34 +3,33 @@
 import
   std/options,
   stew/shims/net as stewNet,
-  testutils/unittests, 
-  chronos, 
+  testutils/unittests,
+  chronos,
   chronicles,
   libp2p/switch,
-  libp2p/protobuf/minprotobuf,
   libp2p/protocols/ping,
-  libp2p/stream/bufferstream, 
+  libp2p/stream/bufferstream,
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/utils/peers,
-  ../test_helpers, 
-  ./utils
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_node,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
-procSuite "Waku Keepalive":
+suite "Waku Keepalive":
 
   asyncTest "handle ping keepalives":
     let
-      nodeKey1 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node1 = WakuNode.new(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(63010))
-      nodeKey2 = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      node2 = WakuNode.new(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(63012))
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     var completionFut = newFuture[bool]()
 
-    proc pingHandler(peerId: PeerID) {.async, gcsafe, raises: [Defect].} =
+    proc pingHandler(peerId: PeerID) {.async, gcsafe.} =
       debug "Ping received"
 
       check:
@@ -44,7 +43,7 @@ procSuite "Waku Keepalive":
 
     await node2.start()
     await node2.mountRelay()
-    
+
     let pingProto = Ping.new(handler = pingHandler)
     await pingProto.start()
     node2.switch.mount(pingProto)

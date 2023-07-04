@@ -11,15 +11,15 @@ import
   presto
 
 
-type RestServerResult*[T] = Result[T, cstring]
+type RestServerResult*[T] = Result[T, string]
 
 
 ### Configuration
 
-type RestServerConf* = object 
+type RestServerConf* = object
       cacheSize*: Natural ## \
         ## The maximum number of recently accessed states that are kept in \
-        ## memory. Speeds up requests obtaining information for consecutive  
+        ## memory. Speeds up requests obtaining information for consecutive
         ## slots or epochs.
 
       cacheTtl*: Natural ## \
@@ -65,8 +65,8 @@ proc init*(T: type RestServerRef,
     HttpServerFlags.QueryCommaSeparatedArray,
     HttpServerFlags.NotifyDisconnect
   }
-  
-  let 
+
+  let
     headersTimeout = if conf.requestTimeout == 0: chronos.InfiniteDuration
                      else: seconds(int64(conf.requestTimeout))
     maxHeadersSize = conf.maxRequestHeadersSize * 1024
@@ -77,20 +77,20 @@ proc init*(T: type RestServerRef,
   var res: RestResult[RestServerRef]
   try:
     res = RestServerRef.new(
-      router, 
-      address, 
+      router,
+      address,
       serverFlags = serverFlags,
       httpHeadersTimeout = headersTimeout,
       maxHeadersSize = maxHeadersSize,
       maxRequestBodySize = maxRequestBodySize
     )
-  except CatchableError as ex:
-    return err(cstring(ex.msg))
+  except CatchableError:
+    return err(getCurrentExceptionMsg())
 
-  res
-  
+  # RestResult error type is cstring, so we need to map it to string
+  res.mapErr(proc(err: cstring): string = $err)
+
 proc newRestHttpServer*(ip: ValidIpAddress, port: Port,
                         allowedOrigin=none(string),
                         conf=RestServerConf.default()): RestServerResult[RestServerRef] =
   RestServerRef.init(ip, port, allowedOrigin, conf)
-

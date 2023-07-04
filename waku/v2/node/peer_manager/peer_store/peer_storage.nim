@@ -7,6 +7,7 @@ else:
 import
   stew/results
 import
+  ../../../waku_core,
   ../waku_peer_store
 
 ## This module defines a peer storage interface. Implementations of
@@ -14,16 +15,16 @@ import
 
 type
   PeerStorage* = ref object of RootObj
-  
+
   PeerStorageResult*[T] = Result[T, string]
 
-  DataProc* = proc(peerId: PeerID, storedInfo: StoredInfo,
+  DataProc* = proc(peerId: PeerID, remotePeerInfo: RemotePeerInfo,
                    connectedness: Connectedness, disconnectTime: int64) {.closure, raises: [Defect].}
 
 # PeerStorage interface
 method put*(db: PeerStorage,
             peerId: PeerID,
-            storedInfo: StoredInfo,
+            remotePeerInfo: RemotePeerInfo,
             connectedness: Connectedness,
             disconnectTime: int64): PeerStorageResult[void] {.base.} = discard
 

@@ -24,7 +24,7 @@ converter toChroniclesLogLevel(level: LogLevel): chronicles.LogLevel =
   ## Map logging log levels to the corresponding nim-chronicles' log level
   try:
     parseEnum[chronicles.LogLevel]($level)
-  except:
+  except CatchableError:
     chronicles.LogLevel.NONE
 
 
@@ -71,7 +71,7 @@ proc writeAndFlush(f: File, s: LogOutputStr) =
   try:
     f.write(s)
     f.flushFile()
-  except:
+  except CatchableError:
     logLoggingFailure(cstring(s), getCurrentException())
 
 

@@ -11,32 +11,45 @@ import
 
 import
   ../../../waku/common/logging,
-  ../../../waku/v2/node/discv5/waku_discv5,
-  ../../../waku/v2/node/peer_manager/peer_manager,
-  ../../../waku/v2/node/waku_node,
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/utils/time,
-  ../../../waku/v2/utils/wakuenr
+  ../../../waku/v2/node/peer_manager,
+  ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_node,
+  ../../../waku/v2/waku_enr,
+  ../../../waku/v2/waku_discv5
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
-const bootstrapNodes = @["enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgnY0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQGH0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvYj5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"]
+
+
+const bootstrapNode = "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9D" &
+                      "OGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgn" &
+                      "Y0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY" &
+                      "24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQG" &
+                      "H0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvY" &
+                      "j5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"
 
 # careful if running pub and sub in the same machine
 const wakuPort = 60000
 const discv5Port = 9000
 
-proc setupAndPublish() {.async.} =
+proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     # use notice to filter all waku messaging
     setupLogLevel(logging.LogLevel.NOTICE)
     notice "starting publisher", wakuPort=wakuPort, discv5Port=discv5Port
     let
-        nodeKey = crypto.PrivateKey.random(Secp256k1, crypto.newRng()[])[]
+        nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
         ip = ValidIpAddress.init("0.0.0.0")
-        node = WakuNode.new(nodeKey, ip, Port(wakuPort))
-        flags = initWakuFlags(lightpush = false, filter = false, store = false, relay = true)
+        flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
+
+    var builder = WakuNodeBuilder.init()
+    builder.withNodeKey(nodeKey)
+    builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
+    let node = builder.build().tryGet()
+
+    var bootstrapNodeEnr: enr.Record
+    discard bootstrapNodeEnr.fromURI(bootstrapNode)
 
     # assumes behind a firewall, so not care about being discoverable
     node.wakuDiscv5 = WakuDiscoveryV5.new(
@@ -45,16 +58,18 @@ proc setupAndPublish() {.async.} =
         extUdpPort = none(Port),
         bindIP = ip,
         discv5UdpPort = Port(discv5Port),
-        bootstrapNodes = bootstrapNodes,
+        bootstrapEnrs = @[bootstrapNodeEnr],
         privateKey = keys.PrivateKey(nodeKey.skkey),
         flags = flags,
-        enrFields = [],
         rng = node.rng)
 
     await node.start()
     await node.mountRelay()
-    if not await node.startDiscv5():
-      error "failed to start discv5"
+    node.peerManager.start()
+
+    let discv5Res = await node.startDiscv5()
+    if discv5Res.isErr():
+      error "failed to start discv5", error= discv5Res.error
       quit(1)
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
@@ -84,5 +99,7 @@ proc setupAndPublish() {.async.} =
       notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       await sleepAsync(5000)
 
-asyncSpawn setupAndPublish()
-runForever()
+when isMainModule:
+  let rng = crypto.newRng()
+  asyncSpawn setupAndPublish(rng)
+  runForever()

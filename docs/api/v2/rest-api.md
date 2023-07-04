@@ -13,13 +13,28 @@ This API is divided in different _namespaces_ which group a set of resources:
 | `/admin` | Privileged access to the internal operations of the node. |
 | `/private` | Provides functionality to encrypt/decrypt `WakuMessage` payloads using either symmetric or asymmetric cryptography. This allows backwards compatibility with Waku v1 nodes. |
 
-The full HTTP REST API documentation can be found here: [TBD]() 
 
 ### API Specification
 
-The HTTP REST API has been designed following the OpenAPI 3.0.3 standard specification format. The OpenAPI specification file can be found here: [TBD]()
+The HTTP REST API has been designed following the OpenAPI 3.0.3 standard specification format.
+The OpenAPI specification files can be found here:
+
+| Namespace | OpenAPI file |
+------------|--------------
+| `/debug` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/debug/openapi.yaml) |
+| `/relay` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/relay/openapi.yaml) |
+| `/store` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/store/openapi.yaml) |
+| `/filter` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/filter/openapi.yaml) |
+
+The OpenAPI files can be analysed online with [Redocly](https://redocly.github.io/redoc/)
 
 Check the [OpenAPI Tools](https://openapi.tools/) site for the right tool for you (e.g. REST API client generator)
+
+A particular OpenAPI spec can be easily imported into [Postman](https://www.postman.com/downloads/)
+  1. Open Postman.
+  2. Click on File -> Import...
+  2. Load the openapi.yaml of interest, stored in your computer.
+  3. Then, requests can be made from within the 'Collections' section.
 
 
 ### Usage example
@@ -40,16 +55,4 @@ curl http://localhost:8645/debug/v1/info -s | jq
 
 
 ### Node configuration
-
-A subset of the node configuration can be used to modify the behaviour of the HTTP REST API. These are the relevant command line options:
-
-| CLI option | Description | Default value |
-|------------|-------------|---------------|
-|`--rest` | Enable Waku REST HTTP server. | `false` |
-|`--rest-address` | Listening address of the REST HTTP server. | `127.0.0.1` |
-|`--rest-port` | Listening port of the REST HTTP server. | `8645` |
-|`--rest-relay-cache-capacity` | Capacity of the Relay REST API message cache. | `30` |
-|`--rest-admin` | Enable access to REST HTTP Admin API. | `false` |
-|`--rest-private` | Enable access to REST HTTP Private API. | `false` |
-
-Note that these command line options have their counterpart option in the node configuration file.
+Find details [here](https://github.com/waku-org/nwaku/tree/master/docs/operators/how-to/configure-rest-api.md)

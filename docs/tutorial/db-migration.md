@@ -4,35 +4,34 @@ This tutorial explains the database migration process in nim-waku.
 # Contributors Guide
 ## Database Migration Flow
 Nim-waku utilizes the built-in `user_version` variable that Sqlite provides for tracking the database versions.
-The [user_version](https://github.com/status-im/nim-waku/blob/master/waku/v2/node/storage/migration/migration_types.nim) MUST be bumped up for every update on the database e.g, table schema/title change.
+The [user_version](https://github.com/waku-org/nwaku/blob/master/waku/v2/waku_archive/driver/sqlite_driver/migrations.nim) MUST be bumped up for every update on the database e.g, table schema/title change.
 Each update should be accompanied by a migration script to move the content of the old version of the database to the new version.
 The script MUST be added to the respective folder as explained in [Migration Folder Structure](#migration-folder-structure) with the proper naming as given in [ Migration Script Naming](#migration-file-naming). 
 
-The migration is invoked whenever the database `user_version` is behind the target [user_version](https://github.com/status-im/nim-waku/blob/master/waku/v2/node/storage/migration/migration_types.nim) indicated in the nim-waku application.  
-The respective migration scripts located in the [migrations folder](https://github.com/status-im/nim-waku/tree/master/waku/v2/node/storage/migration) will be executed to upgrade the database from its old version to the target version.
+The migration is invoked whenever the database `user_version` is behind the target [user_version](https://github.com/waku-org/nwaku/blob/master/waku/v2/waku_archive/driver/sqlite_driver/migrations.nim) indicated in the nim-waku application.  
+The respective migration scripts located in the [migrations folder](https://github.com/waku-org/nwaku/tree/master/migrations) will be executed to upgrade the database from its old version to the target version.
 
 ## Migration Folder Structure
-The [migrations folder](https://github.com/status-im/nim-waku/tree/master/waku/v2/node/storage/migration) is structured as below.
+The [migrations folder](https://github.com/waku-org/nwaku/tree/master/migrations) is structured as below.
 
 ```
-|-- migration
-|  |--migration_scripts
-|  |  |--message
-|  |  |  |--00001_basicMessageTable.up.sql
-|  |  |  |--00002_addSenderTimeStamp.up
-|  |  |  |-- ...
-|  |  |--peer
-|  |  |  |--00001_basicPeerTable.up.sql
-|  |  |  |-- ...
+migrations/
+├── message_store
+│   ├── 00001_addMessageTable.up.sql
+│   ├── 00002_addSenderTimeStamp.up.sql
+│   ├── ...
+└── peer_store
+    └── 00001_addPeerTable.up.sql
 ```
 
-The migration scripts are managed in two separate folders `message` and `peer`.
-The `message` folder contains the migration scripts related to the message store tables.
-Similarly, the `peer` folder contains the scripts relevant to the peer store tables.
+
+
+The migration scripts are managed in two separate folders `message_store` and `peer_store`.
+The `message_store` folder contains the migration scripts related to the message store tables. Similarly, the `peer_store` folder contains the scripts relevant to the peer store tables.
 
 
 ## Migration File Naming
-The files in [migrations folder](https://github.com/status-im/nim-waku/tree/master/waku/v2/node/storage/migration) MUST follow the following naming style in order to be properly included in the migration process. 
+The files in [migrations folder](https://github.com/waku-org/nwaku/tree/master/migrations) MUST follow the following naming style in order to be properly included in the migration process. 
 Files with invalid naming will be eliminated from the migration process.
 
 `<version number>_<migration script description>.<up|down>.sql`

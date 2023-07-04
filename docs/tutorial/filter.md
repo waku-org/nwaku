@@ -1,5 +1,7 @@
 # Running Filter Protocol
 
+> TODO (2023-05-24): Deprecate or fix
+
 ## How to
 
 Build:

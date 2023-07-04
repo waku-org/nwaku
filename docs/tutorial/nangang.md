@@ -1,5 +1,7 @@
 # Nangang Test
 
+> TODO (2023-05-24): Deprecate or fix
+
 Nangang is the first internal testnet. See
 https://github.com/vacp2p/research/issues/43 for more.
 

@@ -36,9 +36,18 @@ pipeline {
         '-d:insecure',
       ].join(' ')
     )
+    string(
+      name: "LOG_LEVEL",
+      description: "Chronicles log level (default: TRACE)",
+    )
     booleanParam(
       name: 'EXPERIMENTAL',
       description: 'Enable experimental features.',
+      defaultValue: true
+    )
+    booleanParam(
+      name: 'DEBUG',
+      description: 'Enable debug features (heaptrack).',
       defaultValue: false
     )
   }
@@ -52,7 +61,8 @@ pipeline {
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
           "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' " +
-          "--target=${params.EXPERIMENTAL ? "experimental" : "prod"} ."
+          (params.LOG_LEVEL != null ? "--build-arg=LOG_LEVEL='${params.LOG_LEVEL}' ": "") +
+          "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
       } }
     }

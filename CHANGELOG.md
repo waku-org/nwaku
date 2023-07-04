@@ -1,3 +1,351 @@
+## 2023-06-14 v0.18.0
+
+> Note that there is a new naming scheme for release artifacts.
+
+## What's Changed
+
+Release highlights:
+* Support for Gossipsub scoring
+* [Rendezvous discovery protocol](https://docs.libp2p.io/concepts/discovery-routing/rendezvous/) enabled by default with relay
+* Initial support for postgresql as Store backend
+* Atomic operations for insertions and deletions included in rln-relay
+
+### Features
+
+- **postgres:** complete implementation of driver and apply more tests ([#1785](https://github.com/waku-org/nwaku/issues/1785)) ([5fc5770d](https://github.com/waku-org/nwaku/commit/5fc5770d))
+- **postgres:** adding a postgres async pool to make the db interactions asynchronous ([#1779](https://github.com/waku-org/nwaku/issues/1779)) ([cb2e3d86](https://github.com/waku-org/nwaku/commit/cb2e3d86))
+- **rln-relay:** pass in index to keystore credentials ([#1777](https://github.com/waku-org/nwaku/issues/1777)) ([a00aa8cc](https://github.com/waku-org/nwaku/commit/a00aa8cc))
+- **networking:** integrate gossipsub scoring ([#1769](https://github.com/waku-org/nwaku/issues/1769)) ([34a92631](https://github.com/waku-org/nwaku/commit/34a92631))
+- **discv5:** added find random nodes with predicate ([#1762](https://github.com/waku-org/nwaku/issues/1762)) ([#1763](https://github.com/waku-org/nwaku/issues/1763)) ([21737c7c](https://github.com/waku-org/nwaku/commit/21737c7c))
+- **wakunode2:** enable libp2p rendezvous protocol by default ([#1770](https://github.com/waku-org/nwaku/issues/1770)) ([835a409d](https://github.com/waku-org/nwaku/commit/835a409d))
+- **postgresql:** align previous work's PR[#1590](https://github.com/waku-org/nwaku/issues/1590) changes into master ([#1764](https://github.com/waku-org/nwaku/issues/1764)) ([7df6f4c8](https://github.com/waku-org/nwaku/commit/7df6f4c8))
+- **networking:** prune peers from same ip beyond collocation limit ([#1765](https://github.com/waku-org/nwaku/issues/1765)) ([047d1cf0](https://github.com/waku-org/nwaku/commit/047d1cf0))
+- **ci:** add nightly builds ([#1758](https://github.com/waku-org/nwaku/issues/1758)) ([473af70a](https://github.com/waku-org/nwaku/commit/473af70a))
+- **postgresql:** 1st commit to async sql (waku_archive/driver...) ([#1755](https://github.com/waku-org/nwaku/issues/1755)) ([59ca03a8](https://github.com/waku-org/nwaku/commit/59ca03a8))
+- **ci:** add release-notes target ([#1734](https://github.com/waku-org/nwaku/issues/1734)) ([ceb54b18](https://github.com/waku-org/nwaku/commit/ceb54b18))
+- **rln-relay:** use new atomic_operation ffi api ([#1733](https://github.com/waku-org/nwaku/issues/1733)) ([611e9539](https://github.com/waku-org/nwaku/commit/611e9539))
+
+### Bug Fixes
+
+- **ci:** enforce basic CPU instruction set to prevent CI issues ([#1759](https://github.com/waku-org/nwaku/issues/1759)) ([35520bd0](https://github.com/waku-org/nwaku/commit/35520bd0))
+- **test:** wait more for gossip ([#1753](https://github.com/waku-org/nwaku/issues/1753)) ([0fce3d83](https://github.com/waku-org/nwaku/commit/0fce3d83))
+- **rln-relay:** keystore usage ([#1750](https://github.com/waku-org/nwaku/issues/1750)) ([36266b43](https://github.com/waku-org/nwaku/commit/36266b43))
+- **ci:** fix flaky test for dos topic ([#1747](https://github.com/waku-org/nwaku/issues/1747)) ([46e231d0](https://github.com/waku-org/nwaku/commit/46e231d0))
+- **rln-relay:** trace log ([#1743](https://github.com/waku-org/nwaku/issues/1743)) ([5eae60e8](https://github.com/waku-org/nwaku/commit/5eae60e8))
+- **ci:** make experimental default to true in fleet deployment ([#1742](https://github.com/waku-org/nwaku/issues/1742)) ([b148c305](https://github.com/waku-org/nwaku/commit/b148c305))
+
+### Changes
+
+- **rln:** bump zerokit ([#1787](https://github.com/waku-org/nwaku/issues/1787)) ([9c04b59b](https://github.com/waku-org/nwaku/commit/9c04b59b))
+- **ci:** extend and rename nightly workflow to support RC builds ([#1784](https://github.com/waku-org/nwaku/issues/1784)) ([96074071](https://github.com/waku-org/nwaku/commit/96074071))
+- **rln-relay:** pass in the path to the tree db ([#1782](https://github.com/waku-org/nwaku/issues/1782)) ([dba84248](https://github.com/waku-org/nwaku/commit/dba84248))
+- **rln-relay:** update tree_config ([#1781](https://github.com/waku-org/nwaku/issues/1781)) ([ba8ec704](https://github.com/waku-org/nwaku/commit/ba8ec704))
+- **ci:** properly set os and architecture for nightly and release ([#1780](https://github.com/waku-org/nwaku/issues/1780)) ([44bcf0f2](https://github.com/waku-org/nwaku/commit/44bcf0f2))
+- **ci:** remove add-to-project workflow ([#1778](https://github.com/waku-org/nwaku/issues/1778)) ([a9505892](https://github.com/waku-org/nwaku/commit/a9505892))
+- **ci:** add experimental builds to nightly ([#1761](https://github.com/waku-org/nwaku/issues/1761)) ([ffac7761](https://github.com/waku-org/nwaku/commit/ffac7761))
+- **px:** close px streams after resp is sent ([#1746](https://github.com/waku-org/nwaku/issues/1746)) ([3c2d2891](https://github.com/waku-org/nwaku/commit/3c2d2891))
+- **docs:** fix docs and mark some as deprecated ([#1754](https://github.com/waku-org/nwaku/issues/1754)) ([b51fb616](https://github.com/waku-org/nwaku/commit/b51fb616))
+- **makefile:** unify where chronicles_log_level is set ([#1748](https://github.com/waku-org/nwaku/issues/1748)) ([39902dc2](https://github.com/waku-org/nwaku/commit/39902dc2))
+- **rln-relay:** docs and config update for testnet 3 ([#1738](https://github.com/waku-org/nwaku/issues/1738)) ([bb9d231b](https://github.com/waku-org/nwaku/commit/bb9d231b))
+- **rln-relay:** update metrics dashboard ([#1745](https://github.com/waku-org/nwaku/issues/1745)) ([0ced2195](https://github.com/waku-org/nwaku/commit/0ced2195))
+- **rln-relay:** updated metrics for testnet 3 ([#1744](https://github.com/waku-org/nwaku/issues/1744)) ([62578746](https://github.com/waku-org/nwaku/commit/62578746))
+- **networking:** set and use target outbound connections + prune ([#1739](https://github.com/waku-org/nwaku/issues/1739)) ([87f694a8](https://github.com/waku-org/nwaku/commit/87f694a8))
+- proper use of setupNat ([#1740](https://github.com/waku-org/nwaku/issues/1740)) ([665484c1](https://github.com/waku-org/nwaku/commit/665484c1))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## Upgrade instructions
+
+There is a new naming scheme for release artifacts - `nwaku-${ARCHITECTURE}-${OS}-${VERSION}.tar.gz`. If you use any automation to download latest release, you may need to update it.
+
+The `--topics` config option has been deprecated to unify the configuration style. It is still available in this release but will be removed in the next one. The new option `--topic` is introduced, which can be used repeatedly to achieve the same behavior.
+
+## 2023-05-17 v0.17.0
+
+> Note that the --topics config item has been deprecated and support will be dropped in future releases. To configure support for multiple pubsub topics, use the new --topic parameter repeatedly.
+
+## What's Changed
+
+Release highlights:
+* New REST API for Waku Store protocol.
+* New Filter protocol implentation. See [12/WAKU2-FILTER](https://rfc.vac.dev/spec/12/).
+* Initial C bindings support.
+* Support for Heaptrack to investigate memory utilization ([tutorial](https://github.com/waku-org/nwaku/blob/master/docs/tutorial/heaptrack.md)).
+
+### Features
+
+- **cbindings:** first commit - waku relay ([#1632](https://github.com/waku-org/nwaku/issues/1632)) ([#1714](https://github.com/waku-org/nwaku/issues/1714)) ([2defbd23](https://github.com/waku-org/nwaku/commit/2defbd23))
+- example using filter and lightpush ([#1720](https://github.com/waku-org/nwaku/issues/1720)) ([8987d4a3](https://github.com/waku-org/nwaku/commit/8987d4a3))
+- configure protected topics via cli ([#1696](https://github.com/waku-org/nwaku/issues/1696)) ([16b44523](https://github.com/waku-org/nwaku/commit/16b44523))
+- **mem-analysis:** Adding Dockerfile_with_heaptrack ([#1681](https://github.com/waku-org/nwaku/issues/1681)) ([9b9172ab](https://github.com/waku-org/nwaku/commit/9b9172ab))
+- add metrics with msg size histogram ([#1697](https://github.com/waku-org/nwaku/issues/1697)) ([67e96ba8](https://github.com/waku-org/nwaku/commit/67e96ba8))
+- curate peers shared over px protocol ([#1671](https://github.com/waku-org/nwaku/issues/1671)) ([14305c61](https://github.com/waku-org/nwaku/commit/14305c61))
+- **enr:** added support for relay shards field ([96162536](https://github.com/waku-org/nwaku/commit/96162536))
+- add tools maket target and build tools in CI ([#1668](https://github.com/waku-org/nwaku/issues/1668)) ([d5979e94](https://github.com/waku-org/nwaku/commit/d5979e94))
+- integrate new filter protocol, other improvements ([#1637](https://github.com/waku-org/nwaku/issues/1637)) ([418efca2](https://github.com/waku-org/nwaku/commit/418efca2))
+- **rest-api-store:** new rest api to retrieve store waku messages ([#1611](https://github.com/waku-org/nwaku/issues/1611)) ([#1630](https://github.com/waku-org/nwaku/issues/1630)) ([b2acb54d](https://github.com/waku-org/nwaku/commit/b2acb54d))
+- **node:** added waku node builder type ([e931fa5d](https://github.com/waku-org/nwaku/commit/e931fa5d))
+- dos protected topic relay msgs based on meta field ([#1614](https://github.com/waku-org/nwaku/issues/1614)) ([c26dcb2b](https://github.com/waku-org/nwaku/commit/c26dcb2b))
+- further filter improvements ([#1617](https://github.com/waku-org/nwaku/issues/1617)) ([d920b973](https://github.com/waku-org/nwaku/commit/d920b973))
+- **common:** added extensible implementation of the enr typed record ([ac56e1dc](https://github.com/waku-org/nwaku/commit/ac56e1dc))
+- **rln-relay:** fetch release from zerokit ci, or build ([#1603](https://github.com/waku-org/nwaku/issues/1603)) ([179be681](https://github.com/waku-org/nwaku/commit/179be681))
+- **filter-v2:** new filter protocol increment - message handling and clients ([#1600](https://github.com/waku-org/nwaku/issues/1600)) ([be446b98](https://github.com/waku-org/nwaku/commit/be446b98))
+
+### Fixes
+
+- **ci:** remove target flag from docker command ([#1725](https://github.com/waku-org/nwaku/issues/1725)) ([d822cdc5](https://github.com/waku-org/nwaku/commit/d822cdc5))
+- wakunode2 config. adding new 'topic' config parameter. ([#1727](https://github.com/waku-org/nwaku/issues/1727)) ([2ec9809c](https://github.com/waku-org/nwaku/commit/2ec9809c))
+- streams was used instead of connections ([#1722](https://github.com/waku-org/nwaku/issues/1722)) ([b9e0763e](https://github.com/waku-org/nwaku/commit/b9e0763e))
+- change filter request default behaviour to ping ([#1721](https://github.com/waku-org/nwaku/issues/1721)) ([7c39be9a](https://github.com/waku-org/nwaku/commit/7c39be9a))
+- **rln-relay:** handle invalid deletes ([#1717](https://github.com/waku-org/nwaku/issues/1717)) ([81dffee8](https://github.com/waku-org/nwaku/commit/81dffee8))
+- fix filter v2 proto fields ([#1716](https://github.com/waku-org/nwaku/issues/1716)) ([68a39c65](https://github.com/waku-org/nwaku/commit/68a39c65))
+- unstable peers in mesh ([#1710](https://github.com/waku-org/nwaku/issues/1710)) ([703c3ab5](https://github.com/waku-org/nwaku/commit/703c3ab5))
+- **networkmonitor:** break import dependency with wakunode2 app ([043feacd](https://github.com/waku-org/nwaku/commit/043feacd))
+- import nimchronos instead heartbeat ([#1695](https://github.com/waku-org/nwaku/issues/1695)) ([7d12adf6](https://github.com/waku-org/nwaku/commit/7d12adf6))
+- **rest:** change rest server result error type to string ([d5ef9331](https://github.com/waku-org/nwaku/commit/d5ef9331))
+- **rln-relay:** scope of getEvents ([#1672](https://github.com/waku-org/nwaku/issues/1672)) ([b62193e5](https://github.com/waku-org/nwaku/commit/b62193e5))
+- **logs:** fix log reporting wrong ok connected peers ([#1675](https://github.com/waku-org/nwaku/issues/1675)) ([1a885b96](https://github.com/waku-org/nwaku/commit/1a885b96))
+- move canBeConnected to PeerManager and check for potential overflow ([#1670](https://github.com/waku-org/nwaku/issues/1670)) ([d5c2770c](https://github.com/waku-org/nwaku/commit/d5c2770c))
+- wrap untracked protocol handler exceptions ([9e1432c9](https://github.com/waku-org/nwaku/commit/9e1432c9))
+- **wakunode2:** made setup nat return errors ([1cfb251b](https://github.com/waku-org/nwaku/commit/1cfb251b))
+- fixed multiple bare except warnings ([caf78249](https://github.com/waku-org/nwaku/commit/caf78249))
+- bump libp2p with traffic metrics fix ([#1642](https://github.com/waku-org/nwaku/issues/1642)) ([0ef46673](https://github.com/waku-org/nwaku/commit/0ef46673))
+- **rln-relay:** buildscript bad cp ([#1636](https://github.com/waku-org/nwaku/issues/1636)) ([bd9857c1](https://github.com/waku-org/nwaku/commit/bd9857c1))
+- **wakunode2:** fix main warnings and drop swap support ([f95147f5](https://github.com/waku-org/nwaku/commit/f95147f5))
+- **rln-relay:** on chain registration ([#1627](https://github.com/waku-org/nwaku/issues/1627)) ([b1bafda2](https://github.com/waku-org/nwaku/commit/b1bafda2))
+- connect instead of dialing relay peers ([#1622](https://github.com/waku-org/nwaku/issues/1622)) ([85f33a8e](https://github.com/waku-org/nwaku/commit/85f33a8e))
+- fix hash size greater than 32 ([#1621](https://github.com/waku-org/nwaku/issues/1621)) ([c42ac16f](https://github.com/waku-org/nwaku/commit/c42ac16f))
+
+### Changes
+
+- **ci:** cache all of submodules/deps to speed up build time ([#1731](https://github.com/waku-org/nwaku/issues/1731)) ([4394c69d](https://github.com/waku-org/nwaku/commit/4394c69d))
+- **rln-relay:** update args to contract ([#1724](https://github.com/waku-org/nwaku/issues/1724)) ([b277ce10](https://github.com/waku-org/nwaku/commit/b277ce10))
+- **rln-relay:** use new config for ffi ([#1718](https://github.com/waku-org/nwaku/issues/1718)) ([44c54312](https://github.com/waku-org/nwaku/commit/44c54312))
+- adding new tutorial on how to handle heaptrack with nim waku ([#1719](https://github.com/waku-org/nwaku/issues/1719)) ([4b59e472](https://github.com/waku-org/nwaku/commit/4b59e472))
+- add timestamp and ephemeral for opt-in dos validator ([#1713](https://github.com/waku-org/nwaku/issues/1713)) ([3e0a693d](https://github.com/waku-org/nwaku/commit/3e0a693d))
+- add test vectors dos protection validator ([#1711](https://github.com/waku-org/nwaku/issues/1711)) ([eaa162ee](https://github.com/waku-org/nwaku/commit/eaa162ee))
+- add validator for dos protec metrics and move to app ([#1704](https://github.com/waku-org/nwaku/issues/1704)) ([3e146869](https://github.com/waku-org/nwaku/commit/3e146869))
+- use QUICK_AND_DIRTY_COMPILER flag for CI ([#1708](https://github.com/waku-org/nwaku/issues/1708)) ([21510425](https://github.com/waku-org/nwaku/commit/21510425))
+- move networkmonitor and wakucanary to apps directory ([209579b0](https://github.com/waku-org/nwaku/commit/209579b0))
+- **wakunode2:** flatten and simplify app setup ([#1705](https://github.com/waku-org/nwaku/issues/1705)) ([ce92fc1a](https://github.com/waku-org/nwaku/commit/ce92fc1a))
+- **wakunode2:** split setup logic into app module ([c8081c88](https://github.com/waku-org/nwaku/commit/c8081c88))
+- add payload bytes to trace log ([#1703](https://github.com/waku-org/nwaku/issues/1703)) ([c6d291d3](https://github.com/waku-org/nwaku/commit/c6d291d3))
+- refactor flaky test with while ([#1698](https://github.com/waku-org/nwaku/issues/1698)) ([dca0e9b2](https://github.com/waku-org/nwaku/commit/dca0e9b2))
+- **core:** move peers utils module to waku_core ([e041e043](https://github.com/waku-org/nwaku/commit/e041e043))
+- decouple test2 target from testcommon ([91baa232](https://github.com/waku-org/nwaku/commit/91baa232))
+- **core:** move utils time module to waku_core ([93b0c071](https://github.com/waku-org/nwaku/commit/93b0c071))
+- add deprecation notice to utils module. move heartbeat to common ([e8dceb2a](https://github.com/waku-org/nwaku/commit/e8dceb2a))
+- **core:** rename waku_message module to waku_core ([c9b6b230](https://github.com/waku-org/nwaku/commit/c9b6b230))
+- flatten waku v2 protocols folder ([d7b72ac7](https://github.com/waku-org/nwaku/commit/d7b72ac7))
+- fix test failing intermittently ([#1679](https://github.com/waku-org/nwaku/issues/1679)) ([8d213e85](https://github.com/waku-org/nwaku/commit/8d213e85))
+- **networking:** get relay number of connections from protocol conns/streams ([#1609](https://github.com/waku-org/nwaku/issues/1609)) ([73cbafa6](https://github.com/waku-org/nwaku/commit/73cbafa6))
+- allow to call store api endpoints without a storenode ([#1575](https://github.com/waku-org/nwaku/issues/1575)) ([#1647](https://github.com/waku-org/nwaku/issues/1647)) ([0b4a2e68](https://github.com/waku-org/nwaku/commit/0b4a2e68))
+- bump container image versions to v0.16.0 in quickstart ([#1640](https://github.com/waku-org/nwaku/issues/1640)) ([5c33d9d1](https://github.com/waku-org/nwaku/commit/5c33d9d1))
+- **node:** remove deprecated constructor and extend testlib with builder ([9dadc1f5](https://github.com/waku-org/nwaku/commit/9dadc1f5))
+- do not mount relay more than once ([#1650](https://github.com/waku-org/nwaku/issues/1650)) ([5d853b86](https://github.com/waku-org/nwaku/commit/5d853b86))
+- pointed all waku node imports to the barrel import ([e8448dfd](https://github.com/waku-org/nwaku/commit/e8448dfd))
+- **node:** added waku_node barrel import and split config module ([13942888](https://github.com/waku-org/nwaku/commit/13942888))
+- remove deprecated enr record init method ([0627b4f8](https://github.com/waku-org/nwaku/commit/0627b4f8))
+- **deps:** upgrade nim-chronos and nim-presto to latest version ([7c229ece](https://github.com/waku-org/nwaku/commit/7c229ece))
+- remove waku swap protocol ([2b5fd2a2](https://github.com/waku-org/nwaku/commit/2b5fd2a2))
+- **deps:** upgrade nim-confutils to latest version ([67fa736d](https://github.com/waku-org/nwaku/commit/67fa736d))
+- **rln-relay:** gracefully handle chain forks ([#1623](https://github.com/waku-org/nwaku/issues/1623)) ([00a3812b](https://github.com/waku-org/nwaku/commit/00a3812b))
+- bump nim-libp2p 53b060f ([#1633](https://github.com/waku-org/nwaku/issues/1633)) ([11ff93c2](https://github.com/waku-org/nwaku/commit/11ff93c2))
+- added testcommon target to makefile ([048ca45d](https://github.com/waku-org/nwaku/commit/048ca45d))
+- increase meta size to 64 bytes + tests ([#1629](https://github.com/waku-org/nwaku/issues/1629)) ([1f793756](https://github.com/waku-org/nwaku/commit/1f793756))
+- **enr:** move waku enr multiaddr to typedrecord and builder extensions ([2ffd2f80](https://github.com/waku-org/nwaku/commit/2ffd2f80))
+- **enr:** added waku2 capabilities accessor ([157724d9](https://github.com/waku-org/nwaku/commit/157724d9))
+- **rln-relay:** reduce exports ([#1615](https://github.com/waku-org/nwaku/issues/1615)) ([2f3ba3d6](https://github.com/waku-org/nwaku/commit/2f3ba3d6))
+- add dash between target and version ([#1613](https://github.com/waku-org/nwaku/issues/1613)) ([24d62791](https://github.com/waku-org/nwaku/commit/24d62791))
+- **release:** added regression checking and clarifications ([#1610](https://github.com/waku-org/nwaku/issues/1610)) ([b495dd7b](https://github.com/waku-org/nwaku/commit/b495dd7b))
+
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## Upgrade instructions
+
+* The `--topics` config option has been deprecated to unify the configuration style. It still available in this and will be in next release, but will be removed after that. The new option `--topic` is introduced, which can be use repeatedly to achieve the same behaviour.
+
+## 2023-03-15 v0.16.0
+
+## What's Changed
+
+Release highlights:
+- a fix for an issue that prevented the node from generating high-resolution (up to nanosecond) timestamps
+- introduction of an application-defined `meta` attribute to the Waku Message. This can be quite valuable for network-wide deduplication, deterministic hashing, validity checking and other planned improvements to the protocol
+- many optimizations in RLN implementation and its underlying dependencies
+
+### Features
+
+- Integrated a new group manager for RLN-protected relay [1496](https://github.com/waku-org/nwaku/pull/1496)
+- Added application-defined meta attribute to Waku Message according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#message-attributes) [1581](https://github.com/waku-org/nwaku/pull/1581)
+- Implemented deterministic hashing scheme for Waku Messages according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#deterministic-message-hashing) [1586](https://github.com/waku-org/nwaku/pull/1586)
+
+### Changes
+
+- Upgraded nim-sqlite3-abi to the latest version [1565](https://github.com/waku-org/nwaku/pull/1565)
+- Better validation of protocol buffers [1563](https://github.com/waku-org/nwaku/pull/1563)
+- Improved underlying Zerokit performance and FFI [1571](https://github.com/waku-org/nwaku/pull/1571)
+- Node peer ID now logged with relay trace logging [1574](https://github.com/waku-org/nwaku/pull/1574)
+- Continued refactoring of several protocol implementations to improve maintainability and readability
+- Refactored and cleaned up peer manager [1539](https://github.com/waku-org/nwaku/pull/1539)
+- Removed unused and legacy websocket submodule [1580](https://github.com/waku-org/nwaku/pull/1580) [1582](https://github.com/waku-org/nwaku/pull/1582)
+- Use base64 URL-safe encoding for noise [1569](https://github.com/waku-org/nwaku/pull/1569)
+- Various general improvements to RLN implementation [1585](https://github.com/waku-org/nwaku/pull/1585) [1587](https://github.com/waku-org/nwaku/pull/1587)
+- Started on implementation for new and improved filter protocol [1584](https://github.com/waku-org/nwaku/pull/1584)
+- Updated pubsub and content topic namespacing to reflect latest changes in RFC [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/) [1589](https://github.com/waku-org/nwaku/pull/1589)
+- Unified internal peer data models [1597](https://github.com/waku-org/nwaku/pull/1597)
+- Improved internal implementation of Waku ENR encoding and decoding [1598](https://github.com/waku-org/nwaku/pull/1598) [1599](https://github.com/waku-org/nwaku/pull/1599)
+- Underlying dependency for RLN implementation now loaded as a static library [1578](https://github.com/waku-org/nwaku/pull/1578)
+
+### Fixes
+
+- Fixed internally generated timestamps to allow higher resolution than seconds [1570](https://github.com/waku-org/nwaku/pull/1570)
+- Fixed padded base64 usage for encoding and decoding payloads on the JSON RPC API [1572](https://github.com/waku-org/nwaku/pull/1572)
+- Fixed incorrect relative module imports [1591](https://github.com/waku-org/nwaku/pull/1591)
+- Fixed RLN relay erroneously storing messages from multiple apps [1594](https://github.com/waku-org/nwaku/pull/1594)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## 2023-02-15 v0.15.0
+
+Release highlights:
+- Relay connectivity is now maintained by a management loop that selects from the peerstore
+- Ability to manually specify `multiaddrs` for the nwaku node to advertise
+- Two important fixes related to historical message queries:
+  - fixed archive bug that resulted in duplicate messages in store query response
+  - fixed query page size limit not being respected
+
+### Features
+
+- New connectivity loop to maintain relay connectivity from peerstore [1482](https://github.com/waku-org/nwaku/pull/1482) [1462](https://github.com/waku-org/nwaku/pull/1462)
+- Support for manually specifying `multiaddrs` to advertise [1509](https://github.com/waku-org/nwaku/pull/1509) [1512](https://github.com/waku-org/nwaku/pull/1512)
+- Added dynamic keystore for membership credential storage and management [1466](https://github.com/waku-org/nwaku/pull/1466)
+
+### Changes
+
+- Abstracted RLN relay group management into its own API [1465](https://github.com/waku-org/nwaku/pull/1465)
+- Prune peers from peerstore when exceeding capacity [1513](https://github.com/waku-org/nwaku/pull/1513)
+- Removed Kilic submodule [1517](https://github.com/waku-org/nwaku/pull/1517)
+- Continued refactoring of several protocol implementations to improve maintainability and readability
+- Refactored and improved JSON RPC API
+- Added safe default values for peer-store-capacity [1525](https://github.com/waku-org/nwaku/pull/1525)
+- Improvements in regular CI test reliability and repeatability
+- Improved archive query performance [1510](https://github.com/waku-org/nwaku/pull/1510)
+- Added better e2e trace logging for relay messages [1526](https://github.com/waku-org/nwaku/pull/1526)
+- Relay RPC API now encodes message payloads in base64 [572](https://github.com/vacp2p/rfc/pull/572) [1555](https://github.com/waku-org/nwaku/pull/1555)
+
+### Fixes
+
+- Fixed Waku archive queries returning duplicate messages due to incorrect reordering [1511](https://github.com/waku-org/nwaku/pull/1511)
+- Fixed Admin RPC API crashing on returning peer with no multiaddresses [1507](https://github.com/waku-org/nwaku/pull/1507)
+- Fixed page size limit not being respected in store query responses [1520](https://github.com/waku-org/nwaku/pull/1520)
+- Fixed nwaku subscribing to default pubsub topic even if not configured [1548](https://github.com/waku-org/nwaku/pull/1548)
+- Fixed underlying issue causing node to incorrectly report it's unreachable [1518](https://github.com/waku-org/nwaku/pull/1518) [1546](https://github.com/waku-org/nwaku/pull/1546)
+- Fixed Relay RPC API not adhering to RFC [1139](https://github.com/waku-org/nwaku/issues/1139)
+- Fixed message IDs in nwaku diverging from those in go-waku [1556](https://github.com/waku-org/nwaku/pull/1556)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
+## 2023-01-16 v0.14.0
+
+Release highlights:
+- An important fix for the Waku message archive returning inconsistent responses to history queries.
+- Support for [AutoNAT](https://docs.libp2p.io/concepts/nat/autonat/) and [libp2p Circuit Relay](https://docs.libp2p.io/concepts/nat/circuit-relay/) that allows, among other things, for [NAT hole punching](https://docs.libp2p.io/concepts/nat/hole-punching/).
+- Support for structured logging in JSON format.
+- A fix for an underlying file descriptor leak that affected websocket connections.
+
+### Features
+
+- Support for [AutoNAT](https://docs.libp2p.io/concepts/nat/autonat/)
+- Support for [libp2p Circuit Relay](https://docs.libp2p.io/concepts/nat/circuit-relay/) (server only)
+- New Waku Archive implementation. This allows easy addition of drivers for different technologies to store historical messages.
+- Support for structured logging and specifying log format.
+- Node now keeps track of its external reachability.
+
+### Changes
+
+- Zerokit RLN library now statically linked.
+- Use extended key generation in Zerokit API to comply with [32/RLN](https://rfc.vac.dev/spec/32/).
+- Re-enable root validation in [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- [Network monitoring tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#networkmonitor) now supports DNS discovery.
+- Added [dashboard](https://github.com/waku-org/nwaku/blob/3e0e1cb2398297fca761aa74f52d32fa837d556c/metrics/waku-network-monitor-dashboard.json) for network monitoring.
+- Continued refactoring of several protocol implementations to improve maintainability and readability.
+- Removed swap integration from store protocol.
+- Peerstore now consolidated with libp2p peerstore.
+- Peerstore now also tracks peer direction.
+- SIGSEGV signals are now handled and logged properly.
+- Waku v2 no longer imports libraries from Waku v1.
+- Improved build and CI processes:
+  - Added support for an `EXPERIMENTAL` compiler flag.
+  - Simplified project Makefile.
+  - Split Dockerfile into production and experimental stages.
+  - Removed obsolete simulation libraries from build.
+- Improved parallellisation (and therefore processing time) when dialing several peers simultaneously.
+- Waku Archive now responds with error to historical queries containing more than 10 content topics.
+
+### Fixes
+
+- Fixed support for optional fields in several protocol rpc codecs. [#1393](https://github.com/waku-org/nwaku/pull/1393) [#1395](https://github.com/waku-org/nwaku/pull/1395) [#1396](https://github.com/waku-org/nwaku/pull/1396)
+- Fixed clients with `--store=false` not installing Store Client JSON-RPC API handlers. [#1382](https://github.com/waku-org/nwaku/pull/1382)
+- Fixed SQLite driver returning inconsistent responses to store queries. [#1415](https://github.com/waku-org/nwaku/pull/1415)
+- Fixed peer exchange discv5 loop starting before discv5 has started. [#1407](https://github.com/waku-org/nwaku/pull/1407)
+- Fixed wakubridge test timing. [#1429](https://github.com/waku-org/nwaku/pull/1429)
+- Fixed bug in Noise module types equating `T_ss` incorrectly to `"se"` and not `"ss"`. [#1432](https://github.com/waku-org/nwaku/pull/1432)
+- Fixed Ctrl-C quitting resulting in unreleased resources and exit failures. [#1416](https://github.com/waku-org/nwaku/pull/1416)
+- Fixed CI workflows not cloning repo on startup. [#1454](https://github.com/waku-org/nwaku/pull/1454) [#1455](https://github.com/waku-org/nwaku/pull/1455)
+- Fixed Admin API peer connection not returning error response if peer can't be connected. [#1476](https://github.com/waku-org/nwaku/pull/1476)
+- Fixed underlying file descriptor leak. [#1483](https://github.com/waku-org/nwaku/pull/1483)
+
+### Docs
+
+- Added [instructions](https://github.com/waku-org/nwaku/blob/3e0e1cb2398297fca761aa74f52d32fa837d556c/docs/operators/quickstart.md) for running nwaku with docker compose.
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2022-11-15 v0.13.0
 
 Release highlights:
@@ -122,7 +470,7 @@ The full list of changes is below.
 
 ### Docs
 
-- Improved [RLN testnet tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/tutorial/onchain-rln-relay-chat2.md) 
+- Improved [RLN testnet tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/tutorial/onchain-rln-relay-chat2.md)
 - Added [tutorial](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/droplet-quickstart.md) on running nwaku from a DigitalOcean droplet.
 - Added [guide](https://github.com/status-im/nwaku/blob/14abdef79677ddc828ff396ece321e05cedfca17/docs/operators/how-to/monitor.md) on how to monitor nwaku using Prometheus and Grafana.
 
@@ -159,7 +507,7 @@ The full list of changes is below.
 - Significantly improved the SQLite-only historical message `store` query performance.
 - Refactored several protocol implementations to improve maintainability and readability.
 - Major code reorganization for the [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) implementation to improve maintainability. This will also make the `store` extensible to support multiple implementations.
-- Disabled compiler log colors when running in a CI environment. 
+- Disabled compiler log colors when running in a CI environment.
 - Refactored [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation into smaller submodules.
 - [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) implementation can now optionally be compiled with [Zerokit RLN](https://github.com/vacp2p/zerokit/tree/64f508363946b15ac6c52f8b59d8a739a33313ec/rln). Previously only [Kilic's RLN](https://github.com/kilic/rln/tree/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43) was supported.
 
@@ -307,7 +655,7 @@ The full list of changes is below.
 
 ### Features
 
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).  
+- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
 - [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) integrated into chat2 `toy-chat` (available under the `rln` compiler flag)
 - Added support for resolving dns-based `multiaddrs`
 - A Waku v2 node can now be configured with a domain name and `dns4` `multiaddr`

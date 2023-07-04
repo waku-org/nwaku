@@ -56,7 +56,6 @@ jobs:
       v2: ${{ steps.filter.outputs.v2 }}
       legacy: ${{ steps.filter.outputs.legacy }}
 
-
   build-v2:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
@@ -70,23 +69,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
-      - name: Get submodules versions
+      - name: Get submodules hash
         id: submodules
-        shell: bash
         run: |
-          echo "nim-hash=$(git rev-parse HEAD:vendor/nimbus-build-system)" >> $GITHUB_OUTPUT
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
-      - name: Cache nim
+      - name: Cache submodules
         uses: actions/cache@v3
         with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
       - name: Build binaries
-        run: make V=1 LOG_LEVEL=TRACE v2
+        run: make V=1 QUICK_AND_DIRTY_COMPILER=1 v2 tools
 
   test-v2:
     needs: changes
@@ -101,24 +99,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
-      - name: Get submodules versions
+      - name: Get submodules hash
         id: submodules
-        shell: bash
         run: |
-          echo "nim-hash=$(git rev-parse HEAD:vendor/nimbus-build-system)" >> $GITHUB_OUTPUT
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
-      - name: Cache nim
+      - name: Cache submodules
         uses: actions/cache@v3
         with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
       - name: Run tests
-        run: make V=1 LOG_LEVEL=TRACE test2
+        run: |
+          if [ ${{ runner.os }} == "Linux" ]; then
+            sudo docker run --rm -d -e POSTGRES_PASSWORD=test123 -p 5432:5432 postgres:9.6-alpine
+          fi
 
+          make V=1 LOG_LEVEL=DEBUG QUICK_AND_DIRTY_COMPILER=1 test2 testwakunode2
 
   build-legacy:
     needs: changes
@@ -133,30 +134,29 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
-      - name: Get submodule versions
+      - name: Get submodules hash
         id: submodules
-        shell: bash
         run: |
-          echo "nim-hash=$(git rev-parse HEAD:vendor/nimbus-build-system)" >> $GITHUB_OUTPUT
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
-      - name: Cache nim
+      - name: Cache submodules
         uses: actions/cache@v3
         with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
       - name: Build binaries
-        run: make V=1 LOG_LEVEL=TRACE v1
+        run: make V=1 QUICK_AND_DIRTY_COMPILER=1 v1
 
   test-legacy:
     needs: changes
     if: ${{ needs.changes.outputs.legacy == 'true' || needs.changes.outputs.common == 'true' }}
     strategy:
       matrix:
-        platform: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
@@ -164,20 +164,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          submodules: recursive
 
-      - name: Get submodule vesions
+      - name: Get submodules hash
         id: submodules
-        shell: bash
         run: |
-          echo "nim-hash=$(git rev-parse HEAD:vendor/nimbus-build-system)" >> $GITHUB_OUTPUT
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
-      - name: Cache nim
+      - name: Cache submodules
         uses: actions/cache@v3
         with:
-          path: vendor/nimbus-build-system/vendor/Nim/bin
-          key: ${{ runner.os }}-nim-${{ steps.submodules.outputs.nim-hash }}
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
       - name: Run tests
-        run: make V=1 LOG_LEVEL=TRACE test1
+        run: make V=1 LOG_LEVEL=DEBUG QUICK_AND_DIRTY_COMPILER=1 test1

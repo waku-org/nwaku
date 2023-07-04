@@ -1,33 +1,32 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet, 
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto,
   libp2p/switch
 import
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/utils/peers,
-  ../../waku/v2/node/waku_node,
-  ./testlib/common
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_lightpush,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/waku_node,
+  ./testlib/common,
+  ./testlib/wakucore,
+  ./testlib/wakunode
 
 
-procSuite "WakuNode - Lightpush":
-  let rng = crypto.newRng()
- 
+suite "WakuNode - Lightpush":
   asyncTest "Lightpush message return success":
     ## Setup
     let
-      lightNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      lightNode = WakuNode.new(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60010))
-      bridgeNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      bridgeNode = WakuNode.new(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60012))
-      destNodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-      destNode = WakuNode.new(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(60013))
+      lightNodeKey = generateSecp256k1Key()
+      lightNode = newTestWakuNode(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      bridgeNodeKey = generateSecp256k1Key()
+      bridgeNode = newTestWakuNode(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      destNodeKey = generateSecp256k1Key()
+      destNode = newTestWakuNode(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
@@ -35,7 +34,7 @@ procSuite "WakuNode - Lightpush":
     await bridgeNode.mountRelay(@[DefaultPubsubTopic])
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
-    
+
     discard await lightNode.peerManager.dialPeer(bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
     await sleepAsync(100.milliseconds)
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
@@ -44,10 +43,9 @@ procSuite "WakuNode - Lightpush":
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
-    proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-      let msg = WakuMessage.decode(data).get()
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       check:
-        pubsubTopic == DefaultPubsubTopic
+        topic == DefaultPubsubTopic
         msg == message
       completionFutRelay.complete(true)
     destNode.subscribe(DefaultPubsubTopic, relayHandler)
@@ -63,4 +61,3 @@ procSuite "WakuNode - Lightpush":
 
     ## Cleanup
     await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())
-  

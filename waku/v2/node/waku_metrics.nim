@@ -4,19 +4,18 @@ else:
   {.push raises: [].}
 
 import
-  stew/shims/net,
   chronicles,
   chronos,
   metrics,
   metrics/chronos_httpserver
 import
-  ../protocol/waku_filter/protocol_metrics as filter_metrics,
+  ../waku_filter/protocol_metrics as filter_metrics,
   ../utils/collector,
-  ./peer_manager/peer_manager,
+  ./peer_manager,
   ./waku_node
 
 when defined(rln):
-  import ../protocol/waku_rln_relay/protocol_metrics as rln_metrics
+  import ../waku_rln_relay/protocol_metrics as rln_metrics
 
 
 const LogInterval = 30.seconds
@@ -24,16 +23,6 @@ const LogInterval = 30.seconds
 logScope:
   topics = "waku node metrics"
 
-
-proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port) =
-    info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
-
-    try:
-      startMetricsHttpServer($serverIp, serverPort)
-    except Exception as e:
-      raiseAssert("Exception while starting metrics HTTP server: " & e.msg)
-
-    info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
 
 type
   # https://github.com/nim-lang/Nim/issues/17369
@@ -62,7 +51,7 @@ proc startMetricsLog*() =
       let pxPeers = collectorAsF64(waku_px_peers)
       let lightpushPeers = collectorAsF64(waku_lightpush_peers)
       let filterPeers = collectorAsF64(waku_filter_peers)
-      let filterSubscribers = collectorAsF64(waku_filter_subscribers)
+      let filterSubscribers = collectorAsF64(waku_legacy_filter_subscribers)
 
       info "Total connections initiated", count = $freshConnCount
       info "Total messages", count = totalMessages

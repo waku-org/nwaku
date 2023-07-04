@@ -1,23 +1,22 @@
 {.used.}
 
 import
-  testutils/unittests, 
+  testutils/unittests,
   chronicles,
-  chronos, 
+  chronos,
   libp2p/crypto/crypto
 import
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/protocol/waku_lightpush,
-  ../../waku/v2/protocol/waku_lightpush/client,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_lightpush,
+  ../../waku/v2/waku_lightpush/client,
   ./testlib/common,
-  ./testlib/switch
+  ./testlib/wakucore
 
 
 proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
     proto = WakuLightPush.new(peerManager, rng, handler)
 
   await proto.start()
@@ -28,7 +27,6 @@ proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Futu
 proc newTestWakuLightpushClient(switch: Switch): WakuLightPushClient =
   let
     peerManager = PeerManager.new(switch)
-    rng = crypto.newRng()
   WakuLightPushClient.new(peerManager, rng)
 
 
@@ -36,7 +34,7 @@ suite "Waku Lightpush":
 
   asyncTest "push message to pubsub topic is successful":
     ## Setup
-    let 
+    let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
 
@@ -44,7 +42,7 @@ suite "Waku Lightpush":
 
     ## Given
     let handlerFuture = newFuture[(string, WakuMessage)]()
-    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
         handlerFuture.complete((pubsubTopic, message))
         return ok()
 
@@ -78,7 +76,7 @@ suite "Waku Lightpush":
 
   asyncTest "push message to pubsub topic should fail":
     ## Setup
-    let 
+    let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
 
@@ -86,9 +84,9 @@ suite "Waku Lightpush":
 
     ## Given
     let error = "test_failure"
-    
+
     let handlerFuture = newFuture[void]()
-    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} = 
+    let handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
         handlerFuture.complete()
         return err(error)
 
@@ -115,6 +113,6 @@ suite "Waku Lightpush":
     let requestError = requestRes.error
     check:
       requestError == error
-  
+
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())

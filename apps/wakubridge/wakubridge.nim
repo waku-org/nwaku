@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[os, tables, hashes, sequtils],
+  std/[tables, hashes, sequtils],
   stew/byteutils,
   stew/shims/net as stewNet, json_rpc/rpcserver,
   chronicles,
@@ -24,15 +24,17 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/nameresolving/nameresolver,
-  ../../waku/v2/utils/namespacing,
-  ../../waku/v2/utils/time,
-  ../../waku/v2/protocol/waku_message,
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/peer_manager/peer_manager,
-  ../../waku/v2/node/jsonrpc/[debug_api,
-                              filter_api,
-                              relay_api,
-                              store_api],
+  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_store,
+  ../../waku/v2/waku_filter,
+  ../../waku/v2/node/message_cache,
+  ../../waku/v2/waku_node,
+  ../../waku/v2/node/peer_manager,
+  ../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
+  ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
+  ../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
+  ../../waku/v2/node/jsonrpc/store/handlers as store_api,
+  ./message_compat,
   ./config
 
 declarePublicCounter waku_bridge_transfers, "Number of messages transferred between Waku v1 and v2 networks", ["type"]
@@ -49,8 +51,6 @@ const
   ClientIdV1 = "nim-waku v1 node"
   DefaultTTL = 5'u32
   DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
-  ContentTopicApplication = "waku"
-  ContentTopicAppVersion = "1"
   MaintenancePeriod = 1.minutes
   TargetV1Peers = 4  # Target number of v1 connections to maintain. Could be made configurable in future.
 
@@ -62,7 +62,7 @@ type
   WakuBridge* = ref object of RootObj
     nodev1*: EthereumNode
     nodev2*: WakuNode
-    nodev2PubsubTopic: waku_message.PubsubTopic # Pubsub topic to bridge to/from
+    nodev2PubsubTopic: waku_core.PubsubTopic # Pubsub topic to bridge to/from
     seen: seq[hashes.Hash] # FIFO queue of seen WakuMessages. Used for deduplication.
     rng: ref HmacDrbgContext
     v1Pool: seq[Node] # Pool of v1 nodes for possible connections
@@ -72,18 +72,6 @@ type
 ###################
 # Helper funtions #
 ###################
-
-# Validity
-
-proc isBridgeable*(msg: WakuMessage): bool =
-  ## Determines if a Waku v2 msg is on a bridgeable content topic
-
-  let ns = NamespacedTopic.fromString(msg.contentTopic)
-  if ns.isOk():
-    if ns.get().application == ContentTopicApplication and ns.get().version == ContentTopicAppVersion:
-      return true
-
-  return false
 
 # Deduplication
 
@@ -98,30 +86,6 @@ proc containsOrAdd(sequence: var seq[hashes.Hash], hash: hashes.Hash): bool =
   sequence.add(hash)
 
   return false
-
-# Topic conversion
-
-proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
-  ## Convert a 4-byte array v1 topic to a namespaced content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
-  ##
-  ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
-
-  var namespacedTopic = NamespacedTopic()
-
-  namespacedTopic.application = ContentTopicApplication
-  namespacedTopic.version = ContentTopicAppVersion
-  namespacedTopic.topicName = "0x" & v1Topic.toHex()
-  namespacedTopic.encoding = "rfc26"
-
-  return ContentTopic($namespacedTopic)
-
-proc toV1Topic*(contentTopic: ContentTopic): waku_protocol.Topic {.raises: [Defect, LPError, ValueError]} =
-  ## Extracts the 4-byte array v1 topic from a content topic
-  ## with format `/waku/1/<v1-topic-bytes-as-hex>/rfc26`
-
-  hexToByteArray(hexStr = NamespacedTopic.fromString(contentTopic).tryGet().topicName,
-                 N = 4)  # Byte array length
 
 # Message conversion
 
@@ -239,7 +203,7 @@ proc new*(T: type WakuBridge,
           nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
           nameResolver: NameResolver = nil,
           # Bridge configuration
-          nodev2PubsubTopic: waku_message.PubsubTopic,
+          nodev2PubsubTopic: waku_core.PubsubTopic,
           v1Pool: seq[Node] = @[],
           targetV1Peers = 0): T
   {.raises: [Defect,IOError, TLSStreamProtocolError, LPError].} =
@@ -265,11 +229,12 @@ proc new*(T: type WakuBridge,
   nodev1.configureWaku(wakuConfig)
 
   # Setup Waku v2 node
-  let
-    nodev2 = WakuNode.new(nodev2Key,
-                          nodev2BindIp, nodev2BindPort,
-                          nodev2ExtIp, nodev2ExtPort,
-                          nameResolver = nameResolver)
+  let nodev2 = block:
+      var builder = WakuNodeBuilder.init()
+      builder.withNodeKey(nodev2Key)
+      builder.withNetworkConfigurationDetails(nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort).tryGet()
+      builder.withSwitchConfiguration(nameResolver=nameResolver)
+      builder.build().tryGet()
 
   return WakuBridge(nodev1: nodev1,
                     nodev2: nodev2,
@@ -299,7 +264,8 @@ proc start*(bridge: WakuBridge) {.async.} =
 
   # Always mount relay for bridge.
   # `triggerSelf` is false on a `bridge` to avoid duplicates
-  await bridge.nodev2.mountRelay(triggerSelf = false)
+  await bridge.nodev2.mountRelay()
+  bridge.nodev2.wakuRelay.triggerSelf = false
 
   # Bridging
   # Handle messages on Waku v1 and bridge to Waku v2
@@ -310,12 +276,11 @@ proc start*(bridge: WakuBridge) {.async.} =
   bridge.nodev1.registerEnvReceivedHandler(handleEnvReceived)
 
   # Handle messages on Waku v2 and bridge to Waku v1
-  proc relayHandler(pubsubTopic: PubsubTopic, data: seq[byte]) {.async, gcsafe.} =
-    let msg = WakuMessage.decode(data)
-    if msg.isOk() and msg.get().isBridgeable():
+  proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    if msg.isBridgeable():
       try:
-        trace "Bridging message from V2 to V1", msg=msg.tryGet()
-        bridge.toWakuV1(msg.tryGet())
+        trace "Bridging message from V2 to V1", msg=msg
+        bridge.toWakuV1(msg)
       except ValueError:
         trace "Failed to convert message to Waku v1. Check content-topic format.", msg=msg
         waku_bridge_dropped.inc(labelValues = ["value_error"])
@@ -335,11 +300,11 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuBridgeConf) 
 
   # Install enabled API handlers:
   if conf.relay:
-    let topicCache = newTable[PubsubTopic, seq[WakuMessage]]()
+    let topicCache = relay_api.MessageCache.init(capacity=30)
     installRelayApiHandlers(node, rpcServer, topicCache)
 
   if conf.filternode != "":
-    let messageCache = newTable[ContentTopic, seq[WakuMessage]]()
+    let messageCache = filter_api.MessageCache.init(capacity=30)
     installFilterApiHandlers(node, rpcServer, messageCache)
 
   if conf.storenode != "":
@@ -349,6 +314,7 @@ proc setupV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: WakuBridgeConf) 
 {.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
   import
+    std/os,
     libp2p/nameresolving/dnsresolver
   import
     ../../waku/common/logging,
@@ -373,7 +339,7 @@ when isMainModule:
 
   # Adhere to NO_COLOR initiative: https://no-color.org/
   let color = try: not parseBool(os.getEnv("NO_COLOR", "false"))
-              except: true
+              except CatchableError: true
 
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
@@ -383,11 +349,23 @@ when isMainModule:
   ## actually a supported transport.
   let udpPort = conf.devp2pTcpPort
 
+  let natRes = setupNat(conf.nat, ClientIdV1,
+                        Port(conf.devp2pTcpPort + conf.portsShift),
+                        Port(udpPort + conf.portsShift))
+  if natRes.isErr():
+    error "failed setupNat", error = natRes.error
+    quit(QuitFailure)
+
+  let natRes2 = setupNat(conf.nat, clientId,
+                         Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
+                         Port(uint16(udpPort) + conf.portsShift))
+  if natRes2.isErr():
+    error "failed setupNat", error = natRes2.error
+    quit(QuitFailure)
+
   # Load address configuration
   let
-    (nodev1ExtIp, _, _) = setupNat(conf.nat, ClientIdV1,
-                                   Port(conf.devp2pTcpPort + conf.portsShift),
-                                   Port(udpPort + conf.portsShift))
+    (nodev1ExtIp, _, _) = natRes.get()
     # TODO: EthereumNode should have a better split of binding address and
     # external address. Also, can't have different ports as it stands now.
     nodev1Address = if nodev1ExtIp.isNone():
@@ -398,9 +376,7 @@ when isMainModule:
                       Address(ip: nodev1ExtIp.get(),
                               tcpPort: Port(conf.devp2pTcpPort + conf.portsShift),
                               udpPort: Port(udpPort + conf.portsShift))
-    (nodev2ExtIp, nodev2ExtPort, _) = setupNat(conf.nat, clientId,
-                                               Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                                               Port(uint16(udpPort) + conf.portsShift))
+    (nodev2ExtIp, nodev2ExtPort, _) = natRes2.get()
 
   # Topic interest and bloom
   var topicInterest: Option[seq[waku_protocol.Topic]]
@@ -464,11 +440,19 @@ when isMainModule:
 
   if conf.storenode != "":
     mountStoreClient(bridge.nodev2)
-    setStorePeer(bridge.nodev2, conf.storenode)
+    let storeNode = parsePeerInfo(conf.storenode)
+    if storeNode.isOk():
+      bridge.nodev2.peerManager.addServicePeer(storeNode.value, WakuStoreCodec)
+    else:
+      error "Couldn't parse conf.storenode", error = storeNode.error
 
   if conf.filternode != "":
     waitFor mountFilterClient(bridge.nodev2)
-    setFilterPeer(bridge.nodev2, conf.filternode)
+    let filterNode = parsePeerInfo(conf.filternode)
+    if filterNode.isOk():
+      bridge.nodev2.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+    else:
+      error "Couldn't parse conf.filternode", error = filterNode.error
 
   if conf.rpc:
     let ta = initTAddress(conf.rpcAddress,

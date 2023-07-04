@@ -4,17 +4,18 @@ import
   testutils/unittests,
   chronos,
   libp2p,
-  libp2p/protocols/connectivity/autonat,
+  libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/protocols/connectivity/relay/client,
   stew/byteutils
 import
-  ../../waku/v2/node/wakuswitch,
-  ./testlib/switch
+  ../../waku/v2/node/waku_switch,
+  ./testlib/common,
+  ./testlib/wakucore
 
 proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
   SwitchBuilder.new()
-    .withRng(newRng())
+    .withRng(rng())
     .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
     .withTcpTransport()
     .withMplex()
@@ -22,19 +23,19 @@ proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
     .withCircuitRelay(relayClient)
     .build()
 
-procSuite "Waku Switch":
+suite "Waku Switch":
 
   asyncTest "Waku Switch works with AutoNat":
     ## Given
     let
       sourceSwitch = newTestSwitch()
-      wakuSwitch = newWakuSwitch()
+      wakuSwitch = newWakuSwitch(rng = rng())
     await sourceSwitch.start()
     await wakuSwitch.start()
 
     ## When
     await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
-    let ma = await Autonat.new(sourceSwitch).dialMe(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    let ma = await AutonatClient.new().dialMe(sourceSwitch, wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
 
     ## Then
     check:
@@ -46,7 +47,7 @@ procSuite "Waku Switch":
   asyncTest "Waku Switch acts as circuit relayer":
     ## Setup
     let
-      wakuSwitch = newWakuSwitch()
+      wakuSwitch = newWakuSwitch(rng = rng())
       sourceClient = RelayClient.new()
       destClient = RelayClient.new()
       sourceSwitch = newCircuitRelayClientSwitch(sourceClient)
@@ -62,8 +63,7 @@ procSuite "Waku Switch":
     let
       # Create a relay address to destSwitch using wakuSwitch as the relay
       addrs = MultiAddress.init($wakuSwitch.peerInfo.addrs[0] & "/p2p/" &
-                                $wakuSwitch.peerInfo.peerId & "/p2p-circuit/p2p/" &
-                                $destSwitch.peerInfo.peerId).get()
+                                $wakuSwitch.peerInfo.peerId & "/p2p-circuit").get()
       msg = "Just one relay away..."
 
     # Create a custom protocol

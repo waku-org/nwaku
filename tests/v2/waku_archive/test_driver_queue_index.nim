@@ -6,10 +6,8 @@ import
   testutils/unittests,
   nimcrypto
 import
-  ../../../waku/v2/protocol/waku_message,
-  ../../../waku/v2/protocol/waku_archive/driver/queue_driver/index,
-  ../../../waku/v2/utils/time,
-  ../testlib/common
+  ../../../waku/v2/waku_core,
+  ../../../waku/v2/waku_archive/driver/queue_driver/index
 
 
 ## Helpers

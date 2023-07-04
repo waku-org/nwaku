@@ -7,14 +7,14 @@ import
   nimcrypto/utils,
   eth/keys
 import
-  ../../../waku/v2/protocol/waku_message
+  ../../../waku/v2/waku_core
 
 type
   Fleet* =  enum
     none
     prod
     test
-  
+
   Chat2Conf* = object
     ## General node config
 
@@ -22,11 +22,10 @@ type
       desc: "Sets the log level."
       defaultValue: LogLevel.INFO
       name: "log-level" }: LogLevel
-    
+
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).tryGet()
-      name: "nodekey" }: crypto.PrivateKey
+      name: "nodekey" }: Option[crypto.PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
@@ -52,35 +51,35 @@ type
       desc: "Specify method to use for determining public address. " &
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
-    
+
     ## Persistence config
-    
+
     dbPath* {.
       desc: "The database path for peristent storage",
       defaultValue: ""
       name: "db-path" }: string
-    
+
     persistPeers* {.
       desc: "Enable peer persistence: true|false",
       defaultValue: false
       name: "persist-peers" }: bool
-    
+
     persistMessages* {.
       desc: "Enable message persistence: true|false",
       defaultValue: false
       name: "persist-messages" }: bool
 
     ## Relay config
-    
+
     relay* {.
       desc: "Enable relay protocol: true|false",
       defaultValue: true
       name: "relay" }: bool
-    
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
-    
+
     keepAlive* {.
       desc: "Enable keep-alive for idle connections: true|false",
       defaultValue: false
@@ -102,38 +101,31 @@ type
       desc: "Peer multiaddr to query for storage.",
       defaultValue: ""
       name: "storenode" }: string
-    
+
     ## Filter config
 
     filter* {.
       desc: "Enable filter protocol: true|false",
       defaultValue: false
       name: "filter" }: bool
-    
+
     filternode* {.
       desc: "Peer multiaddr to request content filtering of messages.",
       defaultValue: ""
       name: "filternode" }: string
-    
-    ## Swap config
 
-    swap* {.
-      desc: "Enable swap protocol: true|false",
-      defaultValue: true
-      name: "swap" }: bool
-    
     ## Lightpush config
 
     lightpush* {.
       desc: "Enable lightpush protocol: true|false",
       defaultValue: false
       name: "lightpush" }: bool
-    
+
     lightpushnode* {.
       desc: "Peer multiaddr to request lightpush of published messages.",
       defaultValue: ""
       name: "lightpushnode" }: string
-    
+
     ## JSON-RPC config
 
     rpc* {.
@@ -150,17 +142,17 @@ type
       desc: "Listening port of the JSON-RPC server.",
       defaultValue: 8545
       name: "rpc-port" }: uint16
-    
+
     rpcAdmin* {.
       desc: "Enable access to JSON-RPC Admin API: true|false",
       defaultValue: false
       name: "rpc-admin" }: bool
-    
+
     rpcPrivate* {.
       desc: "Enable access to JSON-RPC Private API: true|false",
       defaultValue: false
       name: "rpc-private" }: bool
-    
+
     ## Metrics config
 
     metricsServer* {.
@@ -182,26 +174,26 @@ type
       desc: "Enable metrics logging: true|false"
       defaultValue: true
       name: "metrics-logging" }: bool
-    
+
     ## DNS discovery config
-    
+
     dnsDiscovery* {.
       desc: "Enable discovering nodes via DNS"
       defaultValue: false
       name: "dns-discovery" }: bool
-    
+
     dnsDiscoveryUrl* {.
       desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
       defaultValue: ""
       name: "dns-discovery-url" }: string
-    
+
     dnsDiscoveryNameServers* {.
       desc: "DNS name server IPs to query. Argument may be repeated."
       defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
       name: "dns-discovery-name-server" }: seq[ValidIpAddress]
 
     ## Chat2 configuration
-    
+
     fleet* {.
       desc: "Select the fleet to connect to. This sets the DNS discovery URL to the selected fleet."
       defaultValue: Fleet.prod
@@ -217,19 +209,19 @@ type
       desc: "Enable websocket:  true|false",
       defaultValue: false
       name: "websocket-support"}: bool
-    
+
     websocketPort* {.
       desc: "WebSocket listening port."
       defaultValue: 8000
       name: "websocket-port" }: Port
-    
+
     websocketSecureSupport* {.
       desc: "WebSocket Secure Support."
       defaultValue: false
       name: "websocket-secure-support" }: bool
 
     ## rln-relay configuration
-  
+
     rlnRelay* {.
       desc: "Enable spam protection through rln-relay: true|false",
       defaultValue: false
@@ -239,63 +231,68 @@ type
       desc: "The path for peristing rln-relay credential",
       defaultValue: ""
       name: "rln-relay-cred-path" }: string
-   
-    rlnRelayMembershipIndex* {.
-      desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
+
+    rlnRelayCredIndex* {.
+      desc: "the index of credentials to use",
       defaultValue: 0
-      name: "rln-relay-membership-index" }: uint
+      name: "rln-relay-cred-index" }: uint
+
+    rlnRelayMembershipGroupIndex* {.
+      desc: "the index of credentials to use, within a specific rln membership set",
+      defaultValue: 0
+      name: "rln-relay-membership-group-index" }: uint
 
     rlnRelayContentTopic* {.
-      desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/luzhou/proto"
+      desc: "the content topic for which rln-relay gets enabled",
+      defaultValue: "/toy-chat/3/mingde/proto"
       name: "rln-relay-content-topic" }: ContentTopic
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
       defaultValue: "/waku/2/default-waku/proto"
       name: "rln-relay-pubsub-topic" }: string
-      
+
     rlnRelayDynamic* {.
       desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
       name: "rln-relay-dynamic" }: bool
-  
+
     rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key as a Hex string", 
+      desc: "Rln relay identity secret key as a Hex string",
       defaultValue: ""
       name: "rln-relay-id-key" }: string
-    
+
     rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key as a Hex string", 
+      desc: "Rln relay identity commitment key as a Hex string",
       defaultValue: ""
       name: "rln-relay-id-commitment-key" }: string
-  
+
     rlnRelayEthAccountAddress* {.
       desc: "Ethereum account address for an Ethereum testnet",
       # NOTE: This can be derived from the private key, but kept for future use
       defaultValue: ""
       name: "rln-relay-eth-account-address" }: string
-    
+
     rlnRelayEthAccountPrivateKey* {.
       desc: "Account private key for an Ethereum testnet",
       defaultValue: ""
       name: "rln-relay-eth-account-private-key" }: string
-    
+
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
       name: "rln-relay-eth-client-address" }: string
-    
+
     rlnRelayEthContractAddress* {.
-      desc: "Address of membership contract on an Ethereum testnet", 
+      desc: "Address of membership contract on an Ethereum testnet",
       defaultValue: ""
       name: "rln-relay-eth-contract-address" }: string
 
     rlnRelayCredentialsPassword* {.
-      desc: "Password for encrypting RLN credentials", 
+      desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
-    
+
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:

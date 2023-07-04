@@ -10,7 +10,9 @@ import
   confutils/toml/std/net as confTomlNet,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
-  nimcrypto/utils
+  libp2p/multiaddress,
+  nimcrypto/utils,
+  secp256k1
 import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
@@ -24,6 +26,9 @@ export
 
 
 type ConfResult*[T] = Result[T, string]
+type ProtectedTopic* = object
+  topic*: string
+  key*: secp256k1.SkPublicKey
 
 type
   WakuNodeConf* = object
@@ -31,6 +36,11 @@ type
       desc: "Loads configuration from a TOML file (cmd-line parameters take precedence)"
       name: "config-file" }: Option[InputFile]
 
+    ##  Application-level configuration
+    protectedTopics* {.
+      desc: "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated."
+      defaultValue: newSeq[ProtectedTopic](0)
+      name: "protected-topic" .}: seq[ProtectedTopic]
 
     ## Log configuration
     logLevel* {.
@@ -43,7 +53,6 @@ type
       defaultValue: logging.LogFormat.TEXT,
       name: "log-format" .}: logging.LogFormat
 
-
     ## General node config
     agentString* {.
       defaultValue: "nwaku",
@@ -52,8 +61,7 @@ type
 
     nodekey* {.
       desc: "P2P node private key as 64 char hex string.",
-      defaultValue: defaultPrivateKey()
-      name: "nodekey" }: PrivateKey
+      name: "nodekey" }: Option[PrivateKey]
 
     listenAddress* {.
       defaultValue: defaultListenAddress()
@@ -75,6 +83,10 @@ type
             "Must be one of: any, none, upnp, pmp, extip:<IP>."
       defaultValue: "any" }: string
 
+    extMultiAddrs* {.
+      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
+      name: "ext-multiaddr" }: seq[string]
+
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections."
       defaultValue: 50
@@ -82,8 +94,7 @@ type
 
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore."
-      defaultValue: 100
-      name: "peer-store-capacity" }: int
+      name: "peer-store-capacity" }: Option[int]
 
     peerPersistence* {.
       desc: "Enable peer persistence.",
@@ -129,10 +140,15 @@ type
       defaultValue: ""
       name: "rln-relay-cred-path" }: string
 
-    rlnRelayMembershipIndex* {.
-      desc: "(experimental) the index of node in the rln-relay group: a value between 0-99 inclusive",
+    rlnRelayCredIndex* {.
+      desc: "the index of credentials to use",
       defaultValue: 0
       name: "rln-relay-membership-index" }: uint
+
+    rlnRelayMembershipGroupIndex* {.
+      desc: "the index of credentials to use, within a specific rln membership set",
+      defaultValue: 0
+      name: "rln-relay-membership-group-index" }: uint
 
     rlnRelayPubsubTopic* {.
       desc: "the pubsub topic for which rln-relay gets enabled",
@@ -140,8 +156,8 @@ type
       name: "rln-relay-pubsub-topic" }: string
 
     rlnRelayContentTopic* {.
-      desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/2/luzhou/proto"
+      desc: "the content topic for which rln-relay gets enabled",
+      defaultValue: "/toy-chat/3/mingde/proto"
       name: "rln-relay-content-topic" }: string
 
     rlnRelayDynamic* {.
@@ -161,12 +177,12 @@ type
 
     # NOTE: This can be derived from the private key, but kept for future use
     rlnRelayEthAccountAddress* {.
-      desc: "Account address for the Ethereum testnet Goerli",
+      desc: "Account address for the Ethereum testnet Sepolia",
       defaultValue: ""
       name: "rln-relay-eth-account-address" }: string
 
     rlnRelayEthAccountPrivateKey* {.
-      desc: "Account private key for the Ethereum testnet Goerli",
+      desc: "Account private key for the Ethereum testnet Sepolia",
       defaultValue: ""
       name: "rln-relay-eth-account-private-key" }: string
 
@@ -185,6 +201,11 @@ type
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
 
+    rlnRelayTreePath* {.
+      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+      defaultValue: ""
+      name: "rln-relay-tree-path" }: string
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
@@ -194,10 +215,15 @@ type
       defaultValue: false
       name: "keep-alive" }: bool
 
-    topics* {.
-      desc: "Default topics to subscribe to (space separated list)."
+    topicsDeprecated* {.
+      desc: "Default topics to subscribe to (space separated list). DEPRECATED: please use repeated --topic argument instead."
       defaultValue: "/waku/2/default-waku/proto"
       name: "topics" .}: string
+
+    topics* {.
+      desc: "Default topic to subscribe to. Argument may be repeated."
+      defaultValue: @["/waku/2/default-waku/proto"]
+      name: "topic" .}: seq[string]
 
     ## Store and message store config
 
@@ -252,13 +278,6 @@ type
       desc: "Timeout for filter node in seconds.",
       defaultValue: 14400 # 4 hours
       name: "filter-timeout" }: int64
-
-    ## Swap config
-
-    swap* {.
-      desc: "Enable swap protocol: true|false",
-      defaultValue: false
-      name: "swap" }: bool
 
     ## Lightpush config
 
@@ -455,20 +474,30 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
     crypto.PrivateKey(scheme: Secp256k1, skkey: key)
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc defaultPrivateKey*(): PrivateKey =
-  crypto.PrivateKey.random(Secp256k1, crypto.newRng()[]).value
+proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
+  let elements = p.split(":")
+  if elements.len != 2:
+    raise newException(ConfigurationError, "Invalid format for protected topic expected topic:publickey")
 
+  let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
+  if publicKey.isErr:
+    raise newException(ConfigurationError, "Invalid public key")
+
+  return ProtectedTopic(topic: elements[0], key: publicKey.get())
+
+proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
+  return @[]
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     ValidIpAddress.init(p)
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
@@ -483,12 +512,17 @@ proc defaultListenAddress*(): ValidIpAddress =
 proc parseCmdArg*(T: type Port, p: string): T =
   try:
     Port(parseInt(p))
-  except:
+  except CatchableError:
     raise newException(ConfigurationError, "Invalid Port number")
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
+proc parseCmdArg*(T: type Option[int], p: string): T =
+  try:
+    some(parseInt(p))
+  except CatchableError:
+    raise newException(ConfigurationError, "Invalid number")
 
 ## Configuration validation
 
@@ -513,6 +547,12 @@ proc validateStoreMessageRetentionPolicy*(val: string): ConfResult[string] =
   else:
     err("invalid 'store message retention policy' option format: " & val)
 
+proc validateExtMultiAddrs*(vals: seq[string]): ConfResult[seq[MultiAddress]] =
+  var multiaddrs: seq[MultiAddress]
+  for val in vals:
+    let multiaddr = ? MultiAddress.init(val)
+    multiaddrs.add(multiaddr)
+  ok(multiaddrs)
 
 ## Load
 
@@ -529,6 +569,17 @@ proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [Se
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
+proc readValue*(r: var TomlReader, value: var ProtectedTopic) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(r: var EnvvarReader, value: var ProtectedTopic) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
 
 {.push warning[ProveInit]: off.}
 

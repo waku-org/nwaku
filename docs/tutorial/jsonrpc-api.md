@@ -8,7 +8,7 @@ Debugging methods are accessed via the [Debug API](https://rfc.vac.dev/spec/16/#
 
 ## Setup
 
-Ensure you have built and run `wakunode2` as per [these instructions](https://github.com/status-im/nim-waku).
+Ensure you have built and run `wakunode2` as per [these instructions](https://github.com/waku-org/nwaku).
 
 By default a running `wakunode2` will expose a JSON-RPC API on the localhost (`127.0.0.1`) at port `8545`.
 It is possible to change this configuration by setting the `rpc-address` and `rpc-port` options when running the node:
@@ -17,7 +17,7 @@ It is possible to change this configuration by setting the `rpc-address` and `rp
 ./build/wakunode2 --rpc-address:127.0.1.1 --rpc-port:8546
 ```
 
-It is also possible to connect to one of our [testnets](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/docs/tutorial/dingpu.md) by specifying a `staticnode` when running the node:
+It is also possible to connect to one of our [testnets](https://github.com/waku-org/nwaku/blob/master/docs/tutorial/dingpu.md) by specifying a `staticnode` when running the node:
 
 ```
 ./build/wakunode2 --staticnode:<multiaddr>
