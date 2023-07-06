@@ -142,6 +142,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node1.start()
@@ -154,6 +155,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node2.start()
@@ -166,6 +168,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node3.start()
@@ -248,6 +251,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node1.start()
@@ -261,6 +265,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node2.start()
@@ -274,6 +279,7 @@ procSuite "WakuNode - RLN relay":
       rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
+      rlnRelayBandwidthThreshold: 0,
     ))
 
     await node3.start()

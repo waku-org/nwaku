@@ -211,6 +211,11 @@ type
       defaultValue: ""
       name: "rln-relay-tree-path" }: string
 
+    rlnRelayBandwidthThreshold* {.
+      desc: "Message rate in bytes/sec after which verification of proofs should happen",
+      defaultValue: 1_000_000
+      name: "rln-relay-bandwidth-cutff" }: int
+
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
       name: "staticnode" }: seq[string]
