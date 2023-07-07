@@ -5,7 +5,7 @@ else:
 
 import
   std/[algorithm, sequtils, strutils, tables, times, os, deques],
-  chronicles, options, chronos, stint,
+  chronicles, options, chronos, chronos/ratelimit, stint,
   confutils,
   web3, json,
   web3/ethtypes,
@@ -23,7 +23,8 @@ import
   ./protocol_metrics
 import
   ../waku_core,
-  ../waku_keystore
+  ../waku_keystore,
+  ../utils/collector
 
 logScope:
   topics = "waku rln_relay"
@@ -41,6 +42,7 @@ type WakuRlnConfig* = object
   rlnRelayCredPath*: string
   rlnRelayCredentialsPassword*: string
   rlnRelayTreePath*: string
+  rlnRelayBandwidthThreshold*: int
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -86,6 +88,7 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: Table[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
+  messageBucket*: Option[TokenBucket]
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
@@ -160,14 +163,16 @@ proc absDiff*(e1, e2: Epoch): uint64 =
   else:
     return epoch2 - epoch1
 
-proc validateMessage*(rlnPeer: WakuRLNRelay, msg: WakuMessage,
-    timeOption: Option[float64] = none(float64)): MessageValidationResult =
+proc validateMessage*(rlnPeer: WakuRLNRelay, 
+                      msg: WakuMessage,
+                      timeOption = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
   ## the `msg`'s epoch is within MaxEpochGap of the current epoch
   ## the `msg` has valid rate limit proof
   ## the `msg` does not violate the rate limit
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
+
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
@@ -286,6 +291,18 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
   let contentTopic = wakuRlnRelay.contentTopic
   proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
+
+    ## Check if enough tokens can be consumed from the message bucket
+    try:
+      if wakuRlnRelay.messageBucket.isSome() and
+         wakuRlnRelay.messageBucket.get().tryConsume(message.data.len):
+        return pubsub.ValidationResult.Accept
+      else:
+        info "message bandwidth limit exceeded, running rate limit proof validation"
+    except OverflowDefect: # not a problem
+      debug "not enough bandwidth, running rate limit proof validation"
+   
+
     let decodeRes = WakuMessage.decode(message.data)
     if decodeRes.isOk():
       let
@@ -377,9 +394,14 @@ proc mount(conf: WakuRlnConfig,
   # Start the group sync
   await groupManager.startGroupSync()
 
+  let messageBucket = if conf.rlnRelayBandwidthThreshold > 0:
+                      some(TokenBucket.new(conf.rlnRelayBandwidthThreshold)) 
+                      else: none(TokenBucket)
+
   return WakuRLNRelay(pubsubTopic: conf.rlnRelayPubsubTopic,
                       contentTopic: conf.rlnRelayContentTopic,
-                      groupManager: groupManager)
+                      groupManager: groupManager,
+                      messageBucket: messageBucket)
 
 
 proc new*(T: type WakuRlnRelay,

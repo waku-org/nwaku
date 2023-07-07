@@ -383,7 +383,8 @@ proc setupProtocols(node: WakuNode,
         rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
         rlnRelayCredPath: conf.rlnRelayCredPath,
         rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword,
-        rlnRelayTreePath: conf.rlnRelayTreePath
+        rlnRelayTreePath: conf.rlnRelayTreePath,
+        rlnRelayBandwidthThreshold: conf.rlnRelayBandwidthThreshold
       )
 
       try:
