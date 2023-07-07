@@ -214,7 +214,7 @@ type
     rlnRelayBandwidthThreshold* {.
       desc: "Message rate in bytes/sec after which verification of proofs should happen",
       defaultValue: 0 # to maintain backwards compatibility
-      name: "rln-relay-bandwidth-cutff" }: int
+      name: "rln-relay-bandwidth-cutoff" }: int
 
     staticnodes* {.
       desc: "Peer multiaddr to directly connect with. Argument may be repeated."
