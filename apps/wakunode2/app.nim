@@ -497,12 +497,14 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
+
   if dynamicBootstrapNodes.len > 0:
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     except CatchableError:
       return err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
+
 
   # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
