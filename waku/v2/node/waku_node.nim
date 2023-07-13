@@ -125,6 +125,10 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
     if confidence.isSome():
       info "Peer reachability status", networkReachability=networkReachability, confidence=confidence.get()
 
+    let retFut = newFuture[void]()
+    retFut.complete()
+    return retFut
+
   autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
 
   return autonatService
