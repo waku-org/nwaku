@@ -121,13 +121,9 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
 
   proc statusAndConfidenceHandler(networkReachability: NetworkReachability,
                                   confidence: Opt[float]):
-                                  Future[void]  {.gcsafe, raises: [].} =
+                                  Future[void]  {.gcsafe, async.} =
     if confidence.isSome():
       info "Peer reachability status", networkReachability=networkReachability, confidence=confidence.get()
-
-    let retFut = newFuture[void]()
-    retFut.complete()
-    return retFut
 
   autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
 
