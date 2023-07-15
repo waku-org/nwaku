@@ -1,6 +1,6 @@
 # BUILD NIM APP ----------------------------------------------------------------
 
-FROM alpine:3.16 AS nim-build
+FROM alpine:edge AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
@@ -9,7 +9,7 @@ ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
+RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl rust cargo
 
 WORKDIR /app
 COPY . .
