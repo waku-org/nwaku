@@ -27,13 +27,17 @@ const DefaultContentTopic* = ContentTopic("/waku/2/default-content/proto")
 
 type
   NsContentTopic* = object
+    generation: string
+    bias: string
     application*: string
     version*: string
     name*: string
     encoding*: string
 
-proc init*(T: type NsContentTopic, application, version, name, encoding: string): T =
+proc init*(T: type NsContentTopic, generation, bias, application, version, name, encoding: string): T =
   NsContentTopic(
+    generation: generation,
+    bias: bias,
     application: application,
     version: version,
     name: name,
@@ -46,7 +50,8 @@ proc init*(T: type NsContentTopic, application, version, name, encoding: string)
 proc `$`*(topic: NsContentTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/<application>/<version>/<topic-name>/<encoding>`
-  "/" & topic.application & "/" & topic.version & "/" & topic.name & "/" & topic.encoding
+  ## Autosharding adds 2 prefix `/<gen>/<bias-name>
+  "/" & topic.generation & "/" & topic.bias & "/" & topic.application & "/" & topic.version & "/" & topic.name & "/" & topic.encoding
 
 
 # Deserialization
@@ -54,33 +59,41 @@ proc `$`*(topic: NsContentTopic): string =
 proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[NsContentTopic] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
+  ## Autosharding adds 2 prefix `/gen/<gen#>/bias/<bias-name>
 
   if not topic.startsWith("/"):
     return err(ParsingError.invalidFormat("topic must start with slash"))
 
   let parts = topic[1..<topic.len].split("/")
-  if parts.len != 4:
+  if parts.len != 6:
     return err(ParsingError.invalidFormat("invalid topic structure"))
 
+  let gen = parts[0]
+  if gen.len == 0:
+    return err(ParsingError.missingPart("generation"))
 
-  let app = parts[0]
+  let bias = parts[1]
+  if bias.len == 0:
+    return err(ParsingError.missingPart("sharding-bias"))
+
+  let app = parts[2]
   if app.len == 0:
     return err(ParsingError.missingPart("appplication"))
 
-  let ver = parts[1]
+  let ver = parts[3]
   if ver.len == 0:
     return err(ParsingError.missingPart("version"))
 
-  let name = parts[2]
+  let name = parts[4]
   if name.len == 0:
     return err(ParsingError.missingPart("topic-name"))
 
-  let enc = parts[3]
+  let enc = parts[5]
   if enc.len == 0:
     return err(ParsingError.missingPart("encoding"))
 
 
-  ok(NsContentTopic.init(app, ver, name, enc))
+  ok(NsContentTopic.init(gen, bias, app, ver, name, enc))
 
 
 # Content topic compatibility
