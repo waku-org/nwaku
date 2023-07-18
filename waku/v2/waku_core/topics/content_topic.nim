@@ -27,8 +27,8 @@ const DefaultContentTopic* = ContentTopic("/waku/2/default-content/proto")
 
 type
   NsContentTopic* = object
-    generation: string
-    bias: string
+    generation*: string
+    bias*: string
     application*: string
     version*: string
     name*: string
@@ -50,7 +50,7 @@ proc init*(T: type NsContentTopic, generation, bias, application, version, name,
 proc `$`*(topic: NsContentTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/<application>/<version>/<topic-name>/<encoding>`
-  ## Autosharding adds 2 prefix `/<gen>/<bias-name>
+  ## Autosharding adds 2 prefix `/<gen#>/<bias-name>
   "/" & topic.generation & "/" & topic.bias & "/" & topic.application & "/" & topic.version & "/" & topic.name & "/" & topic.encoding
 
 
@@ -59,7 +59,7 @@ proc `$`*(topic: NsContentTopic): string =
 proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[NsContentTopic] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
-  ## Autosharding adds 2 prefix `/gen/<gen#>/bias/<bias-name>
+  ## Autosharding adds 2 prefix `/<gen#>/<bias-name>
 
   if not topic.startsWith("/"):
     return err(ParsingError.invalidFormat("topic must start with slash"))

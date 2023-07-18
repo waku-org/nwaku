@@ -1,7 +1,7 @@
 import
   ./topics/content_topic,
   ./topics/pubsub_topic,
-  ./topics/sharding,
+  ./topics/sharding
 
 export
   content_topic,
