@@ -11,6 +11,8 @@ suite "Waku Message - Content topics namespacing":
   test "Stringify namespaced content topic":
     ## Given
     var ns = NsContentTopic()
+    ns.generation = "0"
+    ns.bias = "none"
     ns.application = "toychat"
     ns.version = "2"
     ns.name = "huilong"
@@ -21,11 +23,11 @@ suite "Waku Message - Content topics namespacing":
 
     ## Then
     check:
-      topic == "/toychat/2/huilong/proto"
+      topic == "/0/none/toychat/2/huilong/proto"
 
   test "Parse content topic string - Valid string":
     ## Given
-    let topic = "/toychat/2/huilong/proto"
+    let topic = "/0/none/toychat/2/huilong/proto"
 
     ## When
     let nsRes = NsContentTopic.parse(topic)
@@ -35,6 +37,8 @@ suite "Waku Message - Content topics namespacing":
 
     let ns = nsRes.get()
     check:
+      ns.generation == "0"
+      ns.bias == "none"
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -68,7 +72,6 @@ suite "Waku Message - Content topics namespacing":
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
 
-
   test "Parse content topic string - Invalid string: missing encoding part":
     ## Given
     let topic = "/toychat/2/huilong"
@@ -86,6 +89,20 @@ suite "Waku Message - Content topics namespacing":
   test "Parse content topic string - Invalid string: too many parts":
     ## Given
     let topic = "/toychat/2/huilong/proto/33"
+
+    ## When
+    let ns = NsContentTopic.parse(topic)
+
+    ## Then
+    check ns.isErr()
+    let err = ns.tryError()
+    check:
+      err.kind == ParsingErrorKind.InvalidFormat
+      err.cause == "invalid topic structure"
+
+  test "Parse content topic string - Invalid string: missing sharding data":
+    ## Given
+    let topic = "/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic)
@@ -177,7 +194,6 @@ suite "Waku Message - Pub-sub topics namespacing":
     check:
       err.kind == ParsingErrorKind.MissingPart
       err.part == "shard_cluster_index"
-
 
   test "Parse static sharding pub-sub topic string - Invalid string: cluster value":
     ## Given

@@ -21,17 +21,17 @@ import
   ./pubsub_topic
 
 const ClusterIndex = 0
-const GenerationZeroShardsCount = 5
+const GenerationZeroShardsCount* = 5
 
 type ShardsPriority = seq[(NsPubsubTopic, float64)]
 
 proc applyWeight(hashValue: uint64, weight: float64): float64 =
   -weight / math.ln(float64(hashValue) / float64(high(uint64)))
 
-proc hashOrder(x, y: (NsPubsubTopic, float64)): int =
+proc hashOrder*(x, y: (NsPubsubTopic, float64)): int =
     cmp(x[1], y[1])
 
-proc weightedShardList(topic: NsContentTopic, shardCount: int, weights: seq[float64]): Result[ShardsPriority, string] =
+proc weightedShardList*(topic: NsContentTopic, shardCount: int, weights: seq[float64]): Result[ShardsPriority, string] =
   ## Returns the ordered list of shards and their priority values.
 
   if weights.len != shardCount:
@@ -54,12 +54,12 @@ proc weightedShardList(topic: NsContentTopic, shardCount: int, weights: seq[floa
 
   ok(list)
 
-type ShardingBias = enum
+type ShardingBias* = enum
   None = "none"
   Kanonymity = "anon"
   Throughput = "bandwidth"
 
-proc shardingParam(topic: NsContentTopic): Result[(int, ShardingBias), string] =
+proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias), string] =
   ## Returns the total shard count and the sharding selection bias
   ## from the content topic.
   let gen = try:
@@ -81,8 +81,8 @@ proc shardingParam(topic: NsContentTopic): Result[(int, ShardingBias), string] =
 
   ok((shardCount, bias))
 
-proc biasedWeights(shardCount: int, bias: ShardingBias): seq[float64] =
-  var weights = newSeq[1.0](shardCount)
+proc biasedWeights*(shardCount: int, bias: ShardingBias): seq[float64] =
+  var weights = repeat(1.0, shardCount)
 
   case bias:
     of None:
