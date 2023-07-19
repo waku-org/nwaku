@@ -20,10 +20,10 @@ import
   ./content_topic,
   ./pubsub_topic
 
-const ClusterIndex = 49152
+const ClusterIndex* = 49152
 const GenerationZeroShardsCount* = 5
 
-type ShardsPriority = seq[(NsPubsubTopic, float64)]
+type ShardsPriority = seq[tuple[topic: NsPubsubTopic, value: float64]]
 
 proc applyWeight(hashValue: uint64, weight: float64): float64 =
   -weight / math.ln(float64(hashValue) / float64(high(uint64)))
