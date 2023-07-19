@@ -68,7 +68,7 @@ procSuite "WakuBridge":
       builder.withNetworkConfigurationDetails(ValidIpAddress.init("0.0.0.0"), Port(62203)).tryGet()
       builder.build().tryGet()
 
-    contentTopic = ContentTopic("/waku/1/0x1a2b3c4d/rfc26")
+    contentTopic = ContentTopic("/0/none/waku/1/0x1a2b3c4d/rfc26")
     topic = [byte 0x1a, byte 0x2b, byte 0x3c, byte 0x4d]
     payloadV1 = "hello from V1".toBytes()
     payloadV2 = "hello from V2".toBytes()

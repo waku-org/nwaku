@@ -35,6 +35,8 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
   var namespacedTopic = NsContentTopic()
 
+  namespacedTopic.generation = "0"
+  namespacedTopic.bias = "none"
   namespacedTopic.application = ContentTopicApplication
   namespacedTopic.version = ContentTopicAppVersion
   namespacedTopic.name = v1Topic.to0xHex()
