@@ -20,7 +20,7 @@ import
   ./content_topic,
   ./pubsub_topic
 
-const ClusterIndex = 0
+const ClusterIndex = 49152
 const GenerationZeroShardsCount* = 5
 
 type ShardsPriority = seq[(NsPubsubTopic, float64)]
