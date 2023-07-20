@@ -14,7 +14,8 @@ import
   std/algorithm,
   std/strutils,
   stew/endians2,
-  stew/results
+  stew/results,
+  stew/byteutils
 
 import
   ./content_topic,
@@ -43,8 +44,8 @@ proc weightedShardList*(topic: NsContentTopic, shardCount: int, weights: seq[flo
 
   for (shard, weight) in shardsNWeights:
     let pubsub = NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
-
-    let hash = sha256.digest($topic & $pubsub)
+    let bytes = toBytes($topic) & toBytes($pubsub)
+    let hash = sha256.digest(bytes)
     let hashValue = uint64.fromBytesBE(hash.data)
     let value = applyWeight(hashValue, weight)
 
