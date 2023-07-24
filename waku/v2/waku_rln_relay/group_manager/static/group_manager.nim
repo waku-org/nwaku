@@ -102,3 +102,10 @@ method onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 
 method onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
+
+method close*(g: StaticGroupManager): Future[void] =
+  initializedGuard(g)
+  # No-op
+  var retFut = newFuture[void]("StaticGroupManager.close")
+  retFut.complete()
+  return retFut

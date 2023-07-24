@@ -496,3 +496,10 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
   g.initialized = true
+
+method close*(g: OnchainGroupManager): Future[void] {.async.} =
+  if g.ethRpc.isSome():
+    await g.ethRpc.get().close()
+  let connClosed = g.rlnInstance.closeDbConnection()
+  if not connClosed:
+    error "failed to close the tree db connection"

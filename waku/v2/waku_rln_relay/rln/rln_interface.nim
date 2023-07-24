@@ -188,3 +188,8 @@ proc get_metadata*(ctx: ptr RLN, output_buffer: ptr Buffer): bool {.importc: "ge
 ## gets the metadata stored by ctx and populates the passed pointer output_buffer with it
 ## the output_buffer holds the metadata as a byte seq
 ## the return bool value indicates the success or failure of the operation
+
+proc close_db_connection*(ctx: ptr RLN): bool {.importc: "close_db_connection".}
+## closes the connection to the database
+## the return bool value indicates the success or failure of the operation
+## This allows more robust and graceful handling of the database connection
