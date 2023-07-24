@@ -90,6 +90,13 @@ type WakuRLNRelay* = ref object of RootObj
   groupManager*: GroupManager
   messageBucket*: Option[TokenBucket]
 
+method stop*(rlnPeer: WakuRLNRelay) {.async.} =
+  ## stops the rln-relay protocol
+  ## Throws an error if it cannot stop the rln-relay protocol
+
+  # stop the group sync, and flush data to tree db
+  await rlnPeer.groupManager.stop()
+
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
