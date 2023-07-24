@@ -1,6 +1,7 @@
 # BUILD NIM APP ----------------------------------------------------------------
 
-FROM alpine:3.16 AS nim-build
+# alpine:edge supports building rust binaries, alpine:3.16 doesn't for some reason
+FROM alpine@sha256:880fafbab5a7602db21ac37f0d17088a29a9a48f98d581f01ce17312c22ccbb5  AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
@@ -9,7 +10,7 @@ ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git cargo build-base pcre-dev linux-headers
+RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl rust cargo
 
 WORKDIR /app
 COPY . .
