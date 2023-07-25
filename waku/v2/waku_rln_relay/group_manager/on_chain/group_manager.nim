@@ -62,7 +62,10 @@ type
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
-const BlockChunkSize* = 100'u64
+const BlockChunkSize* = 1000'u64
+# this is a baseline block number to speed up syncing
+# should be updated periodically
+const StartingBlockNumber* = 3193000'u64
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -319,6 +322,7 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
+  let startingBlock = BlockNumber(StartingBlockNumber)
 
   var fromBlock = if g.latestProcessedBlock.isSome():
     info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
@@ -326,12 +330,12 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   else:
     info "starting onchain sync from scratch"
     # chunk size is 1000 blocks
-    BlockNumber(0)
+    startingBlock
 
   let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
     # we always want to sync from last processed block => latest
-    if fromBlock == BlockNumber(0) or 
+    if fromBlock == startingBlock or 
        fromBlock + BlockNumber(BlockChunkSize) < latestBlock:
       # chunk events
       while true:
