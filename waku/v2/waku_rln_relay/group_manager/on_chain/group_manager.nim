@@ -251,9 +251,28 @@ proc getBlockTable(g: OnchainGroupManager,
 
   return blockTable
 
+proc persistLastProcessedBlock(g: OnchainGroupManager, blockNumber: BlockNumber): void =
+  g.latestProcessedBlock = some(blockNumber)
+  let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
+                          lastProcessedBlock: blockNumber))
+  if metadataSetRes.isErr():
+    # this is not a fatal error, hence we don't raise an exception
+    warn "failed to persist rln metadata", error=metadataSetRes.error()
+  else:
+    debug "rln metadata persisted", lastProcessedBlock = blockNumber
+  # temp
+  let flushed = g.rlnInstance.flush()
+  if not flushed:
+    error "failed to flush to the tree db"
+
 proc handleEvents(g: OnchainGroupManager, 
-                  blockTable: BlockTable): Future[void] {.async.} =
+                  blockTable: BlockTable,
+                  toBlock = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
+
+  if blockTable.len == 0 and toBlock.isSome():
+    g.persistLastProcessedBlock(toBlock.get())
+    return
 
   for blockNumber, members in blockTable.pairs():
     try:
@@ -263,14 +282,7 @@ proc handleEvents(g: OnchainGroupManager,
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
     trace "new members added to the Merkle tree", commitments=members.mapIt(it[0].idCommitment.inHex())
-    g.latestProcessedBlock = some(blockNumber)
-    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
-                            lastProcessedBlock: blockNumber))
-    if metadataSetRes.isErr():
-      # this is not a fatal error, hence we don't raise an exception
-      warn "failed to persist rln metadata", error=metadataSetRes.error()
-    else:
-      info "rln metadata persisted", lastProcessedBlock = blockNumber
+    g.persistLastProcessedBlock(blockNumber)
 
   return
 
@@ -291,7 +303,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   initializedGuard(g)
 
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
-  await g.handleEvents(blockTable)
+  await g.handleEvents(blockTable, toBlock)
   await g.handleRemovedEvents(blockTable)
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
