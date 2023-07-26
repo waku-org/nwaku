@@ -641,6 +641,7 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 # App shutdown
 
 proc stop*(app: App): Future[void] {.async.} =
+  info "=====> Stopping wakunode2 <====="
   if app.restServer.isSome():
     await app.restServer.get().stop()
 

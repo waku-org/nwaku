@@ -208,6 +208,8 @@ proc start*(wd: WakuDiscoveryV5): Result[void, string] =
   ok()
 
 proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
+  info "=====> Stopping wakudiscv5 <====="
+
   if not wd.listening:
       return
 

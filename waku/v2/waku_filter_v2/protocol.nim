@@ -265,6 +265,8 @@ method start*(wf: WakuFilter) {.async.} =
   await procCall LPProtocol(wf).start()
 
 method stop*(wf: WakuFilter) {.async.} =
+  info "=====> Stopping filter <====="
+
   debug "stopping filter protocol"
   wf.maintenanceTask.clearTimer()
   await procCall LPProtocol(wf).stop()

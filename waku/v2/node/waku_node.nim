@@ -822,6 +822,8 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
+  info "=====> Stopping waku_node <====="
+
   if not node.wakuRelay.isNil():
     await node.wakuRelay.stop()
 

@@ -177,6 +177,8 @@ method start*(w: WakuRelay) {.async.} =
 
 method stop*(w: WakuRelay) {.async.} =
   debug "stop"
+  info "=====> Stopping waku_relay <====="
+
   await procCall GossipSub(w).stop()
 
 # rejects messages that are not WakuMessage

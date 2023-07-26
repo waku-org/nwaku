@@ -703,4 +703,6 @@ proc start*(pm: PeerManager) =
   asyncSpawn pm.logAndMetrics()
 
 proc stop*(pm: PeerManager) =
+  info "=====> Stopping peer manager <====="
+
   pm.started = false
