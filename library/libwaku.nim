@@ -1,4 +1,8 @@
 
+{.pragma: exported, exportc, cdecl, raises: [].}
+{.pragma: callback, cdecl, raises: [], gcsafe.}
+{.passc: "-fPIC".}
+
 import
   std/[json,sequtils,times,strformat,options,atomics,strutils],
   strutils,
@@ -18,9 +22,10 @@ import
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/builder,
   ../../waku/v2/node/config,
-  ../../waku/v2/waku_relay/protocol,
+  # ../../waku/v2/waku_relay/protocol,
   ./events/[json_error_event,json_message_event,json_base_event],
-  ./config
+  ./working_thread/waku_node_thread,
+  ./memory
 
 ################################################################################
 ### Wrapper around the waku node
@@ -39,60 +44,37 @@ const RET_MISSING_CALLBACK: cint = 2
 ################################################################################
 ### Not-exported components
 
-proc alloc(str: cstring): cstring =
-  # Byte allocation from the given address.
-  # There should be the corresponding manual deallocation with deallocShared !
-  let ret = cast[cstring](allocShared(len(str) + 1))
-  copyMem(ret, str, len(str) + 1)
-  return ret
+# proc relayEventCallback(pubsubTopic: string,
+#                         msg: WakuMessage):
+#                         Future[void] {.gcsafe, raises: [Defect].}
 
-type
-  WakuCallBack = proc(msg: ptr cchar, len: csize_t) {.cdecl, gcsafe.}
+# proc startNodeAndWaitForever(ctx: ptr Context) {.thread.} =
 
-# May keep a reference to a callback defined externally
-var extRelayEventCallback: WakuCallBack = nil
+#   waitFor ctx.node.mountRelay()
+#   ctx.node.peerManager.start()
 
-proc relayEventCallback(pubsubTopic: string,
-                        msg: WakuMessage):
-                        Future[void] {.gcsafe, raises: [Defect].} =
-  # Callback that hadles the Waku Relay events. i.e. messages or errors.
-  if not isNil(extRelayEventCallback):
-    try:
-      let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      extRelayEventCallback(unsafeAddr event[0], cast[csize_t](len(event)))
-    except Exception,CatchableError:
-      error "Exception when calling 'eventCallBack': " &
-            getCurrentExceptionMsg()
-  else:
-    error "extRelayEventCallback is nil"
+#   waitFor ctx.node.start()
 
-  var retFut = newFuture[void]()
-  retFut.complete()
-  return retFut
+#   ctx.node.wakuRelay.subscribe(PubsubTopic("/waku/2/default-waku/proto"),
+#                            WakuRelayHandler(relayEventCallback))
 
-# WakuNode instance
-var node {.threadvar.}: WakuNode
+#   let address = "/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN"
+#   let peers = ($address).split(",").mapIt(strip(it))
+
+#   # TODO: the timeoutMs is not being used at all!
+#   let connectFut = ctx.node.connectToNodes(peers, source="static")
+#   while not connectFut.finished():
+#     poll()
+
+#   while true:
+#     # echo "JJJJ ", $(ctx[].node)
+#     poll()
 
 ### End of not-exported components
 ################################################################################
 
 ################################################################################
 ### Exported procs
-
-# Every Nim library must have this function called - the name is derived from
-# the `--nimMainPrefix` command line option
-proc NimMain() {.importc.}
-
-var initialized: Atomic[bool]
-
-proc waku_init_lib() {.dynlib, exportc, cdecl.} =
-  if not initialized.exchange(true):
-    NimMain() # Every Nim library needs to call `NimMain` once exactly
-  when declared(setupForeignThreadGc): setupForeignThreadGc()
-  when declared(nimGC_setStackBottom):
-    var locals {.volatile, noinit.}: pointer
-    locals = addr(locals)
-    nimGC_setStackBottom(locals)
 
 proc waku_new(configJson: cstring,
               onErrCb: WakuCallback): cint
@@ -103,77 +85,17 @@ proc waku_new(configJson: cstring,
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
-  var privateKey: PrivateKey
-  var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
-                                 Port(60000'u16)).value
-  var relay: bool
-  var topics = @[""]
-  var jsonResp: JsonEvent
-
-  let cj = configJson.alloc()
-
-  if not parseConfig($cj,
-                     privateKey,
-                     netConfig,
-                     relay,
-                     topics,
-                     jsonResp):
-    deallocShared(cj)
-    let resp = $jsonResp
-    onErrCb(unsafeAddr resp[0], cast[csize_t](len(resp)))
+  let startThRes = waku_node_thread.startThread(configJson)
+  if startThRes.isErr():
+    let msg = "Error in startThread: " & $startThRes.error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
 
-  deallocShared(cj)
-
-  var enrBuilder = EnrBuilder.init(privateKey)
-
-  enrBuilder.withIpAddressAndPorts(
-    netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort
-  )
-
-  if netConfig.wakuFlags.isSome():
-    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
-
-  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
-
-  let addShardedTopics = enrBuilder.withShardedTopics(topics)
-  if addShardedTopics.isErr():
-    let resp = $addShardedTopics.error
-    onErrCb(unsafeAddr resp[0], cast[csize_t](len(resp)))
+  let sendReqRes = sendRequestToWakuThread("waku_new")
+  if sendReqRes.isErr():
+    let msg = "Failed sending waku_new req: " & $sendReqRes.error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
-
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      let resp = $recordRes.error
-      onErrCb(unsafeAddr resp[0], cast[csize_t](len(resp)))
-      return RET_ERR
-    else: recordRes.get()
-
-  var builder = WakuNodeBuilder.init()
-  builder.withRng(crypto.newRng())
-  builder.withNodeKey(privateKey)
-  builder.withRecord(record)
-  builder.withNetworkConfiguration(netConfig)
-  builder.withSwitchConfiguration(
-    maxConnections = some(50.int)
-  )
-
-  let wakuNodeRes = builder.build()
-  if wakuNodeRes.isErr():
-    let errorMsg = "failed to create waku node instance: " & wakuNodeRes.error
-    let jsonErrEvent = $JsonErrorEvent.new(errorMsg)
-
-    onErrCb(unsafeAddr jsonErrEvent[0], cast[csize_t](len(jsonErrEvent)))
-    return RET_ERR
-
-  node = wakuNodeRes.get()
-
-  if relay:
-    waitFor node.mountRelay()
-    node.peerManager.start()
 
   return RET_OK
 
@@ -186,8 +108,8 @@ proc waku_version(onOkCb: WakuCallBack): cint {.dynlib, exportc.} =
 
   return RET_OK
 
-proc waku_set_relay_callback(callback: WakuCallBack) {.dynlib, exportc.} =
-  extRelayEventCallback = callback
+proc waku_set_event_callback(callback: WakuCallBack) {.dynlib, exportc.} =
+  waku_node_thread.extEventCallback = callback
 
 proc waku_content_topic(appName: cstring,
                         appVersion: cuint,
@@ -286,67 +208,81 @@ proc waku_relay_publish(pubSubTopic: cstring,
                             DefaultPubsubTopic
                           else:
                             $pst
+  return RET_OK
 
-  if node.wakuRelay.isNil():
-    let msg = "Can't publish. WakuRelay is not enabled."
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
+  # if ctx.node.wakuRelay.isNil():
+  #   let msg = "Can't publish. WakuRelay is not enabled."
+  #   onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #   return RET_ERR
 
-  let pubMsgFut = node.wakuRelay.publish(targetPubSubTopic, wakuMessage)
+  # let pubMsgFut = ctx.node.wakuRelay.publish(targetPubSubTopic, wakuMessage)
 
-  # With the next loop we convert an asynchronous call into a synchronous one
-  for i in 0 .. timeoutMs:
-    if pubMsgFut.finished():
-      break
-    sleep(1)
+  # # With the next loop we convert an asynchronous call into a synchronous one
+  # for i in 0 .. timeoutMs:
+  #   if pubMsgFut.finished():
+  #     break
+  #   sleep(1)
 
-  if pubMsgFut.finished():
-    let numPeers = pubMsgFut.read()
-    if numPeers == 0:
-      let msg = "Message not sent because no peers found."
-      onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-      return RET_ERR
-    elif numPeers > 0:
-      # TODO: pending to return a valid message Id (response when all is correct)
-      let msg = "hard-coded-message-id"
-      onOkCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-      return RET_OK
+  # if pubMsgFut.finished():
+  #   let numPeers = pubMsgFut.read()
+  #   if numPeers == 0:
+  #     let msg = "Message not sent because no peers found."
+  #     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #     return RET_ERR
+  #   elif numPeers > 0:
+  #     # TODO: pending to return a valid message Id (response when all is correct)
+  #     let msg = "hard-coded-message-id"
+  #     onOkCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #     return RET_OK
 
-  else:
-    let msg = "Timeout expired"
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
+  # else:
+  #   let msg = "Timeout expired"
+  #   onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #   return RET_ERR
 
 proc waku_start() {.dynlib, exportc.} =
-  waitFor node.start()
+  # createThread(ctx.thread, startNodeAndWaitForever, ctx)
+  discard sendRequestToWakuThread("waku_start")
+  # if sendReqRes.isErr():
+  #   let msg = "Failed sending waku_start req: " & $sendReqRes.error
+  #   onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    
+  echo "start"
 
 proc waku_stop() {.dynlib, exportc.} =
-  waitFor node.stop()
+  # waitFor ctx.node.stop()
+  echo "stop"
 
 proc waku_relay_subscribe(
                 pubSubTopic: cstring,
                 onErrCb: WakuCallBack): cint
                 {.dynlib, exportc.} =
-  # @params
-  #  topic: Pubsub topic to subscribe to. If empty, it subscribes to the default pubsub topic.
-  if isNil(onErrCb):
-    return RET_MISSING_CALLBACK
 
-  if isNil(extRelayEventCallback):
-    let msg = $"""Cannot subscribe without a callback.
-# Kindly set it with the 'waku_set_relay_callback' function"""
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_MISSING_CALLBACK
-
-  if node.wakuRelay.isNil():
-    let msg = $"Cannot subscribe without Waku Relay enabled."
+  let sendReqRes = sendRequestToWakuThread("waku_subscribe")
+  if sendReqRes.isErr():
+    let msg = "Failed sending waku_subscribe req: " & $sendReqRes.error
     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
+  # @params
+  #  topic: Pubsub topic to subscribe to. If empty, it subscribes to the default pubsub topic.
+#   if isNil(onErrCb):
+#     return RET_MISSING_CALLBACK
 
-  let pst = pubSubTopic.alloc()
-  node.wakuRelay.subscribe(PubsubTopic($pst),
-                           WakuRelayHandler(relayEventCallback))
-  deallocShared(pst)
+#   if isNil(extEventCallback):
+#     let msg = $"""Cannot subscribe without a callback.
+# # Kindly set it with the 'waku_set_relay_callback' function"""
+#     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+#     return RET_MISSING_CALLBACK
+
+#   if ctx.node.wakuRelay.isNil():
+#     let msg = $"Cannot subscribe without Waku Relay enabled."
+#     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+#     return RET_ERR
+
+#   let pst = pubSubTopic.alloc()
+#   ctx.node.wakuRelay.subscribe(PubsubTopic($pst),
+#                            WakuRelayHandler(relayEventCallback))
+#   deallocShared(pst)
 
   return RET_OK
 
@@ -356,23 +292,23 @@ proc waku_relay_unsubscribe(
                 {.dynlib, exportc.} =
   # @params
   #  topic: Pubsub topic to subscribe to. If empty, it unsubscribes to the default pubsub topic.
-  if isNil(onErrCb):
-    return RET_MISSING_CALLBACK
+#   if isNil(onErrCb):
+#     return RET_MISSING_CALLBACK
 
-  if isNil(extRelayEventCallback):
-    let msg = """Cannot unsubscribe without a callback.
+#   if isNil(extEventCallback):
+#     let msg = """Cannot unsubscribe without a callback.
 # Kindly set it with the 'waku_set_relay_callback' function"""
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_MISSING_CALLBACK
+#     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+#     return RET_MISSING_CALLBACK
 
-  if node.wakuRelay.isNil():
-    let msg = "Cannot unsubscribe without Waku Relay enabled."
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
+#   if ctx.node.wakuRelay.isNil():
+#     let msg = "Cannot unsubscribe without Waku Relay enabled."
+#     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+#     return RET_ERR
 
-  let pst = pubSubTopic.alloc()
-  node.wakuRelay.unsubscribe(PubsubTopic($pst))
-  deallocShared(pst)
+#   let pst = pubSubTopic.alloc()
+#   ctx.node.wakuRelay.unsubscribe(PubsubTopic($pst))
+#   deallocShared(pst)
 
   return RET_OK
 
@@ -380,30 +316,33 @@ proc waku_connect(peerMultiAddr: cstring,
                   timeoutMs: cuint,
                   onErrCb: WakuCallBack): cint
                   {.dynlib, exportc.} =
+
+  let sendReqRes = sendRequestToWakuThread("waku_connect")
+  if sendReqRes.isErr():
+    let msg = "Failed sending waku_connect req: " & $sendReqRes.error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    return RET_ERR
   # peerMultiAddr: comma-separated list of fully-qualified multiaddresses.
   # var ret = newString(len + 1)
   # if len > 0:
   #   copyMem(addr ret[0], str, len + 1)
 
-  let address = peerMultiAddr.alloc()
-  let peers = ($address).split(",").mapIt(strip(it))
+  # let address = peerMultiAddr.alloc()
+  # let peers = ($address).split(",").mapIt(strip(it))
 
-  # TODO: the timeoutMs is not being used at all!
-  let connectFut = node.connectToNodes(peers, source="static")
-  while not connectFut.finished():
-    poll()
+  # # TODO: the timeoutMs is not being used at all!
+  # let connectFut = ctx.node.connectToNodes(peers, source="static")
+  # while not connectFut.finished():
+  #   poll()
 
-  deallocShared(address)
+  # deallocShared(address)
 
-  if not connectFut.completed():
-    let msg = "Timeout expired."
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
+  # if not connectFut.completed():
+  #   let msg = "Timeout expired."
+  #   onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #   return RET_ERR
 
   return RET_OK
-
-proc waku_poll() {.dynlib, exportc, gcsafe.} =
-  poll()
 
 ### End of exported procs
 ################################################################################
