@@ -62,7 +62,8 @@ type
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
-const BlockChunkSize* = 100'u64
+const DecayFactor* = 1.2
+const DefaultChunkSize* = 1000
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -320,28 +321,33 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
 
   let ethRpc = g.ethRpc.get()
 
+  # the block chunk size decays exponentially with the number of blocks
+  # the minimum chunk size is 100
+  var blockChunkSize = 1_000_000
+
   var fromBlock = if g.latestProcessedBlock.isSome():
     info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
     g.latestProcessedBlock.get()
   else:
     info "starting onchain sync from scratch"
-    # chunk size is 1000 blocks
     BlockNumber(0)
 
   let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
     # we always want to sync from last processed block => latest
     if fromBlock == BlockNumber(0) or 
-       fromBlock + BlockNumber(BlockChunkSize) < latestBlock:
+       fromBlock + BlockNumber(blockChunkSize) < latestBlock:
       # chunk events
       while true:
         let currentLatestBlock = cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
-        let toBlock = min(fromBlock + BlockNumber(BlockChunkSize), currentLatestBlock)
+        let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
         info "chunking events", fromBlock = fromBlock, toBlock = toBlock
         await g.getAndHandleEvents(fromBlock, some(toBlock))
         fromBlock = toBlock + 1
         if fromBlock >= currentLatestBlock:
           break
+        let newChunkSize = float(blockChunkSize) / DecayFactor
+        blockChunkSize = max(int(newChunkSize), DefaultChunkSize)
     else:
       await g.getAndHandleEvents(fromBlock, some(BlockNumber(0)))
   except CatchableError:
@@ -496,3 +502,13 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
   g.initialized = true
+
+method stop*(g: OnchainGroupManager): Future[void] {.async.} =
+  if g.ethRpc.isSome():
+    g.ethRpc.get().ondisconnect = nil
+    await g.ethRpc.get().close()
+  let flushed = g.rlnInstance.flush()
+  if not flushed:
+    error "failed to flush to the tree db"
+  
+  g.initialized = false

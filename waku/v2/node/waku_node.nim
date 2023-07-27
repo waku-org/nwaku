@@ -828,4 +828,8 @@ proc stop*(node: WakuNode) {.async.} =
   await node.switch.stop()
   node.peerManager.stop()
 
+  when defined(rln):
+    if not node.wakuRlnRelay.isNil():
+      await node.wakuRlnRelay.stop()
+
   node.started = false
