@@ -1,8 +1,8 @@
 {.used.}
 
 import
+  std/options,
   std/strutils,
-  std/sequtils,
   std/sugar,
   std/algorithm,
   std/random,
@@ -18,9 +18,6 @@ suite "Waku Sharding":
   const WordLength = 5
 
   proc randomContentTopic(): NsContentTopic =
-    let gen = "0"
-    let bias = "none"
-
     var app = ""
 
     for n in 0..<WordLength:
@@ -37,12 +34,11 @@ suite "Waku Sharding":
 
     let enc = "cbor"
 
-    NsContentTopic.init(gen, bias, app, version, name, enc)
+    NsContentTopic.init(none(int), Unbiased, app, version, name, enc)
 
-
-  test "Valid generation & sharding bias":
+  test "Implicit content topic generation":
     ## Given
-    let topic = "/0/none/toychat/2/huilong/proto"
+    let topic = "/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
@@ -50,16 +46,16 @@ suite "Waku Sharding":
     let paramRes = shardingParam(ns)
 
     ## Then
-    check paramRes.isOk()
+    assert paramRes.isOk(), paramRes.error
 
     let (count, bias) = paramRes.get()
     check:
       count == GenerationZeroShardsCount
-      bias == ShardingBias.None
+      bias == Unbiased
 
-  test "Invalid generation":
+  test "Valid content topic generation":
     ## Given
-    let topic = "/1/none/toychat/2/huilong/proto"
+    let topic = "/0/unbiased/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
@@ -67,25 +63,27 @@ suite "Waku Sharding":
     let paramRes = shardingParam(ns)
 
     ## Then
-    check paramRes.isErr()
-    let err = paramRes.tryError()
+    assert paramRes.isOk(), paramRes.error
+
+    let (count, _) = paramRes.get()
+    check:
+      count == GenerationZeroShardsCount
+
+  test "Invalid content topic generation":
+    ## Given
+    let topic = "/1/unbiased/toychat/2/huilong/proto"
+
+    ## When
+    let ns = NsContentTopic.parse(topic).expect("Parsing")
+
+    let paramRes = shardingParam(ns)
+
+    ## Then
+    assert paramRes.isErr(), $paramRes.get()
+
+    let err = paramRes.error
     check:
       err == "Generation > 0 are not supported yet"
-
-  test "Invalid bias":
-    ## Given
-    let topic = "/0/kanonymity/toychat/2/huilong/proto"
-
-    ## When
-    let ns = NsContentTopic.parse(topic).expect("Parsing")
-
-    let paramRes = shardingParam(ns)
-
-    ## Then
-    check paramRes.isErr()
-    let err = paramRes.tryError()
-    check:
-      err.startsWith("Cannot parse sharding bias: ")
 
   test "Weigths bias":
     ## Given
@@ -111,18 +109,17 @@ suite "Waku Sharding":
 
   test "Sorted shard list":
     ## Given
-    let topic = "/0/none/toychat/2/huilong/proto"
+    let topic = "/0/unbiased/toychat/2/huilong/proto"
 
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
     let (count, bias) = shardingParam(contentTopic).expect("Valid parameters")
+    let weights = biasedWeights(count, bias)
 
-    let weigths = biasedWeights(count, bias)
-
-    let shardsRes = weightedShardList(contentTopic, count, weigths)
+    let shardsRes = weightedShardList(contentTopic, count, weights)
 
     ## Then
-    check shardsRes.isOk()
+    assert shardsRes.isOk(), shardsRes.error
 
     let shards = shardsRes.get()
     check:
@@ -131,7 +128,7 @@ suite "Waku Sharding":
 
   test "Shard Choice Reproducibility":
     ## Given
-    let topic = "/0/none/toychat/2/huilong/proto"
+    let topic = "/0/unbiased/toychat/2/huilong/proto"
 
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
@@ -139,12 +136,12 @@ suite "Waku Sharding":
     let res = singleHighestWeigthShard(contentTopic)
 
     ## Then
-    check res.isOk()
+    assert res.isOk(), res.error
 
     let pubsubTopic = res.get()
 
     check:
-      pubsubTopic == NsPubsubTopic.staticSharding(ClusterIndex, 2)
+      pubsubTopic == NsPubsubTopic.staticSharding(ClusterIndex, 0)
 
   test "Shard Choice Simulation":
     ## Given

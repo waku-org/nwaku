@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/options,
   stew/results,
   testutils/unittests
 import
@@ -11,8 +12,8 @@ suite "Waku Message - Content topics namespacing":
   test "Stringify namespaced content topic":
     ## Given
     var ns = NsContentTopic()
-    ns.generation = "0"
-    ns.bias = "none"
+    ns.generation = none(int)
+    ns.bias = Unbiased
     ns.application = "toychat"
     ns.version = "2"
     ns.name = "huilong"
@@ -23,22 +24,41 @@ suite "Waku Message - Content topics namespacing":
 
     ## Then
     check:
-      topic == "/0/none/toychat/2/huilong/proto"
+      topic == "/toychat/2/huilong/proto"
 
   test "Parse content topic string - Valid string":
     ## Given
-    let topic = "/0/none/toychat/2/huilong/proto"
+    let topic = "/toychat/2/huilong/proto"
 
     ## When
     let nsRes = NsContentTopic.parse(topic)
 
     ## Then
-    check nsRes.isOk()
+    assert nsRes.isOk(), $nsRes.error
 
     let ns = nsRes.get()
     check:
-      ns.generation == "0"
-      ns.bias == "none"
+      ns.generation == none(int)
+      ns.bias == Unbiased
+      ns.application == "toychat"
+      ns.version == "2"
+      ns.name == "huilong"
+      ns.encoding == "proto"
+
+  test "Parse content topic string - Valid string with sharding":
+    ## Given
+    let topic = "/0/anonymity/toychat/2/huilong/proto"
+
+    ## When
+    let nsRes = NsContentTopic.parse(topic)
+
+    ## Then
+    assert nsRes.isOk(), $nsRes.error
+
+    let ns = nsRes.get()
+    check:
+      ns.generation == some(0)
+      ns.bias == Kanonymity
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -52,7 +72,8 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
@@ -66,7 +87,8 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
@@ -80,13 +102,14 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
 
-  test "Parse content topic string - Invalid string: too many parts":
+  test "Parse content topic string - Invalid string: wrong extra parts":
     ## Given
     let topic = "/toychat/2/huilong/proto/33"
 
@@ -94,25 +117,42 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
 
-  test "Parse content topic string - Invalid string: missing sharding data":
+  test "Parse content topic string - Invalid string: non numeric generation":
     ## Given
-    let topic = "/toychat/2/huilong/proto"
+    let topic = "/first/none/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "invalid topic structure"
+      err.cause == "generation should be a numeric value"
+
+  test "Parse content topic string - Invalid string: invalid bias":
+    ## Given
+    let topic = "/0/no/toychat/2/huilong/proto"
+
+    ## When
+    let ns = NsContentTopic.parse(topic)
+
+    ## Then
+    assert ns.isErr(), $ns.get()
+
+    let err = ns.tryError()
+    check:
+      err.kind == ParsingErrorKind.InvalidFormat
+      err.cause == "bias should be one of; unbiased, anonymity, bandwidth"
 
 
 suite "Waku Message - Pub-sub topics namespacing":

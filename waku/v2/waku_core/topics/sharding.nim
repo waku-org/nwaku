@@ -9,10 +9,10 @@ else:
 
 import
   nimcrypto,
+  std/options,
   std/math,
   std/sequtils,
   std/algorithm,
-  std/strutils,
   stew/endians2,
   stew/results,
   stew/byteutils
@@ -21,24 +21,59 @@ import
   ./content_topic,
   ./pubsub_topic
 
+## For indices allocation and other magic numbers refer to RFC 51
 const ClusterIndex* = 49152
 const GenerationZeroShardsCount* = 5
 
 type ShardsPriority = seq[tuple[topic: NsPubsubTopic, value: float64]]
 
+proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias), string] =
+  ## Returns the total shard count and the sharding selection bias
+  ## from the content topic.
+  let shardCount =
+    if topic.generation.isNone():
+      ## Implicit generation # is 0 for all content topic
+      GenerationZeroShardsCount
+    else:
+      case topic.generation.get():
+        of 0:
+          GenerationZeroShardsCount
+        else:
+          return err("Generation > 0 are not supported yet")
+
+  ok((shardCount, topic.bias))
+
+proc biasedWeights*(shardCount: int, bias: ShardingBias): seq[float64] =
+  var weights = repeat(1.0, shardCount)
+
+  case bias:
+    of Unbiased:
+      return weights
+    of Kanonymity:
+      # we choose the lower 20% of shards and double their weigths
+      let index = shardCount div 5
+      for i in (0..<index):
+        weights[i] *= 2.0
+    of Throughput:
+      # we choose the higher 80% of shards and double their weigths
+      let index = shardCount div 5
+      for i in (index..<shardCount):
+        weights[i] *= 2.0
+
+  weights
+
 proc applyWeight(hashValue: uint64, weight: float64): float64 =
-  -weight / math.ln(float64(hashValue) / float64(high(uint64)))
+  (-weight) / math.ln(float64(hashValue) / float64(high(uint64)))
 
 proc hashOrder*(x, y: (NsPubsubTopic, float64)): int =
     cmp(x[1], y[1])
 
-proc weightedShardList*(topic: NsContentTopic, shardCount: int, weights: seq[float64]): Result[ShardsPriority, string] =
+proc weightedShardList*(topic: NsContentTopic, shardCount: int, weightList: seq[float64]): Result[ShardsPriority, string] =
   ## Returns the ordered list of shards and their priority values.
-
-  if weights.len != shardCount:
+  if weightList.len < shardCount:
     return err("Must provide weights for every shards")
 
-  let shardsNWeights = zip(toSeq(0..shardCount), weights)
+  let shardsNWeights = zip(toSeq(0..shardCount), weightList)
 
   var list = newSeq[(NsPubsubTopic, float64)](shardCount)
 
@@ -54,52 +89,6 @@ proc weightedShardList*(topic: NsContentTopic, shardCount: int, weights: seq[flo
   list.sort(hashOrder)
 
   ok(list)
-
-type ShardingBias* = enum
-  None = "none"
-  Kanonymity = "anon"
-  Throughput = "bandwidth"
-
-proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias), string] =
-  ## Returns the total shard count and the sharding selection bias
-  ## from the content topic.
-  let gen = try:
-    parseInt(topic.generation)
-  except ValueError:
-    return err("Cannot parse generation: " & getCurrentExceptionMsg())
-
-  let shardCount =
-    case gen:
-      of 0:
-        GenerationZeroShardsCount
-      else:
-        return err("Generation > 0 are not supported yet")
-
-  let bias = try:
-    parseEnum[ShardingBias](topic.bias)
-  except ValueError:
-    return err("Cannot parse sharding bias: " & getCurrentExceptionMsg())
-
-  ok((shardCount, bias))
-
-proc biasedWeights*(shardCount: int, bias: ShardingBias): seq[float64] =
-  var weights = repeat(1.0, shardCount)
-
-  case bias:
-    of None:
-      return weights
-    of Kanonymity:
-      # we choose the lower 20% of shards and double their weigths
-      let index = shardCount div 5
-      for i in (0..<index):
-        weights[i] *= 2.0
-    of Throughput:
-      # we choose the higher 80% of shards and double their weigths
-      let index = shardCount div 5
-      for i in (index..<shardCount):
-        weights[i] *= 2.0
-
-  weights
 
 proc singleHighestWeigthShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
   let (count, bias) = ? shardingParam(topic)
