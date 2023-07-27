@@ -27,9 +27,9 @@ const GenerationZeroShardsCount* = 5
 
 type ShardsPriority = seq[tuple[topic: NsPubsubTopic, value: float64]]
 
-proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias), string] =
-  ## Returns the total shard count and the sharding selection bias
-  ## from the content topic.
+proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias, string), string] =
+  ## Returns the total shard count, sharding selection bias
+  ## and the shard name from the content topic.
   let shardCount =
     if topic.generation.isNone():
       ## Implicit generation # is 0 for all content topic
@@ -41,7 +41,14 @@ proc shardingParam*(topic: NsContentTopic): Result[(int, ShardingBias), string] 
         else:
           return err("Generation > 0 are not supported yet")
 
-  ok((shardCount, topic.bias))
+  let bias = topic.bias
+
+  let name =
+    if topic.shard.isNone():
+      "main"
+    else: topic.shard.get()
+
+  ok((shardCount, bias, name))
 
 proc biasedWeights*(shardCount: int, bias: ShardingBias): seq[float64] =
   var weights = repeat(1.0, shardCount)
@@ -68,7 +75,7 @@ proc applyWeight(hashValue: uint64, weight: float64): float64 =
 proc hashOrder*(x, y: (NsPubsubTopic, float64)): int =
     cmp(x[1], y[1])
 
-proc weightedShardList*(topic: NsContentTopic, shardCount: int, weightList: seq[float64]): Result[ShardsPriority, string] =
+proc weightedShardList*(applicationName: string, shardName: string, shardCount: int, weightList: seq[float64]): Result[ShardsPriority, string] =
   ## Returns the ordered list of shards and their priority values.
   if weightList.len < shardCount:
     return err("Must provide weights for every shards")
@@ -79,7 +86,10 @@ proc weightedShardList*(topic: NsContentTopic, shardCount: int, weightList: seq[
 
   for (shard, weight) in shardsNWeights:
     let pubsub = NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
-    let bytes = toBytes($topic) & toBytes($pubsub)
+
+    let clusterBytes = toBytesBE(uint16(ClusterIndex))
+    let shardBytes = toBytesBE(uint16(shard))
+    let bytes = toBytes(shardName) & toBytes(applicationName) & @clusterBytes & @shardBytes
     let hash = sha256.digest(bytes)
     let hashValue = uint64.fromBytesBE(hash.data)
     let value = applyWeight(hashValue, weight)
@@ -91,11 +101,11 @@ proc weightedShardList*(topic: NsContentTopic, shardCount: int, weightList: seq[
   ok(list)
 
 proc singleHighestWeigthShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
-  let (count, bias) = ? shardingParam(topic)
+  let (count, bias, shard) = ? shardingParam(topic)
 
   let weights = biasedWeights(count, bias)
 
-  let list = ? weightedShardList(topic, count, weights)
+  let list = ? weightedShardList(topic.application, shard, count, weights)
 
   let (pubsub, _) = list[list.len - 1]
 
