@@ -1,3 +1,59 @@
+## 2023-07-26 v0.19.0
+
+## What's Changed
+
+Release highlights:
+* Improved connection management, including management for non-relay peers and limiting the number of connections from a single IP
+* Postgres support has been added as a backend for archive module
+* RLN initialization optimizations
+* Update to the latest nim-libp2p
+
+### Features
+
+- limit relay connections below max conns ([#1813](https://github.com/waku-org/nwaku/issues/1813)) ([17b24cde](https://github.com/waku-org/nwaku/commit/17b24cde))
+- **postgres:** integration of postgres in wakunode2 ([#1808](https://github.com/waku-org/nwaku/issues/1808)) ([88b7481f](https://github.com/waku-org/nwaku/commit/88b7481f))
+- discovery peer filtering for relay shard ([#1804](https://github.com/waku-org/nwaku/issues/1804)) ([a4da87bb](https://github.com/waku-org/nwaku/commit/a4da87bb))
+- **rln-relay:** resume onchain sync from persisted tree db ([#1805](https://github.com/waku-org/nwaku/issues/1805)) ([bbded9ee](https://github.com/waku-org/nwaku/commit/bbded9ee))
+- **rln-relay:** metadata ffi api ([#1803](https://github.com/waku-org/nwaku/issues/1803)) ([045f07c6](https://github.com/waku-org/nwaku/commit/045f07c6))
+
+### Bug Fixes
+
+- **libp2p:** Updating nim-libp2p to fix the `wss` connectivity issue ([#1848](https://github.com/waku-org/nwaku/issues/1848)) ([1d3410c7](https://github.com/waku-org/nwaku/commit/1d3410c7))
+- **rln-relay:** chunk event fetching ([#1830](https://github.com/waku-org/nwaku/issues/1830)) ([e4d9ee1f](https://github.com/waku-org/nwaku/commit/e4d9ee1f))
+- **discv5:** Fixing issue that prevented the wakunode2 from starting ([#1829](https://github.com/waku-org/nwaku/issues/1829)) ([3aefade6](https://github.com/waku-org/nwaku/commit/3aefade6))
+- sanity-check the docker image start ([ae05f0a8](https://github.com/waku-org/nwaku/commit/ae05f0a8))
+- **ci:** fix broken test with wrong import ([#1820](https://github.com/waku-org/nwaku/issues/1820)) ([4573e8c5](https://github.com/waku-org/nwaku/commit/4573e8c5))
+- temporary fix to disable default experimental builds on fleets ([#1810](https://github.com/waku-org/nwaku/issues/1810)) ([e9028618](https://github.com/waku-org/nwaku/commit/e9028618))
+- **rln-relay:** tree race condition upon initialization ([#1807](https://github.com/waku-org/nwaku/issues/1807)) ([f8e270fb](https://github.com/waku-org/nwaku/commit/f8e270fb))
+- fix mac docker build alpine version ([#1801](https://github.com/waku-org/nwaku/issues/1801)) ([fce845bb](https://github.com/waku-org/nwaku/commit/fce845bb))
+- **rln-relay:** flaky static group manager test ([#1798](https://github.com/waku-org/nwaku/issues/1798)) ([0e9ecbd6](https://github.com/waku-org/nwaku/commit/0e9ecbd6))
+
+### Changes
+
+- **rln-relay:** verify proofs based on bandwidth usage ([#1844](https://github.com/waku-org/nwaku/issues/1844)) ([3fe4522a](https://github.com/waku-org/nwaku/commit/3fe4522a))
+- **rln-relay:** bump zerokit ([#1838](https://github.com/waku-org/nwaku/issues/1838)) ([4f0bdf9a](https://github.com/waku-org/nwaku/commit/4f0bdf9a))
+- bump nim-libp2p to 224f92e ([661638da](https://github.com/waku-org/nwaku/commit/661638da))
+- **refactor:** Move record creation & fix libwaku compilation ([#1833](https://github.com/waku-org/nwaku/issues/1833)) ([97d3b9f7](https://github.com/waku-org/nwaku/commit/97d3b9f7))
+- discv5 re-org clean-up ([#1823](https://github.com/waku-org/nwaku/issues/1823)) ([cf46fb7c](https://github.com/waku-org/nwaku/commit/cf46fb7c))
+- **networking:** disconnect due to colocation ip in conn handler ([#1821](https://github.com/waku-org/nwaku/issues/1821)) ([e12c979c](https://github.com/waku-org/nwaku/commit/e12c979c))
+- **rln-relay:** bump zerokit for version fix ([#1822](https://github.com/waku-org/nwaku/issues/1822)) ([add294a9](https://github.com/waku-org/nwaku/commit/add294a9))
+- move discv5 out of node. ([#1818](https://github.com/waku-org/nwaku/issues/1818)) ([62d36530](https://github.com/waku-org/nwaku/commit/62d36530))
+- **archive:** Moving waku archive logic from app.nim to the archive module ([#1817](https://github.com/waku-org/nwaku/issues/1817)) ([52894a82](https://github.com/waku-org/nwaku/commit/52894a82))
+- add peer manager config to builder ([#1816](https://github.com/waku-org/nwaku/issues/1816)) ([71c4ac16](https://github.com/waku-org/nwaku/commit/71c4ac16))
+- discv5 re-org setup ([#1815](https://github.com/waku-org/nwaku/issues/1815)) ([44f9d8dc](https://github.com/waku-org/nwaku/commit/44f9d8dc))
+- **databases:** Creation of the databases folder to keep the logic for sqlite and postgres ([#1811](https://github.com/waku-org/nwaku/issues/1811)) ([a44d4bfb](https://github.com/waku-org/nwaku/commit/a44d4bfb))
+- **deps:** bump libp2p & websock ([#1800](https://github.com/waku-org/nwaku/issues/1800)) ([f6e89c31](https://github.com/waku-org/nwaku/commit/f6e89c31))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation is stable but not under active development.
+
 ## 2023-06-14 v0.18.0
 
 > Note that there is a new naming scheme for release artifacts.
