@@ -6,24 +6,23 @@ on:
     - 'v*' # "e.g. v0.4"
   
   workflow_dispatch:
-    
+
+env:
+  NPROC: 2
+
 jobs:
   build-and-upload:
     strategy:
       matrix:
-        env:
-          - { NPROC: 2 }
         os: [ubuntu-latest, macos-latest]
         arch: [amd64]
         include:
         - os: macos-latest
-          experimental: false
           arch: arm64
     runs-on: ${{ matrix.os }}
-    env: ${{ matrix.env }}
     timeout-minutes: 60
 
-    name: ${{ matrix.os }} - ${{ matrix.env.NPROC }} processes
+    name: ${{ matrix.os }} - ${{ matrix.arch }}
 
     steps:
       - name: Checkout code
