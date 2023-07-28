@@ -276,11 +276,10 @@ int main(int argc, char** argv) {
 
     WAKU_CALL( waku_new(jsonConfig, handle_error) );
 
-
     waku_set_event_callback(event_handler);
     waku_start();
 
-    // printf("Establishing connection with: %s\n", cfgNode.peers);
+    printf("Establishing connection with: %s\n", cfgNode.peers);
 
     WAKU_CALL( waku_connect(cfgNode.peers,
                             10000 /* timeoutMs */,

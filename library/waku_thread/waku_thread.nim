@@ -24,44 +24,39 @@ import
   ../../../waku/v2/node/config,
   ../../../waku/v2/waku_relay/protocol,
   ../events/[json_error_event,json_message_event,json_base_event],
-  ../memory,
-  ../config
+  ../alloc,
+  ./config,
+  ./inter_thread_communication/request,
+  ./inter_thread_communication/response
 
 type
   Context* = object
-    thread: Thread[(ptr Context, cstring)]
+    thread: Thread[(ptr Context)]
+    reqChannel: Channel[InterThreadRequest]
+    respChannel: Channel[InterThreadResponse]
     node: WakuNode
-    reqChannel: Channel[cstring]
-    respChannel: Channel[cstring]
 
 var ctx {.threadvar.}: ptr Context
 
 # To control when the thread is running
 var running: Atomic[bool]
 
-type
-  WakuCallBack* = proc(msg: ptr cchar, len: csize_t) {.cdecl, gcsafe.}
+# Every Nim library must have this function called - the name is derived from
+# the `--nimMainPrefix` command line option
+proc NimMain() {.importc.}
+var initialized: Atomic[bool]
 
-# May keep a reference to a callback defined externally
-var extEventCallback*: WakuCallBack = nil
+proc waku_init() =
+  if not initialized.exchange(true):
+    NimMain() # Every Nim library needs to call `NimMain` once exactly
+  when declared(setupForeignThreadGc): setupForeignThreadGc()
+  when declared(nimGC_setStackBottom):
+    var locals {.volatile, noinit.}: pointer
+    locals = addr(locals)
+    nimGC_setStackBottom(locals)
 
-proc relayEventCallback(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
-# proc relayEventCallback(pubsubTopic: string,
-#                         msg: WakuMessage):
-#                         Future[void] {.gcsafe, raises: [Defect].} =
-  # Callback that hadles the Waku Relay events. i.e. messages or errors.
-  if not isNil(extEventCallback):
-    try:
-      let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      extEventCallback(unsafeAddr event[0], cast[csize_t](len(event)))
-    except Exception,CatchableError:
-      error "Exception when calling 'eventCallBack': " &
-            getCurrentExceptionMsg()
-  else:
-    error "extEventCallback is nil"
-
-proc createNode*(ctx: ptr Context, 
-                 configJson: cstring): Result[void, string] =
+proc createNode(configJson: cstring): Result[WakuNode, string] =
+  ## Creates a new WakuNode and assigns it to the node parameter
 
   var privateKey: PrivateKey
   var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
@@ -123,79 +118,50 @@ proc createNode*(ctx: ptr Context,
     let errorMsg = "failed to create waku node instance: " & wakuNodeRes.error
     return err($JsonErrorEvent.new(errorMsg))
 
-  ctx.node = wakuNodeRes.get()
+  var newNode = wakuNodeRes.get()
 
   if relay:
-    waitFor ctx.node.mountRelay()
-    ctx.node.peerManager.start()
+    waitFor newNode.mountRelay()
+    newNode.peerManager.start()
 
-  return ok()
+  return ok(newNode)
 
-# Every Nim library must have this function called - the name is derived from
-# the `--nimMainPrefix` command line option
-proc NimMain() {.importc.}
-var initialized: Atomic[bool]
-
-proc waku_init() =
-  if not initialized.exchange(true):
-    NimMain() # Every Nim library needs to call `NimMain` once exactly
-  when declared(setupForeignThreadGc): setupForeignThreadGc()
-  when declared(nimGC_setStackBottom):
-    var locals {.volatile, noinit.}: pointer
-    locals = addr(locals)
-    nimGC_setStackBottom(locals)
-
-proc run(args: tuple [ctx: ptr Context,
-                      configJson: cstring]) {.thread.} =
-  # This is the worker thread body. This thread runs the Waku node
-  # and attend possible library user requests (stop, connect_to, etc.)
-  waku_init()
+proc run(ctx: ptr Context) {.thread.} =
+  ## This is the worker thread body. This thread runs the Waku node
+  ## and attends library user requests (stop, connect_to, etc.)
 
   while running.load == true:
-    # Trying to get a request from the libwaku main thread
-    let req = args.ctx.reqChannel.tryRecv()
+    ## Trying to get a request from the libwaku main thread
+    let req = ctx.reqChannel.tryRecv()
     if req[0] == true:
-
-      if req[1] == "waku_new":
-        let ret = createNode(args.ctx, args.configJson)
-        if ret.isErr():
-          let msg = "ERROR: " & ret.error
-          args.ctx.respChannel.send(cast[cstring](msg))
-
-      if req[1] == "waku_start":
-        # TODO: wait the future properly
-        discard args.ctx.node.start()
-
-      if req[1] == "waku_connect":
-        discard args.ctx.node.connectToNodes(@["/ip4/127.0.0.1/tcp/60000/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN"], source="static")
-
-      if req[1] == "waku_subscribe":
-        let a = PubsubTopic("/waku/2/default-waku/proto")
-        let b = WakuRelayHandler(relayEventCallback)
-        args.ctx.node.wakuRelay.subscribe(a, b)
-
-      args.ctx.respChannel.send("OK")
+      let response = waitFor req[1].process(ctx.node)
+      ctx.respChannel.send( response )
 
     poll()
 
-proc startThread*(configJson: cstring): Result[void, string] =
-  # This proc is called from the main thread and it creates
-  # the Waku working thread.
-  waku_init()
-  ctx = createShared(Context, 1)
+  tearDownForeignThreadGc()
 
+proc createWakuThread*(configJson: cstring): Result[void, string] =
+  ## This proc is called from the main thread and it creates
+  ## the Waku working thread.
+
+  waku_init()
+
+  ctx = createShared(Context, 1)
   ctx.reqChannel.open()
   ctx.respChannel.open()
 
+  let newNodeRes = createNode(configJson)
+  if newNodeRes.isErr():
+    return err(newNodeRes.error)
+
+  ctx.node = newNodeRes.get()
+
   running.store(true)
 
-  let cfgJson = configJson.alloc()
-
   try:
-    createThread(ctx.thread, run, (ctx, cfgJson))
+    createThread(ctx.thread, run, ctx)
   except ResourceExhaustedError:
-    # deallocShared for byte allocations
-    deallocShared(cfgJson)
     # and freeShared for typed allocations!
     freeShared(ctx)
 
@@ -205,15 +171,16 @@ proc startThread*(configJson: cstring): Result[void, string] =
 
 proc stopWakuNodeThread*() =
   running.store(false)
-  ctx.reqChannel.send("Close")
   joinThread(ctx.thread)
 
   ctx.reqChannel.close()
   ctx.respChannel.close()
 
-proc sendRequestToWakuThread*(req: cstring,
+  freeShared(ctx)
+
+proc sendRequestToWakuThread*(req: InterThreadRequest,
                               timeoutMs: int = 300_000):
-                              Result[string, string] =
+                              Result[InterThreadResponse, string] =
 
   ctx.reqChannel.send(req)
 
@@ -229,5 +196,5 @@ proc sendRequestToWakuThread*(req: cstring,
                 ". timeout in ms: " & $timeoutMs
       return err(msg)
 
-  return ok($resp[1])
+  return ok(resp[1])
 
