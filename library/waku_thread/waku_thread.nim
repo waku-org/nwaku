@@ -55,8 +55,6 @@ proc waku_init() =
     nimGC_setStackBottom(locals)
 
 proc createNode(configJson: cstring): Result[WakuNode, string] =
-  ## Creates a new WakuNode and assigns it to the node parameter
-
   var privateKey: PrivateKey
   var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
                                  Port(60000'u16)).value
