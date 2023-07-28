@@ -3,11 +3,11 @@
 # by the Waku Node thread.
 
 import
-  std/json
+  std/json,
+  stew/results
 import
   chronos
 import
-  ./response,
   ../../../waku/v2/node/waku_node,
   ../waku_thread
 
@@ -15,7 +15,7 @@ type
   InterThreadRequest* = ref object of RootObj
 
 method process*(self: InterThreadRequest, node: WakuNode):
-                Future[InterThreadResponse] {.base.} = discard
+                Future[Result[string, string]] {.base.} = discard
 
 proc `$`*(self: InterThreadRequest): string =
   return $( %* self )

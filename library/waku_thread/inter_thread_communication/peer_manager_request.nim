@@ -8,8 +8,7 @@ import
   stew/shims/net
 import
   ../../../waku/v2/node/waku_node,
-  ./request,
-  ./response
+  ./request
 
 type
   PeerManagementMsgType* = enum
@@ -19,24 +18,24 @@ type
   PeerManagementRequest* = ref object of InterThreadRequest
     operation: PeerManagementMsgType
     peerMultiAddr: string
-    timeoutMs: cuint
+    dialTimeout: Duration
 
 proc new*(T: type PeerManagementRequest,
           op: PeerManagementMsgType,
           peerMultiAddr: string,
-          timeoutMs: cuint): T =
+          dialTimeout: Duration): T =
 
   return PeerManagementRequest(operation: op,
                                peerMultiAddr: peerMultiAddr,
-                               timeoutMs: timeoutMs)
+                               dialTimeout: dialTimeout)
 
 proc connectTo(node: WakuNode,
-               peerMultiAddr: string): Result[void, string] =
-    # let sendReqRes = sendRequestToWakuThread("waku_connect")
+               peerMultiAddr: string,
+               dialTimeout: Duration): Result[void, string] =
 
   let peers = (peerMultiAddr).split(",").mapIt(strip(it))
 
-  # TODO: the timeoutMs is not being used at all!
+  # TODO: the dialTimeout is not being used at all!
   let connectFut = node.connectToNodes(peers, source="static")
   while not connectFut.finished():
     poll()
@@ -48,12 +47,13 @@ proc connectTo(node: WakuNode,
   return ok()
 
 method process*(self: PeerManagementRequest,
-                node: WakuNode): Future[InterThreadResponse] {.async.} =
-  case self.operation:
-    of CONNECT_TO:
-      let ret = node.connectTo(self.peerMultiAddr)
-      if ret.isErr():
-        return InterThreadResponse(result: ResultType.OK,
-                                   message: ret.error)
+                node: WakuNode): Future[Result[string, string]] {.async.} =
 
-  return InterThreadResponse(result: ResultType.OK)
+  case self.operation:
+
+    of CONNECT_TO:
+      let ret = node.connectTo(self.peerMultiAddr, self.dialTimeout)
+      if ret.isErr():
+        return err(ret.error)
+
+  return ok("")

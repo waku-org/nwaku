@@ -26,14 +26,13 @@ import
   ../events/[json_error_event,json_message_event,json_base_event],
   ../alloc,
   ./config,
-  ./inter_thread_communication/request,
-  ./inter_thread_communication/response
+  ./inter_thread_communication/request
 
 type
   Context* = object
     thread: Thread[(ptr Context)]
     reqChannel: Channel[InterThreadRequest]
-    respChannel: Channel[InterThreadResponse]
+    respChannel: Channel[Result[string, string]]
     node: WakuNode
 
 var ctx {.threadvar.}: ptr Context
@@ -178,23 +177,14 @@ proc stopWakuNodeThread*() =
 
   freeShared(ctx)
 
-proc sendRequestToWakuThread*(req: InterThreadRequest,
-                              timeoutMs: int = 300_000):
-                              Result[InterThreadResponse, string] =
+proc sendRequestToWakuThread*(req: InterThreadRequest): Result[string, string] =
 
   ctx.reqChannel.send(req)
 
-  var count = 0
   var resp = ctx.respChannel.tryRecv()
   while resp[0] == false:
     resp = ctx.respChannel.tryRecv()
     os.sleep(1)
-    count.inc()
 
-    if count > timeoutMs:
-      let msg = "Timeout expired. request: " & $req &
-                ". timeout in ms: " & $timeoutMs
-      return err(msg)
-
-  return ok(resp[1])
+  return resp[1]
 

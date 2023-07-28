@@ -7,8 +7,7 @@ import
   stew/shims/net
 import
   ../../../waku/v2/node/waku_node,
-  ./request,
-  ./response
+  ./request
 
 type
   NodeLifecycleMsgType* = enum
@@ -25,12 +24,14 @@ proc new*(T: type NodeLifecycleRequest,
   return NodeLifecycleRequest(operation: op)
 
 method process*(self: NodeLifecycleRequest,
-                node: WakuNode): Future[InterThreadResponse] {.async.} =
+                node: WakuNode): Future[Result[string, string]] {.async.} =
+
   case self.operation:
+
     of START_NODE:
       waitFor node.start()
 
     of STOP_NODE:
       waitFor node.stop()
 
-  return InterThreadResponse(result: ResultType.OK)
+  return ok("")

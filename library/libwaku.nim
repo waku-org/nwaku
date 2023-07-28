@@ -15,7 +15,7 @@ import
   ../../waku/v2/waku_core/topics/pubsub_topic,
   ../../../waku/v2/waku_relay/protocol,
   ./events/json_message_event,
-  ./waku_thread/waku_thread,
+  ./waku_thread/waku_thread as waku_thread_module,
   ./waku_thread/inter_thread_communication/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/peer_manager_request,
   ./waku_thread/inter_thread_communication/protocols/relay_request,
@@ -72,7 +72,7 @@ proc waku_new(configJson: cstring,
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
-  let createThRes = waku_thread.createWakuThread(configJson)
+  let createThRes = waku_thread_module.createWakuThread(configJson)
   if createThRes.isErr():
     let msg = "Error in createWakuThread: " & $createThRes.error
     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
@@ -189,28 +189,38 @@ proc waku_relay_publish(pubSubTopic: cstring,
                             DefaultPubsubTopic
                           else:
                             $pst
+
+  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
+                        RelayRequest.new(RelayMsgType.PUBLISH,
+                                         PubsubTopic($pst),
+                                         WakuRelayHandler(relayEventCallback),
+                                         wakuMessage))
+  deallocShared(pst)
+
+  if sendReqRes.isErr():
+    let msg = $sendReqRes.error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    return RET_ERR
+
   return RET_OK
 
 proc waku_start() {.dynlib, exportc.} =
-  discard waku_thread.sendRequestToWakuThread(
-                      NodeLifecycleRequest.new(
-                                NodeLifecycleMsgType.START_NODE,
-                                ))
+  discard waku_thread_module.sendRequestToWakuThread(
+                                NodeLifecycleRequest.new(
+                                          NodeLifecycleMsgType.START_NODE))
 
 proc waku_stop() {.dynlib, exportc.} =
-  discard waku_thread.sendRequestToWakuThread(
-  # let createThRes = waku_thread.sendRequestToWakuThread(
-                      NodeLifecycleRequest.new(
-                                NodeLifecycleMsgType.STOP_NODE,
-                                ))
+  discard waku_thread_module.sendRequestToWakuThread(
+                                NodeLifecycleRequest.new(
+                                          NodeLifecycleMsgType.STOP_NODE))
 
 proc waku_relay_subscribe(
                 pubSubTopic: cstring,
                 onErrCb: WakuCallBack): cint
                 {.dynlib, exportc.} =
- 
+
   let pst = pubSubTopic.alloc()
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
                         RelayRequest.new(RelayMsgType.SUBSCRIBE,
                                          PubsubTopic($pst),
                                          WakuRelayHandler(relayEventCallback)))
@@ -229,7 +239,7 @@ proc waku_relay_unsubscribe(
                 {.dynlib, exportc.} =
 
   let pst = pubSubTopic.alloc()
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  let sendReqRes = waku_thread_module.sendRequestToWakuThread(
                         RelayRequest.new(RelayMsgType.UNSUBSCRIBE,
                                          PubsubTopic($pst),
                                          WakuRelayHandler(relayEventCallback)))
@@ -247,12 +257,16 @@ proc waku_connect(peerMultiAddr: cstring,
                   onErrCb: WakuCallBack): cint
                   {.dynlib, exportc.} =
 
-  discard waku_thread.sendRequestToWakuThread(
-                      PeerManagementRequest.new(
-                                PeerManagementMsgType.CONNECT_TO,
-                                $peerMultiAddr,
-                                timeoutMs,
-                                ))
+  let connRes = waku_thread_module.sendRequestToWakuThread(
+                                  PeerManagementRequest.new(
+                                            PeerManagementMsgType.CONNECT_TO,
+                                            $peerMultiAddr,
+                                            chronos.milliseconds(timeoutMs)))
+  if connRes.isErr():
+    let msg = $connRes.error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    return RET_ERR
+
   return RET_OK
 
 ### End of exported procs
