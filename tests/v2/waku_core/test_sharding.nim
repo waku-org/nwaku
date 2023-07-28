@@ -34,7 +34,7 @@ suite "Waku Sharding":
 
     let enc = "cbor"
 
-    NsContentTopic.init(none(int), Unbiased, none(string), app, version, name, enc)
+    NsContentTopic.init(none(int), Unbiased, app, version, name, enc)
 
   test "Implicit content topic generation":
     ## Given
@@ -43,43 +43,41 @@ suite "Waku Sharding":
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
 
-    let paramRes = shardingParam(ns)
+    let paramRes = shardCount(ns)
 
     ## Then
     assert paramRes.isOk(), paramRes.error
 
-    let (count, bias, name) = paramRes.get()
+    let count = paramRes.get()
     check:
       count == GenerationZeroShardsCount
-      bias == Unbiased
-      name == "main"
+      ns.bias == Unbiased
 
   test "Valid content topic":
     ## Given
-    let topic = "/0/anonymity/myshard/toychat/2/huilong/proto"
+    let topic = "/0/anonymity/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
 
-    let paramRes = shardingParam(ns)
+    let paramRes = shardCount(ns)
 
     ## Then
     assert paramRes.isOk(), paramRes.error
 
-    let (count, bias, name) = paramRes.get()
+    let count = paramRes.get()
     check:
       count == GenerationZeroShardsCount
-      bias == Kanonymity
-      name == "myshard"
+      ns.bias == Kanonymity
 
   test "Invalid content topic generation":
     ## Given
-    let topic = "/1/unbiased/myshard/toychat/2/huilong/proto"
+    let topic = "/1/unbiased/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
 
-    let paramRes = shardingParam(ns)
+    let paramRes = shardCount(ns)
 
     ## Then
     assert paramRes.isErr(), $paramRes.get()
@@ -112,14 +110,14 @@ suite "Waku Sharding":
 
   test "Sorted shard list":
     ## Given
-    let topic = "/0/unbiased/myshard/toychat/2/huilong/proto"
+    let topic = "/0/unbiased/toychat/2/huilong/proto"
 
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
-    let (count, bias, shardName) = shardingParam(contentTopic).expect("Valid parameters")
-    let weights = biasedWeights(count, bias)
+    let count = shardCount(contentTopic).expect("Valid parameters")
+    let weights = biasedWeights(count, contentTopic.bias)
 
-    let shardsRes = weightedShardList(contentTopic.application, shardName, count, weights)
+    let shardsRes = weightedShardList(contentTopic, count, weights)
 
     ## Then
     assert shardsRes.isOk(), shardsRes.error
@@ -131,7 +129,7 @@ suite "Waku Sharding":
 
   test "Shard Choice Reproducibility":
     ## Given
-    let topic = "/0/unbiased/myshard/toychat/2/huilong/proto"
+    let topic = "/toychat/2/huilong/proto"
 
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
@@ -144,7 +142,7 @@ suite "Waku Sharding":
     let pubsubTopic = res.get()
 
     check:
-      pubsubTopic == NsPubsubTopic.staticSharding(ClusterIndex, 0)
+      pubsubTopic == NsPubsubTopic.staticSharding(ClusterIndex, 3)
 
   test "Shard Choice Simulation":
     ## Given

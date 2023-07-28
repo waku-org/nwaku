@@ -14,7 +14,6 @@ suite "Waku Message - Content topics namespacing":
     var ns = NsContentTopic()
     ns.generation = none(int)
     ns.bias = Unbiased
-    ns.shard = none(string)
     ns.application = "toychat"
     ns.version = "2"
     ns.name = "huilong"
@@ -41,7 +40,6 @@ suite "Waku Message - Content topics namespacing":
     check:
       ns.generation == none(int)
       ns.bias == Unbiased
-      ns.shard == none(string)
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -49,7 +47,7 @@ suite "Waku Message - Content topics namespacing":
 
   test "Parse content topic string - Valid string with sharding":
     ## Given
-    let topic = "/0/anonymity/myshard/toychat/2/huilong/proto"
+    let topic = "/0/anonymity/toychat/2/huilong/proto"
 
     ## When
     let nsRes = NsContentTopic.parse(topic)
@@ -61,7 +59,6 @@ suite "Waku Message - Content topics namespacing":
     check:
       ns.generation == some(0)
       ns.bias == Kanonymity
-      ns.shard == some("myshard")
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -129,7 +126,7 @@ suite "Waku Message - Content topics namespacing":
 
   test "Parse content topic string - Invalid string: non numeric generation":
     ## Given
-    let topic = "/first/unbiased/myshard/toychat/2/huilong/proto"
+    let topic = "/first/unbiased/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic)
@@ -144,7 +141,7 @@ suite "Waku Message - Content topics namespacing":
 
   test "Parse content topic string - Invalid string: invalid bias":
     ## Given
-    let topic = "/0/no/myshard/toychat/2/huilong/proto"
+    let topic = "/0/no/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic)
@@ -156,21 +153,6 @@ suite "Waku Message - Content topics namespacing":
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "bias should be one of; unbiased, anonymity, bandwidth"
-
-  test "Parse content topic string - Invalid string: missing shard name part":
-      ## Given
-      let topic = "/0/unbiased/toychat/2/huilong/proto"
-
-      ## When
-      let ns = NsContentTopic.parse(topic)
-
-      ## Then
-      assert ns.isErr(), $ns.get()
-
-      let err = ns.tryError()
-      check:
-        err.kind == ParsingErrorKind.InvalidFormat
-        err.cause == "invalid topic structure"
 
 suite "Waku Message - Pub-sub topics namespacing":
 
