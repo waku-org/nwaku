@@ -49,12 +49,12 @@ proc biasedWeights*(shardCount: int, bias: ShardingBias): seq[float64] =
   case bias:
     of Unbiased:
       return weights
-    of Kanonymity:
+    of Lower20:
       # we choose the lower 20% of shards and double their weigths
       let index = shardCount div 5
       for i in (0..<index):
         weights[i] *= 2.0
-    of Throughput:
+    of Higher80:
       # we choose the higher 80% of shards and double their weigths
       let index = shardCount div 5
       for i in (index..<shardCount):

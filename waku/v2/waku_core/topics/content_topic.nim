@@ -28,8 +28,8 @@ const DefaultContentTopic* = ContentTopic("/waku/2/default-content/proto")
 
 type ShardingBias* = enum
   Unbiased = "unbiased"
-  Kanonymity = "anonymity"
-  Throughput = "bandwidth"
+  Lower20 = "lower20"
+  Higher80 = "higher80"
 
 type
   NsContentTopic* = object

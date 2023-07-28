@@ -47,7 +47,7 @@ suite "Waku Message - Content topics namespacing":
 
   test "Parse content topic string - Valid string with sharding":
     ## Given
-    let topic = "/0/anonymity/toychat/2/huilong/proto"
+    let topic = "/0/lower20/toychat/2/huilong/proto"
 
     ## When
     let nsRes = NsContentTopic.parse(topic)
@@ -58,7 +58,7 @@ suite "Waku Message - Content topics namespacing":
     let ns = nsRes.get()
     check:
       ns.generation == some(0)
-      ns.bias == Kanonymity
+      ns.bias == Lower20
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"

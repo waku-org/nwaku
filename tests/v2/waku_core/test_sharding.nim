@@ -55,7 +55,7 @@ suite "Waku Sharding":
 
   test "Valid content topic":
     ## Given
-    let topic = "/0/anonymity/toychat/2/huilong/proto"
+    let topic = "/0/lower20/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
@@ -68,7 +68,7 @@ suite "Waku Sharding":
     let count = paramRes.get()
     check:
       count == GenerationZeroShardsCount
-      ns.bias == Kanonymity
+      ns.bias == Lower20
 
   test "Invalid content topic generation":
     ## Given
@@ -91,8 +91,8 @@ suite "Waku Sharding":
     let count = 5
 
     ## When
-    let anonWeigths = biasedWeights(count, ShardingBias.Kanonymity)
-    let speedWeigths = biasedWeights(count, ShardingBias.Throughput)
+    let anonWeigths = biasedWeights(count, ShardingBias.Lower20)
+    let speedWeigths = biasedWeights(count, ShardingBias.Higher80)
 
     ## Then
     check:
