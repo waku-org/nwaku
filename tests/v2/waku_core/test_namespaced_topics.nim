@@ -152,7 +152,7 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "bias should be one of; unbiased, anonymity, bandwidth"
+      err.cause == "bias should be one of; unbiased, lower20 or higher80"
 
 suite "Waku Message - Pub-sub topics namespacing":
 

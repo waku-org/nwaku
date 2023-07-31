@@ -114,7 +114,7 @@ proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[N
       let bias = try:
         parseEnum[ShardingBias](parts[1])
       except ValueError:
-        return err(ParsingError.invalidFormat("bias should be one of; unbiased, anonymity, bandwidth"))
+        return err(ParsingError.invalidFormat("bias should be one of; unbiased, lower20 or higher80"))
 
       let app = parts[2]
       if app.len == 0:
