@@ -110,8 +110,8 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay,
     return ok(false)
   try:
     if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
-      # there is an identical record, ignore rhe mag
-      return ok(false)
+      # there is an identical record, mark it as spam
+      return ok(true)
 
     # check for a message with the same nullifier but different secret shares
     let matched = rlnPeer.nullifierLog[externalNullifier].filterIt((
