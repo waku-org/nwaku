@@ -79,7 +79,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
 char* contentTopic = NULL;
-void handle_content_topic(char* msg, size_t len) {
+void handle_content_topic(const char* msg, size_t len) {
     if (contentTopic != NULL) {
         free(contentTopic);
     }
@@ -89,7 +89,7 @@ void handle_content_topic(char* msg, size_t len) {
 }
 
 char* publishResponse = NULL;
-void handle_publish_ok(char* msg, size_t len) {
+void handle_publish_ok(const char* msg, size_t len) {
     printf("Publish Ok: %s %lu\n", msg, len);
 
     if (publishResponse != NULL) {
@@ -100,14 +100,14 @@ void handle_publish_ok(char* msg, size_t len) {
     strcpy(publishResponse, msg);
 }
 
-void handle_error(char* msg, size_t len) {
+void handle_error(const char* msg, size_t len) {
     printf("Error: %s\n", msg);
     exit(1);
 }
 
 #define MAX_MSG_SIZE 65535
 
-void publish_message(char* pubsubTopic, char* msg) {
+void publish_message(char* pubsubTopic, const char* msg) {
     char jsonWakuMsg[MAX_MSG_SIZE];
     char *msgPayload = b64_encode(msg, strlen(msg));
 
@@ -138,15 +138,15 @@ void show_help_and_exit() {
     exit(1);
 }
 
-void event_handler(char* msg, size_t len) {
+void event_handler(const char* msg, size_t len) {
     printf("Receiving message %s\n", msg);
 }
 
-void print_default_pubsub_topic(char* msg, size_t len) {
+void print_default_pubsub_topic(const char* msg, size_t len) {
     printf("Default pubsub topic: %s\n", msg);
 }
 
-void print_waku_version(char* msg, size_t len) {
+void print_waku_version(const char* msg, size_t len) {
     printf("Git Version: %s\n", msg);
 }
 
@@ -243,8 +243,6 @@ void handle_user_input() {
 
 int main(int argc, char** argv) {
 
-    waku_init_lib();
-
     struct ConfigNode cfgNode;
     // default values
     snprintf(cfgNode.host, 128, "0.0.0.0");
@@ -272,12 +270,13 @@ int main(int argc, char** argv) {
 
     WAKU_CALL( waku_default_pubsub_topic(print_default_pubsub_topic) );
     WAKU_CALL( waku_version(print_waku_version) );
+
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
     WAKU_CALL( waku_new(jsonConfig, handle_error) );
 
-    waku_set_relay_callback(event_handler);
+    waku_set_event_callback(event_handler);
     waku_start();
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
@@ -291,6 +290,6 @@ int main(int argc, char** argv) {
     show_main_menu();
     while(1) {
         handle_user_input();
-        waku_poll();
+        // waku_poll();
     }
 }

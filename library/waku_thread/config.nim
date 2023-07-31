@@ -10,7 +10,7 @@ import
   ../../waku/common/utils/nat,
   ../../waku/v2/node/waku_node,
   ../../waku/v2/node/config,
-  ./events/[json_error_event,json_base_event]
+  ../events/[json_error_event,json_base_event]
 
 proc parsePrivateKey(jsonNode: JsonNode,
                      privateKey: var PrivateKey,

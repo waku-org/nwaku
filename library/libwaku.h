@@ -11,11 +11,7 @@
 #define RET_ERR               1
 #define RET_MISSING_CALLBACK  2
 
-typedef void (*WakuCallBack) (char* msg, size_t len_0);
-
-// This should only be called once.
-// It initializes the nim runtime and GC.
-void waku_init_lib(void);
+typedef void (*WakuCallBack) (const char* msg, size_t len_0);
 
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
@@ -27,7 +23,7 @@ void waku_stop(void);
 
 int waku_version(WakuCallBack onOkCb);
 
-void waku_set_relay_callback(WakuCallBack callback);
+void waku_set_event_callback(WakuCallBack callback);
 
 int waku_content_topic(const char* appName,
                        unsigned int appVersion,
@@ -55,7 +51,5 @@ int waku_relay_unsubscribe(const char* pubSubTopic,
 int waku_connect(const char* peerMultiAddr,
                  unsigned int timeoutMs,
                  WakuCallBack onErrCb);
-
-void waku_poll(void);
 
 #endif /* __libwaku__ */
