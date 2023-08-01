@@ -227,6 +227,7 @@ type
 
     pubsubTopics* {.
       desc: "Default pubsub topic to subscribe to. Argument may be repeated."
+      defaultValue: @["/waku/2/default-waku/proto"]
       name: "pubsub-topic" .}: seq[string]
 
     contentTopics* {.
