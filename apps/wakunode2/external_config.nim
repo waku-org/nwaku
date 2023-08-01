@@ -225,10 +225,14 @@ type
       defaultValue: false
       name: "keep-alive" }: bool
 
-    topics* {.
-      desc: "Default topic to subscribe to. Argument may be repeated."
+    pubsubTopics* {.
+      desc: "Default pubsub topic to subscribe to. Argument may be repeated."
       defaultValue: @["/waku/2/default-waku/proto"]
-      name: "topic" .}: seq[string]
+      name: "pubsub-topic" .}: seq[string]
+
+    contentTopics* {.
+      desc: "Default content topic to subscribe to. Argument may be repeated."
+      name: "content-topic" .}: seq[string]
 
     ## Store and message store config
 

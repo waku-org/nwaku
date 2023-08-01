@@ -127,9 +127,27 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  let addShardedTopics = enrBuilder.withShardedTopics(conf.topics)
+  let contentTopicsRes = conf.contentTopics.mapIt(NsContentTopic.parse(it))
+
+  for res in contentTopicsRes:
+    if res.isErr():
+      error "failed to parse content topic", error=res.error
+      quit(QuitFailure)
+
+  let pubsubTopicsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
+
+  for res in pubsubTopicsRes:
+    if res.isErr():
+      error "failed to shard content topic", error=res.error
+      quit(QuitFailure)
+
+  let pubsubTopics = pubsubTopicsRes.mapIt($it.get())
+
+  let topics = pubsubTopics & conf.pubsubTopics
+
+  let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
-      error "failed to add sharded topics", error=addShardedTopics.error
+      error "failed to add sharded topics to ENR", error=addShardedTopics.error
       quit(QuitFailure)
 
   let recordRes = enrBuilder.build()
@@ -341,7 +359,7 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics = conf.topics
+    let pubsubTopics = conf.pubsubTopics
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
