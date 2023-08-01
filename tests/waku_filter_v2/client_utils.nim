@@ -1,6 +1,5 @@
 import
   std/[options,tables],
-  testutils/unittests,
   chronos,
   chronicles
 
@@ -22,10 +21,10 @@ proc newTestWakuFilter*(switch: Switch): Future[WakuFilter] {.async.} =
 
   return proto
 
-proc newTestWakuFilterClient*(switch: Switch, messagePushHandler: MessagePushHandler): Future[WakuFilterClient] {.async.} =
+proc newTestWakuFilterClient*(switch: Switch): Future[WakuFilterClient] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilterClient.new(rng, messagePushHandler, peerManager)
+    proto = WakuFilterClient.new(peerManager, rng)
 
   await proto.start()
   switch.mount(proto)

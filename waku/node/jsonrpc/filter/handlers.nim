@@ -34,7 +34,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
     ## Subscribes a node to a list of content filters
     debug "post_waku_v2_filter_v1_subscription"
 
-    let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
+    let peerOpt = node.peerManager.selectPeer(WakuLegacyFilterCodec)
     if peerOpt.isNone():
       raise newException(ValueError, "no suitable remote filter peers")
 
@@ -43,7 +43,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
     let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         cache.addMessage(msg.contentTopic, msg)
 
-    let subFut = node.filterSubscribe(pubsubTopic, contentTopics, handler, peerOpt.get())
+    let subFut = node.legacyFilterSubscribe(pubsubTopic, contentTopics, handler, peerOpt.get())
     if not await subFut.withTimeout(futTimeout):
       raise newException(ValueError, "Failed to subscribe to contentFilters")
 
@@ -59,7 +59,11 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
 
     let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
-    let unsubFut = node.unsubscribe(pubsubTopic, contentTopics)
+    let peerOpt = node.peerManager.selectPeer(WakuLegacyFilterCodec)
+    if peerOpt.isNone():
+      raise newException(ValueError, "no suitable remote filter peers")
+
+    let unsubFut = node.legacyFilterUnsubscribe(pubsubTopic, contentTopics, peerOpt.get())
     if not await unsubFut.withTimeout(futTimeout):
       raise newException(ValueError, "Failed to unsubscribe from contentFilters")
 

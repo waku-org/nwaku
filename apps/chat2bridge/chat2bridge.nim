@@ -297,7 +297,8 @@ when isMainModule:
   if conf.filternode != "":
     let filterPeer = parsePeerInfo(conf.filternode)
     if filterPeer.isOk():
-      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuLegacyFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
     else:
       error "Error parsing conf.filternode", error = filterPeer.error
 

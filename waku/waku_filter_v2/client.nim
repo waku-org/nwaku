@@ -23,19 +23,21 @@ logScope:
   topics = "waku filter client"
 
 type
-  MessagePushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.gcsafe, closure.}
   WakuFilterClient* = ref object of LPProtocol
     rng: ref HmacDrbgContext
-    messagePushHandler: MessagePushHandler
     peerManager: PeerManager
+    pushHandlers: seq[FilterPushHandler]
 
 func generateRequestId(rng: ref HmacDrbgContext): string =
   var bytes: array[10, byte]
   hmacDrbgGenerate(rng[], bytes)
   return toHex(bytes)
 
-proc sendSubscribeRequest(wfc: WakuFilterClient, servicePeer: RemotePeerInfo, filterSubscribeRequest: FilterSubscribeRequest): Future[FilterSubscribeResult] {.async.} =
-  trace "Sending filter subscribe request", servicePeer, filterSubscribeRequest
+proc sendSubscribeRequest(wfc: WakuFilterClient, servicePeer: RemotePeerInfo,
+                          filterSubscribeRequest: FilterSubscribeRequest):
+                        Future[FilterSubscribeResult]
+                        {.async.} =
+  trace "Sending filter subscribe request", peerId=servicePeer.peerId, filterSubscribeRequest
 
   let connOpt = await wfc.peerManager.dialPeer(servicePeer, WakuFilterSubscribeCodec)
   if connOpt.isNone():
@@ -77,7 +79,13 @@ proc ping*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo): Future[FilterSub
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
 
-proc subscribe*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): Future[FilterSubscribeResult] {.async.} =
+proc subscribe*(wfc: WakuFilterClient,
+                servicePeer: RemotePeerInfo,
+                pubsubTopic: PubsubTopic,
+                contentTopics: seq[ContentTopic]):
+              Future[FilterSubscribeResult]
+              {.async.} =
+
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.subscribe(
     requestId = requestId,
@@ -87,7 +95,13 @@ proc subscribe*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo, pubsubTopic:
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
 
-proc unsubscribe*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): Future[FilterSubscribeResult] {.async.} =
+proc unsubscribe*(wfc: WakuFilterClient,
+                  servicePeer: RemotePeerInfo,
+                  pubsubTopic: PubsubTopic,
+                  contentTopics: seq[ContentTopic]):
+                Future[FilterSubscribeResult]
+                {.async.} =
+
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.unsubscribe(
     requestId = requestId,
@@ -97,13 +111,19 @@ proc unsubscribe*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo, pubsubTopi
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
 
-proc unsubscribeAll*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo): Future[FilterSubscribeResult] {.async.} =
+proc unsubscribeAll*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo):
+                Future[FilterSubscribeResult]
+                {.async.} =
+
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.unsubscribeAll(
     requestId = requestId
   )
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+
+proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
+  wfc.pushHandlers.add(handler)
 
 proc initProtocolHandler(wfc: WakuFilterClient) =
 
@@ -119,7 +139,9 @@ proc initProtocolHandler(wfc: WakuFilterClient) =
     let messagePush = decodeRes.value #TODO: toAPI() split here
     trace "Received message push", peerId=conn.peerId, messagePush
 
-    wfc.messagePushHandler(messagePush.pubsubTopic, messagePush.wakuMessage)
+    for handler in wfc.pushHandlers:
+      asyncSpawn handler(messagePush.pubsubTopic,
+                         messagePush.wakuMessage)
 
     # Protocol specifies no response for now
     return
@@ -128,14 +150,14 @@ proc initProtocolHandler(wfc: WakuFilterClient) =
   wfc.codec = WakuFilterPushCodec
 
 proc new*(T: type WakuFilterClient,
-          rng: ref HmacDrbgContext,
-          messagePushHandler: MessagePushHandler,
-          peerManager: PeerManager): T =
+          peerManager: PeerManager,
+          rng: ref HmacDrbgContext
+          ): T =
 
   let wfc = WakuFilterClient(
     rng: rng,
-    messagePushHandler: messagePushHandler,
-    peerManager: peerManager
+    peerManager: peerManager,
+    pushHandlers: @[]
   )
   wfc.initProtocolHandler()
   wfc

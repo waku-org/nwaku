@@ -20,7 +20,7 @@ logScope:
 
 
 const
-  WakuFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
+  WakuLegacyFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
   WakuFilterTimeout: Duration = 2.hours
 
@@ -60,8 +60,6 @@ proc removeSubscription(subscriptions: var seq[Subscription], peer: PeerId, unsu
 ## Protocol
 
 type
-  MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
-
   WakuFilterLegacy* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
@@ -110,7 +108,7 @@ proc initProtocolHandler(wf: WakuFilterLegacy) =
     wf.handleFilterRequest(conn.peerId, rpc)
 
   wf.handler = handler
-  wf.codec = WakuFilterCodec
+  wf.codec = WakuLegacyFilterCodec
 
 proc new*(T: type WakuFilterLegacy,
            peerManager: PeerManager,
@@ -131,7 +129,7 @@ proc init*(T: type WakuFilterLegacy,
 
 
 proc sendFilterRpc(wf: WakuFilterLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
-  let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
+  let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
   let connection = connOpt.get()

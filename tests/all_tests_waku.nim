@@ -58,8 +58,8 @@ import
   ./test_waku_lightpush,
   ./test_wakunode_lightpush,
   # Waku Filter
-  ./test_waku_filter,
-  ./test_wakunode_filter,
+  ./test_waku_filter_legacy,
+  ./test_wakunode_filter_legacy,
   ./test_waku_peer_exchange,
   ./test_peer_store_extended,
   ./test_message_cache,
@@ -95,7 +95,9 @@ import
   ./wakunode_rest/test_rest_relay,
   ./wakunode_rest/test_rest_relay_serdes,
   ./wakunode_rest/test_rest_serdes,
-  ./wakunode_rest/test_rest_store
+  ./wakunode_rest/test_rest_store,
+  ./wakunode_rest/test_rest_filter,
+  ./wakunode_rest/test_rest_legacy_filter
 
 import
   ./waku_rln_relay/test_waku_rln_relay,
