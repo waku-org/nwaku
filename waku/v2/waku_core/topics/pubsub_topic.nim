@@ -116,3 +116,23 @@ proc parse*(T: type NsPubsubTopic, topic: PubsubTopic|string): ParsingResult[NsP
 
 converter toPubsubTopic*(topic: NsPubsubTopic): PubsubTopic =
   $topic
+
+proc `==`*[T: NsPubsubTopic](x, y: T): bool =
+  case y.kind
+    of NsPubsubTopicKind.StaticSharding:
+      if x.kind != NsPubsubTopicKind.StaticSharding:
+        return false
+
+      if x.cluster != y.cluster:
+        return false
+
+      if x.shard != y.shard:
+        return false
+    of NsPubsubTopicKind.NamedSharding:
+      if x.kind != NsPubsubTopicKind.NamedSharding:
+        return false
+
+      if x.name != y.name:
+        return false
+
+  true

@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/options,
   stew/results,
   testutils/unittests
 import
@@ -11,6 +12,8 @@ suite "Waku Message - Content topics namespacing":
   test "Stringify namespaced content topic":
     ## Given
     var ns = NsContentTopic()
+    ns.generation = none(int)
+    ns.bias = Unbiased
     ns.application = "toychat"
     ns.version = "2"
     ns.name = "huilong"
@@ -31,10 +34,31 @@ suite "Waku Message - Content topics namespacing":
     let nsRes = NsContentTopic.parse(topic)
 
     ## Then
-    check nsRes.isOk()
+    assert nsRes.isOk(), $nsRes.error
 
     let ns = nsRes.get()
     check:
+      ns.generation == none(int)
+      ns.bias == Unbiased
+      ns.application == "toychat"
+      ns.version == "2"
+      ns.name == "huilong"
+      ns.encoding == "proto"
+
+  test "Parse content topic string - Valid string with sharding":
+    ## Given
+    let topic = "/0/lower20/toychat/2/huilong/proto"
+
+    ## When
+    let nsRes = NsContentTopic.parse(topic)
+
+    ## Then
+    assert nsRes.isOk(), $nsRes.error
+
+    let ns = nsRes.get()
+    check:
+      ns.generation == some(0)
+      ns.bias == Lower20
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -48,7 +72,8 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
@@ -62,12 +87,12 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
-
 
   test "Parse content topic string - Invalid string: missing encoding part":
     ## Given
@@ -77,13 +102,14 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
 
-  test "Parse content topic string - Invalid string: too many parts":
+  test "Parse content topic string - Invalid string: wrong extra parts":
     ## Given
     let topic = "/toychat/2/huilong/proto/33"
 
@@ -91,12 +117,42 @@ suite "Waku Message - Content topics namespacing":
     let ns = NsContentTopic.parse(topic)
 
     ## Then
-    check ns.isErr()
+    assert ns.isErr(), $ns.get()
+
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "invalid topic structure"
 
+  test "Parse content topic string - Invalid string: non numeric generation":
+    ## Given
+    let topic = "/first/unbiased/toychat/2/huilong/proto"
+
+    ## When
+    let ns = NsContentTopic.parse(topic)
+
+    ## Then
+    assert ns.isErr(), $ns.get()
+
+    let err = ns.tryError()
+    check:
+      err.kind == ParsingErrorKind.InvalidFormat
+      err.cause == "generation should be a numeric value"
+
+  test "Parse content topic string - Invalid string: invalid bias":
+    ## Given
+    let topic = "/0/no/toychat/2/huilong/proto"
+
+    ## When
+    let ns = NsContentTopic.parse(topic)
+
+    ## Then
+    assert ns.isErr(), $ns.get()
+
+    let err = ns.tryError()
+    check:
+      err.kind == ParsingErrorKind.InvalidFormat
+      err.cause == "bias should be one of; unbiased, lower20 or higher80"
 
 suite "Waku Message - Pub-sub topics namespacing":
 
@@ -177,7 +233,6 @@ suite "Waku Message - Pub-sub topics namespacing":
     check:
       err.kind == ParsingErrorKind.MissingPart
       err.part == "shard_cluster_index"
-
 
   test "Parse static sharding pub-sub topic string - Invalid string: cluster value":
     ## Given

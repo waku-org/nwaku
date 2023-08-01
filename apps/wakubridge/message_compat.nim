@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  std/options,
   stew/[byteutils, results],
   libp2p/crypto/crypto
 import
@@ -35,6 +36,8 @@ proc toV2ContentTopic*(v1Topic: waku_protocol.Topic): ContentTopic =
   ## <v1-topic-bytes-as-hex> should be prefixed with `0x`
   var namespacedTopic = NsContentTopic()
 
+  namespacedTopic.generation = none(int)
+  namespacedTopic.bias = Unbiased
   namespacedTopic.application = ContentTopicApplication
   namespacedTopic.version = ContentTopicAppVersion
   namespacedTopic.name = v1Topic.to0xHex()
