@@ -3,7 +3,8 @@
 import
   testutils/unittests
 import
-  ../../waku/v2/waku_core,
+  ../../waku/v2/waku_core/message,
+  ../../waku/v2/waku_core/time,
   ../../waku/v2/utils/compat,
   ./testlib/common
 
