@@ -100,7 +100,7 @@ method stop*(rlnPeer: WakuRLNRelay) {.async.} =
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
-  ## epoch and nullifier as `proofMetadata`'s epoch and nullifier but different Shamir secret shares
+  ## epoch and nullifier as `proofMetadata`'s epoch and nullifier
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
