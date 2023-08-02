@@ -100,7 +100,7 @@ method stop*(rlnPeer: WakuRLNRelay) {.async.} =
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
-  ## epoch and nullifier as `proofMetadata`'s epoch and nullifier but different Shamir secret shares
+  ## epoch and nullifier as `proofMetadata`'s epoch and nullifier
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
@@ -110,8 +110,8 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay,
     return ok(false)
   try:
     if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
-      # there is an identical record, ignore rhe mag
-      return ok(false)
+      # there is an identical record, mark it as spam
+      return ok(true)
 
     # check for a message with the same nullifier but different secret shares
     let matched = rlnPeer.nullifierLog[externalNullifier].filterIt((
