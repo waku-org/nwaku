@@ -45,6 +45,7 @@ import
   ../../waku/v2/node/rest/debug/handlers as rest_debug_api,
   ../../waku/v2/node/rest/relay/handlers as rest_relay_api,
   ../../waku/v2/node/rest/relay/topic_cache,
+  ../../waku/v2/node/rest/filter/handlers as rest_filter_api,
   ../../waku/v2/node/rest/store/handlers as rest_store_api,
   ../../waku/v2/node/jsonrpc/admin/handlers as rpc_admin_api,
   ../../waku/v2/node/jsonrpc/debug/handlers as rpc_debug_api,
@@ -565,6 +566,11 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   if conf.relay:
     let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
     installRelayApiHandlers(server.router, app.node, relayCache)
+
+  ## Filter REST API
+  if conf.filter:
+    let filterCache = rest_filter_api.MessageCache.init(capacity=rest_filter_api.filterMessageCacheDefaultCapacity)
+    installFilterApiHandlers(server.router, app.node, filterCache)
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)

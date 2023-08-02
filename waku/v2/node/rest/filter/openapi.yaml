@@ -21,7 +21,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FilterPostSubscriptionsRequest'
+              $ref: '#/components/schemas/FilterSubscriptionsRequest'
       responses:
         '200':
           description: OK
@@ -45,7 +45,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/FilterDeleteSubscriptionsRequest'
+              $ref: '#/components/schemas/FilterSubscriptionsRequest'
       responses:
         '200':
           description: OK
@@ -61,7 +61,8 @@ paths:
         '5XX':
           description: Unexpected error.
 
-  /filter/v1/messages/{topic}:
+  # TODO: Review the path of this endpoint due maybe query for list of contentTopics matching
+  /filter/v1/messages/{contentTopic}:
     get: # get_waku_v2_filter_v1_messages
       summary: Get the latest messages on the polled content topic
       description: Get a list of messages that were received on a subscribed content topic after the last time this method was called.
@@ -70,11 +71,11 @@ paths:
         - filter
       parameters:
         - in: path
-          name: topic  # Note the name is the same as in the path
+          name: contentTopic  # Note the name is the same as in the path
           required: true
           schema:
             type: string
-          description: The user ID
+          description: Content topic of message
       responses:
         '200':
           description: The latest messages on the polled topic.
@@ -112,19 +113,7 @@ components:
       required:
         - payload
 
-    FilterPostSubscriptionsRequest:
-      type: object
-      properties: 
-        contentFilters:
-          type: array
-          items:
-            $ref: '#/components/schemas/ContentTopic'
-        pubsubTopic:
-          $ref: "#/components/schemas/PubSubTopic"
-      required: 
-        -  contentFilters
-
-    FilterDeleteSubscriptionsRequest:
+    FilterSubscriptionsRequest:
       type: object
       properties: 
         contentFilters:
