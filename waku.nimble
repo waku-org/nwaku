@@ -62,10 +62,6 @@ task wakunode2, "Build Waku v2 cli node":
   let name = "wakunode2"
   buildBinary name, "apps/wakunode2/"
 
-task bridge, "Build Waku v1 - v2 bridge":
-  let name = "wakubridge"
-  buildBinary name, "apps/wakubridge/"
-
 task wakucanary, "Build waku-canary tool":
   let name = "wakucanary"
   buildBinary name, "apps/wakucanary/"
@@ -79,9 +75,6 @@ task test2, "Build & run Waku v2 tests":
 
 task testwakunode2, "Build & run wakunode2 app tests":
   test "all_tests_wakunode2"
-
-task testbridge, "Build & run wakubridge tests":
-  test "all_tests_wakubridge"
 
 task example2, "Build Waku v2 example":
   buildBinary "publisher", "examples/v2/"
