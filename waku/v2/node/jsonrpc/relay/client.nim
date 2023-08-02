@@ -7,12 +7,7 @@ import
   std/[os, strutils],
   json_rpc/rpcclient
 import
-  ../../../waku_core,
-  ../../../utils/compat,
-  ./types
-
-export types
-
+  ../../../waku_core
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
