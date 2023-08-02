@@ -311,6 +311,10 @@ cwaku_example: | build libwaku
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
 		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
 
+nodejswaku: | build deps
+		echo -e $(BUILD_MSG) "build/$@" && \
+		node-gyp build --directory=examples/nodejs/
+
 endif # "variables.mk" was not included
 
 ###################
