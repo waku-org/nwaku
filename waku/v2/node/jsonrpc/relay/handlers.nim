@@ -14,7 +14,8 @@ import
   ../../../waku_core,
   ../../../waku_relay,
   ../../waku_node,
-  ../../message_cache
+  ../../message_cache,
+  ../message
 
 logScope:
   topics = "waku node jsonrpc relay_api"
