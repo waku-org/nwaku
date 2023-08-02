@@ -109,24 +109,3 @@ task libwakuStatic, "Build the cbindings waku node library":
 task libwakuDynamic, "Build the cbindings waku node library":
   let name = "libwaku"
   buildLibrary name, "library/", "-d:chronicles_log_level=ERROR", "dynamic"
-
-### Legacy: Whisper & Waku v1 tasks
-task testwhisper, "Build & run Whisper tests":
-  test "all_tests_whisper", "-d:chronicles_log_level=WARN -d:chronosStrictException"
-
-task wakunode1, "Build Waku v1 cli node":
-  buildBinary "wakunode1", "waku/v1/node/",
-    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
-
-task sim1, "Build Waku v1 simulation tools":
-  buildBinary "quicksim", "waku/v1/node/",
-    "-d:chronicles_log_level=INFO -d:chronosStrictException"
-  buildBinary "start_network", "waku/v1/node/",
-    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
-
-task example1, "Build Waku v1 example":
-  buildBinary "example", "examples/v1/",
-    "-d:chronicles_log_level=DEBUG -d:chronosStrictException"
-
-task test1, "Build & run Waku v1 tests":
-  test "all_tests_v1", "-d:chronicles_log_level=WARN -d:chronosStrictException"

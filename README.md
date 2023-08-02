@@ -2,22 +2,18 @@
 
 ## Introduction
 
-The nwaku repository implements Waku v1 and v2, and provides tools related to it.
+The nwaku repository implements Waku, and provides tools related to it.
 
-- A Nim implementation of the [Waku v1 protocol](https://specs.vac.dev/waku/waku.html).
-- A Nim implementation of the [Waku v2 protocol](https://specs.vac.dev/specs/waku/v2/waku-v2.html).
-- CLI applications `wakunode` and `wakunode2` that allow you to run a Waku v1 or v2 node.
-- Examples of Waku v1 and v2 usage.
+- A Nim implementation of the [Waku (v2) protocol](https://specs.vac.dev/specs/waku/v2/waku-v2.html).
+- CLI application `wakunode2` that allows you to run a Waku node.
+- Examples of Waku usage.
 - Various tests of above.
 
-For more details on Waku v1 and v2, see their respective home folders:
-
-- [Waku v1](waku/v1/README.md)
-- [Waku v2](waku/v2/README.md)
+For more details see the [source code](waku/v2/README.md)
 
 ## How to Build & Run
 
-These instructions are generic and apply to both Waku v1 and v2. For more detailed instructions, see Waku v1 and v2 home above.
+These instructions are generic. For more detailed instructions, see the Waku source code above.
 
 ### Prerequisites
 
@@ -28,10 +24,9 @@ The standard developer tools, including a C compiler, GNU Make, Bash, and Git. M
 ```bash
 # The first `make` invocation will update all Git submodules.
 # You'll run `make update` after each `git pull` in the future to keep those submodules updated.
-make wakunode1 wakunode2
+make wakunode2
 
 # See available command line options
-./build/wakunode --help
 ./build/wakunode2 --help
 ```
 
@@ -43,14 +38,14 @@ For more on how to run `wakunode2`, refer to:
 ### Waku Protocol Test Suite
 
 ```bash
-# Run all the Waku v1 and v2 tests
+# Run all the Waku tests
 make test
 ```
 
 ### Examples
 
-Examples can be found in the examples folder. For Waku v2, there is a fully
-featured chat example.
+Examples can be found in the examples folder.
+This includes a fully featured chat example.
 
 ### Tools
 

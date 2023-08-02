@@ -32,16 +32,14 @@ else # "variables.mk" was included. Business as usual until the end of this file
 ##########
 ## Main ##
 ##########
-.PHONY: all test update clean v1 v2 test1 test2
+.PHONY: all test update clean v2 test2
 
 # default target, because it's the first one that doesn't start with '.'
-all: | v1 v2
+all: | v2
 
-test: | test1 test2
-test1: | testcommon testwhisper testwaku1
+test: | test2
 test2: | testcommon testwaku2
 
-v1: | wakunode1 example1 sim1
 v2: | wakunode2 example2 wakubridge chat2 chat2bridge
 
 waku.nims:
@@ -216,32 +214,6 @@ wakucanary: | build deps
 networkmonitor: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
-
-
-#################
-## Waku legacy ##
-#################
-.PHONY: testwhisper testwaku1 wakunode1 example1 sim1
-
-testwhisper: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim testwhisper $(NIM_PARAMS) waku.nims
-
-testwaku1: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim test1 $(NIM_PARAMS) waku.nims
-
-wakunode1: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim wakunode1 $(NIM_PARAMS) waku.nims
-
-example1: | build deps
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim example1 $(NIM_PARAMS) waku.nims
-
-sim1: | build deps wakunode1
-	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim sim1 $(NIM_PARAMS) waku.nims
 
 
 ###################
