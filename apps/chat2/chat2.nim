@@ -34,7 +34,6 @@ import
   ../../waku/v2/waku_node,
   ../../waku/v2/node/waku_metrics,
   ../../waku/v2/node/peer_manager,
-  ../../waku/v2/utils/compat,
   ../../waku/common/utils/nat,
   ./config_chat2
 
@@ -52,9 +51,6 @@ const Help = """
   nick: change nickname for current chat session
   exit: exits chat session
 """
-
-const
-  PayloadV1* {.booldefine.} = false
 
 # XXX Connected is a bit annoying, because incoming connections don't trigger state change
 # Could poll connection pool or something here, I suppose
@@ -140,66 +136,28 @@ proc showChatPrompt(c: Chat) =
       discard
 
 proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
-  when PayloadV1:
-      # Use Waku v1 payload encoding/encryption
-      let
-        keyInfo = KeyInfo(kind: Symmetric, symKey: c.symKey)
-        decodedPayload = decodePayload(decoded.get(), keyInfo)
-
-      if decodedPayload.isOK():
-        let
-          pb = Chat2Message.init(decodedPayload.get().payload)
-          chatLine = if pb.isOk: pb[].toString()
-                    else: string.fromBytes(decodedPayload.get().payload)
-        return ok(chatLine)
-      else:
-        debug "Invalid encoded WakuMessage payload",
-          error = decodedPayload.error
-        return err("Invalid encoded WakuMessage payload")
-  else:
-    # No payload encoding/encryption from Waku
-    let
-      pb = Chat2Message.init(msg.payload)
-      chatLine = if pb.isOk: pb[].toString()
-                else: string.fromBytes(msg.payload)
-    return ok(chatline)
+  # No payload encoding/encryption from Waku
+  let
+    pb = Chat2Message.init(msg.payload)
+    chatLine = if pb.isOk: pb[].toString()
+              else: string.fromBytes(msg.payload)
+  return ok(chatline)
 
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
-  when PayloadV1:
-      # Use Waku v1 payload encoding/encryption
-      let
-        keyInfo = KeyInfo(kind: Symmetric, symKey: c.symKey)
-        decodedPayload = decodePayload(decoded.get(), keyInfo)
+  let
+    pb = Chat2Message.init(msg.payload)
+    chatLine = if pb.isOk: pb[].toString()
+              else: string.fromBytes(msg.payload)
+  try:
+    echo &"{chatLine}"
+  except ValueError:
+    # Formatting fail. Print chat line in any case.
+    echo chatLine
 
-      if decodedPayload.isOK():
-        let
-          pb = Chat2Message.init(decodedPayload.get().payload)
-          chatLine = if pb.isOk: pb[].toString()
-                    else: string.fromBytes(decodedPayload.get().payload)
-        echo &"{chatLine}"
-        c.prompt = false
-        showChatPrompt(c)
-        trace "Printing message", topic=DefaultPubsubTopic, chatLine,
-          contentTopic = msg.contentTopic
-      else:
-        debug "Invalid encoded WakuMessage payload",
-          error = decodedPayload.error
-  else:
-    # No payload encoding/encryption from Waku
-    let
-      pb = Chat2Message.init(msg.payload)
-      chatLine = if pb.isOk: pb[].toString()
-                else: string.fromBytes(msg.payload)
-    try:
-      echo &"{chatLine}"
-    except ValueError:
-      # Formatting fail. Print chat line in any case.
-      echo chatLine
-
-    c.prompt = false
-    showChatPrompt(c)
-    trace "Printing message", topic=DefaultPubsubTopic, chatLine,
-      contentTopic = msg.contentTopic
+  c.prompt = false
+  showChatPrompt(c)
+  trace "Printing message", topic=DefaultPubsubTopic, chatLine,
+    contentTopic = msg.contentTopic
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
   # Chat prompt
@@ -236,71 +194,30 @@ proc publish(c: Chat, line: string) =
   proc handler(response: PushResponse) {.gcsafe, closure.} =
     trace "lightpush response received", response=response
 
-  when PayloadV1:
-    # Use Waku v1 payload encoding/encryption
-    let
-      rng = keys.newRng()
-      payload = Payload(payload: chat2pb.buffer, symKey: some(c.symKey))
-      version = 1'u32
-      encodedPayload = payload.encode(version, rng[])
-    if encodedPayload.isOk():
-      var message = WakuMessage(payload: encodedPayload.get(),
-        contentTopic: c.contentTopic, version: version, timestamp: getNanosecondTime(time))
-      when defined(rln):
-        if  not isNil(c.node.wakuRlnRelay):
-          # for future version when we support more than one rln protected content topic,
-          # we should check the message content topic as well
-          let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-          if not success:
-            debug "could not append rate limit proof to the message", success=success
-          else:
-            debug "rate limit proof is appended to the message", success=success
-            let decodeRes = RateLimitProof.init(message.proof)
-            if decodeRes.isErr():
-              error "could not decode RLN proof"
-
-            let proof = decodeRes.get()
-            # TODO move it to log after dogfooding
-            let msgEpoch = fromEpoch(proof.epoch)
-            if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == fromEpoch(proof.epoch):
-              echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
-            else:
-              echo "--rln epoch: ", msgEpoch
-            # update the last epoch
-            c.node.wakuRlnRelay.lastEpoch = proof.epoch
-      if not c.node.wakuLightPush.isNil():
-        # Attempt lightpush
-        asyncSpawn c.node.lightpushPublish(DefaultPubsubTopic, message)
+  var message = WakuMessage(payload: chat2pb.buffer,
+    contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
+  when defined(rln):
+    if not isNil(c.node.wakuRlnRelay):
+      # for future version when we support more than one rln protected content topic,
+      # we should check the message content topic as well
+      let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+      if not success:
+        debug "could not append rate limit proof to the message", success=success
       else:
-        asyncSpawn c.node.publish(DefaultPubsubTopic, message, handler)
-    else:
-      warn "Payload encoding failed", error = encodedPayload.error
-  else:
-    # No payload encoding/encryption from Waku
-    var message = WakuMessage(payload: chat2pb.buffer,
-      contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
-    when defined(rln):
-      if not isNil(c.node.wakuRlnRelay):
-        # for future version when we support more than one rln protected content topic,
-        # we should check the message content topic as well
-        let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-        if not success:
-          debug "could not append rate limit proof to the message", success=success
-        else:
-          debug "rate limit proof is appended to the message", success=success
-          let decodeRes = RateLimitProof.init(message.proof)
-          if decodeRes.isErr():
-            error "could not decode the RLN proof"
+        debug "rate limit proof is appended to the message", success=success
+        let decodeRes = RateLimitProof.init(message.proof)
+        if decodeRes.isErr():
+          error "could not decode the RLN proof"
 
-          let proof = decodeRes.get()
-          # TODO move it to log after dogfooding
-          let msgEpoch = fromEpoch(proof.epoch)
-          if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
-            echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
-          else:
-            echo "--rln epoch: ", msgEpoch
-          # update the last epoch
-          c.node.wakuRlnRelay.lastEpoch = proof.epoch
+        let proof = decodeRes.get()
+        # TODO move it to log after dogfooding
+        let msgEpoch = fromEpoch(proof.epoch)
+        if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
+          echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
+        else:
+          echo "--rln epoch: ", msgEpoch
+        # update the last epoch
+        c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
