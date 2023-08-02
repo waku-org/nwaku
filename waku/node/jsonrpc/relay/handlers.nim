@@ -56,10 +56,9 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     debug "post_waku_v2_relay_v1_subscriptions"
 
     # Subscribe to all requested topics
-    for topic in topics:
-      if cache.isSubscribed(topic):
-        continue
+    let newTopics = topics.filterIt(not cache.isSubscribed(it))
 
+    for topic in newTopics:
       cache.subscribe(topic)
       node.subscribe(topic, topicHandler)
 
@@ -70,7 +69,9 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     debug "delete_waku_v2_relay_v1_subscriptions"
 
     # Unsubscribe all handlers from requested topics
-    for topic in topics:
+    let subscribedTopics = topics.filterIt(cache.isSubscribed(it))
+
+    for topic in subscribedTopics:
       node.unsubscribe(topic)
       cache.unsubscribe(topic)
 

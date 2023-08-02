@@ -23,6 +23,7 @@ const MaxShardIndex: uint16 = 1023
 
 const
   ShardingIndicesListEnrField* = "rs"
+  ShardingIndicesListMaxLength* = 64
   ShardingBitVectorEnrField* = "rsv"
 
 
@@ -42,31 +43,31 @@ func topics*(rs: RelayShards): seq[NsPubsubTopic] =
   rs.indices.mapIt(NsPubsubTopic.staticSharding(rs.cluster, it))
 
 
-func init*(T: type RelayShards, cluster, index: uint16): T =
+func init*(T: type RelayShards, cluster, index: uint16): Result[T, string] =
   if index > MaxShardIndex:
-    raise newException(Defect, "invalid index")
+    return err("invalid index")
 
-  RelayShards(cluster: cluster, indices: @[index])
+  ok(RelayShards(cluster: cluster, indices: @[index]))
 
-func init*(T: type RelayShards, cluster: uint16, indices: varargs[uint16]): T =
+func init*(T: type RelayShards, cluster: uint16, indices: varargs[uint16]): Result[T, string] =
   if toSeq(indices).anyIt(it > MaxShardIndex):
-    raise newException(Defect, "invalid index")
+    return err("invalid index")
 
   let indicesSeq = deduplicate(@indices)
   if indices.len < 1:
-    raise newException(Defect, "invalid index count")
+    return err("invalid index count")
 
-  RelayShards(cluster: cluster, indices: indicesSeq)
+  ok(RelayShards(cluster: cluster, indices: indicesSeq))
 
-func init*(T: type RelayShards, cluster: uint16, indices: seq[uint16]): T =
+func init*(T: type RelayShards, cluster: uint16, indices: seq[uint16]): Result[T, string] =
   if indices.anyIt(it > MaxShardIndex):
-    raise newException(Defect, "invalid index")
+    return err("invalid index")
 
   let indicesSeq = deduplicate(indices)
   if indices.len < 1:
-    raise newException(Defect, "invalid index count")
+    return err("invalid index count")
 
-  RelayShards(cluster: cluster, indices: indicesSeq)
+  ok(RelayShards(cluster: cluster, indices: indicesSeq))
 
 func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], string] =
   if topics.len < 1:
@@ -87,7 +88,9 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
   if parsedTopicsRes.anyIt(it.get().cluster != parsedTopicsRes[0].get().cluster):
     return err("use sharded topics within the same cluster.")
 
-  return ok(some(RelayShards.init(parsedTopicsRes[0].get().cluster, parsedTopicsRes.mapIt(it.get().shard))))
+  let relayShard = ?RelayShards.init(parsedTopicsRes[0].get().cluster, parsedTopicsRes.mapIt(it.get().shard))
+
+  return ok(some(relayShard))
 
 func contains*(rs: RelayShards, cluster, index: uint16): bool =
   rs.cluster == cluster and rs.indices.contains(index)
@@ -108,7 +111,7 @@ func contains*(rs: RelayShards, topic: PubsubTopic|string): bool =
 
 # ENR builder extension
 
-func toIndicesList(rs: RelayShards): EnrResult[seq[byte]] =
+func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
   if rs.indices.len > high(uint8).int:
     return err("indices list too long")
 
@@ -137,7 +140,7 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
 
   ok(RelayShards(cluster: cluster, indices: indices))
 
-func toBitVector(rs: RelayShards): seq[byte] =
+func toBitVector*(rs: RelayShards): seq[byte] =
   ## The value is comprised of a two-byte shard cluster index in network byte
   ## order concatenated with a 128-byte wide bit vector. The bit vector
   ## indicates which shards of the respective shard cluster the node is part
@@ -182,7 +185,7 @@ func withWakuRelayShardingBitVector*(builder: var EnrBuilder, rs: RelayShards): 
   ok()
 
 func withWakuRelaySharding*(builder: var EnrBuilder, rs: RelayShards): EnrResult[void] =
-  if rs.indices.len >= 64:
+  if rs.indices.len >= ShardingIndicesListMaxLength:
     builder.withWakuRelayShardingBitVector(rs)
   else:
     builder.withWakuRelayShardingIndicesList(rs)
@@ -264,7 +267,7 @@ proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
 
   containsShard(r, topic.cluster, topic.shard)
 
-func containsShard*(r: Record, topic: PubsubTopic|string): bool =
+proc containsShard*(r: Record, topic: PubsubTopic|string): bool =
   let parseRes = NsPubsubTopic.parse(topic)
   if parseRes.isErr():
     debug "invalid static sharding topic", topic = topic, error = parseRes.error

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options],
+  std/[sequtils, strutils, options, sugar, sets],
   stew/results,
   stew/shims/net,
   chronos,
@@ -122,6 +122,79 @@ proc new*(T: type WakuDiscoveryV5,
 
   WakuDiscoveryV5.new(rng, conf, some(record))
 
+proc updateENRShards(wd: WakuDiscoveryV5,
+  newTopics: seq[PubsubTopic], add: bool):  Result[void, string] =
+  ## Add or remove shards from the Discv5 ENR
+
+  let newShardOp = ?topicsToRelayShards(newTopics)
+
+  let newShard =
+    if newShardOp.isSome():
+      newShardOp.get()
+    else:
+      return ok()
+
+  let typedRecordRes = wd.protocol.localNode.record.toTyped()
+  let typedRecord =
+    if typedRecordRes.isErr():
+      return err($typedRecordRes.error)
+    else:
+      typedRecordRes.get()
+
+  let currentShardsOp = typedRecord.relaySharding()
+
+  let resultShard =
+    if add and currentShardsOp.isSome():
+      let currentShard = currentShardsOp.get()
+
+      if currentShard.cluster != newShard.cluster:
+        return err("ENR are limited to one shard cluster")
+
+      ?RelayShards.init(currentShard.cluster, currentShard.indices & newShard.indices)
+    elif not add and currentShardsOp.isSome():
+      let currentShard = currentShardsOp.get()
+
+      if currentShard.cluster != newShard.cluster:
+        return err("ENR are limited to one shard cluster")
+
+      let currentSet = toHashSet(currentShard.indices)
+      let newSet = toHashSet(newShard.indices)
+
+      let indices = toSeq(currentSet - newSet)
+
+      if indices.len == 0:
+        # Can't create RelayShard with no indices so update then return
+        let (field, value) = (ShardingIndicesListEnrField, newSeq[byte](3))
+
+        let res = wd.protocol.updateRecord([(field, value)])
+        if res.isErr():
+          return err($res.error)
+
+        return ok()
+
+      ?RelayShards.init(currentShard.cluster, indices)
+    elif add and currentShardsOp.isNone(): newShard
+    else: return ok()
+  
+  let (field, value) =
+    if resultShard.indices.len >= ShardingIndicesListMaxLength:
+      (ShardingBitVectorEnrField, resultShard.toBitVector())
+    else:
+      let listRes = resultShard.toIndicesList()
+      let list = 
+        if listRes.isErr():
+          return err($listRes.error)
+        else:
+          listRes.get()
+
+      (ShardingIndicesListEnrField, list)
+
+  let res = wd.protocol.updateRecord([(field, value)])
+  if res.isErr():
+    return err($res.error)
+
+  return ok()
+
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
 
@@ -218,6 +291,33 @@ proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
   await wd.protocol.closeWait()
 
   debug "Successfully stopped discovery v5 service"
+
+proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]) {.async.} =
+  ## Listen for pubsub topics subscriptions changes
+  
+  let key = topicSubscriptionQueue.register()
+
+  while wd.listening:
+    let events = await topicSubscriptionQueue.waitEvents(key)
+
+    # Since we don't know the events we will receive we have to anticipate.
+
+    let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
+    let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
+
+    let unsubRes = wd.updateENRShards(unsubs, false)
+    let subRes = wd.updateENRShards(subs, true)
+
+    if subRes.isErr():
+      debug "ENR shard addition failed", reason= $subRes.error
+    
+    if unsubRes.isErr():
+      debug "ENR shard removal failed", reason= $unsubRes.error
+
+    if subRes.isOk() and unsubRes.isOk():
+      debug "ENR updated successfully"
+
+  topicSubscriptionQueue.unregister(key)
 
 ## Helper functions
 
