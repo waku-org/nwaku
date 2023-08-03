@@ -17,7 +17,6 @@ import
   ../../../waku/v2/node/jsonrpc/relay/client as relay_api_client,
   ../../../waku/v2/waku_core,
   ../../../waku/v2/waku_relay,
-  ../../../waku/v2/utils/compat,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode

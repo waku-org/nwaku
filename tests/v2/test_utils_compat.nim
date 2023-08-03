@@ -3,6 +3,7 @@
 import
   testutils/unittests
 import
+  stew/results,
   ../../waku/v2/waku_core/message,
   ../../waku/v2/waku_core/time,
   ./testlib/common
