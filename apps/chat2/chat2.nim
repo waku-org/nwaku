@@ -64,7 +64,6 @@ type Chat = ref object
     nick: string            # nickname for this chat session
     prompt: bool            # chat prompt is showing
     contentTopic: string    # default content topic for chat messages
-    symkey: SymKey          # SymKey used for v1 payload encryption (if enabled)
 
 type
   PrivateKey* = crypto.PrivateKey
@@ -111,15 +110,6 @@ proc toString*(message: Chat2Message): string =
   return time & " " & message.nick & ": " & string.fromBytes(message.payload)
 
 #####################
-
-# Similarly as Status public chats now.
-proc generateSymKey(contentTopic: ContentTopic): SymKey =
-  var ctx: HMAC[pbkdf2.sha256]
-  var symKey: SymKey
-  if pbkdf2(ctx, contentTopic.toBytes(), "", 65356, symKey) != sizeof(SymKey):
-    raise (ref Defect)(msg: "Should not occur as array is properly sized")
-
-  symKey
 
 proc connectToNodes(c: Chat, nodes: seq[string]) {.async.} =
   echo "Connecting to nodes"
@@ -361,8 +351,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
                   started: true,
                   nick: nick,
                   prompt: false,
-                  contentTopic: conf.contentTopic,
-                  symKey: generateSymKey(conf.contentTopic))
+                  contentTopic: conf.contentTopic)
 
   if conf.staticnodes.len > 0:
     echo "Connecting to static peers..."
