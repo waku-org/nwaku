@@ -104,10 +104,15 @@ suite "Waku v2 Rest API - Filter":
       restFilterTest.messageCache.isSubscribed("3")
       restFilterTest.messageCache.isSubscribed("4")
 
-    # check:
-      # TODO check wakuFilter subscriptions as count.
-      #      concening that filter cache handles subscriptions by pubsubTopic+seq[contentTopic] conjunction.
-      # node2.wakuFilterClientLegacy.getSubscriptionsCount() == 4
+    # When - error case
+    let badRequestBody = FilterSubscriptionsRequest(contentFilters: @[], pubsubTopic: "")
+    let badResponse = await restFilterTest.client.filterPostSubscriptionsV1(badRequestBody)
+
+    check:
+      badResponse.status == 400
+      $badResponse.contentType == $MIMETYPE_TEXT
+      badResponse.data == "Invalid content body, could not decode. Unable to deserialize data"
+
 
     await restFilterTest.shutdown()
 
@@ -148,44 +153,37 @@ suite "Waku v2 Rest API - Filter":
     await restFilterTest.shutdown()
 
 
-  # TODO: Revise! This interface seems obsolate and inadequate due to the new v2 RFC of WAKU v2 Filter.
-  #       There will be a message-push interface instead.
-  # asyncTest "Get the latest messages for topic - GET /filter/v1/messages/{contentTopic}":
-  #   # Given
+  asyncTest "Get the latest messages for topic - GET /filter/v1/messages/{contentTopic}":
+    # Given
 
-  #   let
-  #     restFilterTest = await setupRestFilter()
+    let
+      restFilterTest = await setupRestFilter()
 
-  #   let pubSubTopic = "/waku/2/default-waku/proto"
-  #   let contentTopic = ContentTopic( "content-topic-x" )
+    let pubSubTopic = "/waku/2/default-waku/proto"
+    let contentTopic = ContentTopic( "content-topic-x" )
 
-  #   let messages =  @[
-  #     fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-  #     fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-  #     fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-  #   ]
+    let messages =  @[
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
+    ]
 
-  #   restFilterTest.messageCache.subscribe(contentTopic)
-  #   for msg in messages:
-  #     restFilterTest.messageCache.addMessage(contentTopic, msg)
+    restFilterTest.messageCache.subscribe(contentTopic)
+    for msg in messages:
+      restFilterTest.messageCache.addMessage(contentTopic, msg)
 
-  #   # When
-  #   let response = await restFilterTest.client.filterGetMessagesV1(contentTopic)
+    # When
+    let response = await restFilterTest.client.filterGetMessagesV1(contentTopic)
 
-  #   # Then
-  #   check:
-  #     response.status == 200
-  #     $response.contentType == $MIMETYPE_JSON
-  #     response.data.len == 3
-  #     response.data.all do (msg: FilterWakuMessage) -> bool:
-  #       msg.payload == base64.encode("TEST-1") and
-  #       msg.contentTopic.get().string == "content-topic-x" and
-  #       msg.version.get() == 2 and
-  #       msg.timestamp.get() != Timestamp(0)
+    # Then
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.len == 3
+      response.data.all do (msg: FilterWakuMessage) -> bool:
+        msg.payload == base64.encode("TEST-1") and
+        msg.contentTopic.get().string == "content-topic-x" and
+        msg.version.get() == 2 and
+        msg.timestamp.get() != Timestamp(0)
 
-
-  #   check:
-  #     restFilterTest.messageCache.isSubscribed(contentTopic)
-  #     restFilterTest.messageCache.getMessages(contentTopic).tryGet().len == 0
-
-  #   await restFilterTest.shutdown()
+    await restFilterTest.shutdown()
