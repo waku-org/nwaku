@@ -154,3 +154,8 @@
 	url = https://github.com/nitely/nim-unicodedb.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/waku-rln-contract"]
+	path = vendor/waku-rln-contract
+	url = https://github.com/waku-org/waku-rln-contract
+	ignore = untracked
+	branch = main

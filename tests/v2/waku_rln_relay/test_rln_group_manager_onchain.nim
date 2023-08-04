@@ -20,7 +20,7 @@ import
 import
   ../../../waku/v2/waku_rln_relay/protocol_types,
   ../../../waku/v2/waku_rln_relay/constants,
-  ../../../waku/v2/waku_rln_relay/contract,
+  ../../../waku/v2/waku_rln_relay/contract_interface,
   ../../../waku/v2/waku_rln_relay/rln,
   ../../../waku/v2/waku_rln_relay/conversion_utils,
   ../../../waku/v2/waku_rln_relay/group_manager/on_chain/group_manager,
@@ -53,32 +53,39 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
   debug "Initial account balance: ", balance
 
+  # we will get the deployed bytecode from sepolia
+  let poseidonHasherCodeRes = getContractBytecodeForChain(Chains.Sepolia, 
+                                                          Contracts.PoseidonHasher)
+  if poseidonHasherCodeRes.isErr():
+    raise newException(ValueError, "Failed to get PoseidonHasher bytecode: " & $poseidonHasherCodeRes.error())
+  let poseidonHasherCode = poseidonHasherCodeRes.get()
+
   # deploy the poseidon hash contract and gets its address
   let
-    hasherReceipt = await web3.deployContract(PoseidonHasherCode)
-    hasherAddress = hasherReceipt.contractAddress.get
+    hasherReceipt = await web3.deployContract(poseidonHasherCode)
+    hasherAddress = hasherReceipt.contractAddress.get()
   debug "hasher address: ", hasherAddress
 
 
   # encode membership contract inputs to 32 bytes zero-padded
   let
-    membershipFeeEncoded = encode(MembershipFee).data
-    depthEncoded = encode(MerkleTreeDepth.u256).data
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
-    contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
+    contractInput = hasherAddressEncoded
+    wakuRlnCodeRes = getContractBytecodeForChain(Chains.Sepolia, Contracts.WakuRln)
+  
+  if wakuRlnCodeRes.isErr():
+    raise newException(ValueError, "Failed to get WakuRln bytecode: " & $wakuRlnCodeRes.error())
+  let wakuRlnCode = wakuRlnCodeRes.get()
 
-
-  debug "encoded membership fee: ", membershipFeeEncoded
-  debug "encoded depth: ", depthEncoded
   debug "encoded hasher address: ", hasherAddressEncoded
   debug "encoded contract input:", contractInput
 
   # deploy membership contract with its constructor inputs
-  let receipt = await web3.deployContract(MembershipContractCode,
-      contractInput = contractInput)
-  let contractAddress = receipt.contractAddress.get
-  debug "Address of the deployed membership contract: ", contractAddress
+  let receipt = await web3.deployContract(wakuRlnCode,
+                                          contractInput = contractInput)
+  let contractAddress = receipt.contractAddress.get()
+  warn "Address of the deployed membership contract: ", contractAddress
 
   let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
   debug "Account balance after the contract deployment: ", newBalance
@@ -160,7 +167,6 @@ proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
   require:
     rlnInstanceRes.isOk()
-
   let rlnInstance = rlnInstanceRes.get()
 
   let contractAddress = await uploadRLNContract(EthClient)

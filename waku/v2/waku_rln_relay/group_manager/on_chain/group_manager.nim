@@ -28,7 +28,7 @@ logScope:
 
 # membership contract interface
 contract(RlnContract):
-  proc register(idCommitment: Uint256) {.payable.} # external payable
+  proc register(idCommitment: Uint256) # external payable
   proc MemberRegistered(idCommitment: Uint256, index: Uint256) {.event.}
   proc MEMBERSHIP_DEPOSIT(): Uint256
   # TODO the following are to be supported
@@ -117,8 +117,7 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
 
   var txHash: TxHash
   try: # send the registration transaction and check if any error occurs
-    txHash = await rlnContract.register(idCommitment).send(value = membershipFee,
-                                                           gasPrice = gasPrice,
+    txHash = await rlnContract.register(idCommitment).send(gasPrice = gasPrice,
                                                            gas = 100000'u64)
   except ValueError as e:
     error "error while registering the member", msg = e.msg
@@ -130,6 +129,7 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
+  debug "tx receipt", receipt=tsReceipt
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
   if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":

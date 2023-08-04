@@ -2,10 +2,10 @@ import
   ./waku_rln_relay/group_manager,
   ./waku_rln_relay/conversion_utils,
   ./waku_rln_relay/rln_relay,
-  ./waku_rln_relay/contract
+  ./waku_rln_relay/contract_interface
 
 export
   group_manager,
   conversion_utils,
   rln_relay,
-  contract
+  contract_interface

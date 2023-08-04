@@ -110,4 +110,5 @@ when defined(rln):
     ./v2/waku_rln_relay/test_waku_rln_relay,
     ./v2/waku_rln_relay/test_wakunode_rln_relay,
     ./v2/waku_rln_relay/test_rln_group_manager_onchain,
-    ./v2/waku_rln_relay/test_rln_group_manager_static
+    ./v2/waku_rln_relay/test_rln_group_manager_static,
+    ./v2/waku_rln_relay/test_rln_contract_interface
