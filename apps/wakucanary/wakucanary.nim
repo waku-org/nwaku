@@ -10,6 +10,7 @@ import
   libp2p/nameresolving/dnsresolver,
   libp2p/multicodec
 import
+  ../../waku/v2/waku_enr,
   ../../waku/v2/node/peer_manager,
   ../../waku/v2/waku_core,
   ../../waku/v2/waku_node
@@ -148,11 +149,21 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     wssEnabled = isWss,
   )
 
+  var enrBuilder = EnrBuilder.init(nodeKey)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      error "failed to create enr record", error=recordRes.error
+      quit(QuitFailure)
+    else: recordRes.get()
+
   if isWss and (conf.websocketSecureKeyPath.len == 0 or
       conf.websocketSecureCertPath.len == 0):
     error "WebSocket Secure requires key and certificate, see --help"
     return 1
 
+  builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig.tryGet())
   builder.withSwitchConfiguration(
     secureKey = some(conf.websocketSecureKeyPath),
