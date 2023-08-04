@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[hashes, options, tables, strutils, sequtils, os],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/results,
   stew/byteutils,
@@ -365,7 +365,7 @@ proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuFilterClientLegacy, protocolMatcher(WakuFilterCodec))
 
-proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic],
+proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
                 handler: FilterPushHandler, peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   if node.wakuFilterClientLegacy.isNil():
@@ -379,8 +379,6 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
 
   let remotePeer = remotePeerRes.value
 
-  info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
-
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
   let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
@@ -389,14 +387,45 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: C
 
       await handler(pubsubTopic, message)
 
-  let subRes = await node.wakuFilterClientLegacy.subscribe(pubsubTopic, contentTopics, handlerWrapper, peer=remotePeer)
-  if subRes.isOk():
-    info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+  var topics: seq[ContentTopic]
+  when contentTopics is seq[ContentTopic]:
+    topics = contentTopics
   else:
-    error "failed filter subscription", error=subRes.error
-    waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+    topics = @[contentTopics]
 
-proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic],
+  var topicMap = initTable[PubsubTopic, seq[ContentTopic]]()
+  for contentTopic in topics:
+    let res = parseSharding(pubsubTopic, contentTopic)
+    
+    let (pubsub, content) =
+      if res.isErr():
+        error "parsing error", error = res.error
+        return
+      else: res.get()
+    
+    if not topicMap.hasKey(pubsub):
+      topicMap[pubsub] = @[]
+    
+    topicMap[pubsub].add(content)
+  
+  var futures = collect(newSeq):
+    for pubsubTopic, topics in topicMap.pairs:
+      info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=topics, peer=remotePeer.peerId
+
+      node.wakuFilterClientLegacy.subscribe(pubsubTopic, topics, handlerWrapper, peer=remotePeer)
+
+  let finished = await allFinished(futures)
+
+  for fut in finished:
+    let res = fut.read()
+
+    if res.isErr():
+      error "failed filter subscription", error=res.error
+      waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+
+  info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=topics
+
+proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
                   peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
   ## Unsubscribe from a content filter.
   if node.wakuFilterClientLegacy.isNil():
@@ -410,17 +439,47 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics:
 
   let remotePeer = remotePeerRes.value
 
-  info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=contentTopics, peer=remotePeer.peerId
-
-  let unsubRes = await node.wakuFilterClientLegacy.unsubscribe(pubsubTopic, contentTopics, peer=remotePeer)
-  if unsubRes.isOk():
-    info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+  var topics: seq[ContentTopic]
+  when contentTopics is seq[ContentTopic]:
+    topics = contentTopics
   else:
-    error "failed filter unsubscription", error=unsubRes.error
-    waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+    topics = @[contentTopics]
+
+  var topicMap = initTable[PubsubTopic, seq[ContentTopic]]()
+  for contentTopic in topics:
+    let res = parseSharding(pubsubTopic, contentTopic)
+    
+    let (pubsub, content) =
+      if res.isErr():
+        error "parsing error", error = res.error
+        return
+      else: res.get()
+    
+    if not topicMap.hasKey(pubsub):
+      topicMap[pubsub] = @[]
+    
+    topicMap[pubsub].add(content)
+  
+  var futures = collect(newSeq):
+    for pubsubTopic, topics in topicMap.pairs:
+      info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=topics, peer=remotePeer.peerId
+
+      node.wakuFilterClientLegacy.unsubscribe(pubsubTopic, topics, peer=remotePeer)
+
+  let finished = await allFinished(futures)
+
+  for fut in finished:
+    let res = fut.read()
+
+    if res.isErr():
+      error "failed filter unsubscription", error=res.error
+      waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+  info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=topics
+
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
+proc subscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
   deprecated: "Use the explicit destination peer procedure. Use 'node.filterSubscribe()' instead.".} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   if node.wakuFilterClientLegacy.isNil():
@@ -435,7 +494,7 @@ proc subscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: Content
   await node.filterSubscribe(pubsubTopic, contentTopics, handler, peer=peerOpt.get())
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc unsubscribe*(node: WakuNode, pubsubTopic: PubsubTopic, contentTopics: ContentTopic|seq[ContentTopic]) {.async, gcsafe,
+proc unsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]) {.async, gcsafe,
   deprecated: "Use the explicit destination peer procedure. Use 'node.filterUnsusbscribe()' instead.".} =
   ## Unsubscribe from a content filter.
   if node.wakuFilterClientLegacy.isNil():
@@ -623,7 +682,7 @@ proc mountLightPushClient*(node: WakuNode) =
 
   node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
 
-proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage, peer: RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage, peer: RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   ## Pushes a `WakuMessage` to a node which relays it further on PubSub topic.
   ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
@@ -631,12 +690,19 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMe
   if node.wakuLightpushClient.isNil():
     return err("waku lightpush client is nil")
 
-  debug "publishing message with lightpush", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, peer=peer.peerId
+  let res = parseSharding(pubsubTopic, message.contentTopic)
 
-  return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
+  let (pubsub, _) =
+    if res.isErr():
+      return err($res.error)
+    else: res.get()
+
+  debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
+
+  return await node.wakuLightpushClient.publish(pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc lightpushPublish*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.async, gcsafe,
+proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[void] {.async, gcsafe,
   deprecated: "Use 'node.lightpushPublish()' instead".} =
   if node.wakuLightpushClient.isNil():
     error "failed to publish message", error="waku lightpush client is nil"

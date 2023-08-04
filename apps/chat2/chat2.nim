@@ -211,7 +211,7 @@ proc publish(c: Chat, line: string) =
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
-      asyncSpawn c.node.lightpushPublish(DefaultPubsubTopic, message)
+      asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
     else:
       asyncSpawn c.node.publish(DefaultPubsubTopic, message)
 
@@ -266,7 +266,7 @@ proc writeAndPrint(c: Chat) {.async.} =
       if not c.node.wakuFilter.isNil():
         echo "unsubscribing from content filters..."
 
-        await c.node.unsubscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=c.contentTopic)
+        await c.node.unsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic)
 
       echo "quitting..."
 
@@ -462,7 +462,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         trace "Hit filter handler", contentTopic=msg.contentTopic
         chat.printReceivedMessage(msg)
 
-      await node.subscribe(pubsubTopic=DefaultPubsubTopic, contentTopics=chat.contentTopic, filterHandler)
+      await node.subscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=chat.contentTopic, filterHandler)
 
     else:
       error "Filter not mounted. Couldn't parse conf.filternode",
@@ -477,7 +477,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     let topic = DefaultPubsubTopic
-    node.subscribe(topic, handler)
+    await node.subscribe(some(topic), @[ContentTopic("")], handler)
 
     when defined(rln):
       if conf.rlnRelay:

@@ -61,9 +61,9 @@ procSuite "Waku v2 JSON-RPC API - Filter":
 
     let contentFilters = @[
       ContentFilter(contentTopic: DefaultContentTopic),
-      ContentFilter(contentTopic: ContentTopic("2")),
-      ContentFilter(contentTopic: ContentTopic("3")),
-      ContentFilter(contentTopic: ContentTopic("4")),
+      ContentFilter(contentTopic: ContentTopic("/waku/2/default-content2/proto")),
+      ContentFilter(contentTopic: ContentTopic("/waku/2/default-content3/proto")),
+      ContentFilter(contentTopic: ContentTopic("/waku/2/default-content4/proto")),
     ]
     var response = await client.post_waku_v2_filter_v1_subscription(contentFilters=contentFilters, topic=some(DefaultPubsubTopic))
     check:

@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
@@ -43,7 +44,7 @@ suite "WakuNode - Filter":
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When
-    await client.filterSubscribe(pubsubTopic, contentTopic, filterPushHandler, peer=serverPeerInfo)
+    await client.filterSubscribe(some(pubsubTopic), contentTopic, filterPushHandler, peer=serverPeerInfo)
 
     # Wait for subscription to take effect
     waitFor sleepAsync(100.millis)

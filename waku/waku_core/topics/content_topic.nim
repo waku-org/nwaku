@@ -26,25 +26,18 @@ const DefaultContentTopic* = ContentTopic("/waku/2/default-content/proto")
 
 ## Namespaced content topic
 
-type ShardingBias* = enum
-  Unbiased = "unbiased"
-  Lower20 = "lower20"
-  Higher80 = "higher80"
-
 type
   NsContentTopic* = object
     generation*: Option[int]
-    bias*: ShardingBias
     application*: string
     version*: string
     name*: string
     encoding*: string
 
-proc init*(T: type NsContentTopic, generation: Option[int], bias: ShardingBias,
+proc init*(T: type NsContentTopic, generation: Option[int],
   application: string, version: string, name: string, encoding: string): T =
   NsContentTopic(
     generation: generation,
-    bias: bias,
     application: application,
     version: version,
     name: name,
@@ -56,15 +49,12 @@ proc init*(T: type NsContentTopic, generation: Option[int], bias: ShardingBias,
 proc `$`*(topic: NsContentTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/<application>/<version>/<topic-name>/<encoding>`
-  ## Autosharding adds 2 optional prefixes `/<gen#>/bias
+  ## Autosharding adds 1 optional prefix `/<gen#>
 
   var formatted = ""
 
   if topic.generation.isSome():
     formatted = formatted & "/" & $topic.generation.get()
-
-  if topic.bias != ShardingBias.Unbiased:
-    formatted = formatted & "/" & $topic.bias
 
   formatted & "/" & topic.application & "/" & topic.version & "/" & topic.name & "/" & topic.encoding
 
@@ -73,7 +63,7 @@ proc `$`*(topic: NsContentTopic): string =
 proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[NsContentTopic] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
-  ## Autosharding adds 2 optional prefixes `/<gen#>/bias
+  ## Autosharding adds 1 optional prefix `/<gen#>
 
   if not topic.startsWith("/"):
     return err(ParsingError.invalidFormat("topic must start with slash"))
@@ -98,8 +88,8 @@ proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[N
       if enc.len == 0:
         return err(ParsingError.missingPart("encoding"))
 
-      return ok(NsContentTopic.init(none(int), Unbiased, app, ver, name, enc))
-    of 6:
+      return ok(NsContentTopic.init(none(int), app, ver, name, enc))
+    of 5:
       if parts[0].len == 0:
         return err(ParsingError.missingPart("generation"))
 
@@ -108,31 +98,23 @@ proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[N
       except ValueError:
         return err(ParsingError.invalidFormat("generation should be a numeric value"))
 
-      if parts[1].len == 0:
-        return err(ParsingError.missingPart("sharding-bias"))
-
-      let bias = try:
-        parseEnum[ShardingBias](parts[1])
-      except ValueError:
-        return err(ParsingError.invalidFormat("bias should be one of; unbiased, lower20 or higher80"))
-
-      let app = parts[2]
+      let app = parts[1]
       if app.len == 0:
         return err(ParsingError.missingPart("appplication"))
 
-      let ver = parts[3]
+      let ver = parts[2]
       if ver.len == 0:
         return err(ParsingError.missingPart("version"))
 
-      let name = parts[4]
+      let name = parts[3]
       if name.len == 0:
         return err(ParsingError.missingPart("topic-name"))
 
-      let enc = parts[5]
+      let enc = parts[4]
       if enc.len == 0:
         return err(ParsingError.missingPart("encoding"))
 
-      return ok(NsContentTopic.init(some(gen), bias, app, ver, name, enc))
+      return ok(NsContentTopic.init(some(gen), app, ver, name, enc))
     else:
       return err(ParsingError.invalidFormat("invalid topic structure"))
 
