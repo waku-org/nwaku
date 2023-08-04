@@ -14,7 +14,6 @@ import
   ../../../waku_core,
   ../serdes
 
-
 #### Types
 
 type FilterWakuMessage* = object
@@ -23,13 +22,11 @@ type FilterWakuMessage* = object
       version*: Option[Natural]
       timestamp*: Option[int64]
 
-
 type FilterGetMessagesResponse* = seq[FilterWakuMessage]
 
 type FilterSubscriptionsRequest* = object
       pubsubTopic*: PubSubTopic
       contentFilters*: seq[ContentTopic]
-
 
 #### Type conversion
 
@@ -49,7 +46,6 @@ proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, st
     timestamp = msg.timestamp.get(0)
 
   ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
-
 
 #### Serialization and deserialization
 
@@ -119,8 +115,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
   )
 
 proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionsRequest)
-  {.raises: [SerializationError, IOError].} =
-  
+  {.raises: [SerializationError, IOError].} =  
   var
     pubsubTopic = none(PubsubTopic)
     contentFilters = none(seq[ContentTopic])
@@ -143,7 +138,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptions
 
   if pubsubTopic.isNone():
     reader.raiseUnexpectedValue("Field `pubsubTopic` is missing")
-
 
   if contentFilters.isNone():
     reader.raiseUnexpectedValue("Field `contentFilters` is missing")

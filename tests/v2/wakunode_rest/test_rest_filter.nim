@@ -89,7 +89,8 @@ suite "Waku v2 Rest API - Filter":
                           ,ContentTopic("4")
                           ]
 
-    let requestBody = FilterSubscriptionsRequest(contentFilters: contentFilters, pubsubTopic: DefaultPubsubTopic)
+    let requestBody = FilterSubscriptionsRequest(contentFilters: contentFilters, 
+                                                 pubsubTopic: DefaultPubsubTopic)
     let response = await restFilterTest.client.filterPostSubscriptionsV1(requestBody)
 
     # Then
@@ -135,7 +136,8 @@ suite "Waku v2 Rest API - Filter":
                       ]
 
     # When
-    let requestBody = FilterSubscriptionsRequest(contentFilters: contentFilters, pubsubTopic: DefaultPubsubTopic)
+    let requestBody = FilterSubscriptionsRequest(contentFilters: contentFilters, 
+                                                pubsubTopic: DefaultPubsubTopic)
     let response = await restFilterTest.client.filterDeleteSubscriptionsV1(requestBody)
 
     # Then
