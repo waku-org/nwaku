@@ -17,7 +17,7 @@ fi
 host_triplet=$(rustup show | grep "Default host: " | cut -d' ' -f3)
 
 # Download the prebuilt rln library if it is available
-if curl --silent --fail-with-body -L "https://github.com/vacp2p/zerokit/releases/download/nightly/$host_triplet-rln.tar.gz" >> "$host_triplet-rln.tar.gz"
+if curl --silent --fail-with-body -L "https://github.com/vacp2p/zerokit/releases/download/v0.3.1/$host_triplet-rln.tar.gz" >> "$host_triplet-rln.tar.gz"
 then
     echo "Downloaded $host_triplet-rln.tar.gz"
     tar -xzf "$host_triplet-rln.tar.gz"
