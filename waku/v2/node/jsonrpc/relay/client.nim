@@ -8,11 +8,9 @@ import
   json_rpc/rpcclient
 import
   ../../../waku_core,
-  ../../../utils/compat,
-  ./types
+  ../message
 
-export types
-
+export message
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
