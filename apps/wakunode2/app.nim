@@ -594,8 +594,6 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   if conf.relay:
     let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
     installRelayApiHandlers(app.node, server, relayMessageCache)
-    if conf.rpcPrivate:
-      installRelayPrivateApiHandlers(app.node, server, relayMessageCache)
 
   if conf.filternode != "":
     let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)

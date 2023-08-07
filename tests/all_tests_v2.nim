@@ -70,9 +70,7 @@ import
   ./v2/test_waku_noise,
   ./v2/test_waku_noise_sessions,
   ./v2/test_waku_switch,
-  ./v2/test_waku_rendezvous,
-  # Utils
-  ./v2/test_utils_compat
+  ./v2/test_waku_rendezvous
 
 # Waku Keystore test suite
 import
@@ -95,12 +93,6 @@ import
   ./v2/wakunode_rest/test_rest_relay_serdes,
   ./v2/wakunode_rest/test_rest_serdes,
   ./v2/wakunode_rest/test_rest_store
-
-
-## Apps
-
-# Wakubridge test suite
-import ./all_tests_wakubridge
 
 
 ## Experimental
