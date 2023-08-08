@@ -76,6 +76,9 @@ func waku2*(record: TypedRecord): Option[CapabilitiesBitfield] =
   if field.isNone():
     return none(CapabilitiesBitfield)
 
+  if field.get().len != 1:
+    return none(CapabilitiesBitfield)
+
   some(CapabilitiesBitfield(field.get()[0]))
 
 proc supportsCapability*(r: Record, cap: Capabilities): bool =
