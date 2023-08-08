@@ -8,7 +8,7 @@ import
 import
   chronos
 import
-  ../../../waku/v2/node/waku_node,
+  ../../../waku/node/waku_node,
   ../waku_thread
 
 type

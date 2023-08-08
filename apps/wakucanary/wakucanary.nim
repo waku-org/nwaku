@@ -10,10 +10,10 @@ import
   libp2p/nameresolving/dnsresolver,
   libp2p/multicodec
 import
-  ../../waku/v2/waku_enr,
-  ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_core,
-  ../../waku/v2/waku_node
+  ../../waku/waku_enr,
+  ../../waku/node/peer_manager,
+  ../../waku/waku_core,
+  ../../waku/waku_node
 
 # protocols and their tag
 const ProtocolsTable = {

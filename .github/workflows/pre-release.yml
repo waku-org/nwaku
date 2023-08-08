@@ -61,11 +61,9 @@ jobs:
             chat2\
             tools
 
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
-            wakunode1
 
         
-          tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode1 ./build/wakunode2 ./build/chat2
+          tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode2 ./build/chat2
           tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
       - name: upload artifacts

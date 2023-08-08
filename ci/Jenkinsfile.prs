@@ -66,7 +66,7 @@ pipeline {
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} v2")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} all")
           } }
         }
       }
@@ -77,7 +77,7 @@ pipeline {
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} test2")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} test")
           } }
         }
       }

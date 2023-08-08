@@ -17,7 +17,7 @@ import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
   ../../waku/common/logging,
-  ../../waku/v2/waku_enr
+  ../../waku/waku_enr
 
 export
   confTomlDefs,

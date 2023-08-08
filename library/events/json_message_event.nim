@@ -2,7 +2,7 @@
 import
     std/json
 import
-    ../../waku/v2/waku_core/message/message,
+    ../../waku/waku_core/message/message,
     ./json_base_event
 
 type JsonMessage = ref object
