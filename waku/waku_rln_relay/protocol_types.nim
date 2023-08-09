@@ -12,7 +12,7 @@ import
 import
   ../waku_core,
   ../waku_keystore,
-  ../../common/protobuf
+  ../common/protobuf
 
 export
   waku_keystore,
