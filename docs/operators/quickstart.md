@@ -40,12 +40,11 @@ docker run -i -t -p 60000:60000 -p 9000:9000/udp \
 
 *Prerequisites: `docker` and `docker-compose`*.
 Allows to run `nwaku` with `prometheus` and `grafana`, with an already provisioned dashboard, in a few simple steps.
-See [nwaku-compose](https://github.com/alrevuelta/nwaku-compose).
+See [nwaku-compose](https://github.com/waku-org/nwaku-compose).
 
 ```bash
-git clone https://github.com/alrevuelta/nwaku-compose.git
+git clone https://github.com/waku-org/nwaku-compose
 cd nwaku-compose
-export MY_EXT_IP=$(dig TXT +short o-o.myaddr.l.google.com @ns1.google.com | awk -F'"' '{ print $2}')
 docker-compose up -d
 ```
 
