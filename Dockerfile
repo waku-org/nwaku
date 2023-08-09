@@ -33,7 +33,7 @@ ARG MAKE_TARGET=wakunode2
 
 LABEL maintainer="jakub@status.im"
 LABEL source="https://github.com/waku-org/nwaku"
-LABEL description="Wakunode: Waku and Whisper client"
+LABEL description="Wakunode: Waku client"
 LABEL commit="unknown"
 
 # DevP2P, LibP2P, and JSON RPC ports

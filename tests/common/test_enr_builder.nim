@@ -7,7 +7,7 @@ import
   testutils/unittests
 import
   ../../waku/common/enr,
-  ../v2/testlib/wakucore
+  ../testlib/wakucore
 
 
 suite "nim-eth ENR - builder and typed record":

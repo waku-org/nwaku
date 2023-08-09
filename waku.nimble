@@ -57,7 +57,7 @@ proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
 task testcommon, "Build & run common tests":
   test "all_tests_common", "-d:chronicles_log_level=WARN -d:chronosStrictException"
 
-### Waku v2 tasks
+### Waku tasks
 task wakunode2, "Build Waku v2 cli node":
   let name = "wakunode2"
   buildBinary name, "apps/wakunode2/"
@@ -70,22 +70,22 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/"
 
-task test2, "Build & run Waku v2 tests":
-  test "all_tests_v2"
+task test, "Build & run Waku tests":
+  test "all_tests_waku"
 
 task testwakunode2, "Build & run wakunode2 app tests":
   test "all_tests_wakunode2"
 
-task example2, "Build Waku v2 example":
-  buildBinary "publisher", "examples/v2/"
-  buildBinary "subscriber", "examples/v2/"
-  buildBinary "filter_subscriber", "examples/v2/"
-  buildBinary "lightpush_publisher", "examples/v2/"
+task example2, "Build Waku examples":
+  buildBinary "publisher", "examples/"
+  buildBinary "subscriber", "examples/"
+  buildBinary "filter_subscriber", "examples/"
+  buildBinary "lightpush_publisher", "examples/"
 
-task chat2, "Build example Waku v2 chat usage":
+task chat2, "Build example Waku chat usage":
   # NOTE For debugging, set debug level. For chat usage we want minimal log
   # output to STDOUT. Can be fixed by redirecting logs to file (e.g.)
-  #buildBinary name, "examples/v2/", "-d:chronicles_log_level=WARN"
+  #buildBinary name, "examples/", "-d:chronicles_log_level=WARN"
 
   let name = "chat2"
   buildBinary name, "apps/chat2/", "-d:chronicles_sinks=textlines[file] -d:ssl"

@@ -32,15 +32,12 @@ else # "variables.mk" was included. Business as usual until the end of this file
 ##########
 ## Main ##
 ##########
-.PHONY: all test update clean v2 test2
+.PHONY: all test update clean
 
 # default target, because it's the first one that doesn't start with '.'
-all: | v2
+all: | wakunode2 example2 chat2 chat2bridge
 
-test: | test2
-test2: | testcommon testwaku2
-
-v2: | wakunode2 example2 chat2 chat2bridge
+test: | testcommon testwaku
 
 waku.nims:
 	ln -s waku.nimble $@
@@ -162,14 +159,14 @@ testcommon: | build deps
 		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
 
 
-#############
-## Waku v2 ##
-#############
-.PHONY: testwaku2 wakunode2 testwakunode2 example2 chat2 chat2bridge
+##########
+## Waku ##
+##########
+.PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
-testwaku2: | build deps librln
+testwaku: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim test2 -d:os=$(shell uname) $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -192,9 +189,9 @@ chat2bridge: | build deps
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
 
-###################
-## Waku v2 tools ##
-###################
+################
+## Waku tools ##
+################
 .PHONY: tools wakucanary networkmonitor
 
 tools: networkmonitor wakucanary

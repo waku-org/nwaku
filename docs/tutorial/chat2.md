@@ -2,7 +2,7 @@
 
 ## Background
 
-The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://specs.vac.dev/specs/waku/v2/waku-v2).
+The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://rfc.vac.dev/).
 It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to-end p2p chat capabilities.
 Each fleet is a publicly accessible network of Waku v2 peers, providing a bootstrap connection point for new peers, historical message storage, etc.
 The Waku team is currently using this application on the _production_ fleet for internal testing.
@@ -56,7 +56,7 @@ quitting...
 
 ## Retrieving historical messages
 
-The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://specs.vac.dev/specs/waku/v2/waku-store), and will attempt to do so by default.
+The `chat2` application can retrieve historical chat messages from a node supporting and running the [Waku v2 store protocol](https://rfc.vac.dev/spec/13/), and will attempt to do so by default.
 It's possible to query a *specific* store node by configuring its `multiaddr` as `storenode` when starting the app:
 
 ```
@@ -77,7 +77,7 @@ To disable historical message retrieval, use the `--store:false` option:
 
 ## Specifying a static peer
 
-In order to connect to a *specific* node as [`relay`](https://specs.vac.dev/specs/waku/v2/waku-relay) peer, define that node's `multiaddr` as a `staticnode` when starting the app:
+In order to connect to a *specific* node as [`relay`](https://rfc.vac.dev/spec/11/) peer, define that node's `multiaddr` as a `staticnode` when starting the app:
 
 ```
 ./build/chat2 --staticnode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ

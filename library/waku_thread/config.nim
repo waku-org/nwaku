@@ -6,10 +6,10 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   stew/shims/net,
-  ../../waku/v2/waku_enr/capabilities,
+  ../../waku/waku_enr/capabilities,
   ../../waku/common/utils/nat,
-  ../../waku/v2/node/waku_node,
-  ../../waku/v2/node/config,
+  ../../waku/node/waku_node,
+  ../../waku/node/config,
   ../events/[json_error_event,json_base_event]
 
 proc parsePrivateKey(jsonNode: JsonNode,

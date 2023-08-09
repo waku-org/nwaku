@@ -20,12 +20,12 @@ import
   metrics/chronos_httpserver,
   presto/[route, server, client]
 import
-  ../../waku/v2/waku_core,
-  ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_node,
-  ../../waku/v2/waku_enr,
-  ../../waku/v2/waku_discv5,
-  ../../waku/v2/waku_dnsdisc,
+  ../../waku/waku_core,
+  ../../waku/node/peer_manager,
+  ../../waku/waku_node,
+  ../../waku/waku_enr,
+  ../../waku/waku_discv5,
+  ../../waku/waku_dnsdisc,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
