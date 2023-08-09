@@ -6,7 +6,7 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../waku/v2/node/waku_node,
+  ../../../waku/node/waku_node,
   ./request
 
 type

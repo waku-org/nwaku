@@ -6,8 +6,8 @@ import
   libp2p/multiaddress
 import
   ../../waku/common/utils/nat,
-  ../../waku/v2/node/config,
-  ../../waku/v2/waku_enr/capabilities,
+  ../../waku/node/config,
+  ../../waku/waku_enr/capabilities,
   ./external_config
 
 proc validateExtMultiAddrs*(vals: seq[string]):

@@ -14,11 +14,11 @@ import
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
-  ../../../waku/v2/waku_core,
-  ../../../waku/v2/waku_node,
-  ../../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_filter,
-  ../../waku/v2/waku_store,
+  ../../../waku/waku_core,
+  ../../../waku/waku_node,
+  ../../../waku/node/peer_manager,
+  ../../waku/waku_filter,
+  ../../waku/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
@@ -216,11 +216,11 @@ proc stop*(cmb: Chat2MatterBridge) {.async.} =
 when isMainModule:
   import
     ../../../waku/common/utils/nat,
-    ../../waku/v2/node/message_cache,
-    ../../waku/v2/node/jsonrpc/debug/handlers as debug_api,
-    ../../waku/v2/node/jsonrpc/filter/handlers as filter_api,
-    ../../waku/v2/node/jsonrpc/relay/handlers as relay_api,
-    ../../waku/v2/node/jsonrpc/store/handlers as store_api
+    ../../waku/node/message_cache,
+    ../../waku/node/jsonrpc/debug/handlers as debug_api,
+    ../../waku/node/jsonrpc/filter/handlers as filter_api,
+    ../../waku/node/jsonrpc/relay/handlers as relay_api,
+    ../../waku/node/jsonrpc/store/handlers as store_api
 
 
   proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =

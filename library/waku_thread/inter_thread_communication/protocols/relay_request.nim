@@ -7,10 +7,10 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../../waku/v2/waku_core/message/message,
-  ../../../../waku/v2/node/waku_node,
-  ../../../../waku/v2/waku_core/topics/pubsub_topic,
-  ../../../../waku/v2/waku_relay/protocol,
+  ../../../../waku/waku_core/message/message,
+  ../../../../waku/node/waku_node,
+  ../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../waku/waku_relay/protocol,
   ../request
 
 type

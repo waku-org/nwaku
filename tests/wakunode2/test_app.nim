@@ -12,8 +12,8 @@ import
 import
   ../../apps/wakunode2/external_config,
   ../../apps/wakunode2/app,
-  ../v2/testlib/common,
-  ../v2/testlib/wakucore
+  ../testlib/common,
+  ../testlib/wakucore
 
 proc defaultTestWakuNodeConf(): WakuNodeConf =
   WakuNodeConf(

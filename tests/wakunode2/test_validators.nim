@@ -14,12 +14,12 @@ import
   secp256k1
 import
   ../../apps/wakunode2/wakunode2_validator_signed,
-  ../../waku/v2/waku_core,
-  ../../waku/v2/node/peer_manager,
-  ../../waku/v2/waku_node,
-  ../../waku/v2/waku_relay,
-  ../v2/testlib/wakucore,
-  ../v2/testlib/wakunode
+  ../../waku/waku_core,
+  ../../waku/node/peer_manager,
+  ../../waku/waku_node,
+  ../../waku/waku_relay,
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 suite "WakuNode2 - Validators":
 
