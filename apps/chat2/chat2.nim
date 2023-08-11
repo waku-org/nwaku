@@ -29,6 +29,7 @@ import
   ../../waku/waku_lightpush,
   ../../waku/waku_lightpush/rpc,
   ../../waku/waku_filter,
+  ../../waku/waku_enr,
   ../../waku/waku_store,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_node,
@@ -320,9 +321,19 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   let (extIp, extTcpPort, extUdpPort) = natRes.get()
 
+  var enrBuilder = EnrBuilder.init(nodeKey)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      error "failed to create enr record", error=recordRes.error
+      quit(QuitFailure)
+    else: recordRes.get()
+
   let node = block:
       var builder = WakuNodeBuilder.init()
       builder.withNodeKey(nodeKey)
+      builder.withRecord(record)
       builder.withNetworkConfigurationDetails(conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
                                               extIp, extTcpPort,
                                               wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
