@@ -360,7 +360,12 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics = conf.topics
+    # TODO autoshard content topics only once.
+    # Already checked for errors in app.init
+    let contentTopics = conf.contentTopics.mapIt(NsContentTopic.parse(it).expect("Parsing"))
+    let shards = contentTopics.mapIt($(singleHighestWeigthShard(it).expect("Sharding")))
+
+    let pubsubTopics = conf.topics & conf.pubsubTopics & shards
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
