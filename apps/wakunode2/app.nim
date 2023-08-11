@@ -360,7 +360,7 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics = conf.pubsubTopics
+    let pubsubTopics = conf.topics
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:

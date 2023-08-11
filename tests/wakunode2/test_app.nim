@@ -23,7 +23,7 @@ proc defaultTestWakuNodeConf(): WakuNodeConf =
     metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
     nat: "any",
     maxConnections: 50,
-    pubsubTopics: @["/waku/2/default-waku/proto"],
+    topics: @["/waku/2/default-waku/proto"],
     relay: true
   )
 
