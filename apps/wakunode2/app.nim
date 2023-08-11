@@ -135,16 +135,16 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       error "failed to parse content topic", error=res.error
       quit(QuitFailure)
 
-  let pubsubTopicsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
+  let shardsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
 
-  for res in pubsubTopicsRes:
+  for res in shardsRes:
     if res.isErr():
       error "failed to shard content topic", error=res.error
       quit(QuitFailure)
 
-  let pubsubTopics = pubsubTopicsRes.mapIt($it.get())
+  let shards = shardsRes.mapIt($it.get())
 
-  let topics = pubsubTopics & conf.pubsubTopics
+  let topics = conf.topics & conf.pubsubTopics & shards
 
   let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
