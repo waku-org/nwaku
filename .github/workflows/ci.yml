@@ -162,6 +162,7 @@ jobs:
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v2
+        if: ${{ github.event_name == 'pull_request' }}
         with:
           message: |
             You can find the image built from this PR at
@@ -169,3 +170,4 @@ jobs:
             ```
             ${{steps.build.outputs.image}}
             ```
+          comment_tag: execution
