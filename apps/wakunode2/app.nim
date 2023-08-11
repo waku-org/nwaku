@@ -135,16 +135,16 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       error "failed to parse content topic", error=res.error
       quit(QuitFailure)
 
-  let pubsubTopicsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
+  let shardsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
 
-  for res in pubsubTopicsRes:
+  for res in shardsRes:
     if res.isErr():
       error "failed to shard content topic", error=res.error
       quit(QuitFailure)
 
-  let pubsubTopics = pubsubTopicsRes.mapIt($it.get())
+  let shards = shardsRes.mapIt($it.get())
 
-  let topics = pubsubTopics & conf.pubsubTopics
+  let topics = conf.topics & conf.pubsubTopics & shards
 
   let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
@@ -360,7 +360,12 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics = conf.pubsubTopics
+    # TODO autoshard content topics only once.
+    # Already checked for errors in app.init
+    let contentTopics = conf.contentTopics.mapIt(NsContentTopic.parse(it).expect("Parsing"))
+    let shards = contentTopics.mapIt($(singleHighestWeigthShard(it).expect("Sharding")))
+
+    let pubsubTopics = conf.topics & conf.pubsubTopics & shards
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
