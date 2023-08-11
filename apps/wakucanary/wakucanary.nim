@@ -178,6 +178,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let timedOut = not await node.connectToNodes(@[peer]).withTimeout(conf.timeout)
   if timedOut:
     error "Timedout after", timeout = conf.timeout
+    return 1
 
   let lp2pPeerStore = node.switch.peerStore
   let conStatus = node.peerManager.peerStore[ConnectionBook][peer.peerId]
