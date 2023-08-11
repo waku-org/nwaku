@@ -225,9 +225,13 @@ type
       defaultValue: false
       name: "keep-alive" }: bool
 
+    topics* {.
+      desc: "Default topic to subscribe to. Argument may be repeated. Deprecated! Please use pubsub-topic and/or content-topic instead."
+      defaultValue: @["/waku/2/default-waku/proto"]
+      name: "topic" .}: seq[string]
+
     pubsubTopics* {.
       desc: "Default pubsub topic to subscribe to. Argument may be repeated."
-      defaultValue: @["/waku/2/default-waku/proto"]
       name: "pubsub-topic" .}: seq[string]
 
     contentTopics* {.
