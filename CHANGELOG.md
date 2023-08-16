@@ -1,4 +1,9 @@
-## 2023-07-26 v0.19.0
+## 2023-08-16 v0.19.0
+
+> Note that the `--topic` CLI option is being deprecated in favor a more specific option `--pubsub-topic`.
+
+> The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 
 ## What's Changed
 
@@ -7,9 +12,19 @@ Release highlights:
 * Postgres support has been added as a backend for archive module
 * RLN initialization optimizations
 * Update to the latest nim-libp2p
+* Removed Waku v1 and also references to `v2` from the current version
+* Basic implementation of Autosharding for the Waku Network
+* REST API implementation for Filter protocol
 
 ### Features
 
+- **ci:** add docker image builds per PR ([#1881](https://github.com/waku-org/nwaku/issues/1881)) ([84f94d5d](https://github.com/waku-org/nwaku/commit/84f94d5d))
+- Rest API interface for legacy (v1) filter service.  ([#1851](https://github.com/waku-org/nwaku/issues/1851)) ([08ff6672](https://github.com/waku-org/nwaku/commit/08ff6672))
+- autosharding content topics in config ([#1856](https://github.com/waku-org/nwaku/issues/1856)) ([afb93e29](https://github.com/waku-org/nwaku/commit/afb93e29))
+- autosharding core algorithm ([#1854](https://github.com/waku-org/nwaku/issues/1854)) ([bbff1ac1](https://github.com/waku-org/nwaku/commit/bbff1ac1))
+- **cbindings:** tiny waku relay example in Python ([#1793](https://github.com/waku-org/nwaku/issues/1793)) ([0b2cfae5](https://github.com/waku-org/nwaku/commit/0b2cfae5))
+- **rln-relay:** close db connection appropriately ([#1858](https://github.com/waku-org/nwaku/issues/1858)) ([76c73b62](https://github.com/waku-org/nwaku/commit/76c73b62))
+- enable TcpNoDelay ([#1470](https://github.com/waku-org/nwaku/issues/1470)) ([08f3bba3](https://github.com/waku-org/nwaku/commit/08f3bba3))
 - limit relay connections below max conns ([#1813](https://github.com/waku-org/nwaku/issues/1813)) ([17b24cde](https://github.com/waku-org/nwaku/commit/17b24cde))
 - **postgres:** integration of postgres in wakunode2 ([#1808](https://github.com/waku-org/nwaku/issues/1808)) ([88b7481f](https://github.com/waku-org/nwaku/commit/88b7481f))
 - discovery peer filtering for relay shard ([#1804](https://github.com/waku-org/nwaku/issues/1804)) ([a4da87bb](https://github.com/waku-org/nwaku/commit/a4da87bb))
@@ -18,6 +33,15 @@ Release highlights:
 
 ### Bug Fixes
 
+- bring back default topic in config ([#1902](https://github.com/waku-org/nwaku/issues/1902)) ([d5d2243c](https://github.com/waku-org/nwaku/commit/d5d2243c))
+- **ci:** only add comment on PR and do not duplicate it ([#1908](https://github.com/waku-org/nwaku/issues/1908)) ([b785b6ba](https://github.com/waku-org/nwaku/commit/b785b6ba))
+- **ci:** add mising OS arch option to image build ([#1905](https://github.com/waku-org/nwaku/issues/1905)) ([2575f3c4](https://github.com/waku-org/nwaku/commit/2575f3c4))
+- **wakucanary:** add missing return on timeout ([#1901](https://github.com/waku-org/nwaku/issues/1901)) ([7dce0b9e](https://github.com/waku-org/nwaku/commit/7dce0b9e))
+- fixes out of bounds crash when waku2 is not set ([#1895](https://github.com/waku-org/nwaku/issues/1895)) ([03363f1b](https://github.com/waku-org/nwaku/commit/03363f1b))
+- **wakucanary:** add enr record to builder ([#1882](https://github.com/waku-org/nwaku/issues/1882)) ([831a093f](https://github.com/waku-org/nwaku/commit/831a093f))
+- check nil before calling clearTimer ([#1869](https://github.com/waku-org/nwaku/issues/1869)) ([2fc48842](https://github.com/waku-org/nwaku/commit/2fc48842))
+- **rln-relay:** mark duplicated messages as spam ([#1867](https://github.com/waku-org/nwaku/issues/1867)) ([4756ccc1](https://github.com/waku-org/nwaku/commit/4756ccc1))
+- **ci:** do not depend on number of procesors with job name ([#1863](https://github.com/waku-org/nwaku/issues/1863)) ([c560af11](https://github.com/waku-org/nwaku/commit/c560af11))
 - **libp2p:** Updating nim-libp2p to fix the `wss` connectivity issue ([#1848](https://github.com/waku-org/nwaku/issues/1848)) ([1d3410c7](https://github.com/waku-org/nwaku/commit/1d3410c7))
 - **rln-relay:** chunk event fetching ([#1830](https://github.com/waku-org/nwaku/issues/1830)) ([e4d9ee1f](https://github.com/waku-org/nwaku/commit/e4d9ee1f))
 - **discv5:** Fixing issue that prevented the wakunode2 from starting ([#1829](https://github.com/waku-org/nwaku/issues/1829)) ([3aefade6](https://github.com/waku-org/nwaku/commit/3aefade6))
@@ -30,6 +54,12 @@ Release highlights:
 
 ### Changes
 
+- remove references to v2 ([#1898](https://github.com/waku-org/nwaku/issues/1898)) ([b9d5d28a](https://github.com/waku-org/nwaku/commit/b9d5d28a))
+- **submodules:** use zerokit v0.3.1 only ([#1886](https://github.com/waku-org/nwaku/issues/1886)) ([311f5ea0](https://github.com/waku-org/nwaku/commit/311f5ea0))
+- remove Waku v1 and wakubridge code ([#1874](https://github.com/waku-org/nwaku/issues/1874)) ([ab344a9d](https://github.com/waku-org/nwaku/commit/ab344a9d))
+- **cbindings:** libwaku - run waku node in a secondary working thread  ([#1865](https://github.com/waku-org/nwaku/issues/1865)) ([069c1ad2](https://github.com/waku-org/nwaku/commit/069c1ad2))
+- update docs link ([#1850](https://github.com/waku-org/nwaku/issues/1850)) ([d2b6075b](https://github.com/waku-org/nwaku/commit/d2b6075b))
+- **changelog:** release notes for v0.19.0 ([#1861](https://github.com/waku-org/nwaku/issues/1861)) ([32c1276f](https://github.com/waku-org/nwaku/commit/32c1276f))
 - **rln-relay:** verify proofs based on bandwidth usage ([#1844](https://github.com/waku-org/nwaku/issues/1844)) ([3fe4522a](https://github.com/waku-org/nwaku/commit/3fe4522a))
 - **rln-relay:** bump zerokit ([#1838](https://github.com/waku-org/nwaku/issues/1838)) ([4f0bdf9a](https://github.com/waku-org/nwaku/commit/4f0bdf9a))
 - bump nim-libp2p to 224f92e ([661638da](https://github.com/waku-org/nwaku/commit/661638da))
@@ -52,7 +82,11 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 | [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
 | [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
-The Waku v1 implementation is stable but not under active development.
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+## Upgrade instructions
+
+* Note that the `--topic` CLI option is being deprecated in favor a more specific option `--pubsub-topic`. The `--topic` option will be available for next 2 releases with a deprecation note.
 
 ## 2023-06-14 v0.18.0
 
