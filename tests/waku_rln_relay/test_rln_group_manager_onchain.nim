@@ -121,7 +121,7 @@ proc runGanache(): Process =
   # --wallet.defaultBalance           The default account balance, specified in ether.
   # See ganache documentation https://www.npmjs.com/package/ganache for more details
   try:
-    let runGanache = startProcess("npx", args = ["--yes", "ganache", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
+    let runGanache = startProcess("npx", args = ["--yes", "ganache@7.9.0", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
     let ganachePID = runGanache.processID
 
     # We read stdout from Ganache to see when daemon is ready
@@ -138,7 +138,7 @@ proc runGanache(): Process =
     debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
     return runGanache
   except:  # TODO: Fix "BareExcept" warning
-    error "Ganache daemon run failed"
+    error "Ganache daemon run failed", err = getCurrentExceptionMsg()
 
 
 # Stops Ganache daemon
@@ -148,12 +148,12 @@ proc stopGanache(runGanache: Process) {.used.} =
   # We wait the daemon to exit
   try:
     # We terminate Ganache daemon by sending a SIGTERM signal to the runGanache PID to trigger RPC server termination and clean-up
-    terminate(runGanache)
+    discard startProcess("pkill", args = ["-f", "ganache"], options = {poUsePath})
     # NOTE: the below line must remain commented out, otherwise it will cause a deadlocked state
     # ref: https://nim-lang.org/docs/osproc.html#waitForExit%2CProcess%2Cint
     # debug "ganache logs", logs=runGanache.outputstream.readAll()
     debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
-  except CatchableError:
+  except:
     error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
@@ -532,4 +532,3 @@ suite "Onchain group manager":
 
   # We stop Ganache daemon
   stopGanache(runGanache)
-
