@@ -3,9 +3,7 @@
 import
   std/options,
   std/strutils,
-  std/sequtils,
   std/sugar,
-  std/algorithm,
   std/random,
   stew/results,
   testutils/unittests
@@ -72,7 +70,7 @@ suite "Waku Sharding":
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
 
-    let shardRes = autosharding(ns)
+    let shardRes = getShard(ns)
 
     ## Then
     assert shardRes.isErr(), $shardRes.get()
@@ -107,7 +105,7 @@ suite "Waku Sharding":
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
 
-    let pubsub = genZeroSharding(contentTopic, GenerationZeroShardsCount)
+    let pubsub = getGenZeroShard(contentTopic, GenerationZeroShardsCount)
 
     ## Then
     check:
@@ -123,7 +121,7 @@ suite "Waku Sharding":
 
     ## When
     for topic in topics:
-      let pubsub = autosharding(topic).expect("Valid Topic")
+      let pubsub = getShard(topic).expect("Valid Topic")
       counts[pubsub.shard] += 1
 
     ## Then

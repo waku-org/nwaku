@@ -387,43 +387,41 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
 
       await handler(pubsubTopic, message)
 
-  var topics: seq[ContentTopic]
-  when contentTopics is seq[ContentTopic]:
-    topics = contentTopics
-  else:
-    topics = @[contentTopics]
+  if pubsubTopic.isSome():
+    info "registering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
 
-  var topicMap = initTable[PubsubTopic, seq[ContentTopic]]()
-  for contentTopic in topics:
-    let res = parseSharding(pubsubTopic, contentTopic)
-    
-    let (pubsub, content) =
-      if res.isErr():
-        error "parsing error", error = res.error
-        return
-      else: res.get()
-    
-    if not topicMap.hasKey(pubsub):
-      topicMap[pubsub] = @[]
-    
-    topicMap[pubsub].add(content)
-  
-  var futures = collect(newSeq):
-    for pubsubTopic, topics in topicMap.pairs:
-      info "registering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=topics, peer=remotePeer.peerId
+    let res = await node.wakuFilterClientLegacy.subscribe(pubsubTopic.get(), contentTopics, handlerWrapper, peer=remotePeer)
 
-      node.wakuFilterClientLegacy.subscribe(pubsubTopic, topics, handlerWrapper, peer=remotePeer)
-
-  let finished = await allFinished(futures)
-
-  for fut in finished:
-    let res = fut.read()
-
-    if res.isErr():
+    if res.isOk():
+      info "subscribed to topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    else:
       error "failed filter subscription", error=res.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+  else:
+    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
 
-  info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=topics
+    let topicMap =
+      if topicMapRes.isErr():
+        error "can't get shard", error=topicMapRes.error
+        return
+      else: topicMapRes.get()
+    
+    var futures = collect(newSeq):
+      for pubsub, topics in topicMap.pairs:
+        info "registering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
+        let content = topics.mapIt($it)
+        node.wakuFilterClientLegacy.subscribe($pubsub, content, handlerWrapper, peer=remotePeer)
+
+    let finished = await allFinished(futures)
+
+    for fut in finished:
+      let res = fut.read()
+
+      if res.isErr():
+        error "failed filter subscription", error=res.error
+        waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+
+    info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
 
 proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
                   peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
@@ -439,44 +437,41 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], conten
 
   let remotePeer = remotePeerRes.value
 
-  var topics: seq[ContentTopic]
-  when contentTopics is seq[ContentTopic]:
-    topics = contentTopics
-  else:
-    topics = @[contentTopics]
+  if pubsubTopic.isSome():
+    info "deregistering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
 
-  var topicMap = initTable[PubsubTopic, seq[ContentTopic]]()
-  for contentTopic in topics:
-    let res = parseSharding(pubsubTopic, contentTopic)
-    
-    let (pubsub, content) =
-      if res.isErr():
-        error "parsing error", error = res.error
-        return
-      else: res.get()
-    
-    if not topicMap.hasKey(pubsub):
-      topicMap[pubsub] = @[]
-    
-    topicMap[pubsub].add(content)
-  
-  var futures = collect(newSeq):
-    for pubsubTopic, topics in topicMap.pairs:
-      info "deregistering filter subscription to content", pubsubTopic=pubsubTopic, contentTopics=topics, peer=remotePeer.peerId
+    let res = await node.wakuFilterClientLegacy.unsubscribe(pubsubTopic.get(), contentTopics, peer=remotePeer)
 
-      node.wakuFilterClientLegacy.unsubscribe(pubsubTopic, topics, peer=remotePeer)
-
-  let finished = await allFinished(futures)
-
-  for fut in finished:
-    let res = fut.read()
-
-    if res.isErr():
+    if res.isOk():
+      info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    else:
       error "failed filter unsubscription", error=res.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+  else:
+    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
 
-  info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=topics
+    let topicMap =
+      if topicMapRes.isErr():
+        error "can't get shard", error = topicMapRes.error
+        return
+      else: topicMapRes.get()
+    
+    var futures = collect(newSeq):
+      for pubsub, topics in topicMap.pairs:
+        info "deregistering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
+        let content = topics.mapIt($it)
+        node.wakuFilterClientLegacy.unsubscribe($pubsub, content, peer=remotePeer)
 
+    let finished = await allFinished(futures)
+
+    for fut in finished:
+      let res = fut.read()
+
+      if res.isErr():
+        error "failed filter unsubscription", error=res.error
+        waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+    info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc subscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
@@ -690,16 +685,20 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
   if node.wakuLightpushClient.isNil():
     return err("waku lightpush client is nil")
 
-  let res = parseSharding(pubsubTopic, message.contentTopic)
+  if pubsubTopic.isSome():
+    debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
+    return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
-  let (pubsub, _) =
-    if res.isErr():
-      return err($res.error)
-    else: res.get()
+  let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
 
-  debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
+  let topicMap =
+    if topicMapRes.isErr():
+      return err(topicMapRes.error)
+    else: topicMapRes.get()
 
-  return await node.wakuLightpushClient.publish(pubsub, message, peer)
+  for pubsub, _ in topicMap.pairs:
+    debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
+    return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[void] {.async, gcsafe,

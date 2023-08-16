@@ -10,10 +10,7 @@ else:
 import
   nimcrypto,
   std/options,
-  std/math,
-  std/sequtils,
-  std/sugar,
-  std/algorithm,
+  std/tables,
   stew/endians2,
   stew/results,
   stew/byteutils
@@ -25,6 +22,70 @@ import
 ## For indices allocation and other magic numbers refer to RFC 51
 const ClusterIndex* = 1
 const GenerationZeroShardsCount* = 8
+
+proc getGenZeroShard*(topic: NsContentTopic, count: int): NsPubsubTopic =
+  let bytes = toBytes(topic.application) & toBytes(topic.version)
+
+  let hash = sha256.digest(bytes)
+
+  # We only use the last 64 bits of the hash as having more shards is unlikely.
+  let hashValue = uint64.fromBytesBE(hash.data[24..31])
+
+  # This is equilavent to modulo shard count but faster
+  let shard = hashValue and uint64((count - 1))
+ 
+  NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
+
+proc getShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
+  ## Compute the (pubsub topic) shard to use for this content topic.
+  
+  if topic.generation.isNone():
+    ## Implicit generation # is 0 for all content topic
+    return ok(getGenZeroShard(topic, GenerationZeroShardsCount))
+ 
+  case topic.generation.get():
+    of 0: return ok(getGenZeroShard(topic, GenerationZeroShardsCount))
+    else: return err("Generation > 0 are not supported yet")
+
+proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]): Result[Table[NsPubsubTopic, seq[NsContentTopic]], string] =
+  var topics: seq[ContentTopic]
+  when contentTopics is seq[ContentTopic]:
+    topics = contentTopics
+  else:
+    topics = @[contentTopics]
+  
+  var topicMap = initTable[NsPubsubTopic, seq[NsContentTopic]]()
+  for contentTopic in topics:
+    let parseRes = NsContentTopic.parse(contentTopic)
+
+    let content =
+      if parseRes.isErr():
+        return err("Cannot parse content topic: " & $parseRes.error)
+      else: parseRes.get()
+
+    let pubsub =
+      if pubsubTopic.isSome():
+        let parseRes = NsPubsubTopic.parse(pubsubTopic.get())
+
+        if parseRes.isErr():
+          return err("Cannot parse pubsub topic: " & $parseRes.error)
+        else: parseRes.get()
+      else:
+        let shardsRes = getShard(content)
+
+        if shardsRes.isErr():
+          return err("Cannot autoshard content topic: " & $shardsRes.error)
+        else: shardsRes.get()
+    
+    if not topicMap.hasKey(pubsub):
+      topicMap[pubsub] = @[]
+    
+    try:
+      topicMap[pubsub].add(content)
+    except CatchableError:
+      return err(getCurrentExceptionMsg())
+
+  ok(topicMap)
 
 #type ShardsPriority = seq[tuple[topic: NsPubsubTopic, value: float64]]
 
@@ -84,54 +145,3 @@ const GenerationZeroShardsCount* = 8
   let (pubsub, _) = list[list.len - 1]
 
   ok(pubsub) ]#
-
-proc genZeroSharding*(topic: NsContentTopic, count: int): NsPubsubTopic =
-  let bytes = toBytes(topic.application) & toBytes(topic.version)
-
-  let hash = sha256.digest(bytes)
-
-  # We only use the last 64 bits of the hash as having more shards is unlikely.
-  let hashValue = uint64.fromBytesBE(hash.data[24..31])
-
-  # This is equilavent to modulo shard count but faster
-  let shard = hashValue and uint64((count - 1))
- 
-  NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
-
-proc autosharding*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
-  ## Compute the (pubsub topic) shard to use for this content topic.
-  
-  if topic.generation.isNone():
-    ## Implicit generation # is 0 for all content topic
-    return ok(genZeroSharding(topic, GenerationZeroShardsCount))
- 
-  case topic.generation.get():
-    of 0: return ok(genZeroSharding(topic, GenerationZeroShardsCount))
-    else: return err("Generation > 0 are not supported yet")
-
-proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopic: ContentTopic): Result[(NsPubsubTopic, NsContentTopic), string] =
-  let parseRes = NsContentTopic.parse(contentTopic)
-
-  let content =
-    if parseRes.isErr():
-      return err("Cannot parse content topic: " & $parseRes.error)
-    else: parseRes.get()
-
-  if pubsubTopic.isSome():
-    let parseRes = NsPubsubTopic.parse(pubsubTopic.get())
-
-    let pubsub =
-      if parseRes.isErr():
-        return err("Cannot parse pubsub topic: " & $parseRes.error)
-      else: parseRes.get()
-
-    return ok((pubsub, content))
-
-  let shardsRes = autosharding(content)
-
-  let pubsub =
-    if shardsRes.isErr():
-      return err("Cannot autoshard content topic: " & $shardsRes.error)
-    else: shardsRes.get()
-
-  ok((pubsub, content))
