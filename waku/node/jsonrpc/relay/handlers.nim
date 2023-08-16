@@ -17,6 +17,13 @@ import
   ../../message_cache,
   ../message
 
+from std/times import getTime
+from std/times import toUnix
+
+when defined(rln):
+  import
+    ../../../waku_rln_relay
+
 logScope:
   topics = "waku node jsonrpc relay_api"
 
@@ -77,7 +84,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     if payloadRes.isErr():
       raise newException(ValueError, "invalid payload format: " & payloadRes.error)
 
-    let message = WakuMessage(
+    var message = WakuMessage(
         payload: payloadRes.value,
         # TODO: Fail if the message doesn't have a content topic
         contentTopic: msg.contentTopic.get(DefaultContentTopic),
@@ -85,6 +92,13 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         timestamp: msg.timestamp.get(Timestamp(0)),
         ephemeral: msg.ephemeral.get(false)
       )
+    
+    when defined(rln):
+      if not node.wakuRlnRelay.isNil():
+        let success = node.wakuRlnRelay.appendRLNProof(message, 
+                                                      float64(getTime().toUnix()))
+        if not success:
+          raise newException(ValueError, "Failed to append RLN proof to message")
 
     let publishFut = node.publish(topic, message)
 
