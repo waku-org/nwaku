@@ -95,6 +95,7 @@ method stop*(rlnPeer: WakuRLNRelay) {.async.} =
   ## Throws an error if it cannot stop the rln-relay protocol
 
   # stop the group sync, and flush data to tree db
+  info "stopping rln-relay"
   await rlnPeer.groupManager.stop()
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
@@ -217,7 +218,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
   if not rootValidationRes:
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=proof.merkleRoot, validRoots=rlnPeer.groupManager.validRoots.mapIt(it.inHex())
+    debug "invalid message: provided root does not belong to acceptable window of roots", provided=proof.merkleRoot.inHex(), validRoots=rlnPeer.groupManager.validRoots.mapIt(it.inHex())
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
     return MessageValidationResult.Invalid
 

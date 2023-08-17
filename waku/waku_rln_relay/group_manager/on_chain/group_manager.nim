@@ -234,7 +234,7 @@ proc getBlockTable(g: OnchainGroupManager,
   let events = await g.getRawEvents(fromBlock, toBlock)
 
   if events.len == 0:
-    debug "no events found"
+    trace "no events found"
     return blockTable
 
   for event in events:
@@ -261,14 +261,6 @@ proc handleEvents(g: OnchainGroupManager,
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
     trace "new members added to the Merkle tree", commitments=members.mapIt(it[0].idCommitment.inHex())
-    g.latestProcessedBlock = some(blockNumber)
-    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
-                            lastProcessedBlock: blockNumber))
-    if metadataSetRes.isErr():
-      # this is not a fatal error, hence we don't raise an exception
-      warn "failed to persist rln metadata", error=metadataSetRes.error()
-    else:
-      info "rln metadata persisted", lastProcessedBlock = blockNumber
 
   return
 
@@ -292,10 +284,21 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
+  let latestProcessedBlock = if toBlock.isSome(): toBlock.get() 
+                             else: fromBlock
+  g.latestProcessedBlock = some(latestProcessedBlock)
+  let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
+                          lastProcessedBlock: latestProcessedBlock))
+  if metadataSetRes.isErr():
+    # this is not a fatal error, hence we don't raise an exception
+    warn "failed to persist rln metadata", error=metadataSetRes.error()
+  else:
+    debug "rln metadata persisted", blockNumber = latestProcessedBlock
+
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
       let latestBlock = blockheader.number.uint
-      debug "block received", blockNumber = latestBlock
+      trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
         asyncSpawn g.getAndHandleEvents(latestBlock)
@@ -327,7 +330,7 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
 
   var fromBlock = if g.latestProcessedBlock.isSome():
     info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
-    g.latestProcessedBlock.get()
+    g.latestProcessedBlock.get() + 1
   else:
     info "starting onchain sync from scratch"
     BlockNumber(0)
@@ -501,6 +504,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
+  # Contract starts from the first index
+  g.latestIndex = 1
   g.initialized = true
 
 method stop*(g: OnchainGroupManager): Future[void] {.async.} =
