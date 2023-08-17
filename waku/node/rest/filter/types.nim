@@ -25,7 +25,7 @@ type FilterWakuMessage* = object
 type FilterGetMessagesResponse* = seq[FilterWakuMessage]
 
 type FilterSubscriptionsRequest* = object
-      pubsubTopic*: PubSubTopic
+      pubsubTopic*: Option[PubSubTopic]
       contentFilters*: seq[ContentTopic]
 
 #### Type conversion
@@ -146,6 +146,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptions
     reader.raiseUnexpectedValue("Field `contentFilters` is empty")
 
   value = FilterSubscriptionsRequest(
-    pubsubTopic: pubsubTopic.get(),
+    pubsubTopic: if pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
     contentFilters: contentFilters.get()
   )

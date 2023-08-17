@@ -232,7 +232,7 @@ procSuite "WakuNode - Store":
     proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterFut.complete((pubsubTopic, msg))
 
-    waitFor server.filterSubscribe(DefaultPubsubTopic, DefaultContentTopic, filterHandler, peer=filterSourcePeer)
+    waitFor server.filterSubscribe(some(DefaultPubsubTopic), DefaultContentTopic, filterHandler, peer=filterSourcePeer)
 
     waitFor sleepAsync(100.millis)
 

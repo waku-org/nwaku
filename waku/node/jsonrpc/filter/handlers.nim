@@ -21,8 +21,6 @@ logScope:
   topics = "waku node jsonrpc filter_api"
 
 
-const DefaultPubsubTopic: PubsubTopic = "/waku/2/default-waku/proto"
-
 const futTimeout* = 5.seconds # Max time to wait for futures
 
 
@@ -32,7 +30,7 @@ type
 
 proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
 
-  server.rpc("post_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], topic: Option[PubsubTopic]) -> bool:
+  server.rpc("post_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], pubsubTopic: Option[PubsubTopic]) -> bool:
     ## Subscribes a node to a list of content filters
     debug "post_waku_v2_filter_v1_subscription"
 
@@ -40,9 +38,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
     if peerOpt.isNone():
       raise newException(ValueError, "no suitable remote filter peers")
 
-    let
-      pubsubTopic: PubsubTopic = topic.get(DefaultPubsubTopic)
-      contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
+    let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
     let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         cache.addMessage(msg.contentTopic, msg)
@@ -57,13 +53,11 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
 
     return true
 
-  server.rpc("delete_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], topic: Option[PubsubTopic]) -> bool:
+  server.rpc("delete_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], pubsubTopic: Option[PubsubTopic]) -> bool:
     ## Unsubscribes a node from a list of content filters
     debug "delete_waku_v2_filter_v1_subscription"
 
-    let
-      pubsubTopic: PubsubTopic = topic.get(DefaultPubsubTopic)
-      contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
+    let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
     let unsubFut = node.unsubscribe(pubsubTopic, contentTopics)
     if not await unsubFut.withTimeout(futTimeout):

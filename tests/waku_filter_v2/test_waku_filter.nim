@@ -10,7 +10,6 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_filter_v2,
   ../../../waku/waku_filter_v2/client,
-  ../../../waku/waku_filter_v2/rpc,
   ../../../waku/waku_core,
   ../testlib/common,
   ../testlib/wakucore

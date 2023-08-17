@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
@@ -54,7 +55,7 @@ suite "WakuNode - Lightpush":
     await sleepAsync(100.millis)
 
     ## When
-    await lightNode.lightpushPublish(DefaultPubsubTopic, message)
+    await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
 
     ## Then
     check await completionFutRelay.withTimeout(5.seconds)
