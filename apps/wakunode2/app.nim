@@ -135,7 +135,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       error "failed to parse content topic", error=res.error
       quit(QuitFailure)
 
-  let shardsRes = contentTopicsRes.mapIt(singleHighestWeigthShard(it.get()))
+  let shardsRes = contentTopicsRes.mapIt(getShard(it.get()))
 
   for res in shardsRes:
     if res.isErr():
@@ -363,7 +363,7 @@ proc setupProtocols(node: WakuNode,
     # TODO autoshard content topics only once.
     # Already checked for errors in app.init
     let contentTopics = conf.contentTopics.mapIt(NsContentTopic.parse(it).expect("Parsing"))
-    let shards = contentTopics.mapIt($(singleHighestWeigthShard(it).expect("Sharding")))
+    let shards = contentTopics.mapIt($(getShard(it).expect("Sharding")))
 
     let pubsubTopics = conf.topics & conf.pubsubTopics & shards
     try:

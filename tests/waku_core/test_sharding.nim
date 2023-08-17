@@ -4,7 +4,6 @@ import
   std/options,
   std/strutils,
   std/sugar,
-  std/algorithm,
   std/random,
   stew/results,
   testutils/unittests
@@ -34,88 +33,60 @@ suite "Waku Sharding":
 
     let enc = "cbor"
 
-    NsContentTopic.init(none(int), Unbiased, app, version, name, enc)
+    NsContentTopic.init(none(int), app, version, name, enc)
 
   test "Implicit content topic generation":
     ## Given
     let topic = "/toychat/2/huilong/proto"
 
     ## When
-    let ns = NsContentTopic.parse(topic).expect("Parsing")
-
-    let paramRes = shardCount(ns)
+    let parseRes = NsContentTopic.parse(topic)
 
     ## Then
-    assert paramRes.isOk(), paramRes.error
+    assert parseRes.isOk(), $parseRes.error
 
-    let count = paramRes.get()
+    let nsTopic = parseRes.get()
     check:
-      count == GenerationZeroShardsCount
-      ns.bias == Unbiased
+      nsTopic.generation == none(int)
 
   test "Valid content topic":
     ## Given
-    let topic = "/0/lower20/toychat/2/huilong/proto"
+    let topic = "/0/toychat/2/huilong/proto"
 
     ## When
-    let ns = NsContentTopic.parse(topic).expect("Parsing")
-
-    let paramRes = shardCount(ns)
+    let parseRes = NsContentTopic.parse(topic)
 
     ## Then
-    assert paramRes.isOk(), paramRes.error
+    assert parseRes.isOk(), $parseRes.error
 
-    let count = paramRes.get()
+    let nsTopic = parseRes.get()
     check:
-      count == GenerationZeroShardsCount
-      ns.bias == Lower20
+      nsTopic.generation.get() == 0
 
   test "Invalid content topic generation":
     ## Given
-    let topic = "/1/unbiased/toychat/2/huilong/proto"
+    let topic = "/1/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic).expect("Parsing")
 
-    let paramRes = shardCount(ns)
+    let shardRes = getShard(ns)
 
     ## Then
-    assert paramRes.isErr(), $paramRes.get()
+    assert shardRes.isErr(), $shardRes.get()
 
-    let err = paramRes.error
+    let err = shardRes.error
     check:
       err == "Generation > 0 are not supported yet"
 
-  test "Weigths bias":
+  #[ test "Sorted shard list":
     ## Given
-    let count = 5
-
-    ## When
-    let anonWeigths = biasedWeights(count, ShardingBias.Lower20)
-    let speedWeigths = biasedWeights(count, ShardingBias.Higher80)
-
-    ## Then
-    check:
-      anonWeigths[0] == 2.0
-      anonWeigths[1] == 1.0
-      anonWeigths[2] == 1.0
-      anonWeigths[3] == 1.0
-      anonWeigths[4] == 1.0
-
-      speedWeigths[0] == 1.0
-      speedWeigths[1] == 2.0
-      speedWeigths[2] == 2.0
-      speedWeigths[3] == 2.0
-      speedWeigths[4] == 2.0
-
-  test "Sorted shard list":
-    ## Given
-    let topic = "/0/unbiased/toychat/2/huilong/proto"
+    let topic = "/0/toychat/2/huilong/proto"
 
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
     let count = shardCount(contentTopic).expect("Valid parameters")
-    let weights = biasedWeights(count, contentTopic.bias)
+    let weights = repeat(1.0, count)
 
     let shardsRes = weightedShardList(contentTopic, count, weights)
 
@@ -125,7 +96,7 @@ suite "Waku Sharding":
     let shards = shardsRes.get()
     check:
       shards.len == count
-      isSorted(shards, hashOrder)
+      isSorted(shards, hashOrder) ]#
 
   test "Shard Choice Reproducibility":
     ## Given
@@ -134,15 +105,11 @@ suite "Waku Sharding":
     ## When
     let contentTopic = NsContentTopic.parse(topic).expect("Parsing")
 
-    let res = singleHighestWeigthShard(contentTopic)
+    let pubsub = getGenZeroShard(contentTopic, GenerationZeroShardsCount)
 
     ## Then
-    assert res.isOk(), res.error
-
-    let pubsubTopic = res.get()
-
     check:
-      pubsubTopic == NsPubsubTopic.staticSharding(ClusterIndex, 3)
+      pubsub == NsPubsubTopic.staticSharding(ClusterIndex, 3)
 
   test "Shard Choice Simulation":
     ## Given
@@ -154,7 +121,7 @@ suite "Waku Sharding":
 
     ## When
     for topic in topics:
-      let pubsub = singleHighestWeigthShard(topic).expect("Valid Topic")
+      let pubsub = getShard(topic).expect("Valid Topic")
       counts[pubsub.shard] += 1
 
     ## Then

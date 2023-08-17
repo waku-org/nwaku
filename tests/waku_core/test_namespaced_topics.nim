@@ -13,7 +13,6 @@ suite "Waku Message - Content topics namespacing":
     ## Given
     var ns = NsContentTopic()
     ns.generation = none(int)
-    ns.bias = Unbiased
     ns.application = "toychat"
     ns.version = "2"
     ns.name = "huilong"
@@ -39,7 +38,6 @@ suite "Waku Message - Content topics namespacing":
     let ns = nsRes.get()
     check:
       ns.generation == none(int)
-      ns.bias == Unbiased
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -47,7 +45,7 @@ suite "Waku Message - Content topics namespacing":
 
   test "Parse content topic string - Valid string with sharding":
     ## Given
-    let topic = "/0/lower20/toychat/2/huilong/proto"
+    let topic = "/0/toychat/2/huilong/proto"
 
     ## When
     let nsRes = NsContentTopic.parse(topic)
@@ -58,7 +56,6 @@ suite "Waku Message - Content topics namespacing":
     let ns = nsRes.get()
     check:
       ns.generation == some(0)
-      ns.bias == Lower20
       ns.application == "toychat"
       ns.version == "2"
       ns.name == "huilong"
@@ -122,11 +119,11 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "invalid topic structure"
+      err.cause == "generation should be a numeric value"
 
   test "Parse content topic string - Invalid string: non numeric generation":
     ## Given
-    let topic = "/first/unbiased/toychat/2/huilong/proto"
+    let topic = "/first/toychat/2/huilong/proto"
 
     ## When
     let ns = NsContentTopic.parse(topic)
@@ -138,21 +135,6 @@ suite "Waku Message - Content topics namespacing":
     check:
       err.kind == ParsingErrorKind.InvalidFormat
       err.cause == "generation should be a numeric value"
-
-  test "Parse content topic string - Invalid string: invalid bias":
-    ## Given
-    let topic = "/0/no/toychat/2/huilong/proto"
-
-    ## When
-    let ns = NsContentTopic.parse(topic)
-
-    ## Then
-    assert ns.isErr(), $ns.get()
-
-    let err = ns.tryError()
-    check:
-      err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "bias should be one of; unbiased, lower20 or higher80"
 
 suite "Waku Message - Pub-sub topics namespacing":
 
