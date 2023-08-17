@@ -421,7 +421,8 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
         error "failed filter subscription", error=res.error
         waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
-    info "subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+    for pubsub, topics in topicMap.pairs:
+      info "subscribed to topic", pubsubTopic=pubsub, contentTopics=topics
 
 proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
                   peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
@@ -471,7 +472,8 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], conten
         error "failed filter unsubscription", error=res.error
         waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
 
-    info "unsubscribed from topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+    for pubsub, topics in topicMap.pairs:
+      info "unsubscribed from topic", pubsubTopic=pubsub, contentTopics=topics
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc subscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
@@ -696,7 +698,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
       return err(topicMapRes.error)
     else: topicMapRes.get()
 
-  for pubsub, _ in topicMap.pairs:
+  for pubsub, _ in topicMap.pairs: # There's only one pair anyway
     debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
     return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
