@@ -738,7 +738,7 @@ when defined(rln):
     let rlnRelayRes = await WakuRlnRelay.new(rlnConf,
                                              registrationHandler)
     if rlnRelayRes.isErr():
-      raise newException(CatchableError, "failed to mount WakuRlnRelay: {rlnRelayRes.error}")
+      raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
     let rlnRelay = rlnRelayRes.get()
     let validator = generateRlnValidator(rlnRelay, spamHandler)
     let pb = PubSub(node.wakuRelay)

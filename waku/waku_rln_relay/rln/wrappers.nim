@@ -89,7 +89,7 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth,
       cache_capacity: 15_000,
       mode: "high_throughput",
       compression: false,
-      flush_interval: 12_000,
+      flush_interval: 500,
       path: if tree_path != "": tree_path else: DefaultRlnTreePath
     )
   )
