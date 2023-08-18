@@ -102,6 +102,7 @@ method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]):
   initializedGuard(g)
 
   await g.atomicBatch(g.latestIndex, idCommitments)
+  g.latestIndex += MembershipIndex(idCommitments.len())
 
 
 method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
