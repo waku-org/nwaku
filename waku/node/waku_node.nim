@@ -405,7 +405,7 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
         error "can't get shard", error=topicMapRes.error
         return
       else: topicMapRes.get()
-    
+
     var futures = collect(newSeq):
       for pubsub, topics in topicMap.pairs:
         info "registering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
@@ -456,7 +456,7 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], conten
         error "can't get shard", error = topicMapRes.error
         return
       else: topicMapRes.get()
-    
+
     var futures = collect(newSeq):
       for pubsub, topics in topicMap.pairs:
         info "deregistering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
@@ -741,11 +741,12 @@ when defined(rln):
       raise newException(CatchableError, "failed to mount WakuRlnRelay: {rlnRelayRes.error}")
     let rlnRelay = rlnRelayRes.get()
     let validator = generateRlnValidator(rlnRelay, spamHandler)
-    let pb = PubSub(node.wakuRelay)
-    pb.addValidator(rlnRelay.pubsubTopic, validator)
+
+    # register rln validator for all subscribed relay pubsub topics
+    for pubsubTopic in node.wakuRelay.subscribedTopics:
+      debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
+      procCall GossipSub(node.wakuRelay).addValidator(pubsubTopic, validator)
     node.wakuRlnRelay = rlnRelay
-
-
 
 ## Waku peer-exchange
 

@@ -18,9 +18,6 @@ import
   ../../../waku/waku_keystore,
   ../testlib/common
 
-const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
-const RlnRelayContentTopic = "waku/2/rlnrelay/proto"
-
 proc createRLNInstanceWrapper(): RLNResult =
   return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
 
@@ -256,7 +253,7 @@ suite "Waku rln relay":
     require:
       rlnInstance.isOk()
     let rln = rlnInstance.get()
-    
+
     require:
       rln.setMetadata(RlnMetadata(lastProcessedBlock: 128)).isOk()
 
@@ -269,7 +266,7 @@ suite "Waku rln relay":
 
     check:
       metadata.lastProcessedBlock == 128
- 
+
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
@@ -660,8 +657,6 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayPubsubTopic: RlnRelayPubsubTopic,
-                                rlnRelayContentTopic: RlnRelayContentTopic,
                                 rlnRelayCredIndex: index.uint,
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
@@ -709,13 +704,11 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
-  
+
   asyncTest "should validate invalid proofs if bandwidth is available":
     let index = MembershipIndex(5)
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayPubsubTopic: RlnRelayPubsubTopic,
-                                rlnRelayContentTopic: RlnRelayContentTopic,
                                 rlnRelayCredIndex: index.uint,
                                 rlnRelayBandwidthThreshold: 4,
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
@@ -736,7 +729,7 @@ suite "Waku rln relay":
       # this message will be over the bandwidth threshold, hence has to be verified, will be false (since no proof)
       wm3 = WakuMessage(payload: "Invalid message".toBytes())
       wm4 = WakuMessage(payload: "Spam message".toBytes())
-    
+
     let
       proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time+EpochUnitSeconds)
@@ -765,7 +758,7 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Valid
       msgValidate3 == MessageValidationResult.Invalid
       msgValidate4 == MessageValidationResult.Spam
-  
+
 
   test "toIDCommitment and toUInt256":
     # create an instance of rln
