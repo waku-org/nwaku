@@ -69,40 +69,39 @@ template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "OnchainGroupManager is not initialized")
 
-method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
-  initializedGuard(g)
-
-  await g.registerBatch(@[idCommitment])
-
 method atomicBatch*(g: OnchainGroupManager, 
+                    start: MembershipIndex,
                     idCommitments = newSeq[IDCommitment](), 
                     toRemoveIndices = newSeq[MembershipIndex]()): Future[void] {.async.} =
   initializedGuard(g)
 
-  let startIndex = g.latestIndex
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
-    let operationSuccess = g.rlnInstance.atomicWrite(some(startIndex), idCommitments, toRemoveIndices)
+    let operationSuccess = g.rlnInstance.atomicWrite(some(start), idCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< idCommitments.len():
-      var index = g.latestIndex + MembershipIndex(i)
-      debug "registering member", idCommitment = idCommitments[i], index = index, latestIndex = g.latestIndex
+      var index = start + MembershipIndex(i)
+      debug "registering member", idCommitment = idCommitments[i], index = index
       let member = Membership(idCommitment: idCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
   g.validRootBuffer = g.slideRootQueue()
 
-  g.latestIndex += MembershipIndex(idCommitments.len())
+method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+  initializedGuard(g)
+
+  await g.registerBatch(@[idCommitment])
+
 
 
 method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
   initializedGuard(g)
 
-  await g.atomicBatch(idCommitments)
+  await g.atomicBatch(g.latestIndex, idCommitments)
 
 
 method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
@@ -255,8 +254,13 @@ proc handleEvents(g: OnchainGroupManager,
 
   for blockNumber, members in blockTable.pairs():
     try:
-      await g.atomicBatch(idCommitments = members.mapIt(it[0].idCommitment), 
-                          toRemoveIndices = members.filterIt(it[1]).mapIt(it[0].index))
+      let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
+      let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
+      let idCommitments = members.mapIt(it[0].idCommitment)
+      await g.atomicBatch(start = startIndex,
+                          idCommitments = idCommitments, 
+                          toRemoveIndices = removalIndices)
+      g.latestIndex = startIndex + MembershipIndex(idCommitments.len())
     except CatchableError:
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
@@ -504,8 +508,6 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
-  # Contract starts from the first index
-  g.latestIndex = 1
   g.initialized = true
 
 method stop*(g: OnchainGroupManager): Future[void] {.async.} =
