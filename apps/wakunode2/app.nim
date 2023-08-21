@@ -397,8 +397,6 @@ proc setupProtocols(node: WakuNode,
 
       let rlnConf = WakuRlnConfig(
         rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayPubsubTopic: conf.rlnRelayPubsubTopic,
-        rlnRelayContentTopic: conf.rlnRelayContentTopic,
         rlnRelayCredIndex: conf.rlnRelayCredIndex,
         rlnRelayMembershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
         rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,

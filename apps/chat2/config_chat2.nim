@@ -242,16 +242,6 @@ type
       defaultValue: 0
       name: "rln-relay-membership-group-index" }: uint
 
-    rlnRelayContentTopic* {.
-      desc: "the content topic for which rln-relay gets enabled",
-      defaultValue: "/toy-chat/3/mingde/proto"
-      name: "rln-relay-content-topic" }: ContentTopic
-
-    rlnRelayPubsubTopic* {.
-      desc: "the pubsub topic for which rln-relay gets enabled",
-      defaultValue: "/waku/2/default-waku/proto"
-      name: "rln-relay-pubsub-topic" }: string
-
     rlnRelayDynamic* {.
       desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
