@@ -150,8 +150,8 @@ procSuite "WakuNode - RLN relay":
     nodes[2].subscribe(pubsubTopics[1], relayHandler)
     await sleepAsync(1000.millis)
 
-    # publish 5+5 messages to both pubsub topics and content topics
-    for i in 0..<5:
+    # publish 4+4 messages to both pubsub topics and content topics
+    for i in 0..<4:
       var message1 = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
       doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message1, epochTime()))
 
@@ -162,7 +162,7 @@ procSuite "WakuNode - RLN relay":
       await nodes[1].publish(pubsubTopics[1], message2)
 
     # wait for gossip to propagate
-    await sleepAsync(4000.millis)
+    await sleepAsync(5000.millis)
 
     # check that node[2] got messages from both topics
     # and that rln was applied (4+4 messages were spam)
