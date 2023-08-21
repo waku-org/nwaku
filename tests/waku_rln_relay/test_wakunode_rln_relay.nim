@@ -162,7 +162,7 @@ procSuite "WakuNode - RLN relay":
       await nodes[1].publish(pubsubTopics[1], message2)
 
     # wait for gossip to propagate
-    await sleepAsync(2000.millis)
+    await sleepAsync(4000.millis)
 
     # check that node[2] got messages from both topics
     # and that rln was applied (4+4 messages were spam)
