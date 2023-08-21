@@ -31,8 +31,6 @@ logScope:
 
 type WakuRlnConfig* = object
   rlnRelayDynamic*: bool
-  rlnRelayPubsubTopic*: PubsubTopic
-  rlnRelayContentTopic*: ContentTopic
   rlnRelayCredIndex*: uint
   rlnRelayMembershipGroupIndex*: uint
   rlnRelayEthContractAddress*: string
@@ -80,10 +78,6 @@ proc calcEpoch*(t: float64): Epoch =
   return toEpoch(e)
 
 type WakuRLNRelay* = ref object of RootObj
-  pubsubTopic*: string # the pubsub topic for which rln relay is mounted
-                       # contentTopic should be of type waku_core.ContentTopic, however, due to recursive module dependency, the underlying type of ContentTopic is used instead
-                       # TODO a long-term solution is to place types with recursive dependency inside one file
-  contentTopic*: string
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
   nullifierLog*: Table[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
@@ -171,7 +165,7 @@ proc absDiff*(e1, e2: Epoch): uint64 =
   else:
     return epoch2 - epoch1
 
-proc validateMessage*(rlnPeer: WakuRLNRelay, 
+proc validateMessage*(rlnPeer: WakuRLNRelay,
                       msg: WakuMessage,
                       timeOption = none(float64)): MessageValidationResult =
   ## validate the supplied `msg` based on the waku-rln-relay routing protocol i.e.,
@@ -293,10 +287,8 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
 proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
                            spamHandler: Option[SpamHandler] = none(SpamHandler)): pubsub.ValidatorHandler =
   ## this procedure is a thin wrapper for the pubsub addValidator method
-  ## it sets a validator for the waku messages published on the supplied pubsubTopic and contentTopic
-  ## if contentTopic is empty, then validation takes place for All the messages published on the given pubsubTopic
+  ## it sets a validator for waku messages, acting in the registered pubsub topic
   ## the message validation logic is according to https://rfc.vac.dev/spec/17/
-  let contentTopic = wakuRlnRelay.contentTopic
   proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
 
@@ -309,21 +301,12 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
         info "message bandwidth limit exceeded, running rate limit proof validation"
     except OverflowDefect: # not a problem
       debug "not enough bandwidth, running rate limit proof validation"
-   
 
     let decodeRes = WakuMessage.decode(message.data)
     if decodeRes.isOk():
-      let
-        wakumessage = decodeRes.value
-        payload = string.fromBytes(wakumessage.payload)
-
-      # check the contentTopic
-      if (wakumessage.contentTopic != "") and (contentTopic != "") and (wakumessage.contentTopic != contentTopic):
-        trace "content topic did not match:", contentTopic=wakumessage.contentTopic, payload=payload
-        return pubsub.ValidationResult.Accept
-
-
+      let wakumessage = decodeRes.value
       let decodeRes = RateLimitProof.init(wakumessage.proof)
+
       if decodeRes.isErr():
         return pubsub.ValidationResult.Reject
 
@@ -338,6 +321,7 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
         shareX = inHex(msgProof.shareX)
         shareY = inHex(msgProof.shareY)
         nullifier = inHex(msgProof.nullifier)
+        payload = string.fromBytes(wakumessage.payload)
       case validationRes:
         of Valid:
           debug "message validity is verified, relaying:",  contentTopic=wakumessage.contentTopic, epoch=epoch, timestamp=wakumessage.timestamp, payload=payload
@@ -403,12 +387,10 @@ proc mount(conf: WakuRlnConfig,
   await groupManager.startGroupSync()
 
   let messageBucket = if conf.rlnRelayBandwidthThreshold > 0:
-                      some(TokenBucket.new(conf.rlnRelayBandwidthThreshold)) 
+                      some(TokenBucket.new(conf.rlnRelayBandwidthThreshold))
                       else: none(TokenBucket)
 
-  return WakuRLNRelay(pubsubTopic: conf.rlnRelayPubsubTopic,
-                      contentTopic: conf.rlnRelayContentTopic,
-                      groupManager: groupManager,
+  return WakuRLNRelay(groupManager: groupManager,
                       messageBucket: messageBucket)
 
 

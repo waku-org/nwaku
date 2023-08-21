@@ -23,9 +23,6 @@ import
 
 from std/times import epochTime
 
-
-const RlnRelayPubsubTopic = "waku/2/rlnrelay/proto"
-
 procSuite "WakuNode - RLN relay":
   asyncTest "testing rln-relay with valid proof":
 
@@ -40,17 +37,14 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
     ))
@@ -58,11 +52,9 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"),
     ))
@@ -70,11 +62,9 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"),
     ))
@@ -88,11 +78,11 @@ procSuite "WakuNode - RLN relay":
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       debug "The received topic:", topic
-      if topic == rlnRelayPubSubTopic:
+      if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe(rlnRelayPubSubTopic, relayHandler)
+    node3.subscribe(DefaultPubsubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -106,7 +96,7 @@ procSuite "WakuNode - RLN relay":
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
     ## verifies the rate limit proof of the message and relays the message to node3
     ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-    await node1.publish(rlnRelayPubSubTopic, message)
+    await node1.publish(DefaultPubsubTopic, message)
     await sleepAsync(2000.millis)
 
 
@@ -116,6 +106,71 @@ procSuite "WakuNode - RLN relay":
     await node1.stop()
     await node2.stop()
     await node3.stop()
+
+  asyncTest "testing rln-relay is applied in all rln pubsub/content topics":
+
+    # create 3 nodes
+    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    await allFutures(nodes.mapIt(it.start()))
+
+    let pubsubTopics = @[
+        PubsubTopic("/waku/2/pubsubtopic-a/proto"),
+        PubsubTopic("/waku/2/pubsubtopic-b/proto")]
+    let contentTopics = @[
+        ContentTopic("/waku/2/content-topic-a/proto"),
+        ContentTopic("/waku/2/content-topic-b/proto")]
+
+    # set up three nodes
+    await allFutures(nodes.mapIt(it.mountRelay(pubsubTopics)))
+
+    # mount rlnrelay in off-chain mode
+    for index, node in nodes:
+      await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: index.uint + 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index+1))))
+
+    # start them
+    await allFutures(nodes.mapIt(it.start()))
+
+    # connect them together
+    await nodes[0].connectToNodes(@[nodes[1].switch.peerInfo.toRemotePeerInfo()])
+    await nodes[2].connectToNodes(@[nodes[1].switch.peerInfo.toRemotePeerInfo()])
+
+    var rxMessagesTopic1 = 0
+    var rxMessagesTopic2 = 0
+    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+      info "relayHandler. The received topic:", topic
+      if topic == pubsubTopics[0]:
+        rxMessagesTopic1 = rxMessagesTopic1 + 1
+      elif topic == pubsubTopics[1]:
+        rxMessagesTopic2 = rxMessagesTopic2 + 1
+
+    # mount the relay handlers
+    nodes[2].subscribe(pubsubTopics[0], relayHandler)
+    nodes[2].subscribe(pubsubTopics[1], relayHandler)
+    await sleepAsync(1000.millis)
+
+    # publish 5+5 messages to both pubsub topics and content topics
+    for i in 0..<5:
+      var message1 = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
+      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message1, epochTime()))
+
+      var message2 = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
+      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message2, epochTime()))
+
+      await nodes[0].publish(pubsubTopics[0], message1)
+      await nodes[1].publish(pubsubTopics[1], message2)
+
+    # wait for gossip to propagate
+    await sleepAsync(2000.millis)
+
+    # check that node[2] got messages from both topics
+    # and that rln was applied (4+4 messages were spam)
+    check:
+      rxMessagesTopic1 == 1
+      rxMessagesTopic2 == 1
+
+    await allFutures(nodes.mapIt(it.stop()))
 
   asyncTest "testing rln-relay with invalid proof":
     let
@@ -129,17 +184,14 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
       rlnRelayBandwidthThreshold: 0,
@@ -148,11 +200,9 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
       rlnRelayBandwidthThreshold: 0,
@@ -161,11 +211,9 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
       rlnRelayBandwidthThreshold: 0,
@@ -181,11 +229,11 @@ procSuite "WakuNode - RLN relay":
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       debug "The received topic:", topic
-      if topic == rlnRelayPubSubTopic:
+      if topic == DefaultPubsubTopic:
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe(rlnRelayPubSubTopic, relayHandler)
+    node3.subscribe(DefaultPubsubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -214,7 +262,7 @@ procSuite "WakuNode - RLN relay":
     ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
     ## never gets called
     ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-    await node1.publish(rlnRelayPubSubTopic, message)
+    await node1.publish(DefaultPubsubTopic, message)
     await sleepAsync(2000.millis)
 
     check:
@@ -238,17 +286,14 @@ procSuite "WakuNode - RLN relay":
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-      rlnRelayPubSubTopic = RlnRelayPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 1.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
       rlnRelayBandwidthThreshold: 0,
@@ -257,12 +302,10 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node2.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 2.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
       rlnRelayBandwidthThreshold: 0,
@@ -271,12 +314,10 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic, rlnRelayPubSubTopic])
+    await node3.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayPubsubTopic: rlnRelayPubSubTopic,
-      rlnRelayContentTopic: contentTopic,
       rlnRelayCredIndex: 3.uint,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
       rlnRelayBandwidthThreshold: 0,
@@ -315,7 +356,7 @@ procSuite "WakuNode - RLN relay":
     var completionFut4 = newFuture[bool]()
     proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
       debug "The received topic:", topic
-      if topic == rlnRelayPubSubTopic:
+      if topic == DefaultPubsubTopic:
         if msg == wm1:
           completionFut1.complete(true)
         if msg == wm2:
@@ -327,7 +368,7 @@ procSuite "WakuNode - RLN relay":
 
 
     # mount the relay handler for node3
-    node3.subscribe(rlnRelayPubSubTopic, relayHandler)
+    node3.subscribe(DefaultPubsubTopic, relayHandler)
     await sleepAsync(2000.millis)
 
     ## node1 publishes and relays 4 messages to node2
@@ -336,10 +377,10 @@ procSuite "WakuNode - RLN relay":
     ## node2 should detect either of wm1 or wm2 as spam and not relay it
     ## node2 should relay wm3 to node3
     ## node2 should not relay wm4 because it has no valid rln proof
-    await node1.publish(rlnRelayPubSubTopic, wm1)
-    await node1.publish(rlnRelayPubSubTopic, wm2)
-    await node1.publish(rlnRelayPubSubTopic, wm3)
-    await node1.publish(rlnRelayPubSubTopic, wm4)
+    await node1.publish(DefaultPubsubTopic, wm1)
+    await node1.publish(DefaultPubsubTopic, wm2)
+    await node1.publish(DefaultPubsubTopic, wm3)
+    await node1.publish(DefaultPubsubTopic, wm4)
     await sleepAsync(2000.millis)
 
     let
