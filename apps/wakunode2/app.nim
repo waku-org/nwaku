@@ -408,7 +408,7 @@ proc setupProtocols(node: WakuNode,
       )
 
       try:
-        await node.mountRlnRelay(rlnConf)
+        waitFor node.mountRlnRelay(rlnConf)
       except CatchableError:
         return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 

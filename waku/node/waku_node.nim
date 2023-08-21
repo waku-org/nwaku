@@ -731,11 +731,8 @@ when defined(rln):
 
     if node.wakuRelay.isNil():
       raise newException(CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay")
-    # TODO: check whether the pubsub topic is supported at the relay level
-    # if rlnConf.rlnRelayPubsubTopic notin node.wakuRelay.defaultPubsubTopics:
-    #   error "The relay protocol does not support the configured pubsub topic for WakuRlnRelay"
 
-    let rlnRelayRes = await WakuRlnRelay.new(rlnConf,
+    let rlnRelayRes = waitFor WakuRlnRelay.new(rlnConf,
                                              registrationHandler)
     if rlnRelayRes.isErr():
       raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)

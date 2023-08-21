@@ -515,7 +515,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
         )
 
-        await node.mountRlnRelay(rlnConf,
+        waitFor node.mountRlnRelay(rlnConf,
                                  spamHandler=some(spamHandler))
 
         let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
