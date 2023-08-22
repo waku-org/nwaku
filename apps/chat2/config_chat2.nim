@@ -257,17 +257,6 @@ type
       defaultValue: ""
       name: "rln-relay-id-commitment-key" }: string
 
-    rlnRelayEthAccountAddress* {.
-      desc: "Ethereum account address for an Ethereum testnet",
-      # NOTE: This can be derived from the private key, but kept for future use
-      defaultValue: ""
-      name: "rln-relay-eth-account-address" }: string
-
-    rlnRelayEthAccountPrivateKey* {.
-      desc: "Account private key for an Ethereum testnet",
-      defaultValue: ""
-      name: "rln-relay-eth-account-private-key" }: string
-
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"

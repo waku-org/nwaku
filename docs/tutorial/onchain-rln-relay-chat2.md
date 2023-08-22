@@ -7,23 +7,17 @@ This differs from the prior test scenarios in which the RLN group was static and
 
 
 ## Prerequisites 
-To complete this tutorial, you will need 1) an account with at least `0.001` ethers on the Sepolia testnet and 2) a hosted node on the Sepolia testnet. 
-In case you are not familiar with either of these two steps, you may follow the following tutorial to fulfill the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
-Note that the required `0.001` ethers correspond to the registration fee, 
-however, you still need to have more funds in your account to cover the cost of the transaction gas fee.
+To complete this tutorial, you will need 
+1. An rln keystore file with credentials to the rln membership smart contract you wish to use. You may obtain this by registering to the smart contract and generating a keystore.
 
+<!-- TODO: doc on generating credentials and keystore w/ go-waku/etc -->
 
 
 ## Overview
 Figure 1 provides an overview of the interaction of the chat2 clients with the test fleets and the membership contract. 
-At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, it creates an RLN credential (i.e., an identity key and an identity commitment key) and 
-sends a transaction to the membership contract to register the corresponding membership identity commitment key.
-This transaction will also transfer `0.001` Ethers to the contract as a membership fee.
-This amount plus the transaction fee will be deducted from the supplied Sepolia account. 
-Once the transaction is mined and the registration is successful, the registered credential will get displayed on the console of your chat2 client.
+At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-chain mode, the passed in credential will get displayed on the console of your chat2 client.
 You may copy the displayed RLN credential and reuse them for the future execution of the chat2 application.
 Proper instructions in this regard is provided in the following [section](#how-to-persist-and-reuse-rln-credential).
-If you choose not to reuse the same credential, then for each execution, a new registration will take place and more funds will get deducted from your Sepolia account.
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
 In the following test setting, the chat2 clients are to be connected to the Waku test fleets as their first hop. 
@@ -49,7 +43,15 @@ make chat2 RLN=true
 Run the following command to set up your chat2 client. 
 
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-account-private-key:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx --rln-relay-eth-client-address:xxxx --ports-shift=1 
+./build/chat2 --fleet:test \
+--content-topic:/toy-chat/3/mingde/proto \
+--rln-relay:true \
+--rln-relay-dynamic:true \
+--rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 \
+--rln-relay-cred-path:xxx/xx/rlnKeystore.json \
+--rln-relay-cred-password:xxxx \
+--rln-relay-eth-client-address:xxxx \
+--ports-shift:1 
 ```
 
 In this command
@@ -60,12 +62,12 @@ In this command
 - the `--rln-relay-eth-contract-address` option gets the address of the membership contract.
  The current address of the contract is `0x9C09146844C1326c2dBC41c451766C7138F88155`.
  You may check the state of the contract on the [Sepolia testnet](https://sepolia.etherscan.io/address/0x9C09146844C1326c2dBC41c451766C7138F88155).
-- the `rln-relay-eth-account-private-key` option is for your account private key on the Sepolia testnet. 
- It is made up of 64 hex characters (not sensitive to the `0x` prefix).
+- the `--rln-relay-cred-path` option denotes the path to the keystore file described above
+- the `--rln-relay-cred-password` option denotes the password to the keystore
 - the `rln-relay-eth-client-address` is the WebSocket address of the hosted node on the Sepolia testnet. 
  You need to replace the `xxxx` with the actual node's address.
 
-For the last two config options i.e., `rln-relay-eth-account-private-key` and `rln-relay-eth-client-address`, if you do not know how to obtain those, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
+For `rln-relay-eth-client-address`, if you do not know how to obtain it, you may use the following tutorial on the [prerequisites of running on-chain spam-protected chat2](./pre-requisites-of-running-on-chain-spam-protected-chat2.md).
 
 You may set up more than one chat client,
 just make sure that you increment the `--ports-shift` value for each new client you set up e.g., `--ports-shift=2`.
@@ -100,17 +102,11 @@ You will  also see some historical messages being fetched, again the content may
 <Jun 29, 16:15> h: hi
 ...
 ```
+
 Next, you see the following message:
 ```
 rln-relay preparation is in progress ...
 ```
-At this phase, your RLN credential is being created and a transaction is being sent to the membership smart contract.
-It will take some time for the transaction to be finalized.
-Once finalized, a link to the transaction on the Sepolia network will be shown i.e., 
-```
-You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/0xxxx 
-```
-Note that you will see the actual transaction hash instead of `0xxxx`.
 Also, the registered RLN identity key, the RLN identity commitment key, and the index of the registered credential will be displayed as given below.
 Note that in the figure, the RLN identity key is not shown for security reasons (replaced by a string of `x`s).
 But, you will see your RLN identity key.
@@ -169,21 +165,23 @@ You may provide an index to the credential you wish to use by passing the `rln-r
 You may provide an index to the membership you wish to use (within the same membership set) by passing the `rln-relay-membership-group-index` config option.
 
 ```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155  --rln-relay-eth-account-private-key:your_private_key  --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password --rln-relay-membership-index:0 --rln-relay-membership-group-index:0
+./build/chat2  --fleet:test \
+--content-topic:/toy-chat/3/mingde/proto \
+--rln-relay:true \
+--rln-relay-dynamic:true \
+--rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 \
+--rln-relay-eth-client-address:your_sepolia_node \
+--ports-shift:0  \
+--rln-relay-cred-path:./rlnKeystore.json \
+--rln-relay-cred-password:your_password \
+--rln-relay-membership-index:0 \
+--rln-relay-membership-group-index:0
 ```
 
-Note: If you are reusing credentials, you can omit the `rln-relay-eth-account-private-key` flag.
-
-Therefore, the command to start chat2 would be -
-
-```bash
-./build/chat2  --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-client-address:your_sepolia_node  --ports-shift=1  --rln-relay-cred-path:./rlnKeystore.json --rln-relay-cred-password:your_password --rln-relay-cred-index:0 --rln-relay-membership-group-index:0
-```
-```
 
 # Sample test output
 In this section, a sample test of running two chat clients is provided.
-Note that the values used for  `rln-relay-eth-account-private-key` and `rln-relay-eth-client-address` in the following code snippets are junk and not valid.
+Note that the value used for `rln-relay-eth-client-address` in the following code snippets is junk and not valid.
 
 The two chat clients namely `Alice` and `Bob` are connected to the test fleets.
 `Alice` sends 4 messages i.e., `message1`, `message2`, `message3`, and `message4`.
@@ -195,7 +193,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-password:password --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
 ```
 
 ```
@@ -218,7 +216,6 @@ Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 <Jun 29, 16:15> b: hi
 <Jun 29, 16:15> h: hi
 rln-relay preparation is in progress ...
-You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/0xxxx 
 your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a1906cf4355fac712077cb28
@@ -239,7 +236,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-eth-account-private-key:0x1234567890123456789012345678901234567890123456789012345678901234 --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0x9C09146844C1326c2dBC41c451766C7138F88155 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-index:1 --rln-relay-cred-password:password --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
 ```
 
 ```
@@ -252,7 +249,6 @@ Listening on
 Store enabled, but no store nodes configured. Choosing one at random from discovered peers
 Connecting to storenode: 16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
 rln-relay preparation is in progress ...
-You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/0xxxx 
 your membership index is: xx
 your rln identity key is: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 your rln identity commitment key is: d4961a7681521730bc7f9ade185c632b94b70624b2e87e21a97c07b83353f306

@@ -35,8 +35,6 @@ type WakuRlnConfig* = object
   rlnRelayMembershipGroupIndex*: uint
   rlnRelayEthContractAddress*: string
   rlnRelayEthClientAddress*: string
-  rlnRelayEthAccountPrivateKey*: string
-  rlnRelayEthAccountAddress*: string
   rlnRelayCredPath*: string
   rlnRelayCredentialsPassword*: string
   rlnRelayTreePath*: string
@@ -367,12 +365,10 @@ proc mount(conf: WakuRlnConfig,
     proc useValueOrNone(s: string): Option[string] =
       if s == "": none(string) else: some(s)
     let
-      ethPrivateKey = useValueOrNone(conf.rlnRelayEthAccountPrivateKey)
       rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
       rlnRelayCredentialsPassword = useValueOrNone(conf.rlnRelayCredentialsPassword)
     groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
                                        ethContractAddress: $conf.rlnRelayEthContractAddress,
-                                       ethPrivateKey: ethPrivateKey,
                                        rlnInstance: rlnInstance,
                                        registrationHandler: registrationHandler,
                                        keystorePath: rlnRelayCredPath,

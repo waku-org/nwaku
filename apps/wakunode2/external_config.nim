@@ -170,17 +170,6 @@ type
       defaultValue: ""
       name: "rln-relay-id-commitment-key" }: string
 
-    # NOTE: This can be derived from the private key, but kept for future use
-    rlnRelayEthAccountAddress* {.
-      desc: "Account address for the Ethereum testnet Sepolia",
-      defaultValue: ""
-      name: "rln-relay-eth-account-address" }: string
-
-    rlnRelayEthAccountPrivateKey* {.
-      desc: "Account private key for the Ethereum testnet Sepolia",
-      defaultValue: ""
-      name: "rln-relay-eth-account-private-key" }: string
-
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
       defaultValue: "ws://localhost:8540/"
