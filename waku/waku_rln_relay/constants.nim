@@ -53,4 +53,4 @@ const MaxEpochGap* = uint64(MaxClockGapSeconds/EpochUnitSeconds)
 
 # RLN Keystore defaults
 const
-  RLNAppInfo* = AppInfo(application: "nwaku-rln-relay", appIdentifier: "01234567890abcdef", version: "0.1")
+  RLNAppInfo* = AppInfo(application: "waku-rln-relay", appIdentifier: "01234567890abcdef", version: "0.1")
