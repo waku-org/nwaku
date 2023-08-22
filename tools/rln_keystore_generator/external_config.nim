@@ -51,7 +51,7 @@ type
       defaultValue: "",
       name: "rln-relay-eth-contract-address" }: string
 
-    rlnRelayCredentialsPassword* {.
+    rlnRelayCredPassword* {.
       desc: "Password for encrypting RLN credentials",
       defaultValue: "",
       name: "rln-relay-cred-password" }: string
@@ -59,6 +59,12 @@ type
 proc loadConfig*(T: type RlnKeystoreGeneratorConf): Result[T, string] =
   try:
     let conf = RlnKeystoreGeneratorConf.load()
+    if conf.rlnRelayCredPath == "":
+      return err("--rln-relay-cred-path must be set")
+    if conf.rlnRelayEthContractAddress == "":
+      return err("--rln-relay-eth-contract-address must be set")
+    if conf.rlnRelayCredPassword == "":
+      return err("--rln-relay-cred-password must be set")
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
