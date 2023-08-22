@@ -48,3 +48,49 @@ jobs:
         with:   
           header: pr-title-lint-error
           delete: true
+
+  labels:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      name: Checkout code
+      id: checkout
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          config:
+          - 'apps/wakunode2/external_config.nim'
+          - 'apps/networkmonitor/networkmonitor_config.nim'
+          - 'apps/chat2/config_chat2.nim'
+          - 'apps/chat2bridge/config_chat2bridge.nim'
+
+          db_schema:
+          - 'waku/waku_archive/driver/postgres_driver/postgres_driver.nim'
+          - 'waku/waku_archive/driver/sqlite_driver/queries.nim'
+    - name: Comment config change
+      uses: thollander/actions-comment-pull-request@v2
+      if: ${{steps.filter.outputs.config == 'true'}}
+      with:
+        message: |
+          This PR may contain changes to **configuration options** of one of the apps.
+
+          If you are introducing a breaking change (i.e. the set of options in latest release would no longer be applicable) make sure the original option is preserved with a *deprecation* note for 2 following releases before it is actually removed.
+
+          Please also make sure the label `release-notes` is added to make sure any changes to the user interface are properly announced in changelog and release notes.
+        comment_tag: configs
+
+
+    - name: Comment DB schema change
+      uses: thollander/actions-comment-pull-request@v2
+      if: ${{steps.filter.outputs.db_schema == 'true'}}
+      with:
+        header: pr-title-lint-error
+        message: |
+          This PR may contain changes to **database schema** of one of the drivers.
+
+          If you are introducing any changes to the schema, make sure the upgrade from the latest release to this change passes without any errors/issues.
+
+          Please make sure the label `release-notes` is added to make sure upgrade instructions properly highlight this change.
+        comment_tag: db_schema
