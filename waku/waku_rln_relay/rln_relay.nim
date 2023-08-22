@@ -399,9 +399,7 @@ proc new*(T: type WakuRlnRelay,
   ## Returns an error if the rln-relay protocol could not be mounted.
   debug "rln-relay input validation passed"
   try:
-    waku_rln_relay_mounting_duration_seconds.nanosecondTime:
-      let rlnRelay = await mount(conf,
-                                 registrationHandler)
+    let rlnRelay = await mount(conf, registrationHandler)
     return ok(rlnRelay)
   except CatchableError as e:
     return err(e.msg)
