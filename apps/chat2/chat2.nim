@@ -343,9 +343,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   await node.start()
 
-  if conf.rlnRelayEthAccountPrivateKey == "" and conf.rlnRelayCredPath == "":
-    raise newException(ConfigurationError,
-    "Either rln-relay-eth-account-private-key or rln-relay-cred-path MUST be passed")
+  if conf.rlnRelayCredPath == "":
+    raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
 
   if conf.relay:
     await node.mountRelay(conf.topics.split(" "))
@@ -503,9 +502,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
             echo "A spam message is found and discarded"
           chat.prompt = false
           showChatPrompt(chat)
-        proc registrationHandler(txHash: string) {.gcsafe, closure.} =
-          echo "You are registered to the rln membership contract, find details of your registration transaction in https://sepolia.etherscan.io/tx/", txHash
-
+      
         echo "rln-relay preparation is in progress..."
 
         let rlnConf = WakuRlnConfig(
@@ -514,15 +511,12 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayMembershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
           rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-          rlnRelayEthAccountPrivateKey: conf.rlnRelayEthAccountPrivateKey,
-          rlnRelayEthAccountAddress: conf.rlnRelayEthAccountAddress,
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
         )
 
         await node.mountRlnRelay(rlnConf,
-                                 spamHandler=some(spamHandler),
-                                 registrationHandler=some(registrationHandler))
+                                 spamHandler=some(spamHandler))
 
         let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
         let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
@@ -533,8 +527,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
     else:
       info "WakuRLNRelay is disabled"
-      if conf.rlnRelay:
-        echo "WakuRLNRelay is disabled, please enable it by compiling with the RLN/EXPERIMENTAL flag"
+      echo "WakuRLNRelay is disabled, please enable it by compiling with the RLN/EXPERIMENTAL flag"
   if conf.metricsLogging:
     startMetricsLog()
 
