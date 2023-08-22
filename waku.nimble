@@ -72,7 +72,7 @@ task networkmonitor, "Build network monitor tool":
 
 task rln_keystore_generator, "Build the rln keystore generator":
   let name = "rln_keystore_generator"
-  buildBinary name, "apps/rln_keystore_generator/"
+  buildBinary name, "tools/rln_keystore_generator/"
 
 task test, "Build & run Waku tests":
   test "all_tests_waku"
