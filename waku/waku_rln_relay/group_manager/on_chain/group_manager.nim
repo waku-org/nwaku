@@ -69,9 +69,9 @@ template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "OnchainGroupManager is not initialized")
 
-method atomicBatch*(g: OnchainGroupManager, 
+method atomicBatch*(g: OnchainGroupManager,
                     start: MembershipIndex,
-                    idCommitments = newSeq[IDCommitment](), 
+                    idCommitments = newSeq[IDCommitment](),
                     toRemoveIndices = newSeq[MembershipIndex]()): Future[void] {.async.} =
   initializedGuard(g)
 
@@ -79,6 +79,7 @@ method atomicBatch*(g: OnchainGroupManager,
     let operationSuccess = g.rlnInstance.atomicWrite(some(start), idCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
+  waku_rln_number_registered_memberships.inc(int64(idCommitments.len - toRemoveIndices.len))
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -249,7 +250,7 @@ proc getBlockTable(g: OnchainGroupManager,
 
   return blockTable
 
-proc handleEvents(g: OnchainGroupManager, 
+proc handleEvents(g: OnchainGroupManager,
                   blockTable: BlockTable): Future[void] {.async.} =
   initializedGuard(g)
 
@@ -259,7 +260,7 @@ proc handleEvents(g: OnchainGroupManager,
       let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
       let idCommitments = members.mapIt(it[0].idCommitment)
       await g.atomicBatch(start = startIndex,
-                          idCommitments = idCommitments, 
+                          idCommitments = idCommitments,
                           toRemoveIndices = removalIndices)
       g.latestIndex = startIndex + MembershipIndex(idCommitments.len())
     except CatchableError:
@@ -277,7 +278,7 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future
   for blockNumber, members in blockTable.pairs():
     if members.anyIt(it[1]):
       numRemovedBlocks += 1
-  
+
   await g.backfillRootQueue(numRemovedBlocks)
 
 proc getAndHandleEvents(g: OnchainGroupManager,
@@ -289,7 +290,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
-  let latestProcessedBlock = if toBlock.isSome(): toBlock.get() 
+  let latestProcessedBlock = if toBlock.isSome(): toBlock.get()
                              else: fromBlock
   g.latestProcessedBlock = some(latestProcessedBlock)
   let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
@@ -343,7 +344,7 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
     # we always want to sync from last processed block => latest
-    if fromBlock == BlockNumber(0) or 
+    if fromBlock == BlockNumber(0) or
        fromBlock + BlockNumber(blockChunkSize) < latestBlock:
       # chunk events
       while true:
@@ -421,8 +422,7 @@ method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
     g.idCredentials = some(idCredential)
 
     debug "registering commitment on contract"
-    waku_rln_registration_duration_seconds.nanosecondTime:
-      await g.register(idCredential)
+    await g.register(idCredential)
     if g.registrationHandler.isSome():
       # We need to callback with the tx hash
       let handler = g.registrationHandler.get()
@@ -518,5 +518,5 @@ method stop*(g: OnchainGroupManager): Future[void] {.async.} =
   let flushed = g.rlnInstance.flush()
   if not flushed:
     error "failed to flush to the tree db"
-  
+
   g.initialized = false
