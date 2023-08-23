@@ -59,7 +59,7 @@ type RlnTreeConfig = ref object of RootObj
   cache_capacity: int
   mode: string
   compression: bool
-  flush_interval: int
+  flush_every_ms: int
   path: string
 
 type RlnConfig = ref object of RootObj
@@ -72,7 +72,7 @@ proc `%`(c: RlnConfig): JsonNode =
   let tree_config = %{ "cache_capacity": %c.tree_config.cache_capacity,
                        "mode": %c.tree_config.mode,
                        "compression": %c.tree_config.compression,
-                       "flush_interval": %c.tree_config.flush_interval,
+                       "flush_every_ms": %c.tree_config.flush_every_ms,
                        "path": %c.tree_config.path }
   return %[("resources_folder", %c.resources_folder),
            ("tree_config", %tree_config)]
@@ -91,7 +91,7 @@ proc createRLNInstanceLocal(d = MerkleTreeDepth,
       cache_capacity: 15_000,
       mode: "high_throughput",
       compression: false,
-      flush_interval: 500,
+      flush_every_ms: 500,
       path: if tree_path != "": tree_path else: DefaultRlnTreePath
     )
   )
