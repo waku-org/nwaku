@@ -103,6 +103,7 @@ type
     rendezvous*: RendezVous
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
+    topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -141,12 +142,15 @@ proc new*(T: type WakuNode,
 
   info "Initializing networking", addrs= $netConfig.announcedAddresses
 
+  let queue = newAsyncEventQueue[SubscriptionEvent](30)
+
   return WakuNode(
     peerManager: peerManager,
     switch: switch,
     rng: rng,
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
+    topicSubscriptionQueue: queue
   )
 
 proc peerInfo*(node: WakuNode): PeerInfo =
@@ -229,6 +233,7 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic) =
 
   debug "subscribe", pubsubTopic= topic
 
+  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
   node.registerRelayDefaultHandler(topic)
 
 proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
@@ -240,6 +245,7 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
 
   debug "subscribe", pubsubTopic= topic
 
+  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
   node.registerRelayDefaultHandler(topic)
   node.wakuRelay.subscribe(topic, handler)
 
@@ -252,6 +258,7 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
 
   info "unsubscribe", pubsubTopic=topic
 
+  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: topic))
   node.wakuRelay.unsubscribe(topic)
 
 

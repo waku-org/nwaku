@@ -5,10 +5,12 @@ import
   stew/results,
   stew/shims/net,
   chronos,
+  chronicles,
   testutils/unittests,
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
+  ../../waku/waku_core/topics,
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ./testlib/common,
@@ -282,7 +284,7 @@ procSuite "Waku Discovery v5":
     let gibberish = @["aedyttydcb/uioasduyio", "jhdfsjhlsdfjhk/sadjhk", "khfsd/hjfdsgjh/dfs"]
     let empty: seq[string] = @[]
 
-    let relayShards = RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)])
+    let relayShards = RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect("Valid Shards")
 
     ## When
 
@@ -314,7 +316,7 @@ procSuite "Waku Discovery v5":
         shardCluster: uint16 = 21
         shardIndices: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices)
+      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shards).isOk()
@@ -332,7 +334,7 @@ procSuite "Waku Discovery v5":
         shardCluster: uint16 = 22
         shardIndices: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices)
+      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shards).isOk()
@@ -350,7 +352,7 @@ procSuite "Waku Discovery v5":
         shardCluster: uint16 = 22
         shardIndices: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices)
+      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shards).isOk()
@@ -376,5 +378,77 @@ procSuite "Waku Discovery v5":
       predicateCluster22(recordCluster21) == false
       predicateCluster22(recordCluster22Indices1) == true
       predicateCluster22(recordCluster22Indices2) == false
+
+  asyncTest "update ENR from subscriptions":
+    ## Given
+    let
+      shard1 = "/waku/2/rs/0/1"
+      shard2 = "/waku/2/rs/0/2"
+      shard3 = "/waku/2/rs/0/3"
+      privKey =  generateSecp256k1Key()
+      bindIp = "0.0.0.0"
+      extIp = "127.0.0.1"
+      tcpPort = 61500u16
+      udpPort = 9000u16
+
+    let record = newTestEnrRecord(
+        privKey = privKey,
+        extIp = extIp,
+        tcpPort = tcpPort,
+        udpPort = udpPort,
+    )
+
+    let node = newTestDiscv5(
+        privKey = privKey,
+        bindIp = bindIp,
+        tcpPort = tcpPort,
+        udpPort = udpPort,
+        record = record
+    )
+
+    let res = node.start()
+    assert res.isOk(), res.error
+
+    let queue = newAsyncEventQueue[SubscriptionEvent](0)
+
+    ## When
+    asyncSpawn node.subscriptionsListener(queue)
+
+    ## Then
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard1))
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard2))
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard3))
+
+    await sleepAsync(1.seconds)
+
+    check:
+      node.protocol.localNode.record.containsShard(shard1) == true
+      node.protocol.localNode.record.containsShard(shard2) == true
+      node.protocol.localNode.record.containsShard(shard3) == true
+
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard1))
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard2))
+    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard3))
+
+    await sleepAsync(1.seconds)
+
+    check:
+      node.protocol.localNode.record.containsShard(shard1) == true
+      node.protocol.localNode.record.containsShard(shard2) == true
+      node.protocol.localNode.record.containsShard(shard3) == true
+
+    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard1))
+    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard2))
+    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard3))
+
+    await sleepAsync(1.seconds)
+
+    check:
+      node.protocol.localNode.record.containsShard(shard1) == false
+      node.protocol.localNode.record.containsShard(shard2) == false
+      node.protocol.localNode.record.containsShard(shard3) == false
+
+    ## Cleanup
+    await node.stop()
 
 

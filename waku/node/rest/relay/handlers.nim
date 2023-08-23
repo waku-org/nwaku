@@ -55,13 +55,12 @@ proc installRelayPostSubscriptionsV1Handler*(router: var RestRouter, node: WakuN
 
     let req: RelayPostSubscriptionsRequest = reqResult.get()
 
-    for topic in req:
-      if cache.isSubscribed(string(topic)):
-        # Only subscribe to topics for which we have no subscribed topic handlers yet
-        continue
+    # Only subscribe to topics for which we have no subscribed topic handlers yet
+    let newTopics = req.filterIt(not cache.isSubscribed(it))
 
-      cache.subscribe(string(topic))
-      node.subscribe(string(topic), cache.messageHandler())
+    for topic in newTopics:
+      cache.subscribe(topic)
+      node.subscribe(topic, cache.messageHandler())
 
     return RestApiResponse.ok()
 
@@ -88,8 +87,8 @@ proc installRelayDeleteSubscriptionsV1Handler*(router: var RestRouter, node: Wak
 
     # Unsubscribe all handlers from requested topics
     for topic in req:
-      node.unsubscribe(string(topic))
-      cache.unsubscribe(string(topic))
+      node.unsubscribe(topic)
+      cache.unsubscribe(topic)
 
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
