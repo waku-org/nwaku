@@ -3,7 +3,9 @@ import
 import
   chronicles,
   options,
-  stew/[arrayops, results],
+  eth/keys,
+  stew/[arrayops, byteutils, results, endians2],
+  std/[sequtils, strformat, strutils, tables],
   nimcrypto/utils
 
 import
@@ -120,7 +122,6 @@ proc createRLNInstance*(d = MerkleTreeDepth,
 
 proc sha256*(data: openArray[byte]): RlnRelayResult[MerkleNode] =
   ## a thin layer on top of the Nim wrapper of the sha256 hasher
-  trace "sha256 hash input", hashhex = data.toHex()
   var lenPrefData = encodeLengthPrefix(data)
   var
     hashInputBuffer = lenPrefData.toBuffer()
@@ -247,7 +248,7 @@ proc proofVerify*(rlnInstance: ptr RLN,
     rootsBytes = serialize(validRoots)
     rootsBuffer = rootsBytes.toBuffer()
 
-  trace "serialized proof", proof = proofBytes.toHex()
+  trace "serialized proof", proof = byteutils.toHex(proofBytes)
 
   let verifyIsSuccessful = verify_with_roots(rlnInstance, addr proofBuffer, addr rootsBuffer, addr validProof)
   if not verifyIsSuccessful:
@@ -350,11 +351,15 @@ proc getMerkleRoot*(rlnInstance: ptr RLN): MerkleNodeResult =
 type
   RlnMetadata* = object
     lastProcessedBlock*: uint64
+    chainId*: uint64
+    contractAddress*: string
 
 proc serialize(metadata: RlnMetadata): seq[byte] =
   ## serializes the metadata
   ## returns the serialized metadata
-  return @(metadata.lastProcessedBlock.toBytes())
+  return concat(@(metadata.lastProcessedBlock.toBytes()),
+                @(metadata.chainId.toBytes()),
+                @(hexToSeqByte(toLower(metadata.contractAddress))))
 
 proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[void] =
   ## sets the metadata of the RLN instance
@@ -368,6 +373,7 @@ proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[v
 
   # set the metadata
   let metadataSet = set_metadata(rlnInstance, metadataBufferPtr)
+
   if not metadataSet:
     return err("could not set the metadata")
   return ok()
@@ -384,8 +390,26 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
     getMetadataSuccessful = get_metadata(rlnInstance, metadataPtr)
   if not getMetadataSuccessful:
     return err("could not get the metadata")
-  if not metadata.len == 8:
+  if not metadata.len == 36:
     return err("wrong output size")
 
-  var metadataValue = cast[ptr uint64] (metadata.`ptr`)[]
-  return ok(RlnMetadata(lastProcessedBlock: metadataValue))
+  let 
+    lastProcessedBlockOffset = 0
+    chainIdOffset = lastProcessedBlockOffset + 8
+    contractAddressOffset = chainIdOffset + 8
+  
+  var
+    lastProcessedBlock: uint64
+    chainId: uint64
+    contractAddress: string
+
+  var metadataValue = cast[ptr array[36, byte]] (metadata.`ptr`)
+  let metadataBytes: array[36, byte] = metadataValue[]
+
+  lastProcessedBlock = uint64.fromBytes(metadataBytes[lastProcessedBlockOffset..chainIdOffset-1])
+  chainId = uint64.fromBytes(metadataBytes[chainIdOffset..contractAddressOffset-1])
+  contractAddress = byteutils.toHex(metadataBytes[contractAddressOffset..metadataBytes.high])
+
+  return ok(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
+                        chainId: chainId,
+                        contractAddress: "0x" & contractAddress))

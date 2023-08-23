@@ -197,6 +197,29 @@ suite "Onchain group manager":
       manager.membershipFee.isSome()
       manager.initialized
 
+  asyncTest "should error on initialization when loaded metadata does not match":
+    let manager = await setup()
+    await manager.init()
+
+    let metadataSetRes = manager.setMetadata()
+    assert metadataSetRes.isOk(), metadataSetRes.error
+    let metadataRes = manager.rlnInstance.getMetadata()
+    assert metadataRes.isOk(), metadataRes.error
+    let metadata = metadataRes.get()
+    require:
+      metadata.chainId == 1337
+      metadata.contractAddress == manager.ethContractAddress
+    
+    await manager.stop()
+    
+    # simulating a change in the contractAddress
+    let manager2 = OnchainGroupManager(ethClientUrl: EthClient,
+                                       ethContractAddress: "0x0000000000000000000000000000000000000000",
+                                       ethPrivateKey: manager.ethPrivateKey,
+                                       rlnInstance: manager.rlnInstance,
+                                       saveKeystore: false)
+    expect(ValueError): await manager2.init()
+
   asyncTest "startGroupSync: should start group sync":
     let manager = await setup()
 

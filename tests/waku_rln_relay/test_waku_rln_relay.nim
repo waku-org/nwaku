@@ -245,7 +245,9 @@ suite "Waku rln relay":
       rlnInstance.isOk()
     let rln = rlnInstance.get()
     check:
-      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128)).isOk()
+      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128,
+                                  chainId: 1155511,
+                                  contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
 
   test "getMetadata rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -255,7 +257,9 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     require:
-      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128)).isOk()
+      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128,
+                                  chainId: 1155511,
+                                  contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
 
     let metadataRes = rln.getMetadata()
 
@@ -266,7 +270,8 @@ suite "Waku rln relay":
 
     check:
       metadata.lastProcessedBlock == 128
-
+      metadata.chainId == 1155511
+      metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
