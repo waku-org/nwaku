@@ -22,7 +22,7 @@ when isMainModule:
   # 1. load configuration
   let confRes = RlnKeystoreGeneratorConf.loadConfig()
   if confRes.isErr():
-    error "failure while loading the configuration", error=confRes.error()
+    error "failure while loading the configuration", error=confRes.error
     quit(1)
 
   let conf = confRes.get()
@@ -33,7 +33,7 @@ when isMainModule:
   let rlnInstanceRes = createRLNInstance(d=20, 
                                          tree_path = genTempPath("rln_tree", "rln_keystore_generator"))
   if rlnInstanceRes.isErr():
-    error "failure while creating RLN instance", error=rlnInstanceRes.error()
+    error "failure while creating RLN instance", error=rlnInstanceRes.error
     quit(1)
   
   let rlnInstance = rlnInstanceRes.get()
@@ -41,7 +41,7 @@ when isMainModule:
   # 3. generate credentials
   let credentialRes = rlnInstance.membershipKeyGen()
   if credentialRes.isErr():
-    error "failure while generating credentials", error=credentialRes.error()
+    error "failure while generating credentials", error=credentialRes.error
     quit(1)
 
   let credential = credentialRes.get()
@@ -66,7 +66,7 @@ when isMainModule:
 
   let persistRes = addMembershipCredentials(conf.rlnRelayCredPath, @[keystoreCred], conf.rlnRelayCredPassword, RLNAppInfo)
   if persistRes.isErr():
-    error "failed to persist credentials", error=persistRes.error()
+    error "failed to persist credentials", error=persistRes.error
     quit(1)
   
   info "credentials persisted", path = conf.rlnRelayCredPath
