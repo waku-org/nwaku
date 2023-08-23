@@ -12,6 +12,7 @@ import
   ../../waku/waku_keystore,
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
+  ../../waku/waku_rln_relay/group_manager/on_chain,
   ./external_config
 
 logScope:
@@ -35,7 +36,7 @@ when isMainModule:
   if rlnInstanceRes.isErr():
     error "failure while creating RLN instance", error=rlnInstanceRes.error
     quit(1)
-  
+
   let rlnInstance = rlnInstanceRes.get()
 
   # 3. generate credentials
@@ -50,17 +51,44 @@ when isMainModule:
                        idSecretHash = credential.idSecretHash.inHex(),
                        idCommitment = credential.idCommitment.inHex()
 
-  # 4. write to keystore
-  ## TODO: after hooking up to the OnchainGroupManager, 
-  ## obtain chainId and treeIndex from the contract
+  
+  if not conf.execute:
+    info "not executing, exiting"
+    quit(0)
+
+  # 4. initialize OnchainGroupManager
+  let groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
+                                         ethContractAddress: conf.rlnRelayEthContractAddress,
+                                         rlnInstance: rlnInstance,
+                                         keystorePath: none(string),
+                                         keystorePassword: none(string),
+                                         ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
+                                         # saveKeystore = false, since we're managing it
+                                         saveKeystore: false)
+  try:
+    waitFor groupManager.init()
+  except CatchableError:
+    error "failure while initializing OnchainGroupManager", error=getCurrentExceptionMsg()
+    quit(1)
+
+  # 5. register on-chain
+  try:
+    waitFor groupManager.register(credential)
+  except CatchableError:
+    error "failure while registering credentials on-chain", error=getCurrentExceptionMsg()
+    quit(1)
+
+  debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
+
+  # 6. write to keystore
   let keystoreCred = MembershipCredentials(
     identityCredential: credential,
     membershipGroups: @[MembershipGroup(
       membershipContract: MembershipContract(
-        chainId: "1155511",
+        chainId: $groupManager.chainId.get(),
         address: conf.rlnRelayEthContractAddress,
       ),
-      treeIndex: 0,
+      treeIndex: groupManager.membershipIndex.get(),
     )]
   )
 
@@ -74,6 +102,5 @@ when isMainModule:
   
   info "credentials persisted", path = conf.rlnRelayCredPath
 
-  
-
-
+  waitFor groupManager.stop()
+  quit(0)
