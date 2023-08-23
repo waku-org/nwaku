@@ -64,7 +64,10 @@ when isMainModule:
     )]
   )
 
-  let persistRes = addMembershipCredentials(conf.rlnRelayCredPath, @[keystoreCred], conf.rlnRelayCredPassword, RLNAppInfo)
+  let persistRes = addMembershipCredentials(conf.rlnRelayCredPath, 
+                                            @[keystoreCred], 
+                                            conf.rlnRelayCredPassword, 
+                                            RLNAppInfo)
   if persistRes.isErr():
     error "failed to persist credentials", error=persistRes.error
     quit(1)
