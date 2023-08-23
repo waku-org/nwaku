@@ -262,8 +262,10 @@ suite "Waku ENR - Relay static sharding":
       shardIndex: uint16 = 1024
 
     ## When
-    expect Defect:
-      discard RelayShards.init(shardCluster, shardIndex)
+    let res = RelayShards.init(shardCluster, shardIndex)
+
+    ## Then
+    assert res.isErr(), $res.get()
 
   test "new relay shards field with single invalid index in list":
     ## Given
@@ -272,8 +274,10 @@ suite "Waku ENR - Relay static sharding":
       shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16, 1024u16]
 
     ## When
-    expect Defect:
-      discard RelayShards.init(shardCluster, shardIndices)
+    let res = RelayShards.init(shardCluster, shardIndices)
+
+    ## Then
+    assert res.isErr(), $res.get()
 
   test "new relay shards field with single valid index":
     ## Given
@@ -284,7 +288,7 @@ suite "Waku ENR - Relay static sharding":
     let topic = NsPubsubTopic.staticSharding(shardCluster, shardIndex)
 
     ## When
-    let shards = RelayShards.init(shardCluster, shardIndex)
+    let shards = RelayShards.init(shardCluster, shardIndex).expect("Valid Shards")
 
     ## Then
     check:
@@ -310,7 +314,7 @@ suite "Waku ENR - Relay static sharding":
       shardIndices: seq[uint16] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
 
     ## When
-    let shards = RelayShards.init(shardCluster, shardIndices)
+    let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
 
     ## Then
     check:
@@ -344,7 +348,7 @@ suite "Waku ENR - Relay static sharding":
       shardCluster: uint16 = 22
       shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
 
-    let shards = RelayShards.init(shardCluster, shardIndices)
+    let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
 
     ## When
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
@@ -370,7 +374,7 @@ suite "Waku ENR - Relay static sharding":
       enrSeqNum = 1u64
       enrPrivKey = generatesecp256k1key()
 
-    let shards = RelayShards.init(33, toSeq(0u16 ..< 64u16))
+    let shards = RelayShards.init(33, toSeq(0u16 ..< 64u16)).expect("Valid Shards")
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
     require builder.withWakuRelaySharding(shards).isOk()
@@ -398,8 +402,8 @@ suite "Waku ENR - Relay static sharding":
       enrPrivKey = generatesecp256k1key()
 
     let
-      shardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16])
-      shardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16])
+      shardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]).expect("Valid Shards")
+      shardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16]).expect("Valid Shards")
 
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)

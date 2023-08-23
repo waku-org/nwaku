@@ -541,12 +541,14 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
 proc startApp*(app: App): Future[AppResult[void]] {.async.} =
   if app.wakuDiscv5.isSome():
-    let res = app.wakuDiscv5.get().start()
+    let wakuDiscv5 = app.wakuDiscv5.get()
 
+    let res = wakuDiscv5.start()
     if res.isErr():
       return err("failed to start waku discovery v5: " & $res.error)
 
-    asyncSpawn app.wakuDiscv5.get().searchLoop(app.node.peerManager, some(app.record))
+    asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager, some(app.record))
+    asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
 
   return await startNode(
     app.node,
