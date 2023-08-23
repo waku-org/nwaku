@@ -12,7 +12,8 @@ import
   json,
   std/tables,
   stew/[byteutils, arrayops],
-  sequtils
+  sequtils,
+  strutils
 import
   ../../../waku_keystore,
   ../../rln,
@@ -281,6 +282,20 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future
 
   await g.backfillRootQueue(numRemovedBlocks)
 
+proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
+  if g.latestProcessedBlock.isNone():
+    return err("latest processed block is not set")
+  try:
+    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
+                            lastProcessedBlock: g.latestProcessedBlock.get(),
+                            chainId: uint64(g.chainId.get()),
+                            contractAddress: g.ethContractAddress))
+    if metadataSetRes.isErr():
+      return err("failed to persist rln metadata: " & metadataSetRes.error())
+  except CatchableError:
+    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
+  return ok()
+
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
                         toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
@@ -293,8 +308,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   let latestProcessedBlock = if toBlock.isSome(): toBlock.get()
                              else: fromBlock
   g.latestProcessedBlock = some(latestProcessedBlock)
-  let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
-                          lastProcessedBlock: latestProcessedBlock))
+  let metadataSetRes = g.setMetadata()
   if metadataSetRes.isErr():
     # this is not a fatal error, hence we don't raise an exception
     warn "failed to persist rln metadata", error=metadataSetRes.error()
@@ -465,17 +479,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   contract = ethRpc.contractSender(RlnContract, contractAddress)
 
-  # check if the contract exists by calling a static function
-  var membershipFee: Uint256
-  try:
-    membershipFee = await contract.MEMBERSHIP_DEPOSIT().call()
-  except CatchableError:
-    raise newException(ValueError, "could not get the membership deposit: {}")
-
-
   g.ethRpc = some(ethRpc)
   g.rlnContract = some(contract)
-  g.membershipFee = some(membershipFee)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
@@ -498,7 +503,21 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     g.latestProcessedBlock = some(BlockNumber(0))
   else:
     let metadata = metadataGetRes.get()
+    if metadata.chainId != uint64(g.chainId.get()):
+      raise newException(ValueError, "persisted data: chain id mismatch")
+  
+    if metadata.contractAddress != g.ethContractAddress.toLower():
+      raise newException(ValueError, "persisted data: contract address mismatch")
     g.latestProcessedBlock = some(metadata.lastProcessedBlock)
+
+  # check if the contract exists by calling a static function
+  var membershipFee: Uint256
+  try:
+    membershipFee = await contract.MEMBERSHIP_DEPOSIT().call()
+  except CatchableError:
+    raise newException(ValueError, 
+                       "could not get the membership deposit: " & getCurrentExceptionMsg())
+  g.membershipFee = some(membershipFee)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
