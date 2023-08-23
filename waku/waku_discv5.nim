@@ -48,6 +48,31 @@ type WakuDiscoveryV5* = ref object
     conf: WakuDiscoveryV5Config
     protocol*: protocol.Protocol
     listening*: bool
+    predicate: Option[WakuDiscv5Predicate]
+
+proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
+  ## Filter peers based on relay sharding information
+
+  let typeRecordRes = record.toTyped()
+  let typedRecord =
+    if typeRecordRes.isErr():
+      debug "peer filtering failed", reason= $typeRecordRes.error
+      return none(WakuDiscv5Predicate)
+    else: typeRecordRes.get()
+
+  let nodeShardOp = typedRecord.relaySharding()
+  let nodeShard =
+    if nodeShardOp.isNone():
+      debug "no relay sharding information, peer filtering disabled"
+      return none(WakuDiscv5Predicate)
+    else: nodeShardOp.get()
+
+  debug "peer filtering updated"
+
+  let predicate = proc(record: waku_enr.Record): bool =
+      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
+
+  return some(predicate)
 
 proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
   let protocol = newProtocol(
@@ -64,7 +89,13 @@ proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscovery
     enrUdpPort = none(Port),
   )
 
-  WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false)
+  let shardPredOp =
+    if record.isSome():
+      shardingPredicate(record.get())
+    else:
+      none(WakuDiscv5Predicate)
+
+  WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false, predicate: shardPredOp)
 
 proc new*(T: type WakuDiscoveryV5,
           extIp: Option[ValidIpAddress],
@@ -195,57 +226,29 @@ proc updateENRShards(wd: WakuDiscoveryV5,
 
   return ok()
 
-proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
-  ## Filter peers based on relay sharding information
-
-  let typeRecordRes = record.toTyped()
-  let typedRecord =
-    if typeRecordRes.isErr():
-      debug "peer filtering failed", reason= $typeRecordRes.error
-      return none(WakuDiscv5Predicate)
-    else: typeRecordRes.get()
-
-  let nodeShardOp = typedRecord.relaySharding()
-  let nodeShard =
-    if nodeShardOp.isNone():
-      debug "no relay sharding information, peer filtering disabled"
-      return none(WakuDiscv5Predicate)
-    else: nodeShardOp.get()
-
-  debug "peer filtering enabled"
-
-  let predicate = proc(record: waku_enr.Record): bool =
-      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
-
-  return some(predicate)
-
-proc findRandomPeers*(wd: WakuDiscoveryV5, pred = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
+proc findRandomPeers*(wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)): Future[seq[waku_enr.Record]] {.async.} =
   ## Find random peers to connect to using Discovery v5
   let discoveredNodes = await wd.protocol.queryRandom()
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
   # Filter out nodes that do not match the predicate
-  if pred.isSome():
-    discoveredRecords = discoveredRecords.filter(pred.get())
+  if overridePred.isSome():
+    discoveredRecords = discoveredRecords.filter(overridePred.get())
+  elif wd.predicate.isSome():
+    discoveredRecords = discoveredRecords.filter(wd.predicate.get())
 
   return discoveredRecords
 
 #TODO abstract away PeerManager
-proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager, record: Option[enr.Record]) {.async.} =
+proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager) {.async.} =
   ## Continuously add newly discovered nodes
 
   info "Starting discovery v5 search"
 
-  let shardPredOp =
-    if record.isSome():
-      shardingPredicate(record.get())
-    else:
-      none(WakuDiscv5Predicate)
-
   while wd.listening:
     trace "running discv5 discovery loop"
-    let discoveredRecords = await wd.findRandomPeers(shardPredOp)
+    let discoveredRecords = await wd.findRandomPeers()
     let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
     for peer in discoveredPeers:
@@ -305,6 +308,9 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
     let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
     let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
 
+    if subs.len == 0 and unsubs.len == 0:
+      continue
+
     let unsubRes = wd.updateENRShards(unsubs, false)
     let subRes = wd.updateENRShards(subs, true)
 
@@ -314,8 +320,12 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
     if unsubRes.isErr():
       debug "ENR shard removal failed", reason= $unsubRes.error
 
-    if subRes.isOk() and unsubRes.isOk():
-      debug "ENR updated successfully"
+    if subRes.isErr() and unsubRes.isErr():
+      continue
+
+    debug "ENR updated successfully"
+
+    wd.predicate = shardingPredicate(wd.protocol.localNode.record)
 
   topicSubscriptionQueue.unregister(key)
 

@@ -155,8 +155,8 @@ procSuite "Waku Peer Exchange":
     assert resultDisc1StartRes.isOk(), resultDisc1StartRes.error
     let resultDisc2StartRes = disc2.start()
     assert resultDisc2StartRes.isOk(), resultDisc2StartRes.error
-    asyncSpawn disc1.searchLoop(node1.peerManager, none(enr.Record))
-    asyncSpawn disc2.searchLoop(node2.peerManager, none(enr.Record))
+    asyncSpawn disc1.searchLoop(node1.peerManager)
+    asyncSpawn disc2.searchLoop(node2.peerManager)
 
     ## When
     var attempts = 10
