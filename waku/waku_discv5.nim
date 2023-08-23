@@ -308,6 +308,9 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
     let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
     let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
 
+    if subs.len == 0 and unsubs.len == 0:
+      continue
+
     let unsubRes = wd.updateENRShards(unsubs, false)
     let subRes = wd.updateENRShards(subs, true)
 
@@ -317,8 +320,10 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
     if unsubRes.isErr():
       debug "ENR shard removal failed", reason= $unsubRes.error
 
-    if subRes.isOk() and unsubRes.isOk():
-      debug "ENR updated successfully"
+    if subRes.isErr() and unsubRes.isErr():
+      continue
+
+    debug "ENR updated successfully"
 
     wd.predicate = shardingPredicate(wd.protocol.localNode.record)
 
