@@ -69,7 +69,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
       error "failed to start discv5", error = discv5Res.error
       quit(1)
 
-    asyncSpawn wakuDiscv5.searchLoop(node.peerManager, some(node.enr))
+    asyncSpawn wakuDiscv5.searchLoop(node.peerManager)
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
     while true:
