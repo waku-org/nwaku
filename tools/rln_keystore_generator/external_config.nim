@@ -56,6 +56,11 @@ type
       defaultValue: "",
       name: "rln-relay-cred-password" }: string
 
+    rlnRelayEthPrivateKey* {.
+      desc: "Private key for broadcasting transactions",
+      defaultValue: "",
+      name: "rln-relay-eth-private-key" }: string
+
 proc loadConfig*(T: type RlnKeystoreGeneratorConf): Result[T, string] =
   try:
     let conf = RlnKeystoreGeneratorConf.load()
@@ -65,6 +70,8 @@ proc loadConfig*(T: type RlnKeystoreGeneratorConf): Result[T, string] =
       return err("--rln-relay-eth-contract-address must be set")
     if conf.rlnRelayCredPassword == "":
       return err("--rln-relay-cred-password must be set")
+    if conf.rlnRelayEthPrivateKey == "":
+      return err("--rln-relay-eth-private-key must be set")
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())

@@ -186,7 +186,7 @@ chat2: | build deps librln
 
 rln_keystore_generator: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim rlnkeystoregenerator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 chat2bridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
