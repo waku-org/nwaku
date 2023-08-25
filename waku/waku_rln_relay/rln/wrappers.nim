@@ -374,15 +374,14 @@ proc deserialize*(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
   var i = 1'u64
   let len = uint64.fromBytes(merkleNodeByteSeq[0..7], Endianness.littleEndian)
   trace "length of valid roots", len
-  var offset = 8'u64
-  while i <= len:
+  let offset = 8'u64
+  for i in 1'u64..len:
     # convert seq[byte] to array[32, byte]
     let rawRoot = merkleNodeByteSeq[offset*i .. offset*i + 31]
     trace "raw root", rawRoot = rawRoot
     var root: MerkleNode
     discard root.copyFrom(rawRoot)
     roots.add(root)
-    i.inc()
   return roots
 
 proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[void] =
