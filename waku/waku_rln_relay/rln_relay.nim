@@ -344,7 +344,6 @@ proc mount(conf: WakuRlnConfig,
   var
     groupManager: GroupManager
     credentials: MembershipCredentials
-    persistCredentials = false
   # create an RLN instance
   let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
   if rlnInstanceRes.isErr():
@@ -374,9 +373,7 @@ proc mount(conf: WakuRlnConfig,
                                        keystorePath: rlnRelayCredPath,
                                        keystorePassword: rlnRelayCredentialsPassword,
                                        keystoreIndex: conf.rlnRelayCredIndex,
-                                       membershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
-                                       saveKeystore: true)
-
+                                       membershipGroupIndex: conf.rlnRelayMembershipGroupIndex)
   # Initialize the groupManager
   await groupManager.init()
   # Start the group sync

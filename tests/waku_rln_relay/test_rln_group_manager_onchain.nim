@@ -60,26 +60,26 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "hasher address: ", hasherAddress
 
 
-  # encode membership contract inputs to 32 bytes zero-padded
+  # encode registry contract inputs to 32 bytes zero-padded
   let
-    membershipFeeEncoded = encode(MembershipFee).data
-    depthEncoded = encode(MerkleTreeDepth.u256).data
     hasherAddressEncoded = encode(hasherAddress).data
     # this is the contract constructor input
-    contractInput = membershipFeeEncoded & depthEncoded & hasherAddressEncoded
+    contractInput = hasherAddressEncoded
 
 
-  debug "encoded membership fee: ", membershipFeeEncoded
-  debug "encoded depth: ", depthEncoded
   debug "encoded hasher address: ", hasherAddressEncoded
   debug "encoded contract input:", contractInput
 
-  # deploy membership contract with its constructor inputs
-  let receipt = await web3.deployContract(MembershipContractCode,
-      contractInput = contractInput)
-  let contractAddress = receipt.contractAddress.get
-  debug "Address of the deployed membership contract: ", contractAddress
+  # deploy registry contract with its constructor inputs
+  let receipt = await web3.deployContract(RegistryContractCode,
+                                          contractInput = contractInput)
+  let contractAddress = receipt.contractAddress.get()
+  debug "Address of the deployed registry contract: ", contractAddress
 
+  let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
+  let newStorageReceipt = await registryContract.newStorage().send()
+
+  debug "Receipt of the newStorage transaction: ", newStorageReceipt
   let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
   debug "Account balance after the contract deployment: ", newBalance
 
@@ -149,14 +149,11 @@ proc stopGanache(runGanache: Process) {.used.} =
   try:
     # We terminate Ganache daemon by sending a SIGTERM signal to the runGanache PID to trigger RPC server termination and clean-up
     discard startProcess("pkill", args = ["-f", "ganache"], options = {poUsePath})
-    # NOTE: the below line must remain commented out, otherwise it will cause a deadlocked state
-    # ref: https://nim-lang.org/docs/osproc.html#waitForExit%2CProcess%2Cint
-    # debug "ganache logs", logs=runGanache.outputstream.readAll()
     debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
   except:
     error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
 
-proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
+proc setup(): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
   require:
     rlnInstanceRes.isOk()
@@ -168,18 +165,16 @@ proc setup(signer = true): Future[OnchainGroupManager] {.async.} =
   let web3 = await newWeb3(EthClient)
 
   let accounts = await web3.provider.eth_accounts()
-  web3.defaultAccount = accounts[1]
+  web3.defaultAccount = accounts[0]
 
   var pk = none(string)
-  if signer:
-    let (privateKey, _) = await createEthAccount()
-    pk = some($privateKey)
+  let (privateKey, _) = await createEthAccount()
+  pk = some($privateKey)
 
   let manager = OnchainGroupManager(ethClientUrl: EthClient,
                                     ethContractAddress: $contractAddress,
                                     ethPrivateKey: pk,
-                                    rlnInstance: rlnInstance,
-                                    saveKeystore: false)
+                                    rlnInstance: rlnInstance)
 
   return manager
 
@@ -211,13 +206,12 @@ suite "Onchain group manager":
       metadata.contractAddress == manager.ethContractAddress
     
     await manager.stop()
-    
+
+    let differentContractAddress = await uploadRLNContract(manager.ethClientUrl)
     # simulating a change in the contractAddress
     let manager2 = OnchainGroupManager(ethClientUrl: EthClient,
-                                       ethContractAddress: "0x0000000000000000000000000000000000000000",
-                                       ethPrivateKey: manager.ethPrivateKey,
-                                       rlnInstance: manager.rlnInstance,
-                                       saveKeystore: false)
+                                       ethContractAddress: $differentContractAddress,
+                                       rlnInstance: manager.rlnInstance)
     expect(ValueError): await manager2.init()
 
   asyncTest "startGroupSync: should start group sync":
@@ -234,7 +228,7 @@ suite "Onchain group manager":
 
   asyncTest "startGroupSync: should sync to the state of the group":
     let manager = await setup()
-
+    let credentials = generateCredentials(manager.rlnInstance)
     await manager.init()
 
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
@@ -248,13 +242,14 @@ suite "Onchain group manager":
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         require:
           registrations.len == 1
-          registrations[0].idCommitment == manager.idCredentials.get().idCommitment
-          registrations[0].index == 0
+          registrations[0].idCommitment == credentials.idCommitment
+          registrations[0].index == 1
         fut.complete()
       return callback
 
     manager.onRegister(generateCallback(fut))
 
+    await manager.register(credentials)
     await manager.startGroupSync()
 
     await fut
@@ -291,7 +286,6 @@ suite "Onchain group manager":
           futs[futureIndex].complete()
           futureIndex += 1
       return callback
-
     manager.onRegister(generateCallback(futures, credentials))
     await manager.startGroupSync()
 
@@ -317,7 +311,7 @@ suite "Onchain group manager":
       await manager.register(dummyCommitment)
 
   asyncTest "register: should register successfully":
-    let manager = await setup(false)
+    let manager = await setup()
     await manager.init()
     await manager.startGroupSync()
 
@@ -336,7 +330,7 @@ suite "Onchain group manager":
       manager.latestIndex == 1
 
   asyncTest "register: callback is called":
-    let manager = await setup(false)
+    let manager = await setup()
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
 
@@ -366,19 +360,24 @@ suite "Onchain group manager":
 
   asyncTest "validateRoot: should validate good root":
     let manager = await setup()
+    let credentials = generateCredentials(manager.rlnInstance)
     await manager.init()
+
 
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
-         registrations[0].idCommitment == manager.idCredentials.get().idCommitment and
-         registrations[0].index == 0:
+         registrations[0].idCommitment == credentials.idCommitment and
+         registrations[0].index == 1:
+        manager.idCredentials = some(credentials)
+        manager.membershipIndex = some(registrations[0].index)
         fut.complete()
 
     manager.onRegister(callback)
 
     await manager.startGroupSync()
+    await manager.register(credentials)
     await fut
 
     let messageBytes = "Hello".toBytes()
@@ -405,10 +404,10 @@ suite "Onchain group manager":
     await manager.init()
     await manager.startGroupSync()
 
-    let idCredential = generateCredentials(manager.rlnInstance)
+    let credentials = generateCredentials(manager.rlnInstance)
 
     ## Assume the registration occured out of band
-    manager.idCredentials = some(idCredential)
+    manager.idCredentials = some(credentials)
     manager.membershipIndex = some(MembershipIndex(0))
 
     let messageBytes = "Hello".toBytes()
@@ -432,19 +431,23 @@ suite "Onchain group manager":
 
   asyncTest "verifyProof: should verify valid proof":
     let manager = await setup()
+    let credentials = generateCredentials(manager.rlnInstance)
     await manager.init()
 
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
-         registrations[0].idCommitment == manager.idCredentials.get().idCommitment and
-         registrations[0].index == 0:
+         registrations[0].idCommitment == credentials.idCommitment and
+         registrations[0].index == 1:
+        manager.idCredentials = some(credentials)
+        manager.membershipIndex = some(registrations[0].index)
         fut.complete()
 
     manager.onRegister(callback)
 
     await manager.startGroupSync()
+    await manager.register(credentials)
     await fut
 
     let messageBytes = "Hello".toBytes()
