@@ -62,9 +62,7 @@ when isMainModule:
                                          rlnInstance: rlnInstance,
                                          keystorePath: none(string),
                                          keystorePassword: none(string),
-                                         ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
-                                         # saveKeystore = false, since we're managing it
-                                         saveKeystore: false)
+                                         ethPrivateKey: some(conf.rlnRelayEthPrivateKey))
   try:
     waitFor groupManager.init()
   except CatchableError:
