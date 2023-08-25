@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, streams, strutils, tempfiles],
+  std/[options, osproc, sequtils, deques, streams, strutils, tempfiles],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -350,6 +350,9 @@ suite "Onchain group manager":
     await manager.register(idCommitment)
 
     await fut
+
+    check:
+      manager.rlnInstance.getMetadata().get().validRoots == manager.validRoots.toSeq()
 
   asyncTest "withdraw: should guard against uninitialized state":
     let manager = await setup()
