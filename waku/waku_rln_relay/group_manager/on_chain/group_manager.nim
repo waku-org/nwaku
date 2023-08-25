@@ -75,6 +75,22 @@ template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "OnchainGroupManager is not initialized")
 
+
+proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
+  if g.latestProcessedBlock.isNone():
+    return err("latest processed block is not set")
+  try:
+    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
+                            lastProcessedBlock: g.latestProcessedBlock.get(),
+                            chainId: uint64(g.chainId.get()),
+                            contractAddress: g.ethContractAddress,
+                            validRoots: g.validRoots.toSeq()))
+    if metadataSetRes.isErr():
+      return err("failed to persist rln metadata: " & metadataSetRes.error)
+  except CatchableError:
+    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
+  return ok()
+
 method atomicBatch*(g: OnchainGroupManager,
                     start: MembershipIndex,
                     idCommitments = newSeq[IDCommitment](),
@@ -91,12 +107,15 @@ method atomicBatch*(g: OnchainGroupManager,
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< idCommitments.len():
       var index = start + MembershipIndex(i)
-      debug "registering member", idCommitment = idCommitments[i], index = index
+      trace "registering member", idCommitment = idCommitments[i], index = index
       let member = Membership(idCommitment: idCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
   g.validRootBuffer = g.slideRootQueue()
+  let setMetadataRes = g.setMetadata()
+  if setMetadataRes.isErr():
+    error "failed to persist rln metadata", error=setMetadataRes.error
 
 method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
   initializedGuard(g)
@@ -286,20 +305,6 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future
 
   await g.backfillRootQueue(numRemovedBlocks)
 
-proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
-  if g.latestProcessedBlock.isNone():
-    return err("latest processed block is not set")
-  try:
-    let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
-                            lastProcessedBlock: g.latestProcessedBlock.get(),
-                            chainId: uint64(g.chainId.get()),
-                            contractAddress: g.ethContractAddress))
-    if metadataSetRes.isErr():
-      return err("failed to persist rln metadata: " & metadataSetRes.error())
-  except CatchableError:
-    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
-  return ok()
-
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
                         toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
@@ -317,7 +322,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
     # this is not a fatal error, hence we don't raise an exception
     warn "failed to persist rln metadata", error=metadataSetRes.error()
   else:
-    debug "rln metadata persisted", blockNumber = latestProcessedBlock
+    trace "rln metadata persisted", blockNumber = latestProcessedBlock
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
@@ -461,6 +466,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     if metadata.contractAddress != g.ethContractAddress.toLower():
       raise newException(ValueError, "persisted data: contract address mismatch")
     g.latestProcessedBlock = some(metadata.lastProcessedBlock)
+    g.validRoots = metadata.validRoots.toDeque()
 
   # check if the contract exists by calling a static function
   var membershipFee: Uint256

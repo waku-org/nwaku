@@ -353,13 +353,36 @@ type
     lastProcessedBlock*: uint64
     chainId*: uint64
     contractAddress*: string
+    validRoots*: seq[MerkleNode]
 
 proc serialize(metadata: RlnMetadata): seq[byte] =
   ## serializes the metadata
   ## returns the serialized metadata
   return concat(@(metadata.lastProcessedBlock.toBytes()),
                 @(metadata.chainId.toBytes()),
-                @(hexToSeqByte(toLower(metadata.contractAddress))))
+                @(hexToSeqByte(toLower(metadata.contractAddress))),
+                @(uint64(metadata.validRoots.len()).toBytes()),
+                @(serialize(metadata.validRoots)))
+
+type MerkleNodeSeq = seq[MerkleNode]
+
+proc deserialize*(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
+  ## deserializes a byte seq to a seq of MerkleNodes
+  ## the order of serialization is |merkle_node_len<8>|merkle_node[len]|
+  
+  var roots = newSeq[MerkleNode]()
+  var i = 1'u64
+  let len = uint64.fromBytes(merkleNodeByteSeq[0..7], Endianness.littleEndian)
+  trace "length of valid roots", len
+  let offset = 8'u64
+  for i in 1'u64..len:
+    # convert seq[byte] to array[32, byte]
+    let rawRoot = merkleNodeByteSeq[offset*i .. offset*i + 31]
+    trace "raw root", rawRoot = rawRoot
+    var root: MerkleNode
+    discard root.copyFrom(rawRoot)
+    roots.add(root)
+  return roots
 
 proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[void] =
   ## sets the metadata of the RLN instance
@@ -368,6 +391,7 @@ proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[v
 
   # serialize the metadata
   let metadataBytes = serialize(metadata)
+  trace "setting metadata", metadata = metadata, metadataBytes = metadataBytes, len = metadataBytes.len
   var metadataBuffer = metadataBytes.toBuffer()
   let metadataBufferPtr = addr metadataBuffer
 
@@ -390,26 +414,31 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
     getMetadataSuccessful = get_metadata(rlnInstance, metadataPtr)
   if not getMetadataSuccessful:
     return err("could not get the metadata")
-  if not metadata.len == 36:
-    return err("wrong output size")
+  trace "metadata length", metadataLen = metadata.len
 
   let 
     lastProcessedBlockOffset = 0
     chainIdOffset = lastProcessedBlockOffset + 8
     contractAddressOffset = chainIdOffset + 8
-  
+    validRootsOffset = contractAddressOffset + 20
+
   var
     lastProcessedBlock: uint64
     chainId: uint64
     contractAddress: string
+    validRoots: MerkleNodeSeq
 
-  var metadataValue = cast[ptr array[36, byte]] (metadata.`ptr`)
-  let metadataBytes: array[36, byte] = metadataValue[]
+  # 8 + 8 + 20 + 8 + (5*32) = 204
+  var metadataBytes = cast[ptr array[204, byte]](metadata.`ptr`)[]
+  trace "received metadata bytes", metadataBytes = metadataBytes, len = metadataBytes.len
 
   lastProcessedBlock = uint64.fromBytes(metadataBytes[lastProcessedBlockOffset..chainIdOffset-1])
   chainId = uint64.fromBytes(metadataBytes[chainIdOffset..contractAddressOffset-1])
-  contractAddress = byteutils.toHex(metadataBytes[contractAddressOffset..metadataBytes.high])
+  contractAddress = byteutils.toHex(metadataBytes[contractAddressOffset..validRootsOffset - 1])
+  let validRootsBytes = metadataBytes[validRootsOffset..metadataBytes.high]
+  validRoots = MerkleNodeSeq.deserialize(validRootsBytes)
 
   return ok(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
                         chainId: chainId,
-                        contractAddress: "0x" & contractAddress))
+                        contractAddress: "0x" & contractAddress,
+                        validRoots: validRoots))
