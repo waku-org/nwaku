@@ -39,6 +39,7 @@ contract(RlnStorage):
   proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
   proc members(idCommitment: Uint256): Uint256 {.view.}
   proc idCommitmentIndex(): Uint256 {.view.}
+  proc deployedBlockNumber(): Uint256 {.view.}
 
 type
   RegistryContractWithSender = Sender[WakuRlnRegistry]
@@ -49,6 +50,7 @@ type
     ethContractAddress*: string
     ethRpc*: Option[Web3]
     rlnContract*: Option[RlnContractWithSender]
+    rlnContractDeployedBlockNumber*: Option[BlockNumber]
     registryContract*: Option[RegistryContractWithSender]
     usingStorageIndex: Option[Uint16]
     membershipFee*: Option[Uint256]
@@ -67,9 +69,6 @@ type
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
-
-const DecayFactor* = 1.2
-const DefaultChunkSize* = 1000
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -353,16 +352,17 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
 
   let ethRpc = g.ethRpc.get()
 
-  # the block chunk size decays exponentially with the number of blocks
-  # the minimum chunk size is 100
-  var blockChunkSize = 1_000_000
+  # static block chunk size
+  let blockChunkSize = 2_000
 
-  var fromBlock = if g.latestProcessedBlock.isSome():
+  var fromBlock = if g.latestProcessedBlock.isSome() and 
+                  g.latestProcessedBlock.get() > g.rlnContractDeployedBlockNumber.get():
     info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
     g.latestProcessedBlock.get() + 1
   else:
-    info "starting onchain sync from scratch"
-    BlockNumber(0)
+    let deployedBlockNumber = g.rlnContractDeployedBlockNumber.get()
+    info "starting onchain sync from deployed block number", deployedBlockNumber = deployedBlockNumber
+    deployedBlockNumber
 
   let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
@@ -378,8 +378,6 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
         fromBlock = toBlock + 1
         if fromBlock >= currentLatestBlock:
           break
-        let newChunkSize = float(blockChunkSize) / DecayFactor
-        blockChunkSize = max(int(newChunkSize), DefaultChunkSize)
     else:
       await g.getAndHandleEvents(fromBlock, some(BlockNumber(0)))
   except CatchableError:
@@ -477,10 +475,25 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
                        "could not get the membership deposit: " & getCurrentExceptionMsg())
   g.membershipFee = some(membershipFee)
 
+  var deployedBlockNumber: Uint256
+  try:
+    deployedBlockNumber = await rlnContract.deployedBlockNumber().call()
+  except CatchableError:
+    raise newException(ValueError, 
+                       "could not get the deployed block number: " & getCurrentExceptionMsg())
+  g.rlnContractDeployedBlockNumber = some(cast[BlockNumber](deployedBlockNumber))
+
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
-    let fromBlock = g.latestProcessedBlock.get()
+    let fromBlock = max(g.latestProcessedBlock.get(), g.rlnContractDeployedBlockNumber.get())
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
+    try:
+      let newEthRpc = waitFor newWeb3(g.ethClientUrl)
+      newEthRpc.ondisconnect = ethRpc.ondisconnect
+      g.ethRpc = some(newEthRpc)
+    except CatchableError:
+      error "failed to reconnect with the Ethereum client", error = getCurrentExceptionMsg()
+      return
     try:
       asyncSpawn g.startOnchainSync()
     except CatchableError:

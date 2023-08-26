@@ -191,6 +191,8 @@ suite "Onchain group manager":
       manager.rlnContract.isSome()
       manager.membershipFee.isSome()
       manager.initialized
+      manager.rlnContractDeployedBlockNumber.isSome() 
+      manager.rlnContractDeployedBlockNumber.get() > 0
 
   asyncTest "should error on initialization when loaded metadata does not match":
     let manager = await setup()
