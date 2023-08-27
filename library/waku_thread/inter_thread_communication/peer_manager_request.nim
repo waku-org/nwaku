@@ -47,12 +47,12 @@ proc connectTo(node: WakuNode,
   return ok()
 
 method process*(self: PeerManagementRequest,
-                node: WakuNode): Future[Result[string, string]] {.async.} =
+                node: ptr WakuNode): Future[Result[string, string]] {.async.} =
 
   case self.operation:
 
     of CONNECT_TO:
-      let ret = node.connectTo(self.peerMultiAddr, self.dialTimeout)
+      let ret = node[].connectTo(self.peerMultiAddr, self.dialTimeout)
       if ret.isErr():
         return err(ret.error)
 
