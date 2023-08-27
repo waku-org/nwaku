@@ -508,11 +508,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         let rlnConf = WakuRlnConfig(
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayCredIndex: conf.rlnRelayCredIndex,
-          rlnRelayMembershipGroupIndex: conf.rlnRelayMembershipGroupIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
           rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
           rlnRelayCredPath: conf.rlnRelayCredPath,
-          rlnRelayCredentialsPassword: conf.rlnRelayCredentialsPassword
+          rlnRelayCredPassword: conf.rlnRelayCredPassword
         )
 
         waitFor node.mountRlnRelay(rlnConf,

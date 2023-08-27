@@ -4,8 +4,9 @@ else:
   {.push raises: [].}
 
 import 
-  std/sequtils,
+  std/[sequtils, tables],
   stew/[results, endians2],
+  nimcrypto,
   stint
 
 # NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
@@ -88,13 +89,28 @@ type MembershipContract* = object
   chainId*: string
   address*: string
 
-type MembershipGroup* = object
+type KeystoreMembership* = ref object of RootObj
   membershipContract*: MembershipContract
   treeIndex*: MembershipIndex
+  identityCredential*: IdentityCredential
 
-type MembershipCredentials* = object
-   identityCredential*: IdentityCredential
-   membershipGroups*: seq[MembershipGroup]
+proc `$`*(m: KeystoreMembership): string =
+  return "KeystoreMembership(" & m.membershipContract.chainId & ", " & m.membershipContract.address & ", " & $m.treeIndex & ", "  & $m.identityCredential & ")"
+
+proc `==`*(x, y: KeystoreMembership): bool =
+  return x.membershipContract.chainId == y.membershipContract.chainId and
+         x.membershipContract.address == y.membershipContract.address and
+         x.treeIndex == y.treeIndex and
+         x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
+         x.identityCredential.idNullifier == y.identityCredential.idNullifier and
+         x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
+         x.identityCredential.idCommitment == y.identityCredential.idCommitment
+
+proc hash*(m: KeystoreMembership): string =
+  # hash together the chainId, address and treeIndex
+  return $sha256.digest(m.membershipContract.chainId & m.membershipContract.address & $m.treeIndex)
+
+type MembershipTable* = Table[string, KeystoreMembership]
 
 type AppInfo* = object
   application*: string
@@ -104,7 +120,7 @@ type AppInfo* = object
 type AppKeystore* = object
   application*: string
   appIdentifier*: string
-  credentials*: seq[MembershipCredentials]
+  credentials*: MembershipTable
   version*: string
 
 type
@@ -119,5 +135,7 @@ type
     KeystoreCreateKeyfileError    = "Error while creating keyfile for credentials"
     KeystoreSaveKeyfileError      = "Error while saving keyfile for credentials"
     KeystoreReadKeyfileError      = "Error while reading keyfile for credentials"
+    KeystoreCredentialAlreadyPresentError = "Error while adding credentials to keystore: credential already present"
+    KeystoreCredentialNotFoundError = "Error while searching credentials in keystore: credential not found"
 
 type KeystoreResult*[T] = Result[T, AppKeystoreError]
