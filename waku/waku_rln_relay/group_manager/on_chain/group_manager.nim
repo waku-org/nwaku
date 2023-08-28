@@ -50,11 +50,11 @@ type
     ethContractAddress*: string
     ethRpc*: Option[Web3]
     rlnContract*: Option[RlnContractWithSender]
-    rlnContractDeployedBlockNumber*: Option[BlockNumber]
+    rlnContractDeployedBlockNumber*: BlockNumber
     registryContract*: Option[RegistryContractWithSender]
     usingStorageIndex: Option[Uint16]
     membershipFee*: Option[Uint256]
-    latestProcessedBlock*: Option[BlockNumber]
+    latestProcessedBlock*: BlockNumber
     registrationTxHash*: Option[TxHash]
     chainId*: Option[Quantity]
     keystorePath*: Option[string]
@@ -76,11 +76,11 @@ template initializedGuard(g: OnchainGroupManager): untyped =
 
 
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
-  if g.latestProcessedBlock.isNone():
+  if g.latestProcessedBlock == 0:
     return err("latest processed block is not set")
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
-                            lastProcessedBlock: g.latestProcessedBlock.get(),
+                            lastProcessedBlock: g.latestProcessedBlock,
                             chainId: uint64(g.chainId.get()),
                             contractAddress: g.ethContractAddress,
                             validRoots: g.validRoots.toSeq()))
@@ -313,15 +313,14 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
-  let latestProcessedBlock = if toBlock.isSome(): toBlock.get()
+  g.latestProcessedBlock = if toBlock.isSome(): toBlock.get()
                              else: fromBlock
-  g.latestProcessedBlock = some(latestProcessedBlock)
   let metadataSetRes = g.setMetadata()
   if metadataSetRes.isErr():
     # this is not a fatal error, hence we don't raise an exception
     warn "failed to persist rln metadata", error=metadataSetRes.error()
   else:
-    trace "rln metadata persisted", blockNumber = latestProcessedBlock
+    trace "rln metadata persisted", blockNumber = g.latestProcessedBlock
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
@@ -355,12 +354,11 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   # static block chunk size
   let blockChunkSize = 2_000
 
-  var fromBlock = if g.latestProcessedBlock.isSome() and 
-                  g.latestProcessedBlock.get() > g.rlnContractDeployedBlockNumber.get():
-    info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock.get()
-    g.latestProcessedBlock.get() + 1
+  var fromBlock = if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
+    info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock
+    g.latestProcessedBlock + 1
   else:
-    let deployedBlockNumber = g.rlnContractDeployedBlockNumber.get()
+    let deployedBlockNumber = g.rlnContractDeployedBlockNumber
     info "starting onchain sync from deployed block number", deployedBlockNumber = deployedBlockNumber
     deployedBlockNumber
 
@@ -455,7 +453,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
     warn "could not initialize with persisted rln metadata"
-    g.latestProcessedBlock = some(BlockNumber(0))
+    g.latestProcessedBlock = BlockNumber(0)
   else:
     let metadata = metadataGetRes.get()
     if metadata.chainId != uint64(g.chainId.get()):
@@ -463,7 +461,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   
     if metadata.contractAddress != g.ethContractAddress.toLower():
       raise newException(ValueError, "persisted data: contract address mismatch")
-    g.latestProcessedBlock = some(metadata.lastProcessedBlock)
+    g.latestProcessedBlock = metadata.lastProcessedBlock
     g.validRoots = metadata.validRoots.toDeque()
 
   # check if the contract exists by calling a static function
@@ -481,11 +479,11 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   except CatchableError:
     raise newException(ValueError, 
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
-  g.rlnContractDeployedBlockNumber = some(cast[BlockNumber](deployedBlockNumber))
+  g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
-    let fromBlock = max(g.latestProcessedBlock.get(), g.rlnContractDeployedBlockNumber.get())
+    let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
     try:
       let newEthRpc = waitFor newWeb3(g.ethClientUrl)
