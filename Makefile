@@ -123,7 +123,7 @@ endif
 
 ### RLN
 
-LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -185,8 +185,12 @@ chat2: | build deps librln
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 rln-keystore-generator: | build deps librln
-	echo -e $(BUILD_MSG) "build/$@" && \
+ifeq ($(RLN),true)
+		echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+else
+		$(error RLN is not true. To build rln-keystore-generator, set RLN=true.)
+endif
 
 chat2bridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
