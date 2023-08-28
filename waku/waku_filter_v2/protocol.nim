@@ -31,6 +31,7 @@ type
     subscriptions*: FilterSubscriptions # a mapping of peer ids to a sequence of filter criteria
     peerManager: PeerManager
     maintenanceTask: TimerCallback
+    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId=peerId
@@ -188,7 +189,7 @@ proc maintainSubscriptions*(wf: WakuFilter) =
   waku_filter_subscriptions.set(wf.subscriptions.len().float64)
 
 const MessagePushTimeout = 20.seconds
-proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
+proc handleMessage(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
   trace "handling message", pubsubTopic=pubsubTopic, message=message
 
   let handleMessageStartTime = Moment.now()
@@ -212,6 +213,18 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
     handleMessageDuration = Moment.now() - handleMessageStartTime
     handleMessageDurationSec = handleMessageDuration.milliseconds.float / 1000  # Duration in seconds with millisecond precision floating point
   waku_filter_handle_message_duration_seconds.observe(handleMessageDurationSec)
+
+proc wakuMessageListener(wf: WakuFilter) {.async.} =
+  let key = wf.messageQueue.register()
+
+  while wf.started:
+    let events = await wf.messageQueue.waitEvents(key)
+
+    for (topic, msg) in events:
+      # TODO handle msgs in batches OR batch the futures
+      await wf.handleMessage(topic, msg)
+
+  wf.messageQueue.unregister(key)
 
 proc initProtocolHandler(wf: WakuFilter) =
 
@@ -239,10 +252,13 @@ proc initProtocolHandler(wf: WakuFilter) =
   wf.codec = WakuFilterSubscribeCodec
 
 proc new*(T: type WakuFilter,
-          peerManager: PeerManager): T =
+  peerManager: PeerManager,
+  messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  ): T =
 
   let wf = WakuFilter(
-    peerManager: peerManager
+    peerManager: peerManager,
+    messageQueue: messageQueue,
   )
   wf.initProtocolHandler()
   wf
@@ -263,6 +279,8 @@ method start*(wf: WakuFilter) {.async.} =
   wf.startMaintainingSubscriptions(MaintainSubscriptionsInterval)
 
   await procCall LPProtocol(wf).start()
+
+  asyncSpawn wf.wakuMessageListener()
 
 method stop*(wf: WakuFilter) {.async.} =
   debug "stopping filter protocol"

@@ -48,6 +48,7 @@ type WakuDiscoveryV5* = ref object
     conf: WakuDiscoveryV5Config
     protocol*: protocol.Protocol
     listening*: bool
+    subscriptionQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
     predicate: Option[WakuDiscv5Predicate]
 
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
@@ -74,7 +75,12 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
 
   return some(predicate)
 
-proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
+proc new*(T: type WakuDiscoveryV5,
+  rng: ref HmacDrbgContext,
+  conf: WakuDiscoveryV5Config,
+  record: Option[waku_enr.Record],
+  subscriptionQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
+  ): T =
   let protocol = newProtocol(
     rng = rng,
     config = conf.discv5Config.get(protocol.defaultDiscoveryConfig),
@@ -95,7 +101,13 @@ proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscovery
     else:
       none(WakuDiscv5Predicate)
 
-  WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false, predicate: shardPredOp)
+  WakuDiscoveryV5(
+    conf: conf,
+    protocol: protocol,
+    listening: false,
+    subscriptionQueue: subscriptionQueue,
+    predicate: shardPredOp
+  )
 
 proc new*(T: type WakuDiscoveryV5,
           extIp: Option[ValidIpAddress],
@@ -261,7 +273,32 @@ proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager) {.async.} =
     # Also, give some time to dial the discovered nodes and update stats, etc.
     await sleepAsync(5.seconds)
 
-proc start*(wd: WakuDiscoveryV5): Result[void, string] =
+proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
+  ## Listen for pubsub topics subscriptions changes
+  
+  let key = wd.subscriptionQueue.register()
+
+  while wd.listening:
+    let events = await wd.subscriptionQueue.waitEvents(key)
+
+    let subs = events.filterIt(it[0] == PubsubSub).mapIt(it[1])
+    let unsubs = events.filterIt(it[0] == PubsubUnsub).mapIt(it[1])
+
+    let unsubRes = wd.updateENRShards(unsubs, false)
+    let subRes = wd.updateENRShards(subs, true)
+
+    if subRes.isErr():
+      debug "ENR shard addition failed", reason= $subRes.error
+    
+    if unsubRes.isErr():
+      debug "ENR shard removal failed", reason= $unsubRes.error
+
+    if subRes.isOk() and unsubRes.isOk():
+      debug "ENR updated successfully"
+
+  wd.subscriptionQueue.unregister(key)
+
+proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
   if wd.listening:
     return err("already listening")
 
@@ -278,10 +315,12 @@ proc start*(wd: WakuDiscoveryV5): Result[void, string] =
   trace "start discv5 service"
   wd.protocol.start()
 
+  asyncSpawn wd.subscriptionsListener()
+
   debug "Successfully started discovery v5 service"
   info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
 
-  ok()
+  return ok()
 
 proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
   if not wd.listening:

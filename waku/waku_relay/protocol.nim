@@ -8,7 +8,7 @@ else:
   {.push raises: [].}
 
 import
-  std/sequtils,
+  std/[tables, sequtils],
   stew/results,
   chronos,
   chronicles,
@@ -123,6 +123,8 @@ type
   WakuRelayResult*[T] = Result[T, string]
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
+    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    subscriptionsQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -144,7 +146,11 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
+proc new*(T: type WakuRelay,
+  switch: Switch,
+  msgQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  subscriptionsQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
+  ): WakuRelayResult[T] =
 
   var w: WakuRelay
   try:
@@ -156,7 +162,9 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
       triggerSelf = true,
       msgIdProvider = defaultMessageIdProvider,
       maxMessageSize = MaxWakuMessageSize,
-      parameters = GossipsubParameters
+      parameters = GossipsubParameters,
+      messageQueue: msgQueue,
+      subscriptionsQueue: subscriptionsQueue,
     )
 
     procCall GossipSub(w).initPubSub()
@@ -170,17 +178,10 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
   procCall GossipSub(w).addValidator(topic, handler)
 
-
-method start*(w: WakuRelay) {.async.} =
-  debug "start"
-  await procCall GossipSub(w).start()
-
-method stop*(w: WakuRelay) {.async.} =
-  debug "stop"
-  await procCall GossipSub(w).stop()
-
 # rejects messages that are not WakuMessage
 proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+  ## rejects messages that are not WakuMessage
+  
   # can be optimized by checking if the message is a WakuMessage without allocating memory
   # see nim-libp2p protobuf library
   let msg = WakuMessage.decode(message.data)
@@ -195,11 +196,11 @@ iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
   for topic in GossipSub(w).topics.keys():
     yield topic
 
-proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
+proc subscribe(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
   # we need to wrap the handler since gossipsub doesnt understand WakuMessage
-  let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
+  let handler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data)
     if decMsg.isErr():
       # fine if triggerSelf enabled, since validators are bypassed
@@ -207,8 +208,10 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       let fut = newFuture[void]()
       fut.complete()
       return fut
-    else:
-      return handler(pubsubTopic, decMsg.get())
+    
+    let msg = decMsg.get()
+
+    w.messageQueue.emit((pubsubTopic, msg))
 
   # add the default validator to the topic
   procCall GossipSub(w).addValidator(pubSubTopic, validator)
@@ -216,10 +219,10 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
 
-  # subscribe to the topic with our wrapped handler
-  procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
+  # subscribe to the topic with our handler
+  procCall GossipSub(w).subscribe(pubsubTopic, handler)
 
-proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
+proc unsubscribe(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
@@ -229,3 +232,29 @@ proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Fut
   let data = message.encode().buffer
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)
+
+proc subscriptionListener(wr: WakuRelay) {.async.} =
+  let key = wr.subscriptionsQueue.register()
+
+  while wr.started:
+    let events = await wr.subscriptionsQueue.waitEvents(key)
+
+    for (kind, pubsubTopic) in events:
+      case kind:
+        of PubsubSub:
+          wr.subscribe(pubsubTopic)
+        of PubsubUnsub:
+          wr.unsubscribe(pubsubTopic)
+        else:
+          continue
+
+  wr.subscriptionsQueue.unregister(key)
+
+method start*(w: WakuRelay) {.async.} =
+  debug "start"
+  await procCall GossipSub(w).start()
+  asyncSpawn w.subscriptionListener()
+
+method stop*(w: WakuRelay) {.async.} =
+  debug "stop"
+  await procCall GossipSub(w).stop()

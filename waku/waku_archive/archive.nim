@@ -72,22 +72,30 @@ type
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
 
+    started: bool
+    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+
 proc new*(T: type WakuArchive,
-          driver: ArchiveDriver,
-          retentionPolicy = none(RetentionPolicy)):
-          Result[T, string] =
+  driver: ArchiveDriver,
+  retentionPolicy = none(RetentionPolicy),
+  messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  ): Result[T, string] =
 
-  let retPolicy = if retentionPolicy.isSome():
-                    retentionPolicy.get()
-                  else:
-                    nil
+  let retPolicy =
+    if retentionPolicy.isSome():
+      retentionPolicy.get()
+    else:
+      nil
 
-  let wakuArch = WakuArchive(driver: driver,
-                             validator: DefaultMessageValidator(),
-                             retentionPolicy: retPolicy)
+  let wakuArch = WakuArchive(
+    driver: driver,
+    validator: DefaultMessageValidator(),
+    retentionPolicy: retPolicy,
+  )
+
   return ok(wakuArch)
 
-proc handleMessage*(w: WakuArchive,
+proc handleMessage(w: WakuArchive,
                     pubsubTopic: PubsubTopic,
                     msg: WakuMessage) {.async.} =
   if msg.ephemeral:
@@ -117,6 +125,18 @@ proc handleMessage*(w: WakuArchive,
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
+
+proc wakuMessageListener(wa: WakuArchive) {.async.} =
+  let key = wa.messageQueue.register()
+
+  while wa.started:
+    let events = await wa.messageQueue.waitEvents(key)
+
+    for (topic, msg) in events:
+      # TODO handle msgs in batches OR batch the futures
+      await wa.handleMessage(topic, msg)
+
+  wa.messageQueue.unregister(key)
 
 proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
@@ -241,3 +261,10 @@ proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
     discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
 
   discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+
+proc start*(wa: WakuArchive) {.async.} =
+  wa.started = true
+
+  asyncSpawn wa.wakuMessageListener()
+
+proc stop*(wa: WakuArchive) {.async.} = wa.started = false
