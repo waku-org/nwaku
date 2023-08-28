@@ -76,8 +76,6 @@ template initializedGuard(g: OnchainGroupManager): untyped =
 
 
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
-  if g.latestProcessedBlock == 0:
-    return err("latest processed block is not set")
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(RlnMetadata(
                             lastProcessedBlock: g.latestProcessedBlock,
@@ -358,9 +356,8 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
     info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock
     g.latestProcessedBlock + 1
   else:
-    let deployedBlockNumber = g.rlnContractDeployedBlockNumber
-    info "starting onchain sync from deployed block number", deployedBlockNumber = deployedBlockNumber
-    deployedBlockNumber
+    info "starting onchain sync from deployed block number", deployedBlockNumber = g.rlnContractDeployedBlockNumber
+    g.rlnContractDeployedBlockNumber
 
   let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
