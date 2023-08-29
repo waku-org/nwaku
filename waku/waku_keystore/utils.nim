@@ -23,12 +23,14 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
     try:
       moveFile(path, path & ".bkp")
     except:  # TODO: Fix "BareExcept" warning
-      return err(KeystoreOsError)
+      return err(AppKeystoreError(kind: KeystoreOsError,
+                                  msg: "could not backup keystore: " & getCurrentExceptionMsg()))
 
   # We save the updated json
   var f: File
   if not f.open(path, fmAppend):
-    return err(KeystoreOsError)
+    return err(AppKeystoreError(kind: KeystoreOsError,
+                                msg: getCurrentExceptionMsg()))
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(path, {fpUserWrite, fpUserRead})
@@ -44,8 +46,10 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
         moveFile(path & ".bkp", path)
       except:  # TODO: Fix "BareExcept" warning
         # Unlucky, we just fail
-        return err(KeystoreOsError)
-    return err(KeystoreOsError)
+        return err(AppKeystoreError(kind: KeystoreOsError,
+                                    msg: "could not restore keystore backup: " & getCurrentExceptionMsg()))
+    return err(AppKeystoreError(kind: KeystoreOsError,
+                                msg: "could not write keystore: " & getCurrentExceptionMsg()))
   finally:
     f.close()
 
@@ -54,6 +58,7 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
     try:
       removeFile(path & ".bkp")
     except CatchableError:
-      return err(KeystoreOsError)
+      return err(AppKeystoreError(kind: KeystoreOsError,
+                                  msg: "could not remove keystore backup: " & getCurrentExceptionMsg()))
 
   return ok()

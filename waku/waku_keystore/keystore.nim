@@ -28,7 +28,8 @@ proc createAppKeystore*(path: string,
 
   var f: File
   if not f.open(path, fmWrite):
-    return err(KeystoreOsError)
+    return err(AppKeystoreError(kind: KeystoreOsError,
+                                msg: "Cannot open file for writing"))
 
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
@@ -38,7 +39,8 @@ proc createAppKeystore*(path: string,
     f.write(separator)
     ok()
   except CatchableError:
-    err(KeystoreOsError)
+    err(AppKeystoreError(kind: KeystoreOsError,
+                         msg: getCurrentExceptionMsg()))
   finally:
     f.close()
 
@@ -54,16 +56,17 @@ proc loadAppKeystore*(path: string,
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
-    let newKeystore = createAppKeystore(path, appInfo, separator)
-    if newKeystore.isErr():
-        return err(KeystoreCreateKeystoreError)
+    let newKeystoreRes = createAppKeystore(path, appInfo, separator)
+    if newKeystoreRes.isErr():
+      return err(newKeystoreRes.error)
 
   try:
 
     # We read all the file contents
     var f: File
     if not f.open(path, fmRead):
-      return err(KeystoreOsError)
+      return err(AppKeystoreError(kind: KeystoreOsError,
+                                  msg: "Cannot open file for reading"))
     let fileContents = readAll(f)
 
     # We iterate over each substring split by separator (which we expect to correspond to a single keystore json)
@@ -92,16 +95,21 @@ proc loadAppKeystore*(path: string,
           break
       # TODO: we might continue rather than return for some of these errors
       except JsonParsingError:
-        return err(KeystoreJsonError)
+        return err(AppKeystoreError(kind: KeystoreJsonError,
+                                    msg: getCurrentExceptionMsg()))
       except ValueError:
-        return err(KeystoreJsonError)
+        return err(AppKeystoreError(kind: KeystoreJsonError,
+                                    msg: getCurrentExceptionMsg()))
       except OSError:
-        return err(KeystoreOsError)
+        return err(AppKeystoreError(kind: KeystoreOsError,
+                                    msg: getCurrentExceptionMsg()))
       except Exception: #parseJson raises Exception
-        return err(KeystoreOsError)
+        return err(AppKeystoreError(kind: KeystoreOsError,
+                                    msg: getCurrentExceptionMsg()))
 
   except IOError:
-    return err(KeystoreIoError)
+    return err(AppKeystoreError(kind: KeystoreIoError,
+                                msg: getCurrentExceptionMsg()))
 
   return ok(matchingAppKeystore)
 
@@ -118,13 +126,12 @@ proc addMembershipCredentials*(path: string,
   let jsonKeystoreRes = loadAppKeystore(path, appInfo, separator)
 
   if jsonKeystoreRes.isErr():
-    return err(KeystoreLoadKeystoreError)
+    return err(jsonKeystoreRes.error)
 
   # We load the JSON node corresponding to the app keystore
   var jsonKeystore = jsonKeystoreRes.get()
 
   try:
-
     if jsonKeystore.hasKey("credentials"):
 
       # We get all credentials in keystore
@@ -137,17 +144,20 @@ proc addMembershipCredentials*(path: string,
       let encodedMembershipCredential = membership.encode()
       let keyfileRes = createKeyFileJson(encodedMembershipCredential, password)
       if keyfileRes.isErr():
-        return err(KeystoreCreateKeyfileError)
+        return err(AppKeystoreError(kind: KeystoreCreateKeyfileError, 
+                                    msg: $keyfileRes.error))
 
       # We add it to the credentials field of the keystore
       jsonKeystore["credentials"][key] = keyfileRes.get()
 
   except CatchableError:
-    return err(KeystoreJsonError)
+    return err(AppKeystoreError(kind: KeystoreJsonError,
+                                msg: getCurrentExceptionMsg()))
 
   # We save to disk the (updated) keystore.
-  if save(jsonKeystore, path, separator).isErr():
-    return err(KeystoreOsError)
+  let saveRes = save(jsonKeystore, path, separator)
+  if saveRes.isErr():
+    return err(saveRes.error)
 
   return ok()
 
@@ -163,7 +173,7 @@ proc getMembershipCredentials*(path: string,
   let jsonKeystoreRes = loadAppKeystore(path, appInfo)
 
   if jsonKeystoreRes.isErr():
-    return err(KeystoreLoadKeystoreError)
+    return err(jsonKeystoreRes.error)
 
   # We load the JSON node corresponding to the app keystore
   var jsonKeystore = jsonKeystoreRes.get()
@@ -176,16 +186,19 @@ proc getMembershipCredentials*(path: string,
       let key = query.hash()
       if not keystoreCredentials.hasKey(key):
         # error
-        return err(KeystoreCredentialNotFoundError)
+        return err(AppKeystoreError(kind: KeystoreCredentialNotFoundError,
+                                    msg: "Credential not found in keystore"))
 
       let keystoreCredential = keystoreCredentials[key]
       let decodedKeyfileRes = decodeKeyFileJson(keystoreCredential, password)
       if decodedKeyfileRes.isErr():
-        return err(KeystoreReadKeyfileError)
+        return err(AppKeystoreError(kind: KeystoreReadKeyfileError,
+                                    msg: $decodedKeyfileRes.error))
       # we parse the json decrypted keystoreCredential
       let decodedCredentialRes = decode(decodedKeyfileRes.get())
       let keyfileMembershipCredential = decodedCredentialRes.get()
       return ok(keyfileMembershipCredential)
 
   except CatchableError:
-    return err(KeystoreJsonError)
+    return err(AppKeystoreError(kind: KeystoreJsonError,
+                                msg: getCurrentExceptionMsg()))

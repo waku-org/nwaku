@@ -124,7 +124,7 @@ type AppKeystore* = object
   version*: string
 
 type
-  AppKeystoreError* = enum
+  AppKeystoreErrorKind* = enum
     KeystoreOsError               = "keystore error: OS specific error"
     KeystoreIoError               = "keystore error: IO specific error"
     KeystoreJsonKeyError          = "keystore error: fields not present in JSON"
@@ -137,5 +137,9 @@ type
     KeystoreReadKeyfileError      = "Error while reading keyfile for credentials"
     KeystoreCredentialAlreadyPresentError = "Error while adding credentials to keystore: credential already present"
     KeystoreCredentialNotFoundError = "Error while searching credentials in keystore: credential not found"
+
+  AppKeystoreError* = object
+    kind*: AppKeystoreErrorKind
+    msg*: string
 
 type KeystoreResult*[T] = Result[T, AppKeystoreError]
