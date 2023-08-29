@@ -237,11 +237,6 @@ type
       defaultValue: 0
       name: "rln-relay-cred-index" }: uint
 
-    rlnRelayMembershipGroupIndex* {.
-      desc: "the index of credentials to use, within a specific rln membership set",
-      defaultValue: 0
-      name: "rln-relay-membership-group-index" }: uint
-
     rlnRelayDynamic* {.
       desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: false
@@ -267,7 +262,7 @@ type
       defaultValue: ""
       name: "rln-relay-eth-contract-address" }: string
 
-    rlnRelayCredentialsPassword* {.
+    rlnRelayCredPassword* {.
       desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string

@@ -815,10 +815,14 @@ suite "Waku rln relay":
 
     let index = MembershipIndex(1)
 
-    let rlnMembershipContract = MembershipContract(chainId: "5", address: "0x0123456789012345678901234567890123456789")
-    let rlnMembershipGroup = MembershipGroup(membershipContract: rlnMembershipContract, treeIndex: index)
-    let rlnMembershipCredentials = MembershipCredentials(identityCredential: idCredential, membershipGroups: @[rlnMembershipGroup])
-
+    let keystoreMembership = KeystoreMembership(
+      membershipContract: MembershipContract(
+        chainId: "5",
+        address: "0x0123456789012345678901234567890123456789"
+      ),
+      treeIndex: index,
+      identityCredential: idCredential,
+    )
     let password = "%m0um0ucoW%"
 
     let filepath = "./testRLNCredentials.txt"
@@ -827,30 +831,29 @@ suite "Waku rln relay":
     # Write RLN credentials
     require:
       addMembershipCredentials(path = filepath,
-                                credentials = @[rlnMembershipCredentials],
-                                password = password,
-                                appInfo = RLNAppInfo).isOk()
+                               membership = keystoreMembership,
+                               password = password,
+                               appInfo = RLNAppInfo).isOk()
 
-    let readCredentialsResult = getMembershipCredentials(path = filepath,
+    let readKeystoreRes = getMembershipCredentials(path = filepath,
                                                          password = password,
-                                                         filterMembershipContracts = @[rlnMembershipContract],
+                                                         # here the query would not include
+                                                         # the identityCredential,
+                                                         # since it is not part of the query
+                                                         # but have used the same value
+                                                         # to avoid re-declaration
+                                                         query = keystoreMembership,
                                                          appInfo = RLNAppInfo)
+    assert readKeystoreRes.isOk(), $readKeystoreRes.error
 
-    require:
-      readCredentialsResult.isOk()
-
-    # getMembershipCredentials returns all credentials in keystore as sequence matching the filter
-    let allMatchingCredentials = readCredentialsResult.get()
-    # if any is found, we return the first credential, otherwise credentials is none
-    var credentials = none(MembershipCredentials)
-    if allMatchingCredentials.len() > 0:
-      credentials = some(allMatchingCredentials[0])
-
-    require:
-      credentials.isSome()
+    # getMembershipCredentials returns the credential in the keystore which matches
+    # the query, in this case the query is =
+    # chainId = "5" and 
+    # address = "0x0123456789012345678901234567890123456789" and
+    # treeIndex = 1
+    let readKeystoreMembership = readKeystoreRes.get()
     check:
-      credentials.get().identityCredential == idCredential
-      credentials.get().membershipGroups == @[rlnMembershipGroup]
+      readKeystoreMembership == keystoreMembership
 
   test "histogram static bucket generation":
     let buckets = generateBucketsForHistogram(10)
