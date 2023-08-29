@@ -131,13 +131,12 @@ else
 LIBRLN_FILE := librln.a
 endif
 
-$(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
+$(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
 
-librln-experimental:
-EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm
-librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
+librln-experimental: | $(LIBRLN_FILE)
+	$(eval EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm)
 
 ifneq ($(RLN), true)
 librln: ; # noop
@@ -147,6 +146,7 @@ endif
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
+	rm -f $(LIBRLN_FILE)
 
 # Extend clean target
 clean: | clean-librln
