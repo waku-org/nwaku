@@ -453,7 +453,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
                                                      query = keystoreQuery,
                                                      appInfo = RLNAppInfo)
     if keystoreCredRes.isErr():
-      raise newException(ValueError, "could not parse the keystore: " & $keystoreCredRes.error())
+      raise newException(ValueError, "could not parse the keystore: " & $keystoreCredRes.error)
     let keystoreCred = keystoreCredRes.get()
     g.idCredentials = some(keystoreCred.identityCredential)
 
