@@ -79,19 +79,17 @@ when isMainModule:
   debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
   # 6. write to keystore
-  let keystoreCred = MembershipCredentials(
+  let keystoreCred = KeystoreMembership(
+    membershipContract: MembershipContract(
+      chainId: $groupManager.chainId.get(),
+      address: conf.rlnRelayEthContractAddress,
+    ),
+    treeIndex: groupManager.membershipIndex.get(),
     identityCredential: credential,
-    membershipGroups: @[MembershipGroup(
-      membershipContract: MembershipContract(
-        chainId: $groupManager.chainId.get(),
-        address: conf.rlnRelayEthContractAddress,
-      ),
-      treeIndex: groupManager.membershipIndex.get(),
-    )]
   )
 
   let persistRes = addMembershipCredentials(conf.rlnRelayCredPath, 
-                                            @[keystoreCred], 
+                                            keystoreCred, 
                                             conf.rlnRelayCredPassword, 
                                             RLNAppInfo)
   if persistRes.isErr():

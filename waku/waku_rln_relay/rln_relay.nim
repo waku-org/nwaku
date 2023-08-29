@@ -32,11 +32,10 @@ logScope:
 type WakuRlnConfig* = object
   rlnRelayDynamic*: bool
   rlnRelayCredIndex*: uint
-  rlnRelayMembershipGroupIndex*: uint
   rlnRelayEthContractAddress*: string
   rlnRelayEthClientAddress*: string
   rlnRelayCredPath*: string
-  rlnRelayCredentialsPassword*: string
+  rlnRelayCredPassword*: string
   rlnRelayTreePath*: string
   rlnRelayBandwidthThreshold*: int
 
@@ -343,7 +342,6 @@ proc mount(conf: WakuRlnConfig,
           ): Future[WakuRlnRelay] {.async.} =
   var
     groupManager: GroupManager
-    credentials: MembershipCredentials
   # create an RLN instance
   let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
   if rlnInstanceRes.isErr():
@@ -365,15 +363,14 @@ proc mount(conf: WakuRlnConfig,
       if s == "": none(string) else: some(s)
     let
       rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
-      rlnRelayCredentialsPassword = useValueOrNone(conf.rlnRelayCredentialsPassword)
+      rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
     groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
                                        ethContractAddress: $conf.rlnRelayEthContractAddress,
                                        rlnInstance: rlnInstance,
                                        registrationHandler: registrationHandler,
                                        keystorePath: rlnRelayCredPath,
-                                       keystorePassword: rlnRelayCredentialsPassword,
-                                       keystoreIndex: conf.rlnRelayCredIndex,
-                                       membershipGroupIndex: conf.rlnRelayMembershipGroupIndex)
+                                       keystorePassword: rlnRelayCredPassword,
+                                       membershipIndex: some(conf.rlnRelayCredIndex))
   # Initialize the groupManager
   await groupManager.init()
   # Start the group sync

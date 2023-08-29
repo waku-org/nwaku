@@ -58,8 +58,6 @@ type
     registrationTxHash*: Option[TxHash]
     chainId*: Option[Quantity]
     keystorePath*: Option[string]
-    keystoreIndex*: uint
-    membershipGroupIndex*: uint
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     # this buffer exists to backfill appropriate roots for the merkle tree,
@@ -433,19 +431,24 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
+    if g.membershipIndex.isNone():
+      raise newException(CatchableError, "membership index is not set when keystore is provided")
+    let keystoreQuery = KeystoreMembership(
+      membershipContract: MembershipContract(
+        chainId: $g.chainId.get(),
+        address: g.ethContractAddress
+      ),
+      treeIndex: MembershipIndex(g.membershipIndex.get()),
+    )
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-      let parsedCredsRes = getMembershipCredentials(path = g.keystorePath.get(),
-                                                    password = g.keystorePassword.get(),
-                                                    filterMembershipContracts = @[MembershipContract(chainId: $chainId,
-                                                    address: g.ethContractAddress)],
-                                                    appInfo = RLNAppInfo)
-    if parsedCredsRes.isErr():
-      raise newException(ValueError, "could not parse the keystore: " & $parsedCredsRes.error())
-    let parsedCreds = parsedCredsRes.get()
-    if parsedCreds.len == 0:
-      raise newException(ValueError, "keystore is empty")
-    g.idCredentials = some(parsedCreds[g.keystoreIndex].identityCredential)
-    g.membershipIndex = some(parsedCreds[g.keystoreIndex].membershipGroups[g.membershipGroupIndex].treeIndex)
+      let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
+                                                     password = g.keystorePassword.get(),
+                                                     query = keystoreQuery,
+                                                     appInfo = RLNAppInfo)
+    if keystoreCredRes.isErr():
+      raise newException(ValueError, "could not parse the keystore: " & $keystoreCredRes.error)
+    let keystoreCred = keystoreCredRes.get()
+    g.idCredentials = some(keystoreCred.identityCredential)
 
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
