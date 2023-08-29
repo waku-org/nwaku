@@ -123,7 +123,7 @@ endif
 
 ### RLN
 
-LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -135,11 +135,14 @@ $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
 
+librln-experimental:
+EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm
+librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
+
 ifneq ($(RLN), true)
 librln: ; # noop
 else
-EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm
-librln: $(LIBRLN_BUILDDIR)/$(LIBRLN_FILE)
+librln: | librln-experimental
 endif
 
 clean-librln:
@@ -184,9 +187,9 @@ chat2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
-rln-keystore-generator: | build deps librln
+rln-keystore-generator: | build deps librln-experimental
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+	$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
 chat2bridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
