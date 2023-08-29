@@ -844,9 +844,7 @@ suite "Waku rln relay":
                                                          # to avoid re-declaration
                                                          query = keystoreMembership,
                                                          appInfo = RLNAppInfo)
-
-    require:
-      assert readKeystoreRes.isOk(), readKeystoreRes.error
+    assert readKeystoreRes.isOk(), $readKeystoreRes.error
 
     # getMembershipCredentials returns the credential in the keystore which matches
     # the query, in this case the query is =

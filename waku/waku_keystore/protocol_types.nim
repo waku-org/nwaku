@@ -142,4 +142,7 @@ type
     kind*: AppKeystoreErrorKind
     msg*: string
 
+proc `$`*(e: AppKeystoreError) : string =
+  return $e.kind & ": " & e.msg
+
 type KeystoreResult*[T] = Result[T, AppKeystoreError]
