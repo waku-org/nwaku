@@ -95,7 +95,7 @@ type KeystoreMembership* = ref object of RootObj
   identityCredential*: IdentityCredential
 
 proc `$`*(m: KeystoreMembership): string =
-  return "KeystoreMembership(" & m.membershipContract.chainId & ", " & m.membershipContract.address & ", " & $m.treeIndex & ", "  & $m.identityCredential & ")"
+  return "KeystoreMembership(chainId: " & m.membershipContract.chainId & ", contractAddress: " & m.membershipContract.address & ", treeIndex: " & $m.treeIndex & ", identityCredential: "  & $m.identityCredential & ")"
 
 proc `==`*(x, y: KeystoreMembership): bool =
   return x.membershipContract.chainId == y.membershipContract.chainId and
