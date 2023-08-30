@@ -73,9 +73,8 @@ proc waku_new(configJson: cstring,
     return RET_MISSING_CALLBACK
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
-  let createThRes = waku_thread.createWakuThread()
-  if createThRes.isErr():
-    let msg = "Error in createWakuThread: " & $createThRes.error
+  waku_thread.createWakuThread().isOkOr:
+    let msg = "Error in createWakuThread: " & $error
     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
 
