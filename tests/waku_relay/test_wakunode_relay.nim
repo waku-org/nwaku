@@ -158,18 +158,13 @@ suite "WakuNode - Relay":
     var completionFutValidatorRej = newFuture[bool]()
 
     # set a topic validator for pubSubTopic
-    proc validator(topic: string, message: messages.Message): Future[ValidationResult] {.async.} =
+    proc validator(topic: string, msg: WakuMessage): Future[ValidationResult] {.async.} =
       ## the validator that only allows messages with contentTopic1 to be relayed
       check:
         topic == pubSubTopic
 
-      let msg = WakuMessage.decode(message.data)
-      if msg.isErr():
-        completionFutValidatorAcc.complete(false)
-        return ValidationResult.Reject
-
       # only relay messages with contentTopic1
-      if msg.value.contentTopic  != contentTopic1:
+      if msg.contentTopic  != contentTopic1:
         completionFutValidatorRej.complete(true)
         return ValidationResult.Reject
 

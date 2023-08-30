@@ -8,7 +8,6 @@ else:
   {.push raises: [].}
 
 import
-  std/sequtils,
   stew/results,
   chronos,
   chronicles,
@@ -122,7 +121,9 @@ const GossipsubParameters = GossipSubParams(
 type
   WakuRelayResult*[T] = Result[T, string]
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
+  WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
+    wakuValidators*: Table[string, seq[WakuValidatorHandler]]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -167,9 +168,16 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 
   return ok(w)
 
-method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
-  procCall GossipSub(w).addValidator(topic, handler)
-
+proc addValidator*(w: WakuRelay, 
+                   topic: varargs[string], 
+                   handler: WakuValidatorHandler) {.gcsafe.} =
+  for t in topic:
+    if not w.wakuValidators.hasKey(t):
+      w.wakuValidators[t] = @[]
+    try:  
+      w.wakuValidators[t].add(handler)
+    except KeyError: # qed, this will never happen
+      error "failed to add validator", topic=t, error=getCurrentExceptionMsg()
 
 method start*(w: WakuRelay) {.async.} =
   debug "start"
@@ -178,15 +186,6 @@ method start*(w: WakuRelay) {.async.} =
 method stop*(w: WakuRelay) {.async.} =
   debug "stop"
   await procCall GossipSub(w).stop()
-
-# rejects messages that are not WakuMessage
-proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-  # can be optimized by checking if the message is a WakuMessage without allocating memory
-  # see nim-libp2p protobuf library
-  let msg = WakuMessage.decode(message.data)
-  if msg.isOk():
-    return ValidationResult.Accept
-  return ValidationResult.Reject
 
 proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
   GossipSub(w).topics.hasKey(topic)
@@ -210,8 +209,25 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
     else:
       return handler(pubsubTopic, decMsg.get())
 
+  # rejects messages that are not WakuMessage
+  let wrappedValidator = proc(pubsubTopic: string, 
+                              message: messages.Message): Future[ValidationResult] {.async.} =
+    # can be optimized by checking if the message is a WakuMessage without allocating memory
+    # see nim-libp2p protobuf library
+    let msgRes = WakuMessage.decode(message.data)
+    if msgRes.isErr():
+      return ValidationResult.Reject
+    let msg = msgRes.get()
+
+    # now sequentially validate the message
+    if w.wakuValidators.hasKey(pubsubTopic):
+      let validatorsForTopic = w.wakuValidators[pubsubTopic]
+      for validator in validatorsForTopic:
+        return await validator(pubsubTopic, msg)
+    return ValidationResult.Accept
+
   # add the default validator to the topic
-  procCall GossipSub(w).addValidator(pubSubTopic, validator)
+  procCall GossipSub(w).addValidator(pubSubTopic, wrappedValidator)
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters

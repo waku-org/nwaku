@@ -52,18 +52,16 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
 proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
   debug "adding validator to signed topic", topic=topic, publicTopicKey=publicTopicKey
 
-  proc validator(topic: string, message: messages.Message): Future[errors.ValidationResult] {.async.} =
-    let msg = WakuMessage.decode(message.data)
+  proc validator(topic: string, msg: WakuMessage): Future[errors.ValidationResult] {.async.} =
     var outcome = errors.ValidationResult.Reject
 
-    if msg.isOk():
-      if msg.get.timestamp != 0:
-        if msg.get.withinTimeWindow():
-          let msgHash = SkMessage(topic.msgHash(msg.get))
-          let recoveredSignature = SkSignature.fromRaw(msg.get.meta)
-          if recoveredSignature.isOk():
-            if recoveredSignature.get.verify(msgHash, publicTopicKey):
-              outcome = errors.ValidationResult.Accept
+    if msg.timestamp != 0:
+      if msg.withinTimeWindow():
+        let msgHash = SkMessage(topic.msgHash(msg))
+        let recoveredSignature = SkSignature.fromRaw(msg.meta)
+        if recoveredSignature.isOk():
+          if recoveredSignature.get.verify(msgHash, publicTopicKey):
+            outcome = errors.ValidationResult.Accept
 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome
