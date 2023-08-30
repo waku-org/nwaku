@@ -81,13 +81,16 @@ proc createNode(configJson: cstring): Result[WakuNode, string] =
 
     else: recordRes.get()
 
+  ## TODO: make the next const configurable from 'configJson'.
+  const MAX_CONNECTIONS = 50.int
+
   var builder = WakuNodeBuilder.init()
   builder.withRng(crypto.newRng())
   builder.withNodeKey(privateKey)
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
   builder.withSwitchConfiguration(
-    maxConnections = some(50.int)
+    maxConnections = some(MAX_CONNECTIONS)
   )
 
   let wakuNodeRes = builder.build()
