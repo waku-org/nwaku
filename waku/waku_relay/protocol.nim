@@ -124,6 +124,7 @@ type
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
     wakuValidators*: Table[string, seq[WakuValidatorHandler]]
+    validatorInserted*: Table[string, bool]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -225,7 +226,9 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       return handler(pubsubTopic, decMsg.get())
 
   # add the ordered validator to the topic
-  procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
+  if not w.validatorInserted.hasKey(pubSubTopic):
+    procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
+    w.validatorInserted[pubSubTopic] = true
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
