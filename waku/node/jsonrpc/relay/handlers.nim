@@ -7,18 +7,14 @@ import
   std/sequtils,
   chronicles,
   json_rpc/rpcserver,
-  eth/keys,
-  nimcrypto/sysrand
+  eth/keys
 import
-  ../../../common/base64,
-  ../../../waku_core,
-  ../../../waku_relay,
-  ../../waku_node,
+  ../message,
   ../../message_cache,
-  ../message
+  ../../waku/common/base64,
+  ../../waku/waku_core
 
-from std/times import getTime
-from std/times import toUnix
+from std/times import getTime, toUnix
 
 when defined(rln):
   import
@@ -30,27 +26,14 @@ logScope:
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
-type
-  MessageCache* = message_cache.MessageCache[PubsubTopic]
-
-
 ## Waku Relay JSON-RPC API
 
-proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
-  if node.wakuRelay.isNil():
-    debug "waku relay protocol is nil. skipping json rpc api handlers installation"
-    return
-
-  let topicHandler = proc(topic: PubsubTopic, message: WakuMessage) {.async.} =
-      cache.addMessage(topic, message)
-
-  # The node may already be subscribed to some topics when Relay API handlers
-  # are installed
-  for topic in node.wakuRelay.subscribedTopics:
-    node.subscribe(topic, topicHandler)
-    cache.subscribe(topic)
-
-
+proc installRelayApiHandlers*(
+  server: RpcServer,
+  subscriptionsTx: AsyncEventQueue[SubscriptionEvent],
+  messageTx: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  cache: MessageCache[string],
+  ) =
   server.rpc("post_waku_v2_relay_v1_subscriptions") do (topics: seq[PubsubTopic]) -> bool:
     ## Subscribes a node to a list of PubSub topics
     debug "post_waku_v2_relay_v1_subscriptions"
@@ -59,8 +42,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     let newTopics = topics.filterIt(not cache.isSubscribed(it))
 
     for topic in newTopics:
-      cache.subscribe(topic)
-      node.subscribe(topic, topicHandler)
+      subscriptionsTx.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
 
     return true
 
@@ -72,8 +54,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     let subscribedTopics = topics.filterIt(cache.isSubscribed(it))
 
     for topic in subscribedTopics:
-      node.unsubscribe(topic)
-      cache.unsubscribe(topic)
+      subscriptionsTx.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: topic))
 
     return true
 
@@ -101,10 +82,8 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         if not success:
           raise newException(ValueError, "Failed to append RLN proof to message")
 
-    let publishFut = node.publish(topic, message)
-
-    if not await publishFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to publish to topic " & topic)
+    # TODO wait for an answer. Would require AsyncChannel[T]
+    messageTx.emit((topic, message))
 
     return true
 
@@ -122,8 +101,78 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     return msgRes.value.map(toWakuMessageRPC)
 
+  # Autosharding API
 
-## Waku Relay Private JSON-RPC API (Whisper/Waku v1 compatibility)
-## Support for the Relay Private API has been deprecated.
-## This API existed for compatibility with the Waku v1/Whisper spec and encryption schemes.
-## It is recommended to use the Relay API instead.
+  server.rpc("post_waku_v2_relay_v1_auto_subscriptions") do (topics: seq[ContentTopic]) -> bool:
+    ## Subscribes a node to a list of Content topics
+    debug "post_waku_v2_relay_v1_auto_subscriptions"
+
+    let newTopics = topics.filterIt(not cache.isSubscribed(it))
+
+    # Subscribe to all requested topics
+    for topic in newTopics:
+      subscriptionsTx.emit(SubscriptionEvent(kind: ContentSub, contentSub: topic))
+
+    return true
+
+  server.rpc("delete_waku_v2_relay_v1_auto_subscriptions") do (topics: seq[ContentTopic]) -> bool:
+    ## Unsubscribes a node from a list of Content topics
+    debug "delete_waku_v2_relay_v1_auto_subscriptions"
+
+    let subscribedTopics = topics.filterIt(cache.isSubscribed(it))
+
+    # Unsubscribe all handlers from requested topics
+    for topic in subscribedTopics:
+      subscriptionsTx.emit(SubscriptionEvent(kind: ContentUnsub, contentUnsub: topic))
+
+    return true
+
+  server.rpc("post_waku_v2_relay_v1_auto_message") do (msg: WakuMessageRPC) -> bool:
+    ## Publishes a WakuMessage to a Content topic
+    debug "post_waku_v2_relay_v1_auto_message"
+
+    let payloadRes = base64.decode(msg.payload)
+    if payloadRes.isErr():
+      raise newException(ValueError, "invalid payload format: " & payloadRes.error)
+
+    if msg.contentTopic.isNone():
+      raise newException(ValueError, "must contain content topic")
+
+    var message = WakuMessage(
+        payload: payloadRes.value,
+        contentTopic: msg.contentTopic.get(),
+        version: msg.version.get(0'u32),
+        timestamp: msg.timestamp.get(Timestamp(0)),
+        ephemeral: msg.ephemeral.get(false)
+      )
+    
+    when defined(rln):
+      if not node.wakuRlnRelay.isNil():
+        let success = node.wakuRlnRelay.appendRLNProof(message, 
+                                                      float64(getTime().toUnix()))
+        if not success:
+          raise newException(ValueError, "Failed to append RLN proof to message")
+
+    let pubsubTopicRes = getShard(message.contentTopic)
+    if pubsubTopicRes.isErr():
+      raise newException(ValueError, pubsubTopicRes.error)
+
+    # TODO wait for an answer. Would require AsyncChannel[T]
+    messageTx.emit((pubsubTopicRes.get(), message))
+
+    return true
+
+  server.rpc("get_waku_v2_relay_v1_auto_messages") do (topic: ContentTopic) -> seq[WakuMessageRPC]:
+    ## Returns all WakuMessages received on a Content topic since the
+    ## last time this method was called
+    debug "get_waku_v2_relay_v1_auto_messages", topic=topic
+
+    if not cache.isSubscribed(topic):
+      raise newException(ValueError, "Not subscribed to topic: " & topic)
+
+    #TODO request/reponse via channel to communicate with cache. Would require AsyncChannel[T]
+    let msgRes = cache.getMessages(topic, clear=true)
+    if msgRes.isErr():
+      raise newException(ValueError, "Not subscribed to topic: " & topic)
+
+    return msgRes.value.map(toWakuMessageRPC)

@@ -9,12 +9,9 @@ import
   json_rpc/rpcserver
 import
   ../../../waku_core,
-  ../../../waku_filter,
   ../../../waku_filter/rpc,
-  ../../../waku_filter/client,
   ../../message_cache,
-  ../../peer_manager,
-  ../../waku_node
+  ../../peer_manager
 
 
 logScope:
@@ -23,33 +20,22 @@ logScope:
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
-
-type
-  MessageCache* = message_cache.MessageCache[ContentTopic]
-
-
-proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
+proc installFilterApiHandlers*(
+  server: RpcServer,
+  subscriptionsTx: AsyncEventQueue[SubscriptionEvent],
+  cache: MessageCache[string],
+  ) =
 
   server.rpc("post_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], pubsubTopic: Option[PubsubTopic]) -> bool:
     ## Subscribes a node to a list of content filters
     debug "post_waku_v2_filter_v1_subscription"
 
-    let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
-    if peerOpt.isNone():
-      raise newException(ValueError, "no suitable remote filter peers")
-
     let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
-    let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
-        cache.addMessage(msg.contentTopic, msg)
+    let newTopics = contentTopics.filterIt(not cache.isSubscribed(it))
 
-    let subFut = node.filterSubscribe(pubsubTopic, contentTopics, handler, peerOpt.get())
-    if not await subFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to subscribe to contentFilters")
-
-    # Successfully subscribed to all content filters
-    for cTopic in contentTopics:
-      cache.subscribe(cTopic)
+    for topic in newTopics:
+      subscriptionsTx.emit(SubscriptionEvent(kind: ContentSub, contentSub: topic))
 
     return true
 
@@ -59,12 +45,10 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
 
     let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
-    let unsubFut = node.unsubscribe(pubsubTopic, contentTopics)
-    if not await unsubFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to unsubscribe from contentFilters")
+    let subscribedTopics = contentTopics.filterIt(cache.isSubscribed(it))
 
-    for cTopic in contentTopics:
-      cache.unsubscribe(cTopic)
+    for topic in subscribedTopics:
+      subscriptionsTx.emit(SubscriptionEvent(kind: ContentUnsub, contentUnsub: topic))
 
     return true
 

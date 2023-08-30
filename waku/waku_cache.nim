@@ -1,8 +1,11 @@
 ## Waku Cache
 ##
 ## Manage content and pubsub topic subscriptions.
-## When subscribing to a content topic the shard should not
-## be manually unsubscribed from and vice versa.
+## 
+## When unsubscribing from a content topic the shard should not
+## be unsubscribed if previously other shard use it.
+## 
+## This also apply when shards are subscribed to and content topic are used.
 ## 
 ## Also contains a cache of messages for each topics.
 when (NimMajor, NimMinor) < (1, 4):
@@ -30,30 +33,33 @@ import
 type
   WakuCache* = ref object
     # Input
-    rawSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
-    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    topicSubscriptions: AsyncEventQueue[SubscriptionEvent]
+    messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)]
 
     # State
     started: bool
     subscriptions: Table[PubsubTopic, tuple[manual: bool, count: int]]
-    messageCache: MessageCache[string]
+    messageCache*: MessageCache[string]
+    messagesListener: Option[Future[void]]
+    subscriptionsListener: Option[Future[void]]
 
     # Output
-    filteredSubscriptionQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
+    pubsubTopicSubscriptions: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
 
 proc new*(T: type WakuCache,
-  rawTopicQueue: AsyncEventQueue[SubscriptionEvent],
-  filteredTopicQueue: AsyncEventQueue[PubsubTopic],
-  messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
-  cache: MessageCache[string]): T =
+  topicSubscriptions: AsyncEventQueue[SubscriptionEvent],
+  pubsubTopicSubscriptions: AsyncEventQueue[PubsubTopic],
+  messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  cache: MessageCache[string]
+  ): T =
 
   let subscriptions = initTable[PubsubTopic, (bool, int)]
 
   return WakuCache (
-    rawSubscriptionQueue: rawTopicQueue,
+    topicSubscriptions: topicSubscriptions,
     subscriptions: subscriptions,
-    filteredSubscriptionQueue: filteredTopicQueue,
-    messageQueue: messageQueue,
+    pubsubTopicSubscriptions: pubsubTopicSubscriptions,
+    messagesReceiver: messagesReceiver,
     messageCache: cache,
   )
 
@@ -67,7 +73,7 @@ proc batchPubsubSubscribe(wc: WakuCache, batch: seq[PubsubTopic]) =
     if wc.subscriptions.hasKeyOrPut(topic, (true, 0)):
       wc.subscriptions.mgetOrPut(topic, (true, 0)).manual = true
     else:
-      wc.filteredSubscriptionQueue.emit((PubsubSub, topic))
+      wc.pubsubTopicSubscriptions.emit((PubsubSub, topic))
 
 proc batchPubsubUnsubscribe(wc: WakuCache, batch: seq[PubsubTopic]) =
   for topic in batch:
@@ -79,7 +85,7 @@ proc batchPubsubUnsubscribe(wc: WakuCache, batch: seq[PubsubTopic]) =
     let value = wc.subscriptions.getOrDefault(topic)
     if value.count == 0 and value.manual:
       wc.subscriptions.del(topic)
-      wc.filteredSubscriptionQueue.emit((PubsubUnsub, topic))
+      wc.pubsubTopicSubscriptions.emit((PubsubUnsub, topic))
       continue
 
     wc.subscriptions.mgetOrPut(topic, (false, 0)).manual = false
@@ -91,24 +97,16 @@ proc batchContentSubscribe(wc: WakuCache, batch: seq[ContentTopic]) =
 
     wc.messageCache.subscribe(topic)
 
-    let parsedTopicRes = NsContentTopic.parse(topic)
-    let parsedTopic =
-      if parsedTopicRes.isErr():
-        error "Cannot parse content topic", error=parsedTopicRes.error
-        continue
-      else: parsedTopicRes.get()
-
-    let pubsubRes = getShard(parsedTopic)
-    let pubsub = 
-      if pubsubRes.isErr():
-        error "Cannot get shard", error=pubsubRes.error
-        continue
-      else: $pubsubRes.get()
+    let pubsubRes = getShard(topic)
+    if pubsubRes.isErr():
+      error "Cannot parse content topic", error=pubsubRes.error
+      continue
+    let pubsub = pubsubRes.get()
 
     if wc.subscriptions.hasKeyOrPut(pubsub, (false, 1)):
       wc.subscriptions.mgetOrPut(pubsub, (false, 0)).count += 1
     else:
-      wc.filteredSubscriptionQueue.emit((PubsubSub, pubsub))
+      wc.pubsubTopicSubscriptions.emit((PubsubSub, pubsub))
     
 proc batchContentUnsubscribe(wc: WakuCache, batch: seq[ContentTopic]) =
   for topic in batch:
@@ -117,34 +115,26 @@ proc batchContentUnsubscribe(wc: WakuCache, batch: seq[ContentTopic]) =
 
     wc.messageCache.unsubscribe(topic)
 
-    let parsedTopicRes = NsContentTopic.parse(topic)
-    let parsedTopic =
-      if parsedTopicRes.isErr():
-        error "Cannot parse content topic", error=parsedTopicRes.error
-        continue
-      else: parsedTopicRes.get()
+    let pubsubRes = getShard(topic)
+    if pubsubRes.isErr():
+      error "Cannot get shard", error=pubsubRes.error
+      continue
+    let pubsub = pubsubRes.get()
 
-    let pubsubRes = getShard(parsedTopic)
-    let pubsub = 
-      if pubsubRes.isErr():
-        error "Cannot get shard", error=pubsubRes.error
-        continue
-      else: $pubsubRes.get()
-    
     let value = wc.subscriptions.mgetOrPut(pubsub, (false, 0))
 
     if value.count == 1 and not value.manual:
       wc.subscriptions.del(pubsub)
-      wc.filteredSubscriptionQueue.emit((PubsubUnsub, pubsub))
+      wc.pubsubTopicSubscriptions.emit((PubsubUnsub, pubsub))
       continue
 
     wc.subscriptions.mgetOrPut(pubsub, (false, 0)).count -= 1
       
 proc topicFilteringLoop(wc: WakuCache) {.async.} =
-  let key = wc.rawSubscriptionQueue.register()
+  let key = wc.topicSubscriptions.register()
   
   while wc.started:
-    let events = await wc.rawSubscriptionQueue.waitEvents(key)
+    let events = await wc.topicSubscriptions.waitEvents(key)
 
     # Since events arrive in any order we have to filter.
     let pubsubSubs = events.filterIt(it.kind == PubsubSub).mapIt(it.pubsubSub)
@@ -157,13 +147,13 @@ proc topicFilteringLoop(wc: WakuCache) {.async.} =
     wc.batchContentSubscribe(contentSubs)
     wc.batchContentUnsubscribe(contentUnsubs)
 
-  wc.rawSubscriptionQueue.unregister(key)
+  wc.topicSubscriptions.unregister(key)
 
 proc messageCachingLoop(wc: WakuCache) {.async.} =
-  let key = wc.messageQueue.register()
+  let key = wc.messagesReceiver.register()
 
   while wc.started:
-    let events = await wc.messageQueue.waitEvents(key)
+    let events = await wc.messagesReceiver.waitEvents(key)
 
     for (pubsubTopic, msg) in events:
       if wc.messageCache.isSubscribed(pubsubTopic):
@@ -172,12 +162,19 @@ proc messageCachingLoop(wc: WakuCache) {.async.} =
       if wc.messageCache.isSubscribed(msg.contentTopic):
         wc.messageCache.addMessage(msg.contentTopic, msg)
 
-  wc.messageQueue.unregister(key)
+  wc.messagesReceiver.unregister(key)
 
 proc start*(wc: WakuCache) {.async.} =
   wc.started = true
 
-  asyncSpawn wc.topicFilteringLoop()
-  asyncSpawn wc.messageCachingLoop()
+  wc.subscriptionsListener = some(wc.topicFilteringLoop())
+  wc.messagesListener = some(wc.messageCachingLoop())
 
-proc stop*(wc: WakuCache) {.async.} = wc.started = false
+proc stop*(wc: WakuCache) {.async.} =
+  wc.started = false
+
+  if wc.subscriptionsListener.isSome():
+    await cancelAndWait(wc.subscriptionsListener.get())
+
+  if wc.messagesListener.isSome():
+    await cancelAndWait(wc.messagesListener.get())

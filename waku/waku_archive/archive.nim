@@ -73,12 +73,13 @@ type
     retentionPolicy: RetentionPolicy
 
     started: bool
-    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    listener: Option[Future[void]]
 
 proc new*(T: type WakuArchive,
   driver: ArchiveDriver,
   retentionPolicy = none(RetentionPolicy),
-  messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  messagesRx: AsyncEventQueue[(PubsubTopic, WakuMessage)],
   ): Result[T, string] =
 
   let retPolicy =
@@ -91,6 +92,7 @@ proc new*(T: type WakuArchive,
     driver: driver,
     validator: DefaultMessageValidator(),
     retentionPolicy: retPolicy,
+    messagesReceiver: messagesRx,
   )
 
   return ok(wakuArch)
@@ -126,17 +128,17 @@ proc handleMessage(w: WakuArchive,
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
-proc wakuMessageListener(wa: WakuArchive) {.async.} =
-  let key = wa.messageQueue.register()
+proc messagesListener(wa: WakuArchive) {.async.} =
+  let key = wa.messagesReceiver.register()
 
   while wa.started:
-    let events = await wa.messageQueue.waitEvents(key)
+    let events = await wa.messagesReceiver.waitEvents(key)
 
     for (topic, msg) in events:
       # TODO handle msgs in batches OR batch the futures
       await wa.handleMessage(topic, msg)
 
-  wa.messageQueue.unregister(key)
+  wa.messagesReceiver.unregister(key)
 
 proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
@@ -265,6 +267,10 @@ proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
 proc start*(wa: WakuArchive) {.async.} =
   wa.started = true
 
-  asyncSpawn wa.wakuMessageListener()
+  wa.listener = some(wa.messagesListener())
 
-proc stop*(wa: WakuArchive) {.async.} = wa.started = false
+proc stop*(wa: WakuArchive) {.async.} =
+  wa.started = false
+  
+  if wa.listener.isSome():
+    await cancelAndWait(wa.listener.get())

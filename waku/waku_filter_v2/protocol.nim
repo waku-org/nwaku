@@ -31,7 +31,9 @@ type
     subscriptions*: FilterSubscriptions # a mapping of peer ids to a sequence of filter criteria
     peerManager: PeerManager
     maintenanceTask: TimerCallback
-    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+
+    messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    listener: Option[Future[void]]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId=peerId
@@ -214,17 +216,17 @@ proc handleMessage(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessag
     handleMessageDurationSec = handleMessageDuration.milliseconds.float / 1000  # Duration in seconds with millisecond precision floating point
   waku_filter_handle_message_duration_seconds.observe(handleMessageDurationSec)
 
-proc wakuMessageListener(wf: WakuFilter) {.async.} =
-  let key = wf.messageQueue.register()
+proc messagesListener(wf: WakuFilter) {.async.} =
+  let key = wf.messagesReceiver.register()
 
   while wf.started:
-    let events = await wf.messageQueue.waitEvents(key)
+    let events = await wf.messagesReceiver.waitEvents(key)
 
     for (topic, msg) in events:
       # TODO handle msgs in batches OR batch the futures
       await wf.handleMessage(topic, msg)
 
-  wf.messageQueue.unregister(key)
+  wf.messagesReceiver.unregister(key)
 
 proc initProtocolHandler(wf: WakuFilter) =
 
@@ -253,12 +255,12 @@ proc initProtocolHandler(wf: WakuFilter) =
 
 proc new*(T: type WakuFilter,
   peerManager: PeerManager,
-  messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  messagesRx: AsyncEventQueue[(PubsubTopic, WakuMessage)],
   ): T =
 
   let wf = WakuFilter(
     peerManager: peerManager,
-    messageQueue: messageQueue,
+    messagesReceiver: messagesRx,
   )
   wf.initProtocolHandler()
   wf
@@ -280,10 +282,13 @@ method start*(wf: WakuFilter) {.async.} =
 
   await procCall LPProtocol(wf).start()
 
-  asyncSpawn wf.wakuMessageListener()
+  wf.listener = some(wf.messagesListener())
 
 method stop*(wf: WakuFilter) {.async.} =
   debug "stopping filter protocol"
   if not wf.maintenanceTask.isNil():
     wf.maintenanceTask.clearTimer()
   await procCall LPProtocol(wf).stop()
+
+  if wf.listener.isSome():
+    await cancelAndWait(wf.listener.get())

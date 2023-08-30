@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options, sugar, sets],
+  std/[sequtils, strutils, options, sets],
   stew/results,
   stew/shims/net,
   chronos,
@@ -48,8 +48,9 @@ type WakuDiscoveryV5* = ref object
     conf: WakuDiscoveryV5Config
     protocol*: protocol.Protocol
     listening*: bool
-    subscriptionQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
+    pubsubTopicSubscriptions: AsyncEventQueue[tuple[kind: SubscriptionKind, topic: PubsubTopic]]
     predicate: Option[WakuDiscv5Predicate]
+    listener: Option[Future[void]]
 
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
@@ -75,11 +76,12 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
 
   return some(predicate)
 
+
 proc new*(T: type WakuDiscoveryV5,
   rng: ref HmacDrbgContext,
   conf: WakuDiscoveryV5Config,
   record: Option[waku_enr.Record],
-  subscriptionQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
+  pubsubTopicSubscriptions: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
   ): T =
   let protocol = newProtocol(
     rng = rng,
@@ -105,7 +107,7 @@ proc new*(T: type WakuDiscoveryV5,
     conf: conf,
     protocol: protocol,
     listening: false,
-    subscriptionQueue: subscriptionQueue,
+    pubsubTopicSubscriptions: pubsubTopicSubscriptions,
     predicate: shardPredOp
   )
 
@@ -122,7 +124,8 @@ proc new*(T: type WakuDiscoveryV5,
           multiaddrs = newSeq[MultiAddress](),
           rng: ref HmacDrbgContext,
           topics: seq[string],
-          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig
+          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig,
+          pubsubTopicSubscriptions: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
           ): T {.
   deprecated: "use the config and record proc variant instead".}=
 
@@ -163,7 +166,7 @@ proc new*(T: type WakuDiscoveryV5,
     autoupdateRecord: enrAutoUpdate,
   )
 
-  WakuDiscoveryV5.new(rng, conf, some(record))
+  WakuDiscoveryV5.new(rng, conf, some(record), pubsubTopicSubscriptions)
 
 proc updateENRShards(wd: WakuDiscoveryV5,
   newTopics: seq[PubsubTopic], add: bool):  Result[void, string] =
@@ -276,76 +279,14 @@ proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager) {.async.} =
 proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
   
-  let key = wd.subscriptionQueue.register()
+  let key = wd.pubsubTopicSubscriptions.register()
 
   while wd.listening:
-    let events = await wd.subscriptionQueue.waitEvents(key)
-
-    let subs = events.filterIt(it[0] == PubsubSub).mapIt(it[1])
-    let unsubs = events.filterIt(it[0] == PubsubUnsub).mapIt(it[1])
-
-    let unsubRes = wd.updateENRShards(unsubs, false)
-    let subRes = wd.updateENRShards(subs, true)
-
-    if subRes.isErr():
-      debug "ENR shard addition failed", reason= $subRes.error
-    
-    if unsubRes.isErr():
-      debug "ENR shard removal failed", reason= $unsubRes.error
-
-    if subRes.isOk() and unsubRes.isOk():
-      debug "ENR updated successfully"
-
-  wd.subscriptionQueue.unregister(key)
-
-proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
-  if wd.listening:
-    return err("already listening")
-
-  info "Starting discovery v5 service"
-
-  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
-  try:
-    wd.protocol.open()
-  except CatchableError:
-    return err("failed to open udp port: " & getCurrentExceptionMsg())
-
-  wd.listening = true
-
-  trace "start discv5 service"
-  wd.protocol.start()
-
-  asyncSpawn wd.subscriptionsListener()
-
-  debug "Successfully started discovery v5 service"
-  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
-
-  return ok()
-
-proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
-  if not wd.listening:
-      return
-
-  info "Stopping discovery v5 service"
-
-  wd.listening = false
-  trace "Stop listening on discv5 port"
-  await wd.protocol.closeWait()
-
-  debug "Successfully stopped discovery v5 service"
-
-proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]) {.async.} =
-  ## Listen for pubsub topics subscriptions changes
-  
-  let key = topicSubscriptionQueue.register()
-
-  while wd.listening:
-    let events = await topicSubscriptionQueue.waitEvents(key)
+    let events = await wd.pubsubTopicSubscriptions.waitEvents(key)
 
     # Since we don't know the events we will receive we have to anticipate.
-
-    let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
-    let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
+    let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
+    let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
 
     if subs.len == 0 and unsubs.len == 0:
       continue
@@ -366,7 +307,46 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
 
     wd.predicate = shardingPredicate(wd.protocol.localNode.record)
 
-  topicSubscriptionQueue.unregister(key)
+  wd.pubsubTopicSubscriptions.unregister(key)
+
+proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
+  if wd.listening:
+    return err("already listening")
+
+  info "Starting discovery v5 service"
+
+  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
+  try:
+    wd.protocol.open()
+  except CatchableError:
+    return err("failed to open udp port: " & getCurrentExceptionMsg())
+
+  wd.listening = true
+
+  trace "start discv5 service"
+  wd.protocol.start()
+
+  wd.listener = some(wd.subscriptionsListener())
+
+  debug "Successfully started discovery v5 service"
+  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
+
+  return ok()
+
+proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
+  if not wd.listening:
+      return
+
+  info "Stopping discovery v5 service"
+
+  wd.listening = false
+  trace "Stop listening on discv5 port"
+  await wd.protocol.closeWait()
+
+  if wd.listener.isSome():
+    await cancelAndWait(wd.listener.get())
+
+  debug "Successfully stopped discovery v5 service"
 
 ## Helper functions
 

@@ -8,7 +8,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils],
+  std/tables,
   stew/results,
   chronos,
   chronicles,
@@ -123,8 +123,11 @@ type
   WakuRelayResult*[T] = Result[T, string]
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-    messageQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)]
-    subscriptionsQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
+    messagesSender: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    subscriptionsReceiver: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
+    messagesListener: Option[Future[void]]
+    subscriptionsListener: Option[Future[void]]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -148,8 +151,9 @@ proc initProtocolHandler(w: WakuRelay) =
 
 proc new*(T: type WakuRelay,
   switch: Switch,
-  msgQueue: AsyncEventQueue[(PubsubTopic, WakuMessage)],
-  subscriptionsQueue: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
+  messageTx: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  messageRx: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  subscriptionsRx: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
   ): WakuRelayResult[T] =
 
   var w: WakuRelay
@@ -163,8 +167,6 @@ proc new*(T: type WakuRelay,
       msgIdProvider = defaultMessageIdProvider,
       maxMessageSize = MaxWakuMessageSize,
       parameters = GossipsubParameters,
-      messageQueue: msgQueue,
-      subscriptionsQueue: subscriptionsQueue,
     )
 
     procCall GossipSub(w).initPubSub()
@@ -172,6 +174,12 @@ proc new*(T: type WakuRelay,
 
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
+
+  w.messagesSender = messageTx
+  w.messagesReceiver = messageRx
+  w.subscriptionsReceiver = subscriptionsRx
+  w.messagesListener = none(Future[void])
+  w.subscriptionsListener = none(Future[void])
 
   return ok(w)
 
@@ -211,7 +219,7 @@ proc subscribe(w: WakuRelay, pubsubTopic: PubsubTopic) =
     
     let msg = decMsg.get()
 
-    w.messageQueue.emit((pubsubTopic, msg))
+    w.messagesSender.emit((pubsubTopic, msg))
 
   # add the default validator to the topic
   procCall GossipSub(w).addValidator(pubSubTopic, validator)
@@ -227,17 +235,17 @@ proc unsubscribe(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
 
-proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
+proc publish(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic
   let data = message.encode().buffer
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)
 
-proc subscriptionListener(wr: WakuRelay) {.async.} =
-  let key = wr.subscriptionsQueue.register()
+proc subscriptionsListenLoop(wr: WakuRelay) {.async.} =
+  let key = wr.subscriptionsReceiver.register()
 
   while wr.started:
-    let events = await wr.subscriptionsQueue.waitEvents(key)
+    let events = await wr.subscriptionsReceiver.waitEvents(key)
 
     for (kind, pubsubTopic) in events:
       case kind:
@@ -248,13 +256,33 @@ proc subscriptionListener(wr: WakuRelay) {.async.} =
         else:
           continue
 
-  wr.subscriptionsQueue.unregister(key)
+  wr.subscriptionsReceiver.unregister(key)
 
-method start*(w: WakuRelay) {.async.} =
+proc messagesListenLoop(wr: WakuRelay) {.async.} =
+  let key = wr.messagesReceiver.register()
+
+  while wr.started:
+    let events = await wr.messagesReceiver.waitEvents(key)
+
+    for (topic, msg) in events:
+      #TODO batch await the futures
+      discard await wr.publish(topic, msg)
+
+  wr.messagesReceiver.unregister(key)
+
+method start*(wr: WakuRelay) {.async.} =
   debug "start"
-  await procCall GossipSub(w).start()
-  asyncSpawn w.subscriptionListener()
+  await procCall GossipSub(wr).start()
 
-method stop*(w: WakuRelay) {.async.} =
+  wr.subscriptionsListener =  some(wr.subscriptionsListenLoop())
+  wr.messagesListener = some(wr.messagesListenLoop())
+
+method stop*(wr: WakuRelay) {.async.} =
   debug "stop"
-  await procCall GossipSub(w).stop()
+  await procCall GossipSub(wr).stop()
+
+  if wr.subscriptionsListener.isSome():
+    await cancelAndWait(wr.subscriptionsListener.get())
+
+  if wr.messagesListener.isSome():
+    await cancelAndWait(wr.messagesListener.get())

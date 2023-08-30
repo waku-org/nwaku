@@ -47,6 +47,15 @@ proc getShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
     of 0: return ok(getGenZeroShard(topic, GenerationZeroShardsCount))
     else: return err("Generation > 0 are not supported yet")
 
+proc getShard*(topic: ContentTopic): Result[PubsubTopic, string] =
+  let parsedTopicRes = NsContentTopic.parse(topic)
+  if parsedTopicRes.isErr():
+    return err($parsedTopicRes.error)
+
+  let pubsub = ?getShard(parsedTopicRes.get())
+
+  ok($pubsub)
+
 proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]): Result[Table[NsPubsubTopic, seq[NsContentTopic]], string] =
   var topics: seq[ContentTopic]
   when contentTopics is seq[ContentTopic]:

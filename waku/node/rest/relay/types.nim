@@ -29,8 +29,8 @@ type
   RelayPostMessagesRequest* = RelayWakuMessage
 
 type
-  RelayPostSubscriptionsRequest* = seq[PubSubTopic]
-  RelayDeleteSubscriptionsRequest* = seq[PubSubTopic]
+  RelayPostSubscriptionsRequest* = seq[PubSubTopic|ContentTopic]
+  RelayDeleteSubscriptionsRequest* = seq[PubSubTopic|ContentTopic]
 
 
 #### Type conversion

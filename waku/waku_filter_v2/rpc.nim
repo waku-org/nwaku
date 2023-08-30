@@ -42,19 +42,19 @@ proc ping*(T: type FilterSubscribeRequest, requestId: string): T =
     filterSubscribeType: SUBSCRIBER_PING
   )
 
-proc subscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): T =
+proc subscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): T =
   FilterSubscribeRequest(
     requestId: requestId,
     filterSubscribeType: SUBSCRIBE,
-    pubsubTopic: some(pubsubTopic),
+    pubsubTopic: pubsubTopic,
     contentTopics: contentTopics
   )
 
-proc unsubscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: PubsubTopic, contentTopics: seq[ContentTopic]): T =
+proc unsubscribe*(T: type FilterSubscribeRequest, requestId: string, pubsubTopic: Option[PubsubTopic], contentTopics: seq[ContentTopic]): T =
   FilterSubscribeRequest(
     requestId: requestId,
     filterSubscribeType: UNSUBSCRIBE,
-    pubsubTopic: some(pubsubTopic),
+    pubsubTopic: pubsubTopic,
     contentTopics: contentTopics
   )
 

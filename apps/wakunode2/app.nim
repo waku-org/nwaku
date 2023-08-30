@@ -24,23 +24,24 @@ import
   ../../waku/waku_archive/retention_policy/builder,
   ../../waku/waku_core,
   ../../waku/waku_node,
+  ../../waku/waku_cache,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
+  ../../waku/node/message_cache,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
+  ../../waku/waku_filter_v2,
   ../../waku/waku_peer_exchange,
   ../../waku/waku_store,
   ../../waku/waku_lightpush,
-  ../../waku/waku_filter,
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
 import
-  ../../waku/node/message_cache,
   ../../waku/node/rest/server,
   ../../waku/node/rest/debug/handlers as rest_debug_api,
   ../../waku/node/rest/relay/handlers as rest_relay_api,
@@ -81,6 +82,14 @@ type
     rpcServer: Option[RpcHttpServer]
     restServer: Option[RestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
+
+    topicSubscriptions: AsyncEventQueue[SubscriptionEvent]
+    pubsubTopicSubscriptions: AsyncEventQueue[(SubscriptionKind, PubsubTopic)]
+
+    messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+    messagesSender: AsyncEventQueue[(PubsubTopic, WakuMessage)]
+
+    wakuCache: WakuCache
 
   AppResult*[T] = Result[T, string]
 
@@ -128,21 +137,13 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  let contentTopicsRes = conf.contentTopics.mapIt(NsContentTopic.parse(it))
-
-  for res in contentTopicsRes:
-    if res.isErr():
-      error "failed to parse content topic", error=res.error
-      quit(QuitFailure)
-
-  let shardsRes = contentTopicsRes.mapIt(getShard(it.get()))
-
+  let shardsRes = conf.contentTopics.mapIt(getShard(it))
   for res in shardsRes:
     if res.isErr():
       error "failed to shard content topic", error=res.error
       quit(QuitFailure)
 
-  let shards = shardsRes.mapIt($it.get())
+  let shards = shardsRes.mapIt(it.get())
 
   let topics = conf.topics & conf.pubsubTopics & shards
 
@@ -158,6 +159,20 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: recordRes.get()
 
+  let topicSubscriptions: newAsyncEventQueue[SubscriptionEvent](30)
+  let pubsubTopicSubscriptions: newAsyncEventQueue[(SubscriptionKind, PubsubTopic)](30)
+  let messagesReceiver: newAsyncEventQueue[(PubsubTopic, WakuMessage)](30)
+  let messagesSender: newAsyncEventQueue[(PubsubTopic, WakuMessage)](30)
+
+  let messageCache = MessageCache[string]
+
+  let wakuCache = WakuCache.new(
+    topicSubscriptions,
+    pubsubTopicSubscriptions,
+    messagesReceiver,
+    messageCache,
+    )
+
   App(
     version: git_version,
     conf: conf,
@@ -165,7 +180,14 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     rng: rng,
     key: key,
     record: record,
-    node: nil
+    node: nil,
+
+    topicSubscriptions: topicSubscriptions,
+    pubsubTopicSubscriptions: pubsubTopicSubscriptions, 
+    messagesReceiver: messagesReceiver,
+    messagesSender: messagesSender,
+
+    wakuCache: wakuCache,
   )
 
 
@@ -265,7 +287,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
     autoupdateRecord: app.conf.discv5EnrAutoUpdate,
   )
 
-  WakuDiscoveryV5.new(app.rng, discv5Conf, some(app.record))
+  WakuDiscoveryV5.new(app.rng, discv5Conf, some(app.record), app.pubsubTopicSubscriptions)
 
 ## Init waku node instance
 
@@ -334,10 +356,14 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
 ## Mount protocols
 
-proc setupProtocols(node: WakuNode,
-                    conf: WakuNodeConf,
-                    nodeKey: crypto.PrivateKey):
-                    Future[AppResult[void]] {.async.} =
+proc setupProtocols(
+  node: WakuNode,
+  conf: WakuNodeConf,
+  nodeKey: crypto.PrivateKey,
+  messagesReceiver: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  messagesSender: AsyncEventQueue[(PubsubTopic, WakuMessage)],
+  pubsubTopicSubscriptions: AsyncEventQueue[(SubscriptionKind, PubsubTopic)],
+  ): Future[AppResult[void]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
@@ -362,12 +388,17 @@ proc setupProtocols(node: WakuNode,
   if conf.relay:
     # TODO autoshard content topics only once.
     # Already checked for errors in app.init
-    let contentTopics = conf.contentTopics.mapIt(NsContentTopic.parse(it).expect("Parsing"))
-    let shards = contentTopics.mapIt($(getShard(it).expect("Sharding")))
+    let shards = conf.contentTopics.mapIt(getShard(it).expect("Sharding"))
 
     let pubsubTopics = conf.topics & conf.pubsubTopics & shards
     try:
-      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
+      await mountRelay(
+        node,
+        peerExchangeHandler = peerExchangeHandler,
+        messagesSender,
+        messagesReceiver,
+        pubsubTopicSubscriptions,
+        )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
@@ -424,8 +455,11 @@ proc setupProtocols(node: WakuNode,
     if retPolicyRes.isErr():
       return err("failed to create retention policy: " & retPolicyRes.error)
 
-    let mountArcRes = node.mountArchive(archiveDriverRes.get(),
-                                        retPolicyRes.get())
+    let mountArcRes = node.mountArchive(
+      archiveDriverRes.get(),
+      retPolicyRes.get(),
+      messagesReceiver,
+      )
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
@@ -461,15 +495,15 @@ proc setupProtocols(node: WakuNode,
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
-      await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+      await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout), messagesReceiver)
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
-      await mountFilterClient(node)
-      node.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+      await mountFilterClient(node, messagesSender)
+      node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
@@ -493,7 +527,10 @@ proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
   return await setupProtocols(
     app.node,
     app.conf,
-    app.key
+    app.key,
+    app.messagesReceiver,
+    app.messagesSender,
+    app.pubsubTopicSubscriptions
   )
 
 ## Start node
@@ -543,18 +580,28 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
-    let res = wakuDiscv5.start()
+    let res = await wakuDiscv5.start()
     if res.isErr():
       return err("failed to start waku discovery v5: " & $res.error)
 
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
-    asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
 
-  return await startNode(
+  if not app.wakuCache.isNil():
+    await app.wakuCache.start()
+
+  let res = await startNode(
     app.node,
     app.conf,
     app.dynamicBootstrapNodes
   )
+  if res.isErr():
+    return err("failed to start node: " & $res.error)
+
+  for topic in app.conf.pubsubTopics:
+    app.topicSubscriptions.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
+
+  for topic in app.conf.contentTopics:
+    app.topicSubscriptions.emit(SubscriptionEvent(kind: ContentSub, contentSub: topic))
 
 
 ## Monitoring and external interfaces
@@ -567,13 +614,11 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
-    installRelayApiHandlers(server.router, app.node, relayCache)
+    installRelayApiHandlers(server.router, app.topicSubscriptions, app.messagesSender, app.wakuCache.messageCache)
 
   ## Filter REST API
   if conf.filter:
-    let filterCache = rest_filter_api.MessageCache.init(capacity=rest_filter_api.filterMessageCacheDefaultCapacity)
-    installFilterApiHandlers(server.router, app.node, filterCache)
+    installFilterApiHandlers(server.router, app.node)
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
@@ -595,12 +640,10 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   installDebugApiHandlers(app.node, server)
 
   if conf.relay:
-    let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
-    installRelayApiHandlers(app.node, server, relayMessageCache)
+    installRelayApiHandlers(server, app.topicSubscriptions, app.messagesSender, app.wakuCache.messageCache)
 
   if conf.filternode != "":
-    let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)
-    installFilterApiHandlers(app.node, server, filterMessageCache)
+    installFilterApiHandlers(server, app.topicSubscriptions, app.wakuCache.messageCache)
 
   installStoreApiHandlers(app.node, server)
 
@@ -680,3 +723,6 @@ proc stop*(app: App): Future[void] {.async.} =
 
   if not app.node.isNil():
     await app.node.stop()
+
+  if not app.wakuCache.isNil():
+    await app.wakuCache.stop()
