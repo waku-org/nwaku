@@ -39,7 +39,9 @@ proc new*(T: type NodeLifecycleRequest,
 
   return NodeLifecycleRequest(operation: op, configJson: configJson)
 
-proc createNode(configJson: cstring): Result[WakuNode, string] =
+proc createNode(configJson: cstring):
+  Future[Result[WakuNode, string]] {.async.} =
+
   var privateKey: PrivateKey
   var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
                                  Port(60000'u16)).value
@@ -101,7 +103,7 @@ proc createNode(configJson: cstring): Result[WakuNode, string] =
   var newNode = wakuNodeRes.get()
 
   if relay:
-    waitFor newNode.mountRelay()
+    await newNode.mountRelay()
     newNode.peerManager.start()
 
   return ok(newNode)
@@ -111,16 +113,16 @@ method process*(self: NodeLifecycleRequest,
 
   case self.operation:
     of CREATE_NODE:
-      let newNodeRes = createNode(self.configJson)
+      let newNodeRes = await createNode(self.configJson)
       if newNodeRes.isErr():
         return err(newNodeRes.error)
 
       node[] = newNodeRes.get()
 
     of START_NODE:
-      waitFor node[].start()
+      await node[].start()
 
     of STOP_NODE:
-      waitFor node[].stop()
+      await node[].stop()
 
   return ok("")
