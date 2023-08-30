@@ -244,10 +244,6 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
     waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
-  # insert the message to the log
-  # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
-  # it will never error out
-  discard rlnPeer.updateLog(proofMetadataRes.get())
   debug "message is valid", payloadLen = msg.payload.len
   let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
@@ -309,8 +305,17 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
       let msgProof = decodeRes.get()
 
       # validate the message
+      let validationRes = wakuRlnRelay.validateMessage(wakumessage)
+
+      # extract the metadata, already checked should not error
+      let proofMetadataRes = msgProof.extractMetadata()
+      if proofMetadataRes.isErr():
+        return pubsub.ValidationResult.Reject
+
+      # insert the message to the log (never errors)
+      discard wakuRlnRelay.updateLog(proofMetadataRes.get())
+
       let
-        validationRes = wakuRlnRelay.validateMessage(wakumessage)
         proof = toHex(msgProof.proof)
         epoch = fromEpoch(msgProof.epoch)
         root = inHex(msgProof.merkleRoot)
