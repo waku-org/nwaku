@@ -172,12 +172,7 @@ proc addValidator*(w: WakuRelay,
                    topic: varargs[string], 
                    handler: WakuValidatorHandler) {.gcsafe.} =
   for t in topic:
-    if not w.wakuValidators.hasKey(t):
-      w.wakuValidators[t] = @[]
-    try:  
-      w.wakuValidators[t].add(handler)
-    except KeyError: # qed, this will never happen
-      error "failed to add validator", topic=t, error=getCurrentExceptionMsg()
+    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
 
 method start*(w: WakuRelay) {.async.} =
   debug "start"
@@ -221,9 +216,9 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
 
     # now sequentially validate the message
     if w.wakuValidators.hasKey(pubsubTopic):
-      let validatorsForTopic = w.wakuValidators[pubsubTopic]
-      for validator in validatorsForTopic:
-        return await validator(pubsubTopic, msg)
+      for validator in w.wakuValidators[pubsubTopic]:
+        if (await validator(pubsubTopic, msg)) == ValidationResult.Reject:
+          return ValidationResult.Reject
     return ValidationResult.Accept
 
   # add the default validator to the topic
