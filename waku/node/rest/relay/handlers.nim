@@ -13,10 +13,19 @@ import
   presto/common
 import
   ../../waku_node,
+  ../../../waku_relay/protocol,
   ../serdes,
   ../responses,
   ./types,
   ./topic_cache
+
+from std/times import getTime
+from std/times import toUnix
+
+when defined(rln):
+  import
+    ../../../waku_rln_relay,
+    ../../../waku_rln_relay/rln/wrappers
 
 export types
 
@@ -127,6 +136,11 @@ proc installRelayPostMessagesV1Handler*(router: var RestRouter, node: WakuNode) 
       return RestApiResponse.badRequest()
     let pubSubTopic = topic.get()
 
+    # ensure the node is subscribed to the topic. otherwise it risks publishing
+    # to a topic with no connected peers
+    if pubSubTopic notin node.wakuRelay.subscribedTopics():
+      return RestApiResponse.badRequest("Failed to publish: Node not subscribed to topic: " & pubsubTopic)
+
     # Check the request body
     if contentBody.isNone():
       return RestApiResponse.badRequest()
@@ -144,9 +158,33 @@ proc installRelayPostMessagesV1Handler*(router: var RestRouter, node: WakuNode) 
     if resMessage.isErr():
       return RestApiResponse.badRequest()
 
+    var message = resMessage.get()
+
+    when defined(rln):
+      if not node.wakuRlnRelay.isNil():
+        # append the proof to the message
+        let success = node.wakuRlnRelay.appendRLNProof(message,
+                                                      float64(getTime().toUnix()))
+        if not success:
+          return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
+
+        # validate the message before sending it
+        let result = node.wakuRlnRelay.validateMessage(message)
+        if result == MessageValidationResult.Invalid:
+          return RestApiResponse.internalServerError("Failed to publish: invalid RLN proof")
+        elif result == MessageValidationResult.Spam:
+          return RestApiResponse.badRequest("Failed to publish: limit exceeded, try again later")
+        elif result == MessageValidationResult.Valid:
+          let publishFut = node.publish(pubSubTopic, message)
+
+          if not await publishFut.withTimeout(futTimeout):
+            return RestApiResponse.internalServerError("Failed to publish: timed out")
+        else:
+          return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
+
     if not (waitFor node.publish(pubSubTopic, resMessage.value).withTimeout(futTimeout)):
       error "Failed to publish message to topic", topic=pubSubTopic
-      return RestApiResponse.internalServerError()
+      return RestApiResponse.internalServerError("Failed to publish: timedout")
 
     return RestApiResponse.ok()
 

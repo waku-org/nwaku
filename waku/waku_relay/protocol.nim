@@ -191,9 +191,8 @@ proc validator(pubsubTopic: string, message: messages.Message): Future[Validatio
 proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
   GossipSub(w).topics.hasKey(topic)
 
-iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
-  for topic in GossipSub(w).topics.keys():
-    yield topic
+proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
+  return toSeq(GossipSub(w).topics.keys())
 
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
@@ -202,7 +201,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
     let decMsg = WakuMessage.decode(data)
     if decMsg.isErr():
-      # fine if triggerSelf enabled, since validators are bypassed
+      # fine if triggerSelf enabled, since validators are bypassed
       error "failed to decode WakuMessage, validator passed a wrong message", error = decMsg.error
       let fut = newFuture[void]()
       fut.complete()

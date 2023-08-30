@@ -22,7 +22,8 @@ from std/times import toUnix
 
 when defined(rln):
   import
-    ../../../waku_rln_relay
+    ../../../waku_rln_relay,
+    ../../../waku_rln_relay/rln/wrappers
 
 logScope:
   topics = "waku node jsonrpc relay_api"
@@ -77,9 +78,9 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
 
     return true
 
-  server.rpc("post_waku_v2_relay_v1_message") do (topic: PubsubTopic, msg: WakuMessageRPC) -> bool:
+  server.rpc("post_waku_v2_relay_v1_message") do (pubsubTopic: PubsubTopic, msg: WakuMessageRPC) -> bool:
     ## Publishes a WakuMessage to a PubSub topic
-    debug "post_waku_v2_relay_v1_message"
+    debug "post_waku_v2_relay_v1_message", pubsubTopic=pubsubTopic
 
     let payloadRes = base64.decode(msg.payload)
     if payloadRes.isErr():
@@ -93,18 +94,34 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         timestamp: msg.timestamp.get(Timestamp(0)),
         ephemeral: msg.ephemeral.get(false)
       )
-    
+
+    # ensure the node is subscribed to the pubsubTopic. otherwise it risks publishing
+    # to a topic with no connected peers
+    if pubsubTopic notin node.wakuRelay.subscribedTopics():
+      raise newException(ValueError, "Failed to publish: Node not subscribed to pubsubTopic: " & pubsubTopic)
+
     when defined(rln):
       if not node.wakuRlnRelay.isNil():
-        let success = node.wakuRlnRelay.appendRLNProof(message, 
+        # append the proof to the message
+        let success = node.wakuRlnRelay.appendRLNProof(message,
                                                       float64(getTime().toUnix()))
         if not success:
-          raise newException(ValueError, "Failed to append RLN proof to message")
+          raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
 
-    let publishFut = node.publish(topic, message)
+        # validate the message before sending it
+        let result = node.wakuRlnRelay.validateMessage(message)
+        if result == MessageValidationResult.Invalid:
+          raise newException(ValueError, "Failed to publish: invalid RLN proof")
+        elif result == MessageValidationResult.Spam:
+          raise newException(ValueError, "Failed to publish: limit exceeded, try again later")
+        elif result == MessageValidationResult.Valid:
+          let publishFut = node.publish(pubsubTopic, message)
 
-    if not await publishFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to publish to topic " & topic)
+          if not await publishFut.withTimeout(futTimeout):
+            raise newException(ValueError, "Failed to publish: timed out")
+        else:
+          raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
+
 
     return true
 
