@@ -27,11 +27,11 @@ when isMainModule:
     quit(1)
 
   let conf = confRes.get()
-  
-  debug "configuration", conf = $conf
+
+  trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
-  let rlnInstanceRes = createRLNInstance(d=20, 
+  let rlnInstanceRes = createRLNInstance(d=20,
                                          tree_path = genTempPath("rln_tree", "rln_keystore_generator"))
   if rlnInstanceRes.isErr():
     error "failure while creating RLN instance", error=rlnInstanceRes.error
@@ -46,12 +46,12 @@ when isMainModule:
     quit(1)
 
   let credential = credentialRes.get()
-  debug "credentials", idTrapdoor = credential.idTrapdoor.inHex(), 
+  debug "credentials", idTrapdoor = credential.idTrapdoor.inHex(),
                        idNullifier = credential.idNullifier.inHex(),
                        idSecretHash = credential.idSecretHash.inHex(),
                        idCommitment = credential.idCommitment.inHex()
 
-  
+
   if not conf.execute:
     info "not executing, exiting"
     quit(0)
@@ -78,6 +78,10 @@ when isMainModule:
 
   debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
+  info "Your membership has been registered on-chain.", chainId = $groupManager.chainId.get(),
+                                                        contractAddress = conf.rlnRelayEthContractAddress,
+                                                        membershipIndex = groupManager.membershipIndex.get()
+
   # 6. write to keystore
   let keystoreCred = KeystoreMembership(
     membershipContract: MembershipContract(
@@ -88,14 +92,14 @@ when isMainModule:
     identityCredential: credential,
   )
 
-  let persistRes = addMembershipCredentials(conf.rlnRelayCredPath, 
-                                            keystoreCred, 
-                                            conf.rlnRelayCredPassword, 
+  let persistRes = addMembershipCredentials(conf.rlnRelayCredPath,
+                                            keystoreCred,
+                                            conf.rlnRelayCredPassword,
                                             RLNAppInfo)
   if persistRes.isErr():
     error "failed to persist credentials", error=persistRes.error
     quit(1)
-  
+
   info "credentials persisted", path = conf.rlnRelayCredPath
 
   waitFor groupManager.stop()
