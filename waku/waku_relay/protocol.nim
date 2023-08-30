@@ -189,6 +189,26 @@ iterator subscribedTopics*(w: WakuRelay): lent PubsubTopic =
   for topic in GossipSub(w).topics.keys():
     yield topic
 
+proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
+  # rejects messages that are not WakuMessage
+  let wrappedValidator = proc(pubsubTopic: string, 
+                              message: messages.Message): Future[ValidationResult] {.async.} =
+    # can be optimized by checking if the message is a WakuMessage without allocating memory
+    # see nim-libp2p protobuf library
+    let msgRes = WakuMessage.decode(message.data)
+    if msgRes.isErr():
+      return ValidationResult.Reject
+    let msg = msgRes.get()
+
+    # now sequentially validate the message
+    if w.wakuValidators.hasKey(pubsubTopic):
+      for validator in w.wakuValidators[pubsubTopic]:
+        let validatorRes = await validator(pubsubTopic, msg)
+        if validatorRes != ValidationResult.Accept:
+          return validatorRes
+    return ValidationResult.Accept
+  return wrappedValidator
+
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
 
@@ -204,25 +224,8 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
     else:
       return handler(pubsubTopic, decMsg.get())
 
-  # rejects messages that are not WakuMessage
-  let wrappedValidator = proc(pubsubTopic: string, 
-                              message: messages.Message): Future[ValidationResult] {.async.} =
-    # can be optimized by checking if the message is a WakuMessage without allocating memory
-    # see nim-libp2p protobuf library
-    let msgRes = WakuMessage.decode(message.data)
-    if msgRes.isErr():
-      return ValidationResult.Reject
-    let msg = msgRes.get()
-
-    # now sequentially validate the message
-    if w.wakuValidators.hasKey(pubsubTopic):
-      for validator in w.wakuValidators[pubsubTopic]:
-        if (await validator(pubsubTopic, msg)) == ValidationResult.Reject:
-          return ValidationResult.Reject
-    return ValidationResult.Accept
-
-  # add the default validator to the topic
-  procCall GossipSub(w).addValidator(pubSubTopic, wrappedValidator)
+  # add the ordered validator to the topic
+  procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
