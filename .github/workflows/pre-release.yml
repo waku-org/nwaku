@@ -76,7 +76,7 @@ jobs:
       - name: upload artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: tools
+          name: wakutools
           path: ${{steps.vars.outputs.nwakutools}}
           retention-days: 2
 
@@ -130,4 +130,4 @@ jobs:
 
           gh release create ${{steps.vars.outputs.release}} --prerelease ${TARGET} \
             --title ${{steps.vars.outputs.release}} --notes-file release_notes.md \
-            wakunode2/* tools/*
+            wakunode2/* wakutools/*
