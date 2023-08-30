@@ -7,6 +7,7 @@ else:
 
 import
   std/[options,sequtils,sets,strutils,tables],
+  stew/byteutils,
   chronicles,
   chronos,
   libp2p/peerid,
@@ -158,7 +159,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
   await conn.get().writeLp(buffer)
 
 proc pushToPeers(wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush) {.async.} =
-  trace "pushing message to subscribed peers", peers=peers, messagePush=messagePush
+  debug "pushing message to subscribed peers", pubsubTopic=messagePush.pubsubTopic, contentTopic=messagePush.wakuMessage.contentTopic, peers=peers, hash=messagePush.pubsubTopic.digest(messagePush.wakuMessage).to0xHex()
 
   let bufferToPublish = messagePush.encode().buffer
 
@@ -205,8 +206,11 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
           wakuMessage: message)
 
     if not await wf.pushToPeers(subscribedPeers, messagePush).withTimeout(MessagePushTimeout):
-      debug "timed out pushing message to peers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
+      debug "timed out pushing message to peers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.digest(message).to0xHex()
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
+    else:
+      debug "pushed message succesfully to all subscribers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.digest(message).to0xHex()
+
 
   let
     handleMessageDuration = Moment.now() - handleMessageStartTime
