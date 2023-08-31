@@ -244,11 +244,6 @@ type
       defaultValue: true,
       name: "store-message-db-migration" }: bool
 
-    storeResumePeer* {.
-      desc: "Peer multiaddress to resume the message store at boot.",
-      defaultValue: "",
-      name: "store-resume-peer" }: string
-
     ## Filter config
 
     filter* {.
