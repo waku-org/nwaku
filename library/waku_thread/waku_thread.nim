@@ -9,18 +9,19 @@ import
   chronicles,
   chronos,
   stew/results,
-  stew/shims/net
+  stew/shims/net,
+  taskpools/channels_spsc_single
 import
   ../../../waku/node/waku_node,
   ../events/[json_error_event,json_message_event,json_base_event],
-  ./inter_thread_communication/request
+  ./inter_thread_communication/waku_thread_request,
+  ./inter_thread_communication/waku_thread_response
 
 type
   Context* = object
     thread: Thread[(ptr Context)]
-    reqChannel: Channel[InterThreadRequest]
-    respChannel: Channel[Result[string, string]]
-    node: WakuNode
+    reqChannel: ChannelSPSCSingle[ptr InterThreadRequest]
+    respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
 
 var ctx {.threadvar.}: ptr Context
 
@@ -49,10 +50,17 @@ proc run(ctx: ptr Context) {.thread.} =
 
   while running.load == true:
     ## Trying to get a request from the libwaku main thread
-    let req = ctx.reqChannel.tryRecv()
-    if req[0] == true:
-      let response = waitFor req[1].process(addr node)
-      ctx.respChannel.send( response )
+
+    var request: ptr InterThreadRequest
+    let recvOk = ctx.reqChannel.tryRecv(request)
+    if recvOk == true:
+      let resultResponse = InterThreadRequest.process(request, addr node)
+
+      ## Converting a `Result` into a thread-safe transferable response type
+      let threadSafeResp = InterThreadResponse.new(resultResponse)
+
+      ## The error-handling is performed in the main thread
+      discard ctx.respChannel.trySend( threadSafeResp )
 
     poll()
 
@@ -65,8 +73,6 @@ proc createWakuThread*(): Result[void, string] =
   waku_init()
 
   ctx = createShared(Context, 1)
-  ctx.reqChannel.open()
-  ctx.respChannel.open()
 
   running.store(true)
 
@@ -83,20 +89,24 @@ proc createWakuThread*(): Result[void, string] =
 proc stopWakuNodeThread*() =
   running.store(false)
   joinThread(ctx.thread)
-
-  ctx.reqChannel.close()
-  ctx.respChannel.close()
-
   freeShared(ctx)
 
-proc sendRequestToWakuThread*(req: InterThreadRequest): Result[string, string] =
+proc sendRequestToWakuThread*(reqType: RequestType,
+                              reqContent: pointer): Result[string, string] =
 
-  ctx.reqChannel.send(req)
+  let req = InterThreadRequest.new(reqType, reqContent)
 
-  var resp = ctx.respChannel.tryRecv()
-  while resp[0] == false:
-    resp = ctx.respChannel.tryRecv()
+  ## Sending the request
+  let sentOk = ctx.reqChannel.trySend(req)
+  if not sentOk:
+    return err("Couldn't send a request to the waku thread: " & $req[])
+
+  ## Waiting for the response
+  var response: ptr InterThreadResponse
+  var recvOk = ctx.respChannel.tryRecv(response)
+  while recvOk == false:
+    recvOk = ctx.respChannel.tryRecv(response)
     os.sleep(1)
 
-  return resp[1]
-
+  ## Converting the thread-safe response into a managed/CG'ed `Result`
+  return InterThreadResponse.process(response)

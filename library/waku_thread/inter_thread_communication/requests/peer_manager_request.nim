@@ -7,15 +7,14 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../waku/node/waku_node,
-  ./request
+  ../../../../waku/node/waku_node
 
 type
   PeerManagementMsgType* = enum
     CONNECT_TO
 
 type
-  PeerManagementRequest* = ref object of InterThreadRequest
+  PeerManagementRequest* = object
     operation: PeerManagementMsgType
     peerMultiAddr: string
     dialTimeout: Duration
@@ -23,11 +22,14 @@ type
 proc new*(T: type PeerManagementRequest,
           op: PeerManagementMsgType,
           peerMultiAddr: string,
-          dialTimeout: Duration): T =
+          dialTimeout: Duration): ptr PeerManagementRequest =
 
-  return PeerManagementRequest(operation: op,
-                               peerMultiAddr: peerMultiAddr,
-                               dialTimeout: dialTimeout)
+  var ret = cast[ptr PeerManagementRequest](
+                      allocShared0(sizeof(PeerManagementRequest)))
+  ret[].operation = op
+  ret[].peerMultiAddr = peerMultiAddr
+  ret[].dialTimeout = dialTimeout
+  return ret
 
 proc connectTo(node: WakuNode,
                peerMultiAddr: string,
@@ -46,13 +48,15 @@ proc connectTo(node: WakuNode,
 
   return ok()
 
-method process*(self: PeerManagementRequest,
-                node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+proc process*(self: ptr PeerManagementRequest,
+              node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+
+  defer: deallocShared(self)
 
   case self.operation:
 
     of CONNECT_TO:
-      let ret = node[].connectTo(self.peerMultiAddr, self.dialTimeout)
+      let ret = node[].connectTo(self[].peerMultiAddr, self[].dialTimeout)
       if ret.isErr():
         return err(ret.error)
 

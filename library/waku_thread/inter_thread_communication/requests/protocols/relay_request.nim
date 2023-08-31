@@ -7,11 +7,10 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../../waku/waku_core/message/message,
-  ../../../../waku/node/waku_node,
-  ../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../waku/waku_relay/protocol,
-  ../request
+  ../../../../../waku/waku_core/message/message,
+  ../../../../../waku/node/waku_node,
+  ../../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../../waku/waku_relay/protocol
 
 type
   RelayMsgType* = enum
@@ -20,7 +19,7 @@ type
     PUBLISH
 
 type
-  RelayRequest* = ref object of InterThreadRequest
+  RelayRequest* = object
     operation: RelayMsgType
     pubsubTopic: PubsubTopic
     relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
@@ -30,15 +29,19 @@ proc new*(T: type RelayRequest,
           op: RelayMsgType,
           pubsubTopic: PubsubTopic,
           relayEventCallback: WakuRelayHandler = nil,
-          message = WakuMessage()): T =
+          message = WakuMessage()): ptr RelayRequest =
 
-  return RelayRequest(operation: op,
-                      pubsubTopic: pubsubTopic,
-                      relayEventCallback: relayEventCallback,
-                      message: message)
+  var ret = cast[ptr RelayRequest](allocShared0(sizeof(RelayRequest)))
+  ret[].operation = op
+  ret[].pubsubTopic = pubsubTopic
+  ret[].relayEventCallback = relayEventCallback
+  ret[].message = message
+  return ret
 
-method process*(self: RelayRequest,
-                node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+proc process*(self: ptr RelayRequest,
+              node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+
+  defer: deallocShared(self)
 
   if node.wakuRelay.isNil():
     return err("Operation not supported without Waku Relay enabled.")
