@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, tempfiles],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
@@ -20,6 +20,10 @@ import
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
+
+when defined(rln):
+  import
+    ../../../waku/waku_rln_relay
 
 
 proc newTestMessageCache(): relay_api.MessageCache =
@@ -100,6 +104,15 @@ suite "Waku v2 JSON-RPC API - Relay":
     await srcNode.mountRelay(@[pubSubTopic])
     await dstNode.mountRelay(@[pubSubTopic])
 
+    when defined(rln):
+      await srcNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+          rlnRelayCredIndex: 1,
+          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+
+      await dstNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+          rlnRelayCredIndex: 2,
+          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2")))
+
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
 
@@ -139,7 +152,12 @@ suite "Waku v2 JSON-RPC API - Relay":
       response == true
       await dstHandlerFut.withTimeout(chronos.seconds(5))
 
-    let (topic, msg) = dstHandlerFut.read()
+    var (topic, msg) = dstHandlerFut.read()
+
+    # proof is injected under the hood, we compare just the message
+    when defined(rln):
+      msg.proof = @[]
+
     check:
       topic == pubSubTopic
       msg == message
@@ -171,7 +189,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     # RPC server (destination node)
     let
-      rpcPort = Port(8548)
+      rpcPort = Port(8549)
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 

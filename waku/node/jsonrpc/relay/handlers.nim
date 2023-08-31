@@ -100,6 +100,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     if pubsubTopic notin node.wakuRelay.subscribedTopics():
       raise newException(ValueError, "Failed to publish: Node not subscribed to pubsubTopic: " & pubsubTopic)
 
+    # if RLN is mounted, append the proof to the message
     when defined(rln):
       if not node.wakuRlnRelay.isNil():
         # append the proof to the message
@@ -107,7 +108,6 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
                                                       float64(getTime().toUnix()))
         if not success:
           raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
-
         # validate the message before sending it
         let result = node.wakuRlnRelay.validateMessage(message)
         if result == MessageValidationResult.Invalid:
@@ -115,13 +115,22 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         elif result == MessageValidationResult.Spam:
           raise newException(ValueError, "Failed to publish: limit exceeded, try again later")
         elif result == MessageValidationResult.Valid:
+          debug "Publishing message WITH RLN proof", pubSubTopic=pubSubTopic
           let publishFut = node.publish(pubsubTopic, message)
-
           if not await publishFut.withTimeout(futTimeout):
             raise newException(ValueError, "Failed to publish: timed out")
         else:
           raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
+      else:
+        raise newException(ValueError, "Failed to publish: RLN enabled but not mounted")
 
+    # if RLN is not mounted, publish the message as is
+    else:
+      debug "Publishing message WITHOUT RLN proof", pubSubTopic=pubSubTopic
+      let publishFut = node.publish(pubsubTopic, message)
+
+      if not await publishFut.withTimeout(futTimeout):
+        raise newException(ValueError, "Failed to publish: timed out")
 
     return true
 
