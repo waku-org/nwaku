@@ -156,14 +156,16 @@ procSuite "WakuNode - RLN relay":
     var messages1: seq[WakuMessage] = @[]
     var messages2: seq[WakuMessage] = @[]
 
+    let epochTime = epochTime()
+
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
-      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime()))
+      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime))
       messages1.add(message)
 
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
-      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime()))
+      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime))
       messages2.add(message)
 
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
