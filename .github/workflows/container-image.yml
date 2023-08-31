@@ -1,0 +1,71 @@
+name: container-image-build
+
+on:
+  workflow_call:
+    inputs:
+      experimental:
+        type: boolean
+
+env:
+  NPROC: 2
+  MAKEFLAGS: "-j${NPROC}"
+  NIMFLAGS: "--parallelBuild:${NPROC}"
+
+jobs:
+  build-docker-image:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+
+    name: docker-build-${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get submodules hash
+        id: submodules
+        run: |
+          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
+
+      - name: Cache submodules
+        uses: actions/cache@v3
+        with:
+          path: |
+            vendor/
+            .git/modules
+          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
+
+      - name: Build binaries
+        id: build
+        run: |
+          EXPERIMENTAL=${{ inputs.experimental }}
+
+          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative" wakunode2 EXPERIMENTAL=${{EXPERIMENTAL}}
+
+          TAG=$([ "${PR_NUMBER}" == "" ] && echo "master" || echo "${PR_NUMBER}")
+          TAG=$([ "${EXPERIMENTAL}" == "true" ] && echo "${TAG}-experimental" || echo "${TAG}")
+          IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
+
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+
+          docker login -u ${QUAY_USER} -p ${QUAY_PASSWORD} quay.io
+          docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=7d .
+          docker push ${IMAGE}
+        env:
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+          QUAY_USER: ${{ secrets.QUAY_USER }}
+          PR_NUMBER: ${{ github.event.number }}
+
+      - name: Comment PR
+        uses: thollander/actions-comment-pull-request@v2
+        if: ${{ github.event_name == 'pull_request' }}
+        with:
+          message: |
+            You can find the ${{ inputs.experimental && '**experimental**' || ''}} image built from this PR at
+
+            ```
+            ${{steps.build.outputs.image}}
+            ```
+          comment_tag: execution${{ inputs.experimental && '**experimental**' || ''}}

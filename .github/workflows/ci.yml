@@ -41,9 +41,13 @@ jobs:
           - 'tests/all_tests_v2.nim'
           - 'tests/**'
 
+          docker:
+          - 'docker/**'
+
     outputs:
       common: ${{ steps.filter.outputs.common }}
       v2: ${{ steps.filter.outputs.v2 }}
+      docker: ${{ steps.filter.outputs.docker }}
 
   build:
     needs: changes
@@ -117,57 +121,6 @@ jobs:
 
   build-docker-image:
     needs: changes
-    if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-
-    name: docker-build-${{ matrix.os }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Get submodules hash
-        id: submodules
-        run: |
-          echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
-
-      - name: Cache submodules
-        uses: actions/cache@v3
-        with:
-          path: |
-            vendor/
-            .git/modules
-          key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
-
-      - name: Build binaries
-        id: build
-        run: |
-          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative" wakunode2
-
-          TAG=$([ "${PR_NUMBER}" == "" ] && echo "master" || echo "${PR_NUMBER}")
-          IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
-
-          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
-
-          docker login -u ${QUAY_USER} -p ${QUAY_PASSWORD} quay.io
-          docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=7d .
-          docker push ${IMAGE}
-        env:
-          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
-          QUAY_USER: ${{ secrets.QUAY_USER }}
-          PR_NUMBER: ${{ github.event.number }}
-
-      - name: Comment PR
-        uses: thollander/actions-comment-pull-request@v2
-        if: ${{ github.event_name == 'pull_request' }}
-        with:
-          message: |
-            You can find the image built from this PR at
-
-            ```
-            ${{steps.build.outputs.image}}
-            ```
-          comment_tag: execution
+    if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' || needs.changes.outputs.docker == 'true' }}
+    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
+    secrets: inherit
