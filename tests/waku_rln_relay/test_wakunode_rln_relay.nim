@@ -150,17 +150,28 @@ procSuite "WakuNode - RLN relay":
     nodes[2].subscribe(pubsubTopics[1], relayHandler)
     await sleepAsync(1000.millis)
 
-    # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
-    for i in 0..<3:
-      var message1 = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
-      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message1, epochTime()))
-      await nodes[0].publish(pubsubTopics[0], message1)
+    # generate some messages with rln proofs first. generating
+    # the proof takes some time, so this is done before publishing
+    # to avoid blocking the test
+    var messages1: seq[WakuMessage] = @[]
+    var messages2: seq[WakuMessage] = @[]
 
-    # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
+    let epochTime = epochTime()
+
     for i in 0..<3:
-      var message2 = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
-      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message2, epochTime()))
-      await nodes[1].publish(pubsubTopics[1], message2)
+      var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
+      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime))
+      messages1.add(message)
+
+    for i in 0..<3:
+      var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
+      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime))
+      messages2.add(message)
+
+    # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
+    # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
+    for msg in messages1: await nodes[0].publish(pubsubTopics[0], msg)
+    for msg in messages2: await nodes[1].publish(pubsubTopics[1], msg)
 
     # wait for gossip to propagate
     await sleepAsync(5000.millis)
