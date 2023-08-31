@@ -249,6 +249,30 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
 
+proc validateMessageAndUpdateLog*(
+  rlnPeer: WakuRLNRelay,
+  msg: WakuMessage,
+  timeOption = none(float64)): MessageValidationResult =
+  ## validates the message and updates the log to prevent double messaging
+  ## in future messages
+
+  let result = rlnPeer.validateMessage(msg, timeOption)
+
+  let decodeRes = RateLimitProof.init(msg.proof)
+  if decodeRes.isErr():
+    return MessageValidationResult.Invalid
+
+  let msgProof = decodeRes.get()
+  let proofMetadataRes = msgProof.extractMetadata()
+
+  if proofMetadataRes.isErr():
+    return MessageValidationResult.Invalid
+
+  # insert the message to the log (never errors)
+  discard rlnPeer.updateLog(proofMetadataRes.get())
+
+  return result
+
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
   ## it extracts the `contentTopic` and the `payload` of the supplied `wakumessage` and serializes them into a byte sequence
@@ -304,16 +328,8 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
 
       let msgProof = decodeRes.get()
 
-      # validate the message
-      let validationRes = wakuRlnRelay.validateMessage(wakumessage)
-
-      # extract the metadata, already checked should not error
-      let proofMetadataRes = msgProof.extractMetadata()
-      if proofMetadataRes.isErr():
-        return pubsub.ValidationResult.Reject
-
-      # insert the message to the log (never errors)
-      discard wakuRlnRelay.updateLog(proofMetadataRes.get())
+      # validate the message and update log
+      let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(wakumessage)
 
       let
         proof = toHex(msgProof.proof)
