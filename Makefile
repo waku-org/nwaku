@@ -123,7 +123,7 @@ endif
 
 ### RLN
 
-LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit/target/release
+LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
