@@ -658,7 +658,7 @@ suite "Waku rln relay":
       # it is a duplicate
       result3.value == true
 
-  asyncTest "validateMessage test":
+  asyncTest "validateMessageAndUpdateLog test":
     let index = MembershipIndex(5)
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
@@ -695,13 +695,13 @@ suite "Waku rln relay":
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
-      msgValidate1 = wakuRlnRelay.validateMessage(wm1, some(time))
+      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1, some(time))
       # wm2 is published within the same Epoch as wm1 and should be found as spam
-      msgValidate2 = wakuRlnRelay.validateMessage(wm2, some(time))
+      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2, some(time))
       # a valid message should be validated successfully
-      msgValidate3 = wakuRlnRelay.validateMessage(wm3, some(time))
+      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3, some(time))
       # wm4 has no rln proof and should not be validated
-      msgValidate4 = wakuRlnRelay.validateMessage(wm4, some(time))
+      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
 
 
     check:
@@ -750,13 +750,13 @@ suite "Waku rln relay":
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
     let
       # this should be no verification, Valid
-      msgValidate1 = wakuRlnRelay.validateMessage(wm1, some(time))
+      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1, some(time))
       # this should be verification, Valid
-      msgValidate2 = wakuRlnRelay.validateMessage(wm2, some(time))
+      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2, some(time))
       # this should be verification, Invalid
-      msgValidate3 = wakuRlnRelay.validateMessage(wm3, some(time))
+      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3, some(time))
       # this should be verification, Spam
-      msgValidate4 = wakuRlnRelay.validateMessage(wm4, some(time))
+      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
 
     check:
       msgValidate1 == MessageValidationResult.Valid
@@ -848,7 +848,7 @@ suite "Waku rln relay":
 
     # getMembershipCredentials returns the credential in the keystore which matches
     # the query, in this case the query is =
-    # chainId = "5" and 
+    # chainId = "5" and
     # address = "0x0123456789012345678901234567890123456789" and
     # treeIndex = 1
     let readKeystoreMembership = readKeystoreRes.get()

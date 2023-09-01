@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils,tempfiles],
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
@@ -22,6 +22,9 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
+when defined(rln):
+  import
+    ../../../waku/waku_rln_relay
 
 proc testWakuNode(): WakuNode =
   let
@@ -183,6 +186,10 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
+    when defined(rln):
+      await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+          rlnRelayCredIndex: 1,
+          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
     let restPort = Port(58014)

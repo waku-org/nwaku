@@ -181,7 +181,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   # track message count for metrics
   waku_rln_messages_total.inc()
 
-  #  checks if the `msg`'s epoch is far from the current epoch
+  # checks if the `msg`'s epoch is far from the current epoch
   # it corresponds to the validation of rln external nullifier
   var epoch: Epoch
   if timeOption.isSome():
@@ -190,20 +190,19 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
     # get current rln epoch
     epoch = getCurrentEpoch()
 
-  debug "current epoch", currentEpoch = fromEpoch(epoch)
   let
     msgEpoch = proof.epoch
     # calculate the gaps
     gap = absDiff(epoch, msgEpoch)
 
-  debug "message epoch", msgEpoch = fromEpoch(msgEpoch)
+  debug "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
   if gap > MaxEpochGap:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MaxEpochGap from the current epoch
     warn "invalid message: epoch gap exceeds a threshold", gap = gap,
-        payload = string.fromBytes(msg.payload), msgEpoch = fromEpoch(proof.epoch)
+        payloadLen = msg.payload.len, msgEpoch = fromEpoch(proof.epoch)
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_epoch"])
     return MessageValidationResult.Invalid
 
@@ -224,11 +223,11 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
 
   if proofVerificationRes.isErr():
     waku_rln_errors_total.inc(labelValues=["proof_verification"])
-    warn "invalid message: proof verification failed", payload = string.fromBytes(msg.payload)
+    warn "invalid message: proof verification failed", payloadLen = msg.payload.len
     return MessageValidationResult.Invalid
   if not proofVerificationRes.value():
     # invalid proof
-    debug "invalid message: invalid proof", payload = string.fromBytes(msg.payload)
+    debug "invalid message: invalid proof", payloadLen = msg.payload.len
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_proof"])
     return MessageValidationResult.Invalid
 
@@ -241,18 +240,38 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
-    debug "invalid message: message is spam", payload = string.fromBytes(msg.payload)
+    debug "invalid message: message is spam", payloadLen = msg.payload.len
     waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
-  # insert the message to the log
-  # the result of `updateLog` is discarded because message insertion is guaranteed by the implementation i.e.,
-  # it will never error out
-  discard rlnPeer.updateLog(proofMetadataRes.get())
-  debug "message is valid", payload = string.fromBytes(msg.payload)
+  debug "message is valid", payloadLen = msg.payload.len
   let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
+
+proc validateMessageAndUpdateLog*(
+  rlnPeer: WakuRLNRelay,
+  msg: WakuMessage,
+  timeOption = none(float64)): MessageValidationResult =
+  ## validates the message and updates the log to prevent double messaging
+  ## in future messages
+
+  let result = rlnPeer.validateMessage(msg, timeOption)
+
+  let decodeRes = RateLimitProof.init(msg.proof)
+  if decodeRes.isErr():
+    return MessageValidationResult.Invalid
+
+  let msgProof = decodeRes.get()
+  let proofMetadataRes = msgProof.extractMetadata()
+
+  if proofMetadataRes.isErr():
+    return MessageValidationResult.Invalid
+
+  # insert the message to the log (never errors)
+  discard rlnPeer.updateLog(proofMetadataRes.get())
+
+  return result
 
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
@@ -309,9 +328,10 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
 
       let msgProof = decodeRes.get()
 
-      # validate the message
+      # validate the message and update log
+      let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(wakumessage)
+
       let
-        validationRes = wakuRlnRelay.validateMessage(wakumessage)
         proof = toHex(msgProof.proof)
         epoch = fromEpoch(msgProof.epoch)
         root = inHex(msgProof.merkleRoot)
