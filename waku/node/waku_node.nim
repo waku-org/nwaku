@@ -25,6 +25,7 @@ import
   libp2p/transports/wstransport
 import
   ../waku_core,
+  ../waku_core/topics/sharding,
   ../waku_relay,
   ../waku_archive,
   ../waku_store,
@@ -101,6 +102,8 @@ type
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
+    handlersTable: Table[string, TopicHandler]
+    subscriptions: Table[PubsubTopic, tuple[pubsubTopic: bool, contentTopics: int]]
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -220,8 +223,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
 
-  node.wakuRelay.subscribe(topic, defaultHandler)
-
+  discard node.wakuRelay.subscribe(topic, defaultHandler)
 
 proc subscribe*(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isNil():
@@ -231,7 +233,29 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic) =
   debug "subscribe", pubsubTopic= topic
 
   node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
+
+  if node.subscriptions.hasKeyOrPut(topic, (true, 0)):
+    node.subscriptions.mgetOrPut(topic, (true, 0)).pubsubTopic = true
+
   node.registerRelayDefaultHandler(topic)
+
+proc auto_subscribe*(node: WakuNode, topic: ContentTopic) =
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `auto_subscribe`. WakuRelay not mounted."
+    return
+
+  debug "auto_subscribe", contentTopic= topic
+
+  let shard = getShard(topic).valueOr:
+    error "Autosharding error: ", error=error
+    return
+
+  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard))
+
+  if node.subscriptions.hasKeyOrPut(shard, (false, 1)):
+      node.subscriptions.mgetOrPut(shard, (false, 1)).contentTopics += 1
+
+  node.registerRelayDefaultHandler(shard)
 
 proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
@@ -243,8 +267,39 @@ proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic= topic
 
   node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
+
+  if node.subscriptions.hasKeyOrPut(topic, (true, 0)):
+    node.subscriptions.mgetOrPut(topic, (true, 0)).pubsubTopic = true
+    
   node.registerRelayDefaultHandler(topic)
-  node.wakuRelay.subscribe(topic, handler)
+  let wrappedHandler = node.wakuRelay.subscribe(topic, handler)
+  discard node.handlersTable.hasKeyOrPut(topic, wrappedHandler)
+
+proc auto_subscribe*(node: WakuNode, topic: ContentTopic, handler: WakuRelayHandler) =
+  ## Subscribes to a Content topic. Triggers handler when receiving messages on
+  ## this topic. TopicHandler is a method that takes a topic and some data.
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `auto_subscribe`. WakuRelay not mounted."
+    return
+
+  if node.handlersTable.hasKey(topic):
+    error "Invalid API call to `auto_subscribe`. Was already subscribed"
+    return
+
+  debug "auto_subscribe", contentTopic=topic
+
+  let shard = getShard(topic).valueOr:
+    error "Autosharding error: ", error=error
+    return
+
+  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard))
+
+  if node.subscriptions.hasKeyOrPut(shard, (false, 1)):
+      node.subscriptions.mgetOrPut(shard, (false, 1)).contentTopics += 1
+    
+  node.registerRelayDefaultHandler(shard)
+  let wrappedHandler = node.wakuRelay.subscribe(shard, handler)
+  discard node.handlersTable.hasKeyOrPut(topic, wrappedHandler)
 
 proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
   ## Unsubscribes from a specific PubSub topic.
@@ -253,11 +308,60 @@ proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
+  if not node.subscriptions.hasKey(topic):
+    error "Invalid API call to `unsubscribe`. Was not subscribed"
+    return
+
   info "unsubscribe", pubsubTopic=topic
 
-  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: topic))
-  node.wakuRelay.unsubscribe(topic)
+  let subscription = node.subscriptions.getOrDefault(topic)
+  if subscription.contentTopics == 0 and subscription.pubsubTopic:
+    # Remove all handlers
+    node.handlersTable.del(topic)
+    node.subscriptions.del(topic)
+    node.wakuRelay.unsubscribeAll(topic)
+    node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: topic))
+    return
+    
+  node.subscriptions.mgetOrPut(topic, (false, 0)).pubsubTopic = false
 
+  # Remove only this handler only
+  var handler: TopicHandler
+  if node.handlersTable.pop(topic, handler):
+    node.wakuRelay.unsubscribe(topic, handler)
+
+proc auto_unsubscribe*(node: WakuNode, topic: ContentTopic) =
+  ## Unsubscribes from a specific Content topic.
+
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `auto_unsubscribe`. WakuRelay not mounted."
+    return
+
+  if not node.handlersTable.hasKey(topic):
+    error "Invalid API call to `auto_unsubscribe`. Was not subscribed"
+    return
+
+  info "auto_unsubscribe", contentTopic=topic
+  
+  let shard = getShard(topic).valueOr:
+    error "Autosharding error: ", error=error
+    return
+
+  let subscription = node.subscriptions.getOrDefault(shard)
+  if subscription.contentTopics == 1 and not subscription.pubsubTopic:
+    # Remove all handlers
+    node.handlersTable.del(topic)
+    node.subscriptions.del(shard)
+    node.wakuRelay.unsubscribeAll(shard)
+    node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard))
+    return
+
+  node.subscriptions.mgetOrPut(shard, (false, 0)).contentTopics -= 1
+
+  # Remove only this handler only
+  var handler: TopicHandler
+  if node.handlersTable.pop(topic, handler):
+    node.wakuRelay.unsubscribe(shard, handler)
 
 proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
   ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
@@ -275,6 +379,26 @@ proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async,
       peerId=node.peerId,
       pubsubTopic=topic,
       hash=topic.digest(message).to0xHex(),
+      publishTime=getNowInNanosecondTime()
+
+proc auto_publish*(node: WakuNode, message: WakuMessage) {.async, gcsafe.} =
+  ## Publish a `WakuMessage`.`WakuMessage` must contain a
+  ## `contentTopic` field.
+
+  if node.wakuRelay.isNil():
+    error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
+    return
+
+  let shard = getShard(message.contentTopic).valueOr:
+    error "Autosharding error: ", error=error
+    return
+
+  discard await node.wakuRelay.publish(shard, message)
+
+  trace "waku.relay auto_published",
+      peerId=node.peerId,
+      pubsubTopic=shard,
+      hash=shard.digest(message).to0xHex(),
       publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =

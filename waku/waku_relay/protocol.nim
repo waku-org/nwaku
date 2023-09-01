@@ -214,7 +214,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     return ValidationResult.Accept
   return wrappedValidator
 
-proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
+proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 
   # we need to wrap the handler since gossipsub doesnt understand WakuMessage
@@ -240,11 +240,22 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   # subscribe to the topic with our wrapped handler
   procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
-proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
-  debug "unsubscribe", pubsubTopic=pubsubTopic
+  wrappedHandler
+
+proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
+  ## Unsubscribe all handlers on this pubsub topic
+  
+  debug "unsubscribe all", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
   w.validatorInserted.del(pubsubTopic)
+
+proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
+  ## Unsubscribe this handler on this pubsub topic
+  
+  debug "unsubscribe", pubsubTopic=pubsubTopic
+
+  procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
 
 proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic

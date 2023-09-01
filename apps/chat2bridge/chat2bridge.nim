@@ -230,7 +230,7 @@ when isMainModule:
     # Install enabled API handlers:
     if conf.relay:
       let topicCache = relay_api.MessageCache.init(capacity=30)
-      installRelayApiHandlers(node, rpcServer, topicCache)
+      installRelayApiHandlers(node, @[], @[], rpcServer, topicCache)
 
     if conf.filter:
       let messageCache = filter_api.MessageCache.init(capacity=30)

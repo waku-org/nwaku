@@ -576,7 +576,7 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
+    let relayCache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
     installRelayApiHandlers(server.router, app.node, relayCache)
 
   ## Filter REST API
@@ -611,7 +611,7 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
 
   if conf.relay:
     let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
-    installRelayApiHandlers(app.node, server, relayMessageCache)
+    installRelayApiHandlers(app.node, conf.pubsubTopics, conf.contentTopics, server, relayMessageCache)
 
   if conf.filternode != "":
     let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)

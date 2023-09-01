@@ -13,21 +13,19 @@ import
 
 export message_cache
 
-
-##### TopicCache
-
-type TopicCacheResult*[T] = MessageCacheResult[T]
-
-type TopicCache* = MessageCache[PubSubTopic]
-
-
 ##### Message handler
 
-type TopicCacheMessageHandler* = WakuRelayHandler
-
-proc messageHandler*(cache: TopicCache): TopicCacheMessageHandler =
+proc messageHandler*(cache: MessageCache[string]): WakuRelayHandler =
 
   let handler = proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
     cache.addMessage(PubSubTopic(pubsubTopic), msg)
+
+  handler
+
+proc autoMessageHandler*(cache: MessageCache[string]): WakuRelayHandler =
+
+  let handler = proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
+    if cache.isSubscribed(msg.contentTopic):
+      cache.addMessage(msg.contentTopic, msg)
 
   handler
