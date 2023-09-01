@@ -176,21 +176,17 @@ proc installRelayPostMessagesV1Handler*(router: var RestRouter, node: WakuNode) 
         elif result == MessageValidationResult.Spam:
           return RestApiResponse.badRequest("Failed to publish: limit exceeded, try again later")
         elif result == MessageValidationResult.Valid:
-          debug "Publishing message WITH RLN proof", pubSubTopic=pubSubTopic
-          let publishFut = node.publish(pubSubTopic, message)
-          if not await publishFut.withTimeout(futTimeout):
-            return RestApiResponse.internalServerError("Failed to publish: timed out")
+          debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
         else:
           return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
       else:
         return RestApiResponse.internalServerError("Failed to publish: RLN enabled but not mounted")
 
-    # if RLN is not enabled, just publish the message
-    else:
-      debug "Publishing message WITHOUT RLN proof", pubSubTopic=pubSubTopic
-      if not (waitFor node.publish(pubSubTopic, resMessage.value).withTimeout(futTimeout)):
-        error "Failed to publish message to topic", pubSubTopic=pubSubTopic
-        return RestApiResponse.internalServerError("Failed to publish: timedout")
+    # if we reach here its either a non-RLN message or a RLN message with a valid proof
+    debug "Publishing message", pubSubTopic=pubSubTopic, rln=defined(rln)
+    if not (waitFor node.publish(pubSubTopic, resMessage.value).withTimeout(futTimeout)):
+      error "Failed to publish message to topic", pubSubTopic=pubSubTopic
+      return RestApiResponse.internalServerError("Failed to publish: timedout")
 
     return RestApiResponse.ok()
 

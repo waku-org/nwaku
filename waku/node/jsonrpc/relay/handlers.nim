@@ -115,22 +115,17 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         elif result == MessageValidationResult.Spam:
           raise newException(ValueError, "Failed to publish: limit exceeded, try again later")
         elif result == MessageValidationResult.Valid:
-          debug "Publishing message WITH RLN proof", pubSubTopic=pubSubTopic
-          let publishFut = node.publish(pubsubTopic, message)
-          if not await publishFut.withTimeout(futTimeout):
-            raise newException(ValueError, "Failed to publish: timed out")
+          debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
         else:
           raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
       else:
         raise newException(ValueError, "Failed to publish: RLN enabled but not mounted")
 
-    # if RLN is not mounted, publish the message as is
-    else:
-      debug "Publishing message WITHOUT RLN proof", pubSubTopic=pubSubTopic
-      let publishFut = node.publish(pubsubTopic, message)
-
-      if not await publishFut.withTimeout(futTimeout):
-        raise newException(ValueError, "Failed to publish: timed out")
+    # if we reach here its either a non-RLN message or a RLN message with a valid proof
+    debug "Publishing message", pubSubTopic=pubSubTopic, rln=defined(rln)
+    let publishFut = node.publish(pubsubTopic, message)
+    if not await publishFut.withTimeout(futTimeout):
+      raise newException(ValueError, "Failed to publish: timed out")
 
     return true
 
