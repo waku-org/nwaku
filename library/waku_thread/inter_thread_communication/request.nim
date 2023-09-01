@@ -14,7 +14,7 @@ import
 type
   InterThreadRequest* = ref object of RootObj
 
-method process*(self: InterThreadRequest, node: WakuNode):
+method process*(self: InterThreadRequest, node: ptr WakuNode):
                 Future[Result[string, string]] {.base.} = discard
 
 proc `$`*(self: InterThreadRequest): string =

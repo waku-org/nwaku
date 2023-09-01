@@ -72,9 +72,18 @@ proc waku_new(configJson: cstring,
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
-  let createThRes = waku_thread.createWakuThread(configJson)
-  if createThRes.isErr():
-    let msg = "Error in createWakuThread: " & $createThRes.error
+  ## Create the Waku thread that will keep waiting for req from the main thread.
+  waku_thread.createWakuThread().isOkOr:
+    let msg = "Error in createWakuThread: " & $error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    return RET_ERR
+
+  let sendReqRes = waku_thread.sendRequestToWakuThread(
+                                NodeLifecycleRequest.new(
+                                          NodeLifecycleMsgType.CREATE_NODE,
+                                          configJson))
+  if sendReqRes.isErr():
+    let msg = $sendReqRes.error
     onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
 

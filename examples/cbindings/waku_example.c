@@ -127,7 +127,6 @@ void publish_message(char* pubsubTopic, const char* msg) {
     WAKU_CALL( waku_relay_publish(pubsubTopic,
                                   jsonWakuMsg,
                                   10000 /*timeout ms*/,
-                                  handle_publish_ok,
                                   handle_error) );
 
     printf("waku relay response [%s]\n", publishResponse);
