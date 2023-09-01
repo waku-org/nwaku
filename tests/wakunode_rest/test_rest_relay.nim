@@ -72,7 +72,6 @@ suite "Waku v2 Rest API - Relay":
       cache.isSubscribed("pubsub-topic-3")
 
     check:
-      # Node should be subscribed to default + new topics
       toSeq(node.wakuRelay.subscribedTopics).len == pubSubTopics.len
 
     await restServer.stop()
@@ -83,7 +82,12 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay()
+    await node.mountRelay(@[
+      "pubsub-topic-1",
+      "pubsub-topic-2",
+      "pubsub-topic-3",
+      "pubsub-topic-x",
+      ])
 
     let restPort = Port(58012)
     let restAddress = ValidIpAddress.init("0.0.0.0")
@@ -118,9 +122,15 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       not cache.isSubscribed("pubsub-topic-1")
+      not node.wakuRelay.isSubscribed("pubsub-topic-1")
       not cache.isSubscribed("pubsub-topic-2")
+      not node.wakuRelay.isSubscribed("pubsub-topic-2")
       not cache.isSubscribed("pubsub-topic-3")
+      not node.wakuRelay.isSubscribed("pubsub-topic-3")
       cache.isSubscribed("pubsub-topic-x")
+      node.wakuRelay.isSubscribed("pubsub-topic-x")
+      not cache.isSubscribed("pubsub-topic-y")
+      not node.wakuRelay.isSubscribed("pubsub-topic-y")
 
     await restServer.stop()
     await restServer.closeWait()
@@ -198,19 +208,11 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe(DefaultPubsubTopic)
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
-
     # When
-    let newTopics = @[
-      PubSubTopic("pubsub-topic-1"),
-      PubSubTopic("pubsub-topic-2"),
-      PubSubTopic("pubsub-topic-3")
-    ]
-    discard await client.relayPostSubscriptionsV1(newTopics)
-
     let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
       payload: base64.encode("TEST-PAYLOAD"),
       contentTopic: some(DefaultContentTopic),
@@ -222,8 +224,6 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
-
-    # TODO: Check for the message to be published to the topic
 
     await restServer.stop()
     await restServer.closeWait()
@@ -284,8 +284,6 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    #TODO Relay should actually sub to the shards
-
     let restPort = Port(58012)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
@@ -305,8 +303,6 @@ suite "Waku v2 Rest API - Relay":
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
-
-    
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -370,7 +366,6 @@ suite "Waku v2 Rest API - Relay":
         msg.version.get() == 2 and
         msg.timestamp.get() != Timestamp(0)
 
-
     check:
       cache.isSubscribed(contentTopic)
       cache.getMessages(contentTopic).tryGet().len == 0 # The cache is cleared when getMessage is called
@@ -385,6 +380,9 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
     let restPort = Port(58014)
@@ -397,11 +395,11 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    let contentTopics = @[DefaultContentTopic]
+    node.subscribe((kind: ContentSub, topic: DefaultContentTopic))
+    require:
+      toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    discard await client.relayPostAutoSubscriptionsV1(contentTopics)
-
     let response = await client.relayPostAutoMessagesV1(DefaultContentTopic, RelayWakuMessage(
       payload: base64.encode("TEST-PAYLOAD"),
       contentTopic: some(DefaultContentTopic),
@@ -413,7 +411,6 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
-      cache.getMessages(DefaultContentTopic).tryGet().len == 1
 
     await restServer.stop()
     await restServer.closeWait()

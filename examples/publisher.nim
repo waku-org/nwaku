@@ -99,7 +99,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
                                 contentTopic: contentTopic,     # content topic to publish to
                                 ephemeral: true,                # tell store nodes to not store it
                                 timestamp: now())               # current timestamp
-      await node.publish(pubSubTopic, message)
+      await node.publish(some(pubSubTopic), message)
       notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       await sleepAsync(5000)
 

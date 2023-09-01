@@ -576,8 +576,20 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let relayCache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
-    installRelayApiHandlers(server.router, app.node, relayCache)
+    let cache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(server.router, app.node, cache)
 
   ## Filter REST API
   if conf.filter:
@@ -610,8 +622,20 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   installDebugApiHandlers(app.node, server)
 
   if conf.relay:
-    let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
-    installRelayApiHandlers(app.node, conf.pubsubTopics, conf.contentTopics, server, relayMessageCache)
+    let cache = MessageCache[string].init(capacity=30)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(app.node, server, cache)
 
   if conf.filternode != "":
     let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)

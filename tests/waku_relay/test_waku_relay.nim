@@ -63,7 +63,7 @@ suite "Waku Relay":
     ## Cleanup
     await nodeA.stop()
 
-  asyncTest "unsubscribeAll all handlers from topic":
+  asyncTest "unsubscribe all handlers from topic":
     ## Setup
     let nodeA = await newTestWakuRelay()
 

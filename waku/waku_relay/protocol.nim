@@ -218,16 +218,17 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   debug "subscribe", pubsubTopic=pubsubTopic
 
   # we need to wrap the handler since gossipsub doesnt understand WakuMessage
-  let wrappedHandler = proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
-    let decMsg = WakuMessage.decode(data)
-    if decMsg.isErr():
-      # fine if triggerSelf enabled, since validators are bypassed
-      error "failed to decode WakuMessage, validator passed a wrong message", error = decMsg.error
-      let fut = newFuture[void]()
-      fut.complete()
-      return fut
-    else:
-      return handler(pubsubTopic, decMsg.get())
+  let wrappedHandler =
+    proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
+      let decMsg = WakuMessage.decode(data)
+      if decMsg.isErr():
+        # fine if triggerSelf enabled, since validators are bypassed
+        error "failed to decode WakuMessage, validator passed a wrong message", error = decMsg.error
+        let fut = newFuture[void]()
+        fut.complete()
+        return fut
+      else:
+        return handler(pubsubTopic, decMsg.get())
 
   # add the ordered validator to the topic
   if not w.validatorInserted.hasKey(pubSubTopic):
@@ -240,7 +241,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
   # subscribe to the topic with our wrapped handler
   procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
-  wrappedHandler
+  return wrappedHandler
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic

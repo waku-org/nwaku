@@ -22,10 +22,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc newTestMessageCache(): relay_api.MessageCache =
-  relay_api.MessageCache.init(capacity=30)
-
-
 suite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "subscribe and unsubscribe from topics":
@@ -33,7 +29,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     let node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await node.start()
-    await node.mountRelay(topics = @[DefaultPubsubTopic])
+    await node.mountRelay(@[])
 
     # JSON-RPC server
     let
@@ -41,7 +37,8 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(node, @[DefaultPubsubTopic], @[], server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(node, server, cache)
     server.start()
 
     # JSON-RPC client
@@ -67,16 +64,14 @@ suite "Waku v2 JSON-RPC API - Relay":
       subResp == true
     check:
       # Node is now subscribed to default + new topics
-      subTopics.len == 1 + newTopics.len
-      DefaultPubsubTopic in subTopics
+      subTopics.len == newTopics.len
       newTopics.allIt(it in subTopics)
 
     check:
       unsubResp == true
     check:
       # Node is now unsubscribed from new topics
-      unsubTopics.len == 1
-      DefaultPubsubTopic in unsubTopics
+      unsubTopics.len == 0
       newTopics.allIt(it notin unsubTopics)
 
     await server.stop()
@@ -110,14 +105,14 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
-
     # RPC server (source node)
     let
       rpcPort = Port(8548)
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(srcNode, @[pubSubTopic], @[], server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(srcNode, server, cache)
     server.start()
 
     # JSON-RPC client
@@ -131,7 +126,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     proc dstHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       dstHandlerFut.complete((topic, msg))
 
-    dstNode.subscribe(pubSubTopic, dstHandler)
+    dstNode.subscribe((kind: PubsubSub, topic: pubsubTopic), some(dstHandler))
 
     ## When
     let rpcMessage = WakuMessageRPC(
@@ -176,10 +171,9 @@ suite "Waku v2 JSON-RPC API - Relay":
     await allFutures(srcNode.start(), dstNode.start())
 
     await srcNode.mountRelay(@[pubSubTopic])
-    await dstNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[])
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
-
 
     # RPC server (destination node)
     let
@@ -187,12 +181,15 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(dstNode, @[pubSubTopic], @[], server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(dstNode, server, cache)
     server.start()
 
     # JSON-RPC client
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
+
+    discard await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
     ## Given
     let messages = @[
@@ -204,7 +201,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     for msg in messages:
-      await srcNode.publish(pubSubTopic, msg)
+      await srcNode.publish(some(pubSubTopic), msg)
 
     await sleepAsync(200.millis)
 
@@ -237,22 +234,25 @@ suite "Waku v2 JSON-RPC API - Relay":
     let shard = getShard(contentTopic).expect("Valid Shard")
 
     await srcNode.mountRelay(@[shard])
-    await dstNode.mountRelay(@[shard])
+    await dstNode.mountRelay(@[])
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
     # RPC server (destination node)
     let
-      rpcPort = Port(8548)
+      rpcPort = Port(8550)
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(dstNode, @[], @[contentTopic], server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(dstNode, server, cache)
     server.start()
 
     # JSON-RPC client
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
+
+    discard await client.post_waku_v2_relay_v1_auto_subscriptions(@[contentTopic])
 
     ## Given
     let messages = @[
@@ -264,7 +264,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     for msg in messages:
-      await srcNode.auto_publish(msg)
+      await srcNode.publish(none(PubsubTopic), msg)
 
     await sleepAsync(200.millis)
 

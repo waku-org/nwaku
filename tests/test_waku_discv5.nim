@@ -415,9 +415,9 @@ procSuite "Waku Discovery v5":
     asyncSpawn node.subscriptionsListener(queue)
 
     ## Then
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard1))
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard2))
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard3))
+    queue.emit((kind: PubsubSub, topic: shard1))
+    queue.emit((kind: PubsubSub, topic: shard2))
+    queue.emit((kind: PubsubSub, topic: shard3))
 
     await sleepAsync(1.seconds)
 
@@ -426,9 +426,9 @@ procSuite "Waku Discovery v5":
       node.protocol.localNode.record.containsShard(shard2) == true
       node.protocol.localNode.record.containsShard(shard3) == true
 
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard1))
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard2))
-    queue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: shard3))
+    queue.emit((kind: PubsubSub, topic: shard1))
+    queue.emit((kind: PubsubSub, topic: shard2))
+    queue.emit((kind: PubsubSub, topic: shard3))
 
     await sleepAsync(1.seconds)
 
@@ -437,9 +437,9 @@ procSuite "Waku Discovery v5":
       node.protocol.localNode.record.containsShard(shard2) == true
       node.protocol.localNode.record.containsShard(shard3) == true
 
-    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard1))
-    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard2))
-    queue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: shard3))
+    queue.emit((kind: PubsubUnsub, topic: shard1))
+    queue.emit((kind: PubsubUnsub, topic: shard2))
+    queue.emit((kind: PubsubUnsub, topic: shard3))
 
     await sleepAsync(1.seconds)
 

@@ -16,10 +16,12 @@ import
   ../../../waku_relay/protocol,
   ../../../waku_rln_relay,
   ../../../waku_rln_relay/rln/wrappers,
+  ../../waku_node,
+  ../../message_cache,
+  ../../cache_handlers,
   ../serdes,
   ../responses,
-  ./types,
-  ./topic_cache
+  ./types
 
 from std/times import getTime
 from std/times import toUnix
@@ -67,9 +69,9 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
 
-    for topic in newTopics:
-      cache.subscribe(topic)
-      node.subscribe(topic, cache.messageHandler())
+    for pubsubTopic in newTopics:
+      cache.subscribe(pubsubTopic)
+      node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache)))
 
     return RestApiResponse.ok()
 
@@ -93,9 +95,9 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     let req: RelayDeleteSubscriptionsRequest = reqResult.get()
 
     # Unsubscribe all handlers from requested topics
-    for topic in req:
-      node.unsubscribe(topic)
-      cache.unsubscribe(topic)
+    for pubsubTopic in req:
+      node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
+      cache.unsubscribe(pubsubTopic)
 
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
@@ -172,8 +174,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
         return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic=pubSubTopic
-    if not (waitFor node.publish(pubSubTopic, resMessage.value).withTimeout(futTimeout)):
+    debug "Publishing message", pubSubTopic=pubSubTopic, rln=defined(rln)
+    if not (waitFor node.publish(some(pubSubTopic), resMessage.value).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic=pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
 
@@ -203,9 +205,9 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
 
-    for topic in newTopics:
-      cache.subscribe(topic)
-      node.auto_subscribe(topic, cache.autoMessageHandler())
+    for contentTopic in newTopics:
+      cache.subscribe(contentTopic)
+      node.subscribe((kind: ContentSub, topic: contentTopic), some(autoMessageCacheHandler(cache)))
 
     return RestApiResponse.ok()
 
@@ -229,9 +231,9 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     let req: RelayDeleteSubscriptionsRequest = reqResult.get()
 
     # Unsubscribe all handlers from requested topics
-    for topic in req:
-      cache.unsubscribe(topic)
-      node.auto_unsubscribe(topic)
+    for contentTopic in req:
+      cache.unsubscribe(contentTopic)
+      node.unsubscribe((kind: ContentUnsub, topic: contentTopic))
 
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
@@ -280,8 +282,31 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if resMessage.isErr():
       return RestApiResponse.badRequest()
 
-    if not (waitFor node.auto_publish(resMessage.value).withTimeout(futTimeout)):
-      error "Failed to publish message to topic", topic=resMessage.value.contentTopic
-      return RestApiResponse.internalServerError()
+    var message = resMessage.get()
+
+    # if RLN is mounted, append the proof to the message
+    if not node.wakuRlnRelay.isNil():
+      # append the proof to the message
+      let success = node.wakuRlnRelay.appendRLNProof(message,
+                                                    float64(getTime().toUnix()))
+      if not success:
+        return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
+
+      # validate the message before sending it
+      let result = node.wakuRlnRelay.validateMessage(message)
+      if result == MessageValidationResult.Invalid:
+        return RestApiResponse.internalServerError("Failed to publish: invalid RLN proof")
+      elif result == MessageValidationResult.Spam:
+        return RestApiResponse.badRequest("Failed to publish: limit exceeded, try again later")
+      elif result == MessageValidationResult.Valid:
+        debug "RLN proof validated successfully", contentTopic=message.contentTopic
+      else:
+        return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
+
+    # if we reach here its either a non-RLN message or a RLN message with a valid proof
+    debug "Publishing message", contentTopic=message.contentTopic, rln=defined(rln)
+    if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
+      error "Failed to publish message to topic", contentTopic=message.contentTopic
+      return RestApiResponse.internalServerError("Failed to publish: timedout")
 
     return RestApiResponse.ok()

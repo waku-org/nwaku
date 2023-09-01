@@ -77,7 +77,7 @@ procSuite "WakuNode - RLN relay":
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe(DefaultPubsubTopic, relayHandler)
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -91,7 +91,7 @@ procSuite "WakuNode - RLN relay":
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
     ## verifies the rate limit proof of the message and relays the message to node3
     ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-    await node1.publish(DefaultPubsubTopic, message)
+    await node1.publish(some(DefaultPubsubTopic), message)
     await sleepAsync(2000.millis)
 
 
@@ -141,8 +141,8 @@ procSuite "WakuNode - RLN relay":
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
     # mount the relay handlers
-    nodes[2].subscribe(pubsubTopics[0], relayHandler)
-    nodes[2].subscribe(pubsubTopics[1], relayHandler)
+    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[0]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[1]), some(relayHandler))
     await sleepAsync(1000.millis)
 
     # generate some messages with rln proofs first. generating
@@ -165,8 +165,8 @@ procSuite "WakuNode - RLN relay":
 
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
     # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
-    for msg in messages1: await nodes[0].publish(pubsubTopics[0], msg)
-    for msg in messages2: await nodes[1].publish(pubsubTopics[1], msg)
+    for msg in messages1: await nodes[0].publish(some(pubsubTopics[0]), msg)
+    for msg in messages2: await nodes[1].publish(some(pubsubTopics[1]), msg)
 
     # wait for gossip to propagate
     await sleepAsync(5000.millis)
@@ -237,7 +237,7 @@ procSuite "WakuNode - RLN relay":
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe(DefaultPubsubTopic, relayHandler)
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -266,7 +266,7 @@ procSuite "WakuNode - RLN relay":
     ## attempts to verify the rate limit proof and fails hence does not relay the message to node3, thus the relayHandler of node3
     ## never gets called
     ## verification at node2 occurs inside a topic validator which is installed as part of the waku-rln-relay mount proc
-    await node1.publish(DefaultPubsubTopic, message)
+    await node1.publish(some(DefaultPubsubTopic), message)
     await sleepAsync(2000.millis)
 
     check:
@@ -369,7 +369,7 @@ procSuite "WakuNode - RLN relay":
 
 
     # mount the relay handler for node3
-    node3.subscribe(DefaultPubsubTopic, relayHandler)
+    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
     ## node1 publishes and relays 4 messages to node2
@@ -378,10 +378,10 @@ procSuite "WakuNode - RLN relay":
     ## node2 should detect either of wm1 or wm2 as spam and not relay it
     ## node2 should relay wm3 to node3
     ## node2 should not relay wm4 because it has no valid rln proof
-    await node1.publish(DefaultPubsubTopic, wm1)
-    await node1.publish(DefaultPubsubTopic, wm2)
-    await node1.publish(DefaultPubsubTopic, wm3)
-    await node1.publish(DefaultPubsubTopic, wm4)
+    await node1.publish(some(DefaultPubsubTopic), wm1)
+    await node1.publish(some(DefaultPubsubTopic), wm2)
+    await node1.publish(some(DefaultPubsubTopic), wm3)
+    await node1.publish(some(DefaultPubsubTopic), wm4)
     await sleepAsync(2000.millis)
 
     let
@@ -471,14 +471,14 @@ procSuite "WakuNode - RLN relay":
           completionFut3.complete(true)
     
     # mount the relay handler for node2
-    node2.subscribe(DefaultPubsubTopic, relayHandler)
+    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
-    await node1.publish(DefaultPubsubTopic, wm1)
+    await node1.publish(some(DefaultPubsubTopic), wm1)
     await sleepAsync(10.seconds)
-    await node1.publish(DefaultPubsubTopic, wm2)
+    await node1.publish(some(DefaultPubsubTopic), wm2)
     await sleepAsync(10.seconds)
-    await node1.publish(DefaultPubsubTopic, wm3)
+    await node1.publish(some(DefaultPubsubTopic), wm3)
     
     let
       res1 = await completionFut1.withTimeout(10.seconds)
