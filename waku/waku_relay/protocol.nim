@@ -9,6 +9,7 @@ else:
 
 import
   stew/results,
+  sequtils,
   chronos,
   chronicles,
   metrics,

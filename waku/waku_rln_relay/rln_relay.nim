@@ -316,7 +316,7 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
     let msgProof = decodeRes.get()
     
     # validate the message and update log
-    let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(wakumessage)
+    let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(message)
 
     let
       proof = toHex(msgProof.proof)
