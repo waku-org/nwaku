@@ -7,6 +7,7 @@ import
   options,
   json,
   strutils,
+  sequtils,
   std/[tables, os]
 
 import
@@ -191,8 +192,10 @@ proc getMembershipCredentials*(path: string,
                                     msg: "No credentials found in keystore"))
       var keystoreCredential: JsonNode
       if keystoreCredentials.len == 1:
-        for v in keystoreCredentials.getFields().values():
-          keystoreCredential = v
+        keystoreCredential = keystoreCredentials
+                              .getFields()
+                              .values()
+                              .toSeq()[0]
       else:
         let key = query.hash()
         if not keystoreCredentials.hasKey(key):
