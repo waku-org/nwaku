@@ -106,11 +106,11 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     when defined(rln):
       await srcNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: 1,
+          rlnRelayCredIndex: some(1.uint),
           rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
       await dstNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: 2,
+          rlnRelayCredIndex: some(2.uint),
           rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2")))
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])

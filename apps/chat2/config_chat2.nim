@@ -233,9 +233,8 @@ type
       name: "rln-relay-cred-path" }: string
 
     rlnRelayCredIndex* {.
-      desc: "the index of credentials to use",
-      defaultValue: 0
-      name: "rln-relay-cred-index" }: uint
+      desc: "the index of the onchain commitment to use",
+      name: "rln-relay-cred-index" }: Option[uint]
 
     rlnRelayDynamic* {.
       desc: "Enable waku-rln-relay with on-chain dynamic group management: true|false",
@@ -296,6 +295,12 @@ proc parseCmdArg*(T: type Port, p: string): T =
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
+
+proc parseCmdArg*(T: type Option[uint], p: string): T =
+  try:
+    some(parseUint(p))
+  except CatchableError:
+    raise newException(ConfigurationError, "Invalid unsigned integer")
 
 func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6

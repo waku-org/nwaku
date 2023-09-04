@@ -662,7 +662,7 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayCredIndex: index.uint,
+                                rlnRelayCredIndex: some(index),
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
     require:
@@ -714,7 +714,7 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayCredIndex: index.uint,
+                                rlnRelayCredIndex: some(index),
                                 rlnRelayBandwidthThreshold: 4,
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
