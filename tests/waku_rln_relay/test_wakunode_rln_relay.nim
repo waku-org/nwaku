@@ -45,7 +45,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 1.uint,
+      rlnRelayCredIndex: some(1.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
     ))
 
@@ -55,7 +55,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 2.uint,
+      rlnRelayCredIndex: some(2.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"),
     ))
 
@@ -65,7 +65,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRelay(@[DefaultPubsubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 3.uint,
+      rlnRelayCredIndex: some(3.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"),
     ))
 
@@ -126,7 +126,7 @@ procSuite "WakuNode - RLN relay":
     # mount rlnrelay in off-chain mode
     for index, node in nodes:
       await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-        rlnRelayCredIndex: index.uint + 1,
+        rlnRelayCredIndex: some(index.uint + 1),
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index+1))))
 
     # start them
@@ -204,7 +204,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 1.uint,
+      rlnRelayCredIndex: some(1.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
       rlnRelayBandwidthThreshold: 0,
     ))
@@ -215,7 +215,7 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 2.uint,
+      rlnRelayCredIndex: some(2.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
       rlnRelayBandwidthThreshold: 0,
     ))
@@ -226,7 +226,7 @@ procSuite "WakuNode - RLN relay":
     await node3.mountRelay(@[DefaultPubsubTopic])
 
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 3.uint,
+      rlnRelayCredIndex: some(3.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
       rlnRelayBandwidthThreshold: 0,
     ))
@@ -306,7 +306,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 1.uint,
+      rlnRelayCredIndex: some(1.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
       rlnRelayBandwidthThreshold: 0,
     ))
@@ -318,7 +318,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 2.uint,
+      rlnRelayCredIndex: some(2.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
       rlnRelayBandwidthThreshold: 0,
     ))
@@ -330,7 +330,7 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: 3.uint,
+      rlnRelayCredIndex: some(3.uint),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
       rlnRelayBandwidthThreshold: 0,
     ))

@@ -4,7 +4,9 @@ else:
   {.push raises: [].}
 
 import
-  options, json, strutils,
+  options,
+  json,
+  strutils,
   std/[tables, os]
 
 import
@@ -144,7 +146,7 @@ proc addMembershipCredentials*(path: string,
       let encodedMembershipCredential = membership.encode()
       let keyfileRes = createKeyFileJson(encodedMembershipCredential, password)
       if keyfileRes.isErr():
-        return err(AppKeystoreError(kind: KeystoreCreateKeyfileError, 
+        return err(AppKeystoreError(kind: KeystoreCreateKeyfileError,
                                     msg: $keyfileRes.error))
 
       # We add it to the credentials field of the keystore
@@ -183,13 +185,22 @@ proc getMembershipCredentials*(path: string,
     if jsonKeystore.hasKey("credentials"):
       # We get all credentials in keystore
       var keystoreCredentials = jsonKeystore["credentials"]
-      let key = query.hash()
-      if not keystoreCredentials.hasKey(key):
+      if keystoreCredentials.len == 0:
         # error
         return err(AppKeystoreError(kind: KeystoreCredentialNotFoundError,
-                                    msg: "Credential not found in keystore"))
+                                    msg: "No credentials found in keystore"))
+      var keystoreCredential: JsonNode
+      if keystoreCredentials.len == 1:
+        for v in keystoreCredentials.getFields().values():
+          keystoreCredential = v
+      else:
+        let key = query.hash()
+        if not keystoreCredentials.hasKey(key):
+          # error
+          return err(AppKeystoreError(kind: KeystoreCredentialNotFoundError,
+                                      msg: "Credential not found in keystore"))
+        keystoreCredential = keystoreCredentials[key]
 
-      let keystoreCredential = keystoreCredentials[key]
       let decodedKeyfileRes = decodeKeyFileJson(keystoreCredential, password)
       if decodedKeyfileRes.isErr():
         return err(AppKeystoreError(kind: KeystoreReadKeyfileError,
