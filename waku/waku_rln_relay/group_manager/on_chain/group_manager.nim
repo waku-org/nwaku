@@ -388,6 +388,8 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   # listen to blockheaders and contract events
   try:
     await g.startListeningToEvents()
+    # rln is ready now
+    g.isReady = true
   except CatchableError:
     raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
@@ -502,6 +504,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
 
   ethRpc.ondisconnect = proc() =
+    g.isReady = false
     error "Ethereum client disconnected"
     let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
@@ -528,3 +531,4 @@ method stop*(g: OnchainGroupManager): Future[void] {.async.} =
     error "failed to flush to the tree db"
 
   g.initialized = false
+  g.isReady = false

@@ -400,6 +400,14 @@ proc mount(conf: WakuRlnConfig,
   return WakuRLNRelay(groupManager: groupManager,
                       messageBucket: messageBucket)
 
+proc isReady*(rlnPeer: WakuRLNRelay): bool =
+  ## returns true if the rln-relay protocol is ready to relay messages
+  ## returns false otherwise
+  
+  # could be nil during startup
+  if rlnPeer.groupManager == nil:
+    return false
+  return rlnPeer.groupManager.isReady
 
 proc new*(T: type WakuRlnRelay,
           conf: WakuRlnConfig,

@@ -36,6 +36,7 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   g.initialized = true
+  g.isReady = true
 
   return
 

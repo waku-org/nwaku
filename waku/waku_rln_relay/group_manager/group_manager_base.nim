@@ -41,6 +41,7 @@ type
     initialized*: bool
     latestIndex*: MembershipIndex
     validRoots*: Deque[MerkleNode]
+    isReady*: bool
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
