@@ -128,23 +128,19 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  let contentTopicsRes = conf.contentTopics.mapIt(NsContentTopic.parse(it))
+  let topics =
+    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
+      let shardsRes = conf.contentTopics.mapIt(getShard(it))
+      for res in shardsRes:
+        if res.isErr():
+          error "failed to shard content topic", error=res.error
+          quit(QuitFailure)
 
-  for res in contentTopicsRes:
-    if res.isErr():
-      error "failed to parse content topic", error=res.error
-      quit(QuitFailure)
+      let shards = shardsRes.mapIt(it.get())
 
-  let shardsRes = contentTopicsRes.mapIt(getShard(it.get()))
-
-  for res in shardsRes:
-    if res.isErr():
-      error "failed to shard content topic", error=res.error
-      quit(QuitFailure)
-
-  let shards = shardsRes.mapIt($it.get())
-
-  let topics = conf.topics & conf.pubsubTopics & shards
+      conf.pubsubTopics & shards
+    else:
+      conf.topics
 
   let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
@@ -360,12 +356,15 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    # TODO autoshard content topics only once.
-    # Already checked for errors in app.init
-    let contentTopics = conf.contentTopics.mapIt(NsContentTopic.parse(it).expect("Parsing"))
-    let shards = contentTopics.mapIt($(getShard(it).expect("Sharding")))
+    let pubsubTopics =
+      if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
+        # TODO autoshard content topics only once.
+        # Already checked for errors in app.init
+        let shards = conf.contentTopics.mapIt(getShard(it).expect("Valid Shard"))
+        conf.pubsubTopics & shards
+      else:
+        conf.topics
 
-    let pubsubTopics = conf.topics & conf.pubsubTopics & shards
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:

@@ -70,6 +70,8 @@ RUN apk add -- gdb git g++ make cmake zlib-dev boost-dev libunwind-dev
 RUN git clone https://github.com/KDE/heaptrack.git /heaptrack
 
 WORKDIR /heaptrack/build
+# going to a commit that builds properly. We will revisit this for new releases
+RUN git reset --hard f9cc35ebbdde92a292fe3870fe011ad2874da0ca
 RUN cmake -DCMAKE_BUILD_TYPE=Release ..
 RUN make -j$(nproc)
 

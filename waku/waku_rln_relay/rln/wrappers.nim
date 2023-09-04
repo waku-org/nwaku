@@ -371,13 +371,13 @@ proc deserialize*(T: type MerkleNodeSeq, merkleNodeByteSeq: seq[byte]): T =
   ## the order of serialization is |merkle_node_len<8>|merkle_node[len]|
   
   var roots = newSeq[MerkleNode]()
-  var i = 1'u64
   let len = uint64.fromBytes(merkleNodeByteSeq[0..7], Endianness.littleEndian)
   trace "length of valid roots", len
-  let offset = 8'u64
-  for i in 1'u64..len:
+  for i in 0'u64..<len:
     # convert seq[byte] to array[32, byte]
-    let rawRoot = merkleNodeByteSeq[offset*i .. offset*i + 31]
+    let fromByte = 8 + i*32
+    let toByte = fromByte + 31
+    let rawRoot = merkleNodeByteSeq[fromByte..toByte]
     trace "raw root", rawRoot = rawRoot
     var root: MerkleNode
     discard root.copyFrom(rawRoot)

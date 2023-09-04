@@ -146,9 +146,8 @@ type
       name: "rln-relay-cred-path" }: string
 
     rlnRelayCredIndex* {.
-      desc: "the index of credentials to use",
-      defaultValue: 0
-      name: "rln-relay-membership-index" }: uint
+      desc: "the index of the onchain commitment to use",
+      name: "rln-relay-membership-index" }: Option[uint]
 
     rlnRelayDynamic* {.
       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
@@ -243,11 +242,6 @@ type
       desc: "Enable database migration at start.",
       defaultValue: true,
       name: "store-message-db-migration" }: bool
-
-    storeResumePeer* {.
-      desc: "Peer multiaddress to resume the message store at boot.",
-      defaultValue: "",
-      name: "store-resume-peer" }: string
 
     ## Filter config
 
@@ -510,6 +504,12 @@ proc parseCmdArg*(T: type Option[int], p: string): T =
     some(parseInt(p))
   except CatchableError:
     raise newException(ConfigurationError, "Invalid number")
+
+proc parseCmdArg*(T: type Option[uint], p: string): T =
+  try:
+    some(parseUint(p))
+  except CatchableError:
+    raise newException(ConfigurationError, "Invalid unsigned integer")
 
 ## Configuration validation
 

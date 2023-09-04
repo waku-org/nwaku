@@ -28,17 +28,26 @@ logScope:
   topics = "waku rln_relay onchain_group_manager"
 
 contract(WakuRlnRegistry):
+  # this describes the storage slot to use
   proc usingStorageIndex(): Uint16 {.pure.}
+  # this map contains the address of a given storage slot
   proc storages(index: Uint16): Address {.pure.}
-  proc register(storageIndex: Uint16, idCommitment: Uint256) 
+  # this serves as an entrypoint into the rln storage contract
+  proc register(storageIndex: Uint16, idCommitment: Uint256)
+  # this creates a new storage on the rln registry
   proc newStorage()
 
 # membership contract interface
 contract(RlnStorage):
+  # this event is raised when a new member is registered
   proc MemberRegistered(idCommitment: Uint256, index: Uint256) {.event.}
+  # this constant contains the membership deposit of the contract
   proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
-  proc members(idCommitment: Uint256): Uint256 {.view.}
+  # this map denotes existence of a given user
+  proc memberExists(idCommitment: Uint256): Uint256 {.view.}
+  # this constant describes the next index of a new member
   proc idCommitmentIndex(): Uint256 {.view.}
+  # this constant describes the block number this contract was deployed on
   proc deployedBlockNumber(): Uint256 {.view.}
 
 type
@@ -431,23 +440,34 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if g.membershipIndex.isNone():
-      raise newException(CatchableError, "membership index is not set when keystore is provided")
-    let keystoreQuery = KeystoreMembership(
+    var keystoreQuery = KeystoreMembership(
       membershipContract: MembershipContract(
         chainId: $g.chainId.get(),
         address: g.ethContractAddress
-      ),
-      treeIndex: MembershipIndex(g.membershipIndex.get()),
+      )
     )
+    if g.membershipIndex.isSome():
+      keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
       let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
                                                      password = g.keystorePassword.get(),
                                                      query = keystoreQuery,
                                                      appInfo = RLNAppInfo)
     if keystoreCredRes.isErr():
-      raise newException(ValueError, "could not parse the keystore: " & $keystoreCredRes.error)
+      raise newException(CatchableError, "could not parse the keystore: " & $keystoreCredRes.error)
     let keystoreCred = keystoreCredRes.get()
+    g.membershipIndex = some(keystoreCred.treeIndex)
+    # now we check on the contract if the commitment actually has a membership
+    try:
+      let membershipExists = await rlnContract.memberExists(keystoreCred
+                                                            .identityCredential
+                                                            .idCommitment.toUInt256()).call()
+      if membershipExists == 0:
+        raise newException(CatchableError, "the provided commitment does not have a membership")
+    except CatchableError:
+      raise newException(CatchableError, "could not check if the commitment exists on the contract: " &
+                                         getCurrentExceptionMsg())
+
     g.idCredentials = some(keystoreCred.identityCredential)
 
   let metadataGetRes = g.rlnInstance.getMetadata()
@@ -458,7 +478,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     let metadata = metadataGetRes.get()
     if metadata.chainId != uint64(g.chainId.get()):
       raise newException(ValueError, "persisted data: chain id mismatch")
-  
+
     if metadata.contractAddress != g.ethContractAddress.toLower():
       raise newException(ValueError, "persisted data: contract address mismatch")
     g.latestProcessedBlock = metadata.lastProcessedBlock
@@ -469,7 +489,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   try:
     membershipFee = await rlnContract.MEMBERSHIP_DEPOSIT().call()
   except CatchableError:
-    raise newException(ValueError, 
+    raise newException(ValueError,
                        "could not get the membership deposit: " & getCurrentExceptionMsg())
   g.membershipFee = some(membershipFee)
 
@@ -477,7 +497,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   try:
     deployedBlockNumber = await rlnContract.deployedBlockNumber().call()
   except CatchableError:
-    raise newException(ValueError, 
+    raise newException(ValueError,
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
 

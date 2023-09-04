@@ -38,7 +38,7 @@ proc new*(T: type RelayRequest,
                       message: message)
 
 method process*(self: RelayRequest,
-                node: WakuNode): Future[Result[string, string]] {.async.} =
+                node: ptr WakuNode): Future[Result[string, string]] {.async.} =
 
   if node.wakuRelay.isNil():
     return err("Operation not supported without Waku Relay enabled.")
