@@ -440,23 +440,23 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if g.membershipIndex.isNone():
-      raise newException(CatchableError, "membership index is not set when keystore is provided")
-    let keystoreQuery = KeystoreMembership(
+    var keystoreQuery = KeystoreMembership(
       membershipContract: MembershipContract(
         chainId: $g.chainId.get(),
         address: g.ethContractAddress
-      ),
-      treeIndex: MembershipIndex(g.membershipIndex.get()),
+      )
     )
+    if g.membershipIndex.isSome():
+      keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
       let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
                                                      password = g.keystorePassword.get(),
                                                      query = keystoreQuery,
                                                      appInfo = RLNAppInfo)
     if keystoreCredRes.isErr():
-      raise newException(ValueError, "could not parse the keystore: " & $keystoreCredRes.error)
+      raise newException(CatchableError, "could not parse the keystore: " & $keystoreCredRes.error)
     let keystoreCred = keystoreCredRes.get()
+    g.membershipIndex = some(keystoreCred.treeIndex)
     # now we check on the contract if the commitment actually has a membership
     try:
       let membershipExists = await rlnContract.memberExists(keystoreCred

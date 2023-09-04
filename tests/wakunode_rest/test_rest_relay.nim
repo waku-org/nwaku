@@ -188,7 +188,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     when defined(rln):
       await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: 1,
+          rlnRelayCredIndex: some(1.uint),
           rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
