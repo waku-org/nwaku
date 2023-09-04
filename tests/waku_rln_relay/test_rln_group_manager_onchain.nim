@@ -244,7 +244,7 @@ suite "Onchain group manager":
         require:
           registrations.len == 1
           registrations[0].idCommitment == credentials.idCommitment
-          registrations[0].index == 1
+          registrations[0].index == 0
         fut.complete()
       return callback
 
@@ -283,7 +283,7 @@ suite "Onchain group manager":
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
             registrations[0].idCommitment == credentials[futureIndex].idCommitment and
-            registrations[0].index == MembershipIndex(futureIndex + 1):
+            registrations[0].index == MembershipIndex(futureIndex):
           futs[futureIndex].complete()
           futureIndex += 1
       return callback
@@ -373,7 +373,7 @@ suite "Onchain group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
          registrations[0].idCommitment == credentials.idCommitment and
-         registrations[0].index == 1:
+         registrations[0].index == 0:
         manager.idCredentials = some(credentials)
         manager.membershipIndex = some(registrations[0].index)
         fut.complete()
@@ -443,7 +443,7 @@ suite "Onchain group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       if registrations.len == 1 and
          registrations[0].idCommitment == credentials.idCommitment and
-         registrations[0].index == 1:
+         registrations[0].index == 0:
         manager.idCredentials = some(credentials)
         manager.membershipIndex = some(registrations[0].index)
         fut.complete()
@@ -527,7 +527,7 @@ suite "Onchain group manager":
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         if registrations.len == 1 and
             registrations[0].idCommitment == credentials[futureIndex].idCommitment and
-            registrations[0].index == MembershipIndex(futureIndex + 1):
+            registrations[0].index == MembershipIndex(futureIndex):
           futs[futureIndex].complete()
           futureIndex += 1
       return callback
