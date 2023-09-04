@@ -123,8 +123,12 @@ type
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-    wakuValidators: Table[string, seq[WakuValidatorHandler]]
-    validatorInserted: Table[string, bool]
+    # a map of PubsubTopic's => seq[WakuValidatorHandler] that are
+    # called in order every time a message is received on a given pubsub topic
+    wakuValidators: Table[PubsubTopic, seq[WakuValidatorHandler]]
+    # a map that stores whether the ordered validator has been inserted
+    # for a given PubsubTopic
+    validatorInserted: Table[PubsubTopic, bool]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -240,6 +244,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
+  w.validatorInserted.del(pubsubTopic)
 
 proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic
