@@ -123,8 +123,8 @@ type
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-    wakuValidators*: Table[string, seq[WakuValidatorHandler]]
-    validatorInserted*: Table[string, bool]
+    wakuValidators: Table[string, seq[WakuValidatorHandler]]
+    validatorInserted: Table[string, bool]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
