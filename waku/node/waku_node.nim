@@ -749,7 +749,7 @@ when defined(rln):
     # register rln validator for all subscribed relay pubsub topics
     for pubsubTopic in node.wakuRelay.subscribedTopics:
       debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
-      procCall GossipSub(node.wakuRelay).addValidator(pubsubTopic, validator)
+      node.wakuRelay.addValidator(pubsubTopic, validator)
     node.wakuRlnRelay = rlnRelay
 
 ## Waku peer-exchange

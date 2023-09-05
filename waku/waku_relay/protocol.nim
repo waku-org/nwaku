@@ -8,8 +8,8 @@ else:
   {.push raises: [].}
 
 import
-  std/sequtils,
   stew/results,
+  sequtils,
   chronos,
   chronicles,
   metrics,
@@ -122,7 +122,14 @@ const GossipsubParameters = GossipSubParams(
 type
   WakuRelayResult*[T] = Result[T, string]
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
+  WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
+    # a map of PubsubTopic's => seq[WakuValidatorHandler] that are
+    # called in order every time a message is received on a given pubsub topic
+    wakuValidators: Table[PubsubTopic, seq[WakuValidatorHandler]]
+    # a map that stores whether the ordered validator has been inserted
+    # for a given PubsubTopic
+    validatorInserted: Table[PubsubTopic, bool]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -167,9 +174,11 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 
   return ok(w)
 
-method addValidator*(w: WakuRelay, topic: varargs[string], handler: ValidatorHandler) {.gcsafe.} =
-  procCall GossipSub(w).addValidator(topic, handler)
-
+proc addValidator*(w: WakuRelay, 
+                   topic: varargs[string], 
+                   handler: WakuValidatorHandler) {.gcsafe.} =
+  for t in topic:
+    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
 
 method start*(w: WakuRelay) {.async.} =
   debug "start"
@@ -179,20 +188,31 @@ method stop*(w: WakuRelay) {.async.} =
   debug "stop"
   await procCall GossipSub(w).stop()
 
-# rejects messages that are not WakuMessage
-proc validator(pubsubTopic: string, message: messages.Message): Future[ValidationResult] {.async.} =
-  # can be optimized by checking if the message is a WakuMessage without allocating memory
-  # see nim-libp2p protobuf library
-  let msg = WakuMessage.decode(message.data)
-  if msg.isOk():
-    return ValidationResult.Accept
-  return ValidationResult.Reject
-
 proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
   GossipSub(w).topics.hasKey(topic)
 
 proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   return toSeq(GossipSub(w).topics.keys())
+
+proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
+  # rejects messages that are not WakuMessage
+  let wrappedValidator = proc(pubsubTopic: string, 
+                              message: messages.Message): Future[ValidationResult] {.async.} =
+    # can be optimized by checking if the message is a WakuMessage without allocating memory
+    # see nim-libp2p protobuf library
+    let msgRes = WakuMessage.decode(message.data)
+    if msgRes.isErr():
+      return ValidationResult.Reject
+    let msg = msgRes.get()
+
+    # now sequentially validate the message
+    if w.wakuValidators.hasKey(pubsubTopic):
+      for validator in w.wakuValidators[pubsubTopic]:
+        let validatorRes = await validator(pubsubTopic, msg)
+        if validatorRes != ValidationResult.Accept:
+          return validatorRes
+    return ValidationResult.Accept
+  return wrappedValidator
 
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
   debug "subscribe", pubsubTopic=pubsubTopic
@@ -209,8 +229,10 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
     else:
       return handler(pubsubTopic, decMsg.get())
 
-  # add the default validator to the topic
-  procCall GossipSub(w).addValidator(pubSubTopic, validator)
+  # add the ordered validator to the topic
+  if not w.validatorInserted.hasKey(pubSubTopic):
+    procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
+    w.validatorInserted[pubSubTopic] = true
 
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
@@ -222,6 +244,7 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
+  w.validatorInserted.del(pubsubTopic)
 
 proc publish*(w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage): Future[int] {.async.} =
   trace "publish", pubsubTopic=pubsubTopic

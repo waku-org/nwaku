@@ -710,61 +710,6 @@ suite "Waku rln relay":
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
 
-  asyncTest "should validate invalid proofs if bandwidth is available":
-    let index = MembershipIndex(5)
-
-    let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayCredIndex: some(index),
-                                rlnRelayBandwidthThreshold: 4,
-                                rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
-    let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
-    require:
-      wakuRlnRelayRes.isOk()
-    let wakuRlnRelay = wakuRlnRelayRes.get()
-
-    # get the current epoch time
-    let time = epochTime()
-
-    #  create some messages from the same peer and append rln proof to them, except wm4
-    var
-      # this one will pass through the bandwidth threshold
-      wm1 = WakuMessage(payload: "Spam".toBytes())
-      # this message, will be over the bandwidth threshold, hence has to be verified
-      wm2 = WakuMessage(payload: "Valid message".toBytes())
-      # this message will be over the bandwidth threshold, hence has to be verified, will be false (since no proof)
-      wm3 = WakuMessage(payload: "Invalid message".toBytes())
-      wm4 = WakuMessage(payload: "Spam message".toBytes())
-
-    let
-      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
-      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time+EpochUnitSeconds)
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm4, time)
-
-    # ensure proofs are added
-    require:
-      proofAdded1
-      proofAdded2
-      proofAdded3
-
-    # validate messages
-    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
-    let
-      # this should be no verification, Valid
-      msgValidate1 = wakuRlnRelay.validateMessageAndUpdateLog(wm1, some(time))
-      # this should be verification, Valid
-      msgValidate2 = wakuRlnRelay.validateMessageAndUpdateLog(wm2, some(time))
-      # this should be verification, Invalid
-      msgValidate3 = wakuRlnRelay.validateMessageAndUpdateLog(wm3, some(time))
-      # this should be verification, Spam
-      msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
-
-    check:
-      msgValidate1 == MessageValidationResult.Valid
-      msgValidate2 == MessageValidationResult.Valid
-      msgValidate3 == MessageValidationResult.Invalid
-      msgValidate4 == MessageValidationResult.Spam
-
-
   test "toIDCommitment and toUInt256":
     # create an instance of rln
     let rlnInstance = createRLNInstanceWrapper()

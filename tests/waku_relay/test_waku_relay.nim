@@ -201,13 +201,9 @@ suite "Waku Relay":
     await sleepAsync(500.millis)
 
     # Validator
-    proc validator(topic: PubsubTopic, msg: Message): Future[ValidationResult] {.async.} =
-      let msg = WakuMessage.decode(msg.data)
-      if msg.isErr():
-        return ValidationResult.Ignore
-
+    proc validator(topic: PubsubTopic, msg: WakuMessage): Future[ValidationResult] {.async.} =
       # only relay messages with contentTopic1
-      if msg.value.contentTopic != contentTopic:
+      if msg.contentTopic != contentTopic:
         return ValidationResult.Reject
 
       return ValidationResult.Accept

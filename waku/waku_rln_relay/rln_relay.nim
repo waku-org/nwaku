@@ -22,6 +22,7 @@ import
   ./protocol_types,
   ./protocol_metrics
 import
+  ../waku_relay, # for WakuRelayHandler
   ../waku_core,
   ../waku_keystore,
   ../utils/collector
@@ -79,7 +80,6 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: Table[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
-  messageBucket*: Option[TokenBucket]
 
 method stop*(rlnPeer: WakuRLNRelay) {.async.} =
   ## stops the rln-relay protocol
@@ -301,57 +301,44 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
   return true
 
 proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
-                           spamHandler: Option[SpamHandler] = none(SpamHandler)): pubsub.ValidatorHandler =
+                           spamHandler: Option[SpamHandler] = none(SpamHandler)): WakuValidatorHandler =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets a validator for waku messages, acting in the registered pubsub topic
   ## the message validation logic is according to https://rfc.vac.dev/spec/17/
-  proc validator(topic: string, message: messages.Message): Future[pubsub.ValidationResult] {.async.} =
+  proc validator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
 
-    ## Check if enough tokens can be consumed from the message bucket
-    try:
-      if wakuRlnRelay.messageBucket.isSome() and
-         wakuRlnRelay.messageBucket.get().tryConsume(message.data.len):
+    let decodeRes = RateLimitProof.init(message.proof)
+
+    if decodeRes.isErr():
+      return pubsub.ValidationResult.Reject
+
+    let msgProof = decodeRes.get()
+    
+    # validate the message and update log
+    let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(message)
+
+    let
+      proof = toHex(msgProof.proof)
+      epoch = fromEpoch(msgProof.epoch)
+      root = inHex(msgProof.merkleRoot)
+      shareX = inHex(msgProof.shareX)
+      shareY = inHex(msgProof.shareY)
+      nullifier = inHex(msgProof.nullifier)
+      payload = string.fromBytes(message.payload)
+    case validationRes:
+      of Valid:
+        trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
         return pubsub.ValidationResult.Accept
-      else:
-        trace "message bandwidth limit exceeded, running rate limit proof validation"
-    except OverflowDefect: # not a problem
-      trace "not enough bandwidth, running rate limit proof validation"
-
-    let decodeRes = WakuMessage.decode(message.data)
-    if decodeRes.isOk():
-      let wakumessage = decodeRes.value
-      let decodeRes = RateLimitProof.init(wakumessage.proof)
-
-      if decodeRes.isErr():
+      of Invalid:
+        trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
         return pubsub.ValidationResult.Reject
-
-      let msgProof = decodeRes.get()
-
-      # validate the message and update log
-      let validationRes = wakuRlnRelay.validateMessageAndUpdateLog(wakumessage)
-
-      let
-        proof = toHex(msgProof.proof)
-        epoch = fromEpoch(msgProof.epoch)
-        root = inHex(msgProof.merkleRoot)
-        shareX = inHex(msgProof.shareX)
-        shareY = inHex(msgProof.shareY)
-        nullifier = inHex(msgProof.nullifier)
-        payload = string.fromBytes(wakumessage.payload)
-      case validationRes:
-        of Valid:
-          trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-          return pubsub.ValidationResult.Accept
-        of Invalid:
-          trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-          return pubsub.ValidationResult.Reject
-        of Spam:
-          trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
-          if spamHandler.isSome():
-            let handler = spamHandler.get()
-            handler(wakumessage)
-          return pubsub.ValidationResult.Reject
+      of Spam:
+        trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
+        if spamHandler.isSome():
+          let handler = spamHandler.get()
+          handler(message)
+        return pubsub.ValidationResult.Reject
   return validator
 
 proc mount(conf: WakuRlnConfig,
@@ -393,12 +380,7 @@ proc mount(conf: WakuRlnConfig,
   # Start the group sync
   await groupManager.startGroupSync()
 
-  let messageBucket = if conf.rlnRelayBandwidthThreshold > 0:
-                      some(TokenBucket.new(conf.rlnRelayBandwidthThreshold))
-                      else: none(TokenBucket)
-
-  return WakuRLNRelay(groupManager: groupManager,
-                      messageBucket: messageBucket)
+  return WakuRLNRelay(groupManager: groupManager)
 
 
 proc new*(T: type WakuRlnRelay,
