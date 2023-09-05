@@ -320,9 +320,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
       return toBlock.get()
     return fromBlock
 
-  let blockTable = await g.getBlockTable(fromBlock, toBlock)
-  if blockTable.len() > 0:
-    g.lastSeenBlockHead = getLatestBlockNumber()
+  let blockTable = await g.getBlockTable(fromBlock, toBlock)    
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
@@ -337,6 +335,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
       let latestBlock = blockheader.number.uint
+      g.lastSeenBlockHead = latestBlock
       trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
