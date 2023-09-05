@@ -44,7 +44,9 @@ jobs:
 
           make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative" wakunode2 EXPERIMENTAL=${EXPERIMENTAL}
 
-          TAG=$([ "${PR_NUMBER}" == "" ] && echo "master" || echo "${PR_NUMBER}")
+          SHORT_REF=$(git rev-parse --short HEAD)
+
+          TAG=$([ "${PR_NUMBER}" == "" ] && echo "${SHORT_REF}" || echo "${PR_NUMBER}")
           TAG=$([ "${EXPERIMENTAL}" == "true" ] && echo "${TAG}-experimental" || echo "${TAG}")
           IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
 
