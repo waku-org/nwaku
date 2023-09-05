@@ -35,6 +35,10 @@ For more on how to run `wakunode2`, refer to:
 - [Run using docker](https://docs.waku.org/guides/nwaku/run-docker)
 - [Run using docker-compose](https://docs.waku.org/guides/nwaku/run-docker-compose)
 
+#### Issues
+##### WSL
+If you encounter difficulties building the project on WSL, consider placing the project within WSL's filesystem, avoiding the `/mnt/` directory.
+
 ### Waku Protocol Test Suite
 
 ```bash
