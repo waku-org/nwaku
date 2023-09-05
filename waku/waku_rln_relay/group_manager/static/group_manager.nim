@@ -36,7 +36,6 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
   g.latestIndex += MembershipIndex(idCommitments.len() - 1)
 
   g.initialized = true
-  g.isReady = true
 
   return
 
@@ -109,4 +108,10 @@ method stop*(g: StaticGroupManager): Future[void] =
   # No-op
   var retFut = newFuture[void]("StaticGroupManager.stop")
   retFut.complete()
+  return retFut
+
+method isReady*(g: StaticGroupManager): Future[bool] {.gcsafe.} =
+  initializedGuard(g)
+  var retFut = newFuture[bool]("StaticGroupManager.isReady")
+  retFut.complete(true)
   return retFut

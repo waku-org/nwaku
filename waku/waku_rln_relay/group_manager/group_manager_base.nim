@@ -41,7 +41,6 @@ type
     initialized*: bool
     latestIndex*: MembershipIndex
     validRoots*: Deque[MerkleNode]
-    isReady*: bool
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
@@ -163,3 +162,6 @@ method generateProof*(g: GroupManager,
   if proofGenRes.isErr():
     return err("proof generation failed: " & $proofGenRes.error())
   return ok(proofGenRes.value())
+
+method isReady*(g: GroupManager): Future[bool] {.base,gcsafe.} =
+  raise newException(CatchableError, "isReady proc for " & $g.type & " is not implemented yet")

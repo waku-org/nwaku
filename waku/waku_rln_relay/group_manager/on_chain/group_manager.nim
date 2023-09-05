@@ -73,6 +73,8 @@ type
     # in event of a reorg. we store 5 in the buffer. Maybe need to revisit this,
     # because the average reorg depth is 1 to 2 blocks.
     validRootBuffer*: Deque[MerkleNode]
+    # this variable tracks the last seen head
+    lastSeenBlockHead*: BlockNumber
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -313,13 +315,18 @@ proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
                         toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
+  proc getLatestBlockNumber(): BlockNumber =
+    if toBlock.isSome(): 
+      return toBlock.get()
+    return fromBlock
 
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
+  if blockTable.len() > 0:
+    g.lastSeenBlockHead = getLatestBlockNumber()
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
-  g.latestProcessedBlock = if toBlock.isSome(): toBlock.get()
-                             else: fromBlock
+  g.latestProcessedBlock = getLatestBlockNumber()
   let metadataSetRes = g.setMetadata()
   if metadataSetRes.isErr():
     # this is not a fatal error, hence we don't raise an exception
@@ -388,8 +395,6 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   # listen to blockheaders and contract events
   try:
     await g.startListeningToEvents()
-    # rln is ready now
-    g.isReady = true
   except CatchableError:
     raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
@@ -504,7 +509,6 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
 
   ethRpc.ondisconnect = proc() =
-    g.isReady = false
     error "Ethereum client disconnected"
     let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
     info "reconnecting with the Ethereum client, and restarting group sync", fromBlock = fromBlock
@@ -531,4 +535,27 @@ method stop*(g: OnchainGroupManager): Future[void] {.async.} =
     error "failed to flush to the tree db"
 
   g.initialized = false
-  g.isReady = false
+
+proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
+  let ethRpc = g.ethRpc.get()
+
+  try:
+    let syncing = await ethRpc.provider.eth_syncing()
+    return syncing.getBool()
+  except CatchableError:
+    error "failed to get the syncing status", error = getCurrentExceptionMsg()
+    return false
+
+method isReady*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
+  initializedGuard(g)
+
+  if g.ethRpc.isNone():
+    return false
+
+  if g.lastSeenBlockHead == 0:
+    return false
+
+  if g.latestProcessedBlock < g.lastSeenBlockHead:
+    return false
+
+  return not (await g.isSyncing())
