@@ -195,7 +195,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
     # calculate the gaps
     gap = absDiff(epoch, msgEpoch)
 
-  debug "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
+  trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
   if gap > MaxEpochGap:
@@ -208,7 +208,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
 
   let rootValidationRes = rlnPeer.groupManager.validateRoot(proof.merkleRoot)
   if not rootValidationRes:
-    debug "invalid message: provided root does not belong to acceptable window of roots", provided=proof.merkleRoot.inHex(), validRoots=rlnPeer.groupManager.validRoots.mapIt(it.inHex())
+    warn "invalid message: provided root does not belong to acceptable window of roots", provided=proof.merkleRoot.inHex(), validRoots=rlnPeer.groupManager.validRoots.mapIt(it.inHex())
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_root"])
     return MessageValidationResult.Invalid
 
@@ -227,7 +227,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
     return MessageValidationResult.Invalid
   if not proofVerificationRes.value():
     # invalid proof
-    debug "invalid message: invalid proof", payloadLen = msg.payload.len
+    warn "invalid message: invalid proof", payloadLen = msg.payload.len
     waku_rln_invalid_messages_total.inc(labelValues=["invalid_proof"])
     return MessageValidationResult.Invalid
 
@@ -240,11 +240,11 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
-    debug "invalid message: message is spam", payloadLen = msg.payload.len
+    trace "invalid message: message is spam", payloadLen = msg.payload.len
     waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
-  debug "message is valid", payloadLen = msg.payload.len
+  trace "message is valid", payloadLen = msg.payload.len
   let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())
   return MessageValidationResult.Valid
@@ -328,15 +328,12 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
       payload = string.fromBytes(message.payload)
     case validationRes:
       of Valid:
-        debug "message validity is verified, relaying:",  contentTopic=message.contentTopic, epoch=epoch, timestamp=message.timestamp, payload=payload
         trace "message validity is verified, relaying:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
         return pubsub.ValidationResult.Accept
       of Invalid:
-        debug "message validity could not be verified, discarding:", contentTopic=message.contentTopic, epoch=epoch, timestamp=message.timestamp, payload=payload
         trace "message validity could not be verified, discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
         return pubsub.ValidationResult.Reject
       of Spam:
-        debug "A spam message is found! yay! discarding:", contentTopic=message.contentTopic, epoch=epoch, timestamp=message.timestamp, payload=payload
         trace "A spam message is found! yay! discarding:", proof=proof, root=root, shareX=shareX, shareY=shareY, nullifier=nullifier
         if spamHandler.isSome():
           let handler = spamHandler.get()
@@ -393,7 +390,6 @@ proc new*(T: type WakuRlnRelay,
   ## Mounts the rln-relay protocol on the node.
   ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
   ## Returns an error if the rln-relay protocol could not be mounted.
-  debug "rln-relay input validation passed"
   try:
     let rlnRelay = await mount(conf, registrationHandler)
     return ok(rlnRelay)
