@@ -553,10 +553,15 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
   if g.ethRpc.isNone():
     return false
 
-  let currentBlock = cast[BlockNumber](await g.ethRpc
-                                              .get()
-                                              .provider
-                                              .eth_blockNumber())
+  var currentBlock: BlockNumber
+  try:
+    currentBlock = cast[BlockNumber](await g.ethRpc
+                                            .get()
+                                            .provider
+                                            .eth_blockNumber())
+  except CatchableError:
+    error "failed to get the current block number", error = getCurrentExceptionMsg()
+    return false
 
   if g.latestProcessedBlock < currentBlock:
     return false
