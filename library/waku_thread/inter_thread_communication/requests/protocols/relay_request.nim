@@ -25,13 +25,13 @@ type
     relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
     message: WakuMessage # this field is only used in 'PUBLISH' requests
 
-proc new*(T: type RelayRequest,
-          op: RelayMsgType,
-          pubsubTopic: PubsubTopic,
-          relayEventCallback: WakuRelayHandler = nil,
-          message = WakuMessage()): ptr RelayRequest =
+proc createShared*(T: type RelayRequest,
+                   op: RelayMsgType,
+                   pubsubTopic: PubsubTopic,
+                   relayEventCallback: WakuRelayHandler = nil,
+                   message = WakuMessage()): ptr type T =
 
-  var ret = cast[ptr RelayRequest](allocShared0(sizeof(RelayRequest)))
+  var ret = createShared(T)
   ret[].operation = op
   ret[].pubsubTopic = pubsubTopic
   ret[].relayEventCallback = relayEventCallback

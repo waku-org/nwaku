@@ -25,11 +25,10 @@ type
     reqType: RequestType
     reqContent: pointer
 
-proc new*(T: type InterThreadRequest,
-          reqType: RequestType,
-          reqContent: pointer): ptr InterThreadRequest =
-  var ret = cast[ptr InterThreadRequest](
-                                      allocShared0(sizeof(InterThreadRequest)))
+proc createShared*(T: type InterThreadRequest,
+                   reqType: RequestType,
+                   reqContent: pointer): ptr type T =
+  var ret = createShared(T)
   ret[].reqType = reqType
   ret[].reqContent = reqContent
   return ret

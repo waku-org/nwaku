@@ -19,13 +19,12 @@ type
     peerMultiAddr: string
     dialTimeout: Duration
 
-proc new*(T: type PeerManagementRequest,
-          op: PeerManagementMsgType,
-          peerMultiAddr: string,
-          dialTimeout: Duration): ptr PeerManagementRequest =
+proc createShared*(T: type PeerManagementRequest,
+                   op: PeerManagementMsgType,
+                   peerMultiAddr: string,
+                   dialTimeout: Duration): ptr type T =
 
-  var ret = cast[ptr PeerManagementRequest](
-                      allocShared0(sizeof(PeerManagementRequest)))
+  var ret = createShared(T)
   ret[].operation = op
   ret[].peerMultiAddr = peerMultiAddr
   ret[].dialTimeout = dialTimeout

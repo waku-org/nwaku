@@ -32,12 +32,11 @@ type
     operation: NodeLifecycleMsgType
     configJson: cstring ## Only used in 'CREATE_NODE' operation
 
-proc new*(T: type NodeLifecycleRequest,
-          op: NodeLifecycleMsgType,
-          configJson: cstring = ""): ptr NodeLifecycleRequest =
+proc createShared*(T: type NodeLifecycleRequest,
+                   op: NodeLifecycleMsgType,
+                   configJson: cstring = ""): ptr type T =
 
-  var ret = cast[ptr NodeLifecycleRequest](
-              allocShared0(sizeof(NodeLifecycleRequest)))
+  var ret = createShared(T)
   ret[].operation = op
   ret[].configJson = configJson
   return ret

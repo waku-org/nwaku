@@ -81,7 +81,7 @@ proc waku_new(configJson: cstring,
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
                                       RequestType.LIFECYCLE,
-                                      NodeLifecycleRequest.new(
+                                      NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.CREATE_NODE,
                                               configJson))
   if sendReqRes.isErr():
@@ -202,7 +202,7 @@ proc waku_relay_publish(pubSubTopic: cstring,
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
                           RequestType.RELAY,
-                          RelayRequest.new(RelayMsgType.PUBLISH,
+                          RelayRequest.createShared(RelayMsgType.PUBLISH,
                                           PubsubTopic($pst),
                                           WakuRelayHandler(relayEventCallback),
                                           wakuMessage))
@@ -218,13 +218,13 @@ proc waku_relay_publish(pubSubTopic: cstring,
 proc waku_start() {.dynlib, exportc.} =
   discard waku_thread.sendRequestToWakuThread(
                                       RequestType.LIFECYCLE,
-                                      NodeLifecycleRequest.new(
+                                      NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.START_NODE))
 
 proc waku_stop() {.dynlib, exportc.} =
   discard waku_thread.sendRequestToWakuThread(
                                       RequestType.LIFECYCLE,
-                                      NodeLifecycleRequest.new(
+                                      NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.STOP_NODE))
 
 proc waku_relay_subscribe(
@@ -235,10 +235,10 @@ proc waku_relay_subscribe(
   let pst = pubSubTopic.alloc()
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
-                                   RequestType.RELAY,
-                                   RelayRequest.new(RelayMsgType.SUBSCRIBE,
-                                         PubsubTopic($pst),
-                                         WakuRelayHandler(relayEventCallback)))
+                              RequestType.RELAY,
+                              RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
+                                    PubsubTopic($pst),
+                                    WakuRelayHandler(relayEventCallback)))
   deallocShared(pst)
 
   if sendReqRes.isErr():
@@ -256,10 +256,10 @@ proc waku_relay_unsubscribe(
   let pst = pubSubTopic.alloc()
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
-                                   RequestType.RELAY,
-                                   RelayRequest.new(RelayMsgType.SUBSCRIBE,
-                                         PubsubTopic($pst),
-                                         WakuRelayHandler(relayEventCallback)))
+                              RequestType.RELAY,
+                              RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
+                                    PubsubTopic($pst),
+                                    WakuRelayHandler(relayEventCallback)))
   deallocShared(pst)
 
   if sendReqRes.isErr():
@@ -276,7 +276,7 @@ proc waku_connect(peerMultiAddr: cstring,
 
   let connRes = waku_thread.sendRequestToWakuThread(
                                    RequestType.PEER_MANAGER,
-                                   PeerManagementRequest.new(
+                                   PeerManagementRequest.createShared(
                                             PeerManagementMsgType.CONNECT_TO,
                                             $peerMultiAddr,
                                             chronos.milliseconds(timeoutMs)))

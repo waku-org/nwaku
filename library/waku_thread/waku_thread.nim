@@ -57,7 +57,7 @@ proc run(ctx: ptr Context) {.thread.} =
       let resultResponse = InterThreadRequest.process(request, addr node)
 
       ## Converting a `Result` into a thread-safe transferable response type
-      let threadSafeResp = InterThreadResponse.new(resultResponse)
+      let threadSafeResp = InterThreadResponse.createShared(resultResponse)
 
       ## The error-handling is performed in the main thread
       discard ctx.respChannel.trySend( threadSafeResp )
@@ -94,7 +94,7 @@ proc stopWakuNodeThread*() =
 proc sendRequestToWakuThread*(reqType: RequestType,
                               reqContent: pointer): Result[string, string] =
 
-  let req = InterThreadRequest.new(reqType, reqContent)
+  let req = InterThreadRequest.createShared(reqType, reqContent)
 
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)

@@ -17,13 +17,12 @@ type
     respType: ResponseType
     content: cstring
 
-proc new*(T: type InterThreadResponse,
-          res: Result[string, string]): ptr InterThreadResponse =
+proc createShared*(T: type InterThreadResponse,
+                   res: Result[string, string]): ptr type T =
   ## Converts a `Result[string, string]` into a `ptr InterThreadResponse`
   ## so that it can be transfered to another thread in a safe way.
 
-  var ret = cast[ptr InterThreadResponse](
-                  allocShared0(sizeof(InterThreadResponse)))
+  var ret = createShared(T)
   if res.isOk():
     let value = res.get()
     ret[].respType = ResponseType.OK
@@ -34,7 +33,6 @@ proc new*(T: type InterThreadResponse,
     ret[].respType = ResponseType.ERR
     ret[].content = cast[cstring](allocShared0(error.len + 1))
     copyMem(ret[].content, unsafeAddr error, error.len + 1)
-
   return ret
 
 proc process*(T: type InterThreadResponse,
