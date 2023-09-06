@@ -9,7 +9,9 @@ import
   presto, presto/client as presto_client,
   libp2p/crypto/crypto
 import
-  ../../../waku/waku_core,
+  ../../../waku/waku_core/message,
+  ../../../waku/waku_core/topics,
+  ../../../waku/waku_core/time,
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
   ../../../waku/node/rest/server,
@@ -146,7 +148,7 @@ procSuite "Waku v2 Rest API - Store":
     let node = testWakuNode()
     await node.start()
 
-    let restPort = Port(58011)
+    let restPort = Port(58012)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -244,7 +246,7 @@ procSuite "Waku v2 Rest API - Store":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    let restPort = Port(58013)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -318,7 +320,7 @@ procSuite "Waku v2 Rest API - Store":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    let restPort = Port(58014)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -409,7 +411,7 @@ procSuite "Waku v2 Rest API - Store":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    let restPort = Port(58015)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
@@ -466,7 +468,7 @@ procSuite "Waku v2 Rest API - Store":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    let restPort = Port(58016)
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
