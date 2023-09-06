@@ -16,6 +16,7 @@ const DefaultPageSize*: uint = 25
 type
   ArchiveDriverResult*[T] = Result[T, string]
   ArchiveDriver* = ref object of RootObj
+  OnErrHandler* = proc(errMsg: string) {.gcsafe, closure.}
 
 type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 
