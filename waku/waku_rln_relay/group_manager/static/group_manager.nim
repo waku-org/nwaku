@@ -109,3 +109,9 @@ method stop*(g: StaticGroupManager): Future[void] =
   var retFut = newFuture[void]("StaticGroupManager.stop")
   retFut.complete()
   return retFut
+
+method isReady*(g: StaticGroupManager): Future[bool] {.gcsafe.} =
+  initializedGuard(g)
+  var retFut = newFuture[bool]("StaticGroupManager.isReady")
+  retFut.complete(true)
+  return retFut

@@ -313,13 +313,21 @@ proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
                         toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
   initializedGuard(g)
+  proc getLatestBlockNumber(): BlockNumber =
+    if toBlock.isSome(): 
+      # if toBlock = 0, that implies the latest block
+      # which is the case when we are syncing block-by-block
+      # therefore, toBlock = fromBlock + 1
+      # if toBlock != 0, then we are chunking blocks
+      # therefore, toBlock = fromBlock + blockChunkSize (which is handled)
+      return max(fromBlock + 1, toBlock.get())
+    return fromBlock
 
-  let blockTable = await g.getBlockTable(fromBlock, toBlock)
+  let blockTable = await g.getBlockTable(fromBlock, toBlock)    
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
-  g.latestProcessedBlock = if toBlock.isSome(): toBlock.get()
-                             else: fromBlock
+  g.latestProcessedBlock = getLatestBlockNumber()
   let metadataSetRes = g.setMetadata()
   if metadataSetRes.isErr():
     # this is not a fatal error, hence we don't raise an exception
@@ -473,7 +481,6 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
     warn "could not initialize with persisted rln metadata"
-    g.latestProcessedBlock = BlockNumber(0)
   else:
     let metadata = metadataGetRes.get()
     if metadata.chainId != uint64(g.chainId.get()):
@@ -500,6 +507,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     raise newException(ValueError,
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
+  g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
@@ -528,3 +536,34 @@ method stop*(g: OnchainGroupManager): Future[void] {.async.} =
     error "failed to flush to the tree db"
 
   g.initialized = false
+
+proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
+  let ethRpc = g.ethRpc.get()
+
+  try:
+    let syncing = await ethRpc.provider.eth_syncing()
+    return syncing.getBool()
+  except CatchableError:
+    error "failed to get the syncing status", error = getCurrentExceptionMsg()
+    return false
+
+method isReady*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
+  initializedGuard(g)
+
+  if g.ethRpc.isNone():
+    return false
+
+  var currentBlock: BlockNumber
+  try:
+    currentBlock = cast[BlockNumber](await g.ethRpc
+                                            .get()
+                                            .provider
+                                            .eth_blockNumber())
+  except CatchableError:
+    error "failed to get the current block number", error = getCurrentExceptionMsg()
+    return false
+
+  if g.latestProcessedBlock < currentBlock:
+    return false
+
+  return not (await g.isSyncing())
