@@ -732,8 +732,8 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
 when defined(rln):
   proc mountRlnRelay*(node: WakuNode,
                       rlnConf: WakuRlnConfig,
-                      spamHandler: Option[SpamHandler] = none(SpamHandler),
-                      registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)) {.async.} =
+                      spamHandler = none(SpamHandler),
+                      registrationHandler = none(RegistrationHandler)) {.async.} =
     info "mounting rln relay"
 
     if node.wakuRelay.isNil():
@@ -903,3 +903,11 @@ proc stop*(node: WakuNode) {.async.} =
       await node.wakuRlnRelay.stop()
 
   node.started = false
+
+proc isReady*(node: WakuNode): Future[bool] {.async.} =
+  when defined(rln):
+    if node.wakuRlnRelay == nil:
+      return false
+    return await node.wakuRlnRelay.isReady()
+  ## TODO: add other protocol `isReady` checks
+  return true

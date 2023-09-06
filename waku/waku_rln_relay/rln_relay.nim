@@ -394,6 +394,18 @@ proc mount(conf: WakuRlnConfig,
 
   return WakuRLNRelay(groupManager: groupManager)
 
+proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
+  ## returns true if the rln-relay protocol is ready to relay messages
+  ## returns false otherwise
+  
+  # could be nil during startup
+  if rlnPeer.groupManager == nil:
+    return false
+  try:
+    return await rlnPeer.groupManager.isReady()
+  except CatchableError:
+    error "could not check if the rln-relay protocol is ready", err = getCurrentExceptionMsg()
+    return false
 
 proc new*(T: type WakuRlnRelay,
           conf: WakuRlnConfig,

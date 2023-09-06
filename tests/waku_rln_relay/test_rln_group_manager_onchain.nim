@@ -555,6 +555,31 @@ suite "Onchain group manager":
       manager.validRootBuffer.len() == 0
       manager.validRoots[credentialCount - 2] == expectedLastRoot
 
+  asyncTest "isReady should return false if ethRpc is none":
+    var manager = await setup()
+    await manager.init()
+
+    manager.ethRpc = none(Web3)
+
+    check:
+      (await manager.isReady()) == false
+
+  asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
+    var manager = await setup()
+    await manager.init()
+
+    check:
+      (await manager.isReady()) == false
+
+  asyncTest "isReady should return true if ethRpc is ready":
+    var manager = await setup()
+    await manager.init()
+    # node can only be ready after group sync is done
+    await manager.startGroupSync()
+    
+    check:
+      (await manager.isReady()) == true
+
 
   ################################
   ## Terminating/removing Ganache
