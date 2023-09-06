@@ -410,10 +410,17 @@ proc setupProtocols(node: WakuNode,
         return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   if conf.store:
+    var onErrAction = proc(msg: string) {.gcsafe, closure.} =
+      ## Action to be taken when an internal error occurs during the node run.
+      ## e.g. the connection with the database is lost and not recovered.
+      error "Unrecoverable error occurred", error = msg
+      quit(QuitFailure)
+
     # Archive setup
     let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
                                              conf.storeMessageDbVacuum,
-                                             conf.storeMessageDbMigration)
+                                             conf.storeMessageDbMigration,
+                                             onErrAction)
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)
 

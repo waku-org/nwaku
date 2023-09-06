@@ -12,7 +12,8 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
-  ../../../common/databases/db_postgres as waku_postgres
+  ../../../common/databases/db_postgres as waku_postgres,
+  ./postgres_healthcheck
 
 export postgres_driver
 
@@ -43,14 +44,20 @@ const DefaultMaxConnections = 5
 
 proc new*(T: type PostgresDriver,
           dbUrl: string,
-          maxConnections: int = DefaultMaxConnections):
+          maxConnections: int = DefaultMaxConnections,
+          onErrAction: OnErrHandler = nil):
           ArchiveDriverResult[T] =
 
   let connPoolRes = PgAsyncPool.new(dbUrl, maxConnections)
   if connPoolRes.isErr():
     return err("error creating PgAsyncPool: " & connPoolRes.error)
 
-  return ok(PostgresDriver(connPool: connPoolRes.get()))
+  let connPool = connPoolRes.get()
+
+  if not isNil(onErrAction):
+    asyncSpawn checkConnectivity(connPool, onErrAction)
+
+  return ok(PostgresDriver(connPool: connPool))
 
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
