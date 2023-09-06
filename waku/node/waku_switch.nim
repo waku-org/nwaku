@@ -101,7 +101,7 @@ proc newWakuSwitch*(
     if peerStoreCapacity.isSome():
       b = b.withPeerStore(peerStoreCapacity.get())
     else:
-      let defaultPeerStoreCapacity = int(round(float64(maxConnections)*1.25))
+      let defaultPeerStoreCapacity = int(maxConnections)*5
       b = b.withPeerStore(defaultPeerStoreCapacity)
     if agentString.isSome():
       b = b.withAgentVersion(agentString.get())
