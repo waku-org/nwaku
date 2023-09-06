@@ -73,8 +73,6 @@ type
     # in event of a reorg. we store 5 in the buffer. Maybe need to revisit this,
     # because the average reorg depth is 1 to 2 blocks.
     validRootBuffer*: Deque[MerkleNode]
-    # this variable tracks the last seen head
-    lastSeenBlockHead*: BlockNumber
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -317,7 +315,12 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   initializedGuard(g)
   proc getLatestBlockNumber(): BlockNumber =
     if toBlock.isSome(): 
-      return toBlock.get()
+      # if toBlock = 0, that implies the latest block
+      # which is the case when we are syncing block-by-block
+      # therefore, toBlock = fromBlock + 1
+      # if toBlock != 0, then we are chunking blocks
+      # therefore, toBlock = fromBlock + blockChunkSize (which is handled)
+      return max(fromBlock + 1, toBlock.get())
     return fromBlock
 
   let blockTable = await g.getBlockTable(fromBlock, toBlock)    
@@ -335,7 +338,6 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
       let latestBlock = blockheader.number.uint
-      g.lastSeenBlockHead = latestBlock
       trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
@@ -479,7 +481,6 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
     warn "could not initialize with persisted rln metadata"
-    g.latestProcessedBlock = BlockNumber(0)
   else:
     let metadata = metadataGetRes.get()
     if metadata.chainId != uint64(g.chainId.get()):
@@ -506,6 +507,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     raise newException(ValueError,
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
+  g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
 
   ethRpc.ondisconnect = proc() =
     error "Ethereum client disconnected"
@@ -551,10 +553,12 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
   if g.ethRpc.isNone():
     return false
 
-  if g.lastSeenBlockHead == 0:
-    return false
+  let currentBlock = cast[BlockNumber](await g.ethRpc
+                                              .get()
+                                              .provider
+                                              .eth_blockNumber())
 
-  if g.latestProcessedBlock < g.lastSeenBlockHead:
+  if g.latestProcessedBlock < currentBlock:
     return false
 
   return not (await g.isSyncing())

@@ -568,20 +568,15 @@ suite "Onchain group manager":
     var manager = await setup()
     await manager.init()
 
-    manager.lastSeenBlockHead = 10
-    manager.latestProcessedBlock = 5
-
     check:
       (await manager.isReady()) == false
 
-  asyncTest "isReady should return true if ethRpc is not syncing":
-    # not syncing implies the node is ready
+  asyncTest "isReady should return true if ethRpc is ready":
     var manager = await setup()
     await manager.init()
+    # node can only be ready after group sync is done
+    await manager.startGroupSync()
     
-    manager.latestProcessedBlock = 10
-    manager.lastSeenBlockHead = 10
-
     check:
       (await manager.isReady()) == true
 
