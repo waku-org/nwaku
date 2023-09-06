@@ -38,7 +38,6 @@ type WakuRlnConfig* = object
   rlnRelayCredPath*: string
   rlnRelayCredPassword*: string
   rlnRelayTreePath*: string
-  rlnRelayBandwidthThreshold*: int
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -77,7 +76,7 @@ proc calcEpoch*(t: float64): Epoch =
 
 type WakuRLNRelay* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-  nullifierLog*: Table[Epoch, seq[ProofMetadata]]
+  nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
 
@@ -300,13 +299,26 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
   msg.proof = proofGenRes.get().encode().buffer
   return true
 
+proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
+  # clear the first MaxEpochGap epochs of the nullifer log
+  # if more than MaxEpochGap epochs are in the log
+  # note: the epochs are ordered ascendingly
+  if rlnPeer.nullifierLog.len().uint < MaxEpochGap:
+    return
+
+  trace "clearing epochs from the nullifier log", count = MaxEpochGap
+  let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0..<MaxEpochGap]
+  for epoch in epochsToClear:
+    rlnPeer.nullifierLog.del(epoch)
+
 proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
-                           spamHandler: Option[SpamHandler] = none(SpamHandler)): WakuValidatorHandler =
+                           spamHandler = none(SpamHandler)): WakuValidatorHandler =
   ## this procedure is a thin wrapper for the pubsub addValidator method
   ## it sets a validator for waku messages, acting in the registered pubsub topic
   ## the message validation logic is according to https://rfc.vac.dev/spec/17/
   proc validator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
     trace "rln-relay topic validator is called"
+    wakuRlnRelay.clearNullifierLog()
 
     let decodeRes = RateLimitProof.init(message.proof)
 
@@ -342,7 +354,7 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
   return validator
 
 proc mount(conf: WakuRlnConfig,
-           registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+           registrationHandler = none(RegistrationHandler)
           ): Future[WakuRlnRelay] {.async.} =
   var
     groupManager: GroupManager
