@@ -46,7 +46,8 @@ proc process*(T: type InterThreadRequest,
     of LIFECYCLE:
       waitFor cast[ptr NodeLifecycleRequest](request[].reqContent).process(node)
     of PEER_MANAGER:
-      waitFor cast[ptr PeerManagementRequest](request[].reqContent).process(node)
+      waitFor cast[ptr PeerManagementRequest](
+                                request[].reqContent).process(node[])
     of RELAY:
       waitFor cast[ptr RelayRequest](request[].reqContent).process(node)
 
