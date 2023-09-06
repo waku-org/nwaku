@@ -136,6 +136,20 @@ proc getConnIndex(pool: PgAsyncPool):
     pool.conns[index].busy = true
     return ok(index)
 
+proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
+  ## Forces closing the connection pool.
+  ## This proc is intended to be called when the connection with the database
+  ## got interrupted from the database side or a connectivity problem happened.
+
+  for i in 0..<pool.conns.len:
+    pool.conns[i].busy = false
+
+  (await pool.close()).isOkOr:
+    return err("error in resetConnPool: " & error)
+
+  pool.state = PgAsyncPoolState.Live
+  return ok()
+
 proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
   ## Marks the connection as released.
   for i in 0..<pool.conns.len:
