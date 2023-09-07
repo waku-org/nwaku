@@ -5,25 +5,16 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
   chronos,
-  libp2p/crypto/crypto,
-  libp2p/crypto/secp,
-  libp2p/peerid,
-  libp2p/multiaddress,
   libp2p/switch,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
-  libp2p/protocols/pubsub/gossipsub,
-  libp2p/multihash,
-  secp256k1
+  libp2p/protocols/pubsub/gossipsub
 import
   ../../waku/waku_core,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
   ../../waku/waku_relay,
   ../testlib/testutils,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -238,10 +229,10 @@ suite "WakuNode - Relay":
     let
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60510), wsBindPort = Port(8001), wsEnabled = true)
+        bindPort = Port(0), wsBindPort = Port(0), wsEnabled = true)
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60512), wsBindPort = Port(8101), wsEnabled = true)
+        bindPort = Port(0), wsBindPort = Port(0), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -279,10 +270,10 @@ suite "WakuNode - Relay":
     let
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60520), wsBindPort = Port(8002), wsEnabled = true)
+        bindPort = Port(0), wsBindPort = Port(0), wsEnabled = true)
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60522))
+        bindPort = Port(0))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -320,10 +311,10 @@ suite "WakuNode - Relay":
     let
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60530))
+        bindPort = Port(0))
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60532), wsBindPort = Port(8103), wsEnabled = true)
+        bindPort = Port(0), wsBindPort = Port(0), wsEnabled = true)
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -364,10 +355,10 @@ suite "WakuNode - Relay":
     let
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60540), wsBindPort = Port(8004), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+        bindPort = Port(0), wsBindPort = Port(0), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"),
-        bindPort = Port(60542))
+        bindPort = Port(0))
       pubSubTopic = "test"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
@@ -403,9 +394,9 @@ suite "WakuNode - Relay":
   asyncTest "Messages are relayed between nodes with multiple transports (websocket and secure Websockets)":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60550), wsBindPort = Port(8005), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
+      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), bindPort = Port(0), wsBindPort = Port(0), wssEnabled = true, secureKey = KEY_PATH, secureCert = CERT_PATH)
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(60552),wsBindPort = Port(8105), wsEnabled = true )
+      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), bindPort = Port(0),wsBindPort = Port(0), wsEnabled = true )
 
     let
       pubSubTopic = "test"
