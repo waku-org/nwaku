@@ -191,6 +191,10 @@ rln-keystore-generator: | build deps librln-experimental
 	echo -e $(BUILD_MSG) "build/$@" && \
 	$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
 
+rln-db-inspector: | build deps librln-experimental
+	echo -e $(BUILD_MSG) "build/$@" && \
+	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+
 chat2bridge: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
