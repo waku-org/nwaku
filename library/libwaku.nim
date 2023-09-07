@@ -45,7 +45,8 @@ type
 var extEventCallback*: WakuCallBack = nil
 
 proc relayEventCallback(pubsubTopic: PubsubTopic,
-                        msg: WakuMessage): Future[void] {.async, gcsafe.} =
+                        msg: WakuMessage):
+                        Future[void] {.async, gcsafe, nimcall.} =
   # Callback that hadles the Waku Relay events. i.e. messages or errors.
   if not isNil(extEventCallback):
     try:
