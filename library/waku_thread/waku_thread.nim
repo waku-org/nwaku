@@ -54,7 +54,8 @@ proc run(ctx: ptr Context) {.thread.} =
     var request: ptr InterThreadRequest
     let recvOk = ctx.reqChannel.tryRecv(request)
     if recvOk == true:
-      let resultResponse = InterThreadRequest.process(request, addr node)
+      let resultResponse =
+        waitFor InterThreadRequest.process(request, addr node)
 
       ## Converting a `Result` into a thread-safe transferable response type
       let threadSafeResp = InterThreadResponse.createShared(resultResponse)

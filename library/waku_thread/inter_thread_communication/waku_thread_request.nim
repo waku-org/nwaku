@@ -36,20 +36,22 @@ proc createShared*(T: type InterThreadRequest,
 proc process*(T: type InterThreadRequest,
               request: ptr InterThreadRequest,
               node: ptr WakuNode):
-              Result[string, string] =
+              Future[Result[string, string]] {.async.} =
   ## Processes the request and deallocates its memory
   defer: deallocShared(request)
 
   echo "Request received: " & $request[].reqType
 
-  case request[].reqType
-    of LIFECYCLE:
-      waitFor cast[ptr NodeLifecycleRequest](request[].reqContent).process(node)
-    of PEER_MANAGER:
-      waitFor cast[ptr PeerManagementRequest](
-                                request[].reqContent).process(node[])
-    of RELAY:
-      waitFor cast[ptr RelayRequest](request[].reqContent).process(node)
+  let retFut =
+    case request[].reqType
+      of LIFECYCLE:
+        cast[ptr NodeLifecycleRequest](request[].reqContent).process(node)
+      of PEER_MANAGER:
+        cast[ptr PeerManagementRequest](request[].reqContent).process(node[])
+      of RELAY:
+        cast[ptr RelayRequest](request[].reqContent).process(node)
+
+  return await retFut
 
 proc `$`*(self: InterThreadRequest): string =
   return $self.reqType
