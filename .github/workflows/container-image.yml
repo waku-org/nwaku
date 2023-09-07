@@ -5,6 +5,10 @@ on:
     inputs:
       experimental:
         type: boolean
+    outputs:
+      image:
+        description: The resulting image link
+        value: ${{ jobs.build-docker-image.outputs.image }}
 
 env:
   NPROC: 2
@@ -20,6 +24,8 @@ jobs:
     timeout-minutes: 60
 
     name: docker-build-${{ matrix.os }}
+    outputs:
+      image: ${{ steps.build.outputs.image }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -51,6 +57,7 @@ jobs:
           IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
 
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
           docker login -u ${QUAY_USER} -p ${QUAY_PASSWORD} quay.io
           docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=7d .
@@ -70,4 +77,6 @@ jobs:
             ```
             ${{steps.build.outputs.image}}
             ```
+
+            Built from ${{ steps.build.outputs.commit_hash }}
           comment_tag: execution${{ inputs.experimental && '**experimental**' || ''}}
