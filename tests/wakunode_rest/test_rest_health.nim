@@ -55,7 +55,7 @@ suite "Waku v2 REST API - health":
     check:
       response.status == 503
       $response.contentType == $MIMETYPE_TEXT
-      response.data == "Node is not inititialized"
+      response.data == "Node is not ready"
 
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
