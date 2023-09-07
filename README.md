@@ -39,6 +39,19 @@ For more on how to run `wakunode2`, refer to:
 ##### WSL
 If you encounter difficulties building the project on WSL, consider placing the project within WSL's filesystem, avoiding the `/mnt/` directory.
 
+### Developing
+
+#### Nim Runtime
+This repository is bundled with a Nim runtime that includes the necessary dependencies for the project.
+
+Before you can utilise the runtime you'll need to build the project, as detailed in a previous section. This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
+
+After successfully building the project, you may bring the bundled runtime into scope by running:
+```bash
+source env.sh
+```
+If everything went well, your should see your prompt suffixed with `[Nimbus env]$`. Now you can run `nim` commands as usual.
+
 ### Waku Protocol Test Suite
 
 ```bash
