@@ -43,7 +43,5 @@ proc loadConfig*(T: type RlnDbInspectorConf): Result[T, string] =
     if conf.rlnRelayTreePath == "":
       return err("--rln-relay-tree-path must be set")
     ok(conf)
-  except CatchableError:
-    err(getCurrentExceptionMsg())
-  except Exception:
+  except CatchableError, Exception:
     err(getCurrentExceptionMsg())

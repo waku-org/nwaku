@@ -19,12 +19,9 @@ logScope:
 when isMainModule:
   {.pop.}
   # 1. load configuration
-  let confRes = RlnDbInspectorConf.loadConfig()
-  if confRes.isErr():
+  let conf = RlnDbInspectorConf.loadConfig().isOkOr:
     error "failure while loading the configuration", error=confRes.error
     quit(1)
-
-  let conf = confRes.get()
 
   trace "configuration", conf = $conf
 
