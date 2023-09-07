@@ -206,6 +206,7 @@ proc parseEvent(event: type MemberRegistered,
     offset += decode(data, offset, idComm)
     # Parse the index
     offset += decode(data, offset, index)
+    debug "parsed the data field of the MemberRegistered event", idCommitment = idComm, index = index
     return ok(Membership(idCommitment: idComm.toIDCommitment(), index: index.toMembershipIndex()))
   except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
@@ -341,7 +342,7 @@ proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
       trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
-        asyncSpawn g.getAndHandleEvents(latestBlock)
+        waitFor g.getAndHandleEvents(latestBlock)
       except CatchableError:
         warn "failed to handle log: ", error=getCurrentExceptionMsg()
   return newHeadCallback
@@ -521,7 +522,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       error "failed to reconnect with the Ethereum client", error = getCurrentExceptionMsg()
       return
     try:
-      asyncSpawn g.startOnchainSync()
+      waitFor g.startOnchainSync()
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
