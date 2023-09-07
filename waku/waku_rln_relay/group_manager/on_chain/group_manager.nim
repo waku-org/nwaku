@@ -267,6 +267,8 @@ proc getBlockTable(g: OnchainGroupManager,
     trace "no events found"
     return blockTable
 
+  debug "events found", numEvents = events.len, fromBlock = fromBlock, toBlock = toBlock, events = events
+
   for event in events:
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
     let removed = event["removed"].getBool()
@@ -277,6 +279,7 @@ proc getBlockTable(g: OnchainGroupManager,
     let parsedEvent = parsedEventRes.get()
     blockTable.insert(blockNumber, parsedEvent, removed)
 
+  debug "blocktable after parsing events", blockTable=blockTable
   return blockTable
 
 proc handleEvents(g: OnchainGroupManager,
@@ -339,7 +342,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
       let latestBlock = blockheader.number.uint
-      trace "block received", blockNumber = latestBlock
+      debug "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
         waitFor g.getAndHandleEvents(latestBlock)
