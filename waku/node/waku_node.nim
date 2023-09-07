@@ -910,4 +910,5 @@ proc isReady*(node: WakuNode): Future[bool] {.async.} =
       return false
     return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
+  echo "***NZP*** rln not defined!"
   return true

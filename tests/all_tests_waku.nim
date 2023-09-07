@@ -103,3 +103,4 @@ when defined(rln):
     ./waku_rln_relay/test_wakunode_rln_relay,
     ./waku_rln_relay/test_rln_group_manager_onchain,
     ./waku_rln_relay/test_rln_group_manager_static
+    ./wakunode_rest/test_rest_health
