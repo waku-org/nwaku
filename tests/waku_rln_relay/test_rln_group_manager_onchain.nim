@@ -576,6 +576,9 @@ suite "Onchain group manager":
     await manager.init()
     # node can only be ready after group sync is done
     await manager.startGroupSync()
+    # needs to sleep because the history sync
+    # and new block processing are async
+    await sleepAsync(1000.millis)
     
     check:
       (await manager.isReady()) == true

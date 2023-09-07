@@ -206,6 +206,7 @@ proc parseEvent(event: type MemberRegistered,
     offset += decode(data, offset, idComm)
     # Parse the index
     offset += decode(data, offset, index)
+    debug "parsed the data field of the MemberRegistered event", idCommitment = idComm, index = index
     return ok(Membership(idCommitment: idComm.toIDCommitment(), index: index.toMembershipIndex()))
   except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
@@ -266,6 +267,8 @@ proc getBlockTable(g: OnchainGroupManager,
     trace "no events found"
     return blockTable
 
+  debug "events found", numEvents = events.len, fromBlock = fromBlock, toBlock = toBlock, events = events
+
   for event in events:
     let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
     let removed = event["removed"].getBool()
@@ -276,6 +279,7 @@ proc getBlockTable(g: OnchainGroupManager,
     let parsedEvent = parsedEventRes.get()
     blockTable.insert(blockNumber, parsedEvent, removed)
 
+  debug "blocktable after parsing events", blockTable=blockTable
   return blockTable
 
 proc handleEvents(g: OnchainGroupManager,
@@ -338,7 +342,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
       let latestBlock = blockheader.number.uint
-      trace "block received", blockNumber = latestBlock
+      debug "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
         asyncSpawn g.getAndHandleEvents(latestBlock)
@@ -359,7 +363,7 @@ proc startListeningToEvents(g: OnchainGroupManager): Future[void] {.async.} =
   except CatchableError:
     raise newException(ValueError, "failed to subscribe to block headers: " & getCurrentExceptionMsg())
 
-proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
+proc historySync(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
@@ -393,11 +397,19 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   except CatchableError:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
+
+proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
+  initializedGuard(g)
+
+  try:
+    asyncSpawn g.historySync()
+  except CatchableError:
+    raise newException(CatchableError, "failed to start history sync: " & getCurrentExceptionMsg())
   # listen to blockheaders and contract events
   try:
-    await g.startListeningToEvents()
+    asyncSpawn g.startListeningToEvents()
   except CatchableError:
-    raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
+    raise newException(CatchableError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
 method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
   initializedGuard(g)
