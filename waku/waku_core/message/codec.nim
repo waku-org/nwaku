@@ -23,8 +23,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   buf.write3(3, message.version)
   buf.write3(10, zint64(message.timestamp))
   buf.write3(11, message.meta)
-  when defined(rln):
-    buf.write3(21, message.proof)
+  buf.write3(21, message.proof)
   buf.write3(31, message.ephemeral)
   buf.finish3()
 
@@ -74,13 +73,12 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
     msg.meta = meta
 
 
-  # Experimental: this is part of https://rfc.vac.dev/spec/17/ spec
-  when defined(rln):
-    var proof: seq[byte]
-    if not ?pb.getField(21, proof):
-      msg.proof = @[]
-    else:
-      msg.proof = proof
+  # this is part of https://rfc.vac.dev/spec/17/ spec
+  var proof: seq[byte]
+  if not ?pb.getField(21, proof):
+    msg.proof = @[]
+  else:
+    msg.proof = proof
 
 
   var ephemeral: uint

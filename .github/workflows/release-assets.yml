@@ -44,7 +44,7 @@ jobs:
       - name: prep variables
         id: vars
         run: |
-          NWAKU_ARTIFACT_NAME=$(echo "nwaku${EXPERIMENTAL}-${{matrix.arch}}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku-${{matrix.arch}}-${{runner.os}}.tar.gz" | tr "[:upper:]" "[:lower:]")
 
           echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
 

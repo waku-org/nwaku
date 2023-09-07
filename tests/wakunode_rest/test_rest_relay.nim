@@ -19,12 +19,9 @@ import
   ../../waku/node/rest/relay/client as relay_api_client,
   ../../waku/node/rest/relay/topic_cache,
   ../../waku/waku_relay,
+  ../../../waku/waku_rln_relay,
   ../testlib/wakucore,
   ../testlib/wakunode
-
-when defined(rln):
-  import
-    ../../../waku/waku_rln_relay
 
 proc testWakuNode(): WakuNode =
   let
@@ -186,10 +183,9 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    when defined(rln):
-      await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: some(1.uint),
-          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
     let restPort = Port(58014)
