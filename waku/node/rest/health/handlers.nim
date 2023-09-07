@@ -17,7 +17,7 @@ logScope:
 
 const ROUTE_HEALTH* = "/health"
 
-const futIsReadyTimout = 5.seconds
+const FutIsReadyTimout = 5.seconds
 
 proc installHealthApiHandler*(router: var RestRouter, node: WakuNode) =
 
