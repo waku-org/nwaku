@@ -63,7 +63,7 @@ proc run(ctx: ptr Context) {.thread.} =
       ## The error-handling is performed in the main thread
       discard ctx.respChannel.trySend( threadSafeResp )
 
-    poll()
+    waitFor sleepAsync(1)
 
   tearDownForeignThreadGc()
 
