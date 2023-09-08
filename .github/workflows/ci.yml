@@ -127,7 +127,7 @@ jobs:
 
   js-waku:
     needs: build-docker-image
-    uses: waku-org/js-waku/.github/workflows/ci.yml@chore/add-workflow-call-to-ci
+    uses: waku-org/js-waku/.github/workflows/ci.yml@master
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
       caller: nwaku
