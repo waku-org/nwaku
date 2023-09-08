@@ -315,12 +315,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
   initializedGuard(g)
   proc getLatestBlockNumber(): BlockNumber =
     if toBlock.isSome(): 
-      # if toBlock = 0, that implies the latest block
-      # which is the case when we are syncing block-by-block
-      # therefore, toBlock = fromBlock + 1
-      # if toBlock != 0, then we are chunking blocks
-      # therefore, toBlock = fromBlock + blockChunkSize (which is handled)
-      return max(fromBlock + 1, toBlock.get())
+      return toBlock.get()
     return fromBlock
 
   let blockTable = await g.getBlockTable(fromBlock, toBlock)    
@@ -337,11 +332,12 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
-      let latestBlock = blockheader.number.uint
+      let latestBlock = BlockNumber(blockheader.number)
       trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
-        asyncSpawn g.getAndHandleEvents(latestBlock)
+        asyncSpawn g.getAndHandleEvents(min(g.latestProcessedBlock, latestBlock), 
+                                        some(latestBlock))
       except CatchableError:
         warn "failed to handle log: ", error=getCurrentExceptionMsg()
   return newHeadCallback
@@ -368,28 +364,23 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   let blockChunkSize = 2_000
 
   var fromBlock = if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
-    info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock
     g.latestProcessedBlock + 1
   else:
-    info "starting onchain sync from deployed block number", deployedBlockNumber = g.rlnContractDeployedBlockNumber
     g.rlnContractDeployedBlockNumber
 
-  let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
     # we always want to sync from last processed block => latest
-    if fromBlock == BlockNumber(0) or
-       fromBlock + BlockNumber(blockChunkSize) < latestBlock:
-      # chunk events
-      while true:
-        let currentLatestBlock = cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
-        let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
-        info "chunking events", fromBlock = fromBlock, toBlock = toBlock
-        await g.getAndHandleEvents(fromBlock, some(toBlock))
-        fromBlock = toBlock + 1
-        if fromBlock >= currentLatestBlock:
-          break
-    else:
-      await g.getAndHandleEvents(fromBlock, some(BlockNumber(0)))
+    # chunk events
+    while true:
+      let currentLatestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+      if fromBlock >= currentLatestBlock:
+        break
+
+      let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
+      debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
+      await g.getAndHandleEvents(fromBlock, some(toBlock))
+      fromBlock = toBlock + 1
+
   except CatchableError:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
