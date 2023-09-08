@@ -901,6 +901,6 @@ proc stop*(node: WakuNode) {.async.} =
 
 proc isReady*(node: WakuNode): Future[bool] {.async.} =
   if node.wakuRlnRelay == nil:
-    return false
+    return true
   return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
