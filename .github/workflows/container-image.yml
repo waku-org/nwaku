@@ -5,6 +5,9 @@ on:
     inputs:
       experimental:
         type: boolean
+      image_tag:
+        type: string
+        default: ${{ github.event.number }}
     outputs:
       image:
         description: The resulting image link
@@ -57,6 +60,7 @@ jobs:
           IMAGE=quay.io/waku-org/nwaku-pr:${TAG}
 
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
           docker login -u ${QUAY_USER} -p ${QUAY_PASSWORD} quay.io
           docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=7d .
@@ -64,7 +68,7 @@ jobs:
         env:
           QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
           QUAY_USER: ${{ secrets.QUAY_USER }}
-          PR_NUMBER: ${{ github.event.number }}
+          PR_NUMBER: ${{ inputs.image_tag}}
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v2
@@ -77,5 +81,5 @@ jobs:
             ${{steps.build.outputs.image}}
             ```
 
-            Built from ${{ github.sha }}
+            Built from ${{ steps.build.outputs.commit_hash }}
           comment_tag: execution${{ inputs.experimental && '**experimental**' || ''}}
