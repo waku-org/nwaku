@@ -19,28 +19,22 @@ logScope:
 when isMainModule:
   {.pop.}
   # 1. load configuration
-  let conf = RlnDbInspectorConf.loadConfig().isOkOr:
-    error "failure while loading the configuration", error=confRes.error
+  let conf = RlnDbInspectorConf.loadConfig().valueOr:
+    error "failure while loading the configuration", error
     quit(1)
 
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
-  let rlnInstanceRes = createRLNInstance(d=20,
-                                         tree_path = conf.rlnRelayTreePath)
-  if rlnInstanceRes.isErr():
-    error "failure while creating RLN instance", error=rlnInstanceRes.error
+  let rlnInstance = createRLNInstance(d=20,
+                                      tree_path = conf.rlnRelayTreePath).valueOr:
+    error "failure while creating RLN instance", error
     quit(1)
-
-  let rlnInstance = rlnInstanceRes.get()
 
   # 3. get metadata
-  let metadataGetRes = rlnInstance.getMetadata()
-  if metadataGetRes.isErr():
-    error "failure while getting RLN metadata", error=metadataGetRes.error
+  let metadata = rlnInstance.getMetadata().valueOr:
+    error "failure while getting RLN metadata", error
     quit(1)
-
-  let metadata = metadataGetRes.get()
 
   info "RLN metadata", lastProcessedBlock = metadata.lastProcessedBlock, 
                        chainId = metadata.chainId,
