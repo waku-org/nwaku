@@ -21,7 +21,7 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-  
+
     - name: Vars
       id: vars
       run: |
@@ -75,8 +75,6 @@ jobs:
             chat2\
             tools
 
-
-        
           tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode2 ./build/chat2
           tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
@@ -133,11 +131,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -x
-          gh release view ${{ needs.tag-name.outpus.tag }} &>/dev/null &&\
-            gh release delete -y ${{ needs.tag-name.output.tag }} &&\
-            [[ "${{ needs.tag-name.outpus.tag }}" == "nightly" ]] && git tag -d ${{ needs.tag-name.outpus.tag }}
+          gh release view ${{ needs.tag-name.outputs.tag }} &>/dev/null &&\
+            gh release delete -y ${{ needs.tag-name.outputs.tag }} &&\
+            [[ "${{ needs.tag-name.outputs.tag }}" == "nightly" ]] && git tag -d ${{ needs.tag-name.outputs.tag }}
 
-          RELEASE_NOTES_TAG=$([[ "${{ needs.tag-name.outpus.tag }}" != "nightly" ]] && echo "-t ${{steps.vars.outputs.ref}}" || echo "")
+          RELEASE_NOTES_TAG=$([[ "${{ needs.tag-name.outputs.tag }}" != "nightly" ]] && echo "-t ${{steps.vars.outputs.ref}}" || echo "")
 
           docker run \
               -t \
@@ -152,8 +150,8 @@ jobs:
 
           cat release_notes.md
 
-          TARGET=$([[ "${{steps.vars.outputs.release}}" == "nightly" ]] && echo "--target ${{steps.vars.outputs.ref}}" || echo "")
+          TARGET=$([[ "${{ needs.tag-name.outputs.tag }}" == "nightly" ]] && echo "--target ${{steps.vars.outputs.ref}}" || echo "")
 
-          gh release create ${{ needs.tag-name.outpus.tag}} --prerelease ${TARGET} \
-            --title ${{ needs.tag-name.outpus.tag }} --notes-file release_notes.md \
+          gh release create ${{ needs.tag-name.outputs.tag }} --prerelease ${TARGET} \
+            --title ${{ needs.tag-name.outputs.tag }} --notes-file release_notes.md \
             wakunode2/* wakutools/*
