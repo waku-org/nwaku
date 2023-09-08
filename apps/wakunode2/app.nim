@@ -47,6 +47,7 @@ import
   ../../waku/node/rest/relay/topic_cache,
   ../../waku/node/rest/filter/handlers as rest_filter_api,
   ../../waku/node/rest/store/handlers as rest_store_api,
+  ../../waku/node/rest/health/handlers as rest_health_api,
   ../../waku/node/jsonrpc/admin/handlers as rpc_admin_api,
   ../../waku/node/jsonrpc/debug/handlers as rpc_debug_api,
   ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
@@ -568,6 +569,9 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Debug REST API
   installDebugApiHandlers(server.router, app.node)
+
+  ## Health REST API
+  installHealthApiHandler(server.router, app.node)
 
   ## Relay REST API
   if conf.relay:
