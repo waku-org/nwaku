@@ -20,12 +20,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code
-      id: vars
       uses: actions/checkout@v3
+  
+    - name: Vars
+      id: vars
       run: |
         TAG=$([[ "${{github.ref}}" == "refs/heads/master" ]] && echo "${{env.RELEASE_NAME}}" || echo ${{github.ref}} | sed 's#refs/tags/##')
         echo "tag=${TAG}" >> $GITHUB_OUTPUT
-    output:
+    outputs:
       tag: ${{steps.vars.outputs.tag}}
 
   build-and-publish:
@@ -94,7 +96,7 @@ jobs:
 
   build-docker-image:
     needs: tag-name
-    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
+    uses: nwaku-test-org/nwaku/.github/workflows/container-image.yml@master
     with:
       image_tag: ${{ needs.tag-name.outputs.tag }}
     secrets: inherit
