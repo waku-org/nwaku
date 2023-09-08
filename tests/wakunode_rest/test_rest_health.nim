@@ -28,7 +28,7 @@ proc testWakuNode(): WakuNode =
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
     bindIp = ValidIpAddress.init("0.0.0.0")
     extIp = ValidIpAddress.init("127.0.0.1")
-    port = Port(58000)
+    port = Port(0)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
