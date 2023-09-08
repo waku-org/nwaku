@@ -10,7 +10,6 @@ import
   chronicles,
   metrics,
   libp2p/multistream,
-  libp2p/connmanager,
   libp2p/muxers/muxer,
   libp2p/nameresolving/nameresolver
 import
