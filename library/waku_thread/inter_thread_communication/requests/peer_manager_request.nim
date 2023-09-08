@@ -7,7 +7,8 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../../waku/node/waku_node
+  ../../../../waku/node/waku_node,
+  ../../../alloc
 
 type
   PeerManagementMsgType* = enum
@@ -16,7 +17,7 @@ type
 type
   PeerManagementRequest* = object
     operation: PeerManagementMsgType
-    peerMultiAddr: string
+    peerMultiAddr: cstring
     dialTimeout: Duration
 
 proc createShared*(T: type PeerManagementRequest,
@@ -26,9 +27,13 @@ proc createShared*(T: type PeerManagementRequest,
 
   var ret = createShared(T)
   ret[].operation = op
-  ret[].peerMultiAddr = peerMultiAddr
+  ret[].peerMultiAddr = peerMultiAddr.alloc()
   ret[].dialTimeout = dialTimeout
   return ret
+
+proc destroyShared(self: ptr PeerManagementRequest) =
+  deallocShared(self[].peerMultiAddr)
+  deallocShared(self)
 
 proc connectTo(node: WakuNode,
                peerMultiAddr: string,
@@ -50,12 +55,12 @@ proc connectTo(node: WakuNode,
 proc process*(self: ptr PeerManagementRequest,
               node: WakuNode): Future[Result[string, string]] {.async.} =
 
-  defer: deallocShared(self)
+  defer: destroyShared(self)
 
   case self.operation:
 
     of CONNECT_TO:
-      let ret = node.connectTo(self[].peerMultiAddr, self[].dialTimeout)
+      let ret = node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
       if ret.isErr():
         return err(ret.error)
 
