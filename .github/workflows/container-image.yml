@@ -2,6 +2,10 @@ name: container-image-build
 
 on:
   workflow_call:
+    inputs:
+      image_tag:
+        type: string
+        default: ${{ github.event.number }}
     outputs:
       image:
         description: The resulting image link
@@ -60,7 +64,7 @@ jobs:
         env:
           QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
           QUAY_USER: ${{ secrets.QUAY_USER }}
-          PR_NUMBER: ${{ github.event.number }}
+          PR_NUMBER: ${{ inputs.image_tag}}
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v2
