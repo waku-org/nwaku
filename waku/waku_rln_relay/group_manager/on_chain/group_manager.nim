@@ -105,7 +105,8 @@ method atomicBatch*(g: OnchainGroupManager,
     let operationSuccess = g.rlnInstance.atomicWrite(some(start), idCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
-  waku_rln_number_registered_memberships.inc(int64(idCommitments.len - toRemoveIndices.len))
+  # TODO: when slashing is enabled, we need to track slashed members
+  waku_rln_number_registered_memberships.set(int64(start.int + idCommitments.len - toRemoveIndices.len))
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -304,7 +305,7 @@ proc getAndHandleEvents(g: OnchainGroupManager,
                         toBlock: BlockNumber): Future[void] {.async.} =
   initializedGuard(g)
 
-  let blockTable = await g.getBlockTable(fromBlock, toBlock)    
+  let blockTable = await g.getBlockTable(fromBlock, toBlock)
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
