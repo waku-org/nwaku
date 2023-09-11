@@ -35,7 +35,8 @@ declarePublicHistogram(identifier = waku_rln_valid_messages_total,
   buckets = generateBucketsForHistogram(AcceptableRootWindowSize))
 declarePublicCounter(waku_rln_errors_total, "number of errors detected while operating the rln relay", ["type"])
 declarePublicCounter(waku_rln_proof_verification_total, "number of times the rln proofs are verified")
-declarePublicCounter(waku_rln_number_registered_memberships, "number of registered and active rln memberships")
+# this is a gauge so that we can set it based on the events we receive
+declarePublicGauge(waku_rln_number_registered_memberships, "number of registered and active rln memberships")
 
 # Timing metrics
 declarePublicGauge(waku_rln_proof_verification_duration_seconds, "time taken to verify a proof")
