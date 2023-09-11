@@ -16,7 +16,22 @@ env:
   NIMFLAGS: "--parallelBuild:${NPROC}"
 
 jobs:
+  tag-name:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Vars
+      id: vars
+      run: |
+        TAG=$([[ "${{github.ref}}" == "refs/heads/master" ]] && echo "${{env.RELEASE_NAME}}" || echo ${{github.ref}} | sed 's#refs/tags/##')
+        echo "tag=${TAG}" >> $GITHUB_OUTPUT
+    outputs:
+      tag: ${{steps.vars.outputs.tag}}
+
   build-and-publish:
+    needs: tag-name
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -33,12 +48,11 @@ jobs:
         id: vars
         run: |
           ARCH=${{matrix.arch}} 
-          TAG=$([[ "${{github.ref}}" == "refs/heads/master" ]] && echo "${{env.RELEASE_NAME}}" || echo ${{github.ref}} | sed 's#refs/tags/##')
 
           echo "arch=${ARCH}" >> $GITHUB_OUTPUT
 
-          NWAKU_ARTIFACT_NAME=$(echo "nwaku-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
-          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
 
           echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
           echo "nwakutools=${NWAKU_TOOLS_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
@@ -57,8 +71,6 @@ jobs:
             chat2\
             tools
 
-
-        
           tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode2 ./build/chat2
           tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
@@ -76,9 +88,23 @@ jobs:
           path: ${{steps.vars.outputs.nwakutools}}
           retention-days: 2
 
+  build-docker-image:
+    needs: tag-name
+    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
+    with:
+      image_tag: ${{ needs.tag-name.outputs.tag }}
+    secrets: inherit
+
+  js-waku:
+    needs: build-docker-image
+    uses: waku-org/js-waku/.github/workflows/ci.yml@master
+    with:
+      nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
+      caller: nwaku
+
   create-release-candidate:
     runs-on: ubuntu-latest
-    needs: [ build-and-publish ]
+    needs: [ tag-name, build-and-publish ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -92,10 +118,8 @@ jobs:
       - name: prep variables
         id: vars
         run: |
-          RELEASE=$([[ "${{github.ref}}" == "refs/heads/master" ]] && echo "${{env.RELEASE_NAME}}" || echo ${{github.ref}} | sed 's#refs/tags/##')
           REF=$(echo ${{github.ref}} | sed 's#.*/##')
 
-          echo "release=${RELEASE}" >> $GITHUB_OUTPUT
           echo "ref=${REF}" >> $GITHUB_OUTPUT
 
       - name: generate release notes
@@ -103,11 +127,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -x
-          gh release view ${{steps.vars.outputs.release}} &>/dev/null &&\
-            gh release delete -y ${{steps.vars.outputs.release}} &&\
-            [[ "${{steps.vars.outputs.release}}" == "nightly" ]] && git tag -d ${{steps.vars.outputs.release}}
+          gh release view ${{ needs.tag-name.outputs.tag }} &>/dev/null &&\
+            gh release delete -y ${{ needs.tag-name.outputs.tag }} &&\
+            [[ "${{ needs.tag-name.outputs.tag }}" == "nightly" ]] && git tag -d ${{ needs.tag-name.outputs.tag }}
 
-          RELEASE_NOTES_TAG=$([[ "${{steps.vars.outputs.release}}" != "nightly" ]] && echo "-t ${{steps.vars.outputs.ref}}" || echo "")
+          RELEASE_NOTES_TAG=$([[ "${{ needs.tag-name.outputs.tag }}" != "nightly" ]] && echo "-t ${{steps.vars.outputs.ref}}" || echo "")
 
           docker run \
               -t \
@@ -122,8 +146,8 @@ jobs:
 
           cat release_notes.md
 
-          TARGET=$([[ "${{steps.vars.outputs.release}}" == "nightly" ]] && echo "--target ${{steps.vars.outputs.ref}}" || echo "")
+          TARGET=$([[ "${{ needs.tag-name.outputs.tag }}" == "nightly" ]] && echo "--target ${{steps.vars.outputs.ref}}" || echo "")
 
-          gh release create ${{steps.vars.outputs.release}} --prerelease ${TARGET} \
-            --title ${{steps.vars.outputs.release}} --notes-file release_notes.md \
+          gh release create ${{ needs.tag-name.outputs.tag }} --prerelease ${TARGET} \
+            --title ${{ needs.tag-name.outputs.tag }} --notes-file release_notes.md \
             wakunode2/* wakutools/*
