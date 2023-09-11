@@ -24,12 +24,16 @@ suite "Waku Filter":
     var wakuFilter {.threadvar.}: WakuFilter
     var wakuFilterClient {.threadvar.}: WakuFilterClient
     var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    var pubsubTopic {.threadvar.}: PubsubTopic
+    var contentTopics {.threadvar.}: seq[ContentTopic]
 
     asyncSetup:
       let
         voidHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
           discard
 
+      pubsubTopic = DefaultPubsubTopic
+      contentTopics = @[DefaultContentTopic]
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
@@ -44,7 +48,7 @@ suite "Waku Filter":
     asyncTest "Active Subscription Identification":
       # When
       let
-        subscribeResponse = await wakuFilterClient.subscribe(serverRemotePeerInfo, DefaultPubsubTopic, @[DefaultContentTopic])
+        subscribeResponse = await wakuFilterClient.subscribe(serverRemotePeerInfo, pubsubTopic, contentTopics)
         subscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
 
       # Then
@@ -66,7 +70,7 @@ suite "Waku Filter":
       let 
         clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
         subscribeResponse = await wakuFilterClient.subscribe(
-          serverRemotePeerInfo, DefaultPubsubTopic, @[DefaultContentTopic]
+          serverRemotePeerInfo, pubsubTopic, contentTopics
         )
       
       require subscribeResponse.isOk()
@@ -74,7 +78,7 @@ suite "Waku Filter":
 
       # When
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
-        serverRemotePeerInfo, DefaultPubsubTopic, @[DefaultContentTopic]
+        serverRemotePeerInfo, pubsubTopic, contentTopics
       )
       require unsubscribeResponse.isOk()
       require not wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -91,7 +95,7 @@ suite "Waku Filter":
       let 
         clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
         subscribeResponse = await wakuFilterClient.subscribe(
-          serverRemotePeerInfo, DefaultPubsubTopic, @[DefaultContentTopic]
+          serverRemotePeerInfo, pubsubTopic, contentTopics
         )
       
       require subscribeResponse.isOk()
@@ -99,10 +103,39 @@ suite "Waku Filter":
 
       # When
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
-        serverRemotePeerInfo, DefaultPubsubTopic, @[DefaultContentTopic]
+        serverRemotePeerInfo, pubsubTopic, contentTopics
       )
 
       # Then
       check:
         unsubscribeResponse.isOk()
         not wakuFilter.subscriptions.hasKey(clientPeerId)
+
+
+  suite "Subscribe":
+    asyncTest "PubSub Topic with Single Content Topic":
+      discard
+
+    asyncTest "PubSub Topic with Multiple Content Topics":
+      discard
+
+    asyncTest "Different PubSub Topic with Different Content Topics":
+      discard
+
+    asyncTest "Overlapping Topic Subscription":
+      discard
+
+    asyncTest "Refreshing Subscription":
+      discard
+
+    asyncTest "Max topic size":
+      discard
+
+    asyncTest "Error Handling":
+      discard
+
+    asyncTest "Multiple Subscriptions":
+      discard
+
+    asyncTest "Service to service subscription":
+      discard
