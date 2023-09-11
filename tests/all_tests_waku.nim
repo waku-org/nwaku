@@ -5,7 +5,8 @@ import
   ./waku_core/test_namespaced_topics,
   ./waku_core/test_time,
   ./waku_core/test_message_digest,
-  ./waku_core/test_peers
+  ./waku_core/test_peers,
+  ./waku_core/test_published_address
 
 
 # Waku archive test suite

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, strutils],
   stew/results,
   stew/shims/net,
   libp2p/multiaddress
@@ -52,6 +52,11 @@ template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
+
+proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
+    let inputStr = $inputMultiAdd
+    # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
+    return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
 
 proc init*(T: type NetConfig,
     bindIp: ValidIpAddress,
@@ -111,7 +116,7 @@ proc init*(T: type NetConfig,
   if hostExtAddress.isSome():
     announcedAddresses.add(hostExtAddress.get())
   else:
-    announcedAddresses.add(hostAddress) # We always have at least a bind address for the host
+    announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
 
   # External multiaddrs that the operator may have configured
   if extMultiAddrs.len > 0:
