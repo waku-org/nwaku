@@ -33,6 +33,7 @@ import
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ../../waku/waku_peer_exchange,
+  ../../waku/waku_rln_relay,
   ../../waku/waku_store,
   ../../waku/waku_lightpush,
   ../../waku/waku_filter,
@@ -53,9 +54,6 @@ import
   ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
   ../../waku/node/jsonrpc/relay/handlers as rpc_relay_api,
   ../../waku/node/jsonrpc/store/handlers as rpc_store_api
-
-when defined(rln):
-  import ../../waku/waku_rln_relay
 
 logScope:
   topics = "wakunode app"
@@ -392,23 +390,22 @@ proc setupProtocols(node: WakuNode,
   except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
-  when defined(rln):
-    if conf.rlnRelay:
+  if conf.rlnRelay:
 
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayTreePath: conf.rlnRelayTreePath,
-      )
+    let rlnConf = WakuRlnConfig(
+      rlnRelayDynamic: conf.rlnRelayDynamic,
+      rlnRelayCredIndex: conf.rlnRelayCredIndex,
+      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayCredPath: conf.rlnRelayCredPath,
+      rlnRelayCredPassword: conf.rlnRelayCredPassword,
+      rlnRelayTreePath: conf.rlnRelayTreePath,
+    )
 
-      try:
-        waitFor node.mountRlnRelay(rlnConf)
-      except CatchableError:
-        return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
+    try:
+      waitFor node.mountRlnRelay(rlnConf)
+    except CatchableError:
+      return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   if conf.store:
     var onErrAction = proc(msg: string) {.gcsafe, closure.} =

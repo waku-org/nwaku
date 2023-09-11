@@ -10,13 +10,11 @@ import
   metrics/chronos_httpserver
 import
   ../waku_filter/protocol_metrics as filter_metrics,
+  ../waku_rln_relay/protocol_metrics as rln_metrics,
+
   ../utils/collector,
   ./peer_manager,
   ./waku_node
-
-when defined(rln):
-  import ../waku_rln_relay/protocol_metrics as rln_metrics
-
 
 const LogInterval = 30.seconds
 
@@ -34,8 +32,7 @@ proc startMetricsLog*() =
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
 
-  when defined(rln):
-    let logRlnMetrics = getRlnMetricsLogger()
+  let logRlnMetrics = getRlnMetricsLogger()
 
   logMetrics = proc(udata: pointer) =
     {.gcsafe.}:
@@ -63,8 +60,7 @@ proc startMetricsLog*() =
       info "Total errors", count = $freshErrorCount
 
       # Start protocol specific metrics logging
-      when defined(rln):
-        logRlnMetrics()
+      logRlnMetrics()
 
     discard setTimer(Moment.fromNow(LogInterval), logMetrics)
 

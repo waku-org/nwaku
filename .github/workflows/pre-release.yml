@@ -20,11 +20,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        experimental: [true, false]
         arch: [amd64]
         include:
         - os: macos-latest
-          experimental: false
           arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
@@ -35,14 +33,12 @@ jobs:
         id: vars
         run: |
           ARCH=${{matrix.arch}} 
-          EXPERIMENTAL=$([[ "${{ matrix.experimental }}" == "true" ]] && echo "-experimental" || echo "")
           TAG=$([[ "${{github.ref}}" == "refs/heads/master" ]] && echo "${{env.RELEASE_NAME}}" || echo ${{github.ref}} | sed 's#refs/tags/##')
 
           echo "arch=${ARCH}" >> $GITHUB_OUTPUT
-          echo "experimental=${EXPERIMENTAL}" >> $GITHUB_OUTPUT
 
-          NWAKU_ARTIFACT_NAME=$(echo "nwaku${EXPERIMENTAL}-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
-          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools${EXPERIMENTAL}-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools-${ARCH}-${{runner.os}}-${TAG}.tar.gz" | tr "[:upper:]" "[:lower:]")
 
           echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
           echo "nwakutools=${NWAKU_TOOLS_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
@@ -53,10 +49,10 @@ jobs:
         run: |
           OS=$([[ "${{runner.os}}" == "macOS" ]] && echo "macosx" || echo "linux")
 
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false EXPERIMENTAL=${{matrix.experimental}} NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
+          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
             update
 
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false EXPERIMENTAL=${{matrix.experimental}} NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
+          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
             wakunode2\
             chat2\
             tools

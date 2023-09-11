@@ -41,11 +41,6 @@ pipeline {
       description: "Chronicles log level (default: TRACE)",
     )
     booleanParam(
-      name: 'EXPERIMENTAL',
-      description: 'Enable experimental features.',
-      defaultValue: false
-    )
-    booleanParam(
       name: 'DEBUG',
       description: 'Enable debug features (heaptrack).',
       defaultValue: false
@@ -56,11 +51,10 @@ pipeline {
     stage('Build') {
       steps { script {
         image = docker.build(
-          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}" + (params.EXPERIMENTAL ? "-experimental": ""),
+          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}",
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
-          "--build-arg=EXPERIMENTAL='${params.EXPERIMENTAL}' " +
           (params.LOG_LEVEL != null ? "--build-arg=LOG_LEVEL='${params.LOG_LEVEL}' ": "") +
           "--target=${params.DEBUG ? "debug" : "prod"} ."
         )

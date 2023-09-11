@@ -21,20 +21,12 @@ You may alter the rln-specific arguments as required.
 
 > Note: If you would like to run a nwaku node with RLN enabled within a docker container, skip ahead to step 2.
 
-## 1. Update the build command
+## 1. Build wakunode2
 
-_Instead_ of just running -
+Run -
 ```bash
 make wakunode2
 ```
-
-Run the following command -
-```bash
-make wakunode2 RLN=true
-```
-
-The `RLN=true` flag will enable compilation of the waku-rln-relay protocol
-into your wakunode2 binary.
 
 ## 2. Update the runtime arguments
 

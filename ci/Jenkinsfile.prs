@@ -29,11 +29,6 @@ pipeline {
       description: 'Makefile flags.',
       defaultValue: params.MAKEFLAGS ?: '-j6'
     )
-    booleanParam(
-      name: 'EXPERIMENTAL',
-      description: 'Enable experimental features.',
-      defaultValue: false
-    )
   }
 
   options {
@@ -66,7 +61,7 @@ pipeline {
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} all")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} all")
           } }
         }
       }
@@ -77,7 +72,7 @@ pipeline {
         stage('V2') {
           when { expression { v2changed } }
           steps { script {
-            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} EXPERIMENTAL=${params.EXPERIMENTAL} test")
+            nix.shell("make ${params.MAKEFLAGS} NIMFLAGS=\"${params.NIMFLAGS}\" V=${params.VERBOSITY} test")
           } }
         }
       }

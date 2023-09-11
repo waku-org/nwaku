@@ -12,10 +12,10 @@ You can inspect its current value by checking the following [constant variable](
 
 # Set up
 ## Build chat2
-First, build chat2 with the RLN flag set to true.
+First, build chat2
 
 ```
-make chat2 RLN=true
+make chat2 
 ```
 
 ## Create a local network of chat2 clients

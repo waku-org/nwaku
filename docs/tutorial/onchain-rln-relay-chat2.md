@@ -30,10 +30,10 @@ You can test it by connecting two chat2 clients (running Waku-RLN-Relay) directl
 
 # Set up
 ## Build chat2
-First, build chat2 with the RLN flag set to true.
+First, build chat2 
 
 ```bash
-make chat2 RLN=true
+make chat2
 ```
 
 ## Set up a chat2 client

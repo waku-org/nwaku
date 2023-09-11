@@ -38,13 +38,11 @@ import
   ../waku_enr,
   ../waku_dnsdisc,
   ../waku_peer_exchange,
+  ../waku_rln_relay,
   ./config,
   ./peer_manager,
   ./waku_switch
 
-when defined(rln):
-  import
-    ../waku_rln_relay
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size, "message size histogram in kB",
@@ -92,8 +90,7 @@ type
     wakuFilter*: waku_filter_v2.WakuFilter
     wakuFilterLegacy*: legacy_filter.WakuFilterLegacy #TODO: support for legacy filter protocol will be removed
     wakuFilterClientLegacy*: WakuFilterClientLegacy #TODO: support for legacy filter protocol will be removed
-    when defined(rln):
-      wakuRlnRelay*: WakuRLNRelay
+    wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
@@ -729,28 +726,27 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
 
 
 ## Waku RLN Relay
-when defined(rln):
-  proc mountRlnRelay*(node: WakuNode,
-                      rlnConf: WakuRlnConfig,
-                      spamHandler = none(SpamHandler),
-                      registrationHandler = none(RegistrationHandler)) {.async.} =
-    info "mounting rln relay"
+proc mountRlnRelay*(node: WakuNode,
+                    rlnConf: WakuRlnConfig,
+                    spamHandler = none(SpamHandler),
+                    registrationHandler = none(RegistrationHandler)) {.async.} =
+  info "mounting rln relay"
 
-    if node.wakuRelay.isNil():
-      raise newException(CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay")
+  if node.wakuRelay.isNil():
+    raise newException(CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay")
 
-    let rlnRelayRes = waitFor WakuRlnRelay.new(rlnConf,
-                                             registrationHandler)
-    if rlnRelayRes.isErr():
-      raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
-    let rlnRelay = rlnRelayRes.get()
-    let validator = generateRlnValidator(rlnRelay, spamHandler)
+  let rlnRelayRes = waitFor WakuRlnRelay.new(rlnConf,
+                                            registrationHandler)
+  if rlnRelayRes.isErr():
+    raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
+  let rlnRelay = rlnRelayRes.get()
+  let validator = generateRlnValidator(rlnRelay, spamHandler)
 
-    # register rln validator for all subscribed relay pubsub topics
-    for pubsubTopic in node.wakuRelay.subscribedTopics:
-      debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
-      node.wakuRelay.addValidator(pubsubTopic, validator)
-    node.wakuRlnRelay = rlnRelay
+  # register rln validator for all subscribed relay pubsub topics
+  for pubsubTopic in node.wakuRelay.subscribedTopics:
+    debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
+    node.wakuRelay.addValidator(pubsubTopic, validator)
+  node.wakuRlnRelay = rlnRelay
 
 ## Waku peer-exchange
 
@@ -898,16 +894,13 @@ proc stop*(node: WakuNode) {.async.} =
   await node.switch.stop()
   node.peerManager.stop()
 
-  when defined(rln):
-    if not node.wakuRlnRelay.isNil():
-      await node.wakuRlnRelay.stop()
+  if not node.wakuRlnRelay.isNil():
+    await node.wakuRlnRelay.stop()
 
   node.started = false
 
 proc isReady*(node: WakuNode): Future[bool] {.async.} =
-  when defined(rln):
-    if node.wakuRlnRelay == nil:
-      return false
-    return await node.wakuRlnRelay.isReady()
+  if node.wakuRlnRelay == nil:
+    return true
+  return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
-  return true
