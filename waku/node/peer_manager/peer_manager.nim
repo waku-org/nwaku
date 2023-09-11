@@ -121,8 +121,9 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
-     pm.peerStore[KeyBook][remotePeerInfo.peerId] == publicKey:
-    # Peer already managed
+     pm.peerStore[KeyBook][remotePeerInfo.peerId] == publicKey and
+     pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
+    # Peer already managed and ENR info is already saved
     return
 
   trace "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs

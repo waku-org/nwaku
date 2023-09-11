@@ -31,10 +31,10 @@ procSuite "Waku v2 JSON-RPC API - Admin":
   asyncTest "connect to ad-hoc peers":
     # Create a couple of nodes
     let
-      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60600))
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60602))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60600))
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60602))
       peerInfo2 = node2.switch.peerInfo
-      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60604))
+      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60604))
       peerInfo3 = node3.switch.peerInfo
 
     await allFutures([node1.start(), node2.start(), node3.start()])
@@ -90,7 +90,7 @@ procSuite "Waku v2 JSON-RPC API - Admin":
 
   asyncTest "get managed peer information":
     # Create 3 nodes and start them with relay
-    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(60220+it*2)))
+    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60220+it*2)))
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
