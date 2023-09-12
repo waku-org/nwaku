@@ -106,7 +106,7 @@ method atomicBatch*(g: OnchainGroupManager,
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
   # TODO: when slashing is enabled, we need to track slashed members
-  waku_rln_number_registered_memberships.set(int64(start.int + idCommitments.len - toRemoveIndices.len))
+  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -352,8 +352,10 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   let blockChunkSize = 2_000
 
   var fromBlock = if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
+    info "syncing from last processed block", blockNumber = g.latestProcessedBlock
     g.latestProcessedBlock + 1
   else:
+    info "syncing from rln contract deployed block", blockNumber = g.rlnContractDeployedBlockNumber
     g.rlnContractDeployedBlockNumber
 
   try:
@@ -482,6 +484,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   var deployedBlockNumber: Uint256
   try:
     deployedBlockNumber = await rlnContract.deployedBlockNumber().call()
+    debug "using rln storage", deployedBlockNumber, rlnContractAddress
   except CatchableError:
     raise newException(ValueError,
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
@@ -504,6 +507,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
+  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
 
 method stop*(g: OnchainGroupManager): Future[void] {.async.} =
