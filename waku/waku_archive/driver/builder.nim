@@ -14,13 +14,15 @@ import
   ../../common/databases/db_sqlite,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./queue_driver,
-  ./postgres_driver
+  ./queue_driver
 
 export
   sqlite_driver,
-  queue_driver,
-  postgres_driver
+  queue_driver
+
+when defined(postgres):
+  import ./postgres_driver ## This import adds dependency with an external libpq library
+  export postgres_driver
 
 proc new*(T: type ArchiveDriver,
           url: string,
@@ -78,22 +80,33 @@ proc new*(T: type ArchiveDriver,
     return ok(res.get())
 
   of "postgres":
-    const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
-    let res = PostgresDriver.new(url, MaxNumConns, onErrAction)
-    if res.isErr():
-      return err("failed to init postgres archive driver: " & res.error)
+    when defined(postgres):
+      const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
+      let res = PostgresDriver.new(url, MaxNumConns, onErrAction)
+      if res.isErr():
+        return err("failed to init postgres archive driver: " & res.error)
 
-    let driver = res.get()
+      let driver = res.get()
 
-    try:
-      # The table should exist beforehand.
-      let newTableRes = waitFor driver.createMessageTable()
-      if newTableRes.isErr():
-        return err("error creating table: " & newTableRes.error)
-    except CatchableError:
-      return err("exception creating table: " & getCurrentExceptionMsg())
+      try:
+        # The table should exist beforehand.
+        let newTableRes = waitFor driver.createMessageTable()
+        if newTableRes.isErr():
+          return err("error creating table: " & newTableRes.error)
+      except CatchableError:
+        return err("exception creating table: " & getCurrentExceptionMsg())
 
-    return ok(driver)
+      return ok(driver)
+
+    else:
+      ## Error variable to be used if the user is trying to mount Store with a Postgres database
+      var errPgMsg = "ERROR:"
+      errPgMsg &= "The POSTGRES flag should be passed to the make command, e.g. "
+      errPgMsg &= "`make POSTGRES=1 wakunode2`, when setting a postgres "
+      errPgMsg &= "database as the message archiver. Also, bear in mind that the 'libpq' library "
+      errPgMsg &= "should be installed beforehand. Hint on how to install it: "
+      errPgMsg &= "https://docs.waku.org/guides/nwaku/build-source#prerequisites"
+      return err(errPgMsg)
 
   else:
     debug "setting up in-memory waku archive driver"

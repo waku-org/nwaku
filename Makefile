@@ -106,6 +106,10 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
+ifeq ($(POSTGRES), 1)
+NIM_PARAMS := $(NIM_PARAMS) -d:postgres -d:nimDebugDlOpen
+endif
+
 clean: | clean-libbacktrace
 
 
@@ -218,7 +222,7 @@ docs: | build deps
 #####################
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
-DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
+DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure -d:postgres
 DOCKER_IMAGE_NIMFLAGS := $(DOCKER_IMAGE_NIMFLAGS) $(HEAPTRACK_PARAMS)
 
 # build a docker image for the fleet
