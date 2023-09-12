@@ -11,7 +11,9 @@ import
   libp2p/crypto/crypto,
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
-  libp2p/transports/wstransport
+  libp2p/transports/wstransport,
+  libp2p/protocols/connectivity/relay/client,
+  libp2p/services/[autorelayservice, hpservice]
 import
   ../waku_enr,
   ../waku_discv5,
@@ -145,6 +147,10 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.record.isNone():
     return err("node record is required")
 
+  let relayClient = RelayClient.new()
+  let autoRelayService = AutoRelayService.new(1, relayClient, nil, rng)
+  let autonatService = getAutonatService(rng)
+  let hpservice = HPService.new(autonatService, autoRelayService)
   var switch: Switch
   try:
     switch = newWakuSwitch(
@@ -161,7 +167,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
       agentString = builder.switchAgentString,
       peerStoreCapacity = builder.peerStorageCapacity,
-      services = @[Service(getAutonatService(rng))],
+      services = @[Service(hpservice)],
+      relay = relayClient,
     )
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())
