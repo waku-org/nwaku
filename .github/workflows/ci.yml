@@ -127,7 +127,8 @@ jobs:
 
   js-waku:
     needs: build-docker-image
-    uses: waku-org/js-waku/.github/workflows/ci.yml@master
+    uses: waku-org/js-waku/.github/workflows/test-node.yml@chore/split-ci-into-chunks
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
-      caller: nwaku
+      test_type: nwaku-master
+      debug: waku*
