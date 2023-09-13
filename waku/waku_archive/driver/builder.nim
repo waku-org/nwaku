@@ -99,14 +99,7 @@ proc new*(T: type ArchiveDriver,
       return ok(driver)
 
     else:
-      ## Error variable to be used if the user is trying to mount Store with a Postgres database
-      var errPgMsg = "ERROR:"
-      errPgMsg &= "The POSTGRES flag should be passed to the make command, e.g. "
-      errPgMsg &= "`make POSTGRES=1 wakunode2`, when setting a postgres "
-      errPgMsg &= "database as the message archiver. Also, bear in mind that the 'libpq' library "
-      errPgMsg &= "should be installed beforehand. Hint on how to install it: "
-      errPgMsg &= "https://docs.waku.org/guides/nwaku/build-source#prerequisites"
-      return err(errPgMsg)
+      return err("Postgres has been configured but not been compiled. Check compiler definitions.")
 
   else:
     debug "setting up in-memory waku archive driver"
