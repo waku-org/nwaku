@@ -18,6 +18,7 @@ import
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
   ../../waku/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
