@@ -92,7 +92,7 @@ The Waku v1 implementation has been removed from this repository and can be foun
 
 ## Upgrade instructions
 
-* Note that the `--topic` CLI option is being deprecated in favor a more specific option `--pubsub-topic`. The `--topic` option will be available for next release with a deprecation note.
+* Note that the `--topic` CLI option is being deprecated in favor a more specific options `--pubsub-topic` & `--content-topic`. The `--topic` option will be available for next release with a deprecation note.
 
 
 ## 2023-08-16 v0.19.0
