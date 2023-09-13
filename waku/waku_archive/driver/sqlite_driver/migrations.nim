@@ -3,7 +3,8 @@
 import
   std/[tables, strutils, os],
   stew/results,
-  chronicles
+  chronicles,
+  sqlite3_abi # sqlite3_column_int64
 import
   ../../../common/databases/db_sqlite,
   ../../../common/databases/common
