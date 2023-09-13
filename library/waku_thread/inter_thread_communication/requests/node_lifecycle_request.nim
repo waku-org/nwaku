@@ -19,6 +19,7 @@ import
   ../../../../waku/node/config,
   ../../../../waku/waku_relay/protocol,
   ../../../events/[json_error_event,json_message_event,json_base_event],
+  ../../../alloc,
   ../../config
 
 type
@@ -38,8 +39,12 @@ proc createShared*(T: type NodeLifecycleRequest,
 
   var ret = createShared(T)
   ret[].operation = op
-  ret[].configJson = configJson
+  ret[].configJson = configJson.alloc()
   return ret
+
+proc destroyShared(self: ptr NodeLifecycleRequest) =
+  deallocShared(self[].configJson)
+  deallocShared(self)
 
 proc createNode(configJson: cstring):
                 Future[Result[WakuNode, string]] {.async.} =
@@ -113,7 +118,7 @@ proc createNode(configJson: cstring):
 proc process*(self: ptr NodeLifecycleRequest,
               node: ptr WakuNode): Future[Result[string, string]] {.async.} =
 
-  defer: deallocShared(self)
+  defer: destroyShared(self)
 
   case self.operation:
     of CREATE_NODE:
