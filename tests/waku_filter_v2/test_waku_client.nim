@@ -46,10 +46,18 @@ suite "Waku Filter":
       await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
 
     asyncTest "Active Subscription Identification":
+      # Given
+      let 
+        clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
+        subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopics
+        )
+      require:
+        subscribeResponse.isOk()
+        wakuFilter.subscriptions.hasKey(clientPeerId)
+
       # When
-      let
-        subscribeResponse = await wakuFilterClient.subscribe(serverRemotePeerInfo, pubsubTopic, contentTopics)
-        subscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
+      let subscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
 
       # Then
       check:
@@ -73,15 +81,17 @@ suite "Waku Filter":
           serverRemotePeerInfo, pubsubTopic, contentTopics
         )
       
-      require subscribeResponse.isOk()
-      require wakuFilter.subscriptions.hasKey(clientPeerId)
+      require:
+        subscribeResponse.isOk()
+        wakuFilter.subscriptions.hasKey(clientPeerId)
 
       # When
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopics
       )
-      require unsubscribeResponse.isOk()
-      require not wakuFilter.subscriptions.hasKey(clientPeerId)
+      require:
+        unsubscribeResponse.isOk()
+        not wakuFilter.subscriptions.hasKey(clientPeerId)
 
       let unsubscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
 

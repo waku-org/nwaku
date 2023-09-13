@@ -17,40 +17,6 @@ import
   ./client_utils.nim
 
 suite "Waku Filter - end to end":
-  asyncTest "ping":
-    # Given
-    var
-      voidHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
-        discard
-
-    let
-      serverSwitch = newStandardSwitch()
-      clientSwitch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, voidHandler)
-
-    # When
-    await allFutures(serverSwitch.start(), clientSwitch.start())
-    let response = await wakuFilterClient.ping(serverSwitch.peerInfo.toRemotePeerInfo())
-
-    # Then
-    check:
-      response.isErr() # Not subscribed
-      response.error().kind == FilterSubscribeErrorKind.NOT_FOUND
-
-    # When
-    let response2 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), DefaultPubsubTopic, @[DefaultContentTopic])
-
-    require response2.isOk()
-
-    let response3 = await wakuFilterClient.ping(serverSwitch.peerInfo.toRemotePeerInfo())
-
-    # Then
-    check:
-      response3.isOk() # Subscribed
-
-    # Teardown
-    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "simple subscribe and unsubscribe request":
     # Given
