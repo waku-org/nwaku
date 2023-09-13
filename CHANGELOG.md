@@ -2,7 +2,7 @@
 
 > Note: IP address 0.0.0.0 is no longer advertised by a node
 
-> CLI option `store-resume-peer` has been removed
+> Note: Multiple CLI options have been removed in this release, please see _Upgrade instructions_ section for details.
 
 ## What's Changed
 
@@ -10,8 +10,8 @@ Release highlights:
 * RLN is now part of standard release (is no longer EXPERIMENTAL feature)
 * Interop tests between nwaku and js-waku are now gating PRs and releases
 * Libwaku has been made more threadsafe (1 out of 3 improvements applied.)
-* Autosharding being implementated across various protocols
-* TODO: @rymnc https://github.com/waku-org/nwaku/pull/1966
+* Added autosharding option on various protocol APIs
+
 
 
 ### Features
@@ -92,7 +92,12 @@ The Waku v1 implementation has been removed from this repository and can be foun
 
 ## Upgrade instructions
 
-* Note that the `--topic` CLI option is being deprecated in favor a more specific options `--pubsub-topic` & `--content-topic`. The `--topic` option will be available for next release with a deprecation note.
+* Note that the `--topic` CLI option is being deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`. The `--topic` option will be available for next release with a deprecation note.
+* CLI option `--store-resume-peer` has been removed.
+* Following options related to RLN have been removed:
+  * `--rln-relay-membership-group-index`
+  * `--rln-relay-pubsub-topic`
+  * `--rln-relay-content-topic`
 
 
 ## 2023-08-16 v0.19.0
