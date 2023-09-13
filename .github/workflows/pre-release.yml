@@ -99,12 +99,20 @@ jobs:
       image_tag: ${{ needs.tag-name.outputs.tag }}
     secrets: inherit
 
-  js-waku:
+  js-waku-node:
     needs: build-docker-image
     uses: waku-org/js-waku/.github/workflows/test-node.yml@chore/split-ci-into-chunks
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
-      test_type: nwaku-master
+      test_type: node
+      debug: waku*
+
+  js-waku-node-optional:
+    needs: build-docker-image
+    uses: waku-org/js-waku/.github/workflows/test-node.yml@chore/split-ci-into-chunks
+    with:
+      nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
+      test_type: node-optional
       debug: waku*
 
   create-release-candidate:
