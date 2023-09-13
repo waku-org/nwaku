@@ -437,11 +437,10 @@ proc migrate*(db: SqliteDatabase,
   ## NOTE: Down migration it is not currently supported
   let userVersion = ?db.getUserVersion()
 
-  if userVersion == targetVersion or
-     userVersion == 0'i64: ## https://github.com/waku-org/nwaku/issues/2027
+  if userVersion == targetVersion:
     debug "database schema is up to date", userVersion=userVersion, targetVersion=targetVersion
     return ok()
-
+  
   info "database schema is outdated", userVersion=userVersion, targetVersion=targetVersion
 
   # Load migration scripts
