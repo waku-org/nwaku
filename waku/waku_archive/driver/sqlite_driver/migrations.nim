@@ -36,7 +36,7 @@ proc getNumColumnsInPK*(db: SqliteDatabase): DatabaseResult[int64] =
   let query = """SELECT count(l.name) FROM pragma_table_info("Message") as l WHERE l.pk != 0;"""
   let res = db.query(query, queryRowCallback)
   if res.isErr():
-    return err("failed to count number of messages in the database")
+    return err("failed to count number of columns that are PK")
 
   ok(count)
 
