@@ -9,7 +9,7 @@
 Release highlights:
 * RLN is now part of standard release (is no longer EXPERIMENTAL feature)
 * Interop tests between nwaku and js-waku are now gating PRs and releases
-* Libwaku has been made threadsafe
+* Libwaku has been made more threadsafe (1 out of 3 improvements applied.)
 * Autosharding being implementated across various protocols
 * TODO: @rymnc https://github.com/waku-org/nwaku/pull/1966
 
