@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  json_serialization,
   std/options
 import
   ../waku_core
@@ -70,3 +71,29 @@ proc ok*(T: type FilterSubscribeResponse, requestId: string, desc = "OK"): T =
     statusCode: 200,
     statusDesc: some(desc)
   )
+
+proc `$`*(err: FilterSubscribeResponse): string =
+  "FilterSubscribeResponse of req:" & err.requestId & " [" & $err.statusCode & "] " & $err.statusDesc
+
+proc `$`*(req: FilterSubscribeRequest): string =
+  "FilterSubscribeRequest of req:" & req.requestId & " [" & $req.filterSubscribeType & "] " & $req.pubsubTopic
+
+proc `$`*(t: FilterSubscribeType): string =
+  result = case t:
+    of SUBSCRIBER_PING: "SUBSCRIBER_PING"
+    of SUBSCRIBE: "SUBSCRIBE"
+    of UNSUBSCRIBE: "UNSUBSCRIBE"
+    of UNSUBSCRIBE_ALL: "UNSUBSCRIBE_ALL"
+
+proc writeValue*(writer: var JsonWriter, value: FilterSubscribeRequest) {.inline, raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  writer.writeField("type", value.filterSubscribeType)
+  if value.pubsubTopic.isSome:
+    writer.writeField("pubsubTopic", value.pubsubTopic)
+  if value.contentTopics.len>0:
+    writer.writeField("contentTopics", value.contentTopics)
+  writer.endRecord()
+
+
+

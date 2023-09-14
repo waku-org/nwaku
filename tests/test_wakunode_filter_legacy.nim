@@ -44,7 +44,7 @@ suite "WakuNode - Filter":
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When
-    await client.filterSubscribe(some(pubsubTopic), contentTopic, filterPushHandler, peer=serverPeerInfo)
+    await client.legacyFilterSubscribe(some(pubsubTopic), contentTopic, filterPushHandler, peer=serverPeerInfo)
 
     # Wait for subscription to take effect
     waitFor sleepAsync(100.millis)

@@ -169,11 +169,11 @@ procSuite "Waku v2 JSON-RPC API - Admin":
       filterPeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
       storePeer = PeerInfo.new(generateEcdsaKey(), @[locationAddr])
 
-    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuFilterCodec)
+    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuLegacyFilterCodec)
     node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
 
     # Mock that we connected in the past so Identify populated this
-    node.peerManager.peerStore[ProtoBook][filterPeer.peerId] = @[WakuFilterCodec]
+    node.peerManager.peerStore[ProtoBook][filterPeer.peerId] = @[WakuLegacyFilterCodec]
     node.peerManager.peerStore[ProtoBook][storePeer.peerId] = @[WakuStoreCodec]
 
     let response = await client.get_waku_v2_admin_v1_peers()
@@ -182,7 +182,7 @@ procSuite "Waku v2 JSON-RPC API - Admin":
     check:
       response.len == 2
       # Check filter peer
-      (response.filterIt(it.protocol == WakuFilterCodec)[0]).multiaddr == constructMultiaddrStr(filterPeer)
+      (response.filterIt(it.protocol == WakuLegacyFilterCodec)[0]).multiaddr == constructMultiaddrStr(filterPeer)
       # Check store peer
       (response.filterIt(it.protocol == WakuStoreCodec)[0]).multiaddr == constructMultiaddrStr(storePeer)
 

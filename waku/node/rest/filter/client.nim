@@ -4,8 +4,10 @@ else:
   {.push raises: [].}
 
 import
+  json,
   std/sets,
   stew/byteutils,
+  strformat,
   chronicles,
   json_serialization,
   json_serialization/std/options,
@@ -19,9 +21,9 @@ import
 export types
 
 logScope:
-  topics = "waku node rest client"
+  topics = "waku node rest client v2"
 
-proc encodeBytes*(value: FilterSubscriptionsRequest,
+proc encodeBytes*(value: FilterSubscribeRequest,
                   contentType: string): RestResult[seq[byte]] =
   if MediaType.init(contentType) != MIMETYPE_JSON:
     error "Unsupported contentType value", contentType = contentType
@@ -30,30 +32,68 @@ proc encodeBytes*(value: FilterSubscriptionsRequest,
   let encoded = ?encodeIntoJsonBytes(value)
   return ok(encoded)
 
-proc decodeBytes*(t: typedesc[string], value: openarray[byte],
-                  contentType: Opt[ContentTypeData]): RestResult[string] =
-  if MediaType.init($contentType) != MIMETYPE_TEXT:
+proc encodeBytes*(value: FilterSubscriberPing,
+                  contentType: string): RestResult[seq[byte]] =
+  if MediaType.init(contentType) != MIMETYPE_JSON:
     error "Unsupported contentType value", contentType = contentType
     return err("Unsupported contentType")
 
-  var res: string
-  if len(value) > 0:
-    res = newString(len(value))
-    copyMem(addr res[0], unsafeAddr value[0], len(value))
-  return ok(res)
+  let encoded = ?encodeIntoJsonBytes(value)
+  return ok(encoded)
 
-# TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc filterPostSubscriptionsV1*(body: FilterSubscriptionsRequest): 
-        RestResponse[string] 
-        {.rest, endpoint: "/filter/v1/subscriptions", meth: HttpMethod.MethodPost.}
+proc encodeBytes*(value: FilterUnsubscribeRequest,
+                  contentType: string): RestResult[seq[byte]] =
+  if MediaType.init(contentType) != MIMETYPE_JSON:
+    error "Unsupported contentType value", contentType = contentType
+    return err("Unsupported contentType")
 
-# TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc filterDeleteSubscriptionsV1*(body: FilterSubscriptionsRequest): 
-        RestResponse[string] 
-        {.rest, endpoint: "/filter/v1/subscriptions", meth: HttpMethod.MethodDelete.}
+  let encoded = ?encodeIntoJsonBytes(value)
+  return ok(encoded)
 
-proc decodeBytes*(t: typedesc[FilterGetMessagesResponse], 
-                  data: openArray[byte], 
+proc encodeBytes*(value: FilterUnsubscribeAllRequest,
+                  contentType: string): RestResult[seq[byte]] =
+  if MediaType.init(contentType) != MIMETYPE_JSON:
+    error "Unsupported contentType value", contentType = contentType
+    return err("Unsupported contentType")
+
+  let encoded = ?encodeIntoJsonBytes(value)
+  return ok(encoded)
+
+proc decodeBytes*(t: typedesc[FilterSubscriptionResponse],
+                  value: openarray[byte],
+                  contentType: Opt[ContentTypeData]):
+
+                RestResult[FilterSubscriptionResponse] =
+
+  if MediaType.init($contentType) != MIMETYPE_JSON:
+    error "Unsupported contentType value", contentType = contentType
+    return err("Unsupported contentType")
+
+  let decoded = ?decodeFromJsonBytes(FilterSubscriptionResponse, value)
+  return ok(decoded)
+
+proc filterSubscriberPing*(requestId: string):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions/{requestId}", meth: HttpMethod.MethodGet.}
+
+proc filterPostSubscriptions*(body: FilterSubscribeRequest):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions", meth: HttpMethod.MethodPost.}
+
+proc filterPutSubscriptions*(body: FilterSubscribeRequest):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions", meth: HttpMethod.MethodPut.}
+
+proc filterDeleteSubscriptions*(body: FilterUnsubscribeRequest):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions", meth: HttpMethod.MethodDelete.}
+
+proc filterDeleteAllSubscriptions*(body: FilterUnsubscribeAllRequest):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions/all", meth: HttpMethod.MethodDelete.}
+
+proc decodeBytes*(t: typedesc[FilterGetMessagesResponse],
+                  data: openArray[byte],
                   contentType: Opt[ContentTypeData]): RestResult[FilterGetMessagesResponse] =
   if MediaType.init($contentType) != MIMETYPE_JSON:
     error "Unsupported response contentType value", contentType = contentType
@@ -62,7 +102,6 @@ proc decodeBytes*(t: typedesc[FilterGetMessagesResponse],
   let decoded = ?decodeFromJsonBytes(FilterGetMessagesResponse, data)
   return ok(decoded)
 
-# TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc filterGetMessagesV1*(contentTopic: string): 
-        RestResponse[FilterGetMessagesResponse] 
-        {.rest, endpoint: "/filter/v1/messages/{contentTopic}", meth: HttpMethod.MethodGet.}
+proc filterGetMessagesV1*(contentTopic: string):
+        RestResponse[FilterGetMessagesResponse]
+        {.rest, endpoint: "/filter/v2/messages/{contentTopic}", meth: HttpMethod.MethodGet.}

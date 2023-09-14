@@ -3,16 +3,13 @@
 import
   std/[options,tables],
   testutils/unittests,
-  chronos,
-  chronicles,
-  libp2p/peerstore
+  chronos
 
 import
-  ../../../waku/node/peer_manager,
-  ../../../waku/waku_filter_v2,
-  ../../../waku/waku_filter_v2/client,
-  ../../../waku/waku_core,
-  ../testlib/common,
+  ../../waku/node/peer_manager,
+  ../../waku/waku_filter_v2,
+  ../../waku/waku_filter_v2/client,
+  ../../waku/waku_core,
   ../testlib/wakucore,
   ./client_utils.nim
 
@@ -22,21 +19,29 @@ suite "Waku Filter - end to end":
     # Given
     var
       pushHandlerFuture = newFuture[(string, WakuMessage)]()
-      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+      messagePushHandler: FilterPushHandler = proc(pubsubTopic: PubsubTopic,
+                                                   message: WakuMessage):
+                                                Future[void]
+                                                {.async, closure, gcsafe.} =
         pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
       clientPeerId = clientSwitch.peerInfo.peerId
       pubsubTopic = DefaultPubsubTopic
       contentTopics = @[DefaultContentTopic]
 
     # When
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    wakuFilterClient.registerPushHandler(messagePushHandler)
+
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                    pubsubTopic,
+                                                    contentTopics)
 
     # Then
     check:
@@ -57,7 +62,9 @@ suite "Waku Filter - end to end":
       pushedMsg == msg1
 
     # When
-    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                       pubsubTopic,
+                                                       contentTopics)
 
     # Then
     check:
@@ -74,20 +81,24 @@ suite "Waku Filter - end to end":
       not (await pushHandlerFuture.withTimeout(2.seconds)) # No message should be pushed
 
     # Teardown
-    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(),
+                     serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "subscribe, unsubscribe multiple content topics":
     # Given
     var
       pushHandlerFuture = newFuture[(string, WakuMessage)]()
-      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+      messagePushHandler: FilterPushHandler = proc(pubsubTopic: PubsubTopic,
+                                                   message: WakuMessage):
+                                                Future[void]
+                                                {.async, closure, gcsafe.}  =
         pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
       clientPeerId = clientSwitch.peerInfo.peerId
       pubsubTopic = DefaultPubsubTopic
       contentTopic2 = ContentTopic("/waku/2/non-default-content/proto")
@@ -95,7 +106,12 @@ suite "Waku Filter - end to end":
 
     # When
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    wakuFilterClient.registerPushHandler(messagePushHandler)
+
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                    pubsubTopic,
+                                                    contentTopics)
 
     # Then
     check:
@@ -129,7 +145,9 @@ suite "Waku Filter - end to end":
       pushedMsg2 == msg2
 
     # When
-    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, @[contentTopic2]) # Unsubscribe only one content topic
+    let response2 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                       pubsubTopic,
+                                                       @[contentTopic2]) # Unsubscribe only one content topic
 
     # Then
     check:
@@ -159,20 +177,24 @@ suite "Waku Filter - end to end":
       not (await pushHandlerFuture.withTimeout(2.seconds)) # No message should be pushed
 
     # Teardown
-    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(),
+                     serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "subscribe to multiple content topics and unsubscribe all":
     # Given
     var
       pushHandlerFuture = newFuture[(string, WakuMessage)]()
-      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+      messagePushHandler: FilterPushHandler = proc(pubsubTopic: PubsubTopic,
+                                                   message: WakuMessage):
+                                                Future[void]
+                                                {.async, closure, gcsafe.}  =
         pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
       clientPeerId = clientSwitch.peerInfo.peerId
       pubsubTopic = DefaultPubsubTopic
       contentTopic2 = ContentTopic("/waku/2/non-default-content/proto")
@@ -180,7 +202,12 @@ suite "Waku Filter - end to end":
 
     # When
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
+
+    wakuFilterClient.registerPushHandler(messagePushHandler)
+
+    let response = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                    pubsubTopic,
+                                                    contentTopics)
 
     # Then
     check:
@@ -234,20 +261,24 @@ suite "Waku Filter - end to end":
       not (await pushHandlerFuture.withTimeout(2.seconds)) # Neither message should be pushed
 
     # Teardown
-    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(),
+                     serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "subscribe, unsubscribe multiple pubsub topics and content topics":
     # Given
     var
       pushHandlerFuture = newFuture[(string, WakuMessage)]()
-      messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+      messagePushHandler: FilterPushHandler = proc(pubsubTopic: PubsubTopic,
+                                                   message: WakuMessage):
+                                                Future[void]
+                                                {.async, closure, gcsafe.}  =
         pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
       clientPeerId = clientSwitch.peerInfo.peerId
       pubsubTopic = DefaultPubsubTopic
       pubsubTopic2 = PubsubTopic("/waku/2/non-default-pubsub/proto")
@@ -258,9 +289,17 @@ suite "Waku Filter - end to end":
 
     # When
     await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    wakuFilterClient.registerPushHandler(messagePushHandler)
+
     let
-      response1 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic, contentTopics)
-      response2 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic2, contentTopics)
+      response1 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                   pubsubTopic,
+                                                   contentTopics)
+
+      response2 = await wakuFilterClient.subscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                   pubsubTopic2,
+                                                   contentTopics)
 
     # Then
     check:
@@ -299,7 +338,9 @@ suite "Waku Filter - end to end":
     ## Step 3: We can selectively unsubscribe from pubsub topics and content topic(s)
 
     # When
-    let response3 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(), pubsubTopic2, @[contentTopic2])
+    let response3 = await wakuFilterClient.unsubscribe(serverSwitch.peerInfo.toRemotePeerInfo(),
+                                                       pubsubTopic2,
+                                                       @[contentTopic2])
     require response3.isOk()
 
     let msg3 = fakeWakuMessage(contentTopic=contentTopic2)
@@ -325,4 +366,5 @@ suite "Waku Filter - end to end":
       pushedMsg3 == msg3
 
     # Teardown
-    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
+    await allFutures(wakuFilter.stop(), wakuFilterClient.stop(),
+                     serverSwitch.stop(), clientSwitch.stop())

@@ -31,8 +31,9 @@ import
   ../waku_store,
   ../waku_store/client as store_client,
   ../waku_filter as legacy_filter,  #TODO: support for legacy filter protocol will be removed
-  ../waku_filter/client as filter_client, #TODO: support for legacy filter protocol will be removed
+  ../waku_filter/client as legacy_filter_client, #TODO: support for legacy filter protocol will be removed
   ../waku_filter_v2,
+  ../waku_filter_v2/client as filter_client,
   ../waku_lightpush,
   ../waku_lightpush/client as lightpush_client,
   ../waku_enr,
@@ -41,7 +42,8 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ./waku_switch
+  ./waku_switch,
+  ./rest/relay/topic_cache
 
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -88,8 +90,9 @@ type
     wakuStore*: WakuStore
     wakuStoreClient*: WakuStoreClient
     wakuFilter*: waku_filter_v2.WakuFilter
+    wakuFilterClient*: filter_client.WakuFilterClient
     wakuFilterLegacy*: legacy_filter.WakuFilterLegacy #TODO: support for legacy filter protocol will be removed
-    wakuFilterClientLegacy*: WakuFilterClientLegacy #TODO: support for legacy filter protocol will be removed
+    wakuFilterClientLegacy*: legacy_filter_client.WakuFilterClientLegacy #TODO: support for legacy filter protocol will be removed
     wakuRlnRelay*: WakuRLNRelay
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
@@ -335,10 +338,10 @@ proc mountRelay*(node: WakuNode,
   for topic in topics:
     node.subscribe(topic)
 
-
 ## Waku filter
 
-proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {.async, raises: [Defect, LPError]} =
+proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout)
+                 {.async, raises: [Defect, LPError]} =
   info "mounting filter protocol"
   node.wakuFilter = WakuFilter.new(node.peerManager)
   node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
@@ -348,32 +351,47 @@ proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout) {
     await node.wakuFilterLegacy.start() #TODO: remove legacy
 
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
-  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuFilterCodec)) #TODO: remove legacy
+  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuLegacyFilterCodec)) #TODO: remove legacy
 
-proc filterHandleMessage*(node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.}=
-  if node.wakuFilter.isNil():
+proc filterHandleMessage*(node: WakuNode,
+                          pubsubTopic: PubsubTopic,
+                          message: WakuMessage)
+                          {.async.}=
+
+  if node.wakuFilter.isNil() or node.wakuFilterLegacy.isNil():
     error "cannot handle filter message", error="waku filter is nil"
     return
 
-  await node.wakuFilter.handleMessage(pubsubTopic, message)
-  await node.wakuFilterLegacy.handleMessage(pubsubTopic, message) #TODO: remove legacy
-
+  await allFutures(node.wakuFilter.handleMessage(pubsubTopic, message),
+                   node.wakuFilterLegacy.handleMessage(pubsubTopic, message) #TODO: remove legacy
+                  )
 
 proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+  ## Mounting both filter clients v1 - legacy and v2.
+  ## Giving option for application level to chose btw own push message handling or
+  ## rely on node provided cache. - This only applies for v2 filter client
   info "mounting filter client"
 
   node.wakuFilterClientLegacy = WakuFilterClientLegacy.new(node.peerManager, node.rng)
+  node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
+
   if node.started:
-    # Node has started already. Let's start filter too.
-    await node.wakuFilterClientLegacy.start()
+    await allFutures(node.wakuFilterClientLegacy.start(), node.wakuFilterClient.start())
 
-  node.switch.mount(node.wakuFilterClientLegacy, protocolMatcher(WakuFilterCodec))
+  node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
+  node.switch.mount(node.wakuFilterClientLegacy, protocolMatcher(WakuLegacyFilterCodec))
 
-proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
-                handler: FilterPushHandler, peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
-  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
+proc legacyFilterSubscribe*(node: WakuNode,
+                            pubsubTopic: Option[PubsubTopic],
+                            contentTopics: ContentTopic|seq[ContentTopic],
+                            handler: FilterPushHandler,
+                            peer: RemotePeerInfo|string)
+                            {.async, gcsafe, raises: [Defect, ValueError].} =
+
+  ## Registers for messages that match a specific filter.
+  ## Triggers the handler whenever a message is received.
   if node.wakuFilterClientLegacy.isNil():
-    error "cannot register filter subscription to topic", error="waku filter client is nil"
+    error "cannot register filter subscription to topic", error="waku legacy filter client is not set up"
     return
 
   let remotePeerRes = parsePeerInfo(peer)
@@ -385,21 +403,31 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
 
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
-  let handlerWrapper: FilterPushHandler = proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
-      if node.wakuRelay.isNil() and not node.wakuStore.isNil():
-        await node.wakuArchive.handleMessage(pubSubTopic, message)
-
-      await handler(pubsubTopic, message)
+  # FIXME: This part needs refactoring. It seems possible that in special cases archiver will store same message multiple times.
+  let handlerWrapper: FilterPushHandler =  
+        if node.wakuRelay.isNil() and not node.wakuStore.isNil():
+          proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
+            await allFutures(node.wakuArchive.handleMessage(pubSubTopic, message),
+                             handler(pubsubTopic, message))
+        else:
+          handler
 
   if pubsubTopic.isSome():
-    info "registering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
+    info "registering legacy filter subscription to content",
+      pubsubTopic=pubsubTopic.get(),
+      contentTopics=contentTopics,
+      peer=remotePeer.peerId
 
-    let res = await node.wakuFilterClientLegacy.subscribe(pubsubTopic.get(), contentTopics, handlerWrapper, peer=remotePeer)
+    let res = await node.wakuFilterClientLegacy.subscribe(pubsubTopic.get(),
+                                                          contentTopics,
+                                                          handlerWrapper,
+                                                          peer=remotePeer)
 
     if res.isOk():
-      info "subscribed to topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+      info "subscribed to topic", pubsubTopic=pubsubTopic.get(),
+        contentTopics=contentTopics
     else:
-      error "failed filter subscription", error=res.error
+      error "failed legacy filter subscription", error=res.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
   else:
     let topicMapRes = parseSharding(pubsubTopic, contentTopics)
@@ -412,7 +440,11 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
 
     var futures = collect(newSeq):
       for pubsub, topics in topicMap.pairs:
-        info "registering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
+        info "registering legacy filter subscription to content",
+          pubsubTopic=pubsub,
+          contentTopics=topics,
+          peer=remotePeer.peerId
+
         let content = topics.mapIt($it)
         node.wakuFilterClientLegacy.subscribe($pubsub, content, handlerWrapper, peer=remotePeer)
 
@@ -422,15 +454,82 @@ proc filterSubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentT
       let res = fut.read()
 
       if res.isErr():
-        error "failed filter subscription", error=res.error
+        error "failed legacy filter subscription", error=res.error
         waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
     for pubsub, topics in topicMap.pairs:
       info "subscribed to topic", pubsubTopic=pubsub, contentTopics=topics
 
-proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic],
-                  peer: RemotePeerInfo|string) {.async, gcsafe, raises: [Defect, ValueError].} =
-  ## Unsubscribe from a content filter.
+proc filterSubscribe*(node: WakuNode,
+                        pubsubTopic: Option[PubsubTopic],
+                        contentTopics: ContentTopic|seq[ContentTopic],
+                        peer: RemotePeerInfo|string):
+
+                Future[FilterSubscribeResult]
+
+                {.async, gcsafe, raises: [Defect, ValueError].} =
+
+  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
+  if node.wakuFilterClient.isNil():
+    error "cannot register filter subscription to topic", error="waku filter client is not set up"
+    return err(FilterSubscribeError.serviceUnavailable())
+
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "Couldn't parse the peer info properly", error = remotePeerRes.error
+    return err(FilterSubscribeError.serviceUnavailable("No peers available"))
+
+  let remotePeer = remotePeerRes.value
+
+  if pubsubTopic.isSome():
+    info "registering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
+
+    let subRes = await node.wakuFilterClient.subscribe(remotePeer, pubsubTopic.get(), contentTopics)
+    if subRes.isOk():
+      info "v2 subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+    else:
+      error "failed filter v2 subscription", error=subRes.error
+      waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+
+    return subRes
+  else:
+    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+
+    let topicMap =
+      if topicMapRes.isErr():
+        error "can't get shard", error=topicMapRes.error
+        return err(FilterSubscribeError.badResponse("can't get shard"))
+      else: topicMapRes.get()
+
+    var futures = collect(newSeq):
+      for pubsub, topics in topicMap.pairs:
+        info "registering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
+        let content = topics.mapIt($it)
+        node.wakuFilterClient.subscribe(remotePeer, $pubsub, content)
+
+    let finished = await allFinished(futures)
+
+    var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
+    for fut in finished:
+      let res = fut.read()
+
+      if res.isErr():
+        error "failed filter subscription", error=res.error
+        waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+        subRes = FilterSubscribeResult.err(res.error)
+
+    for pubsub, topics in topicMap.pairs:
+      info "subscribed to topic", pubsubTopic=pubsub, contentTopics=topics
+
+    # return the last error or ok
+    return subRes
+
+proc legacyFilterUnsubscribe*(node: WakuNode,
+                              pubsubTopic: Option[PubsubTopic],
+                              contentTopics: ContentTopic|seq[ContentTopic],
+                              peer: RemotePeerInfo|string)
+                              {.async, gcsafe, raises: [Defect, ValueError].} =
+  ## Unsubscribe from a content legacy filter.
   if node.wakuFilterClientLegacy.isNil():
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
     return
@@ -443,7 +542,7 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], conten
   let remotePeer = remotePeerRes.value
 
   if pubsubTopic.isSome():
-    info "deregistering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
+    info "deregistering legacy filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
 
     let res = await node.wakuFilterClientLegacy.unsubscribe(pubsubTopic.get(), contentTopics, peer=remotePeer)
 
@@ -479,35 +578,103 @@ proc filterUnsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], conten
     for pubsub, topics in topicMap.pairs:
       info "unsubscribed from topic", pubsubTopic=pubsub, contentTopics=topics
 
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc subscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic], handler: FilterPushHandler) {.async, gcsafe,
-  deprecated: "Use the explicit destination peer procedure. Use 'node.filterSubscribe()' instead.".} =
-  ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
-  if node.wakuFilterClientLegacy.isNil():
-    error "cannot register filter subscription to topic", error="waku filter client is nil"
-    return
+proc filterUnsubscribe*(node: WakuNode,
+                          pubsubTopic: Option[PubsubTopic],
+                          contentTopics: seq[ContentTopic],
+                          peer: RemotePeerInfo|string):
 
-  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
-  if peerOpt.isNone():
-    error "cannot register filter subscription to topic", error="no suitable remote peers"
-    return
+                Future[FilterSubscribeResult]
 
-  await node.filterSubscribe(pubsubTopic, contentTopics, handler, peer=peerOpt.get())
+                {.async, gcsafe, raises: [Defect, ValueError].} =
 
-# TODO: Move to application module (e.g., wakunode2.nim)
-proc unsubscribe*(node: WakuNode, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]) {.async, gcsafe,
-  deprecated: "Use the explicit destination peer procedure. Use 'node.filterUnsusbscribe()' instead.".} =
-  ## Unsubscribe from a content filter.
+  ## Unsubscribe from a content filter V2".
   if node.wakuFilterClientLegacy.isNil():
     error "cannot unregister filter subscription to content", error="waku filter client is nil"
-    return
+    return err(FilterSubscribeError.serviceUnavailable())
 
-  let peerOpt = node.peerManager.selectPeer(WakuFilterCodec)
-  if peerOpt.isNone():
-    error "cannot register filter subscription to topic", error="no suitable remote peers"
-    return
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+    return err(FilterSubscribeError.serviceUnavailable("No peers available"))
 
-  await node.filterUnsubscribe(pubsubTopic, contentTopics, peer=peerOpt.get())
+  let remotePeer = remotePeerRes.value
+
+  if pubsubTopic.isSome():
+    info "deregistering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
+
+    let unsubRes = await node.wakuFilterClient.unsubscribe(remotePeer, pubsubTopic.get(), contentTopics)
+    if unsubRes.isOk():
+      info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    else:
+      error "failed filter unsubscription", error=unsubRes.error
+      waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+    return unsubRes
+
+  else: # pubsubTopic.isNone
+    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+
+    let topicMap =
+      if topicMapRes.isErr():
+        error "can't get shard", error = topicMapRes.error
+        return err(FilterSubscribeError.badResponse("can't get shard"))
+      else: topicMapRes.get()
+
+    var futures = collect(newSeq):
+      for pubsub, topics in topicMap.pairs:
+        info "deregistering filter subscription to content", pubsubTopic=pubsub, contentTopics=topics, peer=remotePeer.peerId
+        let content = topics.mapIt($it)
+        node.wakuFilterClient.unsubscribe(remotePeer, $pubsub, content)
+
+    let finished = await allFinished(futures)
+
+    var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
+    for fut in finished:
+      let res = fut.read()
+
+      if res.isErr():
+        error "failed filter unsubscription", error=res.error
+        waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+        unsubRes = FilterSubscribeResult.err(res.error)
+
+    for pubsub, topics in topicMap.pairs:
+      info "unsubscribed from topic", pubsubTopic=pubsub, contentTopics=topics
+
+    # return the last error or ok
+    return unsubRes
+
+proc filterUnsubscribeAll*(node: WakuNode,
+                           peer: RemotePeerInfo|string):
+
+                Future[FilterSubscribeResult]
+
+                {.async, gcsafe, raises: [Defect, ValueError].} =
+
+  ## Unsubscribe from a content filter V2".
+  if node.wakuFilterClientLegacy.isNil():
+    error "cannot unregister filter subscription to content", error="waku filter client is nil"
+    return err(FilterSubscribeError.serviceUnavailable())
+
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+    return err(FilterSubscribeError.serviceUnavailable("No peers available"))
+
+  let remotePeer = remotePeerRes.value
+
+  info "deregistering all filter subscription to content", peer=remotePeer.peerId
+
+  let unsubRes = await node.wakuFilterClient.unsubscribeAll(remotePeer)
+  if unsubRes.isOk():
+    info "unsubscribed from all content-topic", peerId=remotePeer.peerId
+  else:
+    error "failed filter unsubscription from all content-topic", error=unsubRes.error
+    waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+  return unsubRes
+
+# NOTICE: subscribe / unsubscribe methods are removed - they were already depricated
+# yet incompatible to handle both type of filters - use specific filter registration instead
 
 ## Waku archive
 const WakuArchiveDefaultRetentionPolicyInterval* = 30.minutes

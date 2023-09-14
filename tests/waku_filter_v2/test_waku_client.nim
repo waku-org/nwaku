@@ -3,16 +3,13 @@
 import
   std/[options,tables],
   testutils/unittests,
-  chronos,
-  chronicles,
-  libp2p/peerstore
+  chronos
 
 import
-  ../../../waku/node/peer_manager,
-  ../../../waku/waku_filter_v2,
-  ../../../waku/waku_filter_v2/client,
-  ../../../waku/waku_core,
-  ../testlib/common,
+  ../../waku/node/peer_manager,
+  ../../waku/waku_filter_v2,
+  ../../waku/waku_filter_v2/client,
+  ../../waku/waku_core,
   ../testlib/wakucore,
   ../testlib/testasync,
   ./client_utils.nim
@@ -28,26 +25,23 @@ suite "Waku Filter":
     var contentTopics {.threadvar.}: seq[ContentTopic]
 
     asyncSetup:
-      let
-        voidHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
-          discard
 
       pubsubTopic = DefaultPubsubTopic
       contentTopics = @[DefaultContentTopic]
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch, voidHandler)
-      
+      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
+
       await allFutures(serverSwitch.start(), clientSwitch.start())
       serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
-    
+
     asyncTeardown:
       await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
 
     asyncTest "Active Subscription Identification":
       # Given
-      let 
+      let
         clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
         subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopics
@@ -75,12 +69,12 @@ suite "Waku Filter":
 
     asyncTest "After Unsubscription":
       # Given
-      let 
+      let
         clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
         subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopics
         )
-      
+
       require:
         subscribeResponse.isOk()
         wakuFilter.subscriptions.hasKey(clientPeerId)

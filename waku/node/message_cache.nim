@@ -44,6 +44,8 @@ proc unsubscribe*[K](t: MessageCache[K], topic: K) =
     return
   t.table.del(topic)
 
+proc unsubscribeAll*[K](t: MessageCache[K]) =
+  t.table.clear()
 
 proc addMessage*[K](t: MessageCache, topic: K, msg: WakuMessage) =
   if not t.isSubscribed(topic):

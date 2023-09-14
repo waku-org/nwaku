@@ -37,6 +37,8 @@ import
   ../../waku/waku_store,
   ../../waku/waku_lightpush,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
+  ../../waku/waku_filter_v2/client as waku_filter_client,
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
@@ -46,6 +48,7 @@ import
   ../../waku/node/rest/debug/handlers as rest_debug_api,
   ../../waku/node/rest/relay/handlers as rest_relay_api,
   ../../waku/node/rest/relay/topic_cache,
+  ../../waku/node/rest/filter/legacy_handlers as rest_legacy_filter_api,
   ../../waku/node/rest/filter/handlers as rest_filter_api,
   ../../waku/node/rest/store/handlers as rest_store_api,
   ../../waku/node/rest/health/handlers as rest_health_api,
@@ -470,8 +473,9 @@ proc setupProtocols(node: WakuNode,
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
-      await mountFilterClient(node)
-      node.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+      await node.mountFilterClient()
+      node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
+      node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
@@ -577,8 +581,11 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Filter REST API
   if conf.filter:
-    let filterCache = rest_filter_api.MessageCache.init(capacity=rest_filter_api.filterMessageCacheDefaultCapacity)
-    installFilterApiHandlers(server.router, app.node, filterCache)
+    let legacyFilterCache = rest_legacy_filter_api.MessageCache.init()
+    rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
+
+    let filterCache = rest_filter_api.MessageCache.init()
+    rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
