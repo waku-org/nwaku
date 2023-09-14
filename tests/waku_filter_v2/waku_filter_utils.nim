@@ -1,10 +1,7 @@
 import
   std/[options,tables],
-<<<<<<< HEAD:tests/waku_filter_v2/client_utils.nim
-=======
   std/[sequtils,sets,strutils],
   testutils/unittests,
->>>>>>> 42cd61fe (Improve waku filter utils module naming.):tests/waku_filter_v2/waku_filter_utils.nim
   chronos,
   chronicles
 
