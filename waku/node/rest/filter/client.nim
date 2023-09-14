@@ -50,6 +50,15 @@ proc encodeBytes*(value: FilterUnsubscribeRequest,
   let encoded = ?encodeIntoJsonBytes(value)
   return ok(encoded)
 
+proc encodeBytes*(value: FilterUnsubscribeAllRequest,
+                  contentType: string): RestResult[seq[byte]] =
+  if MediaType.init(contentType) != MIMETYPE_JSON:
+    error "Unsupported contentType value", contentType = contentType
+    return err("Unsupported contentType")
+
+  let encoded = ?encodeIntoJsonBytes(value)
+  return ok(encoded)
+
 proc decodeBytes*(t: typedesc[FilterSubscriptionResponse],
                   value: openarray[byte],
                   contentType: Opt[ContentTypeData]):
@@ -79,8 +88,12 @@ proc filterDeleteSubscriptions*(body: FilterUnsubscribeRequest):
         RestResponse[FilterSubscriptionResponse]
         {.rest, endpoint: "/filter/v2/subscriptions", meth: HttpMethod.MethodDelete.}
 
-proc decodeBytes*(t: typedesc[FilterGetMessagesResponse], 
-                  data: openArray[byte], 
+proc filterDeleteAllSubscriptions*(body: FilterUnsubscribeAllRequest):
+        RestResponse[FilterSubscriptionResponse]
+        {.rest, endpoint: "/filter/v2/subscriptions/all", meth: HttpMethod.MethodDelete.}
+
+proc decodeBytes*(t: typedesc[FilterGetMessagesResponse],
+                  data: openArray[byte],
                   contentType: Opt[ContentTypeData]): RestResult[FilterGetMessagesResponse] =
   if MediaType.init($contentType) != MIMETYPE_JSON:
     error "Unsupported response contentType value", contentType = contentType
@@ -89,6 +102,6 @@ proc decodeBytes*(t: typedesc[FilterGetMessagesResponse],
   let decoded = ?decodeFromJsonBytes(FilterGetMessagesResponse, data)
   return ok(decoded)
 
-proc filterGetMessagesV1*(contentTopic: string): 
-        RestResponse[FilterGetMessagesResponse] 
+proc filterGetMessagesV1*(contentTopic: string):
+        RestResponse[FilterGetMessagesResponse]
         {.rest, endpoint: "/filter/v2/messages/{contentTopic}", meth: HttpMethod.MethodGet.}

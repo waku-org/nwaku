@@ -64,7 +64,7 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   testSetup.subscriberNode.peerManager.addServicePeer(testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuFilterSubscribeCodec)
 
   let restPort = Port(58011)
-  let restAddress = ValidIpAddress.init("0.0.0.0")
+  let restAddress = ValidIpAddress.init("127.0.0.1")
   testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
   let restPort2 = Port(58012)
@@ -138,7 +138,8 @@ suite "Waku v2 Rest API - Filter V2":
       badRequestResp.status == 400
       $badRequestResp.contentType == $MIMETYPE_JSON
       badRequestResp.data.requestId == "unknown"
-      badRequestResp.data.statusDesc == "BAD_REQUEST: Failed to decode request"
+      # badRequestResp.data.statusDesc == "*********"
+      badRequestResp.data.statusDesc.startsWith("BAD_REQUEST: Failed to decode request")
 
     await restFilterTest.shutdown()
 
@@ -165,7 +166,7 @@ suite "Waku v2 Rest API - Filter V2":
                           ]
 
     let requestBodyUnsub = FilterUnsubscribeRequest(requestId: "4321",
-                                                    contentFilters: some(contentFilters),
+                                                    contentFilters: contentFilters,
                                                     pubsubTopic: some(DefaultPubsubTopic))
     let response = await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsub)
 
@@ -187,10 +188,8 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId in subscribedPeer4
 
     # When - error case
-    let requestBodyUnsubAll = FilterUnsubscribeRequest(requestId: "2143",
-                                                    contentFilters: none(seq[ContentTopic]),
-                                                    pubsubTopic: none(string))
-    let responseUnsubAll = await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsubAll)
+    let requestBodyUnsubAll = FilterUnsubscribeAllRequest(requestId: "2143")
+    let responseUnsubAll = await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
 
     let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "4")
 
@@ -204,7 +203,7 @@ suite "Waku v2 Rest API - Filter V2":
 
   asyncTest "ping subscribed node - GET /filter/v2/subscriptions/{requestId}":
     # Given
-    let 
+    let
       restFilterTest = await RestFilterTest.init()
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
@@ -224,10 +223,8 @@ suite "Waku v2 Rest API - Filter V2":
       pingResponse.data.statusDesc.len() == 0
 
     # When - error case
-    let requestBodyUnsubAll = FilterUnsubscribeRequest(requestId: "9988",
-                                                    contentFilters: none(seq[ContentTopic]),
-                                                    pubsubTopic: none(string))
-    discard await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsubAll)
+    let requestBodyUnsubAll = FilterUnsubscribeAllRequest(requestId: "9988")
+    discard await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
 
     let pingResponseFail = await restFilterTest.client.filterSubscriberPing("9977")
 
@@ -242,7 +239,7 @@ suite "Waku v2 Rest API - Filter V2":
 
   asyncTest "push filtered message":
     # Given
-    let 
+    let
       restFilterTest = await RestFilterTest.init()
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 

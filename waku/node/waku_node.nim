@@ -404,12 +404,13 @@ proc legacyFilterSubscribe*(node: WakuNode,
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
   # FIXME: This part needs refactoring. It seems possible that in special cases archiver will store same message multiple times.
-  let handlerWrapper: FilterPushHandler =
-      proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
+  let handlerWrapper: FilterPushHandler =  
         if node.wakuRelay.isNil() and not node.wakuStore.isNil():
-          await node.wakuArchive.handleMessage(pubSubTopic, message)
-
-        await handler(pubsubTopic, message)
+          proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
+            await allFutures(node.wakuArchive.handleMessage(pubSubTopic, message),
+                             handler(pubsubTopic, message))
+        else:
+          handler
 
   if pubsubTopic.isSome():
     info "registering legacy filter subscription to content",
@@ -579,7 +580,7 @@ proc legacyFilterUnsubscribe*(node: WakuNode,
 
 proc filterUnsubscribe*(node: WakuNode,
                           pubsubTopic: Option[PubsubTopic],
-                          contentTopics: Option[seq[ContentTopic]],
+                          contentTopics: seq[ContentTopic],
                           peer: RemotePeerInfo|string):
 
                 Future[FilterSubscribeResult]
@@ -599,32 +600,19 @@ proc filterUnsubscribe*(node: WakuNode,
   let remotePeer = remotePeerRes.value
 
   if pubsubTopic.isSome():
-    if contentTopics.isSome():
-      info "deregistering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics.get(), peer=remotePeer.peerId
+    info "deregistering filter subscription to content", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics, peer=remotePeer.peerId
 
-      let unsubRes = await node.wakuFilterClient.unsubscribe(remotePeer, pubsubTopic.get(), contentTopics.get())
-      if unsubRes.isOk():
-        info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics.get()
-      else:
-        error "failed filter unsubscription", error=unsubRes.error
-        waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
-
-      return unsubRes
-
-  elif contentTopics.isNone(): # none of pubsubTopic and contentTopics are not provided, go for unsub all
-    info "deregistering all filter subscription to content", peer=remotePeer.peerId
-
-    let unsubRes = await node.wakuFilterClient.unsubscribeAll(remotePeer)
+    let unsubRes = await node.wakuFilterClient.unsubscribe(remotePeer, pubsubTopic.get(), contentTopics)
     if unsubRes.isOk():
-      info "unsubscribed from all topic", peerId=remotePeer.peerId
+      info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
     else:
       error "failed filter unsubscription", error=unsubRes.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
 
     return unsubRes
 
-  else: # pubsubTopic.isNone but having contentTopics provided
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics.get())
+  else: # pubsubTopic.isNone
+    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -654,6 +642,36 @@ proc filterUnsubscribe*(node: WakuNode,
 
     # return the last error or ok
     return unsubRes
+
+proc filterUnsubscribeAll*(node: WakuNode,
+                           peer: RemotePeerInfo|string):
+
+                Future[FilterSubscribeResult]
+
+                {.async, gcsafe, raises: [Defect, ValueError].} =
+
+  ## Unsubscribe from a content filter V2".
+  if node.wakuFilterClientLegacy.isNil():
+    error "cannot unregister filter subscription to content", error="waku filter client is nil"
+    return err(FilterSubscribeError.serviceUnavailable())
+
+  let remotePeerRes = parsePeerInfo(peer)
+  if remotePeerRes.isErr():
+    error "couldn't parse remotePeerInfo", error = remotePeerRes.error
+    return err(FilterSubscribeError.serviceUnavailable("No peers available"))
+
+  let remotePeer = remotePeerRes.value
+
+  info "deregistering all filter subscription to content", peer=remotePeer.peerId
+
+  let unsubRes = await node.wakuFilterClient.unsubscribeAll(remotePeer)
+  if unsubRes.isOk():
+    info "unsubscribed from all content-topic", peerId=remotePeer.peerId
+  else:
+    error "failed filter unsubscription from all content-topic", error=unsubRes.error
+    waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+
+  return unsubRes
 
 # NOTICE: subscribe / unsubscribe methods are removed - they were already depricated
 # yet incompatible to handle both type of filters - use specific filter registration instead

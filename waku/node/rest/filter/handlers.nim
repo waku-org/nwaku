@@ -36,6 +36,8 @@ const futTimeoutForSubscriptionProcessing* = 5.seconds
 
 const ROUTE_FILTER_SUBSCRIPTIONS* = "/filter/v2/subscriptions"
 
+const ROUTE_FILTER_ALL_SUBSCRIPTIONS* = "/filter/v2/subscriptions/all"
+
 const filterMessageCacheDefaultCapacity* = 30
 
 type
@@ -59,7 +61,7 @@ func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiR
   return ok(requestResult.get())
 
 proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
-  ## Retrieve proper error cause of FilterSubscribeError - due strigify make some parts of text double
+  ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
 
   case err.kind:
   of FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
@@ -74,26 +76,26 @@ proc convertResponse(T: type FilterSubscriptionResponse, requestId: string, prot
   ## Properly convert filter protocol's response to rest response
 
   if protocolClientRes.isErr():
-    FilterSubscriptionResponse(
-          requestId: requestId,
-          statusCode: uint32(protocolClientRes.error().kind),
-          statusDesc: getErrorCause(protocolClientRes.error())
-      )
+    return FilterSubscriptionResponse(
+              requestId: requestId,
+              statusCode: uint32(protocolClientRes.error().kind),
+              statusDesc: getErrorCause(protocolClientRes.error())
+            )
   else:
-    FilterSubscriptionResponse(
-        requestId: requestId,
-        statusCode: 0,
-        statusDesc: ""
-    )
+    return FilterSubscriptionResponse(
+              requestId: requestId,
+              statusCode: 0,
+              statusDesc: ""
+            )
 
 proc convertResponse(T: type FilterSubscriptionResponse, requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeError): T =
   ## Properly convert filter protocol's response to rest response in case of error
 
-  FilterSubscriptionResponse(
-        requestId: requestId,
-        statusCode: uint32(protocolClientRes.kind),
-        statusDesc: $protocolClientRes
-    )
+  return FilterSubscriptionResponse(
+            requestId: requestId,
+            statusCode: uint32(protocolClientRes.kind),
+            statusDesc: $protocolClientRes
+          )
 
 proc convertErrorKindToHttpStatus(kind: filter_protocol_type.FilterSubscribeErrorKind): HttpCode =
   ## Filter protocol's error code is not directly convertible to HttpCodes hence this converter
@@ -153,7 +155,7 @@ proc filterPostPutSubscriptionRequestHandler(node: WakuNode,
   let decodedBody = decodeRequestBody[FilterSubscribeRequest](contentBody)
 
   if decodedBody.isErr():
-    return makeRestResponse("unknown", FilterSubscribeError.badRequest("Failed to decode request"))
+    return makeRestResponse("unknown", FilterSubscribeError.badRequest(fmt("Failed to decode request: {decodedBody.error}")))
 
   let req: FilterSubscribeRequest = decodedBody.value()
 
@@ -224,12 +226,42 @@ proc installFilterDeleteSubscriptionsHandler(router: var RestRouter,
                 FilterSubscribeError.serviceUnavailable(
                             "Failed to unsubscribe from contentFilters due to timeout!"))
 
-    if req.pubsubTopic.isNone and req.contentFilters.isNone:
-      cache.unsubscribeAll()
-    else:
-      # Successfully subscribed to all content filters
-      for cTopic in req.contentFilters.get(@[]):
-        cache.unsubscribe(cTopic)
+    # Successfully subscribed to all content filters
+    for cTopic in req.contentFilters:
+      cache.unsubscribe(cTopic)
+
+    # Successfully unsubscribed from all requested contentTopics
+    return makeRestResponse(req.requestId, unsubFut.read())
+
+proc installFilterDeleteAllSubscriptionsHandler(router: var RestRouter,
+                                             node: WakuNode,
+                                             cache: MessageCache) =
+  router.api(MethodDelete, ROUTE_FILTER_ALL_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    ## Subscribes a node to a list of contentTopics of a PubSub topic
+    debug "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
+
+    let decodedBody = decodeRequestBody[FilterUnsubscribeAllRequest](contentBody)
+
+    if decodedBody.isErr():
+      return makeRestResponse("unknown",
+                FilterSubscribeError.badRequest(fmt("Failed to decode request: {decodedBody.error}")))
+
+    let req: FilterUnsubscribeAllRequest = decodedBody.value()
+
+    let peerOpt = node.peerManager.selectPeer(WakuFilterSubscribeCodec)
+
+    if peerOpt.isNone():
+      return makeRestResponse(req.requestId,
+                FilterSubscribeError.serviceUnavailable("No suitable peers"))
+
+    let unsubFut = node.filterUnsubscribeAll(peerOpt.get())
+    if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
+      error "Failed to unsubscribe from contentFilters due to timeout!"
+      return makeRestResponse(req.requestId,
+                FilterSubscribeError.serviceUnavailable(
+                            "Failed to unsubscribe from all contentFilters due to timeout!"))
+
+    cache.unsubscribeAll()
 
     # Successfully unsubscribed from all requested contentTopics
     return makeRestResponse(req.requestId, unsubFut.read())
@@ -300,4 +332,5 @@ proc installFilterRestApiHandlers*(router: var RestRouter,
   installFilterPostSubscriptionsHandler(router, node, cache)
   installFilterPutSubscriptionsHandler(router, node, cache)
   installFilterDeleteSubscriptionsHandler(router, node, cache)
+  installFilterDeleteAllSubscriptionsHandler(router, node, cache)
   installFilterGetMessagesHandler(router, node, cache)

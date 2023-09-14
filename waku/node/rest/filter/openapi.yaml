@@ -260,11 +260,7 @@ paths:
       summary: Unsubscribe a peer from content topics
       description: |
           Unsubscribe a peer from content topics
-
-          If no content topic is provided, neither content-topics provided,
-          peer will be unsubscirbe from all.
-
-          If subscription detail is provided, only that subscription will be removed which matches existing.
+          Only that subscription will be removed which matches existing.
       operationId: deleteSubscriptions
       tags:
         - filter
@@ -273,6 +269,44 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/FilterUnsubscribeRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterSubscriptionResponse'
+        '400':
+          description: Bad request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterSubscriptionResponse'
+        '404':
+          description: Not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterSubscriptionResponse'
+        '5XX':
+          description: Unexpected error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FilterSubscriptionResponse'
+  /filter/v2/subscriptions/all:
+    delete: # delete_waku_v2_filter_v2_subscription
+      summary: Unsubscribe a peer from all content topics
+      description: |
+          Unsubscribe a peer from all content topics
+      operationId: deleteAllSubscriptions
+      tags:
+        - filter
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilterUnsubscribeAllRequest'
       responses:
         '200':
           description: OK
@@ -405,6 +439,15 @@ components:
             $ref: '#/components/schemas/ContentTopic'
         pubsubTopic:
           $ref: "#/components/schemas/PubSubTopic"
+      required:
+        -  requestId
+        -  contentFilters
+
+    FilterUnsubscribeAllRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
       required:
         -  requestId
 

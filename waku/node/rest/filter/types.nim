@@ -41,7 +41,10 @@ type FilterSubscribeRequest* = object
 type FilterUnsubscribeRequest* = object
       requestId*: string
       pubsubTopic*: Option[PubSubTopic]
-      contentFilters*: Option[seq[ContentTopic]]
+      contentFilters*: seq[ContentTopic]
+
+type FilterUnsubscribeAllRequest* = object
+      requestId*: string
 
 type FilterSubscriptionResponse* = object
       requestId*: string
@@ -178,7 +181,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriberPin
     if keys.containsOrIncl(fieldName):
       let err = try: fmt"Multiple `{fieldName}` fields found"
                 except CatchableError: "Multiple fields with the same name found"
-      reader.raiseUnexpectedField(err, "FilterLegacySubscribeRequest")
+      reader.raiseUnexpectedField(err, "FilterSubscriberPing")
 
     case fieldName
     of "requestId":
@@ -206,7 +209,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscribeRequ
     if keys.containsOrIncl(fieldName):
       let err = try: fmt"Multiple `{fieldName}` fields found"
                 except CatchableError: "Multiple fields with the same name found"
-      reader.raiseUnexpectedField(err, "FilterLegacySubscribeRequest")
+      reader.raiseUnexpectedField(err, "FilterSubscribeRequest")
 
     case fieldName
     of "requestId":
@@ -246,7 +249,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeRe
     if keys.containsOrIncl(fieldName):
       let err = try: fmt"Multiple `{fieldName}` fields found"
                 except CatchableError: "Multiple fields with the same name found"
-      reader.raiseUnexpectedField(err, "FilterLegacySubscribeRequest")
+      reader.raiseUnexpectedField(err, "FilterUnsubscribeRequest")
 
     case fieldName
     of "requestId":
@@ -261,10 +264,42 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeRe
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
 
+  if contentFilters.isNone():
+    reader.raiseUnexpectedValue("Field `contentFilters` is missing")
+
+  if contentFilters.get().len() == 0:
+    reader.raiseUnexpectedValue("Field `contentFilters` is empty")
+
   value = FilterUnsubscribeRequest(
     requestId: requestId.get(),
     pubsubTopic: if pubsubTopic.isNone() or pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
-    contentFilters: contentFilters
+    contentFilters: contentFilters.get()
+  )
+
+proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeAllRequest)
+  {.raises: [SerializationError, IOError].} =
+  var
+    requestId = none(string)
+
+  var keys = initHashSet[string]()
+  for fieldName in readObjectFields(reader):
+    # Check for reapeated keys
+    if keys.containsOrIncl(fieldName):
+      let err = try: fmt"Multiple `{fieldName}` fields found"
+                except CatchableError: "Multiple fields with the same name found"
+      reader.raiseUnexpectedField(err, "FilterUnsubscribeAllRequest")
+
+    case fieldName
+    of "requestId":
+      requestId = some(reader.readValue(string))
+    else:
+      unrecognizedFieldWarning()
+
+  if requestId.isNone():
+    reader.raiseUnexpectedValue("Field `requestId` is missing")
+
+  value = FilterUnsubscribeAllRequest(
+    requestId: requestId.get(),
   )
 
 proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionResponse)
@@ -280,7 +315,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionR
     if keys.containsOrIncl(fieldName):
       let err = try: fmt"Multiple `{fieldName}` fields found"
                 except CatchableError: "Multiple fields with the same name found"
-      reader.raiseUnexpectedField(err, "FilterLegacySubscribeRequest")
+      reader.raiseUnexpectedField(err, "FilterSubscriptionResponse")
 
     case fieldName
     of "requestId":
