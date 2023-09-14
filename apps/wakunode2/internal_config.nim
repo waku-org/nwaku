@@ -24,6 +24,9 @@ proc networkConfiguration*(conf: WakuNodeConf,
 
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
+  if conf.tcpPort == Port(0):
+    return err("Choosing port 0 is not allowed")
+  
   let natRes = setupNat(conf.nat, clientId,
                         Port(uint16(conf.tcpPort) + conf.portsShift),
                         Port(uint16(conf.tcpPort) + conf.portsShift))
