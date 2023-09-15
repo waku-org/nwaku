@@ -21,6 +21,7 @@ proc defaultTestWakuNodeConf(): WakuNodeConf =
     rpcAddress: ValidIpAddress.init("127.0.0.1"),
     restAddress: ValidIpAddress.init("127.0.0.1"),
     metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    tcpPort: Port(60000),
     nat: "any",
     maxConnections: 50,
     topics: @["/waku/2/default-waku/proto"],
