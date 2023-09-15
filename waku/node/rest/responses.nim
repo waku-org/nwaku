@@ -24,6 +24,11 @@ proc internalServerError*(t: typedesc[RestApiResponse],
                           RestApiResponse =
   RestApiResponse.error(Http500, msg, $MIMETYPE_TEXT)
 
+proc serviceUnavailable*(t: typedesc[RestApiResponse],
+                         msg: string = ""):
+                        RestApiResponse =
+  RestApiResponse.error(Http503, msg, $MIMETYPE_TEXT)
+
 proc badRequest*(t: typedesc[RestApiResponse],
                  msg: string = ""):
                  RestApiResponse =
