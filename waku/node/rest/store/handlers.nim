@@ -7,6 +7,7 @@ import
   std/strformat,
   stew/results,
   chronicles,
+  uri,
   json_serialization,
   presto/route
 import
