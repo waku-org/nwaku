@@ -6,21 +6,21 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../waku/common/enr/builder,
-  ../../../waku/waku_enr/capabilities,
-  ../../../waku/waku_enr/multiaddr,
-  ../../../waku/waku_enr/sharding,
-  ../../../waku/waku_core/message/message,
-  ../../../waku/waku_core/topics/pubsub_topic,
-  ../../../waku/node/peer_manager/peer_manager,
-  ../../../waku/waku_core,
-  ../../../waku/node/waku_node,
-  ../../../waku/node/builder,
-  ../../../waku/node/config,
-  ../../../waku/waku_relay/protocol,
-  ../../events/[json_error_event,json_message_event,json_base_event],
-  ../config,
-  ./request
+  ../../../../waku/common/enr/builder,
+  ../../../../waku/waku_enr/capabilities,
+  ../../../../waku/waku_enr/multiaddr,
+  ../../../../waku/waku_enr/sharding,
+  ../../../../waku/waku_core/message/message,
+  ../../../../waku/waku_core/topics/pubsub_topic,
+  ../../../../waku/node/peer_manager/peer_manager,
+  ../../../../waku/waku_core,
+  ../../../../waku/node/waku_node,
+  ../../../../waku/node/builder,
+  ../../../../waku/node/config,
+  ../../../../waku/waku_relay/protocol,
+  ../../../events/[json_error_event,json_message_event,json_base_event],
+  ../../../alloc,
+  ../../config
 
 type
   NodeLifecycleMsgType* = enum
@@ -29,18 +29,25 @@ type
     STOP_NODE
 
 type
-  NodeLifecycleRequest* = ref object of InterThreadRequest
+  NodeLifecycleRequest* = object
     operation: NodeLifecycleMsgType
     configJson: cstring ## Only used in 'CREATE_NODE' operation
 
-proc new*(T: type NodeLifecycleRequest,
-          op: NodeLifecycleMsgType,
-          configJson: cstring = ""): T =
+proc createShared*(T: type NodeLifecycleRequest,
+                   op: NodeLifecycleMsgType,
+                   configJson: cstring = ""): ptr type T =
 
-  return NodeLifecycleRequest(operation: op, configJson: configJson)
+  var ret = createShared(T)
+  ret[].operation = op
+  ret[].configJson = configJson.alloc()
+  return ret
+
+proc destroyShared(self: ptr NodeLifecycleRequest) =
+  deallocShared(self[].configJson)
+  deallocShared(self)
 
 proc createNode(configJson: cstring):
-  Future[Result[WakuNode, string]] {.async.} =
+                Future[Result[WakuNode, string]] {.async.} =
 
   var privateKey: PrivateKey
   var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
@@ -108,8 +115,10 @@ proc createNode(configJson: cstring):
 
   return ok(newNode)
 
-method process*(self: NodeLifecycleRequest,
-                node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+proc process*(self: ptr NodeLifecycleRequest,
+              node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+
+  defer: destroyShared(self)
 
   case self.operation:
     of CREATE_NODE:
