@@ -210,6 +210,7 @@ suite "Waku rln relay":
       idCredentialRes.isOk()
     check:
       rln.insertMembers(0, @[idCredentialRes.get().idCommitment])
+      rln.leavesSet() == 1
 
   test "insertMember rln utils":
     # create an RLN instance which also includes an empty Merkle tree

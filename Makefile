@@ -119,16 +119,17 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+LIBRLN_VERSION := v0.3.4
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
 else
-LIBRLN_FILE := librln.a
+LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
 endif
 
 $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
 
 librln: | $(LIBRLN_FILE)
