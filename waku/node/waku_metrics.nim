@@ -21,21 +21,17 @@ const LogInterval = 30.seconds
 logScope:
   topics = "waku node metrics"
 
-
-type
-  # https://github.com/nim-lang/Nim/issues/17369
-  MetricsLogger = proc(udata: pointer) {.gcsafe, raises: [Defect].}
-
 proc startMetricsLog*() =
-  var logMetrics: MetricsLogger
+  var logMetrics: CallbackFunc
 
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
 
   let logRlnMetrics = getRlnMetricsLogger()
 
-  logMetrics = proc(udata: pointer) =
-    {.gcsafe.}:
+  logMetrics = CallbackFunc(
+    proc(udata: pointer) {.gcsafe.} =
+
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
       # public in libp2p or do our own peer counting after all.
 
@@ -62,6 +58,7 @@ proc startMetricsLog*() =
       # Start protocol specific metrics logging
       logRlnMetrics()
 
-    discard setTimer(Moment.fromNow(LogInterval), logMetrics)
+      discard setTimer(Moment.fromNow(LogInterval), logMetrics)
+  )
 
   discard setTimer(Moment.fromNow(LogInterval), logMetrics)
