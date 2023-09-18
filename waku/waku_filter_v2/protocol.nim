@@ -255,10 +255,12 @@ const MaintainSubscriptionsInterval* = 1.minutes
 
 proc startMaintainingSubscriptions*(wf: WakuFilter, interval: Duration) =
   trace "starting to maintain subscriptions"
-  var maintainSubs: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  maintainSubs = proc(udata: pointer) {.gcsafe.} =
-    maintainSubscriptions(wf)
-    wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
+  var maintainSubs: CallbackFunc
+  maintainSubs = CallbackFunc(
+    proc(udata: pointer) {.gcsafe.} =
+      maintainSubscriptions(wf)
+      wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
+  )
 
   wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
 
