@@ -251,7 +251,7 @@ docker-push:
 
 STATIC ?= false
 
-libwaku: | build deps
+libwaku: | build deps librln
 		rm -f build/libwaku*
 ifeq ($(STATIC), true)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
