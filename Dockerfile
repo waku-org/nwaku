@@ -9,7 +9,7 @@ ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl rust cargo
+RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq rust cargo
 
 WORKDIR /app
 COPY . .
