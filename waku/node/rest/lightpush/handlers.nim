@@ -54,7 +54,7 @@ proc installLightPushPostPushRequestHandler*(router: var RestRouter,
                                              node: WakuNode) =
 
   router.api(MethodPost, ROUTE_LIGHTPUSH) do (contentBody: Option[ContentBody]) -> RestApiResponse:
-    ## Subscribes a node to a list of contentTopics of a pubsubTopic
+    ## Send a request to push a waku message
     debug "post", ROUTE_LIGHTPUSH, contentBody
 
     let decodedBody = decodeRequestBody[PushRequest](contentBody)
