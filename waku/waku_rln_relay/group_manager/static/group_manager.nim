@@ -19,7 +19,8 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
   let
     groupSize = g.groupSize
     groupKeys = g.groupKeys
-    membershipIndex = g.membershipIndex.get()
+    membershipIndex = if g.membershipIndex.isSome(): g.membershipIndex.get() 
+                      else: raise newException(ValueError, "Membership index is not set") 
 
   if membershipIndex < MembershipIndex(0) or membershipIndex >= MembershipIndex(groupSize):
     raise newException(ValueError, "Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " & $membershipIndex)
