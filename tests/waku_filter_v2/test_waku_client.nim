@@ -108,6 +108,7 @@ suite "Waku Filter - End to End":
         )
         assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
         require:
+          unsubscribeResponse.isOk()
           not wakuFilter.subscriptions.hasKey(clientPeerId)
 
         let unsubscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
