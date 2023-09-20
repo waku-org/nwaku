@@ -159,3 +159,8 @@
 	url = https://github.com/status-im/nim-taskpools.git
 	ignore = untracked
 	branch = stable
+[submodule "vendor/nim-results"]
+	ignore = untracked
+	branch = master
+	path = vendor/nim-results
+	url = https://github.com/arnetheduck/nim-results.git
