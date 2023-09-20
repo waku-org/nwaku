@@ -3,14 +3,10 @@
 import
   std/[options,tables],
   testutils/unittests,
-<<<<<<< HEAD
-  chronos
-=======
   chronos,
   chronicles,
   os,
   libp2p/peerstore
->>>>>>> c53e08b0 (Implement batch of Waku Filter Subscribe tests.)
 
 import
   ../../waku/node/peer_manager,
@@ -24,22 +20,6 @@ import
 proc newPushHandlerFuture(): Future[(string, WakuMessage)] =
     newFuture[(string, WakuMessage)]()
 
-<<<<<<< HEAD
-    asyncSetup:
-
-      pubsubTopic = DefaultPubsubTopic
-      contentTopics = @[DefaultContentTopic]
-      serverSwitch = newStandardSwitch()
-      clientSwitch = newStandardSwitch()
-      wakuFilter = await newTestWakuFilter(serverSwitch)
-      wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
-
-      await allFutures(serverSwitch.start(), clientSwitch.start())
-      serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
-
-    asyncTeardown:
-      await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
-=======
 suite "Waku Filter - End to End":
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
@@ -54,7 +34,9 @@ suite "Waku Filter - End to End":
 
   asyncSetup:
     pushHandlerFuture = newPushHandlerFuture()
-    let messagePushHandler: MessagePushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) =
+    let messagePushHandler: FilterPushHandler = proc(
+      pubsubTopic: PubsubTopic, message: WakuMessage
+    ) {.async, gcsafe, closure.} =
       pushHandlerFuture.complete((pubsubTopic, message))
 
     pubsubTopic = DefaultPubsubTopic
@@ -63,7 +45,8 @@ suite "Waku Filter - End to End":
     serverSwitch = newStandardSwitch()
     clientSwitch = newStandardSwitch()
     wakuFilter = await newTestWakuFilter(serverSwitch)
-    wakuFilterClient = await newTestWakuFilterClient(clientSwitch, messagePushHandler)
+    wakuFilterClient = await newTestWakuFilterClient(clientSwitch)
+    wakuFilterClient.registerPushHandler(messagePushHandler)
     
     await allFutures(serverSwitch.start(), clientSwitch.start())
     serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -71,17 +54,11 @@ suite "Waku Filter - End to End":
   
   asyncTeardown:
     await allFutures(wakuFilter.stop(), wakuFilterClient.stop(), serverSwitch.stop(), clientSwitch.stop())
->>>>>>> c53e08b0 (Implement batch of Waku Filter Subscribe tests.)
 
   suite "Subscriber Ping":
     asyncTest "Active Subscription Identification":
       # Given
-<<<<<<< HEAD
-      let
-        clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
-=======
       let 
->>>>>>> c53e08b0 (Implement batch of Waku Filter Subscribe tests.)
         subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
@@ -108,12 +85,7 @@ suite "Waku Filter - End to End":
 
     asyncTest "After Unsubscription":
       # Given
-<<<<<<< HEAD
-      let
-        clientPeerId = clientSwitch.peerInfo.toRemotePeerInfo().peerId
-=======
       let 
->>>>>>> c53e08b0 (Implement batch of Waku Filter Subscribe tests.)
         subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
