@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,tables],
+  std/[options,tables, sequtils],
   testutils/unittests,
   chronos,
   chronicles,
@@ -16,6 +16,8 @@ import
   ../testlib/wakucore,
   ../testlib/testasync,
   ./waku_filter_utils.nim
+
+let FUTURE_TIMEOUT = 1.seconds
 
 proc newPushHandlerFuture(): Future[(string, WakuMessage)] =
     newFuture[(string, WakuMessage)]()
@@ -131,7 +133,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic == pubsubTopic
@@ -144,7 +146,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(2.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
       # Given a valid unsubscription to an existing subscription
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -161,7 +163,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       
       # When sending a message to a non-subscribed content topic (after unsubscription)
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -170,7 +172,7 @@ suite "Waku Filter - End to End":
 
       # Then
       check:
-        not await pushHandlerFuture.withTimeout(2.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "PubSub Topic with Multiple Content Topics":
       # Given
@@ -193,7 +195,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -205,7 +207,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg2)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == pubsubTopic
@@ -218,7 +220,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       
       # Given a valid unsubscription to an existing subscription
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -235,7 +237,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
       # When sending a message to the other previously subscribed content topic
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -244,7 +246,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       
       # When sending a message to a non-subscribed content topic (after unsubscription)
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -253,7 +255,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "Different PubSub Topics with Different Content Topics, Unsubscribe One By One":
       # Given
@@ -290,7 +292,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -302,7 +304,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg2)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == otherPubsubTopic
@@ -315,7 +317,7 @@ suite "Waku Filter - End to End":
 
       # Then
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
       # When unsubscribing from one of the subscriptions
       let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
@@ -336,7 +338,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       
       # When sending a message to the still subscribed content topic
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -344,7 +346,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg5)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic3 == otherPubsubTopic
@@ -367,7 +369,7 @@ suite "Waku Filter - End to End":
 
       # Then the message is not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "Different PubSub Topics with Different Content Topics, Unsubscribe All":
       # Given
@@ -404,7 +406,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -416,7 +418,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg2)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == otherPubsubTopic
@@ -429,7 +431,7 @@ suite "Waku Filter - End to End":
 
       # Then
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
       # When unsubscribing from one of the subscriptions
       let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(serverRemotePeerInfo)
@@ -448,7 +450,7 @@ suite "Waku Filter - End to End":
 
       # Then the messages are not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "Different PubSub Topics with Same Content Topics, Selectively Unsubscribe":
       # Given
@@ -487,7 +489,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -499,7 +501,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg2)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == pubsubTopic
@@ -511,7 +513,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg3)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic3 == otherPubsubTopic
@@ -523,7 +525,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg4)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic4, pushedMsg4) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic4 == otherPubsubTopic
@@ -551,7 +553,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg5)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic5, pushedMsg5) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic5 == pubsubTopic
@@ -563,7 +565,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(otherPubsubTopic, msg6)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic6, pushedMsg6) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic6 == otherPubsubTopic
@@ -578,7 +580,7 @@ suite "Waku Filter - End to End":
 
       # Then the messages are not pushed to the client
       check:
-        not await pushHandlerFuture.withTimeout(3.seconds)
+        not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     asyncTest "Overlapping Topic Subscription":
       # Given
@@ -608,7 +610,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -616,14 +618,14 @@ suite "Waku Filter - End to End":
       
       # When
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
-      require (not await pushHandlerFuture.withTimeout(3.seconds)) # Check there're no duplicate messages
+      require (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)) # Check there're no duplicate messages
       pushHandlerFuture = newPushHandlerFuture() # Reset future due to timeout
 
       let msg2 = fakeWakuMessage(contentTopic="other-content-topic")
       await wakuFilter.handleMessage(pubsubTopic, msg2)
 
       # Then
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == pubsubTopic
@@ -631,14 +633,14 @@ suite "Waku Filter - End to End":
 
       # When
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
-      require (not await pushHandlerFuture.withTimeout(3.seconds)) # Check there're no duplicate messages
+      require (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)) # Check there're no duplicate messages
       pushHandlerFuture = newPushHandlerFuture() # Reset future due to timeout
 
       let msg3 = fakeWakuMessage(contentTopic=contentTopic)
       await wakuFilter.handleMessage("other-pubsub-topic", msg3)
 
       # Then
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic3 == "other-pubsub-topic"
@@ -646,10 +648,7 @@ suite "Waku Filter - End to End":
 
     asyncTest "Max topic size":
       # When creating a subscription with a topic list of 30 topics
-      var topicList: seq[string] = @[]      
-      for i in 0..<30:
-        let topicName = "topic" & $i
-        topicList.add(topicName)
+      var topicList: seq[string] = toSeq(0..<30).mapIt("topic" & $it)
 
       # Then the subscription is successful
       let subscribeResponse1 = await wakuFilterClient.subscribe(
@@ -710,7 +709,7 @@ suite "Waku Filter - End to End":
       await wakuFilter.handleMessage(pubsubTopic, msg1)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic1 == pubsubTopic
@@ -722,7 +721,7 @@ suite "Waku Filter - End to End":
       await wakuFilter2.handleMessage(pubsubTopic, msg2)
 
       # Then the message is pushed to the client
-      require await pushHandlerFuture.withTimeout(3.seconds)
+      require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
       check:
         pushedMsgPubsubTopic2 == pubsubTopic
