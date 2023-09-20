@@ -72,7 +72,7 @@ proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
     result = chronos.seconds(parseInt(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid timeout value")
+    raise newException(ValueError, "Invalid timeout value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]

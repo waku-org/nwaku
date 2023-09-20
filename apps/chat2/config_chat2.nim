@@ -273,7 +273,7 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
     # XXX: Here at the moment
     result = crypto.PrivateKey(scheme: Secp256k1, skkey: key)
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid private key")
+    raise newException(ValueError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
@@ -282,7 +282,7 @@ proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid IP address")
+    raise newException(ValueError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
@@ -291,7 +291,7 @@ proc parseCmdArg*(T: type Port, p: string): T =
   try:
     result = Port(parseInt(p))
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid Port number")
+    raise newException(ValueError, "Invalid Port number")
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
@@ -300,7 +300,7 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
   try:
     some(parseUint(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid unsigned integer")
+    raise newException(ValueError, "Invalid unsigned integer")
 
 func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
