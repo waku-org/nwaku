@@ -39,6 +39,7 @@ proc testWakuNode(): WakuNode =
 type RestLightPushTest = object
   serviceNode: WakuNode
   pushNode: WakuNode
+  consumerNode: WakuNode
   restServer: RestServerRef
   client: RestClientRef
 
@@ -47,12 +48,21 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
   var testSetup = RestLightPushTest()
   testSetup.serviceNode = testWakuNode()
   testSetup.pushNode = testWakuNode()
+  testSetup.consumerNode = testWakuNode()
 
-  await allFutures(testSetup.serviceNode.start(), testSetup.pushNode.start())
+  await allFutures(testSetup.serviceNode.start(),
+                   testSetup.pushNode.start(),
+                   testSetup.consumerNode.start())
 
+  await testSetup.consumerNode.mountRelay()
   await testSetup.serviceNode.mountRelay()
   await testSetup.serviceNode.mountLightPush()
   testSetup.pushNode.mountLightPushClient()
+
+
+  testSetup.serviceNode.peerManager.addServicePeer(
+            testSetup.consumerNode.peerInfo.toRemotePeerInfo(),
+            WakuRelayCodec)
 
   testSetup.pushNode.peerManager.addServicePeer(
             testSetup.serviceNode.peerInfo.toRemotePeerInfo(),
@@ -82,6 +92,7 @@ suite "Waku v2 Rest API - lightpush":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
+    restLightPushTest.consumerNode.subscribe(DefaultPubsubTopic)
     restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
