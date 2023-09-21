@@ -16,6 +16,7 @@ import
   ../../common/nimchronos,
   ../../waku_core,
   ../../waku_relay,
+  ../../waku_enr/sharding,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
@@ -631,11 +632,14 @@ proc prunePeerStore*(pm: PeerManager) =
                                        capacity = capacity,
                                        pruned = pruned
 
-proc selectPeer*(pm: PeerManager, proto: string): Option[RemotePeerInfo] =
+proc selectPeer*(pm: PeerManager, proto: string, shard: Option[PubsubTopic] = none(PubsubTopic)): Option[RemotePeerInfo] =
   debug "Selecting peer from peerstore", protocol=proto
 
   # Selects the best peer for a given protocol
-  let peers = pm.peerStore.getPeersByProtocol(proto)
+  var peers = pm.peerStore.getPeersByProtocol(proto)
+
+  if shard.isSome():
+    peers.keepItIf((it.enr.isSome() and it.enr.get().containsShard(shard.get())))
 
   # No criteria for selecting a peer for WakuRelay, random one
   if proto == WakuRelayCodec:
