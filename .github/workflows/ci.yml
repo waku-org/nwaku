@@ -125,9 +125,18 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
-  js-waku:
+  js-waku-node:
     needs: build-docker-image
-    uses: waku-org/js-waku/.github/workflows/ci.yml@master
+    uses: waku-org/js-waku/.github/workflows/test-node.yml@master
     with:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
-      caller: nwaku
+      test_type: node
+      debug: waku*
+
+  js-waku-node-optional:
+    needs: build-docker-image
+    uses: waku-org/js-waku/.github/workflows/test-node.yml@master
+    with:
+      nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
+      test_type: node-optional
+      debug: waku*
