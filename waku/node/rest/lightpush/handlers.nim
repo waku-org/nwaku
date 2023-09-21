@@ -80,9 +80,7 @@ proc installLightPushRequestHandler*(router: var RestRouter,
       error "Failed to request a message push due to timeout!"
       return RestApiResponse.serviceUnavailable("Push request timed out")
 
-    let handleRes: WakuLightPushResult[void] = subFut.read()
-    if handleRes.isErr():
-      error fmt("Failed to request a message push: {handleRes.error}")
-      return RestApiResponse.serviceUnavailable(fmt("Failed to request a message push: {handleRes.error}"))
+    if subFut.value().isErr():
+      return RestApiResponse.serviceUnavailable(fmt("Failed to request a message push: {subFut.value().error}"))
 
     return RestApiResponse.ok()
