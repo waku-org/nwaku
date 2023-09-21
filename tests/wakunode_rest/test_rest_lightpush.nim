@@ -64,6 +64,8 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
             testSetup.consumerNode.peerInfo.toRemotePeerInfo(),
             WakuRelayCodec)
 
+  await testSetup.serviceNode.connectToNodes(@[testSetup.consumerNode.peerInfo.toRemotePeerInfo()])
+
   testSetup.pushNode.peerManager.addServicePeer(
             testSetup.serviceNode.peerInfo.toRemotePeerInfo(),
             WakuLightPushCodec)
