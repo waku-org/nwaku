@@ -64,7 +64,11 @@ suite "Waku Filter - End to End":
         subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
+<<<<<<< HEAD
       assert subscribeResponse.isOk(), $subscribeResponse.error
+=======
+      assert subscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -72,7 +76,11 @@ suite "Waku Filter - End to End":
       let subscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
 
       # Then
+<<<<<<< HEAD
       assert subscribedPingResponse.isOk(), $subscribedPingResponse.error
+=======
+      assert subscribedPingResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -92,7 +100,11 @@ suite "Waku Filter - End to End":
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
 
+<<<<<<< HEAD
       assert subscribeResponse.isOk(), $subscribeResponse.error
+=======
+      assert subscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -100,7 +112,11 @@ suite "Waku Filter - End to End":
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
+<<<<<<< HEAD
       assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
+=======
+      assert unsubscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         not wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -122,7 +138,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscribeResponse.isOk(), $subscribeResponse.error
+=======
+      assert subscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -152,7 +172,11 @@ suite "Waku Filter - End to End":
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
+<<<<<<< HEAD
       assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
+=======
+      assert unsubscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.len == 0
 
@@ -184,7 +208,11 @@ suite "Waku Filter - End to End":
       let subscribeResponse = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicsSeq
       )
+<<<<<<< HEAD
       assert subscribeResponse.isOk(), $subscribeResponse.error
+=======
+      assert subscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -226,7 +254,11 @@ suite "Waku Filter - End to End":
       let unsubscribeResponse = await wakuFilterClient.unsubscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicsSeq
       )
+<<<<<<< HEAD
       assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
+=======
+      assert unsubscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.len == 0
       
@@ -269,7 +301,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -281,7 +317,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscribeResponse2.isOk(), $subscribeResponse2.error
+=======
+      assert subscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -325,7 +365,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the unsubscription is successful
+<<<<<<< HEAD
       assert unsubscribeResponse1.isOk(), $unsubscribeResponse1.error
+=======
+      assert unsubscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -358,7 +402,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the unsubscription is successful
+<<<<<<< HEAD
       assert unsubscribeResponse2.isOk(), $unsubscribeResponse2.error
+=======
+      assert unsubscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 0
 
@@ -383,7 +431,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -395,7 +447,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then
+<<<<<<< HEAD
       assert subscribeResponse2.isOk(), $subscribeResponse2.error
+=======
+      assert subscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -437,7 +493,11 @@ suite "Waku Filter - End to End":
       let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(serverRemotePeerInfo)
 
       # Then the unsubscription is successful
+<<<<<<< HEAD
       assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
+=======
+      assert unsubscribeResponse.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 0
       
@@ -466,7 +526,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -478,7 +542,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscribeResponse2.isOk(), $subscribeResponse2.error
+=======
+      assert subscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -540,8 +608,13 @@ suite "Waku Filter - End to End":
       )
 
       # Then the unsubscription is successful
+<<<<<<< HEAD
       assert unsubscribeResponse1.isOk(), $unsubscribeResponse1.error
       assert unsubscribeResponse2.isOk(), $unsubscribeResponse2.error
+=======
+      assert unsubscribeResponse1.isOk(), subscribeResponse.error
+      assert unsubscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -587,21 +660,33 @@ suite "Waku Filter - End to End":
       let subscribeResponse1 = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
       
       let subscribeResponse2 = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
       )
+<<<<<<< HEAD
       assert subscribeResponse2.isOk(), $subscribeResponse2.error
+=======
+      assert subscribeResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
       
       let subscribeResponse3 = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
       )
+<<<<<<< HEAD
       assert subscribeResponse3.isOk(), $subscribeResponse3.error
+=======
+      assert subscribeResponse3.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -654,7 +739,11 @@ suite "Waku Filter - End to End":
       let subscribeResponse1 = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, topicList
       )
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -680,7 +769,11 @@ suite "Waku Filter - End to End":
       let subscribeResponse1 = await wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
+<<<<<<< HEAD
       assert subscribeResponse1.isOk(), $subscribeResponse1.error
+=======
+      assert subscribeResponse1.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       require:
         wakuFilter.subscriptions.len == 1
         wakuFilter.subscriptions.hasKey(clientPeerId)
@@ -692,7 +785,11 @@ suite "Waku Filter - End to End":
       )
 
       # Then the subscription is successful
+<<<<<<< HEAD
       assert subscriptionResponse2.isOk(), $subscriptionResponse2.error
+=======
+      assert subscriptionResponse2.isOk(), subscribeResponse.error
+>>>>>>> 4f0326ad (Improve test check readability.)
       check:
         wakuFilter2.subscriptions.len == 1
         wakuFilter2.subscriptions.hasKey(clientPeerId)
