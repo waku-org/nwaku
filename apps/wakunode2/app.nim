@@ -167,9 +167,6 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
   )
 
 
-
-
-
 ## Peer persistence
 
 const PeerPersistenceDbUrl = "peers.db"
