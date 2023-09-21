@@ -105,7 +105,8 @@ method atomicBatch*(g: OnchainGroupManager,
     let operationSuccess = g.rlnInstance.atomicWrite(some(start), idCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(ValueError, "atomic batch operation failed")
-  waku_rln_number_registered_memberships.inc(int64(idCommitments.len - toRemoveIndices.len))
+  # TODO: when slashing is enabled, we need to track slashed members
+  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
 
   if g.registerCb.isSome():
     var membersSeq = newSeq[Membership]()
@@ -232,30 +233,20 @@ proc insert(blockTable: var BlockTable, blockNumber: BlockNumber, member: Member
 
 proc getRawEvents(g: OnchainGroupManager,
                   fromBlock: BlockNumber,
-                  toBlock: Option[BlockNumber] = none(BlockNumber)): Future[JsonNode] {.async.} =
+                  toBlock: BlockNumber): Future[JsonNode] {.async.} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
   let rlnContract = g.rlnContract.get()
 
-  var normalizedToBlock: BlockNumber
-  if toBlock.isSome():
-    var value = toBlock.get()
-    if value == 0:
-      # set to latest block
-      value = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
-    normalizedToBlock = value
-  else:
-    normalizedToBlock = fromBlock
-
   let events =  await rlnContract.getJsonLogs(MemberRegistered,
                                               fromBlock = some(fromBlock.blockId()),
-                                              toBlock = some(normalizedToBlock.blockId()))
+                                              toBlock = some(toBlock.blockId()))
   return events
 
 proc getBlockTable(g: OnchainGroupManager,
-                    fromBlock: BlockNumber,
-                    toBlock: Option[BlockNumber] = none(BlockNumber)): Future[BlockTable] {.async.} =
+                   fromBlock: BlockNumber,
+                   toBlock: BlockNumber): Future[BlockTable] {.async.} =
   initializedGuard(g)
 
   var blockTable = default(BlockTable)
@@ -311,23 +302,14 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future
 
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
-                        toBlock: Option[BlockNumber] = none(BlockNumber)): Future[void] {.async.} =
+                        toBlock: BlockNumber): Future[void] {.async.} =
   initializedGuard(g)
-  proc getLatestBlockNumber(): BlockNumber =
-    if toBlock.isSome(): 
-      # if toBlock = 0, that implies the latest block
-      # which is the case when we are syncing block-by-block
-      # therefore, toBlock = fromBlock + 1
-      # if toBlock != 0, then we are chunking blocks
-      # therefore, toBlock = fromBlock + blockChunkSize (which is handled)
-      return max(fromBlock + 1, toBlock.get())
-    return fromBlock
 
-  let blockTable = await g.getBlockTable(fromBlock, toBlock)    
+  let blockTable = await g.getBlockTable(fromBlock, toBlock)
   await g.handleEvents(blockTable)
   await g.handleRemovedEvents(blockTable)
 
-  g.latestProcessedBlock = getLatestBlockNumber()
+  g.latestProcessedBlock = toBlock
   let metadataSetRes = g.setMetadata()
   if metadataSetRes.isErr():
     # this is not a fatal error, hence we don't raise an exception
@@ -337,11 +319,13 @@ proc getAndHandleEvents(g: OnchainGroupManager,
 
 proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
   proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
-      let latestBlock = blockheader.number.uint
+      let latestBlock = BlockNumber(blockheader.number)
       trace "block received", blockNumber = latestBlock
       # get logs from the last block
       try:
-        asyncSpawn g.getAndHandleEvents(latestBlock)
+        # inc by 1 to prevent double processing
+        let fromBlock = g.latestProcessedBlock + 1
+        asyncSpawn g.getAndHandleEvents(fromBlock, latestBlock)
       except CatchableError:
         warn "failed to handle log: ", error=getCurrentExceptionMsg()
   return newHeadCallback
@@ -368,28 +352,25 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   let blockChunkSize = 2_000
 
   var fromBlock = if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
-    info "resuming onchain sync from block", fromBlock = g.latestProcessedBlock
+    info "syncing from last processed block", blockNumber = g.latestProcessedBlock
     g.latestProcessedBlock + 1
   else:
-    info "starting onchain sync from deployed block number", deployedBlockNumber = g.rlnContractDeployedBlockNumber
+    info "syncing from rln contract deployed block", blockNumber = g.rlnContractDeployedBlockNumber
     g.rlnContractDeployedBlockNumber
 
-  let latestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
   try:
     # we always want to sync from last processed block => latest
-    if fromBlock == BlockNumber(0) or
-       fromBlock + BlockNumber(blockChunkSize) < latestBlock:
-      # chunk events
-      while true:
-        let currentLatestBlock = cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
-        let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
-        info "chunking events", fromBlock = fromBlock, toBlock = toBlock
-        await g.getAndHandleEvents(fromBlock, some(toBlock))
-        fromBlock = toBlock + 1
-        if fromBlock >= currentLatestBlock:
-          break
-    else:
-      await g.getAndHandleEvents(fromBlock, some(BlockNumber(0)))
+    # chunk events
+    while true:
+      let currentLatestBlock = cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+      if fromBlock >= currentLatestBlock:
+        break
+
+      let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
+      debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
+      await g.getAndHandleEvents(fromBlock, toBlock)
+      fromBlock = toBlock + 1
+
   except CatchableError:
     raise newException(ValueError, "failed to get the history/reconcile missed blocks: " & getCurrentExceptionMsg())
 
@@ -503,6 +484,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   var deployedBlockNumber: Uint256
   try:
     deployedBlockNumber = await rlnContract.deployedBlockNumber().call()
+    debug "using rln storage", deployedBlockNumber, rlnContractAddress
   except CatchableError:
     raise newException(ValueError,
                        "could not get the deployed block number: " & getCurrentExceptionMsg())
@@ -525,6 +507,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     except CatchableError:
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
+  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
 
 method stop*(g: OnchainGroupManager): Future[void] {.async.} =

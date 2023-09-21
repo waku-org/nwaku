@@ -6,7 +6,6 @@ else:
 import
   std/[algorithm, sequtils, strutils, tables, times, os, deques],
   chronicles, options, chronos, chronos/ratelimit, stint,
-  confutils,
   web3, json,
   web3/ethtypes,
   eth/keys,

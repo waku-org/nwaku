@@ -17,8 +17,8 @@ import
   libp2p/multicodec,
   libp2p/peerid,
   libp2p/peerinfo,
-  libp2p/routing_record
-
+  libp2p/routing_record,
+  json_serialization
 
 type
   Connectedness* = enum
@@ -61,6 +61,9 @@ type RemotePeerInfo* = ref object
 
 func `$`*(remotePeerInfo: RemotePeerInfo): string =
   $remotePeerInfo.peerId
+
+proc writeValue*(w: var JsonWriter, value: RemotePeerInfo) {.inline, raises: [IOError].} =
+  w.writeValue $value
 
 proc init*(
   T: typedesc[RemotePeerInfo],

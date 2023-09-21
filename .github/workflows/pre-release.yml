@@ -35,11 +35,9 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        experimental: [true, false]
         arch: [amd64]
         include:
         - os: macos-latest
-          experimental: false
           arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
@@ -50,13 +48,11 @@ jobs:
         id: vars
         run: |
           ARCH=${{matrix.arch}} 
-          EXPERIMENTAL=$([[ "${{ matrix.experimental }}" == "true" ]] && echo "-experimental" || echo "")
 
           echo "arch=${ARCH}" >> $GITHUB_OUTPUT
-          echo "experimental=${EXPERIMENTAL}" >> $GITHUB_OUTPUT
 
-          NWAKU_ARTIFACT_NAME=$(echo "nwaku${EXPERIMENTAL}-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
-          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools${EXPERIMENTAL}-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_ARTIFACT_NAME=$(echo "nwaku-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
+          NWAKU_TOOLS_ARTIFACT_NAME=$(echo "nwaku-tools-${ARCH}-${{runner.os}}-${{ needs.tag-name.outputs.tag }}.tar.gz" | tr "[:upper:]" "[:lower:]")
 
           echo "nwaku=${NWAKU_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
           echo "nwakutools=${NWAKU_TOOLS_ARTIFACT_NAME}" >> $GITHUB_OUTPUT
@@ -67,10 +63,10 @@ jobs:
         run: |
           OS=$([[ "${{runner.os}}" == "macOS" ]] && echo "macosx" || echo "linux")
 
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false EXPERIMENTAL=${{matrix.experimental}} NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
+          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
             update
 
-          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false EXPERIMENTAL=${{matrix.experimental}} NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
+          make QUICK_AND_DIRTY_COMPILER=1 V=1 CI=false NIMFLAGS="-d:disableMarchNative --os:${OS} --cpu:${{matrix.arch}}" \
             wakunode2\
             chat2\
             tools
@@ -94,7 +90,7 @@ jobs:
 
   build-docker-image:
     needs: tag-name
-    uses: nwaku-test-org/nwaku/.github/workflows/container-image.yml@master
+    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     with:
       image_tag: ${{ needs.tag-name.outputs.tag }}
     secrets: inherit
@@ -117,7 +113,7 @@ jobs:
 
   create-release-candidate:
     runs-on: ubuntu-latest
-    needs: [ tag-name, build-and-publish ]
+    needs: [ tag-name, build-and-publish, js-waku ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

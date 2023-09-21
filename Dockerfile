@@ -5,12 +5,11 @@ FROM alpine@sha256:880fafbab5a7602db21ac37f0d17088a29a9a48f98d581f01ce17312c22cc
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
-ARG EXPERIMENTAL=false
 ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl rust cargo
+RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq rust cargo
 
 WORKDIR /app
 COPY . .
@@ -22,7 +21,7 @@ RUN git submodule update --init --recursive
 RUN make -j$(nproc) deps QUICK_AND_DIRTY_COMPILER=1 ${NIM_COMMIT}
 
 # Build the final node binary
-RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="${NIMFLAGS}" EXPERIMENTAL="${EXPERIMENTAL}"
+RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="${NIMFLAGS}"
 
 
 # PRODUCTION IMAGE -------------------------------------------------------------

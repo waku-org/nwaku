@@ -17,14 +17,10 @@ import
   ../../../waku/node/jsonrpc/relay/client as relay_api_client,
   ../../../waku/waku_core,
   ../../../waku/waku_relay,
+  ../../../waku/waku_rln_relay,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
-
-when defined(rln):
-  import
-    ../../../waku/waku_rln_relay
-
 
 proc newTestMessageCache(): relay_api.MessageCache =
   relay_api.MessageCache.init(capacity=30)
@@ -104,14 +100,13 @@ suite "Waku v2 JSON-RPC API - Relay":
     await srcNode.mountRelay(@[pubSubTopic])
     await dstNode.mountRelay(@[pubSubTopic])
 
-    when defined(rln):
-      await srcNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: some(1.uint),
-          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+    await srcNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
-      await dstNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-          rlnRelayCredIndex: some(2.uint),
-          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2")))
+    await dstNode.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(2.uint),
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2")))
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
@@ -155,8 +150,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     var (topic, msg) = dstHandlerFut.read()
 
     # proof is injected under the hood, we compare just the message
-    when defined(rln):
-      msg.proof = @[]
+    msg.proof = @[]
 
     check:
       topic == pubSubTopic

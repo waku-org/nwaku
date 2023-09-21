@@ -1,3 +1,105 @@
+## 2023-09-14 v0.20.0
+
+> Note: IP address 0.0.0.0 is no longer advertised by a node
+
+> Note: Multiple CLI options have been removed in this release, please see _Upgrade instructions_ section for details.
+
+## What's Changed
+
+Release highlights:
+* RLN is now part of standard release (is no longer EXPERIMENTAL feature)
+* Interop tests between nwaku and js-waku are now gating PRs and releases
+* Libwaku has been made more threadsafe (1 out of 3 improvements applied.)
+* Added autosharding option on various protocol APIs
+
+
+
+### Features
+
+- **rln-relay:** removed rln from experimental 🚀 ([#2001](https://github.com/waku-org/nwaku/issues/2001)) ([645b0343](https://github.com/waku-org/nwaku/commit/645b0343))
+- Rest endoint /health for rln ([#2011](https://github.com/waku-org/nwaku/issues/2011)) ([fc6194bb](https://github.com/waku-org/nwaku/commit/fc6194bb))
+- **rln_db_inspector:** create rln_db_inspector tool ([#1999](https://github.com/waku-org/nwaku/issues/1999)) ([ec42e2c7](https://github.com/waku-org/nwaku/commit/ec42e2c7))
+- **relay:** ordered validator execution ([#1966](https://github.com/waku-org/nwaku/issues/1966)) ([debc5f19](https://github.com/waku-org/nwaku/commit/debc5f19))
+- **discv5:** topic subscriptions update discv5 filter predicate ([#1918](https://github.com/waku-org/nwaku/issues/1918)) ([4539dfc7](https://github.com/waku-org/nwaku/commit/4539dfc7))
+- topic subscriptions updates discv5 ENR ([#1875](https://github.com/waku-org/nwaku/issues/1875)) ([c369b329](https://github.com/waku-org/nwaku/commit/c369b329))
+- **rln_keystore_generator:** wired to onchain group manager ([#1931](https://github.com/waku-org/nwaku/issues/1931)) ([c9b48ea1](https://github.com/waku-org/nwaku/commit/c9b48ea1))
+- **rln:** init rln_keystore_generator ([#1925](https://github.com/waku-org/nwaku/issues/1925)) ([3d849541](https://github.com/waku-org/nwaku/commit/3d849541))
+- update various protocols to autoshard ([#1857](https://github.com/waku-org/nwaku/issues/1857)) ([cf301396](https://github.com/waku-org/nwaku/commit/cf301396))
+
+### Bug Fixes
+
+- **rln-relay:** waku_rln_number_registered_memberships metrics appropriately handled ([#2018](https://github.com/waku-org/nwaku/issues/2018)) ([a4e78330](https://github.com/waku-org/nwaku/commit/a4e78330))
+- prevent IP 0.0.0.0 from being published and update peers with empty ENR data ([#1982](https://github.com/waku-org/nwaku/issues/1982)) ([47ae19c1](https://github.com/waku-org/nwaku/commit/47ae19c1))
+- **rln-relay:** missed roots during sync ([#2015](https://github.com/waku-org/nwaku/issues/2015)) ([21604e6b](https://github.com/waku-org/nwaku/commit/21604e6b))
+- **p2p:** fix possible connectivity issue ([#1996](https://github.com/waku-org/nwaku/issues/1996)) ([7d9d8a3f](https://github.com/waku-org/nwaku/commit/7d9d8a3f))
+- **rln-db-inspector:** use valueOr pattern ([#2012](https://github.com/waku-org/nwaku/issues/2012)) ([a8095d87](https://github.com/waku-org/nwaku/commit/a8095d87))
+- **tests:** relay tests use random port to avoid conflict ([#1998](https://github.com/waku-org/nwaku/issues/1998)) ([b991682b](https://github.com/waku-org/nwaku/commit/b991682b))
+- **ci:** incorrect use of braces ([#1987](https://github.com/waku-org/nwaku/issues/1987)) ([4ed41457](https://github.com/waku-org/nwaku/commit/4ed41457))
+- **Makefile:** invalid path to crate build ([#1981](https://github.com/waku-org/nwaku/issues/1981)) ([1a318c29](https://github.com/waku-org/nwaku/commit/1a318c29))
+- --topic should be ignore when using --pubsub-topic or --content-topic ([#1977](https://github.com/waku-org/nwaku/issues/1977)) ([037b1662](https://github.com/waku-org/nwaku/commit/037b1662))
+- **tests:** fix flaky test ([#1972](https://github.com/waku-org/nwaku/issues/1972)) ([f262397d](https://github.com/waku-org/nwaku/commit/f262397d))
+- **rln-relay:** deserialization of valid merkle roots ([#1973](https://github.com/waku-org/nwaku/issues/1973)) ([d262837e](https://github.com/waku-org/nwaku/commit/d262837e))
+- **ci:** rename tools artifact to prevent conflict ([#1971](https://github.com/waku-org/nwaku/issues/1971)) ([26c06b27](https://github.com/waku-org/nwaku/commit/26c06b27))
+- **Makefile:** rln was enabled by default ([#1964](https://github.com/waku-org/nwaku/issues/1964)) ([9b1d2904](https://github.com/waku-org/nwaku/commit/9b1d2904))
+- **rln-relay:** modify keystore credentials logic ([#1956](https://github.com/waku-org/nwaku/issues/1956)) ([e7b2b88f](https://github.com/waku-org/nwaku/commit/e7b2b88f))
+- **Makefile:** error out if rln-keystore-generator not compiled with rln flag ([#1960](https://github.com/waku-org/nwaku/issues/1960)) ([ac258550](https://github.com/waku-org/nwaku/commit/ac258550))
+- **rln-relay:** sync from deployed block number ([#1955](https://github.com/waku-org/nwaku/issues/1955)) ([bd3be219](https://github.com/waku-org/nwaku/commit/bd3be219))
+- **rln-relay:** window of acceptable roots synced to rln metadata ([#1953](https://github.com/waku-org/nwaku/issues/1953)) ([01634f57](https://github.com/waku-org/nwaku/commit/01634f57))
+- **rln-relay:** bump zerokit to v0.3.2 ([#1951](https://github.com/waku-org/nwaku/issues/1951)) ([32aa1c5b](https://github.com/waku-org/nwaku/commit/32aa1c5b))
+- **rln-relay:** flush_interval incorrectly set ([#1933](https://github.com/waku-org/nwaku/issues/1933)) ([c07d63db](https://github.com/waku-org/nwaku/commit/c07d63db))
+- **rln-relay:** RLN DB should be aware of chain and contract address ([#1932](https://github.com/waku-org/nwaku/issues/1932)) ([1ae5b5a9](https://github.com/waku-org/nwaku/commit/1ae5b5a9))
+- **rln-relay:** waitFor startup, otherwise valid proofs will be marked invalid ([#1920](https://github.com/waku-org/nwaku/issues/1920)) ([6c6302f9](https://github.com/waku-org/nwaku/commit/6c6302f9))
+- **test:** fix flaky rln test ([#1923](https://github.com/waku-org/nwaku/issues/1923)) ([0ac8a7f0](https://github.com/waku-org/nwaku/commit/0ac8a7f0))
+- **rln-relay:** remove registration capability ([#1916](https://github.com/waku-org/nwaku/issues/1916)) ([f08315cd](https://github.com/waku-org/nwaku/commit/f08315cd))
+- **rln-relay:** invalid start index being set results in invalid proofs  ([#1915](https://github.com/waku-org/nwaku/issues/1915)) ([b3bb7a11](https://github.com/waku-org/nwaku/commit/b3bb7a11))
+- **rln-relay:** should error out on rln-relay mount failure ([#1904](https://github.com/waku-org/nwaku/issues/1904)) ([8c568cab](https://github.com/waku-org/nwaku/commit/8c568cab))
+- **rln-relay:** timeout on macos runners, use fixed version of ganache ([#1913](https://github.com/waku-org/nwaku/issues/1913)) ([c9772af0](https://github.com/waku-org/nwaku/commit/c9772af0))
+- no enr record in chat2 ([#1907](https://github.com/waku-org/nwaku/issues/1907)) ([fc604ca5](https://github.com/waku-org/nwaku/commit/fc604ca5))
+
+### Changes
+
+- **ci:** add js-waku test to pre-release workflow ([#2017](https://github.com/waku-org/nwaku/issues/2017)) ([e8776fd6](https://github.com/waku-org/nwaku/commit/e8776fd6))
+- **rln-relay:** updated docs ([#1993](https://github.com/waku-org/nwaku/issues/1993)) ([76e34077](https://github.com/waku-org/nwaku/commit/76e34077))
+- **ci:** execute js-waku integration tests on image build ([#2006](https://github.com/waku-org/nwaku/issues/2006)) ([5d976df9](https://github.com/waku-org/nwaku/commit/5d976df9))
+- **rln-relay:** add isReady check ([#1989](https://github.com/waku-org/nwaku/issues/1989)) ([5638bd06](https://github.com/waku-org/nwaku/commit/5638bd06))
+- **rln-relay:** clean up nullifier table every MaxEpochGap ([#1994](https://github.com/waku-org/nwaku/issues/1994)) ([483f40c8](https://github.com/waku-org/nwaku/commit/483f40c8))
+- **ci:** use commit instead of master for docker image ([#1990](https://github.com/waku-org/nwaku/issues/1990)) ([98850192](https://github.com/waku-org/nwaku/commit/98850192))
+- **rln-relay:** log levels for certain logs ([#1986](https://github.com/waku-org/nwaku/issues/1986)) ([97a7c9d0](https://github.com/waku-org/nwaku/commit/97a7c9d0))
+- **rln-relay:** use the only key from keystore if only 1 exists ([#1984](https://github.com/waku-org/nwaku/issues/1984)) ([a14c3261](https://github.com/waku-org/nwaku/commit/a14c3261))
+- **ci:** enable experimental for the PR image builds ([#1976](https://github.com/waku-org/nwaku/issues/1976)) ([1b835b4e](https://github.com/waku-org/nwaku/commit/1b835b4e))
+- **rln-relay:** confirm that the provided credential is correct using onchain query ([#1980](https://github.com/waku-org/nwaku/issues/1980)) ([be48891f](https://github.com/waku-org/nwaku/commit/be48891f))
+- **api:** validate rln message before sending (rest + rpc) ([#1968](https://github.com/waku-org/nwaku/issues/1968)) ([05c98864](https://github.com/waku-org/nwaku/commit/05c98864))
+- **cbindings:** Thread-safe libwaku. WakuNode instance created directly from the Waku Thread ([#1957](https://github.com/waku-org/nwaku/issues/1957)) ([68e8d9a7](https://github.com/waku-org/nwaku/commit/68e8d9a7))
+- add debug log indicating succesful message pushes and also log the message hash ([#1965](https://github.com/waku-org/nwaku/issues/1965)) ([e272bec9](https://github.com/waku-org/nwaku/commit/e272bec9))
+- **rln-keystore-generator:** log out the membership index upon registration ([#1963](https://github.com/waku-org/nwaku/issues/1963)) ([7d53aec1](https://github.com/waku-org/nwaku/commit/7d53aec1))
+- **rln-relay:** integrate waku rln registry ([#1943](https://github.com/waku-org/nwaku/issues/1943)) ([cc9f8d42](https://github.com/waku-org/nwaku/commit/cc9f8d42))
+- **ci:** add a job checking config options and db schema ([#1927](https://github.com/waku-org/nwaku/issues/1927)) ([505d1967](https://github.com/waku-org/nwaku/commit/505d1967))
+- **rln_keystore_generator:** generate and persist credentials ([#1928](https://github.com/waku-org/nwaku/issues/1928)) ([07945a37](https://github.com/waku-org/nwaku/commit/07945a37))
+- **rln-relay:** rename keystore application to waku-rln-relay ([#1924](https://github.com/waku-org/nwaku/issues/1924)) ([8239b455](https://github.com/waku-org/nwaku/commit/8239b455))
+- **rln:** remove old and add new rln metric ([#1926](https://github.com/waku-org/nwaku/issues/1926)) ([56c228f8](https://github.com/waku-org/nwaku/commit/56c228f8))
+- **rln:** run rln in all relay pubsubtopics + remove cli flags ([#1917](https://github.com/waku-org/nwaku/issues/1917)) ([af95b571](https://github.com/waku-org/nwaku/commit/af95b571))
+- **release:** update changelog for delayed v0.19.0 release ([#1911](https://github.com/waku-org/nwaku/issues/1911)) ([78690787](https://github.com/waku-org/nwaku/commit/78690787))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+## Upgrade instructions
+
+* Note that the `--topic` CLI option is being deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`. The `--topic` option will be available for next release with a deprecation note.
+* CLI option `--store-resume-peer` has been removed.
+* Following options related to RLN have been removed:
+  * `--rln-relay-membership-group-index`
+  * `--rln-relay-pubsub-topic`
+  * `--rln-relay-content-topic`
+
+
 ## 2023-08-16 v0.19.0
 
 > Note that the `--topic` CLI option is being deprecated in favor a more specific option `--pubsub-topic`.

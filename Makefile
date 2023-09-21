@@ -106,43 +106,34 @@ ifneq ($(USE_LIBBACKTRACE), 0)
 deps: | libbacktrace
 endif
 
+ifeq ($(POSTGRES), 1)
+NIM_PARAMS := $(NIM_PARAMS) -d:postgres -d:nimDebugDlOpen
+endif
+
 clean: | clean-libbacktrace
 
 
 ##################
-## Experimental ##
+##     RLN      ##
 ##################
 .PHONY: librln
 
-EXPERIMENTAL ?= false
-EXPERIMENTAL_PARAMS ?= $(EMPTY)
-
-ifeq ($(EXPERIMENTAL), true)
-RLN := true
-endif
-
-### RLN
-
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+LIBRLN_VERSION := v0.3.4
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
 else
-LIBRLN_FILE := librln.a
+LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
 endif
 
 $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
-librln-experimental: | $(LIBRLN_FILE)
-	$(eval EXPERIMENTAL_PARAMS += -d:rln --passL:$(LIBRLN_FILE) --passL:-lm)
 
-ifneq ($(RLN), true)
-librln: ; # noop
-else
-librln: | librln-experimental
-endif
+librln: | $(LIBRLN_FILE)
+	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -169,29 +160,33 @@ testcommon: | build deps
 
 testwaku: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
 testwakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) waku.nims
 
-example2: | build deps
+example2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
 chat2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
-rln-keystore-generator: | build deps librln-experimental
+rln-keystore-generator: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-	$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+	$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) waku.nims
 
-chat2bridge: | build deps
+rln-db-inspector: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) waku.nims
+
+chat2bridge: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
@@ -203,11 +198,11 @@ chat2bridge: | build deps
 
 tools: networkmonitor wakucanary
 
-wakucanary: | build deps
+wakucanary: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakucanary $(NIM_PARAMS) waku.nims
 
-networkmonitor: | build deps
+networkmonitor: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
@@ -228,7 +223,7 @@ docs: | build deps
 #####################
 # -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
 # -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
-DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
+DOCKER_IMAGE_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure -d:postgres
 DOCKER_IMAGE_NIMFLAGS := $(DOCKER_IMAGE_NIMFLAGS) $(HEAPTRACK_PARAMS)
 
 # build a docker image for the fleet
@@ -239,7 +234,6 @@ docker-image:
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
-		--build-arg="EXPERIMENTAL=$(EXPERIMENTAL)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
 		--label="commit=$(GIT_VERSION)" \
@@ -257,14 +251,14 @@ docker-push:
 
 STATIC ?= false
 
-libwaku: | build deps
+libwaku: | build deps librln
 		rm -f build/libwaku*
 ifeq ($(STATIC), true)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
-		$(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
 else
 		echo -e $(BUILD_MSG) "build/$@.so" && \
-		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) $(EXPERIMENTAL_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
 cwaku_example: | build libwaku

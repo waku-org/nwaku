@@ -33,9 +33,12 @@ import
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ../../waku/waku_peer_exchange,
+  ../../waku/waku_rln_relay,
   ../../waku/waku_store,
   ../../waku/waku_lightpush,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
+  ../../waku/waku_filter_v2/client as waku_filter_client,
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
@@ -45,16 +48,15 @@ import
   ../../waku/node/rest/debug/handlers as rest_debug_api,
   ../../waku/node/rest/relay/handlers as rest_relay_api,
   ../../waku/node/rest/relay/topic_cache,
+  ../../waku/node/rest/filter/legacy_handlers as rest_legacy_filter_api,
   ../../waku/node/rest/filter/handlers as rest_filter_api,
   ../../waku/node/rest/store/handlers as rest_store_api,
+  ../../waku/node/rest/health/handlers as rest_health_api,
   ../../waku/node/jsonrpc/admin/handlers as rpc_admin_api,
   ../../waku/node/jsonrpc/debug/handlers as rpc_debug_api,
   ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
   ../../waku/node/jsonrpc/relay/handlers as rpc_relay_api,
   ../../waku/node/jsonrpc/store/handlers as rpc_store_api
-
-when defined(rln):
-  import ../../waku/waku_rln_relay
 
 logScope:
   topics = "wakunode app"
@@ -394,23 +396,22 @@ proc setupProtocols(node: WakuNode,
   except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
-  when defined(rln):
-    if conf.rlnRelay:
+  if conf.rlnRelay:
 
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayTreePath: conf.rlnRelayTreePath,
-      )
+    let rlnConf = WakuRlnConfig(
+      rlnRelayDynamic: conf.rlnRelayDynamic,
+      rlnRelayCredIndex: conf.rlnRelayCredIndex,
+      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayCredPath: conf.rlnRelayCredPath,
+      rlnRelayCredPassword: conf.rlnRelayCredPassword,
+      rlnRelayTreePath: conf.rlnRelayTreePath,
+    )
 
-      try:
-        waitFor node.mountRlnRelay(rlnConf)
-      except CatchableError:
-        return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
+    try:
+      waitFor node.mountRlnRelay(rlnConf)
+    except CatchableError:
+      return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   if conf.store:
     var onErrAction = proc(msg: string) {.gcsafe, closure.} =
@@ -475,8 +476,9 @@ proc setupProtocols(node: WakuNode,
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
-      await mountFilterClient(node)
-      node.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+      await node.mountFilterClient()
+      node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
+      node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
@@ -572,6 +574,9 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   ## Debug REST API
   installDebugApiHandlers(server.router, app.node)
 
+  ## Health REST API
+  installHealthApiHandler(server.router, app.node)
+
   ## Relay REST API
   if conf.relay:
     let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
@@ -579,8 +584,11 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Filter REST API
   if conf.filter:
-    let filterCache = rest_filter_api.MessageCache.init(capacity=rest_filter_api.filterMessageCacheDefaultCapacity)
-    installFilterApiHandlers(server.router, app.node, filterCache)
+    let legacyFilterCache = rest_legacy_filter_api.MessageCache.init()
+    rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
+
+    let filterCache = rest_filter_api.MessageCache.init()
+    rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)

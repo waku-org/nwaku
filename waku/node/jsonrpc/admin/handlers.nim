@@ -71,9 +71,9 @@ proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
     if not node.wakuFilterLegacy.isNil():
       # Map WakuFilter peers to WakuPeers and add to return list
-      let filterPeers = node.peerManager.peerStore.peers(WakuFilterCodec)
+      let filterPeers = node.peerManager.peerStore.peers(WakuLegacyFilterCodec)
           .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
-                          protocol: WakuFilterCodec,
+                          protocol: WakuLegacyFilterCodec,
                           connected: it.connectedness == Connectedness.Connected))
       peers.add(filterPeers)
 

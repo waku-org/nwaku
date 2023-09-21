@@ -13,10 +13,10 @@ Your samp activity will be detected by them and a proper message will be shown o
 
 # Set up
 ## Build chat2
-First, build chat2 with the RLN flag set to true.
+First, build chat2
 
 ```
-make chat2 RLN=true
+make chat2
 ```
 
 ## Setup a chat2 node in rate-limited mode
@@ -123,21 +123,3 @@ Connecting to storenode: 16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
 >> /exit
 quitting...
 ```
-
-# Trouble shooting
-
-## compilation error: found possibly newer version of crate
-
-
-If running `make chat2 RLN=true` yields a compile error like this
-
-```
-error[E0460]: found possibly newer version of crate `std` which `sapling_crypto_ce` depends on
- --> src/circuit/polynomial.rs:1:5
-  |
-1 | use sapling_crypto::bellman::pairing::ff::{Field, PrimeField, PrimeFieldRepr};
-```
-
-run
-
-`make cleanrln` before running `make chat2 RLN=true` again.

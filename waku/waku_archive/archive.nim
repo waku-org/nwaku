@@ -14,10 +14,6 @@ import
   ../common/databases/dburl,
   ../common/databases/db_sqlite,
   ./driver,
-  ./driver/queue_driver,
-  ./driver/sqlite_driver,
-  ./driver/sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./driver/postgres_driver/postgres_driver,
   ./retention_policy,
   ./retention_policy/retention_policy_capacity,
   ./retention_policy/retention_policy_time,
@@ -225,19 +221,21 @@ proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
   # Start the periodic message retention policy task
   # https://github.com/nim-lang/Nim/issues/17369
 
-  var executeRetentionPolicy: proc(udata: pointer) {.gcsafe, raises: [Defect].}
-  executeRetentionPolicy = proc(udata: pointer) {.gcsafe.} =
+  var executeRetentionPolicy: CallbackFunc
+  executeRetentionPolicy =
+    CallbackFunc(
+      proc (arg: pointer) {.gcsafe, raises: [].} =
+        try:
+          let retPolRes = waitFor w.executeMessageRetentionPolicy()
+          if retPolRes.isErr():
+            waku_archive_errors.inc(labelValues = [retPolicyFailure])
+            error "error in periodic retention policy", error = retPolRes.error
+        except CatchableError:
+          waku_archive_errors.inc(labelValues = [retPolicyFailure])
+          error "exception in periodic retention policy",
+                error = getCurrentExceptionMsg()
 
-    try:
-      let retPolRes = waitFor w.executeMessageRetentionPolicy()
-      if retPolRes.isErr():
-        waku_archive_errors.inc(labelValues = [retPolicyFailure])
-        error "error in periodic retention policy", error = retPolRes.error
-    except CatchableError:
-      waku_archive_errors.inc(labelValues = [retPolicyFailure])
-      error "exception in periodic retention policy",
-            error = getCurrentExceptionMsg()
-
-    discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+        discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+    )
 
   discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)

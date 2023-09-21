@@ -20,57 +20,13 @@ import
   ./protocol,
   ./protocol_metrics
 
-
 logScope:
   topics = "waku filter client"
 
 
 const Defaultstring = "/waku/2/default-waku/proto"
 
-
-### Client, filter subscripton manager
-
-type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.}
-
-
-## Subscription manager
-
-type SubscriptionManager = object
-    subscriptions: TableRef[(string, ContentTopic), FilterPushHandler]
-
-proc init(T: type SubscriptionManager): T =
-  SubscriptionManager(subscriptions: newTable[(string, ContentTopic), FilterPushHandler]())
-
-proc clear(m: var SubscriptionManager) =
-  m.subscriptions.clear()
-
-proc registerSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, handler: FilterPushHandler) =
-  try:
-    m.subscriptions[(pubsubTopic, contentTopic)]= handler
-  except:  # TODO: Fix "BareExcept" warning
-    error "failed to register filter subscription", error=getCurrentExceptionMsg()
-
-proc removeSubscription(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic) =
-  m.subscriptions.del((pubsubTopic, contentTopic))
-
-proc notifySubscriptionHandler(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, message: WakuMessage) =
-  if not m.subscriptions.hasKey((pubsubTopic, contentTopic)):
-    return
-
-  try:
-    let handler = m.subscriptions[(pubsubTopic, contentTopic)]
-    asyncSpawn handler(pubsubTopic, message)
-  except:  # TODO: Fix "BareExcept" warning
-    discard
-
-proc getSubscriptionsCount(m: SubscriptionManager): int =
-  m.subscriptions.len()
-
-
 ## Client
-
-type  MessagePushHandler* = proc(requestId: string, msg: MessagePush): Future[void] {.gcsafe, closure.}
-
 type WakuFilterClientLegacy* = ref object of LPProtocol
     rng: ref rand.HmacDrbgContext
     peerManager: PeerManager
@@ -114,7 +70,7 @@ proc initProtocolHandler(wf: WakuFilterClientLegacy) =
     wf.handleMessagePush(peerId, requestId, push)
 
   wf.handler = handle
-  wf.codec = WakuFilterCodec
+  wf.codec = WakuLegacyFilterCodec
 
 proc new*(T: type WakuFilterClientLegacy,
           peerManager: PeerManager,
@@ -130,7 +86,7 @@ proc new*(T: type WakuFilterClientLegacy,
 
 
 proc sendFilterRpc(wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
-  let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
+  let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
   let connection = connOpt.get()
@@ -198,6 +154,8 @@ proc unsubscribe*(wf: WakuFilterClientLegacy,
   if sendRes.isErr():
     return err(sendRes.error)
 
+  # FIXME: I see an issue here that such solution prevents filtering client to properly manage its
+  #        subscriptions on different peers and get notified correctly!
   for topic in topics:
     wf.subManager.removeSubscription(pubsubTopic, topic)
 
