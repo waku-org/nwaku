@@ -39,7 +39,7 @@ proc handleReadException*(r: EnvvarReader,
 proc init*(T: type EnvvarReader, prefix: string): T =
   result.prefix = prefix
 
-proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [ValueError, SerializationError].} =
+proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationError].} =
   mixin readValue
 
   when T is string:
@@ -48,7 +48,11 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [ValueError, Ser
 
   elif T is (SomePrimitives or range):
     let key = constructKey(r.prefix, r.key)
-    getValue(key, value)
+    try:
+      getValue(key, value)
+    except ValueError:
+      raise newException(SerializationError,
+                         "Couldn't getValue SomePrimitives: " & getCurrentExceptionMsg())
 
   elif T is Option:
     template getUnderlyingType[T](_: Option[T]): untyped = T
@@ -58,7 +62,11 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [ValueError, Ser
       when uType is string:
         value = some(os.getEnv(key))
       else:
-        value = some(r.readValue(uType))
+        try:
+          value = some(r.readValue(uType))
+        except ValueError, IOError:
+          raise newException(SerializationError,
+                             "Couldn't read Option value: " & getCurrentExceptionMsg())
 
   elif T is (seq or array):
     when uTypeIsPrimitives(T):

@@ -69,7 +69,7 @@ proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid IP address")
+    raise newException(ValueError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
@@ -78,7 +78,7 @@ proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
     result = chronos.seconds(parseInt(p))
   except CatchableError as e:
-    raise newException(ConfigurationError, "Invalid duration value")
+    raise newException(ValueError, "Invalid duration value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
