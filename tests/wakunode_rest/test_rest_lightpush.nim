@@ -7,6 +7,7 @@ import
   testutils/unittests,
   presto, presto/client as presto_client,
   libp2p/crypto/crypto
+
 import
   ../../waku/node/message_cache,
   ../../waku/common/base64,
@@ -61,7 +62,7 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
   let restAddress = ValidIpAddress.init("127.0.0.1")
   testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-  installLightPushPostPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)
+  installLightPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)
 
   testSetup.restServer.start()
 
@@ -98,6 +99,82 @@ suite "Waku v2 Rest API - lightpush":
     # Then
     check:
       response.status == 200
+      $response.contentType == $MIMETYPE_TEXT
+
+    await restLightPushTest.shutdown()
+
+  asyncTest "Push message bad-request":
+    # Given
+    let restLightPushTest = await RestLightPushTest.init()
+
+    restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
+    require:
+      toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
+
+    # When
+    let badMessage1 : RelayWakuMessage = fakeWakuMessage(contentTopic = DefaultContentTopic,
+                                                         payload = toBytes("")).toRelayWakuMessage()
+    let badRequestBody1 = PushRequest(pubsubTopic: some(DefaultPubsubTopic),
+                                      message: badMessage1)
+
+    let badMessage2 : RelayWakuMessage = fakeWakuMessage(contentTopic = "",
+                                                         payload = toBytes("Sthg")).toRelayWakuMessage()
+    let badRequestBody2 = PushRequest(pubsubTopic: some(DefaultPubsubTopic),
+                                      message: badMessage2)
+
+    let badRequestBody3 = PushRequest(pubsubTopic: none(PubsubTopic),
+                                      message: badMessage2)
+
+    var response: RestResponse[string]
+
+    response = await restLightPushTest.client.sendPushRequest(badRequestBody1)
+
+    echo "response", $response
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+
+    # when
+    response = await restLightPushTest.client.sendPushRequest(badRequestBody2)
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+
+    # when
+    response = await restLightPushTest.client.sendPushRequest(badRequestBody3)
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+
+    await restLightPushTest.shutdown()
+
+  asyncTest "Push message request service not available":
+    # Given
+    let restLightPushTest = await RestLightPushTest.init()
+
+    # restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
+    # require:
+    #   toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
+
+    # When
+    let message : RelayWakuMessage = fakeWakuMessage(contentTopic = DefaultContentTopic,
+                                                     payload = toBytes("TEST-1")).toRelayWakuMessage()
+
+    let requestBody = PushRequest(pubsubTopic: some("NoExistTopic"),
+                                  message: message)
+    let response = await restLightPushTest.client.sendPushRequest(requestBody)
+
+    echo "response", $response
+
+    # Then
+    check:
+      response.status == 503
       $response.contentType == $MIMETYPE_TEXT
 
     await restLightPushTest.shutdown()

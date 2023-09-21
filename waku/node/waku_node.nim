@@ -404,7 +404,7 @@ proc legacyFilterSubscribe*(node: WakuNode,
   # Add handler wrapper to store the message when pushed, when relay is disabled and filter enabled
   # TODO: Move this logic to wakunode2 app
   # FIXME: This part needs refactoring. It seems possible that in special cases archiver will store same message multiple times.
-  let handlerWrapper: FilterPushHandler =  
+  let handlerWrapper: FilterPushHandler =
         if node.wakuRelay.isNil() and not node.wakuStore.isNil():
           proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
             await allFutures(node.wakuArchive.handleMessage(pubSubTopic, message),
@@ -832,7 +832,11 @@ proc mountLightPush*(node: WakuNode) {.async.} =
       return err("no waku relay found")
   else:
     pushHandler = proc(peer: PeerId, pubsubTopic: string, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
-      discard await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
+      let publishedCount = await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
+
+      if publishedCount == 0:
+        return err("Can not publish to any peers")
+
       return ok()
 
   debug "mounting lightpush with relay"

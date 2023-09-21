@@ -591,7 +591,7 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
 
-  installLightPushPostPushRequestHandler(server.router, app.node)
+  installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"

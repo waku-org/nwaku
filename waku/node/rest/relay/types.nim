@@ -103,8 +103,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     else:
       unrecognizedFieldWarning()
 
-  if payload.isNone():
-    reader.raiseUnexpectedValue("Field `payload` is missing")
+  if payload.isNone() or isEmptyOrWhitespace(string(payload.get())):
+    reader.raiseUnexpectedValue("Field `payload` is missing or empty")
+
+  if contentTopic.isNone() or contentTopic.get().isEmptyOrWhitespace():
+    reader.raiseUnexpectedValue("Field `contentTopic` is missing or empty")
 
   value = RelayWakuMessage(
     payload: payload.get(),

@@ -50,7 +50,7 @@ func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiR
 
   return ok(requestResult.get())
 
-proc installLightPushPostPushRequestHandler*(router: var RestRouter,
+proc installLightPushRequestHandler*(router: var RestRouter,
                                              node: WakuNode) =
 
   router.api(MethodPost, ROUTE_LIGHTPUSH) do (contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -79,5 +79,10 @@ proc installLightPushPostPushRequestHandler*(router: var RestRouter,
     if not await subFut.withTimeout(futTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"
       return RestApiResponse.serviceUnavailable("Push request timed out")
+
+    let handleRes: WakuLightPushResult[void] = subFut.read()
+    if handleRes.isErr():
+      error fmt("Failed to request a message push: {handleRes.error}")
+      return RestApiResponse.serviceUnavailable(fmt("Failed to request a message push: {handleRes.error}"))
 
     return RestApiResponse.ok()
