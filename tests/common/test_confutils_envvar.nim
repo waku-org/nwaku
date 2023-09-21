@@ -12,7 +12,6 @@ import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet
 
-
 type ConfResult[T] = Result[T, string]
 
 type TestConf = object
@@ -34,13 +33,13 @@ type TestConf = object
       defaultValue: 60000,
       name: "tcp-port" }: Port
 
-
 {.push warning[ProveInit]: off.}
 
 proc load*(T: type TestConf, prefix: string): ConfResult[T] =
   try:
     let conf = TestConf.load(
-      secondarySources = proc (conf: TestConf, sources: auto) =
+      secondarySources = proc (conf: TestConf, sources: auto)
+                              {.gcsafe, raises: [ConfigurationError].} =
         sources.addConfigFile(Envvar, InputFile(prefix))
     )
     ok(conf)
@@ -48,7 +47,6 @@ proc load*(T: type TestConf, prefix: string): ConfResult[T] =
     err(getCurrentExceptionMsg())
 
 {.pop.}
-
 
 suite "nim-confutils - envvar":
   test "load configuration from environment variables":
