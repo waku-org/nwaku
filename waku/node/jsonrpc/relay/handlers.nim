@@ -13,6 +13,8 @@ import
   ../../../common/base64,
   ../../../waku_core,
   ../../../waku_relay,
+  ../../../waku_rln_relay,
+  ../../../waku_rln_relay/rln/wrappers,
   ../../waku_node,
   ../../message_cache,
   ../message
@@ -20,10 +22,6 @@ import
 from std/times import getTime
 from std/times import toUnix
 
-when defined(rln):
-  import
-    ../../../waku_rln_relay,
-    ../../../waku_rln_relay/rln/wrappers
 
 logScope:
   topics = "waku node jsonrpc relay_api"
@@ -101,28 +99,25 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
       raise newException(ValueError, "Failed to publish: Node not subscribed to pubsubTopic: " & pubsubTopic)
 
     # if RLN is mounted, append the proof to the message
-    when defined(rln):
-      if not node.wakuRlnRelay.isNil():
-        # append the proof to the message
-        let success = node.wakuRlnRelay.appendRLNProof(message,
-                                                      float64(getTime().toUnix()))
-        if not success:
-          raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
-        # validate the message before sending it
-        let result = node.wakuRlnRelay.validateMessage(message)
-        if result == MessageValidationResult.Invalid:
-          raise newException(ValueError, "Failed to publish: invalid RLN proof")
-        elif result == MessageValidationResult.Spam:
-          raise newException(ValueError, "Failed to publish: limit exceeded, try again later")
-        elif result == MessageValidationResult.Valid:
-          debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
-        else:
-          raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
+    if not node.wakuRlnRelay.isNil():
+      # append the proof to the message
+      let success = node.wakuRlnRelay.appendRLNProof(message,
+                                                    float64(getTime().toUnix()))
+      if not success:
+        raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
+      # validate the message before sending it
+      let result = node.wakuRlnRelay.validateMessage(message)
+      if result == MessageValidationResult.Invalid:
+        raise newException(ValueError, "Failed to publish: invalid RLN proof")
+      elif result == MessageValidationResult.Spam:
+        raise newException(ValueError, "Failed to publish: limit exceeded, try again later")
+      elif result == MessageValidationResult.Valid:
+        debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
       else:
-        raise newException(ValueError, "Failed to publish: RLN enabled but not mounted")
+        raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic=pubSubTopic, rln=defined(rln)
+    debug "Publishing message", pubSubTopic=pubSubTopic
     let publishFut = node.publish(pubsubTopic, message)
     if not await publishFut.withTimeout(futTimeout):
       raise newException(ValueError, "Failed to publish: timed out")

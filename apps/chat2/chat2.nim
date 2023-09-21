@@ -38,12 +38,11 @@ import
   ../../waku/common/utils/nat,
   ./config_chat2
 
-when defined(rln):
-  import
-    libp2p/protocols/pubsub/rpc/messages,
-    libp2p/protocols/pubsub/pubsub
-  import
-    ../../waku/waku_rln_relay
+import
+  libp2p/protocols/pubsub/rpc/messages,
+  libp2p/protocols/pubsub/pubsub
+import
+  ../../waku/waku_rln_relay
 
 const Help = """
   Commands: /[?|help|connect|nick|exit]
@@ -187,28 +186,27 @@ proc publish(c: Chat, line: string) =
 
   var message = WakuMessage(payload: chat2pb.buffer,
     contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
-  when defined(rln):
-    if not isNil(c.node.wakuRlnRelay):
-      # for future version when we support more than one rln protected content topic,
-      # we should check the message content topic as well
-      let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-      if not success:
-        debug "could not append rate limit proof to the message", success=success
-      else:
-        debug "rate limit proof is appended to the message", success=success
-        let decodeRes = RateLimitProof.init(message.proof)
-        if decodeRes.isErr():
-          error "could not decode the RLN proof"
+  if not isNil(c.node.wakuRlnRelay):
+    # for future version when we support more than one rln protected content topic,
+    # we should check the message content topic as well
+    let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+    if not success:
+      debug "could not append rate limit proof to the message", success=success
+    else:
+      debug "rate limit proof is appended to the message", success=success
+      let decodeRes = RateLimitProof.init(message.proof)
+      if decodeRes.isErr():
+        error "could not decode the RLN proof"
 
-        let proof = decodeRes.get()
-        # TODO move it to log after dogfooding
-        let msgEpoch = fromEpoch(proof.epoch)
-        if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
-          echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
-        else:
-          echo "--rln epoch: ", msgEpoch
-        # update the last epoch
-        c.node.wakuRlnRelay.lastEpoch = proof.epoch
+      let proof = decodeRes.get()
+      # TODO move it to log after dogfooding
+      let msgEpoch = fromEpoch(proof.epoch)
+      if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
+        echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
+      else:
+        echo "--rln epoch: ", msgEpoch
+      # update the last epoch
+      c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
     if not c.node.wakuLightPush.isNil():
       # Attempt lightpush
@@ -264,10 +262,12 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "You are now known as " & c.nick
 
     elif line.startsWith("/exit"):
-      if not c.node.wakuFilter.isNil():
+      if not c.node.wakuFilterLegacy.isNil():
         echo "unsubscribing from content filters..."
 
-        await c.node.unsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic)
+        let peerOpt = c.node.peerManager.selectPeer(WakuLegacyFilterCodec)
+        if peerOpt.isSome():
+          await c.node.legacyFilterUnsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic, peer=peerOpt.get())
 
       echo "quitting..."
 
@@ -466,14 +466,18 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     if peerInfo.isOk():
       await node.mountFilter()
       await node.mountFilterClient()
-      node.peerManager.addServicePeer(peerInfo.value, WakuFilterCodec)
+      node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
       proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         trace "Hit filter handler", contentTopic=msg.contentTopic
         chat.printReceivedMessage(msg)
 
-      await node.subscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=chat.contentTopic, filterHandler)
-
+      await node.legacyFilterSubscribe(pubsubTopic=some(DefaultPubsubTopic),
+                                       contentTopics=chat.contentTopic,
+                                       filterHandler,
+                                       peerInfo.value)
+      # TODO: Here to support FilterV2 relevant subscription, but still
+      # Legacy Filter is concurrent to V2 untill legacy filter will be removed
     else:
       error "Filter not mounted. Couldn't parse conf.filternode",
                 error = peerInfo.error
@@ -487,46 +491,42 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     let topic = DefaultPubsubTopic
-    await node.subscribe(some(topic), @[ContentTopic("")], handler)
+    node.subscribe(topic, handler)
 
-    when defined(rln):
-      if conf.rlnRelay:
-        info "WakuRLNRelay is enabled"
+    if conf.rlnRelay:
+      info "WakuRLNRelay is enabled"
 
-        proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
-          debug "spam handler is called"
-          let chatLineResult = chat.getChatLine(wakuMessage)
-          if chatLineResult.isOk():
-            echo "A spam message is found and discarded : ", chatLineResult.value
-          else:
-            echo "A spam message is found and discarded"
-          chat.prompt = false
-          showChatPrompt(chat)
-      
-        echo "rln-relay preparation is in progress..."
+      proc spamHandler(wakuMessage: WakuMessage) {.gcsafe, closure.} =
+        debug "spam handler is called"
+        let chatLineResult = chat.getChatLine(wakuMessage)
+        if chatLineResult.isOk():
+          echo "A spam message is found and discarded : ", chatLineResult.value
+        else:
+          echo "A spam message is found and discarded"
+        chat.prompt = false
+        showChatPrompt(chat)
+    
+      echo "rln-relay preparation is in progress..."
 
-        let rlnConf = WakuRlnConfig(
-          rlnRelayDynamic: conf.rlnRelayDynamic,
-          rlnRelayCredIndex: conf.rlnRelayCredIndex,
-          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-          rlnRelayCredPath: conf.rlnRelayCredPath,
-          rlnRelayCredPassword: conf.rlnRelayCredPassword
-        )
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayCredIndex: conf.rlnRelayCredIndex,
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredPassword: conf.rlnRelayCredPassword
+      )
 
-        waitFor node.mountRlnRelay(rlnConf,
-                                 spamHandler=some(spamHandler))
+      waitFor node.mountRlnRelay(rlnConf,
+                                spamHandler=some(spamHandler))
 
-        let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
-        let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
-        echo "your membership index is: ", membershipIndex
-        echo "your rln identity trapdoor is: ", identityCredential.idTrapdoor.inHex()
-        echo "your rln identity nullifier is: ", identityCredential.idNullifier.inHex()
-        echo "your rln identity secret hash is: ", identityCredential.idSecretHash.inHex()
-        echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
+      let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
+      let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
+      echo "your membership index is: ", membershipIndex
+      echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
     else:
       info "WakuRLNRelay is disabled"
-      echo "WakuRLNRelay is disabled, please enable it by compiling with the RLN/EXPERIMENTAL flag"
+      echo "WakuRLNRelay is disabled, please enable it by passing in the --rln-relay flag"
   if conf.metricsLogging:
     startMetricsLog()
 

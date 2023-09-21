@@ -52,7 +52,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.mountFilter()))
 
     # Dial node2 from node1
-    let conn = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuFilterCodec)
+    let conn = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)
     # Check connection
     check:
       conn.isSome()
@@ -81,12 +81,12 @@ procSuite "Peer Manager":
     let nonExistentPeer = nonExistentPeerRes.value
 
     # Dial non-existent peer from node1
-    let conn1 = await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuFilterCodec)
+    let conn1 = await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuLegacyFilterCodec)
     check:
       conn1.isNone()
 
     # Dial peer not supporting given protocol
-    let conn2 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuFilterCodec)
+    let conn2 = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)
     check:
       conn2.isNone()
 
@@ -109,14 +109,14 @@ procSuite "Peer Manager":
     node.mountStoreClient()
 
     node.peerManager.addServicePeer(storePeer.toRemotePeerInfo(), WakuStoreCodec)
-    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuFilterCodec)
+    node.peerManager.addServicePeer(filterPeer.toRemotePeerInfo(), WakuLegacyFilterCodec)
 
     # Check peers were successfully added to peer manager
     check:
       node.peerManager.peerStore.peers().len == 2
-      node.peerManager.peerStore.peers(WakuFilterCodec).allIt(it.peerId == filterPeer.peerId and
+      node.peerManager.peerStore.peers(WakuLegacyFilterCodec).allIt(it.peerId == filterPeer.peerId and
                                                               it.addrs.contains(filterLoc) and
-                                                              it.protocols.contains(WakuFilterCodec))
+                                                              it.protocols.contains(WakuLegacyFilterCodec))
       node.peerManager.peerStore.peers(WakuStoreCodec).allIt(it.peerId == storePeer.peerId and
                                                              it.addrs.contains(storeLoc) and
                                                              it.protocols.contains(WakuStoreCodec))
@@ -429,7 +429,7 @@ procSuite "Peer Manager":
 
     # service peers
     node.peerManager.addServicePeer(peers[0], WakuStoreCodec)
-    node.peerManager.addServicePeer(peers[1], WakuFilterCodec)
+    node.peerManager.addServicePeer(peers[1], WakuLegacyFilterCodec)
     node.peerManager.addServicePeer(peers[2], WakuLightPushCodec)
     node.peerManager.addServicePeer(peers[3], WakuPeerExchangeCodec)
 
@@ -449,7 +449,7 @@ procSuite "Peer Manager":
     # all service peers are added to its service slot
     check:
       node.peerManager.serviceSlots[WakuStoreCodec].peerId == peers[0].peerId
-      node.peerManager.serviceSlots[WakuFilterCodec].peerId == peers[1].peerId
+      node.peerManager.serviceSlots[WakuLegacyFilterCodec].peerId == peers[1].peerId
       node.peerManager.serviceSlots[WakuLightPushCodec].peerId == peers[2].peerId
       node.peerManager.serviceSlots[WakuPeerExchangeCodec].peerId == peers[3].peerId
 
@@ -474,11 +474,11 @@ procSuite "Peer Manager":
       (await nodes[0].peerManager.connectRelay(pInfos[2])) == true
       (await nodes[1].peerManager.connectRelay(pInfos[2])) == true
 
-      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
-      (await nodes[0].peerManager.dialPeer(pInfos[2], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuLegacyFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[2], WakuLegacyFilterCodec)).isSome() == true
 
       # isolated dial creates a relay conn under the hood (libp2p behaviour)
-      (await nodes[2].peerManager.dialPeer(pInfos[3], WakuFilterCodec)).isSome() == true
+      (await nodes[2].peerManager.dialPeer(pInfos[3], WakuLegacyFilterCodec)).isSome() == true
 
 
     # assert physical connections
@@ -486,26 +486,26 @@ procSuite "Peer Manager":
       nodes[0].peerManager.connectedPeers(WakuRelayCodec)[0].len == 0
       nodes[0].peerManager.connectedPeers(WakuRelayCodec)[1].len == 2
 
-      nodes[0].peerManager.connectedPeers(WakuFilterCodec)[0].len == 0
-      nodes[0].peerManager.connectedPeers(WakuFilterCodec)[1].len == 2
+      nodes[0].peerManager.connectedPeers(WakuLegacyFilterCodec)[0].len == 0
+      nodes[0].peerManager.connectedPeers(WakuLegacyFilterCodec)[1].len == 2
 
       nodes[1].peerManager.connectedPeers(WakuRelayCodec)[0].len == 1
       nodes[1].peerManager.connectedPeers(WakuRelayCodec)[1].len == 1
 
-      nodes[1].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
-      nodes[1].peerManager.connectedPeers(WakuFilterCodec)[1].len == 0
+      nodes[1].peerManager.connectedPeers(WakuLegacyFilterCodec)[0].len == 1
+      nodes[1].peerManager.connectedPeers(WakuLegacyFilterCodec)[1].len == 0
 
       nodes[2].peerManager.connectedPeers(WakuRelayCodec)[0].len == 2
       nodes[2].peerManager.connectedPeers(WakuRelayCodec)[1].len == 1
 
-      nodes[2].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
-      nodes[2].peerManager.connectedPeers(WakuFilterCodec)[1].len == 1
+      nodes[2].peerManager.connectedPeers(WakuLegacyFilterCodec)[0].len == 1
+      nodes[2].peerManager.connectedPeers(WakuLegacyFilterCodec)[1].len == 1
 
       nodes[3].peerManager.connectedPeers(WakuRelayCodec)[0].len == 1
       nodes[3].peerManager.connectedPeers(WakuRelayCodec)[1].len == 0
 
-      nodes[3].peerManager.connectedPeers(WakuFilterCodec)[0].len == 1
-      nodes[3].peerManager.connectedPeers(WakuFilterCodec)[1].len == 0
+      nodes[3].peerManager.connectedPeers(WakuLegacyFilterCodec)[0].len == 1
+      nodes[3].peerManager.connectedPeers(WakuLegacyFilterCodec)[1].len == 0
 
   asyncTest "getNumStreams() returns expected number of connections per protocol":
     # Create 2 nodes
@@ -521,17 +521,17 @@ procSuite "Peer Manager":
     require:
       # multiple streams are multiplexed over a single connection.
       # note that a relay connection is created under the hood when dialing a peer (libp2p behaviour)
-      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
-      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
-      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
-      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuLegacyFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuLegacyFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuLegacyFilterCodec)).isSome() == true
+      (await nodes[0].peerManager.dialPeer(pInfos[1], WakuLegacyFilterCodec)).isSome() == true
 
     check:
       nodes[0].peerManager.getNumStreams(WakuRelayCodec) == (1, 1)
-      nodes[0].peerManager.getNumStreams(WakuFilterCodec) == (0, 4)
+      nodes[0].peerManager.getNumStreams(WakuLegacyFilterCodec) == (0, 4)
 
       nodes[1].peerManager.getNumStreams(WakuRelayCodec) == (1, 1)
-      nodes[1].peerManager.getNumStreams(WakuFilterCodec) == (4, 0)
+      nodes[1].peerManager.getNumStreams(WakuLegacyFilterCodec) == (4, 0)
 
   test "selectPeer() returns the correct peer":
     # Valid peer id missing the last digit
@@ -552,7 +552,7 @@ procSuite "Peer Manager":
 
     # Add a peer[0] to the peerstore
     pm.peerStore[AddressBook][peers[0].peerId] = peers[0].addrs
-    pm.peerStore[ProtoBook][peers[0].peerId] = @[WakuRelayCodec, WakuStoreCodec, WakuFilterCodec]
+    pm.peerStore[ProtoBook][peers[0].peerId] = @[WakuRelayCodec, WakuStoreCodec, WakuLegacyFilterCodec]
 
     # When no service peers, we get one from the peerstore
     let selectedPeer1 = pm.selectPeer(WakuStoreCodec)
@@ -561,7 +561,7 @@ procSuite "Peer Manager":
       selectedPeer1.get().peerId == peers[0].peerId
 
     # Same for other protocol
-    let selectedPeer2 = pm.selectPeer(WakuFilterCodec)
+    let selectedPeer2 = pm.selectPeer(WakuLegacyFilterCodec)
     check:
       selectedPeer2.isSome() == true
       selectedPeer2.get().peerId == peers[0].peerId
@@ -757,7 +757,7 @@ procSuite "Peer Manager":
     discard await nodes[0].peerManager.connectRelay(pInfos[3])
     discard await nodes[0].peerManager.connectRelay(pInfos[4])
 
-    # they are also prunned 
+    # they are also prunned
     check nodes[0].peerManager.switch.connManager.getConnections().len == 1
 
     # we should have 4 peers (2in/2out) but due to collocation limit

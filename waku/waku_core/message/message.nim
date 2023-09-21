@@ -34,8 +34,7 @@ type WakuMessage* = object
     # The ephemeral attribute indicates signifies the transient nature of the
     # message (if the message should be stored).
     ephemeral*: bool
-    # EXPERIMENTAL: Part of RFC 17: https://rfc.vac.dev/spec/17/
-    when defined(rln):
-      # The proof attribute indicates that the message is not a spam. This
-      # attribute will be used in the rln-relay protocol.
-      proof*: seq[byte]
+    # Part of RFC 17: https://rfc.vac.dev/spec/17/
+    # The proof attribute indicates that the message is not spam. This
+    # attribute will be used in the rln-relay protocol.
+    proof*: seq[byte]

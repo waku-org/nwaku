@@ -5,7 +5,8 @@ import
   ./waku_core/test_namespaced_topics,
   ./waku_core/test_time,
   ./waku_core/test_message_digest,
-  ./waku_core/test_peers
+  ./waku_core/test_peers,
+  ./waku_core/test_published_address
 
 
 # Waku archive test suite
@@ -20,9 +21,10 @@ import
   ./waku_archive/test_waku_archive
 
 const os* {.strdefine.} = ""
-when os == "Linux":
+when os == "Linux" and
   # GitHub only supports container actions on Linux
   # and we need to start a postgress database in a docker container
+  defined(postgres):
   import
     ./waku_archive/test_driver_postgres_query,
     ./waku_archive/test_driver_postgres
@@ -45,6 +47,7 @@ import
 
 # Waku filter test suite
 import
+  ./waku_filter_v2/test_waku_client,
   ./waku_filter_v2/test_waku_filter,
   ./waku_filter_v2/test_waku_filter_protocol
 
@@ -55,8 +58,8 @@ import
   ./test_waku_lightpush,
   ./test_wakunode_lightpush,
   # Waku Filter
-  ./test_waku_filter,
-  ./test_wakunode_filter,
+  ./test_waku_filter_legacy,
+  ./test_wakunode_filter_legacy,
   ./test_waku_peer_exchange,
   ./test_peer_store_extended,
   ./test_message_cache,
@@ -92,14 +95,13 @@ import
   ./wakunode_rest/test_rest_relay,
   ./wakunode_rest/test_rest_relay_serdes,
   ./wakunode_rest/test_rest_serdes,
-  ./wakunode_rest/test_rest_store
+  ./wakunode_rest/test_rest_store,
+  ./wakunode_rest/test_rest_filter,
+  ./wakunode_rest/test_rest_legacy_filter
 
-
-## Experimental
-
-when defined(rln):
-  import
-    ./waku_rln_relay/test_waku_rln_relay,
-    ./waku_rln_relay/test_wakunode_rln_relay,
-    ./waku_rln_relay/test_rln_group_manager_onchain,
-    ./waku_rln_relay/test_rln_group_manager_static
+import
+  ./waku_rln_relay/test_waku_rln_relay,
+  ./waku_rln_relay/test_wakunode_rln_relay,
+  ./waku_rln_relay/test_rln_group_manager_onchain,
+  ./waku_rln_relay/test_rln_group_manager_static,
+  ./wakunode_rest/test_rest_health

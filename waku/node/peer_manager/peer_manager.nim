@@ -53,7 +53,7 @@ const
   ConnectivityLoopInterval = chronos.seconds(15)
 
   # How often the peer store is pruned
-  PrunePeerStoreInterval = chronos.minutes(5)
+  PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
   LogAndMetricsInterval = chronos.minutes(3)
@@ -121,8 +121,9 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   discard remotePeerInfo.peerId.extractPublicKey(publicKey)
 
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
-     pm.peerStore[KeyBook][remotePeerInfo.peerId] == publicKey:
-    # Peer already managed
+     pm.peerStore[KeyBook][remotePeerInfo.peerId] == publicKey and
+     pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
+    # Peer already managed and ENR info is already saved
     return
 
   trace "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
@@ -583,15 +584,16 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
   let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  if inRelayPeers.len > pm.inRelayPeersTarget:
-    await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
+  # TODO: Temporally disabled. Might be causing connection issues
+  #if inRelayPeers.len > pm.inRelayPeersTarget:
+  #  await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
   let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
   let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
-  let numPeersToConnect = min(min(maxConnections - totalRelayPeers, outsideBackoffPeers.len), MaxParalelDials)
+  let numPeersToConnect = min(outsideBackoffPeers.len, MaxParalelDials)
 
   await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect])
 

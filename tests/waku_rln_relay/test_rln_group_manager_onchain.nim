@@ -193,6 +193,8 @@ suite "Onchain group manager":
       manager.initialized
       manager.rlnContractDeployedBlockNumber > 0
 
+    await manager.stop()
+
   asyncTest "should error on initialization when loaded metadata does not match":
     let manager = await setup()
     await manager.init()
@@ -220,12 +222,14 @@ suite "Onchain group manager":
 
     await manager.init()
     await manager.startGroupSync()
+    await manager.stop()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = await setup()
 
     expect(ValueError):
       await manager.startGroupSync()
+    await manager.stop()
 
   asyncTest "startGroupSync: should sync to the state of the group":
     let manager = await setup()
@@ -262,6 +266,7 @@ suite "Onchain group manager":
 
     check:
       merkleRootBefore != merkleRootAfter
+    await manager.stop()
 
   asyncTest "startGroupSync: should fetch history correctly":
     let manager = await setup()
@@ -303,6 +308,7 @@ suite "Onchain group manager":
     check:
       merkleRootBefore != merkleRootAfter
       manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
+    await manager.stop()
 
   asyncTest "register: should guard against uninitialized state":
     let manager = await setup()
@@ -310,6 +316,7 @@ suite "Onchain group manager":
 
     expect(ValueError):
       await manager.register(dummyCommitment)
+    await manager.stop()
 
   asyncTest "register: should register successfully":
     let manager = await setup()
@@ -329,6 +336,7 @@ suite "Onchain group manager":
     check:
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
       manager.latestIndex == 1
+    await manager.stop()
 
   asyncTest "register: callback is called":
     let manager = await setup()
@@ -354,6 +362,7 @@ suite "Onchain group manager":
 
     check:
       manager.rlnInstance.getMetadata().get().validRoots == manager.validRoots.toSeq()
+    await manager.stop()
 
   asyncTest "withdraw: should guard against uninitialized state":
     let manager = await setup()
@@ -361,6 +370,7 @@ suite "Onchain group manager":
 
     expect(ValueError):
       await manager.withdraw(idSecretHash)
+    await manager.stop()
 
   asyncTest "validateRoot: should validate good root":
     let manager = await setup()
@@ -402,6 +412,7 @@ suite "Onchain group manager":
 
     check:
       validated
+    await manager.stop()
 
   asyncTest "validateRoot: should reject bad root":
     let manager = await setup()
@@ -432,6 +443,7 @@ suite "Onchain group manager":
 
     check:
       validated == false
+    await manager.stop()
 
   asyncTest "verifyProof: should verify valid proof":
     let manager = await setup()
@@ -474,6 +486,7 @@ suite "Onchain group manager":
 
     check:
       verifiedRes.get()
+    await manager.stop()
 
   asyncTest "verifyProof: should reject invalid proof":
     let manager = await setup()
@@ -510,6 +523,7 @@ suite "Onchain group manager":
 
     check:
       verifiedRes.get() == false
+    await manager.stop()
 
   asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
     let manager = await setup()
@@ -554,6 +568,7 @@ suite "Onchain group manager":
       manager.validRoots.len() == credentialCount - 1
       manager.validRootBuffer.len() == 0
       manager.validRoots[credentialCount - 2] == expectedLastRoot
+    await manager.stop()
 
   asyncTest "isReady should return false if ethRpc is none":
     var manager = await setup()
@@ -563,6 +578,7 @@ suite "Onchain group manager":
 
     check:
       (await manager.isReady()) == false
+    await manager.stop()
 
   asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
     var manager = await setup()
@@ -570,6 +586,7 @@ suite "Onchain group manager":
 
     check:
       (await manager.isReady()) == false
+    await manager.stop()
 
   asyncTest "isReady should return true if ethRpc is ready":
     var manager = await setup()
@@ -579,6 +596,7 @@ suite "Onchain group manager":
     
     check:
       (await manager.isReady()) == true
+    await manager.stop()
 
 
   ################################

@@ -10,35 +10,28 @@ import
   metrics/chronos_httpserver
 import
   ../waku_filter/protocol_metrics as filter_metrics,
+  ../waku_rln_relay/protocol_metrics as rln_metrics,
+
   ../utils/collector,
   ./peer_manager,
   ./waku_node
-
-when defined(rln):
-  import ../waku_rln_relay/protocol_metrics as rln_metrics
-
 
 const LogInterval = 30.seconds
 
 logScope:
   topics = "waku node metrics"
 
-
-type
-  # https://github.com/nim-lang/Nim/issues/17369
-  MetricsLogger = proc(udata: pointer) {.gcsafe, raises: [Defect].}
-
 proc startMetricsLog*() =
-  var logMetrics: MetricsLogger
+  var logMetrics: CallbackFunc
 
   var cumulativeErrors = 0.float64
   var cumulativeConns = 0.float64
 
-  when defined(rln):
-    let logRlnMetrics = getRlnMetricsLogger()
+  let logRlnMetrics = getRlnMetricsLogger()
 
-  logMetrics = proc(udata: pointer) =
-    {.gcsafe.}:
+  logMetrics = CallbackFunc(
+    proc(udata: pointer) {.gcsafe.} =
+
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
       # public in libp2p or do our own peer counting after all.
 
@@ -63,9 +56,9 @@ proc startMetricsLog*() =
       info "Total errors", count = $freshErrorCount
 
       # Start protocol specific metrics logging
-      when defined(rln):
-        logRlnMetrics()
+      logRlnMetrics()
 
-    discard setTimer(Moment.fromNow(LogInterval), logMetrics)
+      discard setTimer(Moment.fromNow(LogInterval), logMetrics)
+  )
 
   discard setTimer(Moment.fromNow(LogInterval), logMetrics)

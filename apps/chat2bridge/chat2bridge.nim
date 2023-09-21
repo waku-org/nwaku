@@ -18,6 +18,7 @@ import
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
   ../../waku/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
@@ -297,7 +298,8 @@ when isMainModule:
   if conf.filternode != "":
     let filterPeer = parsePeerInfo(conf.filternode)
     if filterPeer.isOk():
-      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuLegacyFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
     else:
       error "Error parsing conf.filternode", error = filterPeer.error
 

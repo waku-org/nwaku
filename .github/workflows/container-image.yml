@@ -3,8 +3,6 @@ name: container-image-build
 on:
   workflow_call:
     inputs:
-      experimental:
-        type: boolean
       image_tag:
         type: string
         default: ${{ github.event.number }}
@@ -49,15 +47,13 @@ jobs:
       - name: Build binaries
         id: build
         run: |
-          EXPERIMENTAL=${{ inputs.experimental }}
 
-          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative" wakunode2 EXPERIMENTAL=${EXPERIMENTAL}
+          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative" wakunode2 
 
           SHORT_REF=$(git rev-parse --short HEAD)
 
           TAG=$([ "${PR_NUMBER}" == "" ] && echo "${SHORT_REF}" || echo "${PR_NUMBER}")
-          TAG=$([ "${EXPERIMENTAL}" == "true" ] && echo "${TAG}-experimental" || echo "${TAG}")
-          IMAGE=quay.io/waku-org/nwaku-pr:${TAG}
+          IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
 
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
@@ -75,11 +71,11 @@ jobs:
         if: ${{ github.event_name == 'pull_request' }}
         with:
           message: |
-            You can find the ${{ inputs.experimental && '**experimental**' || ''}} image built from this PR at
+            You can find the image built from this PR at
 
             ```
             ${{steps.build.outputs.image}}
             ```
 
             Built from ${{ steps.build.outputs.commit_hash }}
-          comment_tag: execution${{ inputs.experimental && '**experimental**' || ''}}
+          comment_tag: execution

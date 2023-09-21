@@ -216,7 +216,7 @@ procSuite "WakuNode - Store":
 
     let mountArchiveRes = server.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
-    
+
     waitFor server.mountStore()
     waitFor server.mountFilterClient()
     client.mountStoreClient()
@@ -232,7 +232,7 @@ procSuite "WakuNode - Store":
     proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
       filterFut.complete((pubsubTopic, msg))
 
-    waitFor server.filterSubscribe(some(DefaultPubsubTopic), DefaultContentTopic, filterHandler, peer=filterSourcePeer)
+    waitFor server.legacyFilterSubscribe(some(DefaultPubsubTopic), DefaultContentTopic, filterHandler, peer=filterSourcePeer)
 
     waitFor sleepAsync(100.millis)
 
