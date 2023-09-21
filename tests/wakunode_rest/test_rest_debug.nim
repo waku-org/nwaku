@@ -11,11 +11,11 @@ import
 import
   ../../waku/waku_node,
   ../../waku/node/waku_node as waku_node2,  # TODO: Remove after moving `git_version` to the app code.
-  ../../waku/node/rest/server,
-  ../../waku/node/rest/client,
-  ../../waku/node/rest/responses,
-  ../../waku/node/rest/debug/handlers as debug_api,
-  ../../waku/node/rest/debug/client as debug_api_client,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/client,
+  ../../waku/waku_api/rest/responses,
+  ../../waku/waku_api/rest/debug/handlers as debug_api,
+  ../../waku/waku_api/rest/debug/client as debug_api_client,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode

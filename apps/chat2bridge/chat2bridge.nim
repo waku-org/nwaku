@@ -217,11 +217,11 @@ proc stop*(cmb: Chat2MatterBridge) {.async.} =
 when isMainModule:
   import
     ../../../waku/common/utils/nat,
-    ../../waku/node/message_cache,
-    ../../waku/node/jsonrpc/debug/handlers as debug_api,
-    ../../waku/node/jsonrpc/filter/handlers as filter_api,
-    ../../waku/node/jsonrpc/relay/handlers as relay_api,
-    ../../waku/node/jsonrpc/store/handlers as store_api
+    ../../waku/waku_api/message_cache,
+    ../../waku/waku_api/jsonrpc/debug/handlers as debug_api,
+    ../../waku/waku_api/jsonrpc/filter/handlers as filter_api,
+    ../../waku/waku_api/jsonrpc/relay/handlers as relay_api,
+    ../../waku/waku_api/jsonrpc/store/handlers as store_api
 
 
   proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =

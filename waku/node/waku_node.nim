@@ -20,7 +20,6 @@ import
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/rendezvous,
-  libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
@@ -41,9 +40,7 @@ import
   ../waku_peer_exchange,
   ../waku_rln_relay,
   ./config,
-  ./peer_manager,
-  ./waku_switch,
-  ./rest/relay/topic_cache
+  ./peer_manager
 
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]

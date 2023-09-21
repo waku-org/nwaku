@@ -12,9 +12,10 @@ import
   ../../../waku_filter,
   ../../../waku_filter/rpc,
   ../../../waku_filter/client,
-  ../../message_cache,
-  ../../peer_manager,
-  ../../waku_node
+  ../../../waku_node,
+  ../../../node/peer_manager,
+  ../../message_cache
+  
 
 
 logScope:

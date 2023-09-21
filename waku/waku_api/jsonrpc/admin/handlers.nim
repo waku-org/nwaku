@@ -12,8 +12,8 @@ import
   ../../../waku_store,
   ../../../waku_filter,
   ../../../waku_relay,
-  ../../peer_manager,
-  ../../waku_node,
+  ../../../waku_node,
+  ../../../node/peer_manager,
   ./types
 
 

@@ -11,8 +11,8 @@ import
   ../../../waku_core,
   ../../../waku_store,
   ../../../waku_store/rpc,
-  ../../waku_node,
-  ../../peer_manager,
+  ../../../waku_node,
+  ../../../node/peer_manager,
   ./types
 
 

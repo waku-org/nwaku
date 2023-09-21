@@ -11,11 +11,10 @@ import
   json_serialization,
   presto/route
 import
-  ../../../common/base64,
   ../../../waku_core,
   ../../../waku_store/common,
-  ../../waku_node,
-  ../../peer_manager,
+  ../../../waku_node,
+  ../../../node/peer_manager,
   ../responses,
   ../serdes,
   ./types

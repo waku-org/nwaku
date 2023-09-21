@@ -12,11 +12,11 @@ import
 import
   ../../waku/waku_node,
   ../../waku/node/waku_node as waku_node2,  # TODO: Remove after moving `git_version` to the app code.
-  ../../waku/node/rest/server,
-  ../../waku/node/rest/client,
-  ../../waku/node/rest/responses,
-  ../../waku/node/rest/health/handlers as health_api,
-  ../../waku/node/rest/health/client as health_api_client,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/client,
+  ../../waku/waku_api/rest/responses,
+  ../../waku/waku_api/rest/health/handlers as health_api,
+  ../../waku/waku_api/rest/health/client as health_api_client,
   ../../waku/waku_rln_relay,
   ../testlib/common,
   ../testlib/testutils,
