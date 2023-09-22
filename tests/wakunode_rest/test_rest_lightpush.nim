@@ -148,6 +148,8 @@ suite "Waku v2 Rest API - lightpush":
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
+      response.data.startsWith("Invalid content body")
+
 
     # when
     response = await restLightPushTest.client.sendPushRequest(badRequestBody2)
@@ -156,6 +158,7 @@ suite "Waku v2 Rest API - lightpush":
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
+      response.data.startsWith("Invalid content body")
 
     # when
     response = await restLightPushTest.client.sendPushRequest(badRequestBody3)
@@ -164,16 +167,13 @@ suite "Waku v2 Rest API - lightpush":
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
+      response.data.startsWith("Invalid content body")
 
     await restLightPushTest.shutdown()
 
   asyncTest "Push message request service not available":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
-
-    # restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
-    # require:
-    #   toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
     # When
     let message : RelayWakuMessage = fakeWakuMessage(contentTopic = DefaultContentTopic,
@@ -189,5 +189,6 @@ suite "Waku v2 Rest API - lightpush":
     check:
       response.status == 503
       $response.contentType == $MIMETYPE_TEXT
+      response.data == "Failed to request a message push: Can not publish to any peers"
 
     await restLightPushTest.shutdown()
