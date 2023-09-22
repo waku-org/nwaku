@@ -20,6 +20,7 @@ import
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/rendezvous,
+  libp2p/discovery/discoverymngr,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/transports/tcptransport,
@@ -98,6 +99,7 @@ type
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
     rendezvous*: RendezVous
+    dm*: DiscoveryManager
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]

@@ -11,7 +11,8 @@ import
   metrics,
   libbacktrace,
   system/ansi_c,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  libp2p/discovery/[rendezvousinterface, discoverymngr]
 import
   ../../waku/common/logging,
   ./external_config,
@@ -91,6 +92,11 @@ when isMainModule:
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
+
+  wakunode2.dm = DiscoveryManager()
+  wakunode2.dm.add(RendezVousInterface.new(rdv = wakunode2.node.rendezvous, tta = 1.minutes))
+  for topic in wakunode2.topics:
+    wakunode2.dm.advertise(RdvNamespace(topic))
 
   debug "6/7 Starting monitoring and external interfaces"
 

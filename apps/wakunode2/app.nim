@@ -11,6 +11,7 @@ import
   libp2p/crypto/crypto,
   libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/discovery/discoverymngr,
   libp2p/peerid,
   eth/keys,
   json_rpc/rpcserver,
@@ -80,6 +81,9 @@ type
     rpcServer: Option[RpcHttpServer]
     restServer: Option[RestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
+
+    topics: seq[string]
+    dm: DiscoveryManager
 
   AppResult*[T] = Result[T, string]
 
@@ -160,7 +164,8 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     rng: rng,
     key: key,
     record: record,
-    node: nil
+    node: nil,
+    topics: topics,
   )
 
 
@@ -329,13 +334,15 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
 ## Mount protocols
 
-proc setupProtocols(node: WakuNode,
-                    conf: WakuNodeConf,
-                    nodeKey: crypto.PrivateKey):
-                    Future[AppResult[void]] {.async.} =
+proc setupProtocols(app: App): Future[AppResult[void]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
+
+  let
+    node = app.node
+    conf = app.conf
+    key = app.key
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -355,14 +362,7 @@ proc setupProtocols(node: WakuNode,
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics =
-      if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-        # TODO autoshard content topics only once.
-        # Already checked for errors in app.init
-        let shards = conf.contentTopics.mapIt(getShard(it).expect("Valid Shard"))
-        conf.pubsubTopics & shards
-      else:
-        conf.topics
+    let pubsubTopics = app.topics
 
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
@@ -493,9 +493,7 @@ proc setupProtocols(node: WakuNode,
 
 proc setupAndMountProtocols*(app: App): Future[AppResult[void]] {.async.} =
   return await setupProtocols(
-    app.node,
-    app.conf,
-    app.key
+    app
   )
 
 ## Start node
