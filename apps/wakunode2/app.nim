@@ -38,26 +38,25 @@ import
   ../../waku/waku_lightpush,
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
-  ../../waku/waku_filter_v2/client as waku_filter_client,
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
 import
-  ../../waku/node/message_cache,
-  ../../waku/node/rest/server,
-  ../../waku/node/rest/debug/handlers as rest_debug_api,
-  ../../waku/node/rest/relay/handlers as rest_relay_api,
-  ../../waku/node/rest/relay/topic_cache,
-  ../../waku/node/rest/filter/legacy_handlers as rest_legacy_filter_api,
-  ../../waku/node/rest/filter/handlers as rest_filter_api,
-  ../../waku/node/rest/store/handlers as rest_store_api,
-  ../../waku/node/rest/health/handlers as rest_health_api,
-  ../../waku/node/rest/lightpush/handlers as rest_lightpush_api,
-  ../../waku/node/jsonrpc/admin/handlers as rpc_admin_api,
-  ../../waku/node/jsonrpc/debug/handlers as rpc_debug_api,
-  ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
-  ../../waku/node/jsonrpc/relay/handlers as rpc_relay_api,
-  ../../waku/node/jsonrpc/store/handlers as rpc_store_api
+  ../../waku/waku_api/message_cache,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
+  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
+  ../../waku/waku_api/rest/relay/topic_cache,
+  ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
+  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
+  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
+  ../../waku/waku_api/rest/store/handlers as rest_store_api,
+  ../../waku/waku_api/rest/health/handlers as rest_health_api,
+  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
+  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
+  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
+  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
+  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api
 
 logScope:
   topics = "wakunode app"
@@ -591,7 +590,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
 
-  installLightPushRequestHandler(server.router, app.node)
+  ## Light push API
+  rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"

@@ -15,9 +15,9 @@ import
   ../../../waku_core,
   ../../../waku_filter,
   ../../../waku_filter/client,
+  ../../../node/peer_manager,
+  ../../../waku_node,
   ../../message_cache,
-  ../../peer_manager,
-  ../../waku_node,
   ../serdes,
   ../responses,
   ./types
