@@ -114,14 +114,14 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   let autonatService = AutonatService.new(
     autonatClient = AutonatClient.new(),
     rng = rng,
-    scheduleInterval = some(chronos.seconds(120)),
+    scheduleInterval = Opt.some(chronos.seconds(120)),
     askNewConnectedPeers = false,
     numPeersToAsk = 3,
     maxQueueSize = 3,
     minConfidence = 0.7)
 
   proc statusAndConfidenceHandler(networkReachability: NetworkReachability,
-                                  confidence: Option[float]):
+                                  confidence: Opt[float]):
                                   Future[void]  {.gcsafe, async.} =
     if confidence.isSome():
       info "Peer reachability status", networkReachability=networkReachability, confidence=confidence.get()
