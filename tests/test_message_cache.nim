@@ -6,7 +6,7 @@ import
   chronicles
 import
   ../../waku/waku_core,
-  ../../waku/node/message_cache,
+  ../../waku/waku_api/message_cache,
   ./testlib/common,
   ./testlib/wakucore
 

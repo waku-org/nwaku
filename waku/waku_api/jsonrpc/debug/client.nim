@@ -7,7 +7,7 @@ import
   std/[os, strutils],
   json_rpc/rpcclient
 import
-  ../../waku_node
+  ../../../waku_node
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 

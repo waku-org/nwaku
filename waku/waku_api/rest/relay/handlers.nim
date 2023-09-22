@@ -12,7 +12,7 @@ import
   presto/route,
   presto/common
 import
-  ../../waku_node,
+  ../../../waku_node,
   ../../../waku_relay/protocol,
   ../../../waku_rln_relay,
   ../../../waku_rln_relay/rln/wrappers,

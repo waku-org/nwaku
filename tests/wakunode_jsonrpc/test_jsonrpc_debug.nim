@@ -11,8 +11,8 @@ import
 import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_node,
-  ../../../waku/node/jsonrpc/debug/handlers as debug_api,
-  ../../../waku/node/jsonrpc/debug/client as debug_api_client,
+  ../../../waku/waku_api/jsonrpc/debug/handlers as debug_api,
+  ../../../waku/waku_api/jsonrpc/debug/client as debug_api_client,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode

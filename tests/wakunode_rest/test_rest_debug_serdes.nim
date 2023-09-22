@@ -6,8 +6,8 @@ import
   testutils/unittests,
   json_serialization
 import
-  ../../waku/node/rest/serdes,
-  ../../waku/node/rest/debug/types
+  ../../waku/waku_api/rest/serdes,
+  ../../waku/waku_api/rest/debug/types
 
 
 suite "Waku v2 REST API - Debug -  serialization":

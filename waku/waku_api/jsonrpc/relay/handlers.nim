@@ -15,7 +15,7 @@ import
   ../../../waku_relay,
   ../../../waku_rln_relay,
   ../../../waku_rln_relay/rln/wrappers,
-  ../../waku_node,
+  ../../../waku_node,
   ../../message_cache,
   ../message
 

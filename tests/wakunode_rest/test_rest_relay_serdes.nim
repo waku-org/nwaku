@@ -7,8 +7,8 @@ import
   json_serialization
 import
   ../../waku/common/base64,
-  ../../waku/node/rest/serdes,
-  ../../waku/node/rest/relay/types,
+  ../../waku/waku_api/rest/serdes,
+  ../../waku/waku_api/rest/relay/types,
   ../../waku/waku_core
 
 
