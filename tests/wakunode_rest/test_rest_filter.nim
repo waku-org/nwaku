@@ -23,7 +23,6 @@ import
   ../../waku/waku_relay,
   ../../waku/waku_filter_v2/subscriptions,
   ../../waku/waku_filter_v2/common,
-  ../../waku/waku_api/rest/relay/topic_cache,
   ../../waku/waku_api/rest/relay/handlers as relay_api,
   ../../waku/waku_api/rest/relay/client as relay_api_client,
   ../testlib/wakucore,

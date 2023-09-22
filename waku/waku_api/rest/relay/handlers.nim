@@ -16,7 +16,7 @@ import
   ../../../waku_relay/protocol,
   ../../../waku_rln_relay,
   ../../../waku_rln_relay/rln/wrappers,
-  ../../waku_node,
+  ../../../node/waku_node,
   ../../message_cache,
   ../../cache_handlers,
   ../serdes,
