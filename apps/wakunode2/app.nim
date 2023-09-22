@@ -49,6 +49,7 @@ import
   ../../waku/waku_api/rest/relay/topic_cache,
   ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
   ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
+  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
@@ -589,7 +590,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
 
-  installLightPushRequestHandler(server.router, app.node)
+  ## Light push API
+  rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"

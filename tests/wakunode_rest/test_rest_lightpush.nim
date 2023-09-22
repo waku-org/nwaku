@@ -9,18 +9,18 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../waku/node/message_cache,
+  ../../waku/waku_api/message_cache,
   ../../waku/common/base64,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/peer_manager,
   ../../waku/waku_lightpush,
-  ../../waku/node/rest/server,
-  ../../waku/node/rest/client,
-  ../../waku/node/rest/responses,
-  ../../waku/node/rest/lightpush/types,
-  ../../waku/node/rest/lightpush/handlers as lightpush_api,
-  ../../waku/node/rest/lightpush/client as lightpush_api_client,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/client,
+  ../../waku/waku_api/rest/responses,
+  ../../waku/waku_api/rest/lightpush/types,
+  ../../waku/waku_api/rest/lightpush/handlers as lightpush_api,
+  ../../waku/waku_api/rest/lightpush/client as lightpush_api_client,
   ../../waku/waku_relay,
   ../testlib/wakucore,
   ../testlib/wakunode

@@ -15,8 +15,8 @@ import
 
 import
   ../../../waku_core,
-  ../../peer_manager,
-  ../../waku_node,
+  ../../waku/node/peer_manager,
+  ../../../waku_node,
   ../../waku/waku_lightpush,
   ../serdes,
   ../responses,
