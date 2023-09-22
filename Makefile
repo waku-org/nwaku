@@ -35,7 +35,7 @@ else # "variables.mk" was included. Business as usual until the end of this file
 .PHONY: all test update clean
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode2 example2 chat2 chat2bridge
+all: | wakunode2 example2 chat2 chat2bridge libwaku
 
 test: | testcommon testwaku
 
