@@ -91,7 +91,7 @@ proc new*(
     bootstrapRecords.keepIf(shardPredOp.get())
   
   if conf.bootstrapRecords.len > 0 and bootstrapRecords.len == 0:
-    warn "No discv5 bootstrap nodes share our configured shards"
+    warn "No discv5 bootstrap nodes share this node configured shards"
 
   let protocol = newProtocol(
     rng = rng,
