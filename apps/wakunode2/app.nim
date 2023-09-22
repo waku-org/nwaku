@@ -52,6 +52,7 @@ import
   ../../waku/node/rest/filter/handlers as rest_filter_api,
   ../../waku/node/rest/store/handlers as rest_store_api,
   ../../waku/node/rest/health/handlers as rest_health_api,
+  ../../waku/node/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/node/jsonrpc/admin/handlers as rpc_admin_api,
   ../../waku/node/jsonrpc/debug/handlers as rpc_debug_api,
   ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
@@ -589,6 +590,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
+
+  installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
