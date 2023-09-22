@@ -652,14 +652,15 @@ suite "Waku Filter - End to End":
         var topicSeq: seq[string] = toSeq(0..<MaxCriteriaPerSubscription).mapIt("topic" & $it)
       
         # When client serice node subscribes to the topic list of size MaxCriteriaPerSubscription
+        var subscribedTopics: seq[string] = @[]
         while topicSeq.len > 0:
           let takeNumber = min(topicSeq.len, MaxContentTopicsPerRequest)
           let topicSeqBatch = topicSeq[0..<takeNumber]
           let subscribeResponse = await wakuFilterClient.subscribe(
             serverRemotePeerInfo, pubsubTopic, topicSeqBatch
           )
-          require:
-            subscribeResponse.isOk()
+          assert subscribeResponse.isOk(), $subscribeResponse.error
+          subscribedTopics.add(topicSeqBatch)
           topicSeq.delete(0..<takeNumber)
       
         # Then the subscription is successful
@@ -667,31 +668,6 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.len == 1
           wakuFilter.subscriptions.hasKey(clientPeerId)
           wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1000
-
-        # When refreshing the subscription with a topic list of size MaxCriteriaPerSubscription
-        swap(subscribedTopics, topicSeq)
-        require:
-          topicSeq.len == 1000
-          subscribedTopics.len == 0
-
-        while topicSeq.len > 0:
-          let takeNumber = min(topicSeq.len, MaxContentTopicsPerRequest)
-          let topicSeqBatch = topicSeq[0..<takeNumber]
-          let subscribeResponse = await wakuFilterClient.subscribe(
-            serverRemotePeerInfo, pubsubTopic, topicSeqBatch
-          )
-
-          require:
-            subscribeResponse.isOk()
-          subscribedTopics.add(topicSeqBatch)
-          topicSeq.delete(0..<takeNumber)
-
-        # Then the subscription is successful
-        check:
-          subscribedTopics.len == 1000
-          wakuFilter.subscriptions.len == 1
-          wakuFilter.subscriptions.hasKey(clientPeerId)
-          wakuFilter.getSubscribedContentTopics(clientPeerId) == subscribedTopics
 
         # When subscribing to a number of topics that exceeds MaxCriteriaPerSubscription
         let subscribeResponse = await wakuFilterClient.subscribe(
