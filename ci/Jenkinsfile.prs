@@ -12,6 +12,7 @@ pipeline {
         '-d:insecure',
         '-d:disableMarchNative',
         '--parallelBuild:6',
+        '-d:postgres',
       ].join(' ')
     )
     string(
