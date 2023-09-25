@@ -162,7 +162,9 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   # TODO: make this robust. search within the event list for the event
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
-  if firstTopic[0..65] != "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2":
+  if firstTopic != cast[FixedBytes[32]](hexToByteArray[32](
+                              "0x5a92c2530f207992057b9c3e544108ffce3beda4a63719f316967c49bf6159d2"
+                                  )):
     raise newException(ValueError, "unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
@@ -170,7 +172,7 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   let arguments = tsReceipt.logs[0].data
   debug "tx log data", arguments=arguments
   let
-    argumentsBytes = arguments.hexToSeqByte()
+    argumentsBytes = arguments
     # In TX log data, uints are encoded in big endian
     eventIndex =  UInt256.fromBytesBE(argumentsBytes[32..^1])
 
