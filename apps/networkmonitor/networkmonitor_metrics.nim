@@ -37,10 +37,15 @@ declarePublicGauge peer_user_agents,
     "Number of peers with each user agent",
     labels = ["user_agent"]
 
+declarePublicHistogram peer_ping,
+    "Histogram tracking ping durations for discovered peers",
+    buckets = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 2000.0, Inf]
+
 type
   CustomPeerInfo* = object
     # populated after discovery
-    lastTimeDiscovered*: string
+    lastTimeDiscovered*: int64
+    discovered*: int64
     peerId*: string
     enr*: string
     ip*: string
@@ -49,9 +54,12 @@ type
     city*: string
 
     # only after ok connection
-    lastTimeConnected*: string
+    lastTimeConnected*: int64
+    retries*: int64
     supportedProtocols*: seq[string]
     userAgent*: string
+    lastPingDuration*: Duration
+    avgPingDuration*: Duration
 
     # only after a ok/nok connection
     connError*: string

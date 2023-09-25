@@ -11,7 +11,7 @@ type
   NetworkMonitorConf* = object
     logLevel* {.
       desc: "Sets the log level",
-      defaultValue: LogLevel.DEBUG,
+      defaultValue: LogLevel.INFO,
       name: "log-level",
       abbr: "l" .}: LogLevel
 
