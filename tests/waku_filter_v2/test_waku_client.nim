@@ -106,7 +106,7 @@ suite "Waku Filter - End to End":
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
-        assert subscribeResponse.isOk(), $subscribeResponse.error
+        assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
         require:
           not wakuFilter.subscriptions.hasKey(clientPeerId)
 
@@ -162,7 +162,7 @@ suite "Waku Filter - End to End":
           unsubscribeResponse.isOk()
           wakuFilter.subscriptions.len == 0
 
-        # When sending a message to the previously subscribed content topic
+        # When sending a message to the previously unsubscribed content topic
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         let msg3 = fakeWakuMessage(contentTopic=contentTopic)
         await wakuFilter.handleMessage(pubsubTopic, msg3)
@@ -236,7 +236,7 @@ suite "Waku Filter - End to End":
           unsubscribeResponse.isOk()
           wakuFilter.subscriptions.len == 0
         
-        # When sending a message to the previously subscribed content topic
+        # When sending a message to the previously unsubscribed content topic
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         let msg4 = fakeWakuMessage(contentTopic=contentTopic)
         await wakuFilter.handleMessage(pubsubTopic, msg4)
@@ -245,7 +245,7 @@ suite "Waku Filter - End to End":
         check:
           not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
-        # When sending a message to the other previously subscribed content topic
+        # When sending a message to the other previously unsubscribed content topic
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         let msg5 = fakeWakuMessage(contentTopic=otherContentTopic)
         await wakuFilter.handleMessage(pubsubTopic, msg5)
@@ -368,7 +368,7 @@ suite "Waku Filter - End to End":
           unsubscribeResponse2.isOk()
           wakuFilter.subscriptions.len == 0
 
-        # When sending a message to the previously subscribed content topic
+        # When sending a message to the previously unsubscribed content topic
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         let msg6 = fakeWakuMessage(contentTopic=contentTopic)
         await wakuFilter.handleMessage(pubsubTopic, msg6)
