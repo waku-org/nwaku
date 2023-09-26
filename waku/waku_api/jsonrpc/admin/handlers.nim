@@ -14,29 +14,12 @@ import
   ../../../waku_relay,
   ../../../waku_node,
   ../../../node/peer_manager,
+  ../../../waku_core,
   ./types
 
 
 logScope:
   topics = "waku node jsonrpc admin_api"
-
-
-
-proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =
-  # Constructs a multiaddress with both wire address and p2p identity
-  $wireaddr & "/p2p/" & $peerId
-
-proc constructMultiaddrStr*(peerInfo: PeerInfo): string =
-  # Constructs a multiaddress with both location (wire) address and p2p identity
-  if peerInfo.listenAddrs.len == 0:
-    return ""
-  constructMultiaddrStr(peerInfo.listenAddrs[0], peerInfo.peerId)
-
-proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
-  # Constructs a multiaddress with both location (wire) address and p2p identity
-  if remotePeerInfo.addrs.len == 0:
-    return ""
-  constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)
 
 proc installAdminApiHandlers*(node: WakuNode, rpcsrv: RpcServer) =
 
