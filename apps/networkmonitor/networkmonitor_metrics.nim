@@ -64,8 +64,10 @@ type
     # only after a ok/nok connection
     connError*: string
 
+  CustomPeerInfoRef* = ref CustomPeerInfo
+
   # Stores information about all discovered/connected peers
-  CustomPeersTableRef* = TableRef[string, CustomPeerInfo]
+  CustomPeersTableRef* = TableRef[string, CustomPeerInfoRef]
 
   # stores the content topic and the count of rx messages
   ContentTopicMessageTableRef* = TableRef[string, int]
