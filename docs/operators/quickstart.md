@@ -29,7 +29,7 @@ make wakunode2
 
 ```bash
 docker run -i -t -p 60000:60000 -p 9000:9000/udp \
-  statusteam/nim-waku:v0.12.0 \ # or, the image:tag of your choice
+  wakuorg/nwaku:v0.20.0 \ # or, the image:tag of your choice
     --dns-discovery:true \
     --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im \
     --discv5-discovery \

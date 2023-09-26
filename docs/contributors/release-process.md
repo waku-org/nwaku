@@ -71,11 +71,11 @@ Ensure all items in this list are ticked:
 ### After the release
 
 1. Announce the release on Twitter, Discord and other channels.
-2. Deploy the release image to [Dockerhub](https://hub.docker.com/layers/statusteam/nim-waku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/manual/build).
+2. Deploy the release image to [Dockerhub](https://hub.docker.com/layers/wakuorg/nwaku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/manual/build).
   > Ensure the following build parameters are set:
   > - `MAKE_TARGET`: `wakunode2`
   > - `IMAGE_TAG`: the release tag (e.g. `v0.16.0`)
-  > - `IMAGE_NAME`: `statusteam/nim-waku`
+  > - `IMAGE_NAME`: `wakuorg/nwaku`
   > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none`
   > - `GIT_REF` the release tag (e.g. `v0.16.0`)
 3. Deploy the release to appropriate fleets:

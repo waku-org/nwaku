@@ -24,7 +24,12 @@ pipeline {
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'statusteam/nim-waku',
+      defaultValue: params.IMAGE_NAME ?: 'wakuorg/nwaku',
+    )
+    string(
+      name: 'DOCKER_CRED',
+      description: 'Name of Docker Hub credential.',
+      defaultValue: params.DOCKER_CRED ?: 'dockerhub-vacorgbot-api-token',
     )
     string(
       name: 'NIMFLAGS',
@@ -72,7 +77,9 @@ pipeline {
 
     stage('Push') {
       steps { script {
-        withDockerRegistry([credentialsId: "dockerhub-statusteam-auto", url: ""]) {
+        withDockerRegistry([
+          credentialsId: params.DOCKER_CRED, url: ""
+        ]) {
           image.push()
           image.push(env.IMAGE_TAG)
         }

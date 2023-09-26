@@ -34,7 +34,7 @@ wakunode2 --tcp-port=65000
 In the case of using docker to run you node you should provide the commandline options after the image name as follows:
 
 ```shell
-docker run statusteam/nim-waku --tcp-port=65000
+docker run wakuorg/nwaku --tcp-port=65000
 ```
 
 Run `wakunode2 --help` to get a comprehensive list of configuration options (and its default values):
@@ -73,7 +73,7 @@ WAKUNODE2_TCP_PORT=65000 wakunode2
 In the case of using docker to run you node you should start the node using the `-e` command options:
 
 ```shell
-docker run -e "WAKUNODE2_TCP_PORT=65000" statusteam/nim-waku
+docker run -e "WAKUNODE2_TCP_PORT=65000" wakuorg/nwaku
 ```
 
 This is the second configuration method in order of precedence. Any command line configuration option will override the configuration
