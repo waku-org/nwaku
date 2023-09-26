@@ -644,14 +644,12 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.len == 1
           wakuFilter.subscriptions.hasKey(clientPeerId)
           wakuFilter.getSubscribedContentTopics(clientPeerId).len == 30
-      
-      # TODO: MaxCriteriaPerSubscription comparison
-      # TODO: MaxCriteriaPerSubscription behaviour when exceeding limit and topics are contained
+
       asyncTest "Max Criteria Per Subscription":  
         # Given a topic list of size MaxCriteriaPerSubscription
         var topicSeq: seq[string] = toSeq(0..<MaxCriteriaPerSubscription).mapIt("topic" & $it)
       
-        # When client serice node subscribes to the topic list of size MaxCriteriaPerSubscription
+        # When client service node subscribes to the topic list of size MaxCriteriaPerSubscription
         var subscribedTopics: seq[string] = @[]
         while topicSeq.len > 0:
           let takeNumber = min(topicSeq.len, MaxContentTopicsPerRequest)
