@@ -34,6 +34,7 @@ pipeline {
         '-d:disableMarchNative',
         '-d:chronicles_colors:none',
         '-d:insecure',
+        '-d:postgres',
       ].join(' ')
     )
     string(
