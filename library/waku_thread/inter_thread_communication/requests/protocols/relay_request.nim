@@ -99,7 +99,8 @@ proc process*(self: ptr RelayRequest,
       node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
 
     of UNSUBSCRIBE:
-      node.wakuRelay.unsubscribe($self.pubsubTopic)
+      # TODO: properly perform 'unsubscribe'
+      node.wakuRelay.unsubscribeAll($self.pubsubTopic)
 
     of PUBLISH:
       let numPeers = await node.wakuRelay.publish($self.pubsubTopic,

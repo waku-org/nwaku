@@ -33,6 +33,7 @@ jobs:
           - 'vendor/**'
           - 'Makefile'
           - 'waku.nimble'
+          - 'library/**'
 
           v2:
           - 'waku/**'
