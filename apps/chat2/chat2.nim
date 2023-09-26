@@ -374,10 +374,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     echo "Connecting to " & $conf.fleet & " fleet using DNS discovery..."
 
     if conf.fleet == Fleet.test:
-      dnsDiscoveryUrl = some("enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im")
+      dnsDiscoveryUrl = some("enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im")
     else:
       # Connect to prod by default
-      dnsDiscoveryUrl = some("enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im")
+      dnsDiscoveryUrl = some("enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im")
 
   elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
