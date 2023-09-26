@@ -76,7 +76,7 @@ paths:
             schema:
               type array:
               items:
-                $ref: '#/components/schemas/ContentTopic'
+                $ref: '#/components/schemas/PubsubTopic'
       responses:
         '200':
           description: OK
@@ -101,7 +101,7 @@ paths:
             schema:
               type array:
               items:
-                $ref: '#/components/schemas/ContentTopic'
+                $ref: '#/components/schemas/PubsubTopic'
       responses:
         '200':
           description: OK
