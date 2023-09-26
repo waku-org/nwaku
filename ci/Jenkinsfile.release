@@ -19,7 +19,7 @@ pipeline {
     string(
       name: 'IMAGE_TAG',
       description: 'Name of Docker tag to push. Optional Parameter.',
-      defaultValue: params.IMAGE_TAG ?: 'deploy-wakuv2-test',
+      defaultValue: getDefaultImageTag()
     )
     string(
       name: 'IMAGE_NAME',
@@ -76,6 +76,7 @@ pipeline {
     }
 
     stage('Push') {
+      when { expression { params.IMAGE_TAG != '' } }
       steps { script {
         withDockerRegistry([
           credentialsId: params.DOCKER_CRED, url: ""
@@ -86,6 +87,7 @@ pipeline {
       } }
     }
   } // stages
+
   post {
     success { script {
       def discord = load 'ci/discord.groovy'
@@ -97,3 +99,14 @@ pipeline {
     always { sh 'docker image prune -f' }
   } // post
 } // pipeline
+
+def getDefaultImageTag() {
+  if (env.JOB_BASE_NAME) {
+    return env.JOB_BASE_NAME
+  }
+  switch (env.JOB_BASE_NAME) {
+    case 'docker-latest':      return 'latest'
+    case 'docker-release':     return 'stable'
+    default:                   return ''
+  }
+}
