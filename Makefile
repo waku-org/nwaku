@@ -273,6 +273,17 @@ cwaku_example: | build libwaku
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
 		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
 
+cppwaku_example: | build libwaku
+	echo -e $(BUILD_MSG) "build/$@" && \
+		g++ -o "build/$@" \
+		./examples/cpp/waku.cpp \
+		-lwaku -Lbuild/ \
+		-pthread -ldl -lm \
+		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
+		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
+		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
+		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
+
 nodejswaku: | build deps
 		echo -e $(BUILD_MSG) "build/$@" && \
 		node-gyp build --directory=examples/nodejs/

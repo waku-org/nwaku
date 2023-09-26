@@ -11,6 +11,10 @@
 #define RET_ERR               1
 #define RET_MISSING_CALLBACK  2
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (*WakuCallBack) (const char* msg, size_t len_0);
 
 // Creates a new instance of the waku node.
@@ -50,5 +54,9 @@ int waku_relay_unsubscribe(const char* pubSubTopic,
 int waku_connect(const char* peerMultiAddr,
                  unsigned int timeoutMs,
                  WakuCallBack onErrCb);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __libwaku__ */
