@@ -15,7 +15,6 @@ import
   ../../../waku_node,
   ../../../waku_relay/protocol,
   ../../../waku_rln_relay,
-  ../../../waku_rln_relay/rln/wrappers,
   ../../../node/waku_node,
   ../../message_cache,
   ../../cache_handlers,
@@ -44,7 +43,8 @@ const futTimeout* = 5.seconds # Max time to wait for futures
 const ROUTE_RELAY_SUBSCRIPTIONSV1* = "/relay/v1/subscriptions"
 const ROUTE_RELAY_MESSAGESV1* = "/relay/v1/messages/{topic}"
 const ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1* = "/relay/v1/auto/subscriptions"
-const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{topic}"
+const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{contentTopic}"
+const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
 
 proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: MessageCache[string]) =
   router.api(MethodPost, ROUTE_RELAY_SUBSCRIPTIONSV1) do (contentBody: Option[ContentBody]) -> RestApiResponse:
@@ -238,15 +238,15 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
 
-  router.api(MethodGet, ROUTE_RELAY_AUTO_MESSAGESV1) do (topic: string) -> RestApiResponse:
+  router.api(MethodGet, ROUTE_RELAY_AUTO_MESSAGESV1) do (contentTopic: string) -> RestApiResponse:
     # ## Returns all WakuMessages received on a content topic since the
     # ## last time this method was called
     # ## TODO: ability to specify a return message limit
     # debug "get_waku_v2_relay_v1_auto_messages", topic=topic
 
-    if topic.isErr():
+    if contentTopic.isErr():
       return RestApiResponse.badRequest()
-    let contentTopic = topic.get()
+    let contentTopic = contentTopic.get()
 
     let messages = cache.getMessages(contentTopic, clear=true)
     if messages.isErr():
@@ -261,7 +261,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
 
     return resp.get()
 
-  router.api(MethodPost, ROUTE_RELAY_AUTO_MESSAGESV1) do (topic: string, contentBody: Option[ContentBody]) -> RestApiResponse:
+  router.api(MethodPost, ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     # Check the request body
     if contentBody.isNone():
       return RestApiResponse.badRequest()

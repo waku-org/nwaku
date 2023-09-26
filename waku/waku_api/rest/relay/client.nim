@@ -71,8 +71,8 @@ proc encodeBytes*(value: RelayPostMessagesRequest,
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayGetMessagesV1*(topic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodGet.}
-proc relayGetAutoMessagesV1*(topic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/auto/messages/{topic}", meth: HttpMethod.MethodGet.}
+proc relayGetAutoMessagesV1*(contentTopic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/auto/messages/{contentTopic}", meth: HttpMethod.MethodGet.}
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayPostMessagesV1*(topic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodPost.}
-proc relayPostAutoMessagesV1*(topic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/messages/{topic}", meth: HttpMethod.MethodPost.}
+proc relayPostAutoMessagesV1*(body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/messages", meth: HttpMethod.MethodPost.}

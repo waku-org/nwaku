@@ -106,7 +106,7 @@ paths:
         '5XX':
           description: Unexpected error.
 
-  /relay/v1/auto/messages/{topic}:  # Note the plural in messages
+  /relay/v1/auto/messages/{contentTopic}:  # Note the plural in messages
     get: # get_waku_v2_relay_v1_auto_messages
       summary: Get the latest messages on the polled topic
       description: Get a list of messages that were received on a subscribed Content topic after the last time this method was called.
@@ -115,7 +115,7 @@ paths:
         - relay
       parameters:
         - in: path
-          name: topic   # Note the name is the same as in the path
+          name: contentTopic   # Note the name is the same as in the path
           required: true
           schema:
             type: string
@@ -132,19 +132,13 @@ paths:
         '5XX':
           description: Unexpected error.
 
-    post: # post_waku_v2_relay_v1_auto_message
+    /relay/v1/auto/messages:  # Note the plural in messages
+      post: # post_waku_v2_relay_v1_auto_message
       summary: Publish a message to be relayed
       description: Publishes a message to be relayed on a Content topic.
       operationId: postMessagesToTopic
       tags:
         - relay
-      parameters:
-        - in: path
-          name: topic   # Note the name is the same as in the path
-          description: The messages content topic
-          required: true
-          schema:
-            $ref: '#/components/schemas/RelayPostMessagesRequest'
       requestBody:
         content:
           application/json:

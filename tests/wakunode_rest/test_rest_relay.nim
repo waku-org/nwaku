@@ -400,7 +400,7 @@ suite "Waku v2 Rest API - Relay":
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let response = await client.relayPostAutoMessagesV1(DefaultContentTopic, RelayWakuMessage(
+    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
       payload: base64.encode("TEST-PAYLOAD"),
       contentTopic: some(DefaultContentTopic),
       timestamp: some(int64(2022))
