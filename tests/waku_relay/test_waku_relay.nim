@@ -46,8 +46,8 @@ suite "Waku Relay":
       networkB = "test-network2"
 
     ## when
-    nodeA.subscribe(networkA, noopRawHandler())
-    nodeA.subscribe(networkB, noopRawHandler())
+    discard nodeA.subscribe(networkA, noopRawHandler())
+    discard nodeA.subscribe(networkB, noopRawHandler())
 
     ## Then
     check:
@@ -73,9 +73,9 @@ suite "Waku Relay":
       networkB = "test-network2"
       networkC = "test-network3"
 
-    nodeA.subscribe(networkA, noopRawHandler())
-    nodeA.subscribe(networkB, noopRawHandler())
-    nodeA.subscribe(networkC, noopRawHandler())
+    discard nodeA.subscribe(networkA, noopRawHandler())
+    discard nodeA.subscribe(networkB, noopRawHandler())
+    discard nodeA.subscribe(networkC, noopRawHandler())
 
     let topics = toSeq(nodeA.subscribedTopics)
     require:
@@ -85,7 +85,7 @@ suite "Waku Relay":
       topics.contains(networkC)
 
     ## When
-    nodeA.unsubscribe(networkA)
+    nodeA.unsubscribeAll(networkA)
 
     ## Then
     check:
@@ -129,14 +129,14 @@ suite "Waku Relay":
     proc srcSubsHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
       srcSubsFut.complete((topic, message))
 
-    srcNode.subscribe(networkTopic, srcSubsHandler)
+    discard srcNode.subscribe(networkTopic, srcSubsHandler)
 
     # Subscription
     let dstSubsFut = newFuture[(PubsubTopic, WakuMessage)]()
     proc dstSubsHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
       dstSubsFut.complete((topic, message))
 
-    dstNode.subscribe(networkTopic, dstSubsHandler)
+    discard dstNode.subscribe(networkTopic, dstSubsHandler)
 
     await sleepAsync(500.millis)
 
@@ -196,7 +196,7 @@ suite "Waku Relay":
     proc dstSubsHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
       dstSubsFut.complete((topic, message))
 
-    dstNode.subscribe(networkTopic, dstSubsHandler)
+    discard dstNode.subscribe(networkTopic, dstSubsHandler)
 
     await sleepAsync(500.millis)
 

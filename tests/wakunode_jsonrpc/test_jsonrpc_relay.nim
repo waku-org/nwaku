@@ -22,10 +22,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc newTestMessageCache(): relay_api.MessageCache =
-  relay_api.MessageCache.init(capacity=30)
-
-
 suite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "subscribe and unsubscribe from topics":
@@ -33,7 +29,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     let node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
 
     await node.start()
-    await node.mountRelay(topics = @[DefaultPubsubTopic])
+    await node.mountRelay(@[])
 
     # JSON-RPC server
     let
@@ -41,7 +37,8 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(node, server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(node, server, cache)
     server.start()
 
     # JSON-RPC client
@@ -67,16 +64,14 @@ suite "Waku v2 JSON-RPC API - Relay":
       subResp == true
     check:
       # Node is now subscribed to default + new topics
-      subTopics.len == 1 + newTopics.len
-      DefaultPubsubTopic in subTopics
+      subTopics.len == newTopics.len
       newTopics.allIt(it in subTopics)
 
     check:
       unsubResp == true
     check:
       # Node is now unsubscribed from new topics
-      unsubTopics.len == 1
-      DefaultPubsubTopic in unsubTopics
+      unsubTopics.len == 0
       newTopics.allIt(it notin unsubTopics)
 
     await server.stop()
@@ -110,14 +105,14 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
 
-
     # RPC server (source node)
     let
       rpcPort = Port(8548)
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(srcNode, server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(srcNode, server, cache)
     server.start()
 
     # JSON-RPC client
@@ -131,7 +126,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     proc dstHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
       dstHandlerFut.complete((topic, msg))
 
-    dstNode.subscribe(pubSubTopic, dstHandler)
+    dstNode.subscribe((kind: PubsubSub, topic: pubsubTopic), some(dstHandler))
 
     ## When
     let rpcMessage = WakuMessageRPC(
@@ -162,7 +157,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     await server.closeWait()
     await allFutures(srcNode.stop(), dstNode.stop())
 
-  asyncTest "get latest messages received from topics cache":
+  asyncTest "get latest messages received from pubsub topics cache":
     ## Setup
     let
       pubSubTopic = "test-jsonrpc-pubsub-topic"
@@ -176,10 +171,9 @@ suite "Waku v2 JSON-RPC API - Relay":
     await allFutures(srcNode.start(), dstNode.start())
 
     await srcNode.mountRelay(@[pubSubTopic])
-    await dstNode.mountRelay(@[pubSubTopic])
+    await dstNode.mountRelay(@[])
 
     await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
-
 
     # RPC server (destination node)
     let
@@ -187,12 +181,15 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    installRelayApiHandlers(dstNode, server, newTestMessageCache())
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(dstNode, server, cache)
     server.start()
 
     # JSON-RPC client
     let client = newRpcHttpClient()
     await client.connect("127.0.0.1", rpcPort, false)
+
+    discard await client.post_waku_v2_relay_v1_subscriptions(@[pubSubTopic])
 
     ## Given
     let messages = @[
@@ -204,11 +201,74 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     for msg in messages:
-      await srcNode.publish(pubSubTopic, msg)
+      await srcNode.publish(some(pubSubTopic), msg)
 
     await sleepAsync(200.millis)
 
     let dstMessages = await client.get_waku_v2_relay_v1_messages(pubSubTopic)
+
+    ## Then
+    check:
+      dstMessages.len == 4
+      dstMessages[2].payload == base64.encode(messages[2].payload)
+      dstMessages[2].contentTopic.get() == messages[2].contentTopic
+      dstMessages[2].timestamp.get() == messages[2].timestamp
+      dstMessages[2].version.get() == messages[2].version
+
+    ## Cleanup
+    await server.stop()
+    await server.closeWait()
+    await allFutures(srcNode.stop(), dstNode.stop())
+
+  asyncTest "get latest messages received from content topics cache":
+    ## Setup
+    let contentTopic = DefaultContentTopic
+
+    # Relay nodes setup
+    let
+      srcNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      dstNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    await allFutures(srcNode.start(), dstNode.start())
+
+    let shard = getShard(contentTopic).expect("Valid Shard")
+
+    await srcNode.mountRelay(@[shard])
+    await dstNode.mountRelay(@[])
+
+    await srcNode.connectToNodes(@[dstNode.peerInfo.toRemotePeerInfo()])
+
+    # RPC server (destination node)
+    let
+      rpcPort = Port(8550)
+      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      server = newRpcHttpServer([ta])
+
+    let cache = MessageCache[string].init(capacity=30)
+    installRelayApiHandlers(dstNode, server, cache)
+    server.start()
+
+    # JSON-RPC client
+    let client = newRpcHttpClient()
+    await client.connect("127.0.0.1", rpcPort, false)
+
+    discard await client.post_waku_v2_relay_v1_auto_subscriptions(@[contentTopic])
+
+    ## Given
+    let messages = @[
+      fakeWakuMessage(payload= @[byte 70], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 71], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 72], contentTopic=contentTopic),
+      fakeWakuMessage(payload= @[byte 73], contentTopic=contentTopic)
+    ]
+
+    ## When
+    for msg in messages:
+      await srcNode.publish(none(PubsubTopic), msg)
+
+    await sleepAsync(200.millis)
+
+    let dstMessages = await client.get_waku_v2_relay_v1_auto_messages(contentTopic)
 
     ## Then
     check:

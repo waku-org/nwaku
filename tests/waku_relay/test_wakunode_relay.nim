@@ -92,10 +92,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node3.subscribe(pubSubTopic, relayHandler)
+    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node1.publish(pubSubTopic, message)
+    await node1.publish(some(pubSubTopic), message)
 
     ## Then
     check:
@@ -173,14 +173,14 @@ suite "WakuNode - Relay":
       # relay handler is called
       completionFut.complete(true)
 
-    node3.subscribe(pubSubTopic, relayHandler)
+    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node1.publish(pubSubTopic, message1)
+    await node1.publish(some(pubSubTopic), message1)
     await sleepAsync(500.millis)
 
     # message2 never gets relayed because of the validator
-    await node1.publish(pubSubTopic, message2)
+    await node1.publish(some(pubSubTopic), message2)
     await sleepAsync(500.millis)
 
     check:
@@ -207,7 +207,7 @@ suite "WakuNode - Relay":
       connOk == true
 
     # Node 1 subscribes to topic
-    nodes[1].subscribe(DefaultPubsubTopic)
+    nodes[1].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
     await sleepAsync(500.millis)
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
@@ -254,10 +254,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe(pubSubTopic, relayHandler)
+    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(pubSubTopic, message)
+    await node2.publish(some(pubSubTopic), message)
     await sleepAsync(500.millis)
 
 
@@ -295,10 +295,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe(pubSubTopic, relayHandler)
+    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(pubSubTopic, message)
+    await node2.publish(some(pubSubTopic), message)
     await sleepAsync(500.millis)
 
 
@@ -340,10 +340,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe(pubSubTopic, relayHandler)
+    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(pubSubTopic, message)
+    await node2.publish(some(pubSubTopic), message)
     await sleepAsync(500.millis)
 
     check:
@@ -380,10 +380,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe(pubSubTopic, relayHandler)
+    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(pubSubTopic, message)
+    await node2.publish(some(pubSubTopic), message)
     await sleepAsync(500.millis)
 
     check:
@@ -420,10 +420,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe(pubSubTopic, relayHandler)
+    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(pubSubTopic, message)
+    await node2.publish(some(pubSubTopic), message)
     await sleepAsync(500.millis)
 
 
@@ -440,7 +440,7 @@ suite "WakuNode - Relay":
 
     # subscribe all nodes to a topic
     let topic = "topic"
-    for node in nodes: node.wakuRelay.subscribe(topic, nil)
+    for node in nodes: discard node.wakuRelay.subscribe(topic, nil)
     await sleepAsync(500.millis)
 
     # connect nodes in full mesh
@@ -482,3 +482,48 @@ suite "WakuNode - Relay":
 
     # Stop all nodes
     await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Unsubscribe keep the subscription if other content topics also use the shard":
+    ## Setup
+    let
+      nodeKey = generateSecp256k1Key()
+      node = newTestWakuNode(nodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    await node.start()
+    await node.mountRelay()
+
+    ## Given
+    let
+      shard = "/waku/2/rs/1/1"
+      contentTopicA = DefaultContentTopic
+      contentTopicB = ContentTopic("/waku/2/default-content1/proto")
+      contentTopicC = ContentTopic("/waku/2/default-content2/proto")
+      handler: WakuRelayHandler =
+        proc(
+          pubsubTopic: PubsubTopic,
+          message: WakuMessage
+          ): Future[void] {.gcsafe, raises: [Defect].} =
+          discard pubsubTopic
+          discard message
+
+    assert shard == getShard(contentTopicA).expect("Valid Topic"), "topic must use the same shard"
+    assert shard == getShard(contentTopicB).expect("Valid Topic"), "topic must use the same shard"
+    assert shard == getShard(contentTopicC).expect("Valid Topic"), "topic must use the same shard"
+
+    ## When
+    node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler))
+    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler))
+    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler))
+
+    ## Then
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB))
+    check node.wakuRelay.isSubscribed(shard)
+
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicA))
+    check node.wakuRelay.isSubscribed(shard)
+
+    node.unsubscribe((kind: ContentUnsub, topic: contentTopicC))
+    check not node.wakuRelay.isSubscribed(shard)
+
+    ## Cleanup
+    await node.stop()

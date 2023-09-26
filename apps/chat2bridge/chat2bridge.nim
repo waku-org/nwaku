@@ -95,7 +95,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(DefaultPubsubTopic, msg)
+  await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
@@ -204,7 +204,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     trace "Bridging message from Chat2 to Matterbridge", msg=msg
     cmb.toMatterbridge(msg)
 
-  cmb.nodev2.subscribe(DefaultPubsubTopic, relayHandler)
+  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
 
 proc stop*(cmb: Chat2MatterBridge) {.async.} =
   info "Stopping Chat2MatterBridge"
@@ -229,8 +229,8 @@ when isMainModule:
 
     # Install enabled API handlers:
     if conf.relay:
-      let topicCache = relay_api.MessageCache.init(capacity=30)
-      installRelayApiHandlers(node, rpcServer, topicCache)
+      let cache = MessageCache[string].init(capacity=30)
+      installRelayApiHandlers(node, rpcServer, cache)
 
     if conf.filter:
       let messageCache = filter_api.MessageCache.init(capacity=30)

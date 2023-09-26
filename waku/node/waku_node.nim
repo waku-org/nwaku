@@ -25,6 +25,7 @@ import
   libp2p/transports/wstransport
 import
   ../waku_core,
+  ../waku_core/topics/sharding,
   ../waku_relay,
   ../waku_archive,
   ../waku_store,
@@ -101,6 +102,7 @@ type
     announcedAddresses* : seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
+    contentTopicHandlers: Table[ContentTopic, TopicHandler]
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -220,62 +222,104 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
 
-  node.wakuRelay.subscribe(topic, defaultHandler)
+  discard node.wakuRelay.subscribe(topic, defaultHandler)
 
-
-proc subscribe*(node: WakuNode, topic: PubsubTopic) =
+proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)) =
+  ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
+  ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
+  
   if node.wakuRelay.isNil():
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return
 
-  debug "subscribe", pubsubTopic= topic
+  let (pubsubTopic, contentTopicOp) =
+    case subscription.kind:
+      of ContentSub:
+        let shard = getShard((subscription.topic)).valueOr:
+          error "Autosharding error", error=error
+          return
 
-  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
-  node.registerRelayDefaultHandler(topic)
-
-proc subscribe*(node: WakuNode, topic: PubsubTopic, handler: WakuRelayHandler) =
-  ## Subscribes to a PubSub topic. Triggers handler when receiving messages on
-  ## this topic. TopicHandler is a method that takes a topic and some data.
-  if node.wakuRelay.isNil():
-    error "Invalid API call to `subscribe`. WakuRelay not mounted."
+        (shard, some(subscription.topic))
+      of PubsubSub: (subscription.topic, none(ContentTopic))
+      else: return
+      
+  if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
+    error "Invalid API call to `subscribe`. Was already subscribed"
     return
 
-  debug "subscribe", pubsubTopic= topic
+  debug "subscribe", pubsubTopic=pubsubTopic
 
-  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubSub, pubsubSub: topic))
-  node.registerRelayDefaultHandler(topic)
-  node.wakuRelay.subscribe(topic, handler)
+  node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
+  node.registerRelayDefaultHandler(pubsubTopic)
 
-proc unsubscribe*(node: WakuNode, topic: PubsubTopic) =
-  ## Unsubscribes from a specific PubSub topic.
+  if handler.isSome():
+    let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
 
+    if contentTopicOp.isSome():
+      node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
+
+proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
+  ## Unsubscribes from a specific PubSub or Content topic.
+  
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  info "unsubscribe", pubsubTopic=topic
+  let (pubsubTopic, contentTopicOp) =
+    case subscription.kind:
+      of ContentUnsub:
+        let shard = getShard((subscription.topic)).valueOr:
+          error "Autosharding error", error=error
+          return
 
-  node.topicSubscriptionQueue.emit(SubscriptionEvent(kind: PubsubUnsub, pubsubUnsub: topic))
-  node.wakuRelay.unsubscribe(topic)
+        (shard, some(subscription.topic))
+      of PubsubUnsub: (subscription.topic, none(ContentTopic))
+      else: return
 
+  if not node.wakuRelay.isSubscribed(pubsubTopic):
+    error "Invalid API call to `unsubscribe`. Was not subscribed"
+    return
 
-proc publish*(node: WakuNode, topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-  ## Publish a `WakuMessage` to a PubSub topic. `WakuMessage` should contain a
-  ## `contentTopic` field for light node functionality. This field may be also
-  ## be omitted.
+  if contentTopicOp.isSome():
+    # Remove this handler only
+    var handler: TopicHandler
+    if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
+      debug "unsubscribe", contentTopic=contentTopicOp.get()
+      node.wakuRelay.unsubscribe(pubsubTopic, handler)
+
+  if contentTopicOp.isNone() or node.wakuRelay.topics.getOrDefault(pubsubTopic).len == 1:
+    # Remove all handlers
+    debug "unsubscribe", pubsubTopic=pubsubTopic
+    node.wakuRelay.unsubscribeAll(pubsubTopic)
+    node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+
+proc publish*(
+  node: WakuNode,
+  pubsubTopicOp: Option[PubsubTopic],
+  message: WakuMessage
+  ) {.async, gcsafe.} =
+  ## Publish a `WakuMessage`. Pubsub topic contains; none, a named or static shard.
+  ## `WakuMessage` should contain a `contentTopic` field for light node functionality.
+  ## It is also used to determine the shard.
 
   if node.wakuRelay.isNil():
     error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
     # TODO: Improve error handling
     return
 
-  discard await node.wakuRelay.publish(topic, message)
+  let pubsubTopic = pubsubTopicOp.valueOr:
+    getShard(message.contentTopic).valueOr:
+      error "Autosharding error", error=error
+      return
+
+  #TODO instead of discard return error when 0 peers received the message
+  discard await node.wakuRelay.publish(pubsubTopic, message)
 
   trace "waku.relay published",
-      peerId=node.peerId,
-      pubsubTopic=topic,
-      hash=topic.digest(message).to0xHex(),
-      publishTime=getNowInNanosecondTime()
+    peerId=node.peerId,
+    pubsubTopic=pubsubTopic,
+    hash=pubsubTopic.digest(message).to0xHex(),
+    publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
@@ -303,7 +347,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "relay started successfully"
 
 proc mountRelay*(node: WakuNode,
-                 topics: seq[string] = @[],
+                 pubsubTopics: seq[string] = @[],
                  peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
@@ -332,8 +376,8 @@ proc mountRelay*(node: WakuNode,
   info "relay mounted successfully"
 
   # Subscribe to topics
-  for topic in topics:
-    node.subscribe(topic)
+  for pubsubTopic in pubsubTopics:
+    node.subscribe((kind: PubsubSub, topic: pubsubTopic))
 
 ## Waku filter
 

@@ -94,8 +94,8 @@ suite "Waku v2 Rest API - lightpush":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
-    restLightPushTest.consumerNode.subscribe(DefaultPubsubTopic)
-    restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
+    restLightPushTest.consumerNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restLightPushTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
@@ -120,7 +120,7 @@ suite "Waku v2 Rest API - lightpush":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
-    restLightPushTest.serviceNode.subscribe(DefaultPubsubTopic)
+    restLightPushTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 

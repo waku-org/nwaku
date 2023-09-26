@@ -402,7 +402,7 @@ proc subscribeAndHandleMessages(node: WakuNode,
     else:
       msgPerContentTopic[msg.contentTopic] = 1
 
-  node.subscribe(pubsubTopic, handler)
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
 when isMainModule:
   # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError

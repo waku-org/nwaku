@@ -23,7 +23,6 @@ import
   ../../waku/waku_relay,
   ../../waku/waku_filter_v2/subscriptions,
   ../../waku/waku_filter_v2/common,
-  ../../waku/waku_api/rest/relay/topic_cache,
   ../../waku/waku_api/rest/relay/handlers as relay_api,
   ../../waku/waku_api/rest/relay/client as relay_api_client,
   ../testlib/wakucore,
@@ -74,7 +73,7 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   testSetup.messageCache = filter_api.MessageCache.init()
   installFilterRestApiHandlers(testSetup.restServer.router, testSetup.subscriberNode, testSetup.messageCache)
 
-  let topicCache = TopicCache.init()
+  let topicCache = MessageCache[string].init()
   installRelayApiHandlers(testSetup.restServerForService.router, testSetup.serviceNode, topicCache)
 
   testSetup.restServer.start()
@@ -244,7 +243,7 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
     restFilterTest.messageCache.subscribe(DefaultPubsubTopic)
-    restFilterTest.serviceNode.subscribe(DefaultPubsubTopic)
+    restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
 
     # When
     var requestBody = FilterSubscribeRequest(requestId: "1234",

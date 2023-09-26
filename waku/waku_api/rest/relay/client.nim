@@ -46,10 +46,11 @@ proc decodeBytes*(t: typedesc[string], value: openarray[byte],
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayPostSubscriptionsV1*(body: RelayPostSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodPost.}
+proc relayPostAutoSubscriptionsV1*(body: RelayPostSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodPost.}
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayDeleteSubscriptionsV1*(body: RelayDeleteSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodDelete.}
-
+proc relayDeleteAutoSubscriptionsV1*(body: RelayDeleteSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodDelete.}
 
 proc decodeBytes*(t: typedesc[RelayGetMessagesResponse], data: openArray[byte], contentType: Opt[ContentTypeData]): RestResult[RelayGetMessagesResponse] =
   if MediaType.init($contentType) != MIMETYPE_JSON:
@@ -70,6 +71,8 @@ proc encodeBytes*(value: RelayPostMessagesRequest,
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayGetMessagesV1*(topic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodGet.}
+proc relayGetAutoMessagesV1*(topic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/auto/messages/{topic}", meth: HttpMethod.MethodGet.}
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
 proc relayPostMessagesV1*(topic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodPost.}
+proc relayPostAutoMessagesV1*(topic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/messages/{topic}", meth: HttpMethod.MethodPost.}

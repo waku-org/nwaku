@@ -28,6 +28,21 @@ import
   ../../waku/node/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
+  ../../waku/waku_api/message_cache,
+  ../../waku/waku_api/cache_handlers,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
+  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
+  ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
+  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
+  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
+  ../../waku/waku_api/rest/store/handlers as rest_store_api,
+  ../../waku/waku_api/rest/health/handlers as rest_health_api,
+  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
+  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
+  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
+  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
+  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr,
@@ -41,22 +56,6 @@ import
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
-import
-  ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
-  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
-  ../../waku/waku_api/rest/relay/topic_cache,
-  ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
-  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
-  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
-  ../../waku/waku_api/rest/store/handlers as rest_store_api,
-  ../../waku/waku_api/rest/health/handlers as rest_health_api,
-  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
-  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
-  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
-  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
-  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api
 
 logScope:
   topics = "wakunode app"
@@ -576,8 +575,20 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
-    installRelayApiHandlers(server.router, app.node, relayCache)
+    let cache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(server.router, app.node, cache)
 
   ## Filter REST API
   if conf.filter:
@@ -610,8 +621,20 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   installDebugApiHandlers(app.node, server)
 
   if conf.relay:
-    let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
-    installRelayApiHandlers(app.node, server, relayMessageCache)
+    let cache = MessageCache[string].init(capacity=30)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(app.node, server, cache)
 
   if conf.filternode != "":
     let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)

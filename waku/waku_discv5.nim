@@ -307,7 +307,10 @@ proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
 
   debug "Successfully stopped discovery v5 service"
 
-proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]) {.async.} =
+proc subscriptionsListener*(
+  wd: WakuDiscoveryV5,
+  topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
+  ) {.async.} =
   ## Listen for pubsub topics subscriptions changes
   
   let key = topicSubscriptionQueue.register()
@@ -317,8 +320,8 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
 
     # Since we don't know the events we will receive we have to anticipate.
 
-    let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
-    let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
+    let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
+    let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
 
     if subs.len == 0 and unsubs.len == 0:
       continue

@@ -212,7 +212,7 @@ proc publish(c: Chat, line: string) =
       # Attempt lightpush
       asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
     else:
-      asyncSpawn c.node.publish(DefaultPubsubTopic, message)
+      asyncSpawn c.node.publish(some(DefaultPubsubTopic), message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -490,8 +490,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       if msg.contentTopic == chat.contentTopic:
         chat.printReceivedMessage(msg)
 
-    let topic = DefaultPubsubTopic
-    node.subscribe(topic, handler)
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"

@@ -94,7 +94,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
                                    pubsubTopic=pubsubTopic,
                                    contentTopic=msg.contentTopic,
                                    timestamp=msg.timestamp
-    node.subscribe(pubSubTopic, handler)
+    node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
 when isMainModule:
   let rng = crypto.newRng()
