@@ -57,8 +57,7 @@ suite "Waku v2 Rest API - Relay":
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let requestBody = RelayPostSubscriptionsRequest(pubSubTopics)
-    let response = await client.relayPostSubscriptionsV1(requestBody)
+    let response = await client.relayPostSubscriptionsV1(pubSubTopics)
 
     # Then
     check:
@@ -111,8 +110,7 @@ suite "Waku v2 Rest API - Relay":
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let requestBody = RelayDeleteSubscriptionsRequest(pubSubTopics)
-    let response = await client.relayDeleteSubscriptionsV1(requestBody)
+    let response = await client.relayDeleteSubscriptionsV1(pubSubTopics)
 
     # Then
     check:
@@ -256,8 +254,7 @@ suite "Waku v2 Rest API - Relay":
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let requestBody = RelayPostSubscriptionsRequest(contentTopics)
-    let response = await client.relayPostAutoSubscriptionsV1(requestBody)
+    let response = await client.relayPostAutoSubscriptionsV1(contentTopics)
 
     # Then
     check:
@@ -306,8 +303,7 @@ suite "Waku v2 Rest API - Relay":
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let requestBody = RelayDeleteSubscriptionsRequest(contentTopics)
-    let response = await client.relayDeleteAutoSubscriptionsV1(requestBody)
+    let response = await client.relayDeleteAutoSubscriptionsV1(contentTopics)
 
     # Then
     check:

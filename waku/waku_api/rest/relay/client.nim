@@ -45,12 +45,12 @@ proc decodeBytes*(t: typedesc[string], value: openarray[byte],
   return ok(res)
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc relayPostSubscriptionsV1*(body: RelayPostSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodPost.}
-proc relayPostAutoSubscriptionsV1*(body: RelayPostSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodPost.}
+proc relayPostSubscriptionsV1*(body: seq[PubsubTopic]): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodPost.}
+proc relayPostAutoSubscriptionsV1*(body: seq[ContentTopic]): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodPost.}
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc relayDeleteSubscriptionsV1*(body: RelayDeleteSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodDelete.}
-proc relayDeleteAutoSubscriptionsV1*(body: RelayDeleteSubscriptionsRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodDelete.}
+proc relayDeleteSubscriptionsV1*(body: seq[PubsubTopic]): RestResponse[string] {.rest, endpoint: "/relay/v1/subscriptions", meth: HttpMethod.MethodDelete.}
+proc relayDeleteAutoSubscriptionsV1*(body: seq[ContentTopic]): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/subscriptions", meth: HttpMethod.MethodDelete.}
 
 proc decodeBytes*(t: typedesc[RelayGetMessagesResponse], data: openArray[byte], contentType: Opt[ContentTypeData]): RestResult[RelayGetMessagesResponse] =
   if MediaType.init($contentType) != MIMETYPE_JSON:
@@ -70,9 +70,9 @@ proc encodeBytes*(value: RelayPostMessagesRequest,
   return ok(encoded)
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc relayGetMessagesV1*(topic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodGet.}
+proc relayGetMessagesV1*(pubsubTopic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/messages/{pubsubTopic}", meth: HttpMethod.MethodGet.}
 proc relayGetAutoMessagesV1*(contentTopic: string): RestResponse[RelayGetMessagesResponse] {.rest, endpoint: "/relay/v1/auto/messages/{contentTopic}", meth: HttpMethod.MethodGet.}
 
 # TODO: Check how we can use a constant to set the method endpoint (improve "rest" pragma under nim-presto)
-proc relayPostMessagesV1*(topic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/messages/{topic}", meth: HttpMethod.MethodPost.}
+proc relayPostMessagesV1*(pubsubTopic: string, body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/messages/{pubsubTopic}", meth: HttpMethod.MethodPost.}
 proc relayPostAutoMessagesV1*(body: RelayPostMessagesRequest): RestResponse[string] {.rest, endpoint: "/relay/v1/auto/messages", meth: HttpMethod.MethodPost.}

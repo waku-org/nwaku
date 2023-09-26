@@ -41,7 +41,7 @@ const futTimeout* = 5.seconds # Max time to wait for futures
 #### Request handlers
 
 const ROUTE_RELAY_SUBSCRIPTIONSV1* = "/relay/v1/subscriptions"
-const ROUTE_RELAY_MESSAGESV1* = "/relay/v1/messages/{topic}"
+const ROUTE_RELAY_MESSAGESV1* = "/relay/v1/messages/{pubsubTopic}"
 const ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1* = "/relay/v1/auto/subscriptions"
 const ROUTE_RELAY_AUTO_MESSAGESV1* = "/relay/v1/auto/messages/{contentTopic}"
 const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
@@ -60,11 +60,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       return RestApiResponse.badRequest()
 
     let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayPostSubscriptionsRequest, reqBodyData)
+    let reqResult = decodeFromJsonBytes(seq[PubsubTopic], reqBodyData)
     if reqResult.isErr():
       return RestApiResponse.badRequest()
 
-    let req: RelayPostSubscriptionsRequest = reqResult.get()
+    let req: seq[PubsubTopic] = reqResult.get()
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
@@ -88,11 +88,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       return RestApiResponse.badRequest()
 
     let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayDeleteSubscriptionsRequest, reqBodyData)
+    let reqResult = decodeFromJsonBytes(seq[PubsubTopic], reqBodyData)
     if reqResult.isErr():
       return RestApiResponse.badRequest()
 
-    let req: RelayDeleteSubscriptionsRequest = reqResult.get()
+    let req: seq[PubsubTopic] = reqResult.get()
 
     # Unsubscribe all handlers from requested topics
     for pubsubTopic in req:
@@ -102,15 +102,15 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
 
-  router.api(MethodGet, ROUTE_RELAY_MESSAGESV1) do (topic: string) -> RestApiResponse:
+  router.api(MethodGet, ROUTE_RELAY_MESSAGESV1) do (pubsubTopic: string) -> RestApiResponse:
     # ## Returns all WakuMessages received on a PubSub topic since the
     # ## last time this method was called
     # ## TODO: ability to specify a return message limit
     # debug "get_waku_v2_relay_v1_messages", topic=topic
 
-    if topic.isErr():
+    if pubsubTopic.isErr():
       return RestApiResponse.badRequest()
-    let pubSubTopic = topic.get()
+    let pubSubTopic = pubsubTopic.get()
 
     let messages = cache.getMessages(pubSubTopic, clear=true)
     if messages.isErr():
@@ -125,10 +125,10 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
 
     return resp.get()
 
-  router.api(MethodPost, ROUTE_RELAY_MESSAGESV1) do (topic: string, contentBody: Option[ContentBody]) -> RestApiResponse:
-    if topic.isErr():
+  router.api(MethodPost, ROUTE_RELAY_MESSAGESV1) do (pubsubTopic: string, contentBody: Option[ContentBody]) -> RestApiResponse:
+    if pubsubTopic.isErr():
       return RestApiResponse.badRequest()
-    let pubSubTopic = topic.get()
+    let pubSubTopic = pubsubTopic.get()
 
     # ensure the node is subscribed to the topic. otherwise it risks publishing
     # to a topic with no connected peers
@@ -196,11 +196,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       return RestApiResponse.badRequest()
 
     let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayPostSubscriptionsRequest, reqBodyData)
+    let reqResult = decodeFromJsonBytes(seq[ContentTopic], reqBodyData)
     if reqResult.isErr():
       return RestApiResponse.badRequest()
 
-    let req: RelayPostSubscriptionsRequest = reqResult.get()
+    let req: seq[ContentTopic] = reqResult.get()
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
@@ -224,11 +224,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       return RestApiResponse.badRequest()
 
     let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayDeleteSubscriptionsRequest, reqBodyData)
+    let reqResult = decodeFromJsonBytes(seq[ContentTopic], reqBodyData)
     if reqResult.isErr():
       return RestApiResponse.badRequest()
 
-    let req: RelayDeleteSubscriptionsRequest = reqResult.get()
+    let req: seq[ContentTopic] = reqResult.get()
 
     # Unsubscribe all handlers from requested topics
     for contentTopic in req:
