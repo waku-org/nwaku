@@ -16,16 +16,16 @@ sudo sh get-docker.sh
 
 ## Step 1: Get Docker image
 
-Nwaku Docker images are published to the Docker Hub public registry under [`statusteam/nim-waku`](https://hub.docker.com/r/statusteam/nim-waku).
-For specific releases the published images are tagged with the release version, e.g. [`statusteam/nim-waku:v0.16.0`](https://hub.docker.com/layers/statusteam/nim-waku/v0.16.0/images/sha256-7b7f14e7aa1c0a70db297dfd4d43251bda339a14da32885f57ee4b25983c9470?context=explore).
+Nwaku Docker images are published to the Docker Hub public registry under [`wakuorg/nwaku`](https://hub.docker.com/r/wakuorg/nwaku).
+For specific releases the published images are tagged with the release version, e.g. [`wakuorg/nwaku:v0.20.0`](https://hub.docker.com/layers/wakuorg/nwaku/v0.20.0/images/sha256-9976ac2dc536fae49b21f7b77618aa6f0efb59c694e7b3181e54c08be0c4f089?context=explore).
 Images are also published for each commit to the `master` branch in the [nwaku repo](https://github.com/status-im/nwaku/commits/master)
 and tagged with the corresponding commit hash.
-See [`statusteam/nim-waku`](https://hub.docker.com/r/statusteam/nim-waku/tags) on Docker Hub for a full list of available tags.
+See [`wakuorg/nwaku`](https://hub.docker.com/r/wakuorg/nwaku/tags) on Docker Hub for a full list of available tags.
 
 To pull the image of your choice, use
 
 ```bash
-docker pull statusteam/nim-waku:v0.16.0 # or, whichever tag you prefer in the format statusteam/nim-waku:[tag]
+docker pull wakuorg/nwaku:v0.20.0 # or, whichever tag you prefer in the format wakuorg/nwaku:[tag]
 ```
 
 You can also build the Docker image locally using
@@ -33,7 +33,7 @@ You can also build the Docker image locally using
 ```bash
 git clone --recurse-submodules https://github.com/waku-org/nwaku
 cd nwaku
-docker build -t statusteam/nim-waku:latest .
+docker build -t wakuorg/nwaku:latest .
 ```
 
 ## Step 2: Run
@@ -56,14 +56,14 @@ and any discovery ports (e.g. the Waku discv5 port) that must be reachable from 
 As an example, consider the following command to run nwaku in a Docker container with the most typical configuration:
 
 ```bash
-docker run -i -t -p 60000:60000 -p 9000:9000/udp statusteam/nim-waku:v0.16.0 \
+docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.20.0 \
   --dns-discovery:true \
   --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im \
   --discv5-discovery \
   --nat:extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```
 
-This runs nwaku in a new container from the `statusteam/nim-waku:v0.16.0` image,
+This runs nwaku in a new container from the `wakuorg/nwaku:v0.20.0` image,
 connects to `wakuv2.prod` as bootstrap fleet and
 enables [Waku Discovery v5](https://rfc.vac.dev/spec/33/) for ambient peer discovery,
 while mapping the default libp2p listening port (`60000`)
