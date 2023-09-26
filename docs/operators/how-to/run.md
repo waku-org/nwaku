@@ -167,7 +167,7 @@ Discovery v5 will attempt to extract the ENRs of the discovered nodes as bootstr
 ./build/wakunode2 \
   --ports-shift:1 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im \
+  --dns-discovery-url:enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im \
   --discv5-discovery:true
 ```
 
@@ -182,7 +182,7 @@ Discovery v5 will attempt to extract the ENRs of the discovered nodes as bootstr
 ./build/wakunode2 \
   --ports-shift:1 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im \
+  --dns-discovery-url:enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im \
   --discv5-discovery:true
 ```
 
@@ -202,7 +202,7 @@ appears below.
   --db-path:/mnt/nwaku/data/db1/ \
   --store-capacity:150000 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im \
+  --dns-discovery-url:enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im \
   --discv5-discovery:true
 ```
 
