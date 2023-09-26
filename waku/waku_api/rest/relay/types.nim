@@ -28,11 +28,6 @@ type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]
   RelayPostMessagesRequest* = RelayWakuMessage
 
-type
-  RelayPostSubscriptionsRequest* = seq[string]
-  RelayDeleteSubscriptionsRequest* = seq[string]
-
-
 #### Type conversion
 
 proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
