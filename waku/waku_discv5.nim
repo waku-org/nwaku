@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options, sugar, sets],
+  std/[sequtils, strutils, options, sets],
   stew/results,
   stew/shims/net,
   chronos,
@@ -42,7 +42,7 @@ type WakuDiscoveryV5Config* = object
 
 ## Protocol
 
-type WakuDiscv5Predicate* = proc(record: waku_enr.Record): bool {.closure, gcsafe.}
+type WakuDiscv5Predicate* = proc(record: waku_enr.Record): bool {.closure, gcsafe, raises: [].}
 
 type WakuDiscoveryV5* = ref object
     conf: WakuDiscoveryV5Config
@@ -74,26 +74,38 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
 
   return some(predicate)
 
-proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
+proc new*(
+  T: type WakuDiscoveryV5,
+  rng: ref HmacDrbgContext,
+  conf: WakuDiscoveryV5Config,
+  record: Option[waku_enr.Record]
+  ): T =
+  let shardPredOp =
+    if record.isSome(): shardingPredicate(record.get())
+    else: none(WakuDiscv5Predicate)
+  
+  var bootstrapRecords = conf.bootstrapRecords
+
+  # Remove bootstrap nodes with which we don't share shards.
+  if shardPredOp.isSome():
+    bootstrapRecords.keepIf(shardPredOp.get())
+  
+  if conf.bootstrapRecords.len > 0 and bootstrapRecords.len == 0:
+    warn "No discv5 bootstrap nodes share this node configured shards"
+
   let protocol = newProtocol(
     rng = rng,
     config = conf.discv5Config.get(protocol.defaultDiscoveryConfig),
     bindPort = conf.port,
     bindIp = conf.address,
     privKey = conf.privateKey,
-    bootstrapRecords = conf.bootstrapRecords,
+    bootstrapRecords = bootstrapRecords,
     enrAutoUpdate = conf.autoupdateRecord,
     previousRecord = record,
     enrIp = none(ValidIpAddress),
     enrTcpPort = none(Port),
     enrUdpPort = none(Port),
   )
-
-  let shardPredOp =
-    if record.isSome():
-      shardingPredicate(record.get())
-    else:
-      none(WakuDiscv5Predicate)
 
   WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false, predicate: shardPredOp)
 
