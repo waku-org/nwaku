@@ -509,18 +509,6 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
 
-## Configuration validation
-
-let DbUrlRegex = re"^[\w\+]+:\/\/[\w\/\\\.\:\@]+$"
-
-proc validateDbUrl*(val: string): ConfResult[string] =
-  let val = val.strip()
-
-  if val == "" or val == "none" or val.match(DbUrlRegex):
-    ok(val)
-  else:
-    err("invalid 'db url' option format: " & val)
-
 ## Load
 
 proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
