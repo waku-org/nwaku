@@ -1,21 +1,14 @@
-{.used.}
-
-import
-  std/sequtils,
-  std/options,
-  stew/shims/net as stewNet,
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto
+{.used.}  
 
 import
   std/[options, tables, sequtils],
+  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,
   os,
-  libp2p/peerstore
+  libp2p/peerstore,
+  libp2p/crypto/crypto
 
 import
   ../../../waku/waku_core,
@@ -37,7 +30,7 @@ suite "Full Node - Waku Filter - End to End":
   var clientPeerId {.threadvar.}: PeerId
   var server {.threadvar.}: WakuNode
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
-  var pubsubTopic {.threadvar.}: PubsubTopic
+  var pubsubTopic {.threadvar.}: PubsubTopicy
   var contentTopic {.threadvar.}: ContentTopic
   var contentTopicSeq {.threadvar.}: seq[ContentTopic]
   var pushHandlerFuture {.threadvar.}: Future[(string, WakuMessage)]
