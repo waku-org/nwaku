@@ -46,7 +46,7 @@ proc setDiscoveredPeersCapabilities(
   for capability in @[Relay, Store, Filter, Lightpush]:
     let nOfNodesWithCapability = routingTableNodes.countIt(it.record.supportsCapability(capability))
     info "capabilities as per ENR waku flag", capability=capability, amount=nOfNodesWithCapability
-    peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
+    networkmonitor_peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
 
 proc analyzePeer(
       customPeerInfo: CustomPeerInfoRef,
@@ -78,7 +78,7 @@ proc analyzePeer(
     return err(customPeerInfo.connError)
 
   info "successfully pinged peer", peer=peerInfo, duration=pingDelay.millis
-  peer_ping.observe(pingDelay.millis)
+  networkmonitor_peer_ping.observe(pingDelay.millis)
 
   if customPeerInfo.avgPingDuration == 0.millis:
     customPeerInfo.avgPingDuration = pingDelay
@@ -109,11 +109,8 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 
   let currentTime = getTime().toUnix()
 
-  # Protocols and agent string and its count
-  var allProtocols: Table[string, int]
-  var allAgentStrings: Table[string, int]
-
   var newPeers = 0
+  var successfulConnections = 0
 
   var analyzeFuts: seq[Future[Result[string, string]]]
 
@@ -171,6 +168,8 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     let peerIdRes = await peerIdFut
     let peerIdStr = peerIdRes.valueOr():
       continue
+
+    successfulConnections += 1
     let peerId = PeerId.init(peerIdStr).valueOr():
       warn "failed to parse peerId", peerId=peerIdStr
       continue
@@ -188,33 +187,55 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     let nodeUserAgent = lp2pPeerStore[AgentBook][peerId]
     customPeerInfo.userAgent = nodeUserAgent
 
-    # store avaiable protocols in the network
-    for protocol in nodeProtocols:
-      if not allProtocols.hasKey(protocol):
-        allProtocols[protocol] = 0
-      allProtocols[protocol] += 1
-
-    # store available user-agents in the network
-    if not allAgentStrings.hasKey(nodeUserAgent):
-      allAgentStrings[nodeUserAgent] = 0
-    allAgentStrings[nodeUserAgent] += 1
-
   info "number of newly discovered peers", amount=newPeers
   # inform the total connections that we did in this round
-  let nOfOkConnections = allProtocols.len()
-  info "number of successful connections", amount=nOfOkConnections
+  info "number of successful connections", amount=successfulConnections
 
-  # update count on each protocol
+proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe, raises: [KeyError].} =
+  var allProtocols: Table[string, int]
+  var allAgentStrings: Table[string, int]
+  var countries: Table[string, int]
+  var connectedPeers = 0
+  var failedPeers = 0
+
+  for peerInfo in allPeersRef.values:
+    if peerInfo.connError == "":
+      for protocol in peerInfo.supportedProtocols:
+        if not allProtocols.hasKey(protocol):
+          allProtocols[protocol] = 0
+        allProtocols[protocol] += 1
+
+    # store available user-agents in the network
+      if not allAgentStrings.hasKey(peerInfo.userAgent):
+        allAgentStrings[peerInfo.userAgent] = 0
+      allAgentStrings[peerInfo.userAgent] += 1
+      if peerInfo.country != "":
+        if not countries.hasKey(peerInfo.country):
+          countries[peerInfo.country] = 0
+        countries[peerInfo.country] += 1
+
+      connectedPeers += 1
+    else:
+      failedPeers += 1
+
+  networkmonitor_peer_count.set(int64(connectedPeers), labelValues = ["true"])
+  networkmonitor_peer_count.set(int64(failedPeers), labelValues = ["false"])
+   # update count on each protocol
   for protocol in allProtocols.keys():
     let countOfProtocols = allProtocols[protocol]
-    peer_type_as_per_protocol.set(int64(countOfProtocols), labelValues = [protocol])
+    networkmonitor_peer_type_as_per_protocol.set(int64(countOfProtocols), labelValues = [protocol])
     info "supported protocols in the network", protocol=protocol, count=countOfProtocols
 
   # update count on each user-agent
   for userAgent in allAgentStrings.keys():
     let countOfUserAgent = allAgentStrings[userAgent]
-    peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
+    networkmonitor_peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
     info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
+
+  for country in countries.keys():
+    let peerCount = countries[country]
+    networkmonitor_peer_country_count.set(int64(peerCount), labelValues = [country])
+    info "number of peers per country", country=country, count=peerCount
 
 proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
                         restClient: RestClientRef) {.async.} =
@@ -248,6 +269,7 @@ proc crawlNetwork(node: WakuNode,
 
   let crawlInterval = conf.refreshInterval * 1000
   while true:
+    let startTime = Moment.now()
     # discover new random nodes
     let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
 
@@ -262,6 +284,8 @@ proc crawlNetwork(node: WakuNode,
     # note random discovered nodes can be already known
     await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, restClient, allPeersRef)
 
+    updateMetrics(allPeersRef)
+
     # populate info from ip addresses
     await populateInfoFromIp(allPeersRef, restClient)
 
@@ -273,8 +297,12 @@ proc crawlNetwork(node: WakuNode,
     # Notes:
     # we dont run ipMajorityLoop
     # we dont run revalidateLoop
+    let endTime = Moment.now()
+    let elapsed = (endTime - startTime).nanos
 
-    await sleepAsync(crawlInterval.millis)
+    info "crawl duration", time=elapsed.millis
+
+    await sleepAsync(crawlInterval.millis - elapsed.millis)
 
 proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): Result[seq[RemotePeerInfo], string] =
   if dnsDiscovery and dnsDiscoveryUrl != "":

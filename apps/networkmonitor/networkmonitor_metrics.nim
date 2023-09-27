@@ -25,21 +25,29 @@ logScope:
 #discovery_message_requests_outgoing_total{response=""}
 #discovery_message_requests_outgoing_total{response="no_response"}
 
-declarePublicGauge peer_type_as_per_enr,
+declarePublicGauge networkmonitor_peer_type_as_per_enr,
     "Number of peers supporting each capability according the the ENR",
     labels = ["capability"]
 
-declarePublicGauge peer_type_as_per_protocol,
+declarePublicGauge networkmonitor_peer_type_as_per_protocol,
     "Number of peers supporting each protocol, after a successful connection) ",
     labels = ["protocols"]
 
-declarePublicGauge peer_user_agents,
+declarePublicGauge networkmonitor_peer_user_agents,
     "Number of peers with each user agent",
     labels = ["user_agent"]
 
-declarePublicHistogram peer_ping,
+declarePublicHistogram networkmonitor_peer_ping,
     "Histogram tracking ping durations for discovered peers",
     buckets = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 2000.0, Inf]
+
+declarePublicGauge networkmonitor_peer_count,
+    "Number of discovered peers",
+    labels = ["connected"]
+
+declarePublicGauge networkmonitor_peer_country_count,
+    "Number of peers per country",
+    labels = ["country"]
 
 type
   CustomPeerInfo* = object
