@@ -1,11 +1,21 @@
 #!/bin/sh
 
+# Check if env.sh has been loaded, or if this file is being ran from it.
+# Using NIMC as a proxy for this, as it's defined in the nimbus-build-system's env.sh.
+if [ -z "$NIMC" ]
+then
+    echo "[ERROR] This tool can only be ran from the Nimbus environment. Either:" 
+    echo "- Source env.sh 'source /path/to/env.sh', and then run the script directly '/path/to/scripts/run_cov.sh'." 
+    echo "- Run this script as a parameter to env.sh '/path/to/env.sh /path/to/scripts/run_cov.sh'."
+    exit 1
+fi
+
 # Check for lcov tool
 which lcov 1>/dev/null 2>&1
 if [ $? != 0 ]
 then
     echo "[ERROR] You need to have lcov installed in order to generate the test coverage report."
-    exit 1
+    exit 2
 fi
 
 SCRIPT_PATH=$(dirname "$(realpath -s "$0")")
@@ -18,7 +28,7 @@ then
     read -r response
     if [ "$response" != "y" ]
     then
-        exit 1
+        exit 3
     fi
 fi
 
