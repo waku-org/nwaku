@@ -191,7 +191,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
   # inform the total connections that we did in this round
   info "number of successful connections", amount=successfulConnections
 
-proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe, raises: [KeyError].} =
+proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe.} =
   var allProtocols: Table[string, int]
   var allAgentStrings: Table[string, int]
   var countries: Table[string, int]
@@ -201,18 +201,13 @@ proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe, raises: [KeyError
   for peerInfo in allPeersRef.values:
     if peerInfo.connError == "":
       for protocol in peerInfo.supportedProtocols:
-        if not allProtocols.hasKey(protocol):
-          allProtocols[protocol] = 0
-        allProtocols[protocol] += 1
+        allProtocols[protocol] = allProtocols.mgetOrPut(protocol, 0) + 1
 
     # store available user-agents in the network
-      if not allAgentStrings.hasKey(peerInfo.userAgent):
-        allAgentStrings[peerInfo.userAgent] = 0
-      allAgentStrings[peerInfo.userAgent] += 1
+      allAgentStrings[peerInfo.userAgent] = allAgentStrings.mgetOrPut(peerInfo.userAgent, 0) + 1
+
       if peerInfo.country != "":
-        if not countries.hasKey(peerInfo.country):
-          countries[peerInfo.country] = 0
-        countries[peerInfo.country] += 1
+        countries[peerInfo.country] = countries.mgetOrPut(peerInfo.country, 0) + 1
 
       connectedPeers += 1
     else:
@@ -222,18 +217,18 @@ proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe, raises: [KeyError
   networkmonitor_peer_count.set(int64(failedPeers), labelValues = ["false"])
    # update count on each protocol
   for protocol in allProtocols.keys():
-    let countOfProtocols = allProtocols[protocol]
+    let countOfProtocols = allProtocols.mgetOrPut(protocol, 0)
     networkmonitor_peer_type_as_per_protocol.set(int64(countOfProtocols), labelValues = [protocol])
     info "supported protocols in the network", protocol=protocol, count=countOfProtocols
 
   # update count on each user-agent
   for userAgent in allAgentStrings.keys():
-    let countOfUserAgent = allAgentStrings[userAgent]
+    let countOfUserAgent = allAgentStrings.mgetOrPut(userAgent, 0)
     networkmonitor_peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
     info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
 
   for country in countries.keys():
-    let peerCount = countries[country]
+    let peerCount = countries.mgetOrPut(country, 0)
     networkmonitor_peer_country_count.set(int64(peerCount), labelValues = [country])
     info "number of peers per country", country=country, count=peerCount
 
