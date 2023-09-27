@@ -93,8 +93,8 @@ pipeline {
 
   post {
     success { script {
-      def discord = load 'ci/discord.groovy'
-      discord.notify(
+      def discord = load "${WORKSPACE}/ci/discord.groovy"
+      discord.send(
         header: 'Nim-Waku deployment successful!',
         cred: 'discord-waku-deployments-webhook',
       )

@@ -1,4 +1,4 @@
-def discordNotify(Map args=[:]) {
+def void send(Map args=[:]) {
   def opts = [
     header: args.header ?: 'Deployment successful!',
     cred: args.cred ?: null,
