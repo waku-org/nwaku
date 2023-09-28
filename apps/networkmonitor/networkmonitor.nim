@@ -77,6 +77,7 @@ proc analyzePeer(
     customPeerInfo.retries += 1
     return err(customPeerInfo.connError)
 
+  customPeerInfo.connError = ""
   info "successfully pinged peer", peer=peerInfo, duration=pingDelay.millis
   networkmonitor_peer_ping.observe(pingDelay.millis)
 
