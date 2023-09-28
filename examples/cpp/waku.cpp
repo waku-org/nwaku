@@ -300,7 +300,7 @@ int main(int argc, char** argv) {
         defaultPubsubTopic = msg;
     })));
 
-    std::cout << "Default pubsub topic: " << defautPubsubTopic << std::endl;
+    std::cout << "Default pubsub topic: " << defaultPubsubTopic << std::endl;
 
     WAKU_CALL(waku_version(cify([&](const char* msg, size_t len) {
         std::cout << "Git Version: " << msg << std::endl;
