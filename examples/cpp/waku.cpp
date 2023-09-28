@@ -295,7 +295,7 @@ int main(int argc, char** argv) {
     })));
 
     // example on how to retrieve a value from the `libwaku` callback.
-    std::string defautPubsubTopic;
+    std::string defaultPubsubTopic;
     WAKU_CALL(waku_default_pubsub_topic(cify([&defaultPubsubTopic](const char* msg, size_t len) {
         defautPubsubTopic = msg;
     })));
