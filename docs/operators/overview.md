@@ -17,7 +17,7 @@ or download a precompiled binary from our [releases page](https://github.com/wak
 
 If you'd like to test latest changes without building the binaries yourself, you can refer to [nightly release](https://github.com/waku-org/nwaku/releases/tag/nightly).
 
-Docker images are published to [statusteam/nim-waku](https://hub.docker.com/r/statusteam/nim-waku/tags) on Docker Hub.
+Docker images are published to [wakuorg/nwaku](https://hub.docker.com/r/wakuorg/nwaku/tags) on Docker Hub.
 See our [Docker quickstart guide](./docker-quickstart.md) to run nwaku in a Docker container.
 
 ## 2. Run

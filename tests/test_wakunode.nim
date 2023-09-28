@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils,strutils],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -215,6 +215,65 @@ suite "WakuNode":
       node.announcedAddresses.len == 1
       node.announcedAddresses.contains(expectedDns4Addr)
 
+  asyncTest "Node uses dns4 resolved ip in announced addresses if no extIp is provided":
+    let
+      nodeKey = generateSecp256k1Key()
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindPort = Port(0)
+
+      domainName = "status.im"
+      node = newTestWakuNode(
+        nodeKey,
+        bindIp, bindPort,
+        dns4DomainName = some(domainName))
+
+    var ipStr = ""
+    var enrIp = node.enr.tryGet("ip", array[4, byte])
+    
+    if enrIp.isSome():
+        ipStr &= $ipv4(enrIp.get())
+    
+    # Check that the IP filled is the one received by the DNS lookup
+    # As IPs may change, we check that it's not empty, not the 0 IP and not localhost
+    check:
+      ipStr.len() > 0
+      not ipStr.contains("0.0.0.0")
+      not ipStr.contains("127.0.0.1")
+
+  asyncTest "Node creation fails when invalid dns4 address is provided":
+    let
+      nodeKey = generateSecp256k1Key()
+      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindPort = Port(0)
+
+      inexistentDomain = "thisdomain.doesnot.exist"
+      invalidDomain = ""
+      expectedError = "Could not resolve IP from DNS: empty response"
+    
+    var inexistentDomainErr, invalidDomainErr: string = ""
+
+    # Create node with inexistent domain
+    try:
+      let node = newTestWakuNode(
+        nodeKey,
+        bindIp, bindPort,
+        dns4DomainName = some(inexistentDomain))
+    except Exception as e:
+      inexistentDomainErr = e.msg
+
+    # Create node with invalid domain
+    try:
+      let node = newTestWakuNode(
+        nodeKey,
+        bindIp, bindPort,
+        dns4DomainName = some(invalidDomain))
+    except Exception as e:
+      invalidDomainErr = e.msg
+
+    # Check that exceptions were raised in both cases
+    check:
+      inexistentDomainErr == expectedError
+      invalidDomainErr == expectedError
 
   asyncTest "Agent string is set and advertised correctly":
     let

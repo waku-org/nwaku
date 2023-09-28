@@ -39,7 +39,7 @@ Connect to the network through a given bootstrap node, with default parameters. 
 ```
 
 ```console
-./build/networkmonitor --log-level=INFO --dns-discovery-url=enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.nodes.status.im
+./build/networkmonitor --log-level=INFO --dns-discovery-url=enrtree://AL65EKLJAUXKKPG43HVTML5EFFWEZ7L4LOKTLZCLJASG4DSESQZEC@prod.status.nodes.status.im
 ```
 
 ## Metrics

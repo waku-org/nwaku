@@ -15,12 +15,13 @@ import
   ../testlib/common,
   ../testlib/wakucore
 
-proc defaultTestWakuNodeConf(): WakuNodeConf =
+proc defaultTestWakuNodeConf*(): WakuNodeConf =
   WakuNodeConf(
     listenAddress: ValidIpAddress.init("127.0.0.1"),
     rpcAddress: ValidIpAddress.init("127.0.0.1"),
     restAddress: ValidIpAddress.init("127.0.0.1"),
     metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
     topics: @["/waku/2/default-waku/proto"],

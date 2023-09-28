@@ -1,9 +1,12 @@
 import
-  std/options,
-  stew/shims/net,
-  stew/results,
+  chronicles,
+  chronos,
   libp2p/crypto/crypto,
-  libp2p/multiaddress
+  libp2p/multiaddress,
+  libp2p/nameresolving/dnsresolver,
+  std/options,
+  stew/results,
+  stew/shims/net
 import
   ../../waku/common/utils/nat,
   ../../waku/node/config,
@@ -18,6 +21,23 @@ proc validateExtMultiAddrs*(vals: seq[string]):
     multiaddrs.add(multiaddr)
   return ok(multiaddrs)
 
+proc dnsResolve*(domain: string, conf: WakuNodeConf): Future[Result[string, string]] {.async} =
+    
+  # Use conf's DNS servers
+  var nameServers: seq[TransportAddress]
+  for ip in conf.dnsAddrsNameServers:
+    nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+  
+  let dnsResolver = DnsResolver.new(nameServers)
+
+  # Resolve domain IP
+  let resolved = await dnsResolver.resolveIp(domain, 0.Port, Domain.AF_UNSPEC)
+
+  if resolved.len > 0:
+    return ok(resolved[0].host) # Use only first answer
+  else:
+    return err("Could not resolve IP from DNS: empty response")
+
 proc networkConfiguration*(conf: WakuNodeConf,
                            clientId: string,
                            ): NetConfigResult =
@@ -30,7 +50,7 @@ proc networkConfiguration*(conf: WakuNodeConf,
   if natRes.isErr():
     return err("failed to setup NAT: " & $natRes.error)
 
-  let (extIp, extTcpPort, _) = natRes.get()
+  var (extIp, extTcpPort, _) = natRes.get()
 
   let
     dns4DomainName = if conf.dns4DomainName != "": some(conf.dns4DomainName)
@@ -69,6 +89,18 @@ proc networkConfiguration*(conf: WakuNodeConf,
         relay = conf.relay
       )
 
+  # Resolve and use DNS domain IP
+  if dns4DomainName.isSome() and extIp.isNone():
+    try:
+      let dnsRes = waitFor dnsResolve(conf.dns4DomainName, conf)
+      
+      if dnsRes.isErr():
+        return err($dnsRes.error) # Pass error down the stack
+      
+      extIp = some(ValidIpAddress.init(dnsRes.get()))
+    except CatchableError:
+      return err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
+  
   # Wrap in none because NetConfig does not have a default constructor
   # TODO: We could change bindIp in NetConfig to be something less restrictive
   # than ValidIpAddress, which doesn't allow default construction

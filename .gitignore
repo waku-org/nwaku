@@ -57,3 +57,10 @@ nimbus-build-system.paths
 *.sqlite3-wal
 
 /examples/nodejs/build/
+
+# Coverage
+coverage_html_report/
+*.info
+
+# Wildcard
+*.ignore.*
