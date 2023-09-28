@@ -654,10 +654,12 @@ proc selectPeer*(pm: PeerManager, proto: string, shard: Option[PubsubTopic] = no
   pm.serviceSlots.withValue(proto, serviceSlot):
     if shard.isSome() and serviceSlot[].enr.isSome() and
       serviceSlot[].enr.get().containsShard(shard.get()):
-
       debug "Got peer from service slots",
         peerId = serviceSlot[].peerId, multi = serviceSlot[].addrs[0], protocol = proto
-
+      return some(serviceSlot[])
+    elif shard.isNone():
+      debug "Got peer from service slots",
+        peerId = serviceSlot[].peerId, multi = serviceSlot[].addrs[0], protocol = proto
       return some(serviceSlot[])
     else: debug "Peer from service slot does not support this shard", shard = shard.get()
 
