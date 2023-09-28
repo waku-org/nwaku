@@ -659,7 +659,7 @@ proc selectPeer*(pm: PeerManager, proto: string, shard: Option[PubsubTopic] = no
         peerId = serviceSlot[].peerId, multi = serviceSlot[].addrs[0], protocol = proto
 
       return some(serviceSlot[])
-    else: debug "Peer from service slots does not support this shard", shard=$shard.get()
+    else: debug "Peer from service slot does not support this shard", shard = shard.get()
 
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
