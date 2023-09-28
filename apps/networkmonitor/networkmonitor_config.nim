@@ -64,7 +64,6 @@ type
       defaultValue: 8009,
       name: "metrics-rest-port" }: uint16
 
-
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
@@ -85,7 +84,7 @@ proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
 
 proc loadConfig*(T: type NetworkMonitorConf): Result[T, string] =
   try:
-    let conf = NetworkMonitorConf.load()
+    let conf = NetworkMonitorConf.load(version=git_version)
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
