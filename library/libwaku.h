@@ -17,41 +17,60 @@ extern "C" {
 
 typedef void (*WakuCallBack) (const char* msg, size_t len_0);
 
+// Initializes the waku library and returns a pointer to the Context.
+void* waku_init(WakuCallBack onErrCb,
+                void* userData);
+
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
-int waku_new(const char* configJson, WakuCallBack onErrCb);
+int waku_new(void* ctx,
+             const char* configJson,
+             WakuCallBack onErrCb);
 
-void waku_start(void);
+int waku_start(void* ctx,
+               WakuCallBack onErrCb);
 
-void waku_stop(void);
+int waku_stop(void* ctx,
+              WakuCallBack onErrCb);
 
 int waku_version(WakuCallBack onOkCb);
 
 void waku_set_event_callback(WakuCallBack callback);
 
-int waku_content_topic(const char* appName,
+// Attaches the user-defined data to the current context.
+// The user data is only needed in Rust to allow proper
+// feedback through a closure callback.
+void waku_set_user_data(void* ctx, void* userData);
+
+int waku_content_topic(void* ctx,
+                       const char* appName,
                        unsigned int appVersion,
                        const char* contentTopicName,
                        const char* encoding,
                        WakuCallBack onOkCb);
 
-int waku_pubsub_topic(const char* topicName,
+int waku_pubsub_topic(void* ctx,
+                      const char* topicName,
                       WakuCallBack onOkCb);
 
 int waku_default_pubsub_topic(WakuCallBack onOkCb);
 
-int waku_relay_publish(const char* pubSubTopic,
+int waku_relay_publish(void* ctx,
+                       const char* pubSubTopic,
                        const char* jsonWakuMessage,
                        unsigned int timeoutMs,
                        WakuCallBack onErrCb);
 
-int waku_relay_subscribe(const char* pubSubTopic,
+int waku_relay_subscribe(void* ctx,
+                         const char* pubSubTopic,
                          WakuCallBack onErrCb);
 
-int waku_relay_unsubscribe(const char* pubSubTopic,
+int waku_relay_unsubscribe(void* ctx,
+                           const char* pubSubTopic,
                            WakuCallBack onErrCb);
 
-int waku_connect(const char* peerMultiAddr,
+int waku_connect(void* ctx,
+                 const char* peerMultiAddr,
                  unsigned int timeoutMs,
                  WakuCallBack onErrCb);
 

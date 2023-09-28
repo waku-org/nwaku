@@ -64,30 +64,39 @@ proc relayEventCallback(pubsubTopic: PubsubTopic,
 ################################################################################
 ### Exported procs
 
-proc waku_new(configJson: cstring,
+proc waku_init(onErrCb: WakuCallback,
+               userData: pointer): pointer {.dynlib, exportc, cdecl.} =
+  ## Initializes the waku library.
+
+  ## Create the Waku thread that will keep waiting for req from the main thread.
+  let ctx = waku_thread.createWakuThread().isOkOr:
+    let msg = "Error in createWakuThread: " & $error
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    return RET_ERR
+  return ctx
+
+proc waku_new(ctx: ptr ptr Context,
+              configJson: cstring,
               onErrCb: WakuCallback): cint
               {.dynlib, exportc, cdecl.} =
-  # Creates a new instance of the WakuNode.
-  # Notice that the ConfigNode type is also exported and available for users.
+  ## Creates a new instance of the WakuNode.
+  ## Notice that the ConfigNode type is also exported and available for users.
 
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
 
-  ## Create the Waku thread that will keep waiting for req from the main thread.
-  waku_thread.createWakuThread().isOkOr:
-    let msg = "Error in createWakuThread: " & $error
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
-
   let sendReqRes = waku_thread.sendRequestToWakuThread(
+                                      ctx[],
                                       RequestType.LIFECYCLE,
                                       NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.CREATE_NODE,
                                               configJson))
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
-    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)))
+    onErrCb(unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[][].userData)
     return RET_ERR
+
+  return ctx
 
   return RET_OK
 
@@ -98,17 +107,24 @@ proc waku_version(onOkCb: WakuCallBack): cint {.dynlib, exportc.} =
   onOkCb(cast[ptr cchar](WakuNodeVersionString),
          cast[csize_t](len(WakuNodeVersionString)))
 
+  ctx[][].userData = nil
+
   return RET_OK
 
 proc waku_set_event_callback(callback: WakuCallBack) {.dynlib, exportc.} =
   extEventCallback = callback
 
 proc waku_content_topic(appName: cstring,
+  ## Attaches user-defined data to the current context
+  ctx[][].userData = userData
+
                         appVersion: cuint,
                         contentTopicName: cstring,
                         encoding: cstring,
                         onOkCb: WakuCallBack): cint {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_content_topicchar-applicationname-unsigned-int-applicationversion-char-contenttopicname-char-encoding
+  defer:
+    ctx[][].userData = nil
 
   if isNil(onOkCb):
     return RET_MISSING_CALLBACK
@@ -128,6 +144,8 @@ proc waku_content_topic(appName: cstring,
 
 proc waku_pubsub_topic(topicName: cstring,
                        onOkCb: WakuCallBack): cint {.dynlib, exportc, cdecl.} =
+    ctx[][].userData = nil
+
   if isNil(onOkCb):
     return RET_MISSING_CALLBACK
 
@@ -143,6 +161,9 @@ proc waku_pubsub_topic(topicName: cstring,
 
 proc waku_default_pubsub_topic(onOkCb: WakuCallBack): cint {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_default_pubsub_topic
+  defer:
+    ctx[][].userData = nil
+
   if isNil(onOkCb):
     return RET_MISSING_CALLBACK
 
@@ -158,6 +179,8 @@ proc waku_relay_publish(pubSubTopic: cstring,
 
                         {.dynlib, exportc, cdecl.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_relay_publishchar-messagejson-char-pubsubtopic-int-timeoutms
+  defer:
+    ctx[][].userData = nil
 
   if isNil(onErrCb):
     return RET_MISSING_CALLBACK
@@ -201,6 +224,7 @@ proc waku_relay_publish(pubSubTopic: cstring,
                             $pst
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
+                          ctx[],
                           RequestType.RELAY,
                           RelayRequest.createShared(RelayMsgType.PUBLISH,
                                           PubsubTopic($pst),
@@ -215,26 +239,37 @@ proc waku_relay_publish(pubSubTopic: cstring,
 
   return RET_OK
 
-proc waku_start() {.dynlib, exportc.} =
+proc waku_start(ctx: ptr ptr Context,
+                onErrCb: WakuCallBack): cint {.dynlib, exportc.} =
+  ## TODO: handle the error
   discard waku_thread.sendRequestToWakuThread(
+                                      ctx[],
                                       RequestType.LIFECYCLE,
                                       NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.START_NODE))
+  ctx[][].userData = nil
 
-proc waku_stop() {.dynlib, exportc.} =
+proc waku_stop(ctx: ptr ptr Context,
+               onErrCb: WakuCallBack): cint {.dynlib, exportc.} =
+  ## TODO: handle the error
   discard waku_thread.sendRequestToWakuThread(
+                                      ctx[],
                                       RequestType.LIFECYCLE,
                                       NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.STOP_NODE))
+  ctx[][].userData = nil
 
 proc waku_relay_subscribe(
                 pubSubTopic: cstring,
                 onErrCb: WakuCallBack): cint
                 {.dynlib, exportc.} =
+  defer:
+    ctx[][].userData = nil
 
   let pst = pubSubTopic.alloc()
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
+                              ctx[],
                               RequestType.RELAY,
                               RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
                                     PubsubTopic($pst),
@@ -252,10 +287,13 @@ proc waku_relay_unsubscribe(
                 pubSubTopic: cstring,
                 onErrCb: WakuCallBack): cint
                 {.dynlib, exportc.} =
+  defer:
+    ctx[][].userData = nil
 
   let pst = pubSubTopic.alloc()
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
+                              ctx[],
                               RequestType.RELAY,
                               RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
                                     PubsubTopic($pst),
@@ -273,8 +311,11 @@ proc waku_connect(peerMultiAddr: cstring,
                   timeoutMs: cuint,
                   onErrCb: WakuCallBack): cint
                   {.dynlib, exportc.} =
+  defer:
+    ctx[][].userData = nil
 
   let connRes = waku_thread.sendRequestToWakuThread(
+                                   ctx[],
                                    RequestType.PEER_MANAGER,
                                    PeerManagementRequest.createShared(
                                             PeerManagementMsgType.CONNECT_TO,
