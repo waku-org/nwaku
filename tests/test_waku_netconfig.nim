@@ -133,6 +133,31 @@ asyncTest "AnnouncedAddresses includes extMultiAddrs when provided":
       netConfig.announcedAddresses[1] == extMultiAddrs[0]
 
 
+asyncTest "AnnouncedAddresses uses dns4DomainName over extIp when both are provided":
+
+  let 
+    conf = defaultTestWakuNodeConf()
+    dns4DomainName = "example.com"
+    extIp = ValidIpAddress.init("1.2.3.4")
+    extPort = Port(1234)
+        
+  let netConfigRes = NetConfig.init(
+    bindIp = conf.listenAddress,
+    bindPort = conf.tcpPort,
+    dns4DomainName = some(dns4DomainName),
+    extIp = some(extIp),
+    extPort = some(extPort)
+  )
+     
+  require:
+    netConfigRes.isOk()
+
+  let netConfig = netConfigRes.get()
+
+  check:
+    netConfig.announcedAddresses.len == 1  # DNS address
+    netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort) 
+
 asyncTest "AnnouncedAddresses includes WebSocket addresses when enabled":
 
     var 
@@ -230,7 +255,36 @@ asyncTest "Announced WebSocket address contains dns4DomainName if provided":
     netConfig.announcedAddresses.len == 2  # Bind address + wsHostAddress
     netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
       wsFlag(wssEnabled))
-      
+
+asyncTest "Announced WebSocket address contains dns4DomainName if provided alongside extIp":
+
+  let 
+    conf = defaultTestWakuNodeConf()
+    dns4DomainName = "example.com"
+    extIp = ValidIpAddress.init("1.2.3.4")
+    extPort = Port(1234)
+    wssEnabled = false
+        
+  let netConfigRes = NetConfig.init(
+    bindIp = conf.listenAddress,
+    bindPort = conf.tcpPort,
+    dns4DomainName = some(dns4DomainName),
+    extIp = some(extIp),
+    extPort = some(extPort),
+    wsEnabled = true,
+    wssEnabled = wssEnabled
+  )
+     
+  require:
+    netConfigRes.isOk()
+
+  let netConfig = netConfigRes.get()
+
+  check:
+    netConfig.announcedAddresses.len == 2  # DNS address + wsHostAddress
+    netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
+    netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
+      wsFlag(wssEnabled))      
 
 asyncTest "ENR is set with bindIp/Port if no extIp/Port are provided":
 
