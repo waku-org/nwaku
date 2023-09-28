@@ -24,38 +24,7 @@ export types
 logScope:
   topics = "waku node rest store_api"
 
-const futTimeout* = 5.seconds # Max time to wait for futures
-
-# Queries the store-node with the query parameters and
-# returns a RestApiResponse that is sent back to the api client.
-proc performHistoryQuery(selfNode: WakuNode,
-                         histQuery: HistoryQuery,
-                         storePeer: RemotePeerInfo):
-
-                      Future[RestApiResponse] {.async.} =
-
-  let queryFut = selfNode.query(histQuery, storePeer)
-  if not await queryFut.withTimeout(futTimeout):
-    const msg = "No history response received (timeout)"
-    error msg
-    return RestApiResponse.internalServerError(msg)
-
-  let res = queryFut.read()
-  if res.isErr():
-    const msg = "Error occurred in queryFut.read()"
-    error msg, error=res.error
-    return RestApiResponse.internalServerError(
-                                fmt("{msg} [{res.error}]"))
-
-  let storeResp = res.value.toStoreResponseRest()
-  let resp = RestApiResponse.jsonResponse(storeResp, status=Http200)
-  if resp.isErr():
-    const msg = "Error building the json respose"
-    error msg, error=resp.error
-    return RestApiResponse.internalServerError(
-                                fmt("{msg} [{resp.error}]"))
-
-  return resp.get()
+const futTimeout* = 60.seconds # Max time to wait for futures
 
 # Converts a string time representation into an Option[Timestamp].
 # Only positive time is considered a valid Timestamp in the request
@@ -182,10 +151,14 @@ proc toOpt(self: Option[Result[string, cstring]]): Option[string] =
   if self.isSome() and self.get().value != "":
     return some(self.get().value)
 
+type WakuStoreAPIHandler* = proc(
+  histQuery: HistoryQuery,
+  storePeer: Option[RemotePeerInfo]
+  ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.}
 
 # Subscribes the rest handler to attend "/store/v1/messages" requests
-proc installStoreV1Handler(router: var RestRouter,
-                           node: WakuNode) =
+proc installStoreApiHandlers*(router: var RestRouter,
+                           handler: WakuStoreAPIHandler) =
 
   # Handles the store-query request according to the passed parameters
   router.api(MethodGet,
@@ -213,15 +186,6 @@ proc installStoreV1Handler(router: var RestRouter,
     if not parsedPeerAddr.isOk():
       return RestApiResponse.badRequest(parsedPeerAddr.error)
 
-    var peerOpt = none(RemotePeerInfo)
-    if parsedPeerAddr.value.isSome():
-      peerOpt = parsedPeerAddr.value
-    else:
-      # The user didn't specify any store peer address.
-      peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
-      if peerOpt.isNone():
-        return RestApiResponse.preconditionFailed("Missing known store-peer node")
-
     # Parse the rest of the parameters and create a HistoryQuery
     let histQuery = createHistoryQuery(
                         pubsubTopic.toOpt(),
@@ -238,10 +202,23 @@ proc installStoreV1Handler(router: var RestRouter,
     if not histQuery.isOk():
       return RestApiResponse.badRequest(histQuery.error)
 
-    return await node.performHistoryQuery(histQuery.value,
-                                          peerOpt.get())
+    let queryFut = handler(histQuery.get(), parsedPeerAddr.get())
 
-# Registers the Api Handlers
-proc installStoreApiHandlers*(router: var RestRouter,
-                              node: WakuNode) =
-  installStoreV1Handler(router, node)
+    if not await queryFut.withTimeout(futTimeout):
+      const msg = "No history response received (timeout)"
+      error msg
+      return RestApiResponse.internalServerError(msg)
+
+    let res = queryFut.read()
+    if res.isErr():
+      return RestApiResponse.badRequest(res.error)
+
+    let storeResp = res.value.toStoreResponseRest()
+    let resp = RestApiResponse.jsonResponse(storeResp, status=Http200)
+    if resp.isErr():
+      const msg = "Error building the json respose"
+      error msg, error=resp.error
+      return RestApiResponse.internalServerError(
+                                  fmt("{msg} [{resp.error}]"))
+
+    return resp.get()

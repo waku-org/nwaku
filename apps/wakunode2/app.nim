@@ -599,7 +599,34 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
     rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
 
   ## Store REST API
-  installStoreApiHandlers(server.router, app.node)
+  let handler = proc(
+    histQuery: HistoryQuery,
+    storePeer: Option[RemotePeerInfo],
+    ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+    let remotePeerInfo = storePeer.valueOr:
+      # The user didn't specify any store peer address.
+      app.node.peerManager.selectPeer(WakuStoreCodec).valueOr:
+        let discv5 = app.wakudiscv5.valueOr:
+          return err("Missing known store-peer node")
+
+        #Discv5 is already filtering peers by shards no need to pass a predicate.
+        var peers = await discv5.findRandomPeers()
+
+        peers.keepItIf(it.supportsCapability(Store))
+
+        if peers.len == 0:
+          return err("Missing known store-peer node")
+
+        let newServicePeer = peers[0].toRemotePeerInfo().valueOr:
+          return err("Missing known store-peer node")
+
+        app.node.peerManager.addServicePeer(newServicePeer, WakuStoreCodec)
+
+        newServicePeer
+    
+    return await app.node.query(histQuery, remotePeerInfo)
+
+  installStoreApiHandlers(server.router, handler)
 
   ## Light push API
   rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)

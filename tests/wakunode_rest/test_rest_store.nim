@@ -82,7 +82,13 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      return await node.query(histQuery, storePeer.get())
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -152,7 +158,13 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      return await node.query(histQuery, storePeer.get())
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -250,7 +262,13 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      return await node.query(histQuery, storePeer.get())
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -324,7 +342,13 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      return await node.query(histQuery, storePeer.get())
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -415,7 +439,13 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      return await node.query(histQuery, storePeer.get())
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -472,7 +502,17 @@ procSuite "Waku v2 Rest API - Store":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    installStoreApiHandlers(restServer.router, node)
+    let handler = proc(
+      histQuery: HistoryQuery,
+      storePeer: Option[RemotePeerInfo],
+      ): Future[WakuStoreResult[HistoryResponse]] {.async, closure.} =
+      let remotePeerInfo = storePeer.valueOr:
+        node.peerManager.selectPeer(WakuStoreCodec).valueOr:
+          return err("Missing known store-peer node")
+      
+      return await node.query(histQuery, remotePeerInfo)
+
+    installStoreApiHandlers(restServer.router, handler)
     restServer.start()
 
     # WakuStore setup
@@ -510,7 +550,7 @@ procSuite "Waku v2 Rest API - Store":
                         encodeUrl(""),
                         encodeUrl(DefaultPubsubTopic))
     check:
-      response.status == 412
+      response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data.messages.len == 0
       response.data.error_message.get == "Missing known store-peer node"
