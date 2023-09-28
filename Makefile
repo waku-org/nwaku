@@ -277,6 +277,7 @@ cppwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
 		g++ -o "build/$@" \
 		./examples/cpp/waku.cpp \
+		./examples/cpp/base64.cpp \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
