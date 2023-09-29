@@ -114,7 +114,7 @@ jobs:
 
   create-release-candidate:
     runs-on: ubuntu-latest
-    needs: [ tag-name, build-and-publish, js-waku ]
+    needs: [ tag-name, build-and-publish, js-waku-node, js-waku-node-optional ]
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
