@@ -13,12 +13,27 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/waku_discv5,
+  ../../apps/wakunode2/external_config,
   ../../apps/wakunode2/internal_config,
-  ../wakunode2/test_app,
   ./common
 
 
 # Waku node
+
+proc defaultTestWakuNodeConf*(): WakuNodeConf =
+  WakuNodeConf(
+    tcpPort: Port(60000),
+    websocketPort: Port(8000),
+    listenAddress: ValidIpAddress.init("0.0.0.0"),
+    rpcAddress: ValidIpAddress.init("127.0.0.1"),
+    restAddress: ValidIpAddress.init("127.0.0.1"),
+    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
+    nat: "any",
+    maxConnections: 50,
+    topics: @["/waku/2/default-waku/proto"],
+    relay: true
+  )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       bindIp: ValidIpAddress,
