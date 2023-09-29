@@ -20,6 +20,22 @@ import
 
 # Waku node
 
+proc defaultTestWakuNodeConf*(): WakuNodeConf =
+  WakuNodeConf(
+    tcpPort: Port(60000),
+    websocketPort: Port(8000),
+    listenAddress: ValidIpAddress.init("0.0.0.0"),
+    rpcAddress: ValidIpAddress.init("127.0.0.1"),
+    restAddress: ValidIpAddress.init("127.0.0.1"),
+    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
+    nat: "any",
+    maxConnections: 50,
+    topics: @["/waku/2/default-waku/proto"],
+    relay: true
+  )
+
+
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       bindIp: ValidIpAddress,
                       bindPort: Port,

@@ -2,13 +2,14 @@
 
 import
   chronos,
+  confutils/toml/std/net,
   libp2p/multiaddress,
   testutils/unittests
 
 import
+    ./testlib/wakunode,
     ../../waku/node/config,
-    ../../waku/waku_enr/capabilities,
-    ../../apps/wakunode2/external_config
+    ../../waku/waku_enr/capabilities
 
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
