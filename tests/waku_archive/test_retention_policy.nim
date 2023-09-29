@@ -66,15 +66,19 @@ suite "Waku Archive - Retention policy":
 
     let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
 
-    require (waitFor retentionPolicy.execute(driver)).isOk()
-    
     ## When
-    for i in 1..excess:
-      let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
 
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
-    
-    require (waitFor retentionPolicy.execute(driver)).isOk()
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+    var retentionFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+
+    for i in 1..excess:
+        let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
+        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+        retentionFutures.add(retentionPolicy.execute(driver))
+
+    # waitFor is used to synchronously wait for the futures to complete.
+    discard waitFor allFinished(putFutures & retentionFutures)
+            
     ## Then
     # calculate the current database size
     let pageSize = (waitFor driver.getPagesSize()).tryGet()

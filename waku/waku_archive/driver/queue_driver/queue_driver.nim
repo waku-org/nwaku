@@ -288,9 +288,9 @@ method getPagesSize*(driver: QueueDriver):
                          Future[ArchiveDriverResult[int64]] {.async} =
   return ok(int64(driver.len()))
 
-method performsSqliteVacuum*(driver: QueueDriver):
+method performsVacuum*(driver: QueueDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
-  return ok()
+  return err("interface method not implemented")
 
 method getOldestMessageTimestamp*(driver: QueueDriver):
                                   Future[ArchiveDriverResult[Timestamp]] {.async.} =

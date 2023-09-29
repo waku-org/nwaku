@@ -51,7 +51,7 @@ method getPagesCount*(driver: ArchiveDriver):
 method getPagesSize*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
-method performsSqliteVacuum*(driver: ArchiveDriver):
+method performsVacuum*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method getOldestMessageTimestamp*(driver: ArchiveDriver):

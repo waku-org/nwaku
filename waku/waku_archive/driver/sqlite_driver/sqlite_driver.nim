@@ -117,7 +117,7 @@ method getPagesSize*(s: SqliteDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getPageSize()
 
-method performsSqliteVacuum*(s: SqliteDriver):
+method performsVacuum*(s: SqliteDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.performSqliteVacuum()
 

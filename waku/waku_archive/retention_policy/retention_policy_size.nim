@@ -51,12 +51,11 @@ method execute*(p: SizeRetentionPolicy,
   var pageCount: int64 = pageCountRes.value
 
   # get page size of database
-  var pageSizeRes = await driver.getPagesSize()
-  if pageSizeRes.isErr():
-    return err("failed to get Page size: " & pageSizeRes.error)
+  let pageSizeRes = await driver.getPagesSize()
+  var pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
 
-  # get the page size in kilobytes Kb)
-  var pageSize: int64 = int64(pageSizeRes.value div 1024)
+  if pageSize == 0:
+    return err("failed to get Page size: " & pageSizeRes.error)
 
   # database size in megabytes (Mb)
   var totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
@@ -80,7 +79,7 @@ method execute*(p: SizeRetentionPolicy,
 
   # vacuum to get the deleted pages defragments to save storage space
   # this will resize the database size
-  let resVaccum = await driver.performsSqliteVacuum()
+  let resVaccum = await driver.performsVacuum()
   if resVaccum.isErr():
     return err("vacuumming failed: " & resVaccum.error)
 
