@@ -44,7 +44,7 @@ suite "Waku NetConfig":
     check:
       netConfigRes.isOk()
 
-asyncTest "AnnouncedAddresses contains only bind address when no external addresses are provided":
+  asyncTest "AnnouncedAddresses contains only bind address when no external addresses are provided":
 
     let conf = defaultTestWakuNodeConf()
         
@@ -63,7 +63,7 @@ asyncTest "AnnouncedAddresses contains only bind address when no external addres
       netConfig.announcedAddresses[0] == formatListenAddress(ip4TcpEndPoint(conf.listenAddress, conf.tcpPort))
 
 
-asyncTest "AnnouncedAddresses contains external address if extIp/Port are provided":
+  asyncTest "AnnouncedAddresses contains external address if extIp/Port are provided":
 
     let 
       conf = defaultTestWakuNodeConf()
@@ -86,30 +86,30 @@ asyncTest "AnnouncedAddresses contains external address if extIp/Port are provid
       netConfig.announcedAddresses.len == 1  # Only external address should be present
       netConfig.announcedAddresses[0] == ip4TcpEndPoint(extIp, extPort)
 
-asyncTest "AnnouncedAddresses contains dns4DomainName if provided":
+  asyncTest "AnnouncedAddresses contains dns4DomainName if provided":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    dns4DomainName = "example.com"
-    extPort = Port(1234)
+    let 
+      conf = defaultTestWakuNodeConf()
+      dns4DomainName = "example.com"
+      extPort = Port(1234)
 
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    dns4DomainName = some(dns4DomainName),
-    extPort = some(extPort)
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      dns4DomainName = some(dns4DomainName),
+      extPort = some(extPort)
+    )
       
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.announcedAddresses.len == 1  # Only DNS address should be present
-    netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
+    check:
+      netConfig.announcedAddresses.len == 1  # Only DNS address should be present
+      netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
 
-asyncTest "AnnouncedAddresses includes extMultiAddrs when provided":
+  asyncTest "AnnouncedAddresses includes extMultiAddrs when provided":
 
     let 
       conf = defaultTestWakuNodeConf()
@@ -133,32 +133,32 @@ asyncTest "AnnouncedAddresses includes extMultiAddrs when provided":
       netConfig.announcedAddresses[1] == extMultiAddrs[0]
 
 
-asyncTest "AnnouncedAddresses uses dns4DomainName over extIp when both are provided":
+  asyncTest "AnnouncedAddresses uses dns4DomainName over extIp when both are provided":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    dns4DomainName = "example.com"
-    extIp = ValidIpAddress.init("1.2.3.4")
-    extPort = Port(1234)
+    let 
+      conf = defaultTestWakuNodeConf()
+      dns4DomainName = "example.com"
+      extIp = ValidIpAddress.init("1.2.3.4")
+      extPort = Port(1234)
         
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    dns4DomainName = some(dns4DomainName),
-    extIp = some(extIp),
-    extPort = some(extPort)
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      dns4DomainName = some(dns4DomainName),
+      extIp = some(extIp),
+      extPort = some(extPort)
+    )
      
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.announcedAddresses.len == 1  # DNS address
-    netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort) 
+    check:
+      netConfig.announcedAddresses.len == 1  # DNS address
+      netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort) 
 
-asyncTest "AnnouncedAddresses includes WebSocket addresses when enabled":
+  asyncTest "AnnouncedAddresses includes WebSocket addresses when enabled":
 
     var 
       conf = defaultTestWakuNodeConf()
@@ -202,91 +202,91 @@ asyncTest "AnnouncedAddresses includes WebSocket addresses when enabled":
       netConfig.announcedAddresses[1] == (ip4TcpEndPoint(conf.listenAddress, 
         conf.websocketPort) & wsFlag(wssEnabled))
     
-asyncTest "Announced WebSocket address contains external IP if provided":
+  asyncTest "Announced WebSocket address contains external IP if provided":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    extIp = ValidIpAddress.init("1.2.3.4")
-    extPort = Port(1234)
-    wssEnabled = false
+    let 
+      conf = defaultTestWakuNodeConf()
+      extIp = ValidIpAddress.init("1.2.3.4")
+      extPort = Port(1234)
+      wssEnabled = false
         
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    extIp = some(extIp),
-    extPort = some(extPort),
-    wsEnabled = true,
-    wssEnabled = wssEnabled
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      extIp = some(extIp),
+      extPort = some(extPort),
+      wsEnabled = true,
+      wssEnabled = wssEnabled
+    )
      
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.announcedAddresses.len == 2  # External address + wsHostAddress
-    netConfig.announcedAddresses[1] == (ip4TcpEndPoint(extIp, 
-      conf.websocketPort) & wsFlag(wssEnabled))
+    check:
+      netConfig.announcedAddresses.len == 2  # External address + wsHostAddress
+      netConfig.announcedAddresses[1] == (ip4TcpEndPoint(extIp, 
+        conf.websocketPort) & wsFlag(wssEnabled))
 
-asyncTest "Announced WebSocket address contains dns4DomainName if provided":
+  asyncTest "Announced WebSocket address contains dns4DomainName if provided":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    dns4DomainName = "example.com"
-    extPort = Port(1234)
-    wssEnabled = false
+    let 
+      conf = defaultTestWakuNodeConf()
+      dns4DomainName = "example.com"
+      extPort = Port(1234)
+      wssEnabled = false
         
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    dns4DomainName = some(dns4DomainName),
-    extPort = some(extPort),
-    wsEnabled = true,
-    wssEnabled = wssEnabled
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      dns4DomainName = some(dns4DomainName),
+      extPort = some(extPort),
+      wsEnabled = true,
+      wssEnabled = wssEnabled
+    )
      
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.announcedAddresses.len == 2  # Bind address + wsHostAddress
-    netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
-      wsFlag(wssEnabled))
+    check:
+      netConfig.announcedAddresses.len == 2  # Bind address + wsHostAddress
+      netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
+        wsFlag(wssEnabled))
 
-asyncTest "Announced WebSocket address contains dns4DomainName if provided alongside extIp":
+  asyncTest "Announced WebSocket address contains dns4DomainName if provided alongside extIp":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    dns4DomainName = "example.com"
-    extIp = ValidIpAddress.init("1.2.3.4")
-    extPort = Port(1234)
-    wssEnabled = false
+    let 
+      conf = defaultTestWakuNodeConf()
+      dns4DomainName = "example.com"
+      extIp = ValidIpAddress.init("1.2.3.4")
+      extPort = Port(1234)
+      wssEnabled = false
         
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    dns4DomainName = some(dns4DomainName),
-    extIp = some(extIp),
-    extPort = some(extPort),
-    wsEnabled = true,
-    wssEnabled = wssEnabled
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      dns4DomainName = some(dns4DomainName),
+      extIp = some(extIp),
+      extPort = some(extPort),
+      wsEnabled = true,
+      wssEnabled = wssEnabled
+    )
      
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.announcedAddresses.len == 2  # DNS address + wsHostAddress
-    netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
-    netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
-      wsFlag(wssEnabled))      
+    check:
+      netConfig.announcedAddresses.len == 2  # DNS address + wsHostAddress
+      netConfig.announcedAddresses[0] == dns4TcpEndPoint(dns4DomainName, extPort)
+      netConfig.announcedAddresses[1] == (dns4TcpEndPoint(dns4DomainName, conf.websocketPort) & 
+        wsFlag(wssEnabled))      
 
-asyncTest "ENR is set with bindIp/Port if no extIp/Port are provided":
+  asyncTest "ENR is set with bindIp/Port if no extIp/Port are provided":
 
     let conf = defaultTestWakuNodeConf()
         
@@ -304,7 +304,7 @@ asyncTest "ENR is set with bindIp/Port if no extIp/Port are provided":
       netConfig.enrIp.get() == conf.listenAddress
       netConfig.enrPort.get() == conf.tcpPort
 
-asyncTest "ENR is set with extIp/Port if provided":
+  asyncTest "ENR is set with extIp/Port if provided":
 
     let 
       conf = defaultTestWakuNodeConf()
@@ -327,25 +327,25 @@ asyncTest "ENR is set with extIp/Port if provided":
       netConfig.extIp.get() == extIp
       netConfig.enrPort.get() == extPort
 
-asyncTest "ENR is set with dns4DomainName if provided":
+  asyncTest "ENR is set with dns4DomainName if provided":
 
-  let 
-    conf = defaultTestWakuNodeConf()
-    dns4DomainName = "example.com"
-    extPort = Port(1234)
+    let 
+      conf = defaultTestWakuNodeConf()
+      dns4DomainName = "example.com"
+      extPort = Port(1234)
 
-  let netConfigRes = NetConfig.init(
-    bindIp = conf.listenAddress,
-    bindPort = conf.tcpPort,
-    dns4DomainName = some(dns4DomainName),
-    extPort = some(extPort)
-  )
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      dns4DomainName = some(dns4DomainName),
+      extPort = some(extPort)
+    )
 
-  require:
-    netConfigRes.isOk()
+    require:
+      netConfigRes.isOk()
 
-  let netConfig = netConfigRes.get()
+    let netConfig = netConfigRes.get()
 
-  check:
-    netConfig.enrMultiaddrs.contains(dns4TcpEndPoint(dns4DomainName, extPort))
+    check:
+      netConfig.enrMultiaddrs.contains(dns4TcpEndPoint(dns4DomainName, extPort))
 
