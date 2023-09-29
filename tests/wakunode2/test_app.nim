@@ -10,23 +10,10 @@ import
   libp2p/multiaddress,
   libp2p/switch
 import
-  ../../apps/wakunode2/external_config,
-  ../../apps/wakunode2/app,
   ../testlib/common,
-  ../testlib/wakucore
-
-proc defaultTestWakuNodeConf*(): WakuNodeConf =
-  WakuNodeConf(
-    listenAddress: ValidIpAddress.init("127.0.0.1"),
-    rpcAddress: ValidIpAddress.init("127.0.0.1"),
-    restAddress: ValidIpAddress.init("127.0.0.1"),
-    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
-    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
-    nat: "any",
-    maxConnections: 50,
-    topics: @["/waku/2/default-waku/proto"],
-    relay: true
-  )
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../../apps/wakunode2/app
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":
