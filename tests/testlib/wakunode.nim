@@ -35,7 +35,6 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     relay: true
   )
 
-
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       bindIp: ValidIpAddress,
                       bindPort: Port,

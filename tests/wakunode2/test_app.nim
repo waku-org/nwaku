@@ -15,7 +15,6 @@ import
   ../testlib/wakunode,
   ../../apps/wakunode2/app
 
-
 suite "Wakunode2 - App":
   test "compilation version should be reported":
     ## Given
