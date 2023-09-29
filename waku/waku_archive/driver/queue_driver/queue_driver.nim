@@ -280,6 +280,18 @@ method getMessagesCount*(driver: QueueDriver):
                          Future[ArchiveDriverResult[int64]] {.async} =
   return ok(int64(driver.len()))
 
+method getPagesCount*(driver: QueueDriver):
+                         Future[ArchiveDriverResult[int64]] {.async} =
+  return ok(int64(driver.len()))
+
+method getPagesSize*(driver: QueueDriver):
+                         Future[ArchiveDriverResult[int64]] {.async} =
+  return ok(int64(driver.len()))
+
+method performsSqliteVacuum*(driver: QueueDriver):
+              Future[ArchiveDriverResult[void]] {.async.} =
+  return ok()
+
 method getOldestMessageTimestamp*(driver: QueueDriver):
                                   Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.first().map(proc(msg: IndexedWakuMessage): Timestamp = msg.index.receiverTime)

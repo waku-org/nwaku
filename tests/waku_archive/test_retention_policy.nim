@@ -12,6 +12,7 @@ import
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive/retention_policy,
   ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
+  ../../../waku/waku_archive/retention_policy/retention_policy_size,
   ../testlib/common,
   ../testlib/wakucore
 
@@ -50,6 +51,38 @@ suite "Waku Archive - Retention policy":
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
       # the window size changes when changing `const maxStoreOverflow = 1.3 in sqlite_store
       numMessages == 120
+
+    ## Cleanup
+    (waitFor driver.close()).expect("driver to close")
+  
+  test "size retention policy - windowed message deletion":
+    ## Given
+    let
+      # in megabytes
+      sizeLimit:float = 0.05
+      excess = 123
+
+    let driver = newTestArchiveDriver()
+
+    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
+
+    ## When
+    for i in 1..excess:
+      let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
+
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor retentionPolicy.execute(driver)).isOk()
+    ## Then
+    # calculate the current database size
+    let pageSize = (waitFor driver.getPagesSize()).tryGet()
+    let pageCount = (waitFor driver.getPagesCount()).tryGet()
+    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+
+    check:
+      # size of the database is used to check if the storage limit has been preserved
+      # check the current database size with the limitSize provided by the user
+      # it should be lower 
+      sizeDB <= sizeLimit
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
