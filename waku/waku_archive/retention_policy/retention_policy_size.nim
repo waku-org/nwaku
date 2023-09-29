@@ -50,7 +50,7 @@ method execute*(p: SizeRetentionPolicy,
 
   var pageCount: int64 = pageCountRes.value
 
-  # # get page size of database
+  # get page size of database
   var pageSizeRes = await driver.getPagesSize()
   if pageSizeRes.isErr():
     return err("failed to get Page size: " & pageSizeRes.error)
@@ -62,7 +62,7 @@ method execute*(p: SizeRetentionPolicy,
   var totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
 
   # check if current databse size crosses the db size limit
-  if totalSizeOfDB <= p.sizeLimit:
+  if totalSizeOfDB < p.sizeLimit:
     return ok()
 
   # to shread/delete messsges, get the total row/message count
