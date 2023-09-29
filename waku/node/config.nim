@@ -36,7 +36,7 @@ type NetConfig* = object
 type NetConfigResult* = Result[NetConfig, string]
 
 
-template ip4TcpEndPoint*(address, port): MultiAddress =
+template ip4TcpEndPoint(address, port): MultiAddress =
   MultiAddress.init(address, tcpProtocol, port)
 
 template dns4Ma(dns4DomainName: string): MultiAddress =
@@ -45,15 +45,15 @@ template dns4Ma(dns4DomainName: string): MultiAddress =
 template tcpPortMa(port: Port): MultiAddress =
   MultiAddress.init("/tcp/" & $port).tryGet()
 
-template dns4TcpEndPoint*(dns4DomainName: string, port: Port): MultiAddress =
+template dns4TcpEndPoint(dns4DomainName: string, port: Port): MultiAddress =
   dns4Ma(dns4DomainName) & tcpPortMa(port)
 
-template wsFlag*(wssEnabled: bool): MultiAddress =
+template wsFlag(wssEnabled: bool): MultiAddress =
   if wssEnabled: MultiAddress.init("/wss").tryGet()
   else: MultiAddress.init("/ws").tryGet()
 
 
-proc formatListenAddress*(inputMultiAdd: MultiAddress): MultiAddress =
+proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
     let inputStr = $inputMultiAdd
     # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
     return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()

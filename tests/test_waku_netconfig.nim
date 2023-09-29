@@ -7,10 +7,11 @@ import
   testutils/unittests
 
 import
-    ./testlib/wakunode,
-    ../../waku/node/config,
-    ../../waku/waku_enr/capabilities
+  ./testlib/wakunode,
+  ../../waku/waku_enr/capabilities
 
+include
+  ../../waku/node/config
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(
@@ -54,8 +55,7 @@ suite "Waku NetConfig":
       bindPort = conf.tcpPort
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -78,8 +78,7 @@ suite "Waku NetConfig":
       extPort = some(extPort)
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -101,8 +100,7 @@ suite "Waku NetConfig":
       extPort = some(extPort)
     )
       
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -124,8 +122,7 @@ suite "Waku NetConfig":
       extMultiAddrs = extMultiAddrs
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -150,8 +147,7 @@ suite "Waku NetConfig":
       extPort = some(extPort)
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -172,8 +168,7 @@ suite "Waku NetConfig":
       wssEnabled = wssEnabled
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     var netConfig = netConfigRes.get()
 
@@ -193,8 +188,7 @@ suite "Waku NetConfig":
       wssEnabled = wssEnabled
     )
 
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     netConfig = netConfigRes.get()
 
@@ -220,8 +214,7 @@ suite "Waku NetConfig":
       wssEnabled = wssEnabled
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -247,8 +240,7 @@ suite "Waku NetConfig":
       wssEnabled = wssEnabled
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -276,8 +268,7 @@ suite "Waku NetConfig":
       wssEnabled = wssEnabled
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -296,8 +287,7 @@ suite "Waku NetConfig":
       bindPort = conf.tcpPort
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -319,8 +309,7 @@ suite "Waku NetConfig":
       extPort = some(extPort)
     )
      
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
@@ -342,8 +331,7 @@ suite "Waku NetConfig":
       extPort = some(extPort)
     )
 
-    require:
-      netConfigRes.isOk()
+    assert netConfigRes.isOk(), $netConfigRes.error
 
     let netConfig = netConfigRes.get()
 
