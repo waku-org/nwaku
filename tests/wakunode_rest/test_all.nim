@@ -9,4 +9,5 @@ import
   ./test_rest_relay_serdes,
   ./test_rest_relay,
   ./test_rest_serdes,
-  ./test_rest_store
+  ./test_rest_store,
+  ./test_rest_admin
