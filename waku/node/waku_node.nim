@@ -1119,6 +1119,7 @@ proc start*(node: WakuNode) {.async.} =
   node.switch.peerInfo.addressMappers.add(zeroIpFilter) ]#
   node.switch.peerInfo.addressMappers.add(addressMapper)
 
+  echo "-------- calling node.switch.start()"
   ## The switch will update addresses after start using the addressMapper
   await node.switch.start()
 

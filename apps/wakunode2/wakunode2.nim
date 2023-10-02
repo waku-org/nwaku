@@ -49,7 +49,7 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-
+  echo "Initializing wakunode (with conf)"
   var wakunode2 = App.init(rng, conf)
 
   ##############
@@ -73,6 +73,7 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
+  # Here the Switch is created
   let res4 = wakunode2.setupWakuApp()
   if res4.isErr():
     error "3/7 Initializing node failed", error=res4.error

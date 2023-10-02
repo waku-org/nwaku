@@ -109,6 +109,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
       keyRes.get()
 
+  echo "Initializing NetConfig"
   let netConfigRes = networkConfiguration(conf, clientId)
 
   let netConfig =
