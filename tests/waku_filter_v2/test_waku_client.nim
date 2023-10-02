@@ -46,7 +46,7 @@ suite "Waku Filter - End to End":
 
       pubsubTopic = DefaultPubsubTopic
       contentTopic = DefaultContentTopic
-      contentTopicSeq = @[DefaultContentTopic]
+      contentTopicSeq = @[contentTopic]
       serverSwitch = newStandardSwitch()
       clientSwitch = newStandardSwitch()
       wakuFilter = await newTestWakuFilter(serverSwitch)
@@ -131,6 +131,17 @@ suite "Waku Filter - End to End":
         check:
           subscribeResponse.isErr() # Not subscribed
           subscribeResponse.error().kind == FilterSubscribeErrorKind.PEER_DIAL_FAILURE
+
+      asyncTest "Subscribing to an empty content topic":
+        # When subscribing to an empty content topic
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, @[]
+        )
+
+        # Then the subscription is not successful
+        check:
+          subscribeResponse.isErr() # Not subscribed
+          subscribeResponse.error().kind == FilterSubscribeErrorKind.BAD_REQUEST
 
       asyncTest "PubSub Topic with Single Content Topic":
         # Given
@@ -776,6 +787,868 @@ suite "Waku Filter - End to End":
         check:
           pushedMsgPubsubTopic2 == pubsubTopic
           pushedMsg2 == msg2
+
+    suite "Unsubscribe":
+
+      ###
+      # One PubSub Topic
+      ###
+
+      asyncTest "PubSub Topic with Single Content Topic":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == contentTopicSeq
+        
+        # When unsubscribing from the subscription
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+        
+      asyncTest "After refreshing a subscription with Single Content Topic":
+        # Given a valid subscription
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == contentTopicSeq
+        
+        # When refreshing the subscription
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the subscription is successful
+        check:
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == contentTopicSeq
+        
+        # When unsubscribing from the subscription
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "PubSub Topic with Multiple Content Topics, One By One":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from one of the content topics
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == @["other-content-topic"]
+        
+        # When unsubscribing from the other content topic
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+      
+      asyncTest "PubSub Topic with Multiple Content Topics, All At Once":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from all content topics
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a complete subscription with Multiple Content Topics, One By One":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # And a successful complete refresh of the subscription
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        require:
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from one of the content topics
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == @["other-content-topic"]
+        
+        # When unsubscribing from the other content topic
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a complete subscription with Multiple Content Topics, All At Once":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # And a successful complete refresh of the subscription
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        require:
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from all content topics
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a partial subscription with Multiple Content Topics, One By One":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # Unsubscribing from one content topic
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+        require:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == @["other-content-topic"]
+
+        # And a successful refresh of the partial subscription
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from one of the content topics
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == @["other-content-topic"]
+        
+        # When unsubscribing from the other content topic
+        let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse3.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a partial subscription with Multiple Content Topics, All At Once":
+        # Given a valid subscription
+        let multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # Unsubscribing from one content topic
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+        require:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == @["other-content-topic"]
+        
+        # And a successful refresh of the partial subscription
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+        require:
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId) == multipleContentTopicSeq
+        
+        # When unsubscribing from all content topics
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      ###
+      # Multiple PubSub Topics
+      ###
+
+      asyncTest "Different PubSub Topics with Single (Same) Content Topic":
+        # Given two valid subscriptions with the same content topic
+        let
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1
+        
+        # When unsubscribing from the other subscription
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+        
+      asyncTest "Different PubSub Topics with Multiple (Same) Content Topics, One By One":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 3
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1
+        
+        # When unsubscribing from the last subscription
+        let unsubscribeResponse4 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "Different PubSub Topics with Multiple (Same) Content Topics, All At Once":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from the other subscription
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a complete subscription with different PubSub Topics and Single (Same) Content Topic":
+        # Given two valid subscriptions with the same content topic
+        let
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # And a successful complete refresh of the subscription
+        let 
+          subscribeResponse3 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+          )
+          subscribeResponse4 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+          )
+        
+        require:
+          subscribeResponse3.isOk()
+          subscribeResponse4.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1
+        
+        # When unsubscribing from the other subscription
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a complete subscription with different PubSub Topics and Multiple (Same) Content Topics, One By One":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # And a successful complete refresh of the subscription
+        let 
+          subscribeResponse3 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse4 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        require:
+          subscribeResponse3.isOk()
+          subscribeResponse4.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 3
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1
+        
+        # When unsubscribing from the last subscription
+        let unsubscribeResponse4 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @[contentTopic]
+        )
+      
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a complete subscription with different PubSub Topics and Multiple (Same) Content Topics, All At Once":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = @[contentTopic, "other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # And a successful complete refresh of the subscription
+        let 
+          subscribeResponse3 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse4 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        require:
+          subscribeResponse3.isOk()
+          subscribeResponse4.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse1.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from the other subscription
+        let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a partial subscription with different PubSub Topics and Multiple (Same) Content Topics, One By One":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = contentTopicSeq & @["other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # Unsubscribing from one of the content topics of each subscription
+        let
+          unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+            serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+          )
+          unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", @["other-content-topic"]
+          )
+        
+        require:
+          unsubscribeResponse1.isOk()
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # And a successful refresh of the partial subscription
+        let 
+          refreshSubscriptionResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          refreshSubscriptionResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        require:
+          refreshSubscriptionResponse1.isOk()
+          refreshSubscriptionResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse3.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 3
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse4 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse4.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from another of the subscriptions
+        let unsubscribeResponse5 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["other-content-topic"]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse5.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1
+        
+        # When unsubscribing from the last subscription
+        let unsubscribeResponse6 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", @[contentTopic]
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse6.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "After refreshing a partial subscription with different PubSub Topics and Multiple (Same) Content Topics, All At Once":
+        # Given two valid subscriptions with the same content topics
+        let
+          multipleContentTopicSeq = contentTopicSeq & @["other-content-topic"]
+          subscribeResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          subscribeResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        # TODO: CHECK IF THIS MAKES SENSE
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # Unsubscribing from one of the content topics of each subscription
+        let
+          unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
+            serverRemotePeerInfo, pubsubTopic, @[contentTopic]
+          )
+          unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", @["other-content-topic"]
+          )
+        
+        require:
+          unsubscribeResponse1.isOk()
+          unsubscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # And a successful refresh of the partial subscription
+        let 
+          refreshSubscriptionResponse1 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+          )
+          refreshSubscriptionResponse2 = await wakuFilterClient.subscribe(
+            serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+          )
+        
+        require:
+          refreshSubscriptionResponse1.isOk()
+          refreshSubscriptionResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 4
+        
+        # When unsubscribing from one of the subscriptions
+        let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse3.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 2
+        
+        # When unsubscribing from the other subscription
+        let unsubscribeResponse4 = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", multipleContentTopicSeq
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse4.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "Without existing subscription":
+        # When unsubscribing from a non-existent subscription
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the unsubscription is not successful
+        check:
+          unsubscribeResponse.isErr() # Not subscribed
+          unsubscribeResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
+
+      asyncTest "With non existent pubsub topic":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, "pubsub-topic", contentTopicSeq
+        )
+
+        # When unsubscribing from a pubsub topic that does not exist
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, "non-existent-pubsub-topic", contentTopicSeq
+        )
+
+        # Then the unsubscription is not successful
+        check:
+          unsubscribeResponse.isErr() # Not subscribed
+          unsubscribeResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
+
+      asyncTest "With non existent content topic":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # When unsubscribing from a content topic that does not exist
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @["non-existent-content-topic"]
+        )
+
+        # Then the unsubscription is not successful
+        check:
+          unsubscribeResponse.isErr() # Not subscribed
+          unsubscribeResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
+      
+      asyncTest "Empty content topic":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # When unsubscribing from an empty content topic
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, @[]
+        )
+
+        # Then the unsubscription is not successful
+        check:
+          unsubscribeResponse.isErr() # Not subscribed
+          unsubscribeResponse.error().kind == FilterSubscribeErrorKind.BAD_REQUEST
 
   suite "MessagePushHandler - Msg List":
     var serverSwitch {.threadvar.}: Switch
