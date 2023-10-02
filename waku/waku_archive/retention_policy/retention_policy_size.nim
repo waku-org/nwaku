@@ -44,31 +44,31 @@ method execute*(p: SizeRetentionPolicy,
   
   # to get the size of the database, pageCount and PageSize is required
   # get page count in "messages" database
-  var pageCountRes = await driver.getPagesCount()
+  let pageCountRes = await driver.getPagesCount()
   if pageCountRes.isErr():
     return err("failed to get Pages count: " & pageCountRes.error)
 
-  var pageCount: int64 = pageCountRes.value
+  let pageCount: int64 = pageCountRes.value
 
   # get page size of database
   let pageSizeRes = await driver.getPagesSize()
-  var pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
+  let pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
 
   if pageSize == 0:
     return err("failed to get Page size: " & pageSizeRes.error)
 
   # database size in megabytes (Mb)
-  var totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
+  let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
 
   # check if current databse size crosses the db size limit
   if totalSizeOfDB < p.sizeLimit:
     return ok()
 
   # to shread/delete messsges, get the total row/message count
-  var numMessagesRes = await driver.getMessagesCount()
+  let numMessagesRes = await driver.getMessagesCount()
   if numMessagesRes.isErr():
     return err("failed to get messages count: " & numMessagesRes.error)
-  var numMessages = numMessagesRes.value
+  let numMessages = numMessagesRes.value
 
   # 80% of the total messages are to be kept, delete others
   let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
@@ -79,7 +79,7 @@ method execute*(p: SizeRetentionPolicy,
 
   # vacuum to get the deleted pages defragments to save storage space
   # this will resize the database size
-  let resVaccum = await driver.performsVacuum()
+  let resVaccum = await driver.performVacuum()
   if resVaccum.isErr():
     return err("vacuumming failed: " & resVaccum.error)
 

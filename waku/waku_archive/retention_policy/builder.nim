@@ -68,7 +68,7 @@ proc new*(T: type RetentionPolicy,
       try:
         sizeQuantity = parseFloat(sizeQuantityStr)
       except ValueError:
-        return err("invalid size retention policy argument")
+        return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
       # Gb data is converted into Mb for uniform processing
       sizeQuantity = sizeQuantity * 1024
     elif sizeUnit in ["mb", "Mb", "MB", "mB"]:

@@ -69,21 +69,27 @@ suite "Waku Archive - Retention policy":
     ## When
 
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
-    var retentionFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     for i in 1..excess:
         let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
         putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
-        retentionFutures.add(retentionPolicy.execute(driver))
 
     # waitFor is used to synchronously wait for the futures to complete.
-    discard waitFor allFinished(putFutures & retentionFutures)
-            
+    discard waitFor allFinished(putFutures)
+
     ## Then
     # calculate the current database size
-    let pageSize = (waitFor driver.getPagesSize()).tryGet()
-    let pageCount = (waitFor driver.getPagesCount()).tryGet()
-    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    var pageSize = (waitFor driver.getPagesSize()).tryGet()
+    var pageCount = (waitFor driver.getPagesCount()).tryGet()
+    var sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    # execute policy if the current db size oveflows 
+    if sizeDB >= sizeLimit:
+      require (waitFor retentionPolicy.execute(driver)).isOk()
+    
+    # update the current db size
+    pageSize = (waitFor driver.getPagesSize()).tryGet()
+    pageCount = (waitFor driver.getPagesCount()).tryGet()
+    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
 
     check:
       # size of the database is used to check if the storage limit has been preserved
