@@ -13,16 +13,19 @@ import
   ../../../common/base64,
   ../../../waku_core,
   ../serdes
-
-
+  
 #### Types
+
+type
+  SubscriptionsHandler* = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.}
+  PublishHandler* = proc(pubsubTopic: Option[PubsubTopic], message: WakuMessage):
+    Future[Result[void, string]] {.async, closure.}
 
 type RelayWakuMessage* = object
       payload*: Base64String
       contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
-
 
 type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]

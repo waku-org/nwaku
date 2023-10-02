@@ -57,6 +57,9 @@ import
   ./internal_config,
   ./external_config
 
+from std/times import getTime
+from std/times import toUnix
+
 logScope:
   topics = "wakunode app"
 
@@ -577,18 +580,73 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   if conf.relay:
     let cache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
 
-    let handler = messageCacheHandler(cache)
-    let autoHandler = autoMessageCacheHandler(cache)
+    installRelayApiMessageHandlers(server.router, cache)
+
+    let cacheHandler = messageCacheHandler(cache)
+    let autoCacheHandler = autoMessageCacheHandler(cache)
 
     for pubsubTopic in conf.pubsubTopics:
       cache.subscribe(pubsubTopic)
-      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(cacheHandler))
 
     for contentTopic in conf.contentTopics:
       cache.subscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoCacheHandler))
 
-    installRelayApiHandlers(server.router, app.node, cache)
+    let subHandler = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.} =
+      case kind:
+        of PubsubSub:
+          for topic in topics:
+            cache.subscribe(topic)
+            app.node.subscribe((kind, topic), some(cacheHandler))
+        of PubsubUnsub:
+          for topic in topics:
+            cache.unsubscribe(topic)
+            app.node.unsubscribe((kind, topic))
+        of ContentSub:
+          for topic in topics:
+            cache.subscribe(topic)
+            app.node.subscribe((kind, topic), some(autoCacheHandler))
+        of ContentUnsub:
+          for topic in topics:
+            cache.unsubscribe(topic)
+            app.node.unsubscribe((kind, topic))
+
+    installRelaySubscriptionHandlers(server.router, subHandler)
+
+    let publishHandler = proc(
+      pubsubTopic: Option[PubsubTopic],
+      message: WakuMessage,
+      ): Future[Result[void, string]] {.async, closure.} =
+      var msg = message
+
+      # if RLN is mounted, append the proof to the message
+      if not app.node.wakuRlnRelay.isNil():
+        # append the proof to the message
+        let success = app.node.wakuRlnRelay.appendRLNProof(msg, float64(getTime().toUnix()))
+        if not success:
+          return err("Failed to publish: error appending RLN proof to message")
+
+        # validate the message before sending it
+        let res = app.node.wakuRlnRelay.validateMessage(msg)
+        if res == MessageValidationResult.Invalid:
+          return err("Failed to publish: invalid RLN proof")
+        elif res == MessageValidationResult.Spam:
+          return err("Failed to publish: limit exceeded, try again later")
+        elif res == MessageValidationResult.Valid:
+          debug "RLN proof validated successfully", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic
+        else:
+          return err("Failed to publish: unknown RLN proof validation result") 
+
+      # if we reach here its either a non-RLN message or a RLN message with a valid proof
+      debug "Publishing message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, rln=defined(rln)
+
+      await app.node.publish(pubsubTopic, msg)
+
+      return ok()
+
+    installRelayApiPublishHandlers(server.router, publishHandler)
+    
 
   ## Filter REST API
   if conf.filter:

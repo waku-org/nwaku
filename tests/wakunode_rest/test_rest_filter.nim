@@ -43,7 +43,7 @@ type RestFilterTest = object
   serviceNode: WakuNode
   subscriberNode: WakuNode
   restServer: RestServerRef
-  restServerForService: RestServerRef
+  #restServerForService: RestServerRef
   messageCache: filter_api.MessageCache
   client: RestClientRef
   clientTwdServiceNode: RestClientRef
@@ -67,17 +67,17 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
   let restPort2 = Port(58012)
-  testSetup.restServerForService = RestServerRef.init(restAddress, restPort2).tryGet()
+  #testSetup.restServerForService = RestServerRef.init(restAddress, restPort2).tryGet()
 
   # through this one we will see if messages are pushed according to our content topic sub
   testSetup.messageCache = filter_api.MessageCache.init()
   installFilterRestApiHandlers(testSetup.restServer.router, testSetup.subscriberNode, testSetup.messageCache)
 
-  let topicCache = MessageCache[string].init()
-  installRelayApiHandlers(testSetup.restServerForService.router, testSetup.serviceNode, topicCache)
+  #let topicCache = MessageCache[string].init()
+  #installRelayApiHandlers(testSetup.restServerForService.router, testSetup.serviceNode, topicCache)
 
   testSetup.restServer.start()
-  testSetup.restServerForService.start()
+  #testSetup.restServerForService.start()
 
   testSetup.client = newRestHttpClient(initTAddress(restAddress, restPort))
   testSetup.clientTwdServiceNode = newRestHttpClient(initTAddress(restAddress, restPort2))
@@ -88,8 +88,8 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
 proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServer.stop()
   await self.restServer.closeWait()
-  await self.restServerForService.stop()
-  await self.restServerForService.closeWait()
+  #await self.restServerForService.stop()
+  #await self.restServerForService.closeWait()
   await allFutures(self.serviceNode.stop(), self.subscriberNode.stop())
 
 

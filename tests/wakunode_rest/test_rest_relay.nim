@@ -12,6 +12,7 @@ import
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/waku_api/message_cache,
+  ../../waku/waku_api/cache_handlers,
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/client,
   ../../waku/waku_api/rest/responses,
@@ -22,6 +23,9 @@ import
   ../../../waku/waku_rln_relay,
   ../testlib/wakucore,
   ../testlib/wakunode
+
+from std/times import getTime
+from std/times import toUnix
 
 proc testWakuNode(): WakuNode =
   let
@@ -46,7 +50,13 @@ suite "Waku v2 Rest API - Relay":
 
     let cache = MessageCache[string].init()
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    let subHandler = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.} =
+      if kind == PubsubSub:
+        for topic in topics:
+          cache.subscribe(topic)
+          node.subscribe((kind, topic), some(messageCacheHandler(cache)))
+
+    installRelaySubscriptionHandlers(restServer.router, subHandler)
     restServer.start()
 
     let pubSubTopics = @[
@@ -98,7 +108,13 @@ suite "Waku v2 Rest API - Relay":
     cache.subscribe("pubsub-topic-3")
     cache.subscribe("pubsub-topic-x")
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    let subHandler = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.} =
+      if kind == PubsubUnsub:
+        for topic in topics:
+          cache.unsubscribe(topic)
+          node.unsubscribe((kind, topic))
+
+    installRelaySubscriptionHandlers(restServer.router, subHandler)
     restServer.start()
 
     let pubSubTopics = @[
@@ -157,7 +173,7 @@ suite "Waku v2 Rest API - Relay":
     for msg in messages:
       cache.addMessage(pubSubTopic, msg)
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    installRelayApiMessageHandlers(restServer.router, cache)
     restServer.start()
 
     # When
@@ -199,9 +215,38 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
+    let publishHandler = proc(
+      pubsubTopic: Option[PubsubTopic],
+      message: WakuMessage,
+      ): Future[Result[void, string]] {.async, closure.} =
+      var msg = message
 
-    installRelayApiHandlers(restServer.router, node, cache)
+      # if RLN is mounted, append the proof to the message
+      if not node.wakuRlnRelay.isNil():
+        # append the proof to the message
+        let success = node.wakuRlnRelay.appendRLNProof(msg, float64(getTime().toUnix()))
+        if not success:
+          return err("Failed to publish: error appending RLN proof to message")
+
+        # validate the message before sending it
+        let res = node.wakuRlnRelay.validateMessage(msg)
+        if res == MessageValidationResult.Invalid:
+          return err("Failed to publish: invalid RLN proof")
+        elif res == MessageValidationResult.Spam:
+          return err("Failed to publish: limit exceeded, try again later")
+        elif res == MessageValidationResult.Valid:
+          debug "RLN proof validated successfully", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic
+        else:
+          return err("Failed to publish: unknown RLN proof validation result") 
+
+      # if we reach here its either a non-RLN message or a RLN message with a valid proof
+      debug "Publishing message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, rln=defined(rln)
+
+      await node.publish(pubsubTopic, msg)
+
+      return ok()
+
+    installRelayApiPublishHandlers(restServer.router, publishHandler)
     restServer.start()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -241,7 +286,13 @@ suite "Waku v2 Rest API - Relay":
 
     let cache = MessageCache[string].init()
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    let subHandler = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.} =
+      if kind == ContentSub:
+        for topic in topics:
+          cache.subscribe(topic)
+          node.subscribe((kind, topic), some(autoMessageCacheHandler(cache)))
+
+    installRelaySubscriptionHandlers(restServer.router, subHandler)
     restServer.start()
 
     let contentTopics = @[
@@ -298,7 +349,13 @@ suite "Waku v2 Rest API - Relay":
     cache.subscribe(contentTopics[2])
     cache.subscribe("/waku/2/default-contentY/proto")
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    let subHandler = proc(kind: SubscriptionKind, topics: seq[string]) {.async, closure.} =
+      if kind == ContentUnsub:
+        for topic in topics:
+            cache.unsubscribe(topic)
+            node.unsubscribe((kind, topic))
+
+    installRelaySubscriptionHandlers(restServer.router, subHandler)
     restServer.start()
 
     # When
@@ -344,7 +401,7 @@ suite "Waku v2 Rest API - Relay":
     for msg in messages:
       cache.addMessage(contentTopic, msg)
 
-    installRelayApiHandlers(restServer.router, node, cache)
+    installRelayApiMessageHandlers(restServer.router, cache)
     restServer.start()
 
     # When
@@ -385,8 +442,23 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
-    installRelayApiHandlers(restServer.router, node, cache)
+    let publishHandler = proc(
+      pubsubTopic: Option[PubsubTopic],
+      message: WakuMessage,
+      ): Future[Result[void, string]] {.async, closure.} =
+      var msg = message
+
+      if not node.wakuRlnRelay.appendRLNProof(msg, float64(getTime().toUnix())):
+        return err("")
+
+      if node.wakuRlnRelay.validateMessage(msg) != MessageValidationResult.Valid:
+        return err("") 
+
+      await node.publish(pubsubTopic, msg)
+
+      return ok()
+
+    installRelayApiPublishHandlers(restServer.router, publishHandler)
     restServer.start()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
