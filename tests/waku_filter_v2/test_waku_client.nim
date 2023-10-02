@@ -1,12 +1,14 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils],
+  std/[options, tables, sequtils, strutils],
   testutils/unittests,
+  stew/[results, byteutils],
   chronos,
   chronicles,
   os,
-  libp2p/peerstore
+  libp2p/peerstore,
+  std/json
 
 import
   ../../../waku/node/peer_manager,
@@ -14,12 +16,9 @@ import
   ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_filter_v2/subscriptions,
   ../../../waku/waku_core,
-  ../testlib/common,
-  ../testlib/wakucore,
-  ../testlib/testasync,
-  ../testlib/testutils,
-  ../testlib/futures,
-  ./waku_filter_utils.nim
+  ../testlib/[common, wakucore, testasync, testutils, futures, sequtils],
+  ./waku_filter_utils.nim,
+  ./test_data.nim
 
 let FUTURE_TIMEOUT = 1.seconds
 
@@ -1607,6 +1606,10 @@ suite "Waku Filter - End to End":
         let subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, "pubsub-topic", contentTopicSeq
         )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
 
         # When unsubscribing from a pubsub topic that does not exist
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1623,6 +1626,10 @@ suite "Waku Filter - End to End":
         let subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
 
         # When unsubscribing from a content topic that does not exist
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1639,6 +1646,10 @@ suite "Waku Filter - End to End":
         let subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
         )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
 
         # When unsubscribing from an empty content topic
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1649,6 +1660,303 @@ suite "Waku Filter - End to End":
         check:
           unsubscribeResponse.isErr() # Not subscribed
           unsubscribeResponse.error().kind == FilterSubscribeErrorKind.BAD_REQUEST
+
+    suite "Unsubscribe All":
+      asyncTest "Unsubscribe from All Topics, One PubSub Topic":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+        
+        # When unsubscribing from all topics
+        let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(
+          serverRemotePeerInfo
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "Unsubscribe from All Topics, Multiple PubSub Topics":
+        # Given a valid subscription
+        let subscribeResponse1 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        let subscribeResponse2 = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, "other-pubsub-topic", contentTopicSeq
+        )
+        require:
+          subscribeResponse1.isOk()
+          subscribeResponse2.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+        
+        # When unsubscribing from all topics
+        let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(
+          serverRemotePeerInfo
+        )
+
+        # Then the unsubscription is successful
+        check:
+          unsubscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 0
+
+      asyncTest "Unsubscribe from All Topics from a non-subscribed Service":
+        # Given the client is not subscribed to a service
+        require:
+          wakuFilter.subscriptions.len == 0
+
+        # When unsubscribing from all topics for that client
+        let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(
+          serverRemotePeerInfo
+        )
+
+        # Then the unsubscription is not successful
+        check:
+          unsubscribeResponse.isErr() # Not subscribed
+          unsubscribeResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
+
+    suite "Filter-Push":
+      asyncTest "Valid Payloads":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+
+        # And some extra payloads
+        let
+          JSON_DICTIONARY = getSampleJsonDictionary()
+          JSON_LIST = getSampleJsonList()
+
+        # And some valid messages
+        let 
+          msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHABETIC)
+          msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHANUMERIC)
+          msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHANUMERIC_SPECIAL)
+          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=EMOJI)
+          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=CODE)
+          msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=QUERY)
+          msg7 = fakeWakuMessage(contentTopic=contentTopic, payload= $JSON_DICTIONARY)
+          msg8 = fakeWakuMessage(contentTopic=contentTopic, payload= $JSON_LIST)
+          msg9 = fakeWakuMessage(contentTopic=contentTopic, payload=TEXT_SMALL)
+          msg10 = fakeWakuMessage(contentTopic=contentTopic, payload=TEXT_LARGE)
+        
+        # When sending the alphabetic message
+        await wakuFilter.handleMessage(pubsubTopic, msg1)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
+
+        check:
+          pushedMsgPubsubTopic1 == pubsubTopic
+          pushedMsg1 == msg1
+          msg1.payload.toString() == ALPHABETIC
+        
+        # When sending the alphanumeric message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg2)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic2 == pubsubTopic
+          pushedMsg2 == msg2
+          msg2.payload.toString() == ALPHANUMERIC
+        
+        # When sending the alphanumeric special message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg3)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic3 == pubsubTopic
+          pushedMsg3 == msg3
+          msg3.payload.toString() == ALPHANUMERIC_SPECIAL
+
+        # When sending the emoji message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg4)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic4, pushedMsg4) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic4 == pubsubTopic
+          pushedMsg4 == msg4
+          msg4.payload.toString() == EMOJI
+
+        # When sending the code message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg5)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic5, pushedMsg5) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic5 == pubsubTopic
+          pushedMsg5 == msg5
+          msg5.payload.toString() == CODE
+        
+        # When sending the query message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg6)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic6, pushedMsg6) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic6 == pubsubTopic
+          pushedMsg6 == msg6
+          msg6.payload.toString() == QUERY
+        
+        # When sending the table message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg7)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic7, pushedMsg7) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic7 == pubsubTopic
+          pushedMsg7 == msg7
+          msg7.payload.toString() == $JSON_DICTIONARY
+        
+        # When sending the list message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg8)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic8, pushedMsg8) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic8 == pubsubTopic
+          pushedMsg8 == msg8
+          msg8.payload.toString() == $JSON_LIST
+        
+        # When sending the small text message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg9)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic9, pushedMsg9) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic9 == pubsubTopic
+          pushedMsg9 == msg9
+          msg9.payload.toString() == TEXT_SMALL
+        
+        # When sending the large text message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg10)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic10, pushedMsg10) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic10 == pubsubTopic
+          pushedMsg10 == msg10
+          msg10.payload.toString() == TEXT_LARGE
+
+    suite "Security and Privacy":
+      asyncTest "Filter Client can receive messages after Client and Server reboot":
+        # Given a clean client and server
+        require:
+          wakuFilter.subscriptions.len == 0
+        
+        # When subscribing to a topic
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        
+        # Then the subscription is successful
+        check:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+        
+        # When both are stopped and started
+        waitFor allFutures(wakuFilter.stop(), wakuFilterClient.stop())
+        waitFor allFutures(wakuFilter.start(), wakuFilterClient.start())
+
+        # Then the suscription is maintained
+        check:
+          wakuFilter.subscriptions.len == 1
+
+        # When sending a message to the subscription
+        let msg1 = fakeWakuMessage(contentTopic=contentTopic)
+        await wakuFilter.handleMessage(pubsubTopic, msg1)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic == pubsubTopic
+          pushedMsg == msg1
+
+        # When refreshing the subscription after reboot
+        let refreshSubscriptionResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the refreshment is successful
+        check:
+          refreshSubscriptionResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+        
+        # When sending a message to the refreshed subscription
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        let msg2 = fakeWakuMessage(contentTopic=contentTopic)
+        await wakuFilter.handleMessage(pubsubTopic, msg2)
+
+        # Then the message is pushed to the client
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic2 == pubsubTopic
+          pushedMsg2 == msg2
+
+      asyncTest "Filter Client can receive messages after subscribing and stopping without unsubscribing":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        require:
+          subscribeResponse.isOk()
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+        
+        # When the client is stopped
+        await wakuFilterClient.stop()
+
+        # Then the subscription is not removed
+        check:
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+
+        # When the server receives a message
+        let msg = fakeWakuMessage(contentTopic=contentTopic)
+        await wakuFilter.handleMessage(pubsubTopic, msg)
+
+        # Then the client receives the message
+        require await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic == pubsubTopic
+          pushedMsg == msg
 
   suite "MessagePushHandler - Msg List":
     var serverSwitch {.threadvar.}: Switch
