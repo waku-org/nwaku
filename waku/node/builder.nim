@@ -146,6 +146,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     return err("node record is required")
 
   var switch: Switch
+  echo "------ Creating Switch (builder.nim:build*) --------"
   try:
     switch = newWakuSwitch(
       privKey = builder.nodekey,

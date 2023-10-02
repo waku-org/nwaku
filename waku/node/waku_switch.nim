@@ -83,6 +83,8 @@ proc newWakuSwitch*(
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
 
+    echo "------ Entering newWakuSwitch (waku_switch.nim:newWakuSwitch*) --------"
+    
     var b = SwitchBuilder
       .new()
       .withRng(rng)

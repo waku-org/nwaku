@@ -293,6 +293,7 @@ proc initNode(conf: WakuNodeConf,
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
 
+  echo "----------- Initializing Waku node"
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
