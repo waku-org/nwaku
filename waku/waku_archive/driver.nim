@@ -45,6 +45,15 @@ method getMessages*(driver: ArchiveDriver,
 method getMessagesCount*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
+method getPagesCount*(driver: ArchiveDriver):
+                         Future[ArchiveDriverResult[int64]] {.base, async.} = discard
+
+method getPagesSize*(driver: ArchiveDriver):
+                         Future[ArchiveDriverResult[int64]] {.base, async.} = discard
+
+method performsVacuum*(driver: ArchiveDriver):
+              Future[ArchiveDriverResult[void]] {.base, async.} = discard
+
 method getOldestMessageTimestamp*(driver: ArchiveDriver):
                                   Future[ArchiveDriverResult[Timestamp]] {.base, async.} = discard
 
@@ -61,3 +70,4 @@ method deleteOldestMessagesNotWithinLimit*(driver: ArchiveDriver,
 
 method close*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
+

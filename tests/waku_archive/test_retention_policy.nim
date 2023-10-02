@@ -12,6 +12,7 @@ import
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive/retention_policy,
   ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
+  ../../../waku/waku_archive/retention_policy/retention_policy_size,
   ../testlib/common,
   ../testlib/wakucore
 
@@ -53,6 +54,45 @@ suite "Waku Archive - Retention policy":
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
+  
+  test "size retention policy - windowed message deletion":
+    ## Given
+    let
+      # in megabytes
+      sizeLimit:float = 0.05
+      excess = 123
+
+    let driver = newTestArchiveDriver()
+
+    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
+
+    ## When
+
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+    var retentionFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+
+    for i in 1..excess:
+        let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
+        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+        retentionFutures.add(retentionPolicy.execute(driver))
+
+    # waitFor is used to synchronously wait for the futures to complete.
+    discard waitFor allFinished(putFutures & retentionFutures)
+            
+    ## Then
+    # calculate the current database size
+    let pageSize = (waitFor driver.getPagesSize()).tryGet()
+    let pageCount = (waitFor driver.getPagesCount()).tryGet()
+    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+
+    check:
+      # size of the database is used to check if the storage limit has been preserved
+      # check the current database size with the limitSize provided by the user
+      # it should be lower 
+      sizeDB <= sizeLimit
+
+    ## Cleanup
+    (waitFor driver.close()).expect("driver to close")
 
   test "store capacity should be limited":
     ## Given
@@ -90,3 +130,4 @@ suite "Waku Archive - Retention policy":
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
+
