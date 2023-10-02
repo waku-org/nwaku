@@ -227,7 +227,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)) =
   ## Subscribes to a PubSub or Content topic. Triggers handler when receiving messages on
   ## this topic. WakuRelayHandler is a method that takes a topic and a Waku message.
-  
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return
@@ -242,7 +242,7 @@ proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(
         (shard, some(subscription.topic))
       of PubsubSub: (subscription.topic, none(ContentTopic))
       else: return
-      
+
   if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
     error "Invalid API call to `subscribe`. Was already subscribed"
     return
@@ -260,7 +260,7 @@ proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(
 
 proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
   ## Unsubscribes from a specific PubSub or Content topic.
-  
+
   if node.wakuRelay.isNil():
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
@@ -876,7 +876,8 @@ proc mountLightPush*(node: WakuNode) {.async.} =
       let publishedCount = await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
 
       if publishedCount == 0:
-        return err("Can not publish to any peers")
+        ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
+        debug("Lightpush request has not been published to any peers")
 
       return ok()
 
