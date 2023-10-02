@@ -109,18 +109,6 @@ method getMessagesCount*(s: SqliteDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getMessageCount()
 
-method getPagesCount*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
-  return s.db.getPageCount()
-
-method getPagesSize*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
-  return s.db.getPageSize()
-
-method performsVacuum*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[void]] {.async.} =
-  return s.db.performSqliteVacuum()
-
 method getOldestMessageTimestamp*(s: SqliteDriver):
                                   Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return s.db.selectOldestReceiverTimestamp()
