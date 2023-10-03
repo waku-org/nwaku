@@ -35,15 +35,6 @@ proc decodeBytes*(t: typedesc[seq[WakuPeer]], data: openArray[byte],
 
   return ok(decoded.get())
 
-# proc decodeBytes*(t: typedesc[WakuPeer], data: openArray[byte],
-#                   contentType: Opt[ContentTypeData]): RestResult[WakuPeer] =
-#   if MediaType.init($contentType) != MIMETYPE_JSON:
-#     error "Unsupported response contentType value", contentType = contentType
-#     return err("Unsupported response contentType")
-
-#   let decoded = ?decodeFromJsonBytes(WakuPeer, data)
-#   return ok(decoded)
-
 proc decodeBytes*(t: typedesc[string], value: openArray[byte],
                   contentType: Opt[ContentTypeData]): RestResult[string] =
   if MediaType.init($contentType) != MIMETYPE_TEXT:

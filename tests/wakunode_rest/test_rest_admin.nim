@@ -51,10 +51,10 @@ suite "Waku v2 Rest API - Admin":
 
     client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-  # asyncTearDown:
-    # await restServer.stop()
-    # await restServer.closeWait()
-    # await allFutures(node1.stop(), node2.stop(), node3.stop())
+  asyncTearDown:
+    await restServer.stop()
+    await restServer.closeWait()
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
 
   asyncTest "Set and get remote peers":
     # Connect to nodes 2 and 3 using the Admin API
