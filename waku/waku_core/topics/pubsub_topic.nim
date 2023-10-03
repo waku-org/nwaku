@@ -83,7 +83,7 @@ proc parseStaticSharding*(T: type NsPubsubTopic, topic: PubsubTopic|string): Par
 
   let clusterPart = parts[0]
   if clusterPart.len == 0:
-    return err(ParsingError.missingPart("shard_cluster_index"))
+    return err(ParsingError.missingPart("cluster_id"))
   let cluster = ?Base10.decode(uint16, clusterPart).mapErr(proc(err: auto): auto = ParsingError.invalidFormat($err))
 
   let shardPart = parts[1]

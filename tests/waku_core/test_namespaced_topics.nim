@@ -214,7 +214,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.MissingPart
-      err.part == "shard_cluster_index"
+      err.part == "cluster_id"
 
   test "Parse static sharding pub-sub topic string - Invalid string: cluster value":
     ## Given

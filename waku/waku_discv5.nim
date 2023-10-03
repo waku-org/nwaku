@@ -191,14 +191,14 @@ proc updateENRShards(wd: WakuDiscoveryV5,
       let currentShard = currentShardsOp.get()
 
       if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one shard cluster")
+        return err("ENR are limited to one cluster id")
 
       ?RelayShards.init(currentShard.cluster, currentShard.indices & newShard.indices)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
       if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one shard cluster")
+        return err("ENR are limited to one cluster id")
 
       let currentSet = toHashSet(currentShard.indices)
       let newSet = toHashSet(newShard.indices)

@@ -313,13 +313,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        shardCluster: uint16 = 21
-        shardIndices: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
+        cluster: uint16 = 21
+        shards: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
+      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(shards).isOk()
+      require builder.withWakuRelaySharding(relayShards).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -331,13 +331,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        shardCluster: uint16 = 22
-        shardIndices: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
+        cluster: uint16 = 22
+        shards: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
+      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(shards).isOk()
+      require builder.withWakuRelaySharding(relayShards).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -349,13 +349,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        shardCluster: uint16 = 22
-        shardIndices: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
+        cluster: uint16 = 22
+        shards: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
 
-      let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
+      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(shards).isOk()
+      require builder.withWakuRelaySharding(relayShards).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()
