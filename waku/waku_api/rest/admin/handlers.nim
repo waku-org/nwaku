@@ -30,6 +30,8 @@ logScope:
 
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
 
+type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
+
 func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
   if contentBody.isNone():
     return err(RestApiResponse.badRequest("Missing content body"))
@@ -47,36 +49,42 @@ func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiR
 
   return ok(requestResult.get())
 
+proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
+  for peer in peersTup:
+    peers.add(peer.multiaddr, peer.protocol, peer.connected)
+
+
 proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do () -> RestApiResponse:
-    var peers : seq[WakuPeer] = newSeq[WakuPeer]()
+    var peers:  WakuPeers = @[]
 
     if not node.wakuRelay.isNil():
       # Map managed peers to WakuPeers and add to return list
       let relayPeers = node.peerManager
                             .peerStore.peers(WakuRelayCodec)
-                            .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
-                                            protocol: WakuRelayCodec,
-                                            connected: it.connectedness == Connectedness.Connected))
-
-      peers.add(relayPeers)
+                            .mapIt((
+                                    multiaddr: constructMultiaddrStr(it),
+                                    protocol: WakuRelayCodec,
+                                    connected: it.connectedness == Connectedness.Connected)
+                                  )
+      tuplesToWakuPeers(peers, relayPeers)
 
     if not node.wakuFilterLegacy.isNil():
       # Map WakuFilter peers to WakuPeers and add to return list
       let filterPeers = node.peerManager.peerStore.peers(WakuLegacyFilterCodec)
-          .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
-                          protocol: WakuLegacyFilterCodec,
-                          connected: it.connectedness == Connectedness.Connected))
-      peers.add(filterPeers)
+          .mapIt((multiaddr: constructMultiaddrStr(it),
+                  protocol: WakuLegacyFilterCodec,
+                  connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, filterPeers)
 
     if not node.wakuStore.isNil():
       # Map WakuStore peers to WakuPeers and add to return list
       let storePeers = node.peerManager.peerStore
                            .peers(WakuStoreCodec)
-                           .mapIt(WakuPeer(multiaddr: constructMultiaddrStr(it),
-                                          protocol: WakuStoreCodec,
-                                          connected: it.connectedness == Connectedness.Connected))
-      peers.add(storePeers)
+                           .mapIt((multiaddr: constructMultiaddrStr(it),
+                                   protocol: WakuStoreCodec,
+                                   connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, storePeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status=Http200)
     if resp.isErr():

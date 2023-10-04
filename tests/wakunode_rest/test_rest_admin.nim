@@ -72,8 +72,26 @@ suite "Waku v2 Rest API - Admin":
       $getRes.contentType == $MIMETYPE_JSON
       getRes.data.len() == 2
       # Check peer 2
-      getRes.data.anyIt(it.protocol == WakuRelayCodec and
+      getRes.data.anyIt(it.protocols.find(WakuRelayCodec) >= 0 and
                    it.multiaddr == constructMultiaddrStr(peerInfo2))
       # Check peer 3
-      getRes.data.anyIt(it.protocol == WakuRelayCodec and
+      getRes.data.anyIt(it.protocols.find(WakuRelayCodec) >= 0 and
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
+
+  asyncTest "Set wrong peer":
+    # Connect to nodes 2 and 3 using the Admin API
+    let nonExistentPeer = "/ip4/0.0.0.0/tcp/10000/p2p/16Uiu2HAm6HZZr7aToTvEBPpiys4UxajCTU97zj5v7RNR2gbniy1D"
+    let postRes = await client.postPeers(@[nonExistentPeer])
+
+    check:
+      postRes.status == 400
+      $postRes.contentType == $MIMETYPE_TEXT
+      postRes.data == "Failed to connect to peer at index: 0 - " & nonExistentPeer
+
+    # Verify that newly connected peers are being managed
+    let getRes = await client.getPeers()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 0

@@ -54,14 +54,21 @@ components:
   schemas:
     WakuPeer:
       type: object
+      required:
+        - multiaddr
+        - protocols
       properties:
         multiaddr:
           type: string
-        protocol:
-          type: string
-        connected:
-          type: boolean
-      required:
-        - multiaddr
-        - protocol
-        - connected
+        protocols:
+          type: array
+          items:
+            type: object
+            required:
+              - protocol
+              - connected
+            properties:
+              protocol:
+                type: string
+              connected:
+                type: boolean
