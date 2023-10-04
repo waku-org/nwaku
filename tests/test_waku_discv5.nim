@@ -276,7 +276,7 @@ procSuite "Waku Discovery v5":
     # Cleanup
     await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-  asyncTest "get shardsTopics from topics":
+  asyncTest "get shards from topics":
     ## Given
     let mixedTopics = @["/waku/2/thisisatest", "/waku/2/rs/0/2", "/waku/2/rs/0/8"]
     let shardedTopics = @["/waku/2/rs/0/2", "/waku/2/rs/0/4", "/waku/2/rs/0/8"]

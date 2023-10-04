@@ -255,7 +255,7 @@ suite "Waku ENR - Multiaddresses":
 
 suite "Waku ENR - Relay static sharding":
 
-  test "new relay shardIds field with single invalid index":
+  test "new relay shards object with single invalid shard id":
     ## Given
     let
       clusterId: uint16 = 22
@@ -267,7 +267,7 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     assert shardsTopics.isErr(), $shardsTopics.get()
 
-  test "new relay shardIds field with single invalid index in list":
+  test "new relay shards object with single invalid shard id in list":
     ## Given
     let
       clusterId: uint16 = 22
@@ -279,7 +279,7 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     assert shardsTopics.isErr(), $shardsTopics.get()
 
-  test "new relay shardIds field with single valid index":
+  test "new relay shards object with single valid shard id":
     ## Given
     let
       clusterId: uint16 = 22
@@ -307,7 +307,7 @@ suite "Waku ENR - Relay static sharding":
       shardsTopics.contains(topic)
       shardsTopics.contains("/waku/2/rs/22/1")
 
-  test "new relay shardIds field with repeated but valid indices":
+  test "new relay shards object with repeated but valid shard ids":
     ## Given
     let
       clusterId: uint16 = 22
@@ -321,7 +321,7 @@ suite "Waku ENR - Relay static sharding":
       shardsTopics.clusterId == clusterId
       shardsTopics.shardIds == @[1u16, 2u16, 3u16]
 
-  test "cannot decode relay shardIds from record if not present":
+  test "cannot decode relay shards from record if not present":
     ## Given
     let
       enrSeqNum = 1u64
@@ -338,7 +338,7 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check fieldOpt.isNone()
 
-  test "encode and decode record with relay shardIds field (EnrBuilder ext - indices list)":
+  test "encode and decode record with relay shards field (EnrBuilder ext - shardIds list)":
     ## Given
     let
       enrSeqNum = 1u64
@@ -368,7 +368,7 @@ suite "Waku ENR - Relay static sharding":
       shardsOpt.isSome()
       shardsOpt.get() == shardsTopics
 
-  test "encode and decode record with relay shardIds field (EnrBuilder ext - bit vector)":
+  test "encode and decode record with relay shards field (EnrBuilder ext - bit vector)":
     ## Given
     let
       enrSeqNum = 1u64
@@ -395,7 +395,7 @@ suite "Waku ENR - Relay static sharding":
       shardsOpt.isSome()
       shardsOpt.get() == shardsTopics
 
-  test "decode record with relay shardIds indices list and bit vector fields":
+  test "decode record with relay shards shard list and bit vector fields":
     ## Given
     let
       enrSeqNum = 1u64

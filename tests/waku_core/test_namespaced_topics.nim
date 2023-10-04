@@ -202,7 +202,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     check:
       err.kind == ParsingErrorKind.InvalidFormat
 
-  test "Parse static sharding pub-sub topic string - Invalid string: empty shardId value":
+  test "Parse static sharding pub-sub topic string - Invalid string: empty cluster id value":
     ## Given
     let topic = "/waku/2/rs//02"
 
@@ -216,7 +216,7 @@ suite "Waku Message - Pub-sub topics namespacing":
       err.kind == ParsingErrorKind.MissingPart
       err.part == "cluster_id"
 
-  test "Parse static sharding pub-sub topic string - Invalid string: clusterId value":
+  test "Parse static sharding pub-sub topic string - Invalid string: cluster id value":
     ## Given
     let topic = "/waku/2/rs/xx/77"
 

@@ -136,11 +136,11 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
   ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
 func toBitVector*(rs: RelayShards): seq[byte] =
-  ## The value is comprised of a two-byte shardId clusterId id in network byte
+  ## The value is comprised of a two-byte cluster id in network byte
   ## order concatenated with a 128-byte wide bit vector. The bit vector
-  ## indicates which shards of the respective clusterId the node is part
-  ## of. The right-most bit in the bit vector represents shardId 0, the left-most
-  ## bit represents shardId 1023.
+  ## indicates which shard ids of the respective cluster id the node is part
+  ## of. The right-most bit in the bit vector represents shard id 0, the left-most
+  ## bit represents shard id 1023.
   var res: seq[byte]
   res.add(rs.clusterId.toBytesBE())
 
