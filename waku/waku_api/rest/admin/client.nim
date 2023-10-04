@@ -27,13 +27,10 @@ proc decodeBytes*(t: typedesc[seq[WakuPeer]], data: openArray[byte],
     error "Unsupported response contentType value", contentType = contentType
     return err("Unsupported response contentType")
 
-  let decoded = decodeFromJsonBytes(seq[WakuPeer], data)
-
-  if decoded.isErr():
-    # return err(fmt("Invalid response from server, could not decode. {decoded.error}"))
+  let decoded = decodeFromJsonBytes(seq[WakuPeer], data).valueOr:
     return err("Invalid response from server, could not decode.")
 
-  return ok(decoded.get())
+  return ok(decoded)
 
 proc decodeBytes*(t: typedesc[string], value: openArray[byte],
                   contentType: Opt[ContentTypeData]): RestResult[string] =
