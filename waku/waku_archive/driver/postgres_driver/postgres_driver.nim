@@ -40,11 +40,11 @@ proc insertRow(): string =
  """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
   version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
 
-const DefaultMaxConnections = 5
+const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
 
 proc new*(T: type PostgresDriver,
           dbUrl: string,
-          maxConnections: int = DefaultMaxConnections,
+          maxConnections: int = MaxNumConns,
           onErrAction: OnErrHandler = nil):
           ArchiveDriverResult[T] =
 
