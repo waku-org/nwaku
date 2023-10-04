@@ -18,7 +18,6 @@ import
 logScope:
   topics = "waku enr sharding"
 
-
 const MaxShardIndex: uint16 = 1023
 
 const
@@ -26,48 +25,45 @@ const
   ShardingIndicesListMaxLength* = 64
   ShardingBitVectorEnrField* = "rsv"
 
-
 type
   RelayShards* = object
     clusterId: uint16
-    indices: seq[uint16]
-
+    shardIds: seq[uint16]
 
 func clusterId*(rs: RelayShards): uint16 =
   rs.clusterId
 
-func indices*(rs: RelayShards): seq[uint16] =
-  rs.indices
+func shardIds*(rs: RelayShards): seq[uint16] =
+  rs.shardIds
 
 func topics*(rs: RelayShards): seq[NsPubsubTopic] =
-  rs.indices.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
+  rs.shardIds.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
 
+func init*(T: type RelayShards, clusterId, shardId: uint16): Result[T, string] =
+  if shardId > MaxShardIndex:
+    return err("invalid shard Id")
 
-func init*(T: type RelayShards, clusterId, index: uint16): Result[T, string] =
-  if index > MaxShardIndex:
-    return err("invalid index")
+  ok(RelayShards(clusterId: clusterId, shardIds: @[shardId]))
 
-  ok(RelayShards(clusterId: clusterId, indices: @[index]))
+func init*(T: type RelayShards, clusterId: uint16, shardIds: varargs[uint16]): Result[T, string] =
+  if toSeq(shardIds).anyIt(it > MaxShardIndex):
+    return err("invalid shard")
 
-func init*(T: type RelayShards, clusterId: uint16, indices: varargs[uint16]): Result[T, string] =
-  if toSeq(indices).anyIt(it > MaxShardIndex):
-    return err("invalid index")
+  let indicesSeq = deduplicate(@shardIds)
+  if shardIds.len < 1:
+    return err("invalid shard count")
 
-  let indicesSeq = deduplicate(@indices)
-  if indices.len < 1:
-    return err("invalid index count")
+  ok(RelayShards(clusterId: clusterId, shardIds: indicesSeq))
 
-  ok(RelayShards(clusterId: clusterId, indices: indicesSeq))
+func init*(T: type RelayShards, clusterId: uint16, shardIds: seq[uint16]): Result[T, string] =
+  if shardIds.anyIt(it > MaxShardIndex):
+    return err("invalid shard")
 
-func init*(T: type RelayShards, clusterId: uint16, indices: seq[uint16]): Result[T, string] =
-  if indices.anyIt(it > MaxShardIndex):
-    return err("invalid index")
+  let indicesSeq = deduplicate(shardIds)
+  if shardIds.len < 1:
+    return err("invalid shard count")
 
-  let indicesSeq = deduplicate(indices)
-  if indices.len < 1:
-    return err("invalid index count")
-
-  ok(RelayShards(clusterId: clusterId, indices: indicesSeq))
+  ok(RelayShards(clusterId: clusterId, shardIds: indicesSeq))
 
 func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], string] =
   if topics.len < 1:
@@ -83,17 +79,17 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
     return ok(none(RelayShards))
 
   if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
-    return err("use named topics OR sharded ones not both.")
+    return err("use named (/waku/2/*) OR static (/waku/2/rs/*/*) shards not both.")
 
   if parsedTopicsRes.anyIt(it.get().clusterId != parsedTopicsRes[0].get().clusterId):
-    return err("use sharded topics within the same clusterId.")
+    return err("use shards with the same cluster Id.")
 
   let relayShard = ?RelayShards.init(parsedTopicsRes[0].get().clusterId, parsedTopicsRes.mapIt(it.get().shardId))
 
   return ok(some(relayShard))
 
-func contains*(rs: RelayShards, clusterId, index: uint16): bool =
-  rs.clusterId == clusterId and rs.indices.contains(index)
+func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
+  rs.clusterId == clusterId and rs.shardIds.contains(shardId)
 
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
   if topic.kind != NsPubsubTopicKind.StaticSharding:
@@ -108,19 +104,18 @@ func contains*(rs: RelayShards, topic: PubsubTopic|string): bool =
 
   rs.contains(parseRes.value)
 
-
 # ENR builder extension
 
 func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
-  if rs.indices.len > high(uint8).int:
-    return err("indices list too long")
+  if rs.shardIds.len > high(uint8).int:
+    return err("shards list too long")
 
   var res: seq[byte]
   res.add(rs.clusterId.toBytesBE())
 
-  res.add(rs.indices.len.uint8)
-  for index in rs.indices:
-    res.add(index.toBytesBE())
+  res.add(rs.shardIds.len.uint8)
+  for shardId in rs.shardIds:
+    res.add(shardId.toBytesBE())
 
   ok(res)
 
@@ -134,11 +129,11 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
   if buf.len != 3 + 2 * length:
     return err("invalid data: `length` field is " & $length & " but " & $buf.len & " bytes were provided")
 
-  var indices: seq[uint16]
+  var shardIds: seq[uint16]
   for i in 0..<length:
-    indices.add(uint16.fromBytesBE(buf[3 + 2*i ..< 5 + 2*i]))
+    shardIds.add(uint16.fromBytesBE(buf[3 + 2*i ..< 5 + 2*i]))
 
-  ok(RelayShards(clusterId: clusterId, indices: indices))
+  ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
 func toBitVector*(rs: RelayShards): seq[byte] =
   ## The value is comprised of a two-byte shardId clusterId id in network byte
@@ -150,8 +145,8 @@ func toBitVector*(rs: RelayShards): seq[byte] =
   res.add(rs.clusterId.toBytesBE())
 
   var vec = newSeq[byte](128)
-  for index in rs.indices:
-    vec[index div 8].setBit(index mod 8)
+  for shardId in rs.shardIds:
+    vec[shardId div 8].setBit(shardId mod 8)
 
   res.add(vec)
 
@@ -162,17 +157,16 @@ func fromBitVector(buf: seq[byte]): EnrResult[RelayShards] =
     return err("invalid data: expected 130 bytes")
 
   let clusterId = uint16.fromBytesBE(buf[0..1])
-  var indices: seq[uint16]
+  var shardIds: seq[uint16]
 
   for i in 0u16..<128u16:
     for j in 0u16..<8u16:
       if not buf[2 + i].testBit(j):
         continue
 
-      indices.add(j + 8 * i)
+      shardIds.add(j + 8 * i)
 
-  ok(RelayShards(clusterId: clusterId, indices: indices))
-
+  ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
 func withWakuRelayShardingIndicesList*(builder: var EnrBuilder, rs: RelayShards): EnrResult[void] =
   let value = ? rs.toIndicesList()
@@ -185,7 +179,7 @@ func withWakuRelayShardingBitVector*(builder: var EnrBuilder, rs: RelayShards): 
   ok()
 
 func withWakuRelaySharding*(builder: var EnrBuilder, rs: RelayShards): EnrResult[void] =
-  if rs.indices.len >= ShardingIndicesListMaxLength:
+  if rs.shardIds.len >= ShardingIndicesListMaxLength:
     builder.withWakuRelayShardingBitVector(rs)
   else:
     builder.withWakuRelayShardingIndicesList(rs)
@@ -193,73 +187,59 @@ func withWakuRelaySharding*(builder: var EnrBuilder, rs: RelayShards): EnrResult
 func withShardedTopics*(builder: var EnrBuilder,
                         topics: seq[string]):
                         Result[void, string] =
-  let relayShardsRes = topicsToRelayShards(topics)
-  let relayShardOp =
-    if relayShardsRes.isErr():
-      return err("building ENR with relay sharding failed: " &
-                 $relayShardsRes.error)
-    else: relayShardsRes.get()
+  let relayShardOp = topicsToRelayShards(topics).valueOr:
+    return err("building ENR with relay sharding failed: " & $error)
 
-  if relayShardOp.isNone():
+  let relayShard = relayShardOp.valueOr:
     return ok()
 
-  let res = builder.withWakuRelaySharding(relayShardOp.get())
-
-  if res.isErr():
-    return err($res.error)
+  builder.withWakuRelaySharding(relayShard).isOkOr:
+    return err($error)
 
   return ok()
 
 # ENR record accessors (e.g., Record, TypedRecord, etc.)
 
 proc relayShardingIndicesList*(record: TypedRecord): Option[RelayShards] =
-  let field = record.tryGet(ShardingIndicesListEnrField, seq[byte])
-  if field.isNone():
+  let field = record.tryGet(ShardingIndicesListEnrField, seq[byte]).valueOr:
     return none(RelayShards)
 
-  let indexList = fromIndicesList(field.get())
-  if indexList.isErr():
-    debug "invalid sharding indices list", error = indexList.error
+  let indexList = fromIndicesList(field).valueOr:
+    debug "invalid shards list", error = error
     return none(RelayShards)
 
-  some(indexList.value)
+  some(indexList)
 
 proc relayShardingBitVector*(record: TypedRecord): Option[RelayShards] =
-  let field = record.tryGet(ShardingBitVectorEnrField, seq[byte])
-  if field.isNone():
+  let field = record.tryGet(ShardingBitVectorEnrField, seq[byte]).valueOr:
     return none(RelayShards)
 
-  let bitVector = fromBitVector(field.get())
-  if bitVector.isErr():
-    debug "invalid sharding bit vector", error = bitVector.error
+  let bitVector = fromBitVector(field).valueOr:
+    debug "invalid shards bit vector", error = error
     return none(RelayShards)
 
-  some(bitVector.value)
+  some(bitVector)
 
 proc relaySharding*(record: TypedRecord): Option[RelayShards] =
-  let indexList = record.relayShardingIndicesList()
-  if indexList.isSome():
-    return indexList
+  let indexList = record.relayShardingIndicesList().valueOr:
+    return record.relayShardingBitVector()
 
-  record.relayShardingBitVector()
-
+  return some(indexList)
 
 ## Utils
 
-proc containsShard*(r: Record, clusterId, index: uint16): bool =
-  if index > MaxShardIndex:
+proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
+  if shardId > MaxShardIndex:
     return false
 
-  let recordRes = r.toTyped()
-  if recordRes.isErr():
-    debug "invalid ENR record", error = recordRes.error
+  let record = r.toTyped().valueOr:
+    debug "invalid ENR record", error = error
     return false
 
-  let rs = recordRes.value.relaySharding()
-  if rs.isNone():
+  let rs = record.relaySharding().valueOr:
     return false
 
-  rs.get().contains(clusterId, index)
+  rs.contains(clusterId, shardId)
 
 proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
   if topic.kind != NsPubsubTopicKind.StaticSharding:

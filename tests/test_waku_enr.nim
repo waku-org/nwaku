@@ -293,7 +293,7 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check:
       shardsTopics.clusterId == clusterId
-      shardsTopics.indices == @[1u16]
+      shardsTopics.shardIds == @[1u16]
 
     let topics = shardsTopics.topics.mapIt($it)
     check:
@@ -319,7 +319,7 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check:
       shardsTopics.clusterId == clusterId
-      shardsTopics.indices == @[1u16, 2u16, 3u16]
+      shardsTopics.shardIds == @[1u16, 2u16, 3u16]
 
   test "cannot decode relay shardIds from record if not present":
     ## Given

@@ -70,7 +70,7 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-      nodeShard.indices.anyIt(record.containsShard(nodeShard.clusterId, it))
+      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it))
 
   return some(predicate)
 
@@ -150,7 +150,7 @@ proc new*(T: type WakuDiscoveryV5,
           if res.isErr():
             debug "building ENR with relay sharding failed", reason = res.error
           else:
-            debug "building ENR with relay sharding information", clusterId = $relayShard.get().clusterId(), shards = $relayShard.get().indices()
+            debug "building ENR with relay sharding information", clusterId = $relayShard.get().clusterId(), shards = $relayShard.get().shardIds()
 
         builder.build().expect("Record within size limits")
 
@@ -193,15 +193,15 @@ proc updateENRShards(wd: WakuDiscoveryV5,
       if currentShard.clusterId != newShard.clusterId:
         return err("ENR are limited to one clusterId id")
 
-      ?RelayShards.init(currentShard.clusterId, currentShard.indices & newShard.indices)
+      ?RelayShards.init(currentShard.clusterId, currentShard.shardIds & newShard.shardIds)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
         return err("ENR are limited to one clusterId id")
 
-      let currentSet = toHashSet(currentShard.indices)
-      let newSet = toHashSet(newShard.indices)
+      let currentSet = toHashSet(currentShard.shardIds)
+      let newSet = toHashSet(newShard.shardIds)
 
       let indices = toSeq(currentSet - newSet)
 
@@ -220,7 +220,7 @@ proc updateENRShards(wd: WakuDiscoveryV5,
     else: return ok()
   
   let (field, value) =
-    if resultShard.indices.len >= ShardingIndicesListMaxLength:
+    if resultShard.shardIds.len >= ShardingIndicesListMaxLength:
       (ShardingBitVectorEnrField, resultShard.toBitVector())
     else:
       let listRes = resultShard.toIndicesList()
