@@ -276,7 +276,7 @@ procSuite "Waku Discovery v5":
     # Cleanup
     await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
-  asyncTest "get relayShards from topics":
+  asyncTest "get shardsTopics from topics":
     ## Given
     let mixedTopics = @["/waku/2/thisisatest", "/waku/2/rs/0/2", "/waku/2/rs/0/8"]
     let shardedTopics = @["/waku/2/rs/0/2", "/waku/2/rs/0/4", "/waku/2/rs/0/8"]
@@ -284,7 +284,7 @@ procSuite "Waku Discovery v5":
     let gibberish = @["aedyttydcb/uioasduyio", "jhdfsjhlsdfjhk/sadjhk", "khfsd/hjfdsgjh/dfs"]
     let empty: seq[string] = @[]
 
-    let relayShards = RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect("Valid Shards")
+    let shardsTopics = RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect("Valid shardIds")
 
     ## When
 
@@ -298,7 +298,7 @@ procSuite "Waku Discovery v5":
     assert mixedRes.isErr(), $mixedRes.value
     assert shardedRes.isOk(), shardedRes.error
     assert shardedRes.value.isSome()
-    assert shardedRes.value.get() == relayShards, $shardedRes.value.get()
+    assert shardedRes.value.get() == shardsTopics, $shardedRes.value.get()
     assert namedRes.isOk(), namedRes.error
     assert namedRes.value.isNone(), $namedRes.value
     assert gibberishRes.isErr(), $gibberishRes.value
@@ -313,13 +313,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        cluster: uint16 = 21
-        shards: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
+        clusterId: uint16 = 21
+        shardIds: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
 
-      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
+      let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid shardIds")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(relayShards).isOk()
+      require builder.withWakuRelaySharding(shardsTopics).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -331,13 +331,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        cluster: uint16 = 22
-        shards: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
+        clusterId: uint16 = 22
+        shardIds: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
 
-      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
+      let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid shardIds")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(relayShards).isOk()
+      require builder.withWakuRelaySharding(shardsTopics).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -349,13 +349,13 @@ procSuite "Waku Discovery v5":
         enrPrivKey = generatesecp256k1key()
 
       let
-        cluster: uint16 = 22
-        shards: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
+        clusterId: uint16 = 22
+        shardIds: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
 
-      let relayShards = RelayShards.init(cluster, shards).expect("Valid Shards")
+      let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid shardIds")
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-      require builder.withWakuRelaySharding(relayShards).isOk()
+      require builder.withWakuRelaySharding(shardsTopics).isOk()
 
       let recordRes = builder.build()
       require recordRes.isOk()

@@ -151,7 +151,7 @@ suite "Waku Message - Pub-sub topics namespacing":
 
   test "Stringify static sharding pub-sub topic":
     ## Given
-    var ns = NsPubsubTopic.staticSharding(cluster=0, shard=2)
+    var ns = NsPubsubTopic.staticSharding(clusterId=0, shardId=2)
 
     ## When
     let topic = $ns
@@ -186,8 +186,8 @@ suite "Waku Message - Pub-sub topics namespacing":
 
     let ns = nsRes.get()
     check:
-      ns.cluster == 16
-      ns.shard == 42
+      ns.clusterId == 16
+      ns.shardId == 42
 
   test "Parse pub-sub topic string - Invalid string: invalid protocol version":
     ## Given
@@ -202,7 +202,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     check:
       err.kind == ParsingErrorKind.InvalidFormat
 
-  test "Parse static sharding pub-sub topic string - Invalid string: empty shard value":
+  test "Parse static sharding pub-sub topic string - Invalid string: empty shardId value":
     ## Given
     let topic = "/waku/2/rs//02"
 
@@ -216,7 +216,7 @@ suite "Waku Message - Pub-sub topics namespacing":
       err.kind == ParsingErrorKind.MissingPart
       err.part == "cluster_id"
 
-  test "Parse static sharding pub-sub topic string - Invalid string: cluster value":
+  test "Parse static sharding pub-sub topic string - Invalid string: clusterId value":
     ## Given
     let topic = "/waku/2/rs/xx/77"
 

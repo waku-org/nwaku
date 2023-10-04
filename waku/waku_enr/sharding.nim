@@ -29,27 +29,27 @@ const
 
 type
   RelayShards* = object
-    cluster: uint16
+    clusterId: uint16
     indices: seq[uint16]
 
 
-func cluster*(rs: RelayShards): uint16 =
-  rs.cluster
+func clusterId*(rs: RelayShards): uint16 =
+  rs.clusterId
 
 func indices*(rs: RelayShards): seq[uint16] =
   rs.indices
 
 func topics*(rs: RelayShards): seq[NsPubsubTopic] =
-  rs.indices.mapIt(NsPubsubTopic.staticSharding(rs.cluster, it))
+  rs.indices.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
 
 
-func init*(T: type RelayShards, cluster, index: uint16): Result[T, string] =
+func init*(T: type RelayShards, clusterId, index: uint16): Result[T, string] =
   if index > MaxShardIndex:
     return err("invalid index")
 
-  ok(RelayShards(cluster: cluster, indices: @[index]))
+  ok(RelayShards(clusterId: clusterId, indices: @[index]))
 
-func init*(T: type RelayShards, cluster: uint16, indices: varargs[uint16]): Result[T, string] =
+func init*(T: type RelayShards, clusterId: uint16, indices: varargs[uint16]): Result[T, string] =
   if toSeq(indices).anyIt(it > MaxShardIndex):
     return err("invalid index")
 
@@ -57,9 +57,9 @@ func init*(T: type RelayShards, cluster: uint16, indices: varargs[uint16]): Resu
   if indices.len < 1:
     return err("invalid index count")
 
-  ok(RelayShards(cluster: cluster, indices: indicesSeq))
+  ok(RelayShards(clusterId: clusterId, indices: indicesSeq))
 
-func init*(T: type RelayShards, cluster: uint16, indices: seq[uint16]): Result[T, string] =
+func init*(T: type RelayShards, clusterId: uint16, indices: seq[uint16]): Result[T, string] =
   if indices.anyIt(it > MaxShardIndex):
     return err("invalid index")
 
@@ -67,7 +67,7 @@ func init*(T: type RelayShards, cluster: uint16, indices: seq[uint16]): Result[T
   if indices.len < 1:
     return err("invalid index count")
 
-  ok(RelayShards(cluster: cluster, indices: indicesSeq))
+  ok(RelayShards(clusterId: clusterId, indices: indicesSeq))
 
 func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], string] =
   if topics.len < 1:
@@ -85,21 +85,21 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
   if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
     return err("use named topics OR sharded ones not both.")
 
-  if parsedTopicsRes.anyIt(it.get().cluster != parsedTopicsRes[0].get().cluster):
-    return err("use sharded topics within the same cluster.")
+  if parsedTopicsRes.anyIt(it.get().clusterId != parsedTopicsRes[0].get().clusterId):
+    return err("use sharded topics within the same clusterId.")
 
-  let relayShard = ?RelayShards.init(parsedTopicsRes[0].get().cluster, parsedTopicsRes.mapIt(it.get().shard))
+  let relayShard = ?RelayShards.init(parsedTopicsRes[0].get().clusterId, parsedTopicsRes.mapIt(it.get().shardId))
 
   return ok(some(relayShard))
 
-func contains*(rs: RelayShards, cluster, index: uint16): bool =
-  rs.cluster == cluster and rs.indices.contains(index)
+func contains*(rs: RelayShards, clusterId, index: uint16): bool =
+  rs.clusterId == clusterId and rs.indices.contains(index)
 
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
   if topic.kind != NsPubsubTopicKind.StaticSharding:
     return false
 
-  rs.contains(topic.cluster, topic.shard)
+  rs.contains(topic.clusterId, topic.shardId)
 
 func contains*(rs: RelayShards, topic: PubsubTopic|string): bool =
   let parseRes = NsPubsubTopic.parse(topic)
@@ -116,7 +116,7 @@ func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
     return err("indices list too long")
 
   var res: seq[byte]
-  res.add(rs.cluster.toBytesBE())
+  res.add(rs.clusterId.toBytesBE())
 
   res.add(rs.indices.len.uint8)
   for index in rs.indices:
@@ -128,7 +128,7 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
   if buf.len < 3:
     return err("insufficient data: expected at least 3 bytes, got " & $buf.len & " bytes")
 
-  let cluster = uint16.fromBytesBE(buf[0..1])
+  let clusterId = uint16.fromBytesBE(buf[0..1])
   let length = int(buf[2])
 
   if buf.len != 3 + 2 * length:
@@ -138,16 +138,16 @@ func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
   for i in 0..<length:
     indices.add(uint16.fromBytesBE(buf[3 + 2*i ..< 5 + 2*i]))
 
-  ok(RelayShards(cluster: cluster, indices: indices))
+  ok(RelayShards(clusterId: clusterId, indices: indices))
 
 func toBitVector*(rs: RelayShards): seq[byte] =
-  ## The value is comprised of a two-byte shard cluster id in network byte
+  ## The value is comprised of a two-byte shardId clusterId id in network byte
   ## order concatenated with a 128-byte wide bit vector. The bit vector
-  ## indicates which shards of the respective cluster the node is part
-  ## of. The right-most bit in the bit vector represents shard 0, the left-most
-  ## bit represents shard 1023.
+  ## indicates which shards of the respective clusterId the node is part
+  ## of. The right-most bit in the bit vector represents shardId 0, the left-most
+  ## bit represents shardId 1023.
   var res: seq[byte]
-  res.add(rs.cluster.toBytesBE())
+  res.add(rs.clusterId.toBytesBE())
 
   var vec = newSeq[byte](128)
   for index in rs.indices:
@@ -161,7 +161,7 @@ func fromBitVector(buf: seq[byte]): EnrResult[RelayShards] =
   if buf.len != 130:
     return err("invalid data: expected 130 bytes")
 
-  let cluster = uint16.fromBytesBE(buf[0..1])
+  let clusterId = uint16.fromBytesBE(buf[0..1])
   var indices: seq[uint16]
 
   for i in 0u16..<128u16:
@@ -171,7 +171,7 @@ func fromBitVector(buf: seq[byte]): EnrResult[RelayShards] =
 
       indices.add(j + 8 * i)
 
-  ok(RelayShards(cluster: cluster, indices: indices))
+  ok(RelayShards(clusterId: clusterId, indices: indices))
 
 
 func withWakuRelayShardingIndicesList*(builder: var EnrBuilder, rs: RelayShards): EnrResult[void] =
@@ -246,7 +246,7 @@ proc relaySharding*(record: TypedRecord): Option[RelayShards] =
 
 ## Utils
 
-proc containsShard*(r: Record, cluster, index: uint16): bool =
+proc containsShard*(r: Record, clusterId, index: uint16): bool =
   if index > MaxShardIndex:
     return false
 
@@ -259,13 +259,13 @@ proc containsShard*(r: Record, cluster, index: uint16): bool =
   if rs.isNone():
     return false
 
-  rs.get().contains(cluster, index)
+  rs.get().contains(clusterId, index)
 
 proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
   if topic.kind != NsPubsubTopicKind.StaticSharding:
     return false
 
-  containsShard(r, topic.cluster, topic.shard)
+  containsShard(r, topic.clusterId, topic.shardId)
 
 proc containsShard*(r: Record, topic: PubsubTopic|string): bool =
   let parseRes = NsPubsubTopic.parse(topic)

@@ -70,7 +70,7 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
+      nodeShard.indices.anyIt(record.containsShard(nodeShard.clusterId, it))
 
   return some(predicate)
 
@@ -150,7 +150,7 @@ proc new*(T: type WakuDiscoveryV5,
           if res.isErr():
             debug "building ENR with relay sharding failed", reason = res.error
           else:
-            debug "building ENR with relay sharding information", cluster = $relayShard.get().cluster(), shards = $relayShard.get().indices()
+            debug "building ENR with relay sharding information", clusterId = $relayShard.get().clusterId(), shards = $relayShard.get().indices()
 
         builder.build().expect("Record within size limits")
 
@@ -190,15 +190,15 @@ proc updateENRShards(wd: WakuDiscoveryV5,
     if add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
-      if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one cluster id")
+      if currentShard.clusterId != newShard.clusterId:
+        return err("ENR are limited to one clusterId id")
 
-      ?RelayShards.init(currentShard.cluster, currentShard.indices & newShard.indices)
+      ?RelayShards.init(currentShard.clusterId, currentShard.indices & newShard.indices)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
-      if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one cluster id")
+      if currentShard.clusterId != newShard.clusterId:
+        return err("ENR are limited to one clusterId id")
 
       let currentSet = toHashSet(currentShard.indices)
       let newSet = toHashSet(newShard.indices)
@@ -215,7 +215,7 @@ proc updateENRShards(wd: WakuDiscoveryV5,
 
         return ok()
 
-      ?RelayShards.init(currentShard.cluster, indices)
+      ?RelayShards.init(currentShard.clusterId, indices)
     elif add and currentShardsOp.isNone(): newShard
     else: return ok()
   
