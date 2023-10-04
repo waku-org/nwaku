@@ -81,8 +81,7 @@ proc new*(T: type ArchiveDriver,
 
   of "postgres":
     when defined(postgres):
-      const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
-      let res = PostgresDriver.new(url, MaxNumConns, onErrAction)
+      let res = PostgresDriver.new(dbUrl = url, onErrAction = onErrAction)
       if res.isErr():
         return err("failed to init postgres archive driver: " & res.error)
 
