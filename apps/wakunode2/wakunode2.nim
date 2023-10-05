@@ -56,6 +56,7 @@ when isMainModule:
   # Node setup #
   ##############
 
+ # Only needs app.conf.peerPersistence
   debug "1/7 Setting up storage"
 
   ## Peer persistence
@@ -64,6 +65,7 @@ when isMainModule:
     error "1/7 Setting up storage failed", error=res1.error
     quit(QuitFailure)
 
+  # only needs app.conf.dnsDiscovery, app.conf.dnsDiscoveryUrl, app.conf.dnsDiscoveryNameServers
   debug "2/7 Retrieve dynamic bootstrap nodes"
 
   let res3 = wakunode2.setupDyamicBootstrapNodes()
@@ -73,7 +75,7 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
-  # Here the Switch is created
+  # ------- GABRIEL ------- Here the Switch is created
   let res4 = wakunode2.setupWakuApp()
   if res4.isErr():
     error "3/7 Initializing node failed", error=res4.error
@@ -93,6 +95,10 @@ when isMainModule:
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
 
+  let res = wakunode2.updateAddresses()
+  if res.isErr():
+    quit(QuitFailure)
+  
   debug "6/7 Starting monitoring and external interfaces"
 
   let res7 = wakunode2.setupMonitoringAndExternalInterfaces()

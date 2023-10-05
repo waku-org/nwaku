@@ -331,6 +331,24 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
+proc updateAddresses*(app: var App): AppResult[void] =
+
+  echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
+
+  if app.netConf.bindPort == Port(0):
+    echo "Port 0 was selected"
+    app.conf.tcpPort = Port(8888)
+    
+    let netConfigRes = networkConfiguration(app.conf, clientId)
+    if netConfigRes.isErr():
+      return err("Could not update NetConfig: " & netConfigRes.error)
+    
+    app.netConf = netConfigRes.get()
+    app.conf.tcpPort = Port(0) # Mantaining conf to have user selected values
+    echo "Updated port"
+
+  ok()
+
 
 ## Mount protocols
 
