@@ -1,0 +1,42 @@
+# /filter/v2/subscriptions/{requestId}:
+get: # get_waku_v2_filter_v2_subscription - ping
+  summary: Subscriber-ping - a peer can query if there is a registered subscription for it
+  description: |
+      Subscriber peer can query its subscription existence on service node.
+      Returns HTTP200 if exists and HTTP404 if not.
+      Client must not fill anything but requestId in the request body.
+  operationId: subscriberPing
+  tags:
+    - filter
+  parameters:
+    - in: path
+      name: requestId
+      required: true
+      schema:
+        type: string
+      description: Id of ping request
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '400':
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '5XX':
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'

@@ -1,0 +1,19 @@
+# /relay/v1/auto/messages:  # Note the plural in messages
+post: # post_waku_v2_relay_v1_auto_message
+  summary: Publish a message to be relayed
+  description: Publishes a message to be relayed on a Content topic.
+  operationId: postMessagesToTopic
+  tags:
+    - relay
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/RelayPostMessagesRequest'
+  responses:
+    '200':
+      description: OK
+    '4XX':
+      description: Bad request.
+    '5XX':
+      description: Unexpected error.

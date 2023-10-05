@@ -1,0 +1,71 @@
+# Legacy support for v1 waku filter
+# /filter/v1/subscriptions:
+post: # post_waku_v2_filter_v1_subscription
+  summary: Subscribe a node to an array of topics
+  description: Subscribe a node to an array of content topics.
+  operationId: postSubscriptions
+  tags:
+    - filter_legacy
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterLegacySubscribeRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        text/plain:
+          schema:
+            type: string
+    # TODO: Review the possible errors of this endpoint
+    '400':
+      description: Bad request.
+      content:
+        text/plain:
+          schema:
+            type: string
+    '5XX':
+      description: Unexpected error.
+      content:
+        text/plain:
+          schema:
+            type: string
+
+delete: # delete_waku_v2_filter_v1_subscription
+  summary: Unsubscribe a node from an array of topics
+  description: Unsubscribe a node from an array of content topics.
+  operationId: deleteSubscriptions
+  tags:
+    - filter
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterLegacySubscribeRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        text/plain:
+          schema:
+            type: string
+    # TODO: Review the possible errors of this endpoint
+    '400':
+      description: Bad request.
+      content:
+        text/plain:
+          schema:
+            type: string
+    '404':
+      description: Not found.
+      content:
+        text/plain:
+          schema:
+            type: string
+    '5XX':
+      description: Unexpected error.
+      content:
+        text/plain:
+          schema:
+            type: string

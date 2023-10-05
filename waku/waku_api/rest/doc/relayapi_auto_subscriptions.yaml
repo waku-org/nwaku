@@ -1,0 +1,50 @@
+# /relay/v1/auto/subscriptions:
+post: # post_waku_v2_relay_v1_auto_subscriptions
+  summary: Subscribe a node to an array of topics
+  description: Subscribe a node to an array of Content topics.
+  operationId: postSubscriptions
+  tags:
+    - relay
+  requestBody:
+    content:
+      application/json:
+        schema:
+          type array:
+          items:
+            $ref: './schemas/apitypes.yaml#/ContentTopic'
+  responses:
+    '200':
+      description: OK
+      content:
+        text/plain:
+          schema:
+            type: string
+    '4XX':
+      description: Bad request.
+    '5XX':
+      description: Unexpected error.
+
+delete: # delete_waku_v2_relay_v1_auto_subscriptions
+  summary: Unsubscribe a node from an array of topics
+  description: Unsubscribe a node from an array of Content topics.
+  operationId: deleteSubscriptions
+  tags:
+    - relay
+  requestBody:
+    content:
+      application/json:
+        schema:
+          type array:
+          items:
+            $ref: './schemas/apitypes.yaml#/ContentTopic'
+  responses:
+    '200':
+      description: OK
+      content:
+        text/plain:
+          schema:
+            type: string
+    '4XX':
+      description: Bad request.
+    '5XX':
+      description: Unexpected error.

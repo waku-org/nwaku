@@ -1,0 +1,18 @@
+get:
+  summary: Get node version
+  description: Retrieve the Waku v2 node version.
+  operationId: getNodeVersion
+  tags:
+    - debug
+  responses:
+    '200':
+      description: The version of a Waku v2 node.
+      content:
+        text/plain:
+          schema:
+            type: string
+    '4XX':
+      description: Bad request error.
+    '5XX':
+      description: Unexpected error.
+

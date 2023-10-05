@@ -1,0 +1,66 @@
+openapi: 3.0.3
+info:
+  title: Waku V2 node REST API
+  version: 1.0.0
+  description:
+  contact:
+    name: VAC Team
+    url: https://forum.vac.dev/
+  servers:
+    - url: http://localhost:8545
+      description: Accessing your wakunode via API is possible normally via localhost on defaul port 8545.
+tags:
+  - name: admin
+    description: Control of the connected peers.
+  - name: debug
+    description: Information about a Waku v2 node.
+  - name: health
+    description: Health check of a Waku v2 node.
+  - name: lightpush
+    description: Interface to request a message relay. See [19/WAKU2-LIGHTPUSH](https://rfc.vac.dev/spec/19/) RFC
+  - name: relay
+    description: Control of the relaying of messages. See [11/WAKU2-RELAY](https://rfc.vac.dev/spec/11/) RFC
+  - name: store
+    description: Retrieve the message history. See [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) RFC
+  - name: filter
+    description: Control of the content filtering. See [12/WAKU2-FILTER](https://rfc.vac.dev/spec/12/) RFC
+  - name: filter_legacy
+    description: Obsolate Filter interface kept for compatibility reason. Will be removed in future.
+paths:
+  /admin/v1/peers:
+    $ref: "./adminapi.yaml"
+  /debug/v1/info:
+     $ref: "./debugapi_info.yaml"
+  /debug/v1/version:
+     $ref: "./debugapi_version.yaml"
+  /health:
+    $ref: "./healthapi.yaml"
+  /lightpush/v1/message:
+    $ref: "./lightpushapi.yaml"
+  /relay/v1/messages/{pubsubTopic}:
+    $ref: "./relayapi_messages.yaml"
+  /relay/v1/subscriptions:
+    $ref: "./relayapi_subscriptions.yaml"
+  /relay/v1/auto/messages/{contentTopic}:
+    $ref: "./relayapi_auto_content_topic.yaml"
+  /relay/v1/auto/messages:
+    $ref: "./relayapi_auto_messages.yaml"
+  /relay/v1/auto/subscriptions:
+    $ref: "./relayapi_auto_subscriptions.yaml"
+  /store/v1/messages:
+    $ref: "./storeapi.yaml"
+  /filter/v1/subscriptions:
+    $ref: "./filterapi_v1_subscriptions.yaml"
+  /filter/v1/messages/{contentTopic}:
+    $ref: "./filterapi_v1_messages.yaml"
+  /filter/v2/subscriptions/{requestId}:
+    $ref: "./filterapi_v2_subscription_ping.yaml"
+  /filter/v2/subscriptions:
+    $ref: "./filterapi_v2_subscriptions.yaml"
+  /filter/v2/subscriptions/all:
+    $ref: "./filterapi_v2_subscriptions_all.yaml"
+  /filter/v2/messages/{contentTopic}:
+    $ref: "./filterapi_v2_messages.yaml"
+components:
+  schemas:
+    $ref: "./schemas/apitypes.yaml"

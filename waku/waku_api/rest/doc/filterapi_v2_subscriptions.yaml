@@ -1,0 +1,126 @@
+# /filter/v2/subscriptions:
+post: # post_waku_v2_filter_v2_subscription
+  summary: Subscribe a peer to an array of content topics under a pubsubTopic
+  description: |
+      Subscribe a peer to an array of content topics under a pubsubTopic.
+
+      It is allowed to refresh or add new content topic to an existing subscription.
+
+      Fields pubsubTopic and contentFilters must be filled.
+  operationId: postSubscriptions
+  tags:
+    - filter
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterSubscribeRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    # TODO: Review the possible errors of this endpoint
+    '400':
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '5XX':
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+
+put: # put_waku_v2_filter_v2_subscription
+  summary: Modify existing subscription of a peer under a pubsubTopic
+  description: |
+      Modify existing subscription of a peer under a pubsubTopic.
+
+      It is allowed to refresh or add new content topic to an existing subscription.
+
+      Fields pubsubTopic and contentFilters must be filled.
+  operationId: putSubscriptions
+  tags:
+    - filter
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterSubscribeRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    # TODO: Review the possible errors of this endpoint
+    '400':
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '5XX':
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+
+
+delete: # delete_waku_v2_filter_v2_subscription
+  summary: Unsubscribe a peer from content topics
+  description: |
+      Unsubscribe a peer from content topics
+      Only that subscription will be removed which matches existing.
+  operationId: deleteSubscriptions
+  tags:
+    - filter
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterUnsubscribeRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '400':
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '5XX':
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'

@@ -1,0 +1,38 @@
+# /filter/v2/subscriptions/all:
+delete: # delete_waku_v2_filter_v2_subscription
+  summary: Unsubscribe a peer from all content topics
+  description: |
+      Unsubscribe a peer from all content topics
+  operationId: deleteAllSubscriptions
+  tags:
+    - filter
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: './schemas/apitypes.yaml#/FilterUnsubscribeAllRequest'
+  responses:
+    '200':
+      description: OK
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '400':
+      description: Bad request.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '404':
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
+    '5XX':
+      description: Unexpected error.
+      content:
+        application/json:
+          schema:
+            $ref: './schemas/apitypes.yaml#/FilterSubscriptionResponse'
