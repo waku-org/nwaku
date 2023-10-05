@@ -96,20 +96,14 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
 proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodPost, ROUTE_ADMIN_V1_PEERS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
 
-    let decodedBody = decodeRequestBody[seq[string]](contentBody)
-
-    if decodedBody.isErr():
-      return RestApiResponse.badRequest(fmt("Failed to decode request: {decodedBody.error}"))
-
-    let peers: seq[string] = decodedBody.value()
+    let peers: seq[string] = decodeRequestBody[seq[string]](contentBody).valueOr:
+      return RestApiResponse.badRequest(fmt("Failed to decode request: {error}"))
 
     for i, peer in peers:
-      let peerInfo = parsePeerInfo(peer)
-      if peerInfo.isErr():
-        return RestApiResponse.badRequest(fmt("Couldn't parse remote peer info: {peerInfo.error}"))
+      let peerInfo = parsePeerInfo(peer).valueOr:
+        return RestApiResponse.badRequest(fmt("Couldn't parse remote peer info: {error}"))
 
-      let connOk = await node.peerManager.connectRelay(peerInfo.value, source="rest")
-      if not connOk:
+      if not (await node.peerManager.connectRelay(peerInfo, source="rest")):
         return RestApiResponse.badRequest(fmt("Failed to connect to peer at index: {i} - {peer}"))
 
     return RestApiResponse.ok()

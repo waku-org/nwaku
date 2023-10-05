@@ -79,7 +79,6 @@ suite "Waku v2 Rest API - Admin":
                    it.multiaddr == constructMultiaddrStr(peerInfo3))
 
   asyncTest "Set wrong peer":
-    # Connect to nodes 2 and 3 using the Admin API
     let nonExistentPeer = "/ip4/0.0.0.0/tcp/10000/p2p/16Uiu2HAm6HZZr7aToTvEBPpiys4UxajCTU97zj5v7RNR2gbniy1D"
     let postRes = await client.postPeers(@[nonExistentPeer])
 
