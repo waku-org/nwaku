@@ -20,7 +20,6 @@ import
   ./protocol,
   ./protocol_metrics
 
-
 logScope:
   topics = "waku filter client"
 
@@ -71,7 +70,7 @@ proc initProtocolHandler(wf: WakuFilterClientLegacy) =
     wf.handleMessagePush(peerId, requestId, push)
 
   wf.handler = handle
-  wf.codec = WakuFilterCodec
+  wf.codec = WakuLegacyFilterCodec
 
 proc new*(T: type WakuFilterClientLegacy,
           peerManager: PeerManager,
@@ -87,7 +86,7 @@ proc new*(T: type WakuFilterClientLegacy,
 
 
 proc sendFilterRpc(wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
-  let connOpt = await wf.peerManager.dialPeer(peer, WakuFilterCodec)
+  let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
   let connection = connOpt.get()
@@ -155,6 +154,8 @@ proc unsubscribe*(wf: WakuFilterClientLegacy,
   if sendRes.isErr():
     return err(sendRes.error)
 
+  # FIXME: I see an issue here that such solution prevents filtering client to properly manage its
+  #        subscriptions on different peers and get notified correctly!
   for topic in topics:
     wf.subManager.removeSubscription(pubsubTopic, topic)
 

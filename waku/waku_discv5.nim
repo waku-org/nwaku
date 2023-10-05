@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options, sugar, sets],
+  std/[sequtils, strutils, options, sets],
   stew/results,
   stew/shims/net,
   chronos,
@@ -42,7 +42,7 @@ type WakuDiscoveryV5Config* = object
 
 ## Protocol
 
-type WakuDiscv5Predicate* = proc(record: waku_enr.Record): bool {.closure, gcsafe.}
+type WakuDiscv5Predicate* = proc(record: waku_enr.Record): bool {.closure, gcsafe, raises: [].}
 
 type WakuDiscoveryV5* = ref object
     conf: WakuDiscoveryV5Config
@@ -70,30 +70,42 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-      nodeShard.indices.anyIt(record.containsShard(nodeShard.cluster, it))
+      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it))
 
   return some(predicate)
 
-proc new*(T: type WakuDiscoveryV5, rng: ref HmacDrbgContext, conf: WakuDiscoveryV5Config, record: Option[waku_enr.Record]): T =
+proc new*(
+  T: type WakuDiscoveryV5,
+  rng: ref HmacDrbgContext,
+  conf: WakuDiscoveryV5Config,
+  record: Option[waku_enr.Record]
+  ): T =
+  let shardPredOp =
+    if record.isSome(): shardingPredicate(record.get())
+    else: none(WakuDiscv5Predicate)
+  
+  var bootstrapRecords = conf.bootstrapRecords
+
+  # Remove bootstrap nodes with which we don't share shards.
+  if shardPredOp.isSome():
+    bootstrapRecords.keepIf(shardPredOp.get())
+  
+  if conf.bootstrapRecords.len > 0 and bootstrapRecords.len == 0:
+    warn "No discv5 bootstrap nodes share this node configured shards"
+
   let protocol = newProtocol(
     rng = rng,
     config = conf.discv5Config.get(protocol.defaultDiscoveryConfig),
     bindPort = conf.port,
     bindIp = conf.address,
     privKey = conf.privateKey,
-    bootstrapRecords = conf.bootstrapRecords,
+    bootstrapRecords = bootstrapRecords,
     enrAutoUpdate = conf.autoupdateRecord,
     previousRecord = record,
     enrIp = none(ValidIpAddress),
     enrTcpPort = none(Port),
     enrUdpPort = none(Port),
   )
-
-  let shardPredOp =
-    if record.isSome():
-      shardingPredicate(record.get())
-    else:
-      none(WakuDiscv5Predicate)
 
   WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false, predicate: shardPredOp)
 
@@ -138,7 +150,7 @@ proc new*(T: type WakuDiscoveryV5,
           if res.isErr():
             debug "building ENR with relay sharding failed", reason = res.error
           else:
-            debug "building ENR with relay sharding information", cluster = $relayShard.get().cluster(), shards = $relayShard.get().indices()
+            debug "building ENR with relay sharding information", clusterId = $relayShard.get().clusterId(), shards = $relayShard.get().shardIds()
 
         builder.build().expect("Record within size limits")
 
@@ -178,18 +190,18 @@ proc updateENRShards(wd: WakuDiscoveryV5,
     if add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
-      if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one shard cluster")
+      if currentShard.clusterId != newShard.clusterId:
+        return err("ENR are limited to one clusterId id")
 
-      ?RelayShards.init(currentShard.cluster, currentShard.indices & newShard.indices)
+      ?RelayShards.init(currentShard.clusterId, currentShard.shardIds & newShard.shardIds)
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
-      if currentShard.cluster != newShard.cluster:
-        return err("ENR are limited to one shard cluster")
+      if currentShard.clusterId != newShard.clusterId:
+        return err("ENR are limited to one clusterId id")
 
-      let currentSet = toHashSet(currentShard.indices)
-      let newSet = toHashSet(newShard.indices)
+      let currentSet = toHashSet(currentShard.shardIds)
+      let newSet = toHashSet(newShard.shardIds)
 
       let indices = toSeq(currentSet - newSet)
 
@@ -203,12 +215,12 @@ proc updateENRShards(wd: WakuDiscoveryV5,
 
         return ok()
 
-      ?RelayShards.init(currentShard.cluster, indices)
+      ?RelayShards.init(currentShard.clusterId, indices)
     elif add and currentShardsOp.isNone(): newShard
     else: return ok()
   
   let (field, value) =
-    if resultShard.indices.len >= ShardingIndicesListMaxLength:
+    if resultShard.shardIds.len >= ShardingIndicesListMaxLength:
       (ShardingBitVectorEnrField, resultShard.toBitVector())
     else:
       let listRes = resultShard.toIndicesList()
@@ -295,7 +307,10 @@ proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
 
   debug "Successfully stopped discovery v5 service"
 
-proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]) {.async.} =
+proc subscriptionsListener*(
+  wd: WakuDiscoveryV5,
+  topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
+  ) {.async.} =
   ## Listen for pubsub topics subscriptions changes
   
   let key = topicSubscriptionQueue.register()
@@ -305,8 +320,8 @@ proc subscriptionsListener*(wd: WakuDiscoveryV5, topicSubscriptionQueue: AsyncEv
 
     # Since we don't know the events we will receive we have to anticipate.
 
-    let subs = events.filterIt(it.kind == SubscriptionKind.PubsubSub).mapIt(it.pubsubSub)
-    let unsubs = events.filterIt(it.kind == SubscriptionKind.PubsubUnsub).mapIt(it.pubsubUnsub)
+    let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
+    let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
 
     if subs.len == 0 and unsubs.len == 0:
       continue

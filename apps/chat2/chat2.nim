@@ -212,7 +212,7 @@ proc publish(c: Chat, line: string) =
       # Attempt lightpush
       asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
     else:
-      asyncSpawn c.node.publish(DefaultPubsubTopic, message)
+      asyncSpawn c.node.publish(some(DefaultPubsubTopic), message)
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -262,10 +262,12 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "You are now known as " & c.nick
 
     elif line.startsWith("/exit"):
-      if not c.node.wakuFilter.isNil():
+      if not c.node.wakuFilterLegacy.isNil():
         echo "unsubscribing from content filters..."
 
-        await c.node.unsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic)
+        let peerOpt = c.node.peerManager.selectPeer(WakuLegacyFilterCodec)
+        if peerOpt.isSome():
+          await c.node.legacyFilterUnsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic, peer=peerOpt.get())
 
       echo "quitting..."
 
@@ -372,10 +374,10 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     echo "Connecting to " & $conf.fleet & " fleet using DNS discovery..."
 
     if conf.fleet == Fleet.test:
-      dnsDiscoveryUrl = some("enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im")
+      dnsDiscoveryUrl = some("enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im")
     else:
       # Connect to prod by default
-      dnsDiscoveryUrl = some("enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im")
+      dnsDiscoveryUrl = some("enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im")
 
   elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
@@ -464,14 +466,18 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     if peerInfo.isOk():
       await node.mountFilter()
       await node.mountFilterClient()
-      node.peerManager.addServicePeer(peerInfo.value, WakuFilterCodec)
+      node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
       proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         trace "Hit filter handler", contentTopic=msg.contentTopic
         chat.printReceivedMessage(msg)
 
-      await node.subscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=chat.contentTopic, filterHandler)
-
+      await node.legacyFilterSubscribe(pubsubTopic=some(DefaultPubsubTopic),
+                                       contentTopics=chat.contentTopic,
+                                       filterHandler,
+                                       peerInfo.value)
+      # TODO: Here to support FilterV2 relevant subscription, but still
+      # Legacy Filter is concurrent to V2 untill legacy filter will be removed
     else:
       error "Filter not mounted. Couldn't parse conf.filternode",
                 error = peerInfo.error
@@ -484,8 +490,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       if msg.contentTopic == chat.contentTopic:
         chat.printReceivedMessage(msg)
 
-    let topic = DefaultPubsubTopic
-    await node.subscribe(some(topic), @[ContentTopic("")], handler)
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"

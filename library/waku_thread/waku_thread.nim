@@ -8,19 +8,23 @@ import
 import
   chronicles,
   chronos,
+  chronos/threadsync,
+  taskpools/channels_spsc_single,
   stew/results,
   stew/shims/net
 import
   ../../../waku/node/waku_node,
   ../events/[json_error_event,json_message_event,json_base_event],
-  ./inter_thread_communication/request
+  ./inter_thread_communication/waku_thread_request,
+  ./inter_thread_communication/waku_thread_response
 
 type
   Context* = object
     thread: Thread[(ptr Context)]
-    reqChannel: Channel[InterThreadRequest]
-    respChannel: Channel[Result[string, string]]
-    node: WakuNode
+    reqChannel: ChannelSPSCSingle[ptr InterThreadRequest]
+    reqSignal: ThreadSignalPtr
+    respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
+    respSignal: ThreadSignalPtr
 
 var ctx {.threadvar.}: ptr Context
 
@@ -49,12 +53,20 @@ proc run(ctx: ptr Context) {.thread.} =
 
   while running.load == true:
     ## Trying to get a request from the libwaku main thread
-    let req = ctx.reqChannel.tryRecv()
-    if req[0] == true:
-      let response = waitFor req[1].process(addr node)
-      ctx.respChannel.send( response )
 
-    poll()
+    var request: ptr InterThreadRequest
+    waitFor ctx.reqSignal.wait()
+    let recvOk = ctx.reqChannel.tryRecv(request)
+    if recvOk == true:
+      let resultResponse =
+        waitFor InterThreadRequest.process(request, addr node)
+
+      ## Converting a `Result` into a thread-safe transferable response type
+      let threadSafeResp = InterThreadResponse.createShared(resultResponse)
+
+      ## The error-handling is performed in the main thread
+      discard ctx.respChannel.trySend(threadSafeResp)
+      discard ctx.respSignal.fireSync()
 
   tearDownForeignThreadGc()
 
@@ -65,8 +77,10 @@ proc createWakuThread*(): Result[void, string] =
   waku_init()
 
   ctx = createShared(Context, 1)
-  ctx.reqChannel.open()
-  ctx.respChannel.open()
+  ctx.reqSignal = ThreadSignalPtr.new().valueOr:
+    return err("couldn't create reqSignal ThreadSignalPtr")
+  ctx.respSignal = ThreadSignalPtr.new().valueOr:
+    return err("couldn't create respSignal ThreadSignalPtr")
 
   running.store(true)
 
@@ -83,20 +97,34 @@ proc createWakuThread*(): Result[void, string] =
 proc stopWakuNodeThread*() =
   running.store(false)
   joinThread(ctx.thread)
-
-  ctx.reqChannel.close()
-  ctx.respChannel.close()
-
+  discard ctx.reqSignal.close()
+  discard ctx.respSignal.close()
   freeShared(ctx)
 
-proc sendRequestToWakuThread*(req: InterThreadRequest): Result[string, string] =
+proc sendRequestToWakuThread*(reqType: RequestType,
+                              reqContent: pointer): Result[string, string] =
 
-  ctx.reqChannel.send(req)
+  let req = InterThreadRequest.createShared(reqType, reqContent)
 
-  var resp = ctx.respChannel.tryRecv()
-  while resp[0] == false:
-    resp = ctx.respChannel.tryRecv()
-    os.sleep(1)
+  ## Sending the request
+  let sentOk = ctx.reqChannel.trySend(req)
+  if not sentOk:
+    return err("Couldn't send a request to the waku thread: " & $req[])
 
-  return resp[1]
+  let fireSyncRes = ctx.reqSignal.fireSync()
+  if fireSyncRes.isErr():
+    return err("failed fireSync: " & $fireSyncRes.error)
 
+  if fireSyncRes.get() == false:
+    return err("Couldn't fireSync in time")
+
+  ## Waiting for the response
+  waitFor ctx.respSignal.wait()
+
+  var response: ptr InterThreadResponse
+  var recvOk = ctx.respChannel.tryRecv(response)
+  if recvOk == false:
+    return err("Couldn't receive response from the waku thread: " & $req[])
+
+  ## Converting the thread-safe response into a managed/CG'ed `Result`
+  return InterThreadResponse.process(response)

@@ -25,7 +25,6 @@ export
   confEnvvarDefs,
   confEnvvarNet
 
-
 type ConfResult*[T] = Result[T, string]
 type ProtectedTopic* = object
   topic*: string
@@ -456,7 +455,7 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
     let key = SkPrivateKey.init(utils.fromHex(p)).tryGet()
     crypto.PrivateKey(scheme: Secp256k1, skkey: key)
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid private key")
+    raise newException(ValueError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
@@ -464,11 +463,11 @@ proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
 proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
-    raise newException(ConfigurationError, "Invalid format for protected topic expected topic:publickey")
+    raise newException(ValueError, "Invalid format for protected topic expected topic:publickey")
 
   let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
   if publicKey.isErr:
-    raise newException(ConfigurationError, "Invalid public key")
+    raise newException(ValueError, "Invalid public key")
 
   return ProtectedTopic(topic: elements[0], key: publicKey.get())
 
@@ -479,7 +478,7 @@ proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     ValidIpAddress.init(p)
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid IP address")
+    raise newException(ValueError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]
@@ -489,12 +488,11 @@ proc defaultListenAddress*(): ValidIpAddress =
   # Maybe there should be a config option for this.
   (static ValidIpAddress.init("0.0.0.0"))
 
-
 proc parseCmdArg*(T: type Port, p: string): T =
   try:
     Port(parseInt(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid Port number")
+    raise newException(ValueError, "Invalid Port number")
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
@@ -503,25 +501,13 @@ proc parseCmdArg*(T: type Option[int], p: string): T =
   try:
     some(parseInt(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid number")
+    raise newException(ValueError, "Invalid number")
 
 proc parseCmdArg*(T: type Option[uint], p: string): T =
   try:
     some(parseUint(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid unsigned integer")
-
-## Configuration validation
-
-let DbUrlRegex = re"^[\w\+]+:\/\/[\w\/\\\.\:\@]+$"
-
-proc validateDbUrl*(val: string): ConfResult[string] =
-  let val = val.strip()
-
-  if val == "" or val == "none" or val.match(DbUrlRegex):
-    ok(val)
-  else:
-    err("invalid 'db url' option format: " & val)
+    raise newException(ValueError, "Invalid unsigned integer")
 
 ## Load
 
@@ -530,7 +516,6 @@ proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [Seri
     value = parseCmdArg(crypto.PrivateKey, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
-
 
 proc readValue*(r: var EnvvarReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
   try:
@@ -556,7 +541,8 @@ proc load*(T: type WakuNodeConf, version=""): ConfResult[T] =
   try:
     let conf = WakuNodeConf.load(
       version=version,
-      secondarySources = proc (conf: WakuNodeConf, sources: auto) =
+      secondarySources = proc (conf: WakuNodeConf, sources: auto)
+                              {.gcsafe, raises: [ConfigurationError].} =
         sources.addConfigFile(Envvar, InputFile("wakunode2"))
 
         if conf.configFile.isSome():

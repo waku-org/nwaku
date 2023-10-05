@@ -11,9 +11,9 @@ import
   ../../../waku/waku_core,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_node,
-  ../../../waku/node/message_cache,
-  ../../../waku/node/jsonrpc/filter/handlers as filter_api,
-  ../../../waku/node/jsonrpc/filter/client as filter_api_client,
+  ../../../waku/waku_api/message_cache,
+  ../../../waku/waku_api/jsonrpc/filter/handlers as filter_api,
+  ../../../waku/waku_api/jsonrpc/filter/client as filter_api_client,
   ../../../waku/waku_filter,
   ../../../waku/waku_filter/rpc,
   ../../../waku/waku_filter/client,
@@ -41,7 +41,7 @@ procSuite "Waku v2 JSON-RPC API - Filter":
     await node1.mountFilter()
     await node2.mountFilterClient()
 
-    node2.peerManager.addServicePeer(node1.peerInfo.toRemotePeerInfo(), WakuFilterCodec)
+    node2.peerManager.addServicePeer(node1.peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)
 
     # RPC server setup
     let

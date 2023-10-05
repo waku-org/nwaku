@@ -134,7 +134,7 @@ proc parseCmdArg*(T: type keys.KeyPair, p: string): T =
     let privkey = keys.PrivateKey.fromHex(string(p)).tryGet()
     result = privkey.toKeyPair()
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid private key")
+    raise newException(ValueError, "Invalid private key")
 
 proc completeCmdArg*(T: type keys.KeyPair, val: string): seq[string] =
   return @[]
@@ -144,7 +144,7 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   if key.isOk():
     crypto.PrivateKey(scheme: Secp256k1, skkey: key.get())
   else:
-    raise newException(ConfigurationError, "Invalid private key")
+    raise newException(ValueError, "Invalid private key")
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
@@ -153,7 +153,7 @@ proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
     result = ValidIpAddress.init(p)
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid IP address")
+    raise newException(ValueError, "Invalid IP address")
 
 proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
   return @[]

@@ -50,18 +50,18 @@ To run a specific test.
 # Get a shell with the right environment variables set
 ./env.sh bash
 # Run a specific test
-nim c -r ./tests/test_waku_filter.nim
+nim c -r ./tests/test_waku_filter_legacy.nim
 ```
 
 You can also alter compile options. For example, if you want a less verbose output you can do the following. For more, refer to the [compiler flags](https://nim-lang.org/docs/nimc.html#compiler-usage) and [chronicles documentation](https://github.com/status-im/nim-chronicles#compile-time-configuration).
 
 ```bash
-nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off ./tests/test_waku_filter.nim
+nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off ./tests/waku_filter_v2/test_waku_filter.nim
 ```
 
 You may also want to change the `outdir` to a folder ignored by git.
 ```bash
-nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off --outdir=build ./tests/test_waku_filter.nim
+nim c -r -d:chronicles_log_level=WARN --verbosity=0 --hints=off --outdir=build ./tests/waku_filter_v2/test_waku_filter.nim
 ```
 
 ### Waku Protocol Example
@@ -194,8 +194,8 @@ A node will attempt connection to all discovered nodes.
 
 This can be used, for example, to connect to one of the existing fleets.
 Current URLs for the published fleet lists:
-- production fleet: `enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@prod.waku.nodes.status.im`
-- test fleet: `enrtree://AOGECG2SPND25EEFMAJ5WF3KSGJNSGV356DSTL2YVLLZWIV6SAYBM@test.waku.nodes.status.im`
+- production fleet: `enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im`
+- test fleet: `enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im`
 
 See the [separate tutorial](../../docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
 

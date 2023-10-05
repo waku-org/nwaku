@@ -167,14 +167,6 @@ void show_main_menu() {
     printf("\t3.) Publish a message\n");
 }
 
-void set_scanf_to_not_block() {
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) | O_NONBLOCK);
-}
-
-void set_scanf_to_block() {
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) ^ O_NONBLOCK);
-}
-
 void handle_user_input() {
     char cmd[1024];
     memset(cmd, 0, 1024);
@@ -191,7 +183,6 @@ void handle_user_input() {
     case SUBSCRIBE_TOPIC_MENU:
     {
         printf("Indicate the Pubsubtopic to subscribe:\n");
-        set_scanf_to_block();
         char pubsubTopic[128];
         scanf("%127s", pubsubTopic);
 
@@ -199,7 +190,6 @@ void handle_user_input() {
                                         handle_error) );
         printf("The subscription went well\n");
 
-        set_scanf_to_not_block();
         show_main_menu();
     }
     break;
@@ -207,17 +197,14 @@ void handle_user_input() {
     case CONNECT_TO_OTHER_NODE_MENU:
         printf("Connecting to a node. Please indicate the peer Multiaddress:\n");
         printf("e.g.: /ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\n");
-        set_scanf_to_block();
         char peerAddr[512];
         scanf("%511s", peerAddr);
         WAKU_CALL(waku_connect(peerAddr, 10000 /* timeoutMs */, handle_error));
-        set_scanf_to_not_block();
         show_main_menu();
     break;
 
     case PUBLISH_MESSAGE_MENU:
     {
-        set_scanf_to_block();
         printf("Indicate the Pubsubtopic:\n");
         char pubsubTopic[128];
         scanf("%127s", pubsubTopic);
@@ -228,7 +215,6 @@ void handle_user_input() {
 
         publish_message(pubsubTopic, msg);
 
-        set_scanf_to_not_block();
         show_main_menu();
     }
     break;
@@ -264,9 +250,6 @@ int main(int argc, char** argv) {
                                     cfgNode.key,
                                     cfgNode.relay ? "true":"false");
 
-    // To allow non-blocking 'reads' from stdin
-    fcntl(0, F_SETFL, fcntl(0, F_GETFL) ^ O_NONBLOCK);
-
     WAKU_CALL( waku_default_pubsub_topic(print_default_pubsub_topic) );
     WAKU_CALL( waku_version(print_waku_version) );
 
@@ -289,6 +272,5 @@ int main(int argc, char** argv) {
     show_main_menu();
     while(1) {
         handle_user_input();
-        // waku_poll();
     }
 }

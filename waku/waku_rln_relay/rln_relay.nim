@@ -6,7 +6,6 @@ else:
 import
   std/[algorithm, sequtils, strutils, tables, times, os, deques],
   chronicles, options, chronos, chronos/ratelimit, stint,
-  confutils,
   web3, json,
   web3/ethtypes,
   eth/keys,
@@ -409,7 +408,7 @@ proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
 
 proc new*(T: type WakuRlnRelay,
           conf: WakuRlnConfig,
-          registrationHandler: Option[RegistrationHandler] = none(RegistrationHandler)
+          registrationHandler = none(RegistrationHandler)
           ): Future[RlnRelayResult[WakuRlnRelay]] {.async.} =
   ## Mounts the rln-relay protocol on the node.
   ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.

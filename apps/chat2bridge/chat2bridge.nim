@@ -18,6 +18,7 @@ import
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
   ../../waku/waku_store,
   # Chat 2 imports
   ../chat2/chat2,
@@ -94,7 +95,7 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(DefaultPubsubTopic, msg)
+  await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
@@ -203,7 +204,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
     trace "Bridging message from Chat2 to Matterbridge", msg=msg
     cmb.toMatterbridge(msg)
 
-  cmb.nodev2.subscribe(DefaultPubsubTopic, relayHandler)
+  cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
 
 proc stop*(cmb: Chat2MatterBridge) {.async.} =
   info "Stopping Chat2MatterBridge"
@@ -216,11 +217,11 @@ proc stop*(cmb: Chat2MatterBridge) {.async.} =
 when isMainModule:
   import
     ../../../waku/common/utils/nat,
-    ../../waku/node/message_cache,
-    ../../waku/node/jsonrpc/debug/handlers as debug_api,
-    ../../waku/node/jsonrpc/filter/handlers as filter_api,
-    ../../waku/node/jsonrpc/relay/handlers as relay_api,
-    ../../waku/node/jsonrpc/store/handlers as store_api
+    ../../waku/waku_api/message_cache,
+    ../../waku/waku_api/jsonrpc/debug/handlers as debug_api,
+    ../../waku/waku_api/jsonrpc/filter/handlers as filter_api,
+    ../../waku/waku_api/jsonrpc/relay/handlers as relay_api,
+    ../../waku/waku_api/jsonrpc/store/handlers as store_api
 
 
   proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =
@@ -228,8 +229,8 @@ when isMainModule:
 
     # Install enabled API handlers:
     if conf.relay:
-      let topicCache = relay_api.MessageCache.init(capacity=30)
-      installRelayApiHandlers(node, rpcServer, topicCache)
+      let cache = MessageCache[string].init(capacity=30)
+      installRelayApiHandlers(node, rpcServer, cache)
 
     if conf.filter:
       let messageCache = filter_api.MessageCache.init(capacity=30)
@@ -297,7 +298,8 @@ when isMainModule:
   if conf.filternode != "":
     let filterPeer = parsePeerInfo(conf.filternode)
     if filterPeer.isOk():
-      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuLegacyFilterCodec)
+      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
     else:
       error "Error parsing conf.filternode", error = filterPeer.error
 

@@ -7,8 +7,8 @@ import
   json_serialization
 import
   ../../waku/common/base64,
-  ../../waku/node/rest/serdes,
-  ../../waku/node/rest/relay/types,
+  ../../waku/waku_api/rest/serdes,
+  ../../waku/waku_api/rest/relay/types,
   ../../waku/waku_core
 
 
@@ -19,7 +19,7 @@ suite "Waku v2 Rest API - Relay - serialization":
     test "optional fields are not provided":
       # Given
       let payload = base64.encode("MESSAGE")
-      let jsonBytes = toBytes("{\"payload\":\"" & $payload & "\"}")
+      let jsonBytes = toBytes("{\"payload\":\"" & $payload & "\",\"contentTopic\":\"some/topic\"}")
 
       # When
       let res = decodeFromJsonBytes(RelayWakuMessage, jsonBytes, requireAllFields = true)
@@ -29,7 +29,8 @@ suite "Waku v2 Rest API - Relay - serialization":
       let value = res.get()
       check:
         value.payload == payload
-        value.contentTopic.isNone()
+        value.contentTopic.isSome()
+        value.contentTopic.get() == "some/topic"
         value.version.isNone()
         value.timestamp.isNone()
 

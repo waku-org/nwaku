@@ -47,7 +47,7 @@ type
 
     logLevel* {.
       desc: "Sets the log level",
-      defaultValue: LogLevel.DEBUG,
+      defaultValue: LogLevel.INFO,
       name: "log-level",
       abbr: "l".}: LogLevel
 
@@ -68,11 +68,16 @@ type
       defaultValue: ""
       name: "websocket-secure-cert-path".}: string
 
+    ping* {.
+      desc: "Ping the peer node to measure latency",
+      defaultValue: true,
+      name: "ping" .}: bool
+
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
     result = chronos.seconds(parseInt(p))
   except CatchableError:
-    raise newException(ConfigurationError, "Invalid timeout value")
+    raise newException(ValueError, "Invalid timeout value")
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
@@ -97,6 +102,18 @@ proc areProtocolsSupported(
     return true
 
   return false
+
+proc pingNode(node: WakuNode, peerInfo: RemotePeerInfo): Future[void] {.async, gcsafe.} =
+  try:
+    let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
+    let pingDelay = await node.libp2pPing.ping(conn)
+    info "Peer response time (ms)", peerId = peerInfo.peerId, ping=pingDelay.millis
+
+  except CatchableError:
+    var msg = getCurrentExceptionMsg()
+    if msg == "Future operation cancelled!":
+      msg = "timedout"
+    error "Failed to ping the peer", peer=peerInfo, err=msg
 
 proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
@@ -173,7 +190,18 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   let node = builder.build().tryGet()
 
+  if conf.ping:
+    try:
+      await mountLibp2pPing(node)
+    except CatchableError:
+      error "failed to mount libp2p ping protocol: " & getCurrentExceptionMsg()
+      return 1
+
   await node.start()
+
+  var pingFut:Future[bool]
+  if conf.ping:
+    pingFut = pingNode(node, peer).withTimeout(conf.timeout)
 
   let timedOut = not await node.connectToNodes(@[peer]).withTimeout(conf.timeout)
   if timedOut:
@@ -182,6 +210,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   let lp2pPeerStore = node.switch.peerStore
   let conStatus = node.peerManager.peerStore[ConnectionBook][peer.peerId]
+
+  if conf.ping:
+    discard await pingFut
 
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]

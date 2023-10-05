@@ -13,10 +13,27 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/waku_discv5,
+  ../../apps/wakunode2/external_config,
+  ../../apps/wakunode2/internal_config,
   ./common
 
 
 # Waku node
+
+proc defaultTestWakuNodeConf*(): WakuNodeConf =
+  WakuNodeConf(
+    tcpPort: Port(60000),
+    websocketPort: Port(8000),
+    listenAddress: ValidIpAddress.init("0.0.0.0"),
+    rpcAddress: ValidIpAddress.init("127.0.0.1"),
+    restAddress: ValidIpAddress.init("127.0.0.1"),
+    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
+    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
+    nat: "any",
+    maxConnections: 50,
+    topics: @["/waku/2/default-waku/proto"],
+    relay: true
+  )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       bindIp: ValidIpAddress,
@@ -38,10 +55,29 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       discv5UdpPort = none(Port),
                       agentString = none(string),
                       peerStoreCapacity = none(int)): WakuNode =
+  
+  var resolvedExtIp = extIp
+
+  # Update extPort to default value if it's missing and there's an extIp or a DNS domain 
+  let extPort = if (extIp.isSome() or dns4DomainName.isSome()) and
+                extPort.isNone():
+                some(Port(60000))
+              else:
+                extPort
+  
+  if dns4DomainName.isSome() and extIp.isNone():
+    let conf = defaultTestWakuNodeConf()
+    # If there's an error resolving the IP, an exception is thrown and test fails 
+    let dnsRes = waitFor dnsResolve(dns4DomainName.get(), conf)
+    if dnsRes.isErr():
+      raise newException(Defect, $dnsRes.error)
+    else:
+      resolvedExtIp = some(ValidIpAddress.init(dnsRes.get()))
+
   let netConfigRes = NetConfig.init(
     bindIp = bindIp,
     bindPort = bindPort,
-    extIp = extIp,
+    extIp = resolvedExtIp,
     extPort = extPort,
     extMultiAddrs = extMultiAddrs,
     wsBindPort = wsBindPort,

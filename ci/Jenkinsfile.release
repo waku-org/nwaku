@@ -19,12 +19,17 @@ pipeline {
     string(
       name: 'IMAGE_TAG',
       description: 'Name of Docker tag to push. Optional Parameter.',
-      defaultValue: params.IMAGE_TAG ?: 'deploy-wakuv2-test',
+      defaultValue: getDefaultImageTag()
     )
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'statusteam/nim-waku',
+      defaultValue: params.IMAGE_NAME ?: 'wakuorg/nwaku',
+    )
+    string(
+      name: 'DOCKER_CRED',
+      description: 'Name of Docker Hub credential.',
+      defaultValue: params.DOCKER_CRED ?: 'dockerhub-vacorgbot-api-token',
     )
     string(
       name: 'NIMFLAGS',
@@ -34,6 +39,7 @@ pipeline {
         '-d:disableMarchNative',
         '-d:chronicles_colors:none',
         '-d:insecure',
+        '-d:postgres',
       ].join(' ')
     )
     string(
@@ -51,7 +57,7 @@ pipeline {
     stage('Build') {
       steps { script {
         image = docker.build(
-          "${params.IMAGE_NAME}:${env.GIT_COMMIT.take(8)}",
+          "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
@@ -70,17 +76,25 @@ pipeline {
     }
 
     stage('Push') {
+      when { expression { params.IMAGE_TAG != '' } }
       steps { script {
-        withDockerRegistry([credentialsId: "dockerhub-statusteam-auto", url: ""]) {
+        withDockerRegistry([
+          credentialsId: params.DOCKER_CRED, url: ""
+        ]) {
           image.push()
-          image.push(env.IMAGE_TAG)
+          /* If Git ref is a tag push it as Docker tag too. */
+          if (params.GIT_REF ==~ /v\d+\.\d+\.\d+.*/) {
+            image.push(params.GIT_REF)
+          }
         }
       } }
     }
   } // stages
+
   post {
     success { script {
-      discordNotify(
+      def discord = load "${WORKSPACE}/ci/discord.groovy"
+      discord.send(
         header: 'Nim-Waku deployment successful!',
         cred: 'discord-waku-deployments-webhook',
       )
@@ -89,41 +103,13 @@ pipeline {
   } // post
 } // pipeline
 
-def discordNotify(Map args=[:]) {
-  def opts = [
-    header: args.header ?: 'Deployment successful!',
-    cred: args.cred ?: null,
-  ]
-  def repo = [
-    url: GIT_URL.minus('.git'),
-    branch: GIT_BRANCH.minus('origin/'),
-    commit: GIT_COMMIT.take(8),
-    prev: (
-      env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT ?: 'master'
-    ).take(8),
-  ]
-  wrap([$class: 'BuildUser']) {
-    BUILD_USER_ID = env.BUILD_USER_ID
+def getDefaultImageTag() {
+  if (env.JOB_BASE_NAME) {
+    return env.JOB_BASE_NAME
   }
-  withCredentials([
-    string(
-      credentialsId: opts.cred,
-      variable: 'DISCORD_WEBHOOK',
-    ),
-  ]) {
-    discordSend(
-      link: env.BUILD_URL,
-      result: currentBuild.currentResult,
-      webhookURL: env.DISCORD_WEBHOOK,
-      title: "${env.JOB_NAME}#${env.BUILD_NUMBER}",
-      description: """
-        ${opts.header}
-        Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?name=${IMAGE_TAG})
-        Branch: [`${repo.branch}`](${repo.url}/commits/${repo.branch})
-        Commit: [`${repo.commit}`](${repo.url}/commit/${repo.commit})
-        Diff: [`${repo.prev}...${repo.commit}`](${repo.url}/compare/${repo.prev}...${repo.commit})
-        By: [`${BUILD_USER_ID}`](${repo.url}/commits?author=${BUILD_USER_ID})
-      """,
-    )
+  switch (env.JOB_BASE_NAME) {
+    case 'docker-latest':      return 'latest'
+    case 'docker-release':     return 'stable'
+    default:                   return ''
   }
 }

@@ -255,71 +255,71 @@ suite "Waku ENR - Multiaddresses":
 
 suite "Waku ENR - Relay static sharding":
 
-  test "new relay shards field with single invalid index":
+  test "new relay shards object with single invalid shard id":
     ## Given
     let
-      shardCluster: uint16 = 22
-      shardIndex: uint16 = 1024
+      clusterId: uint16 = 22
+      shard: uint16 = 1024
 
     ## When
-    let res = RelayShards.init(shardCluster, shardIndex)
+    let shardsTopics = RelayShards.init(clusterId, shard)
 
     ## Then
-    assert res.isErr(), $res.get()
+    assert shardsTopics.isErr(), $shardsTopics.get()
 
-  test "new relay shards field with single invalid index in list":
+  test "new relay shards object with single invalid shard id in list":
     ## Given
     let
-      shardCluster: uint16 = 22
-      shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16, 1024u16]
+      clusterId: uint16 = 22
+      shardIds: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16, 1024u16]
 
     ## When
-    let res = RelayShards.init(shardCluster, shardIndices)
+    let shardsTopics = RelayShards.init(clusterId, shardIds)
 
     ## Then
-    assert res.isErr(), $res.get()
+    assert shardsTopics.isErr(), $shardsTopics.get()
 
-  test "new relay shards field with single valid index":
+  test "new relay shards object with single valid shard id":
     ## Given
     let
-      shardCluster: uint16 = 22
-      shardIndex: uint16 = 1
+      clusterId: uint16 = 22
+      shardId: uint16 = 1
 
-    let topic = NsPubsubTopic.staticSharding(shardCluster, shardIndex)
+    let topic = NsPubsubTopic.staticSharding(clusterId, shardId)
 
     ## When
-    let shards = RelayShards.init(shardCluster, shardIndex).expect("Valid Shards")
+    let shardsTopics = RelayShards.init(clusterId, shardId).expect("Valid Shards")
 
     ## Then
     check:
-      shards.cluster == shardCluster
-      shards.indices == @[1u16]
+      shardsTopics.clusterId == clusterId
+      shardsTopics.shardIds == @[1u16]
 
-    let topics = shards.topics.mapIt($it)
+    let topics = shardsTopics.topics.mapIt($it)
     check:
       topics == @[$topic]
 
     check:
-      shards.contains(shardCluster, shardIndex)
-      not shards.contains(shardCluster, 33u16)
-      not shards.contains(20u16, 33u16)
+      shardsTopics.contains(clusterId, shardId)
+      not shardsTopics.contains(clusterId, 33u16)
+      not shardsTopics.contains(20u16, 33u16)
 
-      shards.contains(topic)
-      shards.contains("/waku/2/rs/22/1")
+      shardsTopics.contains(topic)
+      shardsTopics.contains("/waku/2/rs/22/1")
 
-  test "new relay shards field with repeated but valid indices":
+  test "new relay shards object with repeated but valid shard ids":
     ## Given
     let
-      shardCluster: uint16 = 22
-      shardIndices: seq[uint16] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
+      clusterId: uint16 = 22
+      shardIds: seq[uint16] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
 
     ## When
-    let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
+    let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid Shards")
 
     ## Then
     check:
-      shards.cluster == shardCluster
-      shards.indices == @[1u16, 2u16, 3u16]
+      shardsTopics.clusterId == clusterId
+      shardsTopics.shardIds == @[1u16, 2u16, 3u16]
 
   test "cannot decode relay shards from record if not present":
     ## Given
@@ -338,21 +338,21 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check fieldOpt.isNone()
 
-  test "encode and decode record with relay shards field (EnrBuilder ext - indices list)":
+  test "encode and decode record with relay shards field (EnrBuilder ext - shardIds list)":
     ## Given
     let
       enrSeqNum = 1u64
       enrPrivKey = generatesecp256k1key()
 
     let
-      shardCluster: uint16 = 22
-      shardIndices: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
+      clusterId: uint16 = 22
+      shardIds: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
 
-    let shards = RelayShards.init(shardCluster, shardIndices).expect("Valid Shards")
+    let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid Shards")
 
     ## When
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-    require builder.withWakuRelaySharding(shards).isOk()
+    require builder.withWakuRelaySharding(shardsTopics).isOk()
 
     let recordRes = builder.build()
 
@@ -366,7 +366,7 @@ suite "Waku ENR - Relay static sharding":
     let shardsOpt = typedRecord.value.relaySharding
     check:
       shardsOpt.isSome()
-      shardsOpt.get() == shards
+      shardsOpt.get() == shardsTopics
 
   test "encode and decode record with relay shards field (EnrBuilder ext - bit vector)":
     ## Given
@@ -374,10 +374,10 @@ suite "Waku ENR - Relay static sharding":
       enrSeqNum = 1u64
       enrPrivKey = generatesecp256k1key()
 
-    let shards = RelayShards.init(33, toSeq(0u16 ..< 64u16)).expect("Valid Shards")
+    let shardsTopics = RelayShards.init(33, toSeq(0u16 ..< 64u16)).expect("Valid Shards")
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-    require builder.withWakuRelaySharding(shards).isOk()
+    require builder.withWakuRelaySharding(shardsTopics).isOk()
 
     let recordRes = builder.build()
     require recordRes.isOk()
@@ -393,22 +393,22 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check:
       shardsOpt.isSome()
-      shardsOpt.get() == shards
+      shardsOpt.get() == shardsTopics
 
-  test "decode record with relay shards indices list and bit vector fields":
+  test "decode record with relay shards shard list and bit vector fields":
     ## Given
     let
       enrSeqNum = 1u64
       enrPrivKey = generatesecp256k1key()
 
     let
-      shardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]).expect("Valid Shards")
-      shardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16]).expect("Valid Shards")
+      relayShardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]).expect("Valid Shards")
+      relayShardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16]).expect("Valid Shards")
 
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
-    require builder.withWakuRelayShardingIndicesList(shardsIndicesList).isOk()
-    require builder.withWakuRelayShardingBitVector(shardsBitVector).isOk()
+    require builder.withWakuRelayShardingIndicesList(relayShardsIndicesList).isOk()
+    require builder.withWakuRelayShardingBitVector(relayShardsBitVector).isOk()
 
     let recordRes = builder.build()
     require recordRes.isOk()
@@ -424,4 +424,4 @@ suite "Waku ENR - Relay static sharding":
     ## Then
     check:
       shardsOpt.isSome()
-      shardsOpt.get() == shardsIndicesList
+      shardsOpt.get() == relayShardsIndicesList

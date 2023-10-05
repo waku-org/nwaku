@@ -3,7 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/strutils,
   stew/shims/net
@@ -14,15 +13,14 @@ export
   net, 
   envvar_serialization
 
-
 proc readValue*(r: var EnvvarReader, value: var ValidIpAddress) {.raises: [SerializationError].} =
   try: 
     value = ValidIpAddress.init(r.readValue(string))
-  except ValueError:
-    raise newException(EnvvarError, "Invalid IP address")
+  except ValueError, IOError:
+    raise newException(SerializationError, "Invalid IP address: " & getCurrentExceptionMsg())
 
-proc readValue*(r: var EnvvarReader, value: var Port) {.raises: [SerializationError, ValueError].} =
+proc readValue*(r: var EnvvarReader, value: var Port) {.raises: [SerializationError].} =
   try: 
     value = parseUInt(r.readValue(string)).Port
-  except ValueError:
-    raise newException(EnvvarError, "Invalid Port")
+  except ValueError, IOError:
+    raise newException(SerializationError, "Invalid Port: " & getCurrentExceptionMsg())

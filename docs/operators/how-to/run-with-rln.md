@@ -2,7 +2,7 @@
 
 This guide explains how to run a nwaku node with RLN (Rate Limiting Nullifier) enabled.
 
-[RLN](https://rfc.vac.dev/spec/32/) is a protocol integrated into waku v2, 
+[RLN](https://rfc.vac.dev/spec/32/) is a protocol integrated into waku v2,
 which prevents spam-based attacks on the network.
 
 For further background on the research for RLN tailored to waku, refer
@@ -12,7 +12,7 @@ Registering to the membership group has been left out for brevity.
 If you would like to register to the membership group and send messages with RLN,
 refer to the [on-chain chat2 tutorial](../../tutorial/onchain-rln-relay-chat2.md).
 
-This guide specifically allows a node to participate in RLN testnet 2. 
+This guide specifically allows a node to participate in RLN testnet 2.
 You may alter the rln-specific arguments as required.
 
 ## Prerequisites
@@ -55,7 +55,7 @@ If you are running the nwaku node within docker, follow [Step 2](../docker-quick
 export WAKU_FLEET=<entree of the fleet>
 export SEPOLIA_WS_NODE_ADDRESS=<WS RPC URL to a Sepolia Node>
 export RLN_RELAY_CONTRACT_ADDRESS="0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4" # Replace this with any compatible implementation
-docker run -i -t -p 60000:60000 -p 9000:9000/udp statusteam/nim-waku:v0.12.0 \
+docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.20.0 \
   --dns-discovery:true \
   --dns-discovery-url:"$WAKU_FLEET" \
   --discv5-discovery \

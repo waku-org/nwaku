@@ -28,12 +28,14 @@ proc unsubscribe(wfc: WakuFilterClient,
   else:
     notice "unsubscribe request successful"
 
-proc messagePushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) =
+proc messagePushHandler(pubsubTopic: PubsubTopic, message: WakuMessage)
+                                          {.async, gcsafe.} =
   let payloadStr = string.fromBytes(message.payload)
   notice "message received", payload=payloadStr,
                              pubsubTopic=pubsubTopic,
                              contentTopic=message.contentTopic,
                              timestamp=message.timestamp
+
 
 proc maintainSubscription(wfc: WakuFilterClient,
                           filterPeer: RemotePeerInfo,
@@ -68,10 +70,12 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) =
   var
     switch = newStandardSwitch()
     pm = PeerManager.new(switch)
-    wfc = WakuFilterClient.new(rng, messagePushHandler, pm)
+    wfc = WakuFilterClient.new(pm, rng)
 
   # Mount filter client protocol
   switch.mount(wfc)
+
+  wfc.registerPushHandler(messagePushHandler)
 
   # Start maintaining subscription
   asyncSpawn maintainSubscription(wfc, filterPeer, FilterPubsubTopic, FilterContentTopic)

@@ -35,7 +35,7 @@ else # "variables.mk" was included. Business as usual until the end of this file
 .PHONY: all test update clean
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode2 example2 chat2 chat2bridge
+all: | wakunode2 example2 chat2 chat2bridge libwaku
 
 test: | testcommon testwaku
 
@@ -119,16 +119,17 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+LIBRLN_VERSION := v0.3.4
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
 else
-LIBRLN_FILE := librln.a
+LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
 endif
 
 $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
-		./scripts/build_rln.sh $(LIBRLN_BUILDDIR)
+		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
 
 librln: | $(LIBRLN_FILE)
@@ -228,7 +229,7 @@ DOCKER_IMAGE_NIMFLAGS := $(DOCKER_IMAGE_NIMFLAGS) $(HEAPTRACK_PARAMS)
 # build a docker image for the fleet
 docker-image: MAKE_TARGET ?= wakunode2
 docker-image: DOCKER_IMAGE_TAG ?= $(MAKE_TARGET)-$(GIT_VERSION)
-docker-image: DOCKER_IMAGE_NAME ?= statusteam/nim-waku:$(DOCKER_IMAGE_TAG)
+docker-image: DOCKER_IMAGE_NAME ?= wakuorg/nwaku:$(DOCKER_IMAGE_TAG)
 docker-image:
 	docker build \
 		--build-arg="MAKE_TARGET=$(MAKE_TARGET)" \
@@ -250,7 +251,7 @@ docker-push:
 
 STATIC ?= false
 
-libwaku: | build deps
+libwaku: | build deps librln
 		rm -f build/libwaku*
 ifeq ($(STATIC), true)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
@@ -265,6 +266,18 @@ cwaku_example: | build libwaku
 		cc -o "build/$@" \
 		./examples/cbindings/waku_example.c \
 		./examples/cbindings/base64.c \
+		-lwaku -Lbuild/ \
+		-pthread -ldl -lm \
+		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
+		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
+		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
+		vendor/nim-libbacktrace/install/usr/lib/libbacktrace.a
+
+cppwaku_example: | build libwaku
+	echo -e $(BUILD_MSG) "build/$@" && \
+		g++ -o "build/$@" \
+		./examples/cpp/waku.cpp \
+		./examples/cpp/base64.cpp \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \

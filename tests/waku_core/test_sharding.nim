@@ -109,7 +109,7 @@ suite "Waku Sharding":
 
     ## Then
     check:
-      pubsub == NsPubsubTopic.staticSharding(ClusterIndex, 3)
+      pubsub == NsPubsubTopic.staticSharding(ClusterId, 3)
 
   test "Shard Choice Simulation":
     ## Given

@@ -28,6 +28,22 @@ import
   ../../waku/node/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
+  ../../waku/waku_api/message_cache,
+  ../../waku/waku_api/cache_handlers,
+  ../../waku/waku_api/rest/server,
+  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
+  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
+  ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
+  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
+  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
+  ../../waku/waku_api/rest/store/handlers as rest_store_api,
+  ../../waku/waku_api/rest/health/handlers as rest_health_api,
+  ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
+  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
+  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
+  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
+  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
+  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr,
@@ -37,23 +53,10 @@ import
   ../../waku/waku_store,
   ../../waku/waku_lightpush,
   ../../waku/waku_filter,
+  ../../waku/waku_filter_v2,
   ./wakunode2_validator_signed,
   ./internal_config,
   ./external_config
-import
-  ../../waku/node/message_cache,
-  ../../waku/node/rest/server,
-  ../../waku/node/rest/debug/handlers as rest_debug_api,
-  ../../waku/node/rest/relay/handlers as rest_relay_api,
-  ../../waku/node/rest/relay/topic_cache,
-  ../../waku/node/rest/filter/handlers as rest_filter_api,
-  ../../waku/node/rest/store/handlers as rest_store_api,
-  ../../waku/node/rest/health/handlers as rest_health_api,
-  ../../waku/node/jsonrpc/admin/handlers as rpc_admin_api,
-  ../../waku/node/jsonrpc/debug/handlers as rpc_debug_api,
-  ../../waku/node/jsonrpc/filter/handlers as rpc_filter_api,
-  ../../waku/node/jsonrpc/relay/handlers as rpc_relay_api,
-  ../../waku/node/jsonrpc/store/handlers as rpc_store_api
 
 logScope:
   topics = "wakunode app"
@@ -470,8 +473,9 @@ proc setupProtocols(node: WakuNode,
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
-      await mountFilterClient(node)
-      node.peerManager.addServicePeer(filterNode.value, WakuFilterCodec)
+      await node.mountFilterClient()
+      node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
+      node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
@@ -564,6 +568,9 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
 proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
   let server = ? newRestHttpServer(address, port)
 
+  ## Admin REST API
+  installAdminApiHandlers(server.router, app.node)
+
   ## Debug REST API
   installDebugApiHandlers(server.router, app.node)
 
@@ -572,16 +579,34 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let relayCache = TopicCache.init(capacity=conf.restRelayCacheCapacity)
-    installRelayApiHandlers(server.router, app.node, relayCache)
+    let cache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(server.router, app.node, cache)
 
   ## Filter REST API
   if conf.filter:
-    let filterCache = rest_filter_api.MessageCache.init(capacity=rest_filter_api.filterMessageCacheDefaultCapacity)
-    installFilterApiHandlers(server.router, app.node, filterCache)
+    let legacyFilterCache = rest_legacy_filter_api.MessageCache.init()
+    rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
+
+    let filterCache = rest_filter_api.MessageCache.init()
+    rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
+
+  ## Light push API
+  rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
@@ -600,8 +625,20 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   installDebugApiHandlers(app.node, server)
 
   if conf.relay:
-    let relayMessageCache = rpc_relay_api.MessageCache.init(capacity=30)
-    installRelayApiHandlers(app.node, server, relayMessageCache)
+    let cache = MessageCache[string].init(capacity=30)
+
+    let handler = messageCacheHandler(cache)
+    let autoHandler = autoMessageCacheHandler(cache)
+
+    for pubsubTopic in conf.pubsubTopics:
+      cache.subscribe(pubsubTopic)
+      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+
+    for contentTopic in conf.contentTopics:
+      cache.subscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+
+    installRelayApiHandlers(app.node, server, cache)
 
   if conf.filternode != "":
     let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)
