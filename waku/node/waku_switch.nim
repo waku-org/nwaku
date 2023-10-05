@@ -110,7 +110,7 @@ proc newWakuSwitch*(
     if privKey.isSome():
       b = b.withPrivateKey(privKey.get())
     if wsAddress.isSome():
-      b = b.withAddresses(@[wsAddress.get(), address])
+      b = b.withAddresses(@[wsAddress.get(), address]) # GABRIEL If ws address, then has 2 entries and host is index 1
 
       if wssEnabled:
         b = b.withWssTransport(secureKeyPath, secureCertPath)
@@ -118,7 +118,7 @@ proc newWakuSwitch*(
         b = b.withWsTransport()
 
     else :
-      b = b.withAddress(address)
+      b = b.withAddress(address) # GABRIEL If no ws address, only host address is added
 
     if services.len > 0:
       b = b.withServices(services)

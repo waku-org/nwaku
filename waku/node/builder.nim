@@ -62,7 +62,7 @@ proc withNodeKey*(builder: var WakuNodeBuilder, nodeKey: crypto.PrivateKey) =
   builder.nodeKey = some(nodeKey)
 
 proc withRecord*(builder: var WakuNodeBuilder, record: enr.Record) =
-  builder.record = some(record)
+  builder.record = some(record) # GABRIEL --- instead of building it withRecord, add it later
 
 proc withNetworkConfiguration*(builder: var WakuNodeBuilder, config: NetConfig) =
   builder.netConfig = some(config)
@@ -142,6 +142,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.netConfig.isNone():
     return err("network configuration is required")
 
+  # --- GABRIEL --- if record is added later, delete this line and do check later
   if builder.record.isNone():
     return err("node record is required")
 
@@ -150,7 +151,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   try:
     switch = newWakuSwitch(
       privKey = builder.nodekey,
-      address = builder.netConfig.get().hostAddress,
+      address = builder.netConfig.get().hostAddress, # GABRIEL WakuSwitch done with hostAddress
       wsAddress = builder.netConfig.get().wsHostAddress,
       transportFlags = {ServerFlags.ReuseAddr, ServerFlags.TcpNoDelay},
       rng = rng,

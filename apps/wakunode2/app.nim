@@ -8,6 +8,7 @@ import
   stew/results,
   chronicles,
   chronos,
+  libp2p/wire,
   libp2p/crypto/crypto,
   libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
@@ -129,6 +130,8 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
   if netConfig.wakuFlags.isSome():
     enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
 
+  # ---- GABRIEL ---- build ENR at later stage if possible
+  
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   let topics =
@@ -331,13 +334,37 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
+
+# Assume there's maximum 2 listenAddrs: hostAddress and wsHostAddress
+proc getPorts(listenAddrs: seq[MultiAddress]): AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+  
+  var tcpPort, websocketPort: Option[Port]
+  
+  echo "listenAddrs.len: ", listenAddrs.len
+  for a in listenAddrs:
+    echo "listenAddress: ", a
+
+  if listenAddrs.len == 1:
+    tcpPort = some(initTAddress(listenAddrs[0]).get().port) # TO DO: see in case of error
+  
+  echo "--- GABRIEL getPorts tcpPort: ", tcpPort.get()
+
+  return ok((tcpPort: tcpPort, websocketPort: none(Port)))
+
+
 proc updateAddresses*(app: var App): AppResult[void] =
 
   echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
 
+  echo "--- Test ---"
+  echo "------------"
+  
   if app.netConf.bindPort == Port(0):
     echo "Port 0 was selected"
-    app.conf.tcpPort = Port(8888)
+
+    let (tcpPort, websocketsPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
+
+    app.conf.tcpPort = tcpPort.get()
     
     let netConfigRes = networkConfiguration(app.conf, clientId)
     if netConfigRes.isErr():
