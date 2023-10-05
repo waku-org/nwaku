@@ -193,7 +193,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
       receivedTime=getNowInNanosecondTime(),
       payloadSizeBytes=msg.payload.len
 
-    let msgSizeKB = msg.payload.len/1000
+    let msgSizeKB = msg.payload.len/1024
 
     waku_node_messages.inc(labelValues = ["relay"])
     waku_histogram_message_size.observe(msgSizeKB)
