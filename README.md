@@ -32,8 +32,8 @@ make wakunode2
 # See available command line options
 ./build/wakunode2 --help
 ```
-You can use nodes specified [here](https://github.com/waku-org/nwaku/blob/master/apps/chat2/chat2.nim#L375-L378) as bootstrap nodes.
-To join the network, you need to know the address of at least one node.
+To join the network, you need to know the address of at least one bootstrap node.
+Please refer to the [Waku README](https://github.com/waku-org/nwaku/blob/master/waku/README.md) for more information.
 
 For more on how to run `wakunode2`, refer to:
 - [Run using binaries](https://docs.waku.org/guides/run-nwaku-node#download-the-binary)
