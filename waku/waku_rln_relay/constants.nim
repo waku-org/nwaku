@@ -32,7 +32,7 @@ const
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
   StaticGroupSize* = 10000
-  #  StaticGroupKeys is a static list of 100 membership keys in the form of (identity key, identity commitment)
+  #  StaticGroupKeys is a static list of 10000 membership keys in the form of (identity key, identity commitment)
   #  keys are created locally, using createMembershipList proc from waku_rln_relay_utils module, and the results are hardcoded in here
   #  this list is temporary and is created to test the performance of waku-rln-relay for the static groups
   #  in the later versions, this static hardcoded group will be replaced with a dynamic one
