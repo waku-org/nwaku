@@ -19,8 +19,8 @@ import
   ./content_topic,
   ./pubsub_topic
 
-## For indices allocation and other magic numbers refer to RFC 51
-const ClusterIndex* = 1
+## For indices allocation and other magic numbers refer to RFC 64
+const ClusterId* = 1
 const GenerationZeroShardsCount* = 8
 
 proc getGenZeroShard*(topic: NsContentTopic, count: int): NsPubsubTopic =
@@ -34,7 +34,7 @@ proc getGenZeroShard*(topic: NsContentTopic, count: int): NsPubsubTopic =
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
  
-  NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
+  NsPubsubTopic.staticSharding(ClusterId, uint16(shard))
 
 proc getShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.
@@ -128,9 +128,9 @@ proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopi
   var list = newSeq[(NsPubsubTopic, float64)](shardCount)
 
   for (shard, weight) in shardsNWeights:
-    let pubsub = NsPubsubTopic.staticSharding(ClusterIndex, uint16(shard))
+    let pubsub = NsPubsubTopic.staticSharding(ClusterId, uint16(shard))
 
-    let clusterBytes = toBytesBE(uint16(ClusterIndex))
+    let clusterBytes = toBytesBE(uint16(ClusterId))
     let shardBytes = toBytesBE(uint16(shard))
     let bytes = toBytes(topic.application) & toBytes(topic.version) & @clusterBytes & @shardBytes
     let hash = sha256.digest(bytes)
