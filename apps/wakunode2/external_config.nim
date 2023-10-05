@@ -55,8 +55,8 @@ type
 
     ## General node config
     clusterId* {.
-      desc: "Cluster id that the node is running in. Node in a different cluster id is rejected."
-      defaultValue: 1
+      desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
+      defaultValue: 0
       name: "cluster-id" }: uint32
 
     agentString* {.

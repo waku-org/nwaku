@@ -321,33 +321,36 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
 
-    var conn: Connection
-    try:
-      conn = await pm.switch.dial(peerId, WakuMetadataCodec)
-    except CatchableError:
-      info "disconnecting from peer", peerId=peerId, reason="waku metadata codec not supported"
-      asyncSpawn(pm.switch.disconnect(peerId))
-      return
+    # To prevent metadata protocol from breaking prev nodes, by now we only
+    # disconnect if the clusterid is specified.
+    if not pm.wakuMetadata.isNil() and pm.wakuMetadata.clusterId != 0:
+      var conn: Connection
+      try:
+        conn = await pm.switch.dial(peerId, WakuMetadataCodec)
+      except CatchableError:
+        info "disconnecting from peer", peerId=peerId, reason="waku metadata codec not supported"
+        asyncSpawn(pm.switch.disconnect(peerId))
+        return
 
-    # request metadata from connecting peer
-    let metadata = await pm.wakuMetadata.request(conn)
-    if metadata.isErr():
-      info "disconnecting from peer", peerId=peerId, reason="failed waku metadata codec request"
-      asyncSpawn(pm.switch.disconnect(peerId))
-      return
+      # request metadata from connecting peer
+      let metadata = await pm.wakuMetadata.request(conn)
+      if metadata.isErr():
+        info "disconnecting from peer", peerId=peerId, reason="failed waku metadata codec request"
+        asyncSpawn(pm.switch.disconnect(peerId))
+        return
 
-    # does not report any clusterId
-    if metadata.get().clusterId.isNone():
-      info "disconnecting from peer", peerId=peerId, reason="empty clusterId reported"
-      asyncSpawn(pm.switch.disconnect(peerId))
-      return
+      # does not report any clusterId
+      if metadata.get().clusterId.isNone():
+        info "disconnecting from peer", peerId=peerId, reason="empty clusterId reported"
+        asyncSpawn(pm.switch.disconnect(peerId))
+        return
 
-    # drop it if it doesnt match our network id
-    if pm.wakuMetadata.clusterId != metadata.get().clusterId.get():
-      info "disconnecting from peer", peerId=peerId, reason="different clusterId reported",
-                                      localclusterId = pm.wakuMetadata.clusterId,
-                                      remoteclusterId = metadata.get().clusterId.get()
-      asyncSpawn(pm.switch.disconnect(peerId))
+      # drop it if it doesnt match our network id
+      if pm.wakuMetadata.clusterId != metadata.get().clusterId.get():
+        info "disconnecting from peer", peerId=peerId, reason="different clusterId reported",
+                                        localclusterId = pm.wakuMetadata.clusterId,
+                                        remoteclusterId = metadata.get().clusterId.get()
+        asyncSpawn(pm.switch.disconnect(peerId))
 
     # TODO: Take action depending on the supported shards as reported by metadata
 
