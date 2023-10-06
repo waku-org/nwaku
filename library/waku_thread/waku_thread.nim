@@ -25,6 +25,7 @@ type
     reqSignal: ThreadSignalPtr
     respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
     respSignal: ThreadSignalPtr
+    userData*: pointer
 
 # To control when the thread is running
 var running: Atomic[bool]
@@ -68,7 +69,7 @@ proc run(ctx: ptr Context) {.thread.} =
 
   tearDownForeignThreadGc()
 
-proc createWakuThread*(): Result[void, string] =
+proc createWakuThread*(): Result[ptr Context, string] =
   ## This proc is called from the main thread and it creates
   ## the Waku working thread.
 
@@ -90,7 +91,7 @@ proc createWakuThread*(): Result[void, string] =
 
     return err("failed to create the Waku thread: " & getCurrentExceptionMsg())
 
-  return ok()
+  return ok(ctx)
 
 proc stopWakuNodeThread*(ctx: ptr Context) =
   running.store(false)
