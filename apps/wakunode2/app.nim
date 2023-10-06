@@ -71,7 +71,7 @@ type
   App* = object
     version: string
     conf: WakuNodeConf
-    netConf: NetConfig
+    netConf*: NetConfig
     rng: ref HmacDrbgContext
     key: crypto.PrivateKey
     record: Record
@@ -402,6 +402,9 @@ proc updateApp*(app: var App): AppResult[void] =
     echo "Port 0 was selected"
     updateNetConfig(app).isOkOr:
       return err(error)
+    #[ app.record.update(netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort) ]#
 
   ok()
 
