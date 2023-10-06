@@ -95,15 +95,16 @@ when isMainModule:
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
 
-  let res = wakunode2.updateAddresses()
-  if res.isErr():
+  let res7 = wakunode2.updateApp()
+  if res7.isErr():
+    error "Could not update App after starting", error=res7.error
     quit(QuitFailure)
   
   debug "6/7 Starting monitoring and external interfaces"
 
-  let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
-  if res7.isErr():
-    error "6/7 Starting monitoring and external interfaces failed", error=res7.error
+  let res8 = wakunode2.setupMonitoringAndExternalInterfaces()
+  if res8.isErr():
+    error "6/7 Starting monitoring and external interfaces failed", error=res8.error
     quit(QuitFailure)
 
   debug "7/7 Setting up shutdown hooks"

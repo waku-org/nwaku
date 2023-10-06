@@ -9,6 +9,7 @@ import
   chronicles,
   chronos,
   libp2p/wire,
+  libp2p/multicodec,
   libp2p/crypto/crypto,
   libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
@@ -334,11 +335,17 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
+proc isWsAddress(ma: MultiAddress): bool =
+  let
+    isWs = ma.contains(multiCodec("ws")).get()
+    isWss = ma.contains(multiCodec("wss")).get()
+  
+  return isWs or isWss
 
-# Assume there's maximum 2 listenAddrs: hostAddress and wsHostAddress
 proc getPorts(listenAddrs: seq[MultiAddress]): AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
   
-  var tcpPort, websocketPort: Option[Port]
+  # Assume there's maximum 2 listenAddrs: hostAddress and wsHostAddres
+  var tcpPort, websocketPort = none(Port)
   
   echo "listenAddrs.len: ", listenAddrs.len
   for a in listenAddrs:
@@ -347,32 +354,54 @@ proc getPorts(listenAddrs: seq[MultiAddress]): AppResult[tuple[tcpPort, websocke
   if listenAddrs.len == 1:
     tcpPort = some(initTAddress(listenAddrs[0]).get().port) # TO DO: see in case of error
   
+  # TO DO: Not trust index numbers use isWsAddress
+  elif listenAddrs.len == 2:
+    tcpPort = some(initTAddress(listenAddrs[0]).get().port) # TO DO: see in case of error
+    websocketPort = some(initTAddress(listenAddrs[1]).get().port)
+    
+    echo "--- GABRIEL getPorts websocketPort: ", websocketPort.get()
+  
+  else:
+    return err("Invalid number of entries in listenAddrs: " & $listenAddrs.len)
+  
   echo "--- GABRIEL getPorts tcpPort: ", tcpPort.get()
 
-  return ok((tcpPort: tcpPort, websocketPort: none(Port)))
+  return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
-
-proc updateAddresses*(app: var App): AppResult[void] =
-
-  echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
-
-  echo "--- Test ---"
-  echo "------------"
+proc updateNetConfig(app: var App): AppResult[void] =
+  let
+    configTcpPort = app.conf.tcpPort
+    configWsPort = app.conf.websocketPort
   
-  if app.netConf.bindPort == Port(0):
-    echo "Port 0 was selected"
-
-    let (tcpPort, websocketsPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
-
+  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
+    
+  if tcpPort.isSome():
     app.conf.tcpPort = tcpPort.get()
     
-    let netConfigRes = networkConfiguration(app.conf, clientId)
-    if netConfigRes.isErr():
-      return err("Could not update NetConfig: " & netConfigRes.error)
+  if websocketPort.isSome():
+    app.conf.websocketPort = websocketPort.get()
     
-    app.netConf = netConfigRes.get()
-    app.conf.tcpPort = Port(0) # Mantaining conf to have user selected values
-    echo "Updated port"
+  # Rebuild NetConfig with bound port values
+  let netConfigRes = networkConfiguration(app.conf, clientId)
+  if netConfigRes.isErr():
+    return err("Could not update NetConfig: " & netConfigRes.error)
+    
+  app.netConf = netConfigRes.get()
+    
+  # Mantaining conf to have user selected values
+  app.conf.tcpPort = configTcpPort
+  app.conf.websocketPort = configWsPort
+
+  return ok()
+  
+proc updateApp*(app: var App): AppResult[void] =
+
+  echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
+  
+  if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
+    echo "Port 0 was selected"
+    updateNetConfig(app).isOkOr:
+      return err(error)
 
   ok()
 
