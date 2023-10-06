@@ -225,8 +225,8 @@ procSuite "Peer Manager":
     let
       database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
-      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(5000), peerStorage = storage)
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(5001))
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), peerStorage = storage)
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
       peerInfo2 = node2.switch.peerInfo
 
     await node1.start()
@@ -247,7 +247,7 @@ procSuite "Peer Manager":
 
     # Simulate restart by initialising a new node using the same storage
     let
-      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(5002), peerStorage = storage)
+      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), peerStorage = storage)
 
     await node3.start()
     check:
