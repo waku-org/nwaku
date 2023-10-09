@@ -288,7 +288,7 @@ method getPagesSize*(driver: QueueDriver):
                          Future[ArchiveDriverResult[int64]] {.async} =
   return ok(int64(driver.len()))
 
-method performsVacuum*(driver: QueueDriver):
+method performVacuum*(driver: QueueDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
