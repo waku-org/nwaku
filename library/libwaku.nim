@@ -33,7 +33,7 @@ const RET_ERR: cint = 1
 const RET_MISSING_CALLBACK: cint = 2
 
 type
-  WakuCallBack* = proc(isOk: cint,
+  WakuCallBack* = proc(callerRet: cint,
                        msg: ptr cchar,
                        len: csize_t) {.cdecl, gcsafe.}
 
