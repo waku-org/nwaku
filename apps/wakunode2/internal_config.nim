@@ -4,14 +4,62 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/options,
+  std/[options, sequtils],
   stew/results,
   stew/shims/net
 import
   ../../waku/common/utils/nat,
   ../../waku/node/config,
   ../../waku/waku_enr/capabilities,
+  ../../waku/waku_enr,
+  ../../waku/waku_core,
   ./external_config
+
+proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey):
+                      Result[enr.Record, string] =
+  
+  var enrBuilder = EnrBuilder.init(key)
+
+  enrBuilder.withIpAddressAndPorts(
+    netConfig.enrIp,
+    netConfig.enrPort,
+    netConfig.discv5UdpPort
+  )
+
+  if netConfig.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
+  
+  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
+
+  let topics =
+    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
+      let shardsRes = conf.contentTopics.mapIt(getShard(it))
+      for res in shardsRes:
+        if res.isErr():
+          error "failed to shard content topic", error=res.error
+          return err($res.error)
+
+      let shards = shardsRes.mapIt(it.get())
+
+      conf.pubsubTopics & shards
+    else:
+      conf.topics
+
+  let addShardedTopics = enrBuilder.withShardedTopics(topics)
+  if addShardedTopics.isErr():
+      error "failed to add sharded topics to ENR", error=addShardedTopics.error
+      return err($addShardedTopics.error)
+
+  let recordRes = enrBuilder.build()
+  let record =
+    if recordRes.isErr():
+      error "failed to create record", error=recordRes.error
+      return err($recordRes.error)
+    else: recordRes.get()
+  
+  return ok(record)
+  
+
 
 proc validateExtMultiAddrs*(vals: seq[string]):
                             Result[seq[MultiAddress], string] =

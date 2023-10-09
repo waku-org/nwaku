@@ -120,7 +120,16 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  var enrBuilder = EnrBuilder.init(key)
+  let recordRes = enrConfiguration(conf, netConfig, key)
+
+  let record =
+    if recordRes.isErr():
+      error "failed to create ENR record", error=recordRes.error
+      quit(QuitFailure)
+    else: recordRes.get()
+
+ 
+ #[  var enrBuilder = EnrBuilder.init(key)
 
   enrBuilder.withIpAddressAndPorts(
     netConfig.enrIp,
@@ -159,7 +168,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error
       quit(QuitFailure)
-    else: recordRes.get()
+    else: recordRes.get() ]#
 
   App(
     version: git_version,
@@ -394,6 +403,12 @@ proc updateNetConfig(app: var App): AppResult[void] =
 
   return ok()
   
+proc updateEnr(app: var App): AppResult[void] =
+  echo "Entered updateEnr"
+  ok()
+
+
+
 proc updateApp*(app: var App): AppResult[void] =
 
   echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
@@ -401,6 +416,8 @@ proc updateApp*(app: var App): AppResult[void] =
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
     echo "Port 0 was selected"
     updateNetConfig(app).isOkOr:
+      return err(error)
+    updateEnr(app).isOkOr:
       return err(error)
     #[ app.record.update(netConfig.enrIp,
     netConfig.enrPort,
