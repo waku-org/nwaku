@@ -35,16 +35,16 @@ type
   NsPubsubTopic* = object
     case kind*: NsPubsubTopicKind
     of NsPubsubTopicKind.StaticSharding:
-      cluster*: uint16
-      shard*: uint16
+      clusterId*: uint16
+      shardId*: uint16
     of NsPubsubTopicKind.NamedSharding:
       name*: string
 
-proc staticSharding*(T: type NsPubsubTopic, cluster, shard: uint16): T =
+proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
   NsPubsubTopic(
     kind: NsPubsubTopicKind.StaticSharding,
-    cluster: cluster,
-    shard: shard
+    clusterId: clusterId,
+    shardId: shardId
   )
 
 proc named*(T: type NsPubsubTopic, name: string): T =
@@ -63,7 +63,7 @@ proc `$`*(topic: NsPubsubTopic): string =
   of NsPubsubTopicKind.NamedSharding:
     "/waku/2/" & topic.name
   of NsPubsubTopicKind.StaticSharding:
-    "/waku/2/rs/" & $topic.cluster & "/" & $topic.shard
+    "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
 
 
 # Deserialization
@@ -83,15 +83,15 @@ proc parseStaticSharding*(T: type NsPubsubTopic, topic: PubsubTopic|string): Par
 
   let clusterPart = parts[0]
   if clusterPart.len == 0:
-    return err(ParsingError.missingPart("shard_cluster_index"))
-  let cluster = ?Base10.decode(uint16, clusterPart).mapErr(proc(err: auto): auto = ParsingError.invalidFormat($err))
+    return err(ParsingError.missingPart("cluster_id"))
+  let clusterId = ?Base10.decode(uint16, clusterPart).mapErr(proc(err: auto): auto = ParsingError.invalidFormat($err))
 
   let shardPart = parts[1]
   if shardPart.len == 0:
     return err(ParsingError.missingPart("shard_number"))
-  let shard = ?Base10.decode(uint16, shardPart).mapErr(proc(err: auto): auto = ParsingError.invalidFormat($err))
+  let shardId = ?Base10.decode(uint16, shardPart).mapErr(proc(err: auto): auto = ParsingError.invalidFormat($err))
 
-  ok(NsPubsubTopic.staticSharding(cluster, shard))
+  ok(NsPubsubTopic.staticSharding(clusterId, shardId))
 
 proc parseNamedSharding*(T: type NsPubsubTopic, topic: PubsubTopic|string): ParsingResult[NsPubsubTopic] =
   if not topic.startsWith(Waku2PubsubTopicPrefix):
@@ -123,10 +123,10 @@ proc `==`*[T: NsPubsubTopic](x, y: T): bool =
       if x.kind != NsPubsubTopicKind.StaticSharding:
         return false
 
-      if x.cluster != y.cluster:
+      if x.clusterId != y.clusterId:
         return false
 
-      if x.shard != y.shard:
+      if x.shardId != y.shardId:
         return false
     of NsPubsubTopicKind.NamedSharding:
       if x.kind != NsPubsubTopicKind.NamedSharding:

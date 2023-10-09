@@ -99,7 +99,8 @@ import
   ./wakunode_rest/test_rest_store,
   ./wakunode_rest/test_rest_filter,
   ./wakunode_rest/test_rest_legacy_filter,
-  ./wakunode_rest/test_rest_lightpush
+  ./wakunode_rest/test_rest_lightpush,
+  ./wakunode_rest/test_rest_admin
 
 import
   ./waku_rln_relay/test_waku_rln_relay,

@@ -38,6 +38,7 @@ import
   ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
+  ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
   ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
   ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
   ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
@@ -566,6 +567,9 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
 
 proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
   let server = ? newRestHttpServer(address, port)
+
+  ## Admin REST API
+  installAdminApiHandlers(server.router, app.node)
 
   ## Debug REST API
   installDebugApiHandlers(server.router, app.node)

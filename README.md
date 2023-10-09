@@ -26,9 +26,14 @@ The standard developer tools, including a C compiler, GNU Make, Bash, and Git. M
 # You'll run `make update` after each `git pull` in the future to keep those submodules updated.
 make wakunode2
 
+# Run with DNS bootstrapping
+./build/wakunode2 --dns-discovery --dns-discovery-url=DNS_BOOTSTRAP_NODE_URL
+
 # See available command line options
 ./build/wakunode2 --help
 ```
+To join the network, you need to know the address of at least one bootstrap node.
+Please refer to the [Waku README](https://github.com/waku-org/nwaku/blob/master/waku/README.md) for more information.
 
 For more on how to run `wakunode2`, refer to:
 - [Run using binaries](https://docs.waku.org/guides/run-nwaku-node#download-the-binary)
