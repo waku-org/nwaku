@@ -181,9 +181,9 @@ proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64):
 ## Delete oldest messages not within limit
 
 proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
-  "DELETE FROM " & table & " WHERE id NOT IN (" &
-  " SELECT id FROM " & table &
-  " ORDER BY storedAt DESC" &
+  "DELETE FROM " & table & " WHERE (storedAt, id, pubsubTopic) NOT IN (" &
+  " SELECT storedAt, id, pubsubTopic FROM " & table &
+  " ORDER BY storedAt DESC, id DESC" &
   " LIMIT " & $limit &
   ");"
 
