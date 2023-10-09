@@ -7,7 +7,8 @@ import
   std/times,
   stew/results,
   chronicles,
-  chronos
+  chronos,
+  os
 import
   ../driver,
   ../retention_policy
@@ -44,44 +45,54 @@ method execute*(p: SizeRetentionPolicy,
   
   # to get the size of the database, pageCount and PageSize is required
   # get page count in "messages" database
-  let pageCountRes = await driver.getPagesCount()
-  if pageCountRes.isErr():
-    return err("failed to get Pages count: " & pageCountRes.error)
-
-  let pageCount: int64 = pageCountRes.value
+  var pageCount = (await driver.getPagesCount()).valueOr:
+    return err("failed to get Pages count: " & $error)
 
   # get page size of database
-  let pageSizeRes = await driver.getPagesSize()
-  let pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
+  var pageSizeRes = await driver.getPagesSize()
+  var pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
 
   if pageSize == 0:
     return err("failed to get Page size: " & pageSizeRes.error)
 
   # database size in megabytes (Mb)
-  let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
+  var totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
 
   # check if current databse size crosses the db size limit
   if totalSizeOfDB < p.sizeLimit:
     return ok()
 
-  # to shread/delete messsges, get the total row/message count
-  let numMessagesRes = await driver.getMessagesCount()
-  if numMessagesRes.isErr():
-    return err("failed to get messages count: " & numMessagesRes.error)
-  let numMessages = numMessagesRes.value
+  # keep deleting until the current db size falls within size limit 
+  while totalSizeOfDB > p.sizeLimit:
+    # to shread/delete messsges, get the total row/message count
+    let numMessagesRes = await driver.getMessagesCount()
+    if numMessagesRes.isErr():
+      return err("failed to get messages count: " & numMessagesRes.error)
+    let numMessages = numMessagesRes.value
 
-  # 80% of the total messages are to be kept, delete others
-  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+    # 80% of the total messages are to be kept, delete others
+    let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
 
-  let res = await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)
-  if res.isErr():
-      return err("deleting oldest messages failed: " & res.error)
+    let res = await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)
+    if res.isErr():
+        return err("deleting oldest messages failed: " & res.error)
+    
+    # vacuum to get the deleted pages defragments to save storage space
+    # this will resize the database size
+    let resVaccum = await driver.performVacuum()
+    if resVaccum.isErr():
+      return err("vacuumming failed: " & resVaccum.error)
+    
+    # get the db size again for the loop condition check
+    pageCount = (await driver.getPagesCount()).valueOr:
+      return err("failed to get Pages count: " & $error)
+    
+    pageSizeRes = await driver.getPagesSize()
+    pageSize = int64(pageSizeRes.valueOr(0) div 1024)
 
-  # vacuum to get the deleted pages defragments to save storage space
-  # this will resize the database size
-  let resVaccum = await driver.performVacuum()
-  if resVaccum.isErr():
-    return err("vacuumming failed: " & resVaccum.error)
+    if pageSize == 0:
+      return err("failed to get Page size: " & pageSizeRes.error)
+
+    totalSizeOfDB = float(pageSize * pageCount)/1024.0
 
   return ok()
-

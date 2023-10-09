@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils,times],
   stew/results,
   testutils/unittests,
   chronos
@@ -31,18 +31,21 @@ suite "Waku Archive - Retention policy":
     ## Given
     let
       capacity = 100
-      excess = 65
+      excess = 60
 
     let driver = newTestArchiveDriver()
 
     let retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     ## When
     for i in 1..capacity+excess:
       let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
+      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+    
+    discard waitFor allFinished(putFutures)
 
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
-      require (waitFor retentionPolicy.execute(driver)).isOk()
+    require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
     let numMessages = (waitFor driver.getMessagesCount()).tryGet()
@@ -50,7 +53,7 @@ suite "Waku Archive - Retention policy":
       # Expected number of messages is 120 because
       # (capacity = 100) + (half of the overflow window = 15) + (5 messages added after after the last delete)
       # the window size changes when changing `const maxStoreOverflow = 1.3 in sqlite_store
-      numMessages == 120
+      numMessages == 115
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
@@ -60,16 +63,29 @@ suite "Waku Archive - Retention policy":
     let
       # in megabytes
       sizeLimit:float = 0.05
-      excess = 123
+      excess = 325
 
     let driver = newTestArchiveDriver()
 
     let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+
+    # variables to check the db size
+    var pageSize = (waitFor driver.getPagesSize()).tryGet()
+    var pageCount = (waitFor driver.getPagesCount()).tryGet()
+    var sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+
+    # make sure that the db is empty to before test begins
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
+    # if there are messages in db, empty them
+    if storedMsg.len > 0:
+      let now = getNanosecondTime(getTime().toUnixFloat())
+      require (waitFor driver.deleteMessagesOlderThanTimestamp(ts=now)).isOk()  
+      require (waitFor driver.performVacuum()).isOk()
 
     ## When
 
-    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
-
+    # create a number of messages so that the size of the DB overshoots
     for i in 1..excess:
         let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
         putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
@@ -79,12 +95,13 @@ suite "Waku Archive - Retention policy":
 
     ## Then
     # calculate the current database size
-    var pageSize = (waitFor driver.getPagesSize()).tryGet()
-    var pageCount = (waitFor driver.getPagesCount()).tryGet()
-    var sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
-    # execute policy if the current db size oveflows 
-    if sizeDB >= sizeLimit:
-      require (waitFor retentionPolicy.execute(driver)).isOk()
+    pageSize = (waitFor driver.getPagesSize()).tryGet()
+    pageCount = (waitFor driver.getPagesCount()).tryGet()
+    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+
+    # execute policy provided the current db size oveflows 
+    require (sizeDB >= sizeLimit)
+    require (waitFor retentionPolicy.execute(driver)).isOk()
     
     # update the current db size
     pageSize = (waitFor driver.getPagesSize()).tryGet()
@@ -94,7 +111,7 @@ suite "Waku Archive - Retention policy":
     check:
       # size of the database is used to check if the storage limit has been preserved
       # check the current database size with the limitSize provided by the user
-      # it should be lower 
+      # it should be lower
       sizeDB <= sizeLimit
 
     ## Cleanup
