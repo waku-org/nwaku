@@ -42,28 +42,27 @@ method execute*(p: SizeRetentionPolicy,
                 driver: ArchiveDriver):
                 Future[RetentionPolicyResult[void]] {.async.} =
   ## when db size overshoots the database limit, shread 20% of outdated messages 
-  
-  # to get the size of the database, pageCount and PageSize is required
-  # get page count in "messages" database
-  var pageCount = (await driver.getPagesCount()).valueOr:
-    return err("failed to get Pages count: " & $error)
 
   # get page size of database
-  var pageSizeRes = await driver.getPagesSize()
-  var pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
+  let pageSizeRes = await driver.getPagesSize()
+  let pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
 
   if pageSize == 0:
     return err("failed to get Page size: " & pageSizeRes.error)
 
-  # database size in megabytes (Mb)
-  var totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
-
-  # check if current databse size crosses the db size limit
-  if totalSizeOfDB < p.sizeLimit:
-    return ok()
-
   # keep deleting until the current db size falls within size limit 
-  while totalSizeOfDB > p.sizeLimit:
+  while true:
+    # to get the size of the database, pageCount and PageSize is required
+    # get page count in "messages" database
+    let pageCount = (await driver.getPagesCount()).valueOr:
+      return err("failed to get Pages count: " & $error)
+
+    # database size in megabytes (Mb)
+    let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
+
+    if totalSizeOfDB < p.sizeLimit:
+      break
+
     # to shread/delete messsges, get the total row/message count
     let numMessagesRes = await driver.getMessagesCount()
     if numMessagesRes.isErr():
@@ -82,17 +81,5 @@ method execute*(p: SizeRetentionPolicy,
     let resVaccum = await driver.performVacuum()
     if resVaccum.isErr():
       return err("vacuumming failed: " & resVaccum.error)
-    
-    # get the db size again for the loop condition check
-    pageCount = (await driver.getPagesCount()).valueOr:
-      return err("failed to get Pages count: " & $error)
-    
-    pageSizeRes = await driver.getPagesSize()
-    pageSize = int64(pageSizeRes.valueOr(0) div 1024)
-
-    if pageSize == 0:
-      return err("failed to get Page size: " & pageSizeRes.error)
-
-    totalSizeOfDB = float(pageSize * pageCount)/1024.0
 
   return ok()
