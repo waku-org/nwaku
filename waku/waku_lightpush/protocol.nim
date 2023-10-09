@@ -35,47 +35,46 @@ type
     peerManager*: PeerManager
     pushHandler*: PushMessageHandler
 
-proc initProtocolHandler*(wl: WakuLightPush) =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let buffer = await conn.readLp(MaxRpcSize.int)
-    let reqDecodeRes = PushRPC.decode(buffer)
-    if reqDecodeRes.isErr():
-      error "failed to decode rpc"
-      waku_lightpush_errors.inc(labelValues = [decodeRpcFailure])
-      return
+proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Future[PushRPC] {.async.} = 
+  let reqDecodeRes = PushRPC.decode(buffer)
+  var
+      isSuccess = false
+      pushResponseInfo = ""
+      requestId = ""
 
-    let req = reqDecodeRes.get()
-    if req.request.isNone():
-      error "invalid lightpush rpc received", error=emptyRequestBodyFailure
-      waku_lightpush_errors.inc(labelValues = [emptyRequestBodyFailure])
-      return
+  if reqDecodeRes.isErr():
+    pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
+  elif reqDecodeRes.get().request.isNone():
+    pushResponseInfo = emptyRequestBodyFailure
+  else:
+    let pushRpcRequest = reqDecodeRes.get();
 
-    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    requestId = pushRpcRequest.requestId
+
     let
-      pubSubTopic = req.request.get().pubSubTopic
-      message = req.request.get().message
-    debug "push request", peerId=conn.peerId, requestId=req.requestId, pubsubTopic=pubsubTopic
+      request = pushRpcRequest.request
 
-    var response: PushResponse
-    var handleRes: WakuLightPushResult[void]
-    try:
-      handleRes = await wl.pushHandler(conn.peerId, pubsubTopic, message)
-    except Exception:
-      response = PushResponse(is_success: false, info: some(getCurrentExceptionMsg()))
-      waku_lightpush_errors.inc(labelValues = [messagePushFailure])
-      error "pushed message handling failed", error= getCurrentExceptionMsg()
+      pubSubTopic = request.get().pubSubTopic
+      message = request.get().message
+    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    debug "push request", peerId=peerId, requestId=requestId, pubsubTopic=pubsubTopic
+    
+    let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
+    isSuccess = handleRes.isOk()
+    pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
+  if not isSuccess:
+    waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
+    error "failed to push message", error=pushResponseInfo
+  let response = PushResponse(isSuccess: isSuccess, info: some(pushResponseInfo))
+  let rpc = PushRPC(requestId: requestId, response: some(response))
+  return rpc
 
-    if handleRes.isOk():
-      response = PushResponse(is_success: true, info: some("OK"))
-    else:
-      response = PushResponse(is_success: false, info: some(handleRes.error))
-      waku_lightpush_errors.inc(labelValues = [messagePushFailure])
-      error "pushed message handling failed", error=handleRes.error
-
-    let rpc = PushRPC(requestId: req.requestId, response: some(response))
+proc initProtocolHandler*(wl: WakuLightPush) =
+  proc handle(conn: Connection, proto: string) {.async.} =
+    let buffer = await conn.readLp(MaxRpcSize.int)
+    let rpc = await handleRequest(wl, conn.peerId, buffer)
     await conn.writeLp(rpc.encode().buffer)
-
   wl.handler = handle
   wl.codec = WakuLightPushCodec
 
