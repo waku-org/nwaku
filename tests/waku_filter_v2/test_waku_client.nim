@@ -44,7 +44,7 @@ suite "Waku Filter - End to End":
       pushHandlerFuture = newPushHandlerFuture()
       messagePushHandler = proc(
         pubsubTopic: PubsubTopic, message: WakuMessage
-      ): Future[void] {.async, closure, gcsafe.} =
+      ) {.async, closure, gcsafe.} =
         pushHandlerFuture.complete((pubsubTopic, message))
 
       pubsubTopic = DefaultPubsubTopic
@@ -70,8 +70,8 @@ suite "Waku Filter - End to End":
           subscribeResponse = await wakuFilterClient.subscribe(
             serverRemotePeerInfo, pubsubTopic, contentTopicSeq
           )
+        assert subscribeResponse.isOk(), $subscribeResponse.error
         require:
-          subscribeResponse.isOk()
           wakuFilter.subscriptions.hasKey(clientPeerId)
 
         # When
