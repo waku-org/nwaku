@@ -405,9 +405,14 @@ proc updateNetConfig(app: var App): AppResult[void] =
   
 proc updateEnr(app: var App): AppResult[void] =
   echo "Entered updateEnr"
+
+  let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
+    return err(error)
+
+  app.record = record
+  app.node.enr = record
+
   ok()
-
-
 
 proc updateApp*(app: var App): AppResult[void] =
 
@@ -415,10 +420,14 @@ proc updateApp*(app: var App): AppResult[void] =
   
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
     echo "Port 0 was selected"
+    
     updateNetConfig(app).isOkOr:
       return err(error)
+    
     updateEnr(app).isOkOr:
       return err(error)
+
+    app.node.announcedAddresses = app.netConf.announcedAddresses
     #[ app.record.update(netConfig.enrIp,
     netConfig.enrPort,
     netConfig.discv5UdpPort) ]#
