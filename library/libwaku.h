@@ -43,11 +43,6 @@ int waku_version(void* ctx,
 void waku_set_event_callback(WakuCallBack callback,
                              void* userData);
 
-// Attaches the user-defined data to the current context.
-// The user data is only needed in Rust to allow proper
-// feedback through a closure callback.
-void waku_set_user_data(void* ctx, void* userData);
-
 int waku_content_topic(void* ctx,
                        const char* appName,
                        unsigned int appVersion,
