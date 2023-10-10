@@ -378,28 +378,23 @@ proc getPorts(listenAddrs: seq[MultiAddress]): AppResult[tuple[tcpPort, websocke
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
 proc updateNetConfig(app: var App): AppResult[void] =
-  let
-    configTcpPort = app.conf.tcpPort
-    configWsPort = app.conf.websocketPort
+
+  var conf = app.conf
   
   let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
     
   if tcpPort.isSome():
-    app.conf.tcpPort = tcpPort.get()
+    conf.tcpPort = tcpPort.get()
     
   if websocketPort.isSome():
-    app.conf.websocketPort = websocketPort.get()
+    conf.websocketPort = websocketPort.get()
     
   # Rebuild NetConfig with bound port values
   let netConfigRes = networkConfiguration(app.conf, clientId)
   if netConfigRes.isErr():
     return err("Could not update NetConfig: " & netConfigRes.error)
-    
+  
   app.netConf = netConfigRes.get()
-    
-  # Mantaining conf to have user selected values
-  app.conf.tcpPort = configTcpPort
-  app.conf.websocketPort = configWsPort
 
   return ok()
   
