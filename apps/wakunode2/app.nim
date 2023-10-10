@@ -354,34 +354,23 @@ proc isWsAddress(ma: MultiAddress): bool =
 proc getPorts(listenAddrs: seq[MultiAddress]):
               AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
   
-  # Assume there's maximum 2 listenAddrs: hostAddress and wsHostAddres
   var tcpPort, websocketPort = none(Port)
   
-  echo "listenAddrs.len: ", listenAddrs.len
   for a in listenAddrs:
-    echo "listenAddress: ", a
-
-  if listenAddrs.len == 1:
-    tcpPort = some(initTAddress(listenAddrs[0]).get().port) # TO DO: see in case of error
-  
-  # TO DO: Not trust index numbers use isWsAddress
-  elif listenAddrs.len == 2:
-    tcpPort = some(initTAddress(listenAddrs[0]).get().port) # TO DO: see in case of error
-    websocketPort = some(initTAddress(listenAddrs[1]).get().port)
-    
-    echo "--- GABRIEL getPorts websocketPort: ", websocketPort.get()
-  
-  else:
-    return err("Invalid number of entries in listenAddrs: " & $listenAddrs.len)
-  
-  echo "--- GABRIEL getPorts tcpPort: ", tcpPort.get()
+    if a.isWsAddress() and websocketPort.isNone():
+      let wsAddress = initTAddress(a).valueOr:
+        return err(error)
+      websocketPort = some(wsAddress.port)
+    elif tcpPort.isNone():
+      let tcpAddress = initTAddress(a).valueOr:
+        return err(error)
+      tcpPort = some(tcpAddress.port)
 
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
 proc updateNetConfig(app: var App): AppResult[void] =
 
   var conf = app.conf
-  
   let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
     
   if tcpPort.isSome():
@@ -391,11 +380,10 @@ proc updateNetConfig(app: var App): AppResult[void] =
     conf.websocketPort = websocketPort.get()
     
   # Rebuild NetConfig with bound port values
-  let netConfigRes = networkConfiguration(conf, clientId)
-  if netConfigRes.isErr():
-    return err("Could not update NetConfig: " & netConfigRes.error)
+  let netConf = networkConfiguration(conf, clientId).valueOr:
+    return err("Could not update NetConfig: " & error)
   
-  app.netConf = netConfigRes.get()
+  app.netConf = netConf
 
   return ok()
   
