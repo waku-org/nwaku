@@ -367,7 +367,6 @@ proc updateApp(app: var App): AppResult[void] =
 
   ok()
 
-
 ## Mount protocols
 
 proc setupProtocols(node: WakuNode,

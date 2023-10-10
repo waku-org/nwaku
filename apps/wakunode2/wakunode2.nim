@@ -49,6 +49,7 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
+
   var wakunode2 = App.init(rng, conf)
 
   ##############

@@ -117,7 +117,7 @@ proc newWakuSwitch*(
 
     else :
       b = b.withAddress(address)
-    
+
     if services.len > 0:
       b = b.withServices(services)
 
