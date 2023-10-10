@@ -82,7 +82,7 @@ proc newWakuSwitch*(
     rendezvous: RendezVous = nil,
     ): Switch
     {.raises: [Defect, IOError, LPError].} =
-    
+
     var b = SwitchBuilder
       .new()
       .withRng(rng)
@@ -117,6 +117,7 @@ proc newWakuSwitch*(
 
     else :
       b = b.withAddress(address)
+    
     if services.len > 0:
       b = b.withServices(services)
 

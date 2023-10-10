@@ -1101,9 +1101,9 @@ proc start*(node: WakuNode) {.async.} =
   let addressMapper =
     proc (listenAddrs: seq[MultiAddress]): Future[seq[MultiAddress]] {.async.} =
       return node.announcedAddresses
-
   node.switch.peerInfo.addressMappers.add(addressMapper)
 
+  ## The switch will update addresses after start using the addressMapper
   await node.switch.start()
 
   node.started = true

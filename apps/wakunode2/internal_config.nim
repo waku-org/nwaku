@@ -59,8 +59,6 @@ proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.Pri
   
   return ok(record)
   
-
-
 proc validateExtMultiAddrs*(vals: seq[string]):
                             Result[seq[MultiAddress], string] =
   var multiaddrs: seq[MultiAddress]

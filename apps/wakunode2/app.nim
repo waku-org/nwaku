@@ -71,7 +71,7 @@ type
   App* = object
     version: string
     conf: WakuNodeConf
-    netConf*: NetConfig
+    netConf: NetConfig
     rng: ref HmacDrbgContext
     key: crypto.PrivateKey
     record: Record
@@ -111,7 +111,6 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
       keyRes.get()
 
-  echo "Initializing NetConfig"
   let netConfigRes = networkConfiguration(conf, clientId)
 
   let netConfig =
@@ -124,7 +123,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
   let record =
     if recordRes.isErr():
-      error "failed to create ENR record", error=recordRes.error
+      error "failed to create record", error=recordRes.error
       quit(QuitFailure)
     else: recordRes.get()
 
@@ -140,6 +139,7 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
 
 ## Peer persistence
+
 const PeerPersistenceDbUrl = "peers.db"
 proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
   let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
