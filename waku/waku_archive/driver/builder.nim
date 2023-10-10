@@ -104,3 +104,4 @@ proc new*(T: type ArchiveDriver,
     debug "setting up in-memory waku archive driver"
     let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
     return ok(driver)
+

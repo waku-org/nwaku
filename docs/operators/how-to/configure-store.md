@@ -31,9 +31,10 @@ If the waku store node is enabled (the `--store` option is set to `true`) the no
 
 There is a set of configuration options to customize the waku store protocol's message store. These are the most relevant:
 
-* `--store-message-retention-policy`: This option controls the retention policy i.e., how long certain messages will be persisted. Two different retention policies are supported:
+* `--store-message-retention-policy`: This option controls the retention policy i.e., how long certain messages will be persisted. Three different retention policies are supported:
   + The time retention policy,`time:<duration-in-seconds>` (e.g., `time:14400`)
   + The capacity retention policy,`capacity:<messages-count>` (e.g, `capacity:25000`)
+  + The size retention policy,`size:<size-in-gb-mb>` (e.g, `size:25Gb`)
   + To disable the retention policy, explicitly, set this option to to `""`, an empty string.
 * `--store-message-db-url`: The message store database url option controls the message storage engine. This option follows the [_SQLAlchemy_ database URL format](https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls).
 
