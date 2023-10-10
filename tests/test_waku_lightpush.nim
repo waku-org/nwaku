@@ -1,6 +1,8 @@
 {.used.}
 
 import
+  std/options,
+  std/strscans,
   testutils/unittests,
   chronicles,
   chronos,
@@ -10,9 +12,10 @@ import
   ../../waku/waku_core,
   ../../waku/waku_lightpush,
   ../../waku/waku_lightpush/client,
+  ../../waku/waku_lightpush/protocol_metrics,
+  ../../waku/waku_lightpush/rpc,
   ./testlib/common,
   ./testlib/wakucore
-
 
 proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =
   let
@@ -116,3 +119,35 @@ suite "Waku Lightpush":
 
     ## Cleanup
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
+  asyncTest "incorrectly encoded request should return an erring response":
+    ## Setup
+    let
+      serverSwitch = newTestSwitch()
+      handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
+        ## this handler will never be called: request must fail earlier
+        return ok()
+      server = await newTestWakuLightpushNode(serverSwitch, handler)
+
+    ## Given
+    let
+      fakeBuffer = @[byte(42)]
+      fakePeerId = PeerId.init(PrivateKey.random(ECDSA, (newRng())[]).tryGet()).tryGet()
+    
+    ## When
+    let
+      pushRpcResponse = await server.handleRequest(fakePeerId, fakeBuffer)
+      requestId = pushRpcResponse.requestId
+    
+    ## Then
+    check:
+      requestId == ""
+      pushRpcResponse.response.isSome()
+    
+    let resp = pushRpcResponse.response.get()
+
+    check:
+      resp.isSuccess == false
+      resp.info.isSome()
+      ## the error message should start with decodeRpcFailure
+      scanf(resp.info.get(), decodeRpcFailure)

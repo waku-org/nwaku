@@ -485,3 +485,4 @@ proc performSqliteVacuum*(db: SqliteDatabase): DatabaseResult[void] =
     return err("failed to execute vacuum: " & resVacuum.error)
 
   debug "finished sqlite database vacuuming"
+  ok()
