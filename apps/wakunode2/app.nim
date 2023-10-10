@@ -351,7 +351,8 @@ proc isWsAddress(ma: MultiAddress): bool =
   
   return isWs or isWss
 
-proc getPorts(listenAddrs: seq[MultiAddress]): AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+proc getPorts(listenAddrs: seq[MultiAddress]):
+              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
   
   # Assume there's maximum 2 listenAddrs: hostAddress and wsHostAddres
   var tcpPort, websocketPort = none(Port)
@@ -390,7 +391,7 @@ proc updateNetConfig(app: var App): AppResult[void] =
     conf.websocketPort = websocketPort.get()
     
   # Rebuild NetConfig with bound port values
-  let netConfigRes = networkConfiguration(app.conf, clientId)
+  let netConfigRes = networkConfiguration(conf, clientId)
   if netConfigRes.isErr():
     return err("Could not update NetConfig: " & netConfigRes.error)
   
@@ -409,7 +410,7 @@ proc updateEnr(app: var App): AppResult[void] =
 
   ok()
 
-proc updateApp*(app: var App): AppResult[void] =
+proc updateApp(app: var App): AppResult[void] =
 
   echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
   
@@ -423,9 +424,6 @@ proc updateApp*(app: var App): AppResult[void] =
       return err(error)
 
     app.node.announcedAddresses = app.netConf.announcedAddresses
-    #[ app.record.update(netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort) ]#
 
   ok()
 
@@ -648,7 +646,7 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startApp*(app: App): Future[AppResult[void]] {.async.} =
+proc startApp*(app: var App): AppResult[void] =
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
@@ -659,11 +657,14 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
     asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
 
-  return await startNode(
-    app.node,
-    app.conf,
-    app.dynamicBootstrapNodes
-  )
+  try:
+    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
+      return err(error)
+  except CatchableError:
+    return err("exception starting node: " & getCurrentExceptionMsg())
+
+  # Update app data that is set dynamically on node start
+  return app.updateApp()
 
 
 ## Monitoring and external interfaces

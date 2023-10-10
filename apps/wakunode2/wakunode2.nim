@@ -90,24 +90,18 @@ when isMainModule:
 
   debug "5/7 Starting node and mounted protocols"
 
-  let res6 = waitFor wakunode2.startApp()
+  let res6 = wakunode2.startApp()
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
 
-  # TO DO: maybe move updateApp to be called at the end of startApp
-  let res7 = wakunode2.updateApp()
-  if res7.isErr():
-    error "Could not update App after starting", error=res7.error
-    quit(QuitFailure)
-  
   echo "---- GABRIEL wakunode2.netConf.bindPort: ", wakunode2.netConf.bindPort
   
   debug "6/7 Starting monitoring and external interfaces"
 
-  let res8 = wakunode2.setupMonitoringAndExternalInterfaces()
-  if res8.isErr():
-    error "6/7 Starting monitoring and external interfaces failed", error=res8.error
+  let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
+  if res7.isErr():
+    error "6/7 Starting monitoring and external interfaces failed", error=res7.error
     quit(QuitFailure)
 
   debug "7/7 Setting up shutdown hooks"
