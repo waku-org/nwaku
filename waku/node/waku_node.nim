@@ -1082,7 +1082,6 @@ proc start*(node: WakuNode) {.async.} =
   info "Starting Waku node", version=git_version
 
   let peerInfo = node.switch.peerInfo
-  echo "----- WakuNode start peerInfo.addrs: ", peerInfo.addrs
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
   for address in node.announcedAddresses:
@@ -1101,26 +1100,10 @@ proc start*(node: WakuNode) {.async.} =
   ## with announced addrs after start
   let addressMapper =
     proc (listenAddrs: seq[MultiAddress]): Future[seq[MultiAddress]] {.async.} =
-      #addresses: seq[MultiAddress] = @[]
-      echo "------- Entering addressMapper"
-
-      for a in listenAddrs:
-        echo "--------- listenAddrs: ", a
-      for b in node.announcedAddresses:
-        echo "--------- announcedAddresses: ", b
-      #return listenAddrs
       return node.announcedAddresses
 
-  #[ let zeroIpFilter =
-    proc (listenAddrs: seq[MultiAddress]): Future[seq[MultiAddress]] {.async.} =
-      echo "------- GABRIEL zeroIpFilter"
-      return listenAddrs.filterIt(not ($it).contains("0.0.0.0"))
-
-  node.switch.peerInfo.addressMappers.add(zeroIpFilter) ]#
   node.switch.peerInfo.addressMappers.add(addressMapper)
 
-  echo "-------- calling node.switch.start()"
-  ## The switch will update addresses after start using the addressMapper
   await node.switch.start()
 
   node.started = true

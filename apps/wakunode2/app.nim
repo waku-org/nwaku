@@ -128,48 +128,6 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: recordRes.get()
 
- 
- #[  var enrBuilder = EnrBuilder.init(key)
-
-  enrBuilder.withIpAddressAndPorts(
-    netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort
-  )
-
-  if netConfig.wakuFlags.isSome():
-    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
-
-  # ---- GABRIEL ---- build ENR at later stage if possible
-  
-  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
-
-  let topics =
-    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-      let shardsRes = conf.contentTopics.mapIt(getShard(it))
-      for res in shardsRes:
-        if res.isErr():
-          error "failed to shard content topic", error=res.error
-          quit(QuitFailure)
-
-      let shards = shardsRes.mapIt(it.get())
-
-      conf.pubsubTopics & shards
-    else:
-      conf.topics
-
-  let addShardedTopics = enrBuilder.withShardedTopics(topics)
-  if addShardedTopics.isErr():
-      error "failed to add sharded topics to ENR", error=addShardedTopics.error
-      quit(QuitFailure)
-
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      error "failed to create record", error=recordRes.error
-      quit(QuitFailure)
-    else: recordRes.get() ]#
-
   App(
     version: git_version,
     conf: conf,
@@ -182,7 +140,6 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
 
 
 ## Peer persistence
-
 const PeerPersistenceDbUrl = "peers.db"
 proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
   let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
@@ -307,7 +264,6 @@ proc initNode(conf: WakuNodeConf,
   let pStorage = if peerStore.isNone(): nil
                  else: peerStore.get()
 
-  echo "----------- Initializing Waku node"
   # Build waku node instance
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng)
@@ -388,7 +344,6 @@ proc updateNetConfig(app: var App): AppResult[void] =
   return ok()
   
 proc updateEnr(app: var App): AppResult[void] =
-  echo "Entered updateEnr"
 
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
     return err(error)
@@ -399,11 +354,8 @@ proc updateEnr(app: var App): AppResult[void] =
   ok()
 
 proc updateApp(app: var App): AppResult[void] =
-
-  echo "----- GABRIEL app.node.switch.peerInfo.listenAddrs:", app.node.switch.peerInfo.listenAddrs
   
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
-    echo "Port 0 was selected"
     
     updateNetConfig(app).isOkOr:
       return err(error)

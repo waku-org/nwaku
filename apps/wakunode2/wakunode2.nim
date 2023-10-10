@@ -75,7 +75,6 @@ when isMainModule:
 
   debug "3/7 Initializing node"
 
-  # ------- GABRIEL ------- Here the Switch is created
   let res4 = wakunode2.setupWakuApp()
   if res4.isErr():
     error "3/7 Initializing node failed", error=res4.error
@@ -94,8 +93,6 @@ when isMainModule:
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
-
-  echo "---- GABRIEL wakunode2.netConf.bindPort: ", wakunode2.netConf.bindPort
   
   debug "6/7 Starting monitoring and external interfaces"
 
