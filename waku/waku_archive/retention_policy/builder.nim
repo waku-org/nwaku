@@ -11,7 +11,8 @@ import
 import
   ../retention_policy,
   ./retention_policy_time,
-  ./retention_policy_capacity
+  ./retention_policy_capacity,
+  ./retention_policy_size
 
 proc new*(T: type RetentionPolicy,
           retPolicy: string):
@@ -51,5 +52,39 @@ proc new*(T: type RetentionPolicy,
     let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
     return ok(some(retPolicy))
 
+  elif policy == "size":
+    var retentionSize: string
+    retentionSize = policyArgs
+    
+    # captures the size unit such as Gb or Mb
+    let sizeUnit = retentionSize.substr(retentionSize.len-2)
+    # captures the string type number data of the size provided  
+    let sizeQuantityStr = retentionSize.substr(0,retentionSize.len-3)
+    # to hold the numeric value data of size
+    var sizeQuantity: float
+    
+    if sizeUnit in ["gb", "Gb", "GB", "gB"]:
+      # parse the actual value into integer type var
+      try:
+        sizeQuantity = parseFloat(sizeQuantityStr)
+      except ValueError:
+        return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
+      # Gb data is converted into Mb for uniform processing
+      sizeQuantity = sizeQuantity * 1024
+    elif sizeUnit in ["mb", "Mb", "MB", "mB"]:
+      try:
+        sizeQuantity = parseFloat(sizeQuantityStr)  
+      except ValueError:
+        return err("invalid size retention policy argument")
+    else:
+      return err ("""invalid size retention value unit: expected "Mb" or "Gb" but got """ & sizeUnit )
+    
+    if sizeQuantity <= 0:
+          return err("invalid size retention policy argument: a non-zero value is required")
+
+    let retPolicy: RetentionPolicy = SizeRetentionPolicy.init(sizeQuantity)
+    return ok(some(retPolicy))
+
   else:
     return err("unknown retention policy")
+
