@@ -338,3 +338,26 @@ suite "Waku NetConfig":
     check:
       netConfig.enrMultiaddrs.contains(dns4TcpEndPoint(dns4DomainName, extPort))
 
+  asyncTest "wsHostAddress is not announced if a WS address is provided in extMultiAddrs":
+  
+    let 
+      conf = defaultTestWakuNodeConf()
+      extAddIp = ValidIpAddress.init("1.2.3.4")
+      extAddPort = Port(1234)
+      wssEnabled = false
+      extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
+        
+    let netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      extMultiAddrs = extMultiAddrs
+    )
+     
+    assert netConfigRes.isOk(), $netConfigRes.error
+
+    let netConfig = netConfigRes.get()
+
+    check:
+      netConfig.announcedAddresses.len == 2  # Bind address + extAddress
+      netConfig.announcedAddresses[1] == extMultiAddrs[0]
+
