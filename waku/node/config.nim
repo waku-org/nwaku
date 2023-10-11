@@ -16,6 +16,7 @@ import
 
 type NetConfig* = object
   hostAddress*: MultiAddress
+  clusterId*: uint32
   wsHostAddress*: Option[MultiAddress]
   hostExtAddress*: Option[MultiAddress]
   wsExtAddress*: Option[MultiAddress]
@@ -69,6 +70,7 @@ proc init*(T: type NetConfig,
     wssEnabled: bool = false,
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
+    clusterId: uint32 = 0,
     wakuFlags = none(CapabilitiesBitfield)): NetConfigResult =
   ## Initialize and validate waku node network configuration
 
@@ -137,6 +139,7 @@ proc init*(T: type NetConfig,
 
   ok(NetConfig(
     hostAddress: hostAddress,
+    clusterId: clusterId,
     wsHostAddress: wsHostAddress,
     hostExtAddress: hostExtAddress,
     wsExtAddress: wsExtAddress,

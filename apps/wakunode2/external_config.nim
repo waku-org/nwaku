@@ -54,6 +54,11 @@ type
       name: "log-format" .}: logging.LogFormat
 
     ## General node config
+    clusterId* {.
+      desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
+      defaultValue: 0
+      name: "cluster-id" }: uint32
+
     agentString* {.
       defaultValue: "nwaku",
       desc: "Node agent string which is used as identifier in network"
