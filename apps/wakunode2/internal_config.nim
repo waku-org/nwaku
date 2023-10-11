@@ -22,12 +22,12 @@ proc validateExtMultiAddrs*(vals: seq[string]):
   return ok(multiaddrs)
 
 proc dnsResolve*(domain: string, conf: WakuNodeConf): Future[Result[string, string]] {.async} =
-    
+
   # Use conf's DNS servers
   var nameServers: seq[TransportAddress]
   for ip in conf.dnsAddrsNameServers:
     nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-  
+
   let dnsResolver = DnsResolver.new(nameServers)
 
   # Resolve domain IP
@@ -93,18 +93,19 @@ proc networkConfiguration*(conf: WakuNodeConf,
   if dns4DomainName.isSome() and extIp.isNone():
     try:
       let dnsRes = waitFor dnsResolve(conf.dns4DomainName, conf)
-      
+
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack
-      
+
       extIp = some(ValidIpAddress.init(dnsRes.get()))
     except CatchableError:
       return err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
-  
+
   # Wrap in none because NetConfig does not have a default constructor
   # TODO: We could change bindIp in NetConfig to be something less restrictive
   # than ValidIpAddress, which doesn't allow default construction
   let netConfigRes = NetConfig.init(
+      clusterId = conf.clusterId,
       bindIp = conf.listenAddress,
       bindPort = Port(uint16(conf.tcpPort) + conf.portsShift),
       extIp = extIp,
