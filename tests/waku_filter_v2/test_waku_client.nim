@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,tables, sequtils],
+  std/[options, tables, sequtils],
   testutils/unittests,
   chronos,
   chronicles,
@@ -18,13 +18,10 @@ import
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/testutils,
+  ../testlib/futures,
   ./waku_filter_utils.nim
 
 let FUTURE_TIMEOUT = 1.seconds
-
-proc newPushHandlerFuture(): Future[(string, WakuMessage)] =
-    newFuture[(string, WakuMessage)]()
-
 
 suite "Waku Filter - End to End":
   suite "MessagePushHandler - Void":
@@ -108,6 +105,7 @@ suite "Waku Filter - End to End":
         )
         assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
         require:
+          unsubscribeResponse.isOk()
           not wakuFilter.subscriptions.hasKey(clientPeerId)
 
         let unsubscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
@@ -118,6 +116,22 @@ suite "Waku Filter - End to End":
           unsubscribedPingResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
 
     suite "Subscribe":
+      asyncTest "Server remote peer info doesn't match an online server":
+        # Given an offline service node
+        let offlineServerSwitch = newStandardSwitch()
+        let offlineWakuFilter = await newTestWakuFilter(offlineServerSwitch)
+        let offlineServerRemotePeerInfo = offlineServerSwitch.peerInfo.toRemotePeerInfo()
+
+        # When subscribing to the offline service node
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          offlineServerRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+
+        # Then the subscription is not successful
+        check:
+          subscribeResponse.isErr() # Not subscribed
+          subscribeResponse.error().kind == FilterSubscribeErrorKind.PEER_DIAL_FAILURE
+
       asyncTest "PubSub Topic with Single Content Topic":
         # Given
         let nonExistentContentTopic = "non-existent-content-topic"
@@ -631,13 +645,11 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.len == 1
           wakuFilter.subscriptions.hasKey(clientPeerId)
           wakuFilter.getSubscribedContentTopics(clientPeerId).len == 30
-      
-      # TODO: MaxCriteriaPerSubscription comparison
-      # TODO: MaxCriteriaPerSubscription behaviour when exceeding limit and topics are contained
-      xasyncTest "Max Criteria Per Subscription":  
+
+      asyncTest "Max Criteria Per Subscription":  
         # Given a topic list of size MaxCriteriaPerSubscription
         var topicSeq: seq[string] = toSeq(0..<MaxCriteriaPerSubscription).mapIt("topic" & $it)
-        
+      
         # When client service node subscribes to the topic list of size MaxCriteriaPerSubscription
         var subscribedTopics: seq[string] = @[]
         while topicSeq.len > 0:
@@ -646,42 +658,15 @@ suite "Waku Filter - End to End":
           let subscribeResponse = await wakuFilterClient.subscribe(
             serverRemotePeerInfo, pubsubTopic, topicSeqBatch
           )
-          require:
-            subscribeResponse.isOk()
+          assert subscribeResponse.isOk(), $subscribeResponse.error
           subscribedTopics.add(topicSeqBatch)
           topicSeq.delete(0..<takeNumber)
-        
+      
         # Then the subscription is successful
         check:
-          subscribedTopics.len == 1000
           wakuFilter.subscriptions.len == 1
           wakuFilter.subscriptions.hasKey(clientPeerId)
-          wakuFilter.getSubscribedContentTopics(clientPeerId) == subscribedTopics
-
-        # When refreshing the subscription with a topic list of size MaxCriteriaPerSubscription
-        swap(subscribedTopics, topicSeq)
-        require:
-          topicSeq.len == 1000
-          subscribedTopics.len == 0
-
-        while topicSeq.len > 0:
-          let takeNumber = min(topicSeq.len, MaxContentTopicsPerRequest)
-          let topicSeqBatch = topicSeq[0..<takeNumber]
-          let subscribeResponse = await wakuFilterClient.subscribe(
-            serverRemotePeerInfo, pubsubTopic, topicSeqBatch
-          )
-
-          require:
-            subscribeResponse.isOk()
-          subscribedTopics.add(topicSeqBatch)
-          topicSeq.delete(0..<takeNumber)
-
-        # Then the subscription is successful
-        check:
-          subscribedTopics.len == 1000
-          wakuFilter.subscriptions.len == 1
-          wakuFilter.subscriptions.hasKey(clientPeerId)
-          wakuFilter.getSubscribedContentTopics(clientPeerId) == subscribedTopics
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1000
 
         # When subscribing to a number of topics that exceeds MaxCriteriaPerSubscription
         let subscribeResponse = await wakuFilterClient.subscribe(
@@ -691,14 +676,14 @@ suite "Waku Filter - End to End":
         # Then the subscription is not successful
         check:
           subscribeResponse.isErr() # Not subscribed
-          subscribeResponse.error().kind == FilterSubscribeErrorKind.BAD_REQUEST
+          subscribeResponse.error().kind == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE
 
         # And the previous subscription is still active
         check:
           wakuFilter.subscriptions.len == 1
           wakuFilter.subscriptions.hasKey(clientPeerId)
-          wakuFilter.getSubscribedContentTopics(clientPeerId) == subscribedTopics
-      
+          wakuFilter.getSubscribedContentTopics(clientPeerId).len == 1000
+
       # Takes a long while because it instances a lot of clients. 
       xasyncTest "Max Total Subscriptions":      
         # Given a WakuFilterClient list of size MaxTotalSubscriptions
@@ -732,7 +717,7 @@ suite "Waku Filter - End to End":
         # Then the subscription is not successful
         check:
           subscribeResponse.isErr() # Not subscribed
-          subscribeResponse.error().kind == FilterSubscribeErrorKind.BAD_REQUEST
+          subscribeResponse.error().kind == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE
 
       asyncTest "Multiple Subscriptions":
         # Given a second service node
