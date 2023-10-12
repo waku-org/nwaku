@@ -41,6 +41,3 @@ proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[Co
     contentTopics.add(filterCriterion[1])
 
   return contentTopics
-
-proc newPushHandlerFuture*(): Future[(string, WakuMessage)] =
-    newFuture[(string, WakuMessage)]()

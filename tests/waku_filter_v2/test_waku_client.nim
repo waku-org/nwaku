@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,tables, sequtils],
+  std/[options, tables, sequtils],
   testutils/unittests,
   chronos,
   chronicles,
@@ -18,6 +18,7 @@ import
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/testutils,
+  ../testlib/futures,
   ./waku_filter_utils.nim
 
 let FUTURE_TIMEOUT = 1.seconds

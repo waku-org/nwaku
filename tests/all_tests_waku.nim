@@ -48,7 +48,6 @@ import
 # Waku filter test suite
 import
   ./waku_filter_v2/test_waku_client,
-  ./waku_filter_v2/test_waku_filter,
   ./waku_filter_v2/test_waku_filter_protocol
 
 import
