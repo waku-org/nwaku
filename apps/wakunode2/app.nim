@@ -351,6 +351,9 @@ proc updateEnr(app: var App): AppResult[void] =
   app.record = record
   app.node.enr = record
 
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+
   ok()
 
 proc updateApp(app: var App): AppResult[void] =
@@ -586,6 +589,17 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   return ok()
 
 proc startApp*(app: var App): AppResult[void] =
+  
+  try:
+    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
+      return err(error)
+  except CatchableError:
+    return err("exception starting node: " & getCurrentExceptionMsg())
+
+  # Update app data that is set dynamically on node start
+  app.updateApp().isOkOr:
+    return err(error)
+  
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
@@ -595,15 +609,9 @@ proc startApp*(app: var App): AppResult[void] =
 
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
     asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
+  
+  return ok()
 
-  try:
-    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
-      return err(error)
-  except CatchableError:
-    return err("exception starting node: " & getCurrentExceptionMsg())
-
-  # Update app data that is set dynamically on node start
-  return app.updateApp()
 
 
 ## Monitoring and external interfaces
