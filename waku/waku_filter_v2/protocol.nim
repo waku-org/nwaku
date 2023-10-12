@@ -56,7 +56,7 @@ proc subscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic],
   if peerId in wf.subscriptions:
     # We already have a subscription for this peer. Try to add the new filter criteria.
     var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
-    if peerSubscription.len() + filterCriteria.len() >= MaxCriteriaPerSubscription:
+    if peerSubscription.len() + filterCriteria.len() > MaxCriteriaPerSubscription:
       return err(FilterSubscribeError.serviceUnavailable("peer has reached maximum number of filter criteria"))
 
     peerSubscription.incl(filterCriteria)
