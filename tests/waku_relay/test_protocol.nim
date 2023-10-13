@@ -247,6 +247,8 @@ suite "Waku Relay":
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
+      # FIXME: Refreshing a subscription triggers a SEGFAULT.
+      # Fixing this requires a change in the libp2p library (WIP)
       node.subscribe(pubsubTopic, otherSimpleFutureHandler)
 
       # Then the node is still subscribed
@@ -423,340 +425,291 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    # asyncTest "How multiple interconnected nodes work":
-    #   # Given two other pubsub topics
-    #   let
-    #     pubsubTopicB = "pubsub-topic-b"
-    #     pubsubTopicC = "pubsub-topic-c"
+    xasyncTest "How multiple interconnected nodes work":
+      # Given two other pubsub topics
+      let
+        pubsubTopicB = "pubsub-topic-b"
+        pubsubTopicC = "pubsub-topic-c"
 
-    #   # Given two other nodes connected to the first one
-    #   let 
-    #     otherSwitch = newTestSwitch()
-    #     otherPeerManager = PeerManager.new(otherSwitch)
-    #     otherNode = await newTestWakuRelay(otherSwitch)
-    #     anotherSwitch = newTestSwitch()
-    #     anotherPeerManager = PeerManager.new(anotherSwitch)
-    #     anotherNode = await newTestWakuRelay(anotherSwitch)
+      # Given two other nodes connected to the first one
+      let 
+        otherSwitch = newTestSwitch()
+        otherPeerManager = PeerManager.new(otherSwitch)
+        otherNode = await newTestWakuRelay(otherSwitch)
+        anotherSwitch = newTestSwitch()
+        anotherPeerManager = PeerManager.new(anotherSwitch)
+        anotherNode = await newTestWakuRelay(anotherSwitch)
 
-    #   await allFutures(otherSwitch.start(), otherNode.start(), anotherSwitch.start(), anotherNode.start())
+      await allFutures(otherSwitch.start(), otherNode.start(), anotherSwitch.start(), anotherNode.start())
 
-    #   let 
-    #     otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-    #     otherPeerId = otherRemotePeerInfo.peerId
-    #     anotherRemotePeerInfo = anotherSwitch.peerInfo.toRemotePeerInfo()
-    #     anotherPeerId = anotherRemotePeerInfo.peerId
+      let 
+        otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
+        otherPeerId = otherRemotePeerInfo.peerId
+        anotherRemotePeerInfo = anotherSwitch.peerInfo.toRemotePeerInfo()
+        anotherPeerId = anotherRemotePeerInfo.peerId
 
-    #   check:
-    #     # await peerManager.connectRelay(otherRemotePeerInfo)
-    #     # await peerManager.connectRelay(anotherRemotePeerInfo)
-    #     await otherPeerManager.connectRelay(remotePeerInfo)
-    #     await otherPeerManager.connectRelay(anotherRemotePeerInfo)
+      check:
+        await peerManager.connectRelay(otherRemotePeerInfo)
+        await peerManager.connectRelay(anotherRemotePeerInfo)
 
-    #   # Given the first node is subscribed to two pubsub topics
-    #   var handlerFuture2 = newPushHandlerFuture()
-    #   proc simpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     handlerFuture2.complete((topic, message))
+      # Given the first node is subscribed to two pubsub topics
+      var handlerFuture2 = newPushHandlerFuture()
+      proc simpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        handlerFuture2.complete((topic, message))
       
-    #   discard node.subscribe(pubsubTopic, simpleFutureHandler)
-    #   discard node.subscribe(pubsubTopicB, simpleFutureHandler2)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopicB, simpleFutureHandler2)
 
-    #   # Given the other nodes are subscribed to two pubsub topics
-    #   var otherHandlerFuture1 = newPushHandlerFuture()
-    #   proc otherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     otherHandlerFuture1.complete((topic, message))
+      # Given the other nodes are subscribed to two pubsub topics
+      var otherHandlerFuture1 = newPushHandlerFuture()
+      proc otherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        otherHandlerFuture1.complete((topic, message))
       
-    #   var otherHandlerFuture2 = newPushHandlerFuture()
-    #   proc otherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     otherHandlerFuture2.complete((topic, message))
+      var otherHandlerFuture2 = newPushHandlerFuture()
+      proc otherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        otherHandlerFuture2.complete((topic, message))
       
-    #   var anotherHandlerFuture1 = newPushHandlerFuture()
-    #   proc anotherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     anotherHandlerFuture1.complete((topic, message))
+      var anotherHandlerFuture1 = newPushHandlerFuture()
+      proc anotherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        anotherHandlerFuture1.complete((topic, message))
       
-    #   var anotherHandlerFuture2 = newPushHandlerFuture()
-    #   proc anotherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     anotherHandlerFuture2.complete((topic, message))
+      var anotherHandlerFuture2 = newPushHandlerFuture()
+      proc anotherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        anotherHandlerFuture2.complete((topic, message))
       
-    #   let oA = otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler1)
-    #   let oC = otherNode.subscribe(pubsubTopicC, otherSimpleFutureHandler2)
-    #   discard anotherNode.subscribe(pubsubTopicB, anotherSimpleFutureHandler1)
-    #   discard anotherNode.subscribe(pubsubTopicC, anotherSimpleFutureHandler2)
-    #   await sleepAsync(500.millis)
+      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler1)
+      discard otherNode.subscribe(pubsubTopicC, otherSimpleFutureHandler2)
+      discard anotherNode.subscribe(pubsubTopicB, anotherSimpleFutureHandler1)
+      discard anotherNode.subscribe(pubsubTopicC, anotherSimpleFutureHandler2)
+      await sleepAsync(500.millis)
 
-    #   # When publishing a message in node for each of the pubsub topics
-    #   let 
-    #     fromNodeWakuMessage1 = fakeWakuMessage("fromNode1")
-    #     fromNodeWakuMessage2 = fakeWakuMessage("fromNode2")
-    #     fromNodeWakuMessage3 = fakeWakuMessage("fromNode3")
+      # When publishing a message in node for each of the pubsub topics
+      let 
+        fromNodeWakuMessage1 = fakeWakuMessage("fromNode1")
+        fromNodeWakuMessage2 = fakeWakuMessage("fromNode2")
+        fromNodeWakuMessage3 = fakeWakuMessage("fromNode3")
 
-    #   discard await otherNode.publish(pubsubTopic, fromNodeWakuMessage1)
-    #   discard await otherNode.publish(pubsubTopicB, fromNodeWakuMessage2)
-    #   discard await otherNode.publish(pubsubTopicC, fromNodeWakuMessage3)
+      discard await node.publish(pubsubTopic, fromNodeWakuMessage1)
+      discard await node.publish(pubsubTopicB, fromNodeWakuMessage2)
+      discard await node.publish(pubsubTopicC, fromNodeWakuMessage3)
 
-    #   echo "# Connections"
-    #   echo "ANOTHER -> NODE: ", anotherPeerManager.switch.isConnected(peerId)
-    #   echo "NODE -> ANOTHER: ", peerManager.switch.isConnected(anotherPeerId)
-    #   echo "ANOTHER -> OTHER: ", anotherPeerManager.switch.isConnected(otherPeerId)
-    #   echo "OTHER -> ANOTHER: ", otherPeerManager.switch.isConnected(anotherPeerId)
-    #   echo "NODE -> OTHER: ", peerManager.switch.isConnected(otherPeerId)
-    #   echo "OTHER -> NODE: ", otherPeerManager.switch.isConnected(peerId)
+      # Then the messages are published in all nodes (because it's published in the center node)
+      # Center meaning that all other nodes are connected to this one
+      check:
+        await handlerFuture.withTimeout(3.seconds)
+        await handlerFuture2.withTimeout(3.seconds)
+        await otherHandlerFuture1.withTimeout(3.seconds)
+        await otherHandlerFuture2.withTimeout(3.seconds)
+        await anotherHandlerFuture1.withTimeout(3.seconds)
+        await anotherHandlerFuture2.withTimeout(3.seconds)
 
-    #   echo "# Subscriptions"
-    #   echo "ANOTHER: ", anotherNode.subscribedTopics
-    #   echo "NODE: ", node.subscribedTopics
-    #   echo "OTHER: ", otherNode.subscribedTopics
+      let
+        (topic1, msg1) = handlerFuture.read()
+        (topic2, msg2) = handlerFuture2.read()
+        (otherTopic1, otherMsg1) = otherHandlerFuture1.read()
+        (otherTopic2, otherMsg2) = otherHandlerFuture2.read()
+        (anotherTopic1, anotherMsg1) = anotherHandlerFuture1.read()
+        (anotherTopic2, anotherMsg2) = anotherHandlerFuture2.read()
 
-    #   echo "# Futures"
-    #   echo "NODE A: ", await handlerFuture.withTimeout(3.seconds)
-    #   echo "NODE B: ", await handlerFuture2.withTimeout(3.seconds)
-    #   echo "OTHER A: ", await otherHandlerFuture1.withTimeout(3.seconds)
-    #   echo "OTHER C: ", await otherHandlerFuture2.withTimeout(3.seconds)
-    #   echo "ANOTHER B: ", await anotherHandlerFuture1.withTimeout(3.seconds)
-    #   echo "ANOTHER C: ", await anotherHandlerFuture2.withTimeout(3.seconds)
+      check:
+        topic1 == pubsubTopic
+        msg1 == fromNodeWakuMessage1
+        topic2 == pubsubTopicB
+        msg2 == fromNodeWakuMessage2
+        otherTopic1 == pubsubTopic
+        otherMsg1 == fromNodeWakuMessage1
+        otherTopic2 == pubsubTopicC
+        otherMsg2 == fromNodeWakuMessage3
+        anotherTopic1 == pubsubTopicB
+        anotherMsg1 == fromNodeWakuMessage2
+        anotherTopic2 == pubsubTopicC
+        anotherMsg2 == fromNodeWakuMessage3
 
-    #   # Then the messages are published in all nodes
-    #   check:
-    #     await handlerFuture.withTimeout(3.seconds)
-    #     await handlerFuture2.withTimeout(3.seconds)
-    #     await otherHandlerFuture1.withTimeout(3.seconds)
-    #     await otherHandlerFuture2.withTimeout(3.seconds)
-    #     await anotherHandlerFuture1.withTimeout(3.seconds)
-    #     await anotherHandlerFuture2.withTimeout(3.seconds)
+      # Given anotherNode is completely disconnected from the first one
+      await anotherPeerManager.switch.disconnect(peerId)
+      await peerManager.switch.disconnect(anotherPeerId)
+      check:
+        not anotherPeerManager.switch.isConnected(peerId)
+        not peerManager.switch.isConnected(anotherPeerId)
 
-    #   let
-    #     (topic1, msg1) = handlerFuture.read()
-    #     (topic2, msg2) = handlerFuture2.read()
-    #     (otherTopic1, otherMsg1) = otherHandlerFuture1.read()
-    #     (otherTopic2, otherMsg2) = otherHandlerFuture2.read()
-    #     (anotherTopic1, anotherMsg1) = anotherHandlerFuture1.read()
-    #     (anotherTopic2, anotherMsg2) = anotherHandlerFuture2.read()
+      # When publishing a message in node for each of the pubsub topics
+      handlerFuture = newPushHandlerFuture()
+      handlerFuture2 = newPushHandlerFuture()
+      otherHandlerFuture1 = newPushHandlerFuture()
+      otherHandlerFuture2 = newPushHandlerFuture()
+      anotherHandlerFuture1 = newPushHandlerFuture()
+      anotherHandlerFuture2 = newPushHandlerFuture()
 
-    #   check:
-    #     topic1 == pubsubTopic
-    #     msg1 == fromNodeWakuMessage1
-    #     topic2 == pubsubTopicB
-    #     msg2 == fromNodeWakuMessage2
-    #     otherTopic1 == pubsubTopic
-    #     otherMsg1 == fromNodeWakuMessage1
-    #     otherTopic2 == pubsubTopicC
-    #     otherMsg2 == fromNodeWakuMessage3
-    #     anotherTopic1 == pubsubTopicB
-    #     anotherMsg1 == fromNodeWakuMessage2
-    #     anotherTopic2 == pubsubTopicC
-    #     anotherMsg2 == fromNodeWakuMessage3
+      let 
+        fromNodeWakuMessage4 = fakeWakuMessage("fromNode4")
+        fromNodeWakuMessage5 = fakeWakuMessage("fromNode5")
+        fromNodeWakuMessage6 = fakeWakuMessage("fromNode6")
 
-    #   echo "IS GOOD?"
+      discard await node.publish(pubsubTopic, fromNodeWakuMessage4)
+      discard await node.publish(pubsubTopicB, fromNodeWakuMessage5)
+      discard await node.publish(pubsubTopicC, fromNodeWakuMessage6)
 
-    #   # Given anotherNode is completely disconnected from the first one
-    #   await anotherPeerManager.switch.disconnect(peerId)
-    #   await peerManager.switch.disconnect(anotherPeerId)
+      # Then the message is published in node and otherNode, 
+      # but not in anotherNode because it is not connected anymore
+      check:
+        await handlerFuture.withTimeout(3.seconds)
+        await handlerFuture2.withTimeout(3.seconds)
+        await otherHandlerFuture1.withTimeout(3.seconds)
+        await otherHandlerFuture2.withTimeout(3.seconds)
+        not await anotherHandlerFuture1.withTimeout(3.seconds)
+        not await anotherHandlerFuture2.withTimeout(3.seconds)
 
-    #   check:
-    #     not anotherPeerManager.switch.isConnected(peerId)
-    #     not peerManager.switch.isConnected(anotherPeerId)
-
-    #   # When publishing a message in node for each of the pubsub topics
-    #   handlerFuture = newPushHandlerFuture()
-    #   handlerFuture2 = newPushHandlerFuture()
-    #   otherHandlerFuture1 = newPushHandlerFuture()
-    #   otherHandlerFuture2 = newPushHandlerFuture()
-    #   anotherHandlerFuture1 = newPushHandlerFuture()
-    #   anotherHandlerFuture2 = newPushHandlerFuture()
-
-    #   let 
-    #     fromNodeWakuMessage4 = fakeWakuMessage("fromNode4")
-    #     fromNodeWakuMessage5 = fakeWakuMessage("fromNode5")
-    #     fromNodeWakuMessage6 = fakeWakuMessage("fromNode6")
-
-    #   discard await node.publish(pubsubTopic, fromNodeWakuMessage4)
-    #   discard await node.publish(pubsubTopicB, fromNodeWakuMessage5)
-    #   discard await node.publish(pubsubTopicC, fromNodeWakuMessage6)
-
-    #   # Then the message is published in node and otherNode, 
-    #   # but not in anotherNode that is not connected anymore
-    #   check:
-    #     await handlerFuture.withTimeout(3.seconds)
-    #     await handlerFuture2.withTimeout(3.seconds)
-    #     await otherHandlerFuture1.withTimeout(3.seconds)
-    #     await otherHandlerFuture2.withTimeout(3.seconds)
-    #     not await anotherHandlerFuture1.withTimeout(3.seconds)
-    #     not await anotherHandlerFuture2.withTimeout(3.seconds)
-
-    #   let
-    #     (topic3, msg3) = handlerFuture.read()
-    #     (topic4, msg4) = handlerFuture2.read()
-    #     (otherTopic3, otherMsg3) = otherHandlerFuture1.read()
-    #     (otherTopic4, otherMsg4) = otherHandlerFuture2.read()
+      let
+        (topic3, msg3) = handlerFuture.read()
+        (topic4, msg4) = handlerFuture2.read()
+        (otherTopic3, otherMsg3) = otherHandlerFuture1.read()
+        (otherTopic4, otherMsg4) = otherHandlerFuture2.read()
       
-    #   check:
-    #     topic3 == pubsubTopic
-    #     msg3 == fromNodeWakuMessage4
-    #     topic4 == pubsubTopicB
-    #     msg4 == fromNodeWakuMessage5
-    #     otherTopic3 == pubsubTopic
-    #     otherMsg3 == fromNodeWakuMessage4
-    #     otherTopic4 == pubsubTopicC
-    #     otherMsg4 == fromNodeWakuMessage6
-      
-    #   # When publishing a message in anotherNode for each of the pubsub topics
-    #   handlerFuture = newPushHandlerFuture()
-    #   handlerFuture2 = newPushHandlerFuture()
-    #   otherHandlerFuture1 = newPushHandlerFuture()
-    #   otherHandlerFuture2 = newPushHandlerFuture()
-    #   anotherHandlerFuture1 = newPushHandlerFuture()
-    #   anotherHandlerFuture2 = newPushHandlerFuture()
+      check:
+        topic3 == pubsubTopic
+        msg3 == fromNodeWakuMessage4
+        topic4 == pubsubTopicB
+        msg4 == fromNodeWakuMessage5
+        otherTopic3 == pubsubTopic
+        otherMsg3 == fromNodeWakuMessage4
+        otherTopic4 == pubsubTopicC
+        otherMsg4 == fromNodeWakuMessage6
 
-    #   let 
-    #     fromAnotherNodeWakuMessage1 = fakeWakuMessage("fromAnotherNode1")
-    #     fromAnotherNodeWakuMessage2 = fakeWakuMessage("fromAnotherNode2")
-    #     fromAnotherNodeWakuMessage3 = fakeWakuMessage("fromAnotherNode3")
-      
-    #   discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage1)
-    #   discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage2)
-    #   discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage3)
+      # When publishing a message in anotherNode for each of the pubsub topics
+      handlerFuture = newPushHandlerFuture()
+      handlerFuture2 = newPushHandlerFuture()
+      otherHandlerFuture1 = newPushHandlerFuture()
+      otherHandlerFuture2 = newPushHandlerFuture()
+      anotherHandlerFuture1 = newPushHandlerFuture()
+      anotherHandlerFuture2 = newPushHandlerFuture()
 
-    #   # Then the messages are only published in anotherNode because it's disconnected from
-    #   # the rest of the network
-    #   check:
-    #     not await handlerFuture.withTimeout(3.seconds)
-    #     not await handlerFuture2.withTimeout(3.seconds)
-    #     not await otherHandlerFuture1.withTimeout(3.seconds)
-    #     await anotherHandlerFuture1.withTimeout(3.seconds)
-    #     await anotherHandlerFuture2.withTimeout(3.seconds)
+      let 
+        fromAnotherNodeWakuMessage1 = fakeWakuMessage("fromAnotherNode1")
+        fromAnotherNodeWakuMessage2 = fakeWakuMessage("fromAnotherNode2")
+        fromAnotherNodeWakuMessage3 = fakeWakuMessage("fromAnotherNode3")
       
-    #   let
-    #     (anotherTopic3, anotherMsg3) = anotherHandlerFuture1.read()
-    #     (anotherTopic4, anotherMsg4) = anotherHandlerFuture2.read()
-      
-    #   check:
-    #     anotherTopic3 == pubsubTopicB
-    #     anotherMsg3 == fromAnotherNodeWakuMessage2
-    #     anotherTopic4 == pubsubTopicC
-    #     anotherMsg4 == fromAnotherNodeWakuMessage3
-      
-    #   # When publishing a message in otherNode for each of the pubsub topics
-    #   handlerFuture = newPushHandlerFuture()
-    #   handlerFuture2 = newPushHandlerFuture()
-    #   otherHandlerFuture1 = newPushHandlerFuture()
-    #   otherHandlerFuture2 = newPushHandlerFuture()
-    #   anotherHandlerFuture1 = newPushHandlerFuture()
-    #   anotherHandlerFuture2 = newPushHandlerFuture()
+      discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage1)
+      discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage2)
+      discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage3)
 
-    #   let 
-    #     fromOtherNodeWakuMessage1 = fakeWakuMessage("fromOtherNode1")
-    #     fromOtherNodeWakuMessage2 = fakeWakuMessage("fromOtherNode2")
-    #     fromOtherNodeWakuMessage3 = fakeWakuMessage("fromOtherNode3")
+      # Then the messages are only published in anotherNode because it's disconnected from
+      # the rest of the network
+      check:
+        not await handlerFuture.withTimeout(3.seconds)
+        not await handlerFuture2.withTimeout(3.seconds)
+        not await otherHandlerFuture1.withTimeout(3.seconds)
+        not await otherHandlerFuture2.withTimeout(3.seconds)
+        await anotherHandlerFuture1.withTimeout(3.seconds)
+        await anotherHandlerFuture2.withTimeout(3.seconds)
       
-    #   discard await otherNode.publish(pubsubTopic, fromOtherNodeWakuMessage1)
-    #   discard await otherNode.publish(pubsubTopicB, fromOtherNodeWakuMessage2)
-    #   discard await otherNode.publish(pubsubTopicC, fromOtherNodeWakuMessage3)
-
-    #   # Then the messages are only published in otherNode and node, but not in anotherNode
-    #   # because it's disconnected from the rest of the network
-    #   check:
-    #     await handlerFuture.withTimeout(3.seconds)
-    #     await handlerFuture2.withTimeout(3.seconds)
-    #     await otherHandlerFuture1.withTimeout(3.seconds)
-    #     await otherHandlerFuture2.withTimeout(3.seconds)
-    #     not await anotherHandlerFuture1.withTimeout(3.seconds)
-    #     not await anotherHandlerFuture2.withTimeout(3.seconds)
+      let
+        (anotherTopic3, anotherMsg3) = anotherHandlerFuture1.read()
+        (anotherTopic4, anotherMsg4) = anotherHandlerFuture2.read()
       
-    #   let
-    #     (topic5, msg5) = handlerFuture.read()
-    #     (topic6, msg6) = handlerFuture2.read()
-    #     (otherTopic5, otherMsg5) = otherHandlerFuture1.read()
-    #     (otherTopic6, otherMsg6) = otherHandlerFuture2.read()
+      check:
+        anotherTopic3 == pubsubTopicB
+        anotherMsg3 == fromAnotherNodeWakuMessage2
+        anotherTopic4 == pubsubTopicC
+        anotherMsg4 == fromAnotherNodeWakuMessage3
+
+      # When publishing a message in otherNode for each of the pubsub topics
+      handlerFuture = newPushHandlerFuture()
+      handlerFuture2 = newPushHandlerFuture()
+      otherHandlerFuture1 = newPushHandlerFuture()
+      otherHandlerFuture2 = newPushHandlerFuture()
+      anotherHandlerFuture1 = newPushHandlerFuture()
+      anotherHandlerFuture2 = newPushHandlerFuture()
+
+      let 
+        fromOtherNodeWakuMessage1 = fakeWakuMessage("fromOtherNode1")
+        fromOtherNodeWakuMessage2 = fakeWakuMessage("fromOtherNode2")
+        fromOtherNodeWakuMessage3 = fakeWakuMessage("fromOtherNode3")
       
-    #   check:
-    #     topic5 == pubsubTopic
-    #     msg5 == fromOtherNodeWakuMessage1
-    #     topic6 == pubsubTopicB
-    #     msg6 == fromOtherNodeWakuMessage2
-    #     otherTopic5 == pubsubTopic
-    #     otherMsg5 == fromOtherNodeWakuMessage1
-    #     otherTopic6 == pubsubTopicC
-    #     otherMsg6 == fromOtherNodeWakuMessage3
+      discard await otherNode.publish(pubsubTopic, fromOtherNodeWakuMessage1)
+      discard await otherNode.publish(pubsubTopicB, fromOtherNodeWakuMessage2)
+      discard await otherNode.publish(pubsubTopicC, fromOtherNodeWakuMessage3)
+
+      # Then the messages are only published in otherNode and node, but not in anotherNode
+      # because it's disconnected from the rest of the network
+      check:
+        await handlerFuture.withTimeout(3.seconds)
+        await handlerFuture2.withTimeout(3.seconds)
+        await otherHandlerFuture1.withTimeout(3.seconds)
+        await otherHandlerFuture2.withTimeout(3.seconds)
+        not await anotherHandlerFuture1.withTimeout(3.seconds)
+        not await anotherHandlerFuture2.withTimeout(3.seconds)
       
-    #   # Given anotherNode is reconnected, but to otherNode
-    #   # check await anotherPeerManager.connectRelay(remotePeerInfo)
-    #   check await anotherPeerManager.connectRelay(otherRemotePeerInfo)
-    #   # otherNode.unsubscribe(pubsubTopic, oA)
-    #   otherNode.unsubscribe(pubsubTopicC, oC)
-    #   # check:
-    #   #   anotherPeerManager.switch.isConnected(otherPeerId)
-    #   #   otherPeerManager.switch.isConnected(anotherPeerId)
-
-    #   # When publishing a message in anotherNode for each of the pubsub topics
-    #   handlerFuture = newPushHandlerFuture()
-    #   handlerFuture2 = newPushHandlerFuture()
-    #   otherHandlerFuture1 = newPushHandlerFuture()
-    #   otherHandlerFuture2 = newPushHandlerFuture()
-    #   anotherHandlerFuture1 = newPushHandlerFuture()
-    #   anotherHandlerFuture2 = newPushHandlerFuture()
-
-    #   let 
-    #     fromAnotherNodeWakuMessage4 = fakeWakuMessage("fromAnotherNode4")
-    #     fromAnotherNodeWakuMessage5 = fakeWakuMessage("fromAnotherNode5")
-    #     fromAnotherNodeWakuMessage6 = fakeWakuMessage("fromAnotherNode6")
+      let
+        (topic5, msg5) = handlerFuture.read()
+        (topic6, msg6) = handlerFuture2.read()
+        (otherTopic5, otherMsg5) = otherHandlerFuture1.read()
+        (otherTopic6, otherMsg6) = otherHandlerFuture2.read()
       
-    #   discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage4)
-    #   discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage5)
-    #   discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage6)
+      check:
+        topic5 == pubsubTopic
+        msg5 == fromOtherNodeWakuMessage1
+        topic6 == pubsubTopicB
+        msg6 == fromOtherNodeWakuMessage2
+        otherTopic5 == pubsubTopic
+        otherMsg5 == fromOtherNodeWakuMessage1
+        otherTopic6 == pubsubTopicC
+        otherMsg6 == fromOtherNodeWakuMessage3
 
-    #   echo "# Connections"
-    #   echo "ANOTHER -> NODE: ", anotherPeerManager.switch.isConnected(peerId)
-    #   echo "NODE -> ANOTHER: ", peerManager.switch.isConnected(anotherPeerId)
-    #   echo "ANOTHER -> OTHER: ", anotherPeerManager.switch.isConnected(otherPeerId)
-    #   echo "OTHER -> ANOTHER: ", otherPeerManager.switch.isConnected(anotherPeerId)
-    #   echo "NODE -> OTHER: ", peerManager.switch.isConnected(otherPeerId)
-    #   echo "OTHER -> NODE: ", otherPeerManager.switch.isConnected(peerId)
+      # Given anotherNode is reconnected, but to otherNode
+      check await anotherPeerManager.connectRelay(otherRemotePeerInfo)
+      check:
+        anotherPeerManager.switch.isConnected(otherPeerId)
+        otherPeerManager.switch.isConnected(anotherPeerId)
 
-    #   echo "# Subscriptions"
-    #   echo "ANOTHER: ", anotherNode.subscribedTopics
-    #   echo "NODE: ", node.subscribedTopics
-    #   echo "OTHER: ", otherNode.subscribedTopics
+      # When publishing a message in anotherNode for each of the pubsub topics
+      handlerFuture = newPushHandlerFuture()
+      handlerFuture2 = newPushHandlerFuture()
+      otherHandlerFuture1 = newPushHandlerFuture()
+      otherHandlerFuture2 = newPushHandlerFuture()
+      anotherHandlerFuture1 = newPushHandlerFuture()
+      anotherHandlerFuture2 = newPushHandlerFuture()
 
-    #   echo "# Futures"
-    #   echo "NODE A: ", await handlerFuture.withTimeout(3.seconds)
-    #   echo "NODE B: ", await handlerFuture2.withTimeout(3.seconds)
-    #   echo "OTHER A: ", await otherHandlerFuture1.withTimeout(3.seconds)
-    #   echo "OTHER C: ", await otherHandlerFuture2.withTimeout(3.seconds)
-    #   echo "ANOTHER B: ", await anotherHandlerFuture1.withTimeout(3.seconds)
-    #   echo "ANOTHER C: ", await anotherHandlerFuture2.withTimeout(3.seconds)
-
-    #   # Then the messages are published in all nodes
-    #   check:
-    #     await handlerFuture.withTimeout(3.seconds)
-    #     await handlerFuture2.withTimeout(3.seconds)  # FIXME: This returns false, yet the message should be received
-    #     await otherHandlerFuture1.withTimeout(3.seconds)
-    #     await otherHandlerFuture2.withTimeout(3.seconds)
-    #     await anotherHandlerFuture1.withTimeout(3.seconds)
-    #     await anotherHandlerFuture2.withTimeout(3.seconds)
+      let 
+        fromAnotherNodeWakuMessage4 = fakeWakuMessage("fromAnotherNode4")
+        fromAnotherNodeWakuMessage5 = fakeWakuMessage("fromAnotherNode5")
+        fromAnotherNodeWakuMessage6 = fakeWakuMessage("fromAnotherNode6")
       
-    #   let
-    #     (topic7, msg7) = handlerFuture.read()
-    #     # (topic8, msg8) = handlerFuture2.read()
-    #     (otherTopic7, otherMsg7) = otherHandlerFuture1.read()
-    #     (otherTopic8, otherMsg8) = otherHandlerFuture2.read()
-    #     (anotherTopic7, anotherMsg7) = anotherHandlerFuture1.read()
-    #     (anotherTopic8, anotherMsg8) = anotherHandlerFuture2.read()
-      
-    #   check:
-    #     topic7 == pubsubTopic
-    #     msg7 == fromAnotherNodeWakuMessage4
-    #     # topic8 == pubsubTopicB
-    #     # msg8 == fromAnotherNodeWakuMessage5
-    #     otherTopic7 == pubsubTopic
-    #     otherMsg7 == fromAnotherNodeWakuMessage4
-    #     otherTopic8 == pubsubTopicC
-    #     otherMsg8 == fromAnotherNodeWakuMessage6
-    #     anotherTopic7 == pubsubTopicB
-    #     anotherMsg7 == fromAnotherNodeWakuMessage5
-    #     anotherTopic8 == pubsubTopicC
-    #     anotherMsg8 == fromAnotherNodeWakuMessage6
+      discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage4)
+      discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage5)
+      discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage6)
 
-    #   # Finally stop the other nodes
-    #   await allFutures(otherSwitch.stop(), otherNode.stop(), anotherSwitch.stop(), anotherNode.stop())
+      # Then the messages are published in all nodes except in node's B topic, because
+      # even if they're connected like so AnotherNode <-> OtherNode <-> Node,
+      # otherNode doesn't broadcast B topic messages because it's not subscribed to it
+      check:
+        await handlerFuture.withTimeout(3.seconds)
+        not await handlerFuture2.withTimeout(3.seconds)
+        await otherHandlerFuture1.withTimeout(3.seconds)
+        await otherHandlerFuture2.withTimeout(3.seconds)
+        await anotherHandlerFuture1.withTimeout(3.seconds)
+        await anotherHandlerFuture2.withTimeout(3.seconds)
+      
+      let
+        (topic7, msg7) = handlerFuture.read()
+        (otherTopic7, otherMsg7) = otherHandlerFuture1.read()
+        (otherTopic8, otherMsg8) = otherHandlerFuture2.read()
+        (anotherTopic7, anotherMsg7) = anotherHandlerFuture1.read()
+        (anotherTopic8, anotherMsg8) = anotherHandlerFuture2.read()
+      
+      check:
+        topic7 == pubsubTopic
+        msg7 == fromAnotherNodeWakuMessage4
+        otherTopic7 == pubsubTopic
+        otherMsg7 == fromAnotherNodeWakuMessage4
+        otherTopic8 == pubsubTopicC
+        otherMsg8 == fromAnotherNodeWakuMessage6
+        anotherTopic7 == pubsubTopicB
+        anotherMsg7 == fromAnotherNodeWakuMessage5
+        anotherTopic8 == pubsubTopicC
+        anotherMsg8 == fromAnotherNodeWakuMessage6
+
+      # Finally stop the other nodes
+      await allFutures(otherSwitch.stop(), otherNode.stop(), anotherSwitch.stop(), anotherNode.stop())
 
   suite "Unsubscribe":
     asyncTest "Without Subscription":
@@ -842,10 +795,9 @@ suite "Waku Relay":
       let pubsubTopicB = "pubsub-topic-b"
 
       # Given a node subscribed to multiple pubsub topics
-      let 
-        topicHandler = node.subscribe(pubsubTopic, simpleFutureHandler)
-        topicHandler2 = node.subscribe(pubsubTopic, simpleFutureHandler)
-        topicHandlerB = node.subscribe(pubsubTopicB, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopicB, simpleFutureHandler)
         
       check node.subscribedTopics == @[pubsubTopic, pubsubTopicB]
 
@@ -1129,81 +1081,62 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    # asyncTest "Multiple messages at once":
-    #   # Given a second node connected to the first one
-    #   let
-    #     otherSwitch = newTestSwitch()
-    #     otherNode = await newTestWakuRelay(otherSwitch)
+    xasyncTest "Multiple messages at once":
+      # Given a second node connected to the first one
+      let
+        otherSwitch = newTestSwitch()
+        otherNode = await newTestWakuRelay(otherSwitch)
 
-    #   await allFutures(otherSwitch.start(), otherNode.start())
-    #   let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-    #   check await peerManager.connectRelay(otherRemotePeerInfo)
+      await allFutures(otherSwitch.start(), otherNode.start())
+      let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
+      check await peerManager.connectRelay(otherRemotePeerInfo)
 
-    #   # Given both are subscribed to the same pubsub topic
-    #   # var otherHandlerFuture = newPushHandlerFuture()
-    #   var otherMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
-    #   proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
-    #     otherMessageSeq.add((topic, message))
-    #     # otherHandlerFuture.complete((topic, message))
+      # Given both are subscribed to the same pubsub topic
+      var otherHandlerFuture = newPushHandlerFuture()
+      var otherMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
+      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        otherMessageSeq.add((topic, message))
+        otherHandlerFuture.complete((topic, message))
 
-    #   discard node.subscribe(pubsubTopic, simpleFutureHandler)
-    #   discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
-    #   check:
-    #     node.subscribedTopics == pubsubTopicSeq
-    #     otherNode.subscribedTopics == pubsubTopicSeq
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      check:
+        node.subscribedTopics == pubsubTopicSeq
+        otherNode.subscribedTopics == pubsubTopicSeq
+      await sleepAsync(500.millis)
+
+      # When sending multiple messages from node
+      let
+        msg1 = fakeWakuMessage("msg1", pubsubTopic)
+        msg2 = fakeWakuMessage("msg2", pubsubTopic)
+        msg3 = fakeWakuMessage("msg3", pubsubTopic)
+        msg4 = fakeWakuMessage("msg4", pubsubTopic)
       
-    #   await sleepAsync(500.millis)
-
-    #   echo "GIVEN"
-
-    #   # When sending multiple messages from node
-    #   let
-    #     msg1 = fakeWakuMessage("msg1", pubsubTopic)
-    #     msg2 = fakeWakuMessage("msg2", pubsubTopic)
-    #     msg3 = fakeWakuMessage("msg3", pubsubTopic)
-    #     msg4 = fakeWakuMessage("msg4", pubsubTopic)
+      discard await node.publish(pubsubTopic, msg1)
+      # FIXME: Test SEGFAULTS when publishing after first publish in pubsub.nim:handleData:317
+      discard await node.publish(pubsubTopic, msg2)
+      discard await node.publish(pubsubTopic, msg3)
+      discard await node.publish(pubsubTopic, msg4)
       
-    #   echo "0"
-    #   discard await node.publish(pubsubTopic, msg1)
-      
-    #   # discard await handlerFuture.withTimeout(3.seconds)
-    #   # discard await otherHandlerFuture.withTimeout(3.seconds)
-    #   await sleepAsync(3000.millis)
-
-
-
-    #   # Then the messages are received in both nodes
-    #   check:
-    #     # await handlerFuture.withTimeout(3.seconds)
-    #     messageSeq == @[
-    #       (pubsubTopic, msg1),
-    #       # (pubsubTopic, msg2),
-    #       # (pubsubTopic, msg3),
-    #       # (pubsubTopic, msg4)
-    #     ]
-
-    #     # await otherHandlerFuture.withTimeout(3.seconds)
-    #     otherMessageSeq == @[
-    #       (pubsubTopic, msg1),
-    #       # (pubsubTopic, msg2),
-    #       # (pubsubTopic, msg3),
-    #       # (pubsubTopic, msg4)
-    #     ]
-      
-      
-
-    #   echo "1"
-    #   discard await node.publish(pubsubTopic, msg2)
-    #   await sleepAsync(1000.millis)
-    #   echo "2"
-    #   discard await node.publish(pubsubTopic, msg3)
-    #   echo "3"
-    #   discard await node.publish(pubsubTopic, msg4)
-      
-    #   echo "A"
-      
-    #   # Finally stop the other node
-    #   await allFutures(otherSwitch.stop(), otherNode.stop())
+      # Then the messages are received in both nodes
+      check:
+        await handlerFuture.withTimeout(3.seconds)
+        messageSeq == @[
+          (pubsubTopic, msg1),
+          (pubsubTopic, msg2),
+          (pubsubTopic, msg3),
+          (pubsubTopic, msg4)
+        ]
+        await otherHandlerFuture.withTimeout(3.seconds)
+        otherMessageSeq == @[
+          (pubsubTopic, msg1),
+          (pubsubTopic, msg2),
+          (pubsubTopic, msg3),
+          (pubsubTopic, msg4)
+        ]
+            
+      # Finally stop the other node
+      await allFutures(otherSwitch.stop(), otherNode.stop())
 
   suite "Security and Privacy":
     xasyncTest "Relay can receive messages after reboot":
@@ -1214,10 +1147,11 @@ suite "Waku Relay":
         otherNode = await newTestWakuRelay(otherSwitch)
 
       await allFutures(otherSwitch.start(), otherNode.start())
-      let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      echo "# CONNECT1"
+      let 
+        otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
+        otherPeerId = otherRemotePeerInfo.peerId
+
       check await peerManager.connectRelay(otherRemotePeerInfo)
-      echo "# CONNECT2"
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
@@ -1232,25 +1166,12 @@ suite "Waku Relay":
       
       await sleepAsync(500.millis)
 
-      # await otherSwitch.disconnect(remotePeerInfo.peerId)
-      await switch.disconnect(otherRemotePeerInfo.peerId)
-      await sleepAsync(500.millis)
-
-      # FIXME: Test SEGFAULTS after this
       # Given other node is stopped and restarted
       await allFutures(otherSwitch.stop(), otherNode.stop())
       await allFutures(otherSwitch.start(), otherNode.start())
-
-      echo "# RESTART"
-
-      # await switch.disconnect(otherRemotePeerInfo.peerId)
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectRelay, as below
       # check await otherPeerManager.connectRelay(otherRemotePeerInfo)
-      await sleepAsync(500.millis)
       
-
-      echo "# MESSAGES"
-
       # When sending a message from node
       let msg1 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await node.publish(pubsubTopic, msg1)
@@ -1261,13 +1182,13 @@ suite "Waku Relay":
         await otherHandlerFuture.withTimeout(3.seconds)
         (pubsubTopic, msg1) == handlerFuture.read()
         (pubsubTopic, msg1) == otherHandlerFuture.read()
-      
+
       # When sending a message from other node
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       let msg2 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await otherNode.publish(pubsubTopic, msg2)
-      
+
       # Then the message is received in both nodes
       check:
         await handlerFuture.withTimeout(3.seconds)
@@ -1275,10 +1196,9 @@ suite "Waku Relay":
         (pubsubTopic, msg2) == handlerFuture.read()
         (pubsubTopic, msg2) == otherHandlerFuture.read()
 
-      # FIXME: Test SEGFAULTS after this. Inconsistent behaviour with Filter protocol.
       # Given node is stopped and restarted
-      # await allFutures(switch.stop(), node.stop())
-      # await allFutures(switch.start(), node.start())
+      await allFutures(switch.stop(), node.stop())
+      await allFutures(switch.start(), node.start())
 
       # When sending a message from node
       handlerFuture = newPushHandlerFuture()
@@ -1309,7 +1229,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    xasyncTest "Relay can receive messages after subscribing and stopping without unsubscribing":
+    asyncTest "Relay can receive messages after subscribing and stopping without unsubscribing":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
@@ -1317,10 +1237,11 @@ suite "Waku Relay":
         otherNode = await newTestWakuRelay(otherSwitch)
 
       await allFutures(otherSwitch.start(), otherNode.start())
-      let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      echo "# CONNECT1"
+      let 
+        otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
+        otherPeerId = otherRemotePeerInfo.peerId
+
       check await peerManager.connectRelay(otherRemotePeerInfo)
-      echo "# CONNECT2"
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
@@ -1335,9 +1256,9 @@ suite "Waku Relay":
       
       await sleepAsync(500.millis)
 
-      # FIXME: Test SEGFAULTS after this. Inconsistent behaviour with Filter protocol.
+      # FIXME: Inconsistent behaviour with Filter protocol.
       # Given other node is stopped without unsubscribing
-      # await allFutures(otherSwitch.stop(), otherNode.stop())
+      await allFutures(otherSwitch.stop(), otherNode.stop())
 
       # When sending a message from node
       let msg1 = fakeWakuMessage(testMessage, pubsubTopic)
