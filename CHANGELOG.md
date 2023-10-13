@@ -71,6 +71,10 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
+## Upgrade instructions
+
+* Note that the `--topic` CLI option is being deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`. This is the last release supporting the `--topic` option.
+
 ## 2023-09-14 v0.20.0
 
 > Note: IP address 0.0.0.0 is no longer advertised by a node
