@@ -71,8 +71,9 @@ proc createTableQuery(table: string): SqlQueryStr =
   " version INTEGER NOT NULL," &
   " timestamp INTEGER NOT NULL," &
   " id BLOB," &
+  " messageHash BLOB NOT NULL,"&
   " storedAt INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, messageHash)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
@@ -102,11 +103,11 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
 
 
 ## Insert message
-type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
+type InsertMessageParams* = (seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
-  " VALUES (?, ?, ?, ?, ?, ?, ?);"
+  "INSERT INTO " & table & "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
+  " VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
 
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
   let query = insertMessageQuery(DbTable)
@@ -197,7 +198,7 @@ proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int):
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id" &
+  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash" &
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
@@ -280,7 +281,7 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   var query: string
 
-  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash"
   query &= " FROM " & table
 
   if where.isSome():

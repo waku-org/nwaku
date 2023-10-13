@@ -9,7 +9,8 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../waku_core
+  ../waku_core,
+  ../waku_core/topics
 
 
 ## Waku message digest
@@ -18,14 +19,16 @@ import
 
 type MessageDigest* = MDigest[256]
 
-proc computeDigest*(msg: WakuMessage): MessageDigest =
+proc computeDigest*(msg: WakuMessage, pubSubTopic: string = DefaultPubsubTopic): MessageDigest =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()
 
-  ctx.update(msg.contentTopic.toBytes())
+  ctx.update(pubSubTopic.toBytes())
   ctx.update(msg.payload)
-
+  ctx.update(msg.contentTopic.toBytes())
+  ctx.update(msg.meta)
+  
   # Computes the hash
   return ctx.finish()
 
