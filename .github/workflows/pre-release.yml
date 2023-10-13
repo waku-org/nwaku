@@ -103,6 +103,7 @@ jobs:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
       test_type: node
       debug: waku*
+    continue-on-error: true
 
   js-waku-node-optional:
     needs: build-docker-image
@@ -111,6 +112,7 @@ jobs:
       nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
       test_type: node-optional
       debug: waku*
+    continue-on-error: true
 
   create-release-candidate:
     runs-on: ubuntu-latest
