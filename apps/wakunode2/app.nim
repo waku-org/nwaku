@@ -368,6 +368,8 @@ proc updateApp(app: var App): AppResult[void] =
 
     app.node.announcedAddresses = app.netConf.announcedAddresses
 
+    printNodeNetworkInfo(app.node)
+
   ok()
 
 ## Mount protocols

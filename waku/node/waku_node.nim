@@ -1073,17 +1073,19 @@ proc mountRendezvous*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.rendezvous)
 
+proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
+  let inputStr = $inputMultiAdd
+  if inputStr.contains("0.0.0.0/tcp/0") or inputStr.contains("127.0.0.1/tcp/0"):
+    return true
 
-proc start*(node: WakuNode) {.async.} =
-  ## Starts a created Waku Node and
-  ## all its mounted protocols.
+  return false
 
-  waku_version.set(1, labelValues=[git_version])
-  info "Starting Waku node", version=git_version
-
+proc printNodeNetworkInfo*(node: WakuNode): void =
   let peerInfo = node.switch.peerInfo
-  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
   var listenStr = ""
+  
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+  
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
     listenStr &= fulladdr
@@ -1091,6 +1093,23 @@ proc start*(node: WakuNode) {.async.} =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
+  
+proc start*(node: WakuNode) {.async.} =
+  ## Starts a created Waku Node and
+  ## all its mounted protocols.
+
+  waku_version.set(1, labelValues=[git_version])
+  info "Starting Waku node", version=git_version
+
+  var zeroPortPresent = false
+  for address in node.announcedAddresses:
+    if isBindIpWithZeroPort(address):
+      zeroPortPresent = true
+  
+  if not zeroPortPresent:
+    printNodeNetworkInfo(node)
+  else:
+    info "Listening port is dynamically allocated, address and ENR generation postponed"
 
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
