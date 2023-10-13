@@ -1,5 +1,13 @@
 ## v0.21.0 (2023-10-13)
 
+## What's Changed
+
+Release highlights:
+* Implemented a req/resp protocol that provides information about the node's medatadata
+* Added REST APIs for Filter v2 and Lightpush protocols' services
+* Ported /admin endpoint to REST
+* Added a size-based retention policy for the user to set a limit for storage used
+
 ### Features
 
 - add new metadata protocol ([#2062](https://github.com/waku-org/nwaku/issues/2062)) ([d5c3ade5](https://github.com/waku-org/nwaku/commit/d5c3ade5))
@@ -52,6 +60,16 @@
 - move SubscriptionManager under waku_core  ([#2025](https://github.com/waku-org/nwaku/issues/2025)) ([563b2b20](https://github.com/waku-org/nwaku/commit/563b2b20))
 - **README:** List possible WSL Issue ([#1995](https://github.com/waku-org/nwaku/issues/1995)) ([ebe715e9](https://github.com/waku-org/nwaku/commit/ebe715e9))
 - **ci:** add js-waku test to pre-release workflow ([#2017](https://github.com/waku-org/nwaku/issues/2017)) ([e8776fd6](https://github.com/waku-org/nwaku/commit/e8776fd6))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
 ## 2023-09-14 v0.20.0
 
