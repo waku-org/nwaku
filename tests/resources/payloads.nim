@@ -75,15 +75,3 @@ proc getByteSequence*(bytesNumber: int): seq[byte] =
   for i in 0 ..< bytesNumber:
     result[i] = cast[byte](i mod 256)
   return result
-
-
-proc get1MBByteSequence*(): seq[byte] =
-  getByteSequence(1024*1024)
-
-
-proc get10MBByteSequence*(): seq[byte] =
-  getByteSequence(10*1024*1024)
-
-
-proc get100MBByteSequence*(): seq[byte] =
-  getByteSequence(100*1024*1024)
