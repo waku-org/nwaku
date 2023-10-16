@@ -66,12 +66,8 @@ proc isWsAddress(ma: MultiAddress): bool =
 
   return isWs or isWss
 
-proc findWsAddress(extMultiAddrs: seq[MultiAddress]): Option[MultiAddress] =
-  for a in extMultiAddrs:
-    if isWsAddress(a):
-      return some(a)
-  
-  return none(MultiAddress)
+proc containsWsAddress(extMultiAddrs: seq[MultiAddress]): bool =
+  return extMultiAddrs.filterIt( it.isWsAddress() ).len > 0
 
 proc init*(T: type NetConfig,
     bindIp: ValidIpAddress,
@@ -140,7 +136,7 @@ proc init*(T: type NetConfig,
 
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
-  elif wsHostAddress.isSome() and findWsAddress(extMultiAddrs).isNone():
+  elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
     # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
     announcedAddresses.add(wsHostAddress.get())
 
