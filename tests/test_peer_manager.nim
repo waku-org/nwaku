@@ -26,6 +26,7 @@ import
   ../../waku/waku_filter,
   ../../waku/waku_lightpush,
   ../../waku/waku_peer_exchange,
+  ../../waku/waku_metadata,
   ./testlib/common,
   ./testlib/testutils,
   ./testlib/wakucore,
@@ -38,6 +39,8 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
 
     let connOk = await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
+    await sleepAsync(chronos.milliseconds(500))
+
     check:
       connOk == true
       nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].peerInfo.peerId)
@@ -53,6 +56,8 @@ procSuite "Peer Manager":
 
     # Dial node2 from node1
     let conn = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)
+    await sleepAsync(chronos.milliseconds(500))
+
     # Check connection
     check:
       conn.isSome()
@@ -145,6 +150,7 @@ procSuite "Peer Manager":
     let nonExistentPeer = nonExistentPeerRes.value
     require:
       (await nodes[0].peerManager.connectRelay(nonExistentPeer)) == false
+    await sleepAsync(chronos.milliseconds(500))
 
     check:
       # Cannot connect to node2
@@ -153,6 +159,8 @@ procSuite "Peer Manager":
     # Successful connection
     require:
       (await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())) == true
+    await sleepAsync(chronos.milliseconds(500))
+
     check:
       # Currently connected to node2
       nodes[0].peerManager.peerStore.connectedness(nodes[1].peerInfo.peerId) == Connected
@@ -229,6 +237,8 @@ procSuite "Peer Manager":
 
     require:
       (await node1.peerManager.connectRelay(peerInfo2.toRemotePeerInfo())) == true
+    await sleepAsync(chronos.milliseconds(500))
+
     check:
       # Currently connected to node2
       node1.peerManager.peerStore.peers().len == 1
@@ -256,6 +266,36 @@ procSuite "Peer Manager":
       node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+  asyncTest "Peer manager drops conections to peers on different networks":
+    let clusterId1 = 1.uint32
+    let clusterId2 = 2.uint32
+
+    let
+      # different network
+      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId1)
+
+      # same network
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId2)
+      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId2)
+
+    # Start nodes
+    await allFutures([node1.start(), node2.start(), node3.start()])
+
+    # 1->2 (fails)
+    let conn1 = await node1.peerManager.dialPeer(node2.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec)
+
+    # 1->3 (fails)
+    let conn2 = await node1.peerManager.dialPeer(node3.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec)
+
+    # 2->3 (succeeds)
+    let conn3 = await node2.peerManager.dialPeer(node3.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec)
+
+    check:
+      conn1.isNone
+      conn2.isNone
+      conn3.isSome
+
 
   # TODO: nwaku/issues/1377
   xasyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
@@ -369,6 +409,8 @@ procSuite "Peer Manager":
       (await nodes[1].peerManager.connectRelay(peerInfos[0])) == true
       (await nodes[2].peerManager.connectRelay(peerInfos[0])) == true
       (await nodes[3].peerManager.connectRelay(peerInfos[0])) == true
+
+    await sleepAsync(chronos.milliseconds(500))
 
     check:
       # Peerstore track all three peers
@@ -749,6 +791,7 @@ procSuite "Peer Manager":
     # 2 in connections
     discard await nodes[1].peerManager.connectRelay(pInfos[0])
     discard await nodes[2].peerManager.connectRelay(pInfos[0])
+    await sleepAsync(chronos.milliseconds(500))
 
     # but one is pruned
     check nodes[0].peerManager.switch.connManager.getConnections().len == 1
@@ -756,6 +799,7 @@ procSuite "Peer Manager":
     # 2 out connections
     discard await nodes[0].peerManager.connectRelay(pInfos[3])
     discard await nodes[0].peerManager.connectRelay(pInfos[4])
+    await sleepAsync(chronos.milliseconds(500))
 
     # they are also prunned
     check nodes[0].peerManager.switch.connManager.getConnections().len == 1

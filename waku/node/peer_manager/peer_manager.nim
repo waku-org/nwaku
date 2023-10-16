@@ -17,6 +17,7 @@ import
   ../../waku_core,
   ../../waku_relay,
   ../../waku_enr/sharding,
+  ../../waku_metadata,
   ./peer_store/peer_storage,
   ./waku_peer_store
 
@@ -66,6 +67,7 @@ type
   PeerManager* = ref object of RootObj
     switch*: Switch
     peerStore*: PeerStore
+    wakuMetadata*: WakuMetadata
     initialBackoffInSec*: int
     backoffFactor*: int
     maxFailedAttempts*: int
@@ -138,7 +140,7 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
-    pm.storage.insertOrReplace(remotePeerInfo.peerId, pm.peerStore.get(remotePeerInfo.peerId), NotConnected)
+    pm.storage.insertOrReplace(remotePeerInfo.peerId, remotePeerInfo, NotConnected)
 
 # Connects to a given node. Note that this function uses `connect` and
 # does not provide a protocol. Streams for relay (gossipsub) are created
@@ -231,6 +233,7 @@ proc dialPeer(pm: PeerManager,
 proc loadFromStorage(pm: PeerManager) =
   debug "loading peers from storage"
   # Load peers from storage, if available
+  var amount = 0
   proc onData(peerId: PeerID, remotePeerInfo: RemotePeerInfo, connectedness: Connectedness, disconnectTime: int64) =
     trace "loading peer", peerId=peerId, connectedness=connectedness
 
@@ -250,12 +253,15 @@ proc loadFromStorage(pm: PeerManager) =
     pm.peerStore[DisconnectBook][peerId] = disconnectTime
     pm.peerStore[SourceBook][peerId] = remotePeerInfo.origin
 
+    amount.inc()
+
   let res = pm.storage.getAll(onData)
   if res.isErr:
     warn "failed to load peers from storage", err = res.error
     waku_peers_errors.inc(labelValues = ["storage_load_failure"])
-  else:
-    debug "successfully queried peer storage"
+    return
+
+  debug "successfully queried peer storage", amount = amount
 
 proc canBeConnected*(pm: PeerManager,
                      peerId: PeerId): bool =
@@ -315,6 +321,44 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
 
+    var clusterOk = false
+    var reason = ""
+    # To prevent metadata protocol from breaking prev nodes, by now we only
+    # disconnect if the clusterid is specified.
+    if not pm.wakuMetadata.isNil() and pm.wakuMetadata.clusterId != 0:
+      block wakuMetadata:
+        var conn: Connection
+        try:
+          conn = await pm.switch.dial(peerId, WakuMetadataCodec)
+        except CatchableError:
+          reason = "waku metadata codec not supported"
+          break wakuMetadata
+
+        # request metadata from connecting peer
+        let metadata = (await pm.wakuMetadata.request(conn)).valueOr:
+          reason = "failed waku metadata codec request"
+          break wakuMetadata
+
+        # does not report any clusterId
+        let clusterId = metadata.clusterId.valueOr:
+          reason = "empty clusterId reported"
+          break wakuMetadata
+
+        # drop it if it doesnt match our network id
+        if pm.wakuMetadata.clusterId != clusterId:
+          reason = "different clusterId reported: " & $pm.wakuMetadata.clusterId & " vs " & $clusterId
+          break wakuMetadata
+
+        # reaching here means the clusterId matches
+        clusterOk = true
+
+    if not pm.wakuMetadata.isNil() and pm.wakuMetadata.clusterId != 0 and not clusterOk:
+      info "disconnecting from peer", peerId=peerId, reason=reason
+      asyncSpawn(pm.switch.disconnect(peerId))
+      pm.peerStore.delete(peerId)
+
+    # TODO: Take action depending on the supported shards as reported by metadata
+
     let ip = pm.getPeerIp(peerId)
     if ip.isSome:
       pm.ipTable.mgetOrPut(ip.get, newSeq[PeerId]()).add(peerId)
@@ -346,6 +390,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
 proc new*(T: type PeerManager,
           switch: Switch,
+          wakuMetadata: WakuMetadata = nil,
           maxRelayPeers: Option[int] = none(int),
           storage: PeerStorage = nil,
           initialBackoffInSec = InitialBackoffInSec,
@@ -388,6 +433,7 @@ proc new*(T: type PeerManager,
   let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
 
   let pm = PeerManager(switch: switch,
+                       wakuMetadata: wakuMetadata,
                        peerStore: switch.peerStore,
                        storage: storage,
                        initialBackoffInSec: initialBackoffInSec,

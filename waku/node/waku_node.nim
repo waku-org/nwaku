@@ -35,6 +35,7 @@ import
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
   ../waku_lightpush,
+  ../waku_metadata,
   ../waku_lightpush/client as lightpush_client,
   ../waku_enr,
   ../waku_dnsdisc,
@@ -95,6 +96,7 @@ type
     wakuLightPush*: WakuLightPush
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
+    wakuMetadata*: WakuMetadata
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -143,7 +145,7 @@ proc new*(T: type WakuNode,
 
   let queue = newAsyncEventQueue[SubscriptionEvent](30)
 
-  return WakuNode(
+  let node = WakuNode(
     peerManager: peerManager,
     switch: switch,
     rng: rng,
@@ -151,6 +153,14 @@ proc new*(T: type WakuNode,
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue
   )
+
+  # mount metadata protocol
+  let metadata = WakuMetadata.new(netConfig.clusterId)
+  node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
+  node.wakuMetadata = metadata
+  peerManager.wakuMetadata = metadata
+
+  return node
 
 proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo

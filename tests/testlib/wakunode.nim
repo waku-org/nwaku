@@ -54,20 +54,21 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
                       agentString = none(string),
+                      clusterId: uint32 = 0.uint32,
                       peerStoreCapacity = none(int)): WakuNode =
-  
+
   var resolvedExtIp = extIp
 
-  # Update extPort to default value if it's missing and there's an extIp or a DNS domain 
+  # Update extPort to default value if it's missing and there's an extIp or a DNS domain
   let extPort = if (extIp.isSome() or dns4DomainName.isSome()) and
                 extPort.isNone():
                 some(Port(60000))
               else:
                 extPort
-  
+
   if dns4DomainName.isSome() and extIp.isNone():
     let conf = defaultTestWakuNodeConf()
-    # If there's an error resolving the IP, an exception is thrown and test fails 
+    # If there's an error resolving the IP, an exception is thrown and test fails
     let dnsRes = waitFor dnsResolve(dns4DomainName.get(), conf)
     if dnsRes.isErr():
       raise newException(Defect, $dnsRes.error)
@@ -76,6 +77,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
 
   let netConfigRes = NetConfig.init(
     bindIp = bindIp,
+    clusterId = clusterId,
     bindPort = bindPort,
     extIp = resolvedExtIp,
     extPort = extPort,
