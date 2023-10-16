@@ -1,9 +1,11 @@
 ## v0.21.0 (2023-10-18)
 
+> Note: This is the last release supporting the `--topic` option. It is being deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`
+
 ## What's Changed
 
 Release highlights:
-* Implemented a req/resp protocol that provides information about the node's medatadata
+* Implemented a req/resp [protocol](https://rfc.vac.dev/spec/66/) that provides information about the node's medatadata
 * Added REST APIs for Filter v2 and Lightpush protocols' services
 * Ported /admin endpoint to REST
 * Added a size-based retention policy for the user to set a limit for storage used
