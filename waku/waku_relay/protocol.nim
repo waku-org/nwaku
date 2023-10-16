@@ -235,11 +235,11 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
     w.validatorInserted[pubSubTopic] = true
 
-  # set this topic parameters for scoring
-  w.topicParams[pubsubTopic] = TopicParameters
+    # set this topic parameters for scoring
+    w.topicParams[pubsubTopic] = TopicParameters
 
-  # subscribe to the topic with our wrapped handler
-  procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
+    # subscribe to the topic with our wrapped handler
+    procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
   return wrappedHandler
 
