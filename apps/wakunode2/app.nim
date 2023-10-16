@@ -327,7 +327,8 @@ proc getPorts(listenAddrs: seq[MultiAddress]):
 proc updateNetConfig(app: var App): AppResult[void] =
 
   var conf = app.conf
-  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).get()
+  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
+    return err("Could not retrieve ports " & error)
     
   if tcpPort.isSome():
     conf.tcpPort = tcpPort.get()
