@@ -317,7 +317,7 @@ proc getPorts(listenAddrs: seq[MultiAddress]):
       let wsAddress = initTAddress(a).valueOr:
         return err(error)
       websocketPort = some(wsAddress.port)
-    elif tcpPort.isNone():
+    elif not a.isWsAddress() and tcpPort.isNone():
       let tcpAddress = initTAddress(a).valueOr:
         return err(error)
       tcpPort = some(tcpAddress.port)
@@ -601,7 +601,7 @@ proc startApp*(app: var App): AppResult[void] =
 
   # Update app data that is set dynamically on node start
   app.updateApp().isOkOr:
-    return err(error)
+    return err("Error in updateApp: " & $error)
   
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
