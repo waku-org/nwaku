@@ -310,7 +310,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -356,7 +356,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -402,7 +402,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -638,7 +638,7 @@ suite "SQLite driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[5][0], expected[5][1])
 
@@ -691,7 +691,7 @@ suite "SQLite driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[6][0], expected[6][1])
 
@@ -833,7 +833,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -1116,7 +1116,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
 
@@ -1171,7 +1171,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[7][0], expected[7][1])
 
@@ -1226,7 +1226,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
@@ -1282,7 +1282,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg, topic), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
