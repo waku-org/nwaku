@@ -41,7 +41,7 @@ suite "Waku Archive - Retention policy":
     ## When
     for i in 1..capacity+excess:
       let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp))
     
     discard waitFor allFinished(putFutures)
 
@@ -88,7 +88,7 @@ suite "Waku Archive - Retention policy":
     # create a number of messages so that the size of the DB overshoots
     for i in 1..excess:
         let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp))
 
     # waitFor is used to synchronously wait for the futures to complete.
     discard waitFor allFinished(putFutures)
@@ -139,7 +139,7 @@ suite "Waku Archive - Retention policy":
 
     ## When
     for msg in messages:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
       require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
