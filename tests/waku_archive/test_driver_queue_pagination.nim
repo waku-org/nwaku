@@ -156,7 +156,7 @@ procSuite "Queue driver - pagination":
       pubsubTopic: DefaultPubsubTopic,
       senderTime: msg.timestamp,
       storeTime: msg.timestamp,
-      digest: computeDigest(msg)
+      digest: computeDigest(msg, DefaultPubsubTopic)
     ).toIndex()
 
     let
@@ -337,7 +337,7 @@ procSuite "Queue driver - pagination":
       pubsubTopic: DefaultPubsubTopic,
       senderTime: msg.timestamp,
       storeTime: msg.timestamp,
-      digest: computeDigest(msg)
+      digest: computeDigest(msg, DefaultPubsubTopic)
     ).toIndex()
 
     let
