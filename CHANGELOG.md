@@ -8,7 +8,7 @@ Release highlights:
 * Implemented a req/resp [protocol](https://rfc.vac.dev/spec/66/) that provides information about the node's medatadata
 * Added REST APIs for Filter v2 and Lightpush protocols' services
 * Ported /admin endpoint to REST
-* Added a size-based retention policy for the user to set a limit for storage used
+* Added a size-based retention policy for the user to set a limit for SQLite storage used
 
 ### Features
 
@@ -76,6 +76,7 @@ The Waku v1 implementation has been removed from this repository and can be foun
 ## Upgrade instructions
 
 * Note that the `--topic` CLI option is being deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`. This is the last release supporting the `--topic` option.
+* The size-based retention policy has been tested with SQLite storage and is still on validation phases for Postgres
 
 ## 2023-09-14 v0.20.0
 
