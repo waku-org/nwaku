@@ -7,7 +7,7 @@ import
   std/[options, sequtils, strutils],
   stew/results,
   stew/shims/net,
-  libp2p/multiaddress
+  libp2p/[multiaddress, multicodec]
 import
    ../../waku/waku_core/peers
 import
@@ -58,6 +58,16 @@ proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
     let inputStr = $inputMultiAdd
     # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
     return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
+
+proc isWsAddress(ma: MultiAddress): bool =
+  let
+    isWs = ma.contains(multiCodec("ws")).get()
+    isWss = ma.contains(multiCodec("wss")).get()
+
+  return isWs or isWss
+
+proc containsWsAddress(extMultiAddrs: seq[MultiAddress]): bool =
+  return extMultiAddrs.filterIt( it.isWsAddress() ).len > 0
 
 proc init*(T: type NetConfig,
     bindIp: ValidIpAddress,
@@ -126,7 +136,8 @@ proc init*(T: type NetConfig,
 
   if wsExtAddress.isSome():
     announcedAddresses.add(wsExtAddress.get())
-  elif wsHostAddress.isSome():
+  elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
+    # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
     announcedAddresses.add(wsHostAddress.get())
 
   let
