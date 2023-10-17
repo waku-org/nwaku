@@ -1,5 +1,7 @@
 import
   std/[options,tables],
+  std/[sequtils,sets,strutils],
+  testutils/unittests,
   chronos,
   chronicles
 
@@ -7,6 +9,8 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_filter_v2,
   ../../../waku/waku_filter_v2/client,
+  ../../../waku/waku_filter_v2/subscriptions,
+  ../../../waku/waku_filter_v2/rpc,
   ../../../waku/waku_core,
   ../testlib/common,
   ../testlib/wakucore
@@ -30,3 +34,10 @@ proc newTestWakuFilterClient*(switch: Switch): Future[WakuFilterClient] {.async.
   switch.mount(proto)
 
   return proto
+
+proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
+  var contentTopics: seq[ContentTopic]
+  for filterCriterion in wakuFilter.subscriptions[peerId]:
+    contentTopics.add(filterCriterion[1])
+
+  return contentTopics
