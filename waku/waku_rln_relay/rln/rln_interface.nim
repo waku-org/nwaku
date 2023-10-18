@@ -80,7 +80,7 @@ proc atomic_write*(ctx: ptr RLN, index: uint, leaves_buffer: ptr Buffer, indices
 ## the return bool value indicates the success or failure of the operation
 
 proc reset_tree*(ctx: ptr RLN, tree_height: uint): bool {.importc: "set_tree".}
-## resets the tree stored by ctx to the the empty tree (all leaves set to 0) of height tree_height
+## resets the tree stored by ctx to the empty tree (all leaves set to 0) of height tree_height
 ## the return bool value indicates the success or failure of the operation
 
 #----------------------------------------------------------------------------------------------
