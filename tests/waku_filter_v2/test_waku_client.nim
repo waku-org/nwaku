@@ -28,11 +28,10 @@ import
     subscriptions
   ],
   ../testlib/[
-    common,
-    wakucore, 
-    testasync, 
-    testutils, 
-    futures, 
+    wakucore,
+    testasync,
+    testutils,
+    futures,
     sequtils
   ],
   ./waku_filter_utils.nim,
@@ -1845,7 +1844,7 @@ suite "Waku Filter - End to End":
           unsubscribeResponse.error().kind == FilterSubscribeErrorKind.NOT_FOUND
 
     suite "Filter-Push":
-      asyncTest "Valid Payloads":
+      asyncTest "Valid Payload Types":
         # Given a valid subscription
         let subscribeResponse = await wakuFilterClient.subscribe(
           serverRemotePeerInfo, pubsubTopic, contentTopicSeq
@@ -1992,6 +1991,82 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic10 == pubsubTopic
           pushedMsg10 == msg10
           msg10.payload.toString() == TEXT_LARGE
+
+      asyncTest "Valid Payload Sizes":
+        # Given a valid subscription
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, contentTopicSeq
+        )
+        assert subscribeResponse.isOk(), $subscribeResponse.error
+        check:
+          wakuFilter.subscriptions.len == 1
+          wakuFilter.subscriptions.hasKey(clientPeerId)
+
+        # Given some valid payloads
+        let
+          msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
+          msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
+          msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
+          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 968)) # 4MiB - 56B -> Max Size (Inclusive Limit)
+          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 969)) # 4MiB - 55B -> Max Size (Exclusive Limit)
+          msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 970)) # 4MiB - 54B -> Out of Max Size
+
+        # When sending the 1KiB message
+        await wakuFilter.handleMessage(pubsubTopic, msg1)
+
+        # Then the message is pushed to the client
+        check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic1, pushedMsg1) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic1 == pubsubTopic
+          pushedMsg1 == msg1
+
+        # When sending the 10KiB message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg2)
+
+        # Then the message is pushed to the client
+        check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic2, pushedMsg2) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic2 == pubsubTopic
+          pushedMsg2 == msg2
+
+        # When sending the 100KiB message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg3)
+
+        # Then the message is pushed to the client
+        check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic3, pushedMsg3) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic3 == pubsubTopic
+          pushedMsg3 == msg3
+
+        # When sending the 4MiB - 56B message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg4)
+
+        # Then the message is pushed to the client
+        check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        let (pushedMsgPubsubTopic4, pushedMsg4) = pushHandlerFuture.read()
+        check:
+          pushedMsgPubsubTopic4 == pubsubTopic
+          pushedMsg4 == msg4
+
+        # When sending the 4MiB - 55B message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg5)
+
+        # Then the message is not pushed to the client
+        check not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+
+        # When sending the 4MiB - 54B message
+        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
+        await wakuFilter.handleMessage(pubsubTopic, msg6)
+
+        # Then the message is not pushed to the client
+        check not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
     suite "Security and Privacy":
       asyncTest "Filter Client can receive messages after Client and Server reboot":
