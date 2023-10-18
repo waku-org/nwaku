@@ -19,12 +19,14 @@ Release highlights:
 - **wakucanary:** add latency measurement using ping protocol ([#2074](https://github.com/waku-org/nwaku/issues/2074)) ([6cb9a8da](https://github.com/waku-org/nwaku/commit/6cb9a8da))
 - Autosharding API for RELAY subscriptions ([#1983](https://github.com/waku-org/nwaku/issues/1983)) ([1763b1ef](https://github.com/waku-org/nwaku/commit/1763b1ef))
 - **networkmonitor:** add ping latencies, optimize reconnections ([#2068](https://github.com/waku-org/nwaku/issues/2068)) ([ed473545](https://github.com/waku-org/nwaku/commit/ed473545))
-- peer manager can filter select peer by shard ([#2063](https://github.com/waku-org/nwaku/issues/2063)) ([0d9e9fbd](https://github.com/waku-org/nwaku/commit/0d9e9fbd))
+- peer manager can filter peers by shard ([#2063](https://github.com/waku-org/nwaku/issues/2063)) ([0d9e9fbd](https://github.com/waku-org/nwaku/commit/0d9e9fbd))
 - lightpush rest api ([#2052](https://github.com/waku-org/nwaku/issues/2052)) ([02a814bd](https://github.com/waku-org/nwaku/commit/02a814bd))
 - HTTP REST API: Filter support v2 ([#1890](https://github.com/waku-org/nwaku/issues/1890)) ([dac072f8](https://github.com/waku-org/nwaku/commit/dac072f8))
 
 ### Bug Fixes
 
+- fix wrong install of filter rest api ([#2133](https://github.com/waku-org/nwaku/issues/2133)) ([5277d122](https://github.com/waku-org/nwaku/commit/5277d122))
+- consider WS extMultiAddrs before publishing host address ([#2122](https://github.com/waku-org/nwaku/issues/2122)) ([a5b1cfd0](https://github.com/waku-org/nwaku/commit/a5b1cfd0))
 - return erring response if lightpush request is invalid ([#2083](https://github.com/waku-org/nwaku/issues/2083)) ([2c5eb427](https://github.com/waku-org/nwaku/commit/2c5eb427))
 - sqlite limited delete query bug ([#2111](https://github.com/waku-org/nwaku/issues/2111)) ([06bc433a](https://github.com/waku-org/nwaku/commit/06bc433a))
 - cluster id & sharding terminology ([#2104](https://github.com/waku-org/nwaku/issues/2104)) ([a47dc9e6](https://github.com/waku-org/nwaku/commit/a47dc9e6))
@@ -34,7 +36,7 @@ Release highlights:
 - libwaku.nim: unsubscribe -> unsubscribeAll to make it build properly ([#2082](https://github.com/waku-org/nwaku/issues/2082)) ([3264a4f5](https://github.com/waku-org/nwaku/commit/3264a4f5))
 - **archive:** dburl check ([#2071](https://github.com/waku-org/nwaku/issues/2071)) ([a27d005f](https://github.com/waku-org/nwaku/commit/a27d005f))
 - filter discv5 bootstrap nodes by shards ([#2073](https://github.com/waku-org/nwaku/issues/2073)) ([d178105d](https://github.com/waku-org/nwaku/commit/d178105d))
-- **rln-relay:** segfault when no params except rln-relay is passed in ([#2047](https://github.com/waku-org/nwaku/issues/2047)) ([45fe2d3b](https://github.com/waku-org/nwaku/commit/45fe2d3b))
+- **rln-relay:** segfault when no params except rln-relay are passed in ([#2047](https://github.com/waku-org/nwaku/issues/2047)) ([45fe2d3b](https://github.com/waku-org/nwaku/commit/45fe2d3b))
 - **sqlite:** Properly set user_version to 7 so that the migration procedure is not started ([#2031](https://github.com/waku-org/nwaku/issues/2031)) ([aa3e1a66](https://github.com/waku-org/nwaku/commit/aa3e1a66))
 
 ### Changes
@@ -44,8 +46,6 @@ Release highlights:
 - Clarify running instructions ([#2038](https://github.com/waku-org/nwaku/issues/2038)) ([12e8b122](https://github.com/waku-org/nwaku/commit/12e8b122))
 - **rln:** add more hardcoded memberhips to static group ([#2108](https://github.com/waku-org/nwaku/issues/2108)) ([1042cacd](https://github.com/waku-org/nwaku/commit/1042cacd))
 - Revert lightpush error handling to allow zero peer publish again succeed ([#2099](https://github.com/waku-org/nwaku/issues/2099)) ([f05528d4](https://github.com/waku-org/nwaku/commit/f05528d4))
-- add size retention policy ([#2093](https://github.com/waku-org/nwaku/issues/2093))" ([#2097](https://github.com/waku-org/nwaku/issues/2097)) ([c0190165](https://github.com/waku-org/nwaku/commit/c0190165))
-- add size retention policy ([#2093](https://github.com/waku-org/nwaku/issues/2093)) ([8897ae1a](https://github.com/waku-org/nwaku/commit/8897ae1a))
 - adding NetConfig test suite ([#2091](https://github.com/waku-org/nwaku/issues/2091)) ([23b49ca5](https://github.com/waku-org/nwaku/commit/23b49ca5))
 - **cbindings:** Adding cpp example that integrates the 'libwaku' ([#2079](https://github.com/waku-org/nwaku/issues/2079)) ([8455b8dd](https://github.com/waku-org/nwaku/commit/8455b8dd))
 - **networkmonitor:** refactor setConnectedPeersMetrics, make it partially concurrent, add version ([#2080](https://github.com/waku-org/nwaku/issues/2080)) ([c5aa9704](https://github.com/waku-org/nwaku/commit/c5aa9704))
