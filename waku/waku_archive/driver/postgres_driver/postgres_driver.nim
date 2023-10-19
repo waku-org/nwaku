@@ -138,6 +138,7 @@ proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
   return ok((pubSubTopic,
              wakuMessage,
              @(digest.toOpenArrayByte(0, digest.high)),
+             @(digest.toOpenArrayByte(0, digest.high)),
              storedAt))
 
 method getAllMessages*(s: PostgresDriver):

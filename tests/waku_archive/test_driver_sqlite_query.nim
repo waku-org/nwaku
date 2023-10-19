@@ -423,6 +423,49 @@ suite "SQLite driver - query by pubsub topic":
 
     ## Cleanup
     (await driver.close()).expect("driver to close")
+  
+  asyncTest "pubSubTopic messageHash match":
+    ## Given
+    const pubsubTopic1 = "test-pubsub-topic1"
+    const pubsubTopic2 = "test-pubsub-topic2"
+    # take 2 variables to hold the message hashes
+    var msgHash1: seq[byte]
+    var msgHash2: seq[byte]
+
+    let driver = newTestSqliteDriver()
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+
+    let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic, ts=Timestamp(1))
+    putFutures.add(driver.put(pubsubTopic1, msg1, computeDigest(msg1, pubsubTopic1), msg1.timestamp))
+
+    let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic, ts=Timestamp(2))
+    putFutures.add(driver.put(pubsubTopic2, msg2, computeDigest(msg2, pubsubTopic2), msg2.timestamp))
+
+    discard waitFor allFinished(putFutures)
+
+    # get the messages from the database
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
+
+    check:
+      # there needs to be two messages
+      storedMsg.len > 0 and storedMsg.len == 2
+
+      # get the individual messages and message hash values
+      @[storedMsg[0]].all do (item1: auto) -> bool:
+        let (gotPubsubTopic1, gotMsg1, digest1, messageHash1, timestamp1) = item1
+        msgHash1 = messageHash1
+        true     
+
+      @[storedMsg[1]].all do (item2: auto) -> bool:
+        let (gotPubsubTopic2, gotMsg2, digest2, messageHash2, timestamp2) = item2
+        msgHash2 = messageHash2
+        true
+        
+      # compare of the messge hashes, given the context, they should be different
+      msgHash1 != msgHash2
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
 
 
 suite "SQLite driver - query by cursor":
