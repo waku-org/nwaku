@@ -19,7 +19,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic,
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message)
+    digest: computeDigest(message, pubsubTopic)
   )
 
 suite "Postgres driver":
@@ -78,7 +78,7 @@ suite "Postgres driver":
 
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
-    let computedDigest = computeDigest(msg)
+    let computedDigest = computeDigest(msg, DefaultPubsubTopic)
 
     let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, msg.timestamp)
     assert putRes.isOk(), putRes.error
@@ -113,12 +113,12 @@ suite "Postgres driver":
 
     let msg1 = fakeWakuMessage(contentTopic=contentTopic1)
 
-    var putRes = await driver.put(pubsubTopic1, msg1, computeDigest(msg1), msg1.timestamp)
+    var putRes = await driver.put(pubsubTopic1, msg1, computeDigest(msg1,pubsubTopic1), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
     let msg2 = fakeWakuMessage(contentTopic=contentTopic2)
 
-    putRes = await driver.put(pubsubTopic2, msg2, computeDigest(msg2), msg2.timestamp)
+    putRes = await driver.put(pubsubTopic2, msg2, computeDigest(msg2, pubsubTopic2), msg2.timestamp)
     assert putRes.isOk(), putRes.error
 
     let countMessagesRes = await driver.getMessagesCount()
@@ -197,9 +197,9 @@ suite "Postgres driver":
     let msg2 = fakeWakuMessage(ts = now)
 
     var putRes = await driver.put(DefaultPubsubTopic,
-                                  msg1, computeDigest(msg1), msg1.timestamp)
+                                  msg1, computeDigest(msg1, DefaultPubsubTopic), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
     putRes = await driver.put(DefaultPubsubTopic,
-                              msg2, computeDigest(msg2), msg2.timestamp)
+                              msg2, computeDigest(msg2, DefaultPubsubTopic), msg2.timestamp)
     require not putRes.isOk()
