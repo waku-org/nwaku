@@ -100,7 +100,7 @@ proc handleMessage*(w: WakuArchive,
 
   block:
     let
-      msgDigest = computeDigest(msg)
+      msgDigest = computeDigest(msg, pubsubTopic)
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
