@@ -76,7 +76,7 @@ Ensure all items in this list are ticked:
   > - `MAKE_TARGET`: `wakunode2`
   > - `IMAGE_TAG`: the release tag (e.g. `v0.16.0`)
   > - `IMAGE_NAME`: `wakuorg/nwaku`
-  > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none`
+  > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none -d:postgres`
   > - `GIT_REF` the release tag (e.g. `v0.16.0`)
 3. Deploy the release to appropriate fleets:
    - Inform clients
