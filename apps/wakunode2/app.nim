@@ -473,9 +473,12 @@ proc setupProtocols(node: WakuNode,
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
-      await node.mountFilterClient()
-      node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
-      node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
+      try:
+        await node.mountFilterClient()
+        node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
+        node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
+      except CatchableError:
+        return err("failed to mount waku filter client protocol: " & getCurrentExceptionMsg())
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
@@ -595,7 +598,10 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
     installRelayApiHandlers(server.router, app.node, cache)
 
   ## Filter REST API
-  if conf.filter:
+  if conf.filternode  != "" and
+     app.node.wakuFilterClient != nil and
+     app.node.wakuFilterClientLegacy != nil:
+
     let legacyFilterCache = rest_legacy_filter_api.MessageCache.init()
     rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
 
@@ -606,7 +612,9 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   installStoreApiHandlers(server.router, app.node)
 
   ## Light push API
-  rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
+  if conf.lightpushnode  != "" and
+     app.node.wakuLightpushClient != nil:
+    rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
