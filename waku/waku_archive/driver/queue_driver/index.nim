@@ -21,7 +21,7 @@ type Index* = object
 proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
-    digest = computeDigest(msg)
+    digest = computeDigest(msg, pubsubTopic)
     senderTime = msg.timestamp
 
   Index(

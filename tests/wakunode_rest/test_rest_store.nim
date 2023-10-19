@@ -32,7 +32,7 @@ logScope:
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
-    digest = waku_archive.computeDigest(message)
+    digest = waku_archive.computeDigest(message, pubsubTopic)
     receivedTime = if message.timestamp > 0: message.timestamp
                   else: getNanosecondTime(getTime().toUnixFloat())
 
