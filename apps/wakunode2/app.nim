@@ -300,13 +300,6 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
-proc isWsAddress(ma: MultiAddress): bool =
-  let
-    isWs = ma.contains(multiCodec("ws")).get()
-    isWss = ma.contains(multiCodec("wss")).get()
-  
-  return isWs or isWss
-
 proc getPorts(listenAddrs: seq[MultiAddress]):
               AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
   
