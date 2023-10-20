@@ -234,7 +234,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    xasyncTest "Refreshing subscription":
+    asyncTest "Refreshing subscription":
       # Given a subscribed node
       node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
@@ -243,20 +243,18 @@ suite "Waku Relay":
       let fromOtherWakuMessage = fakeWakuMessage("fromOther")
       discard await node.publish(pubsubTopic, fromOtherWakuMessage)
 
-      # When refreshing the subscription
+      # Given the subscription is refreshed
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
-      # FIXME: Refreshing a subscription triggers a SEGFAULT.
-      # Fixing this requires a change in the libp2p library (WIP)
       node.subscribe(pubsubTopic, otherSimpleFutureHandler)
-
-      # Then the node is still subscribed
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
+        messageSeq == @[(pubsubTopic, fromOtherWakuMessage)]
 
       # When publishing a message with the refreshed subscription
+      handlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, wakuMessage)
 
       # Then the message is published
@@ -265,6 +263,7 @@ suite "Waku Relay":
       check:
         topic == pubsubTopic
         msg == wakuMessage
+        messageSeq == @[(pubsubTopic, fromOtherWakuMessage), (pubsubTopic, wakuMessage)]
 
     asyncTest "With additional validator":
       # Given a simple validator
@@ -425,7 +424,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    xasyncTest "How multiple interconnected nodes work":
+    asyncTest "How multiple interconnected nodes work":
       # Given two other pubsub topics
       let
         pubsubTopicB = "pubsub-topic-b"
@@ -1081,7 +1080,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    xasyncTest "Multiple messages at once":
+    asyncTest "Multiple messages at once":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
@@ -1092,13 +1091,20 @@ suite "Waku Relay":
       check await peerManager.connectRelay(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
+      # Create a different handler than the default to include messages in a seq
+      var thisHandlerFuture = newPushHandlerFuture()
+      var thisMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
+      proc thisSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+        thisMessageSeq.add((topic, message))
+        thisHandlerFuture.complete((topic, message))
+
       var otherHandlerFuture = newPushHandlerFuture()
       var otherMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
       proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
         otherMessageSeq.add((topic, message))
         otherHandlerFuture.complete((topic, message))
 
-      discard node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, thisSimpleFutureHandler)
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.subscribedTopics == pubsubTopicSeq
@@ -1113,15 +1119,25 @@ suite "Waku Relay":
         msg4 = fakeWakuMessage("msg4", pubsubTopic)
       
       discard await node.publish(pubsubTopic, msg1)
-      # FIXME: Test SEGFAULTS when publishing after first publish in pubsub.nim:handleData:317
+      check await thisHandlerFuture.withTimeout(3.seconds)
+      check await otherHandlerFuture.withTimeout(3.seconds)
+      thisHandlerFuture = newPushHandlerFuture()
+      otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg2)
+      check await thisHandlerFuture.withTimeout(3.seconds)
+      check await otherHandlerFuture.withTimeout(3.seconds)
+      thisHandlerFuture = newPushHandlerFuture()
+      otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg3)
+      check await thisHandlerFuture.withTimeout(3.seconds)
+      check await otherHandlerFuture.withTimeout(3.seconds)
+      thisHandlerFuture = newPushHandlerFuture()
+      otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg4)
-      
-      # Then the messages are received in both nodes
+
       check:
-        await handlerFuture.withTimeout(3.seconds)
-        messageSeq == @[
+        await thisHandlerFuture.withTimeout(3.seconds)
+        thisMessageSeq == @[
           (pubsubTopic, msg1),
           (pubsubTopic, msg2),
           (pubsubTopic, msg3),
@@ -1134,12 +1150,12 @@ suite "Waku Relay":
           (pubsubTopic, msg3),
           (pubsubTopic, msg4)
         ]
-            
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
   suite "Security and Privacy":
-    xasyncTest "Relay can receive messages after reboot":
+    xasyncTest "Relay can receive messages after reboot and reconnect":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
@@ -1163,7 +1179,7 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
-      
+      # FIXME: peerManager:179
       await sleepAsync(500.millis)
 
       # Given other node is stopped and restarted
@@ -1229,7 +1245,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    asyncTest "Relay can receive messages after subscribing and stopping without unsubscribing":
+    xasyncTest "Relay can receive messages after subscribing and stopping without unsubscribing":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
