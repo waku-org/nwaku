@@ -1179,7 +1179,6 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
-      # FIXME: peerManager:179
       await sleepAsync(500.millis)
 
       # Given other node is stopped and restarted
