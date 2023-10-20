@@ -1186,7 +1186,7 @@ suite "Waku Relay":
       await allFutures(otherSwitch.start(), otherNode.start())
       # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectRelay, as below
       # check await otherPeerManager.connectRelay(otherRemotePeerInfo)
-      
+
       # When sending a message from node
       let msg1 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await node.publish(pubsubTopic, msg1)
