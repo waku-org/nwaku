@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, os],
+  std/[options, strutils, os, net],
   stew/shims/net as stewNet,
   chronicles,
   chronos,
@@ -91,6 +91,8 @@ when isMainModule:
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
+
+  echo "************** ", getPrimaryIPAddr(), "******************" # https://nim-lang.org/docs/net.html#getPrimaryIPAddr
 
   debug "6/7 Starting monitoring and external interfaces"
 
