@@ -12,7 +12,7 @@ import
 
 ## Simple query to validate that the postgres is working and attending requests
 const HealthCheckQuery = "SELECT version();"
-const CheckConnectivityInterval = 30.seconds
+const CheckConnectivityInterval = 60.seconds
 const MaxNumTrials = 20
 const TrialInterval = 1.seconds
 
