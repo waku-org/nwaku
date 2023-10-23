@@ -66,7 +66,9 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     if (extIp.isSome() or dns4DomainName.isSome()) and extPort.isNone(): some(Port(60000))
     else: extPort
 
-  let conf = defaultTestWakuNodeConf()
+  var conf = defaultTestWakuNodeConf()
+
+  conf.topics = topics
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails

@@ -215,13 +215,18 @@ converter toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
   )
 
 converter toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
-  ## Converts the local peerInfo to dialable RemotePeerInfo
-  ## Useful for testing or internal connections
-  RemotePeerInfo.init(
-    peerInfo.peerId,
-    peerInfo.listenAddrs,
-    none(enr.Record),
-    peerInfo.protocols
+  ## Converts the local peerInfo to dialable RemotePeerInfo.
+  ## Useful for testing or internal connections.
+  ## Result in a RemotePeerInfo without ENR.
+  RemotePeerInfo(
+    peerId: peerInfo.peerId,
+    addrs: peerInfo.listenAddrs,
+    enr: none(Record),
+    protocols: peerInfo.protocols,
+    
+    agent: peerInfo.agentVersion,
+    protoVersion: peerInfo.protoVersion,
+    publicKey: peerInfo.publicKey,
   )
 
 proc hasProtocol*(ma: MultiAddress, proto: string): bool =

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, times, strutils],
+  std/[tables, sequtils, sets, times, options, strutils],
   chronos,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
@@ -12,6 +12,8 @@ import
 
 import
   ../../waku_core,
+  ../../waku_enr/sharding,
+  ../../waku_enr/capabilities,
   ../../common/utils/sequence
 
 export peerstore, builders
@@ -100,6 +102,9 @@ proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
   # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
   return peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
+proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint16): bool =
+  peerStore[ENRBook][peerId].containsShard(cluster, shard)
+
 proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
   # Returns `true` if the peer is connected
   peerStore.connectedness(peerId) == Connected
@@ -131,3 +136,9 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.connectedness == CanConnect or it.connectedness == Connected)
+
+proc getPeersByShard*(peerStore: PeerStore, cluster, shard: uint16): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().containsShard(cluster, shard))
+
+proc getPeersByCapability*(peerStore: PeerStore, cap: Capabilities): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))
