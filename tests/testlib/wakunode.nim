@@ -32,9 +32,10 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
-    topics: @[],
-    relay: true,
-    maxMessageSize: "1024 KiB"
+    maxMessageSize: "1024 KiB",
+    clusterId: 1.uint32,
+    topics: @["/waku/2/rs/1/0"],
+    relay: true
   )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
@@ -56,8 +57,8 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
                       agentString = none(string),
-                      clusterId: uint32 = 2.uint32,
-                      topics: seq[string] = @["/waku/2/rs/2/0"],
+                      clusterId: uint32 = 1.uint32,
+                      topics: seq[string] = @["/waku/2/rs/1/0"],
                       peerStoreCapacity = none(int)): WakuNode =
 
   var resolvedExtIp = extIp
@@ -67,7 +68,10 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     if (extIp.isSome() or dns4DomainName.isSome()) and extPort.isNone(): some(Port(60000))
     else: extPort
 
-  let conf = defaultTestWakuNodeConf()
+  var conf = defaultTestWakuNodeConf()
+
+  conf.clusterId = clusterId
+  conf.topics = topics
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
