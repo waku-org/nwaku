@@ -163,7 +163,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
     ## Build last message cursor
     ## The cursor is built from the last message INCLUDED in the response
     ## (i.e. the second last message in the rows list)
-    let (pubsubTopic, message, digest, messageHash, storeTimestamp) = rows[^2]
+    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
 
     # TODO: Improve coherence of MessageDigest type
     let messageDigest = block:

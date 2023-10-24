@@ -87,7 +87,7 @@ suite "Postgres driver":
     require:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, actualMsg, digest, messageHash, storeTimestamp) = item
+        let (pubsubTopic, actualMsg, digest, storeTimestamp) = item
         actualMsg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic and
         toHex(computedDigest.data) == toHex(digest) and

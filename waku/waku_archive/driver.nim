@@ -18,7 +18,7 @@ type
   ArchiveDriver* = ref object of RootObj
   OnErrHandler* = proc(errMsg: string) {.gcsafe, closure.}
 
-type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], seq[byte], Timestamp)
+type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 
 # ArchiveDriver interface
 

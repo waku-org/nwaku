@@ -147,7 +147,7 @@ suite "Waku Archive - Retention policy":
     check:
       storedMsg.len == capacity
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, msg, digest, messageHash, storeTimestamp) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
 
