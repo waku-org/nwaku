@@ -92,6 +92,11 @@ type
       desc: "External multiaddresses to advertise to the network. Argument may be repeated."
       name: "ext-multiaddr" }: seq[string]
 
+    extMultiAddrsOnly* {.
+      desc: "Only announce external multiaddresses",
+      defaultValue: false,
+      name: "ext-multiaddr-only" }: bool
+
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections."
       defaultValue: 50
