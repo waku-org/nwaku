@@ -138,7 +138,7 @@ proc getPage(driver: QueueDriver,
 
       numberOfItems += 1
 
-      outSeq.add((key.pubsubTopic, data.msg, @(key.digest.data), key.receiverTime))
+      outSeq.add((key.pubsubTopic, data.msg, @(key.digest.data), @(key.digest.data), key.receiverTime))
 
     currentEntry = if forward: w.next()
                    else: w.prev()
