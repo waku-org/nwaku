@@ -306,11 +306,12 @@ proc getPorts(listenAddrs: seq[MultiAddress]):
   var tcpPort, websocketPort = none(Port)
   
   for a in listenAddrs:
-    if a.isWsAddress() and websocketPort.isNone():
-      let wsAddress = initTAddress(a).valueOr:
-        return err(error)
-      websocketPort = some(wsAddress.port)
-    elif not a.isWsAddress() and tcpPort.isNone():
+    if a.isWsAddress():
+      if websocketPort.isNone():
+        let wsAddress = initTAddress(a).valueOr:
+          return err(error)
+        websocketPort = some(wsAddress.port)
+    elif tcpPort.isNone():
       let tcpAddress = initTAddress(a).valueOr:
         return err(error)
       tcpPort = some(tcpAddress.port)
