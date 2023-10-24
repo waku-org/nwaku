@@ -448,7 +448,8 @@ suite "SQLite driver - query by pubsub topic":
 
     check:
       # there needs to be two messages
-      storedMsg.len > 0 and storedMsg.len == 2
+      storedMsg.len > 0
+      storedMsg.len == 2
 
       # get the individual messages and message hash values
       @[storedMsg[0]].all do (item1: auto) -> bool:
