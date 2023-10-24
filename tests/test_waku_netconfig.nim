@@ -338,19 +338,63 @@ suite "Waku NetConfig":
     check:
       netConfig.enrMultiaddrs.contains(dns4TcpEndPoint(dns4DomainName, extPort))
 
-  asyncTest "wsHostAddress is not announced if a WS address is provided in extMultiAddrs":
+  asyncTest "wsHostAddress is not announced if a WS/WSS address is provided in extMultiAddrs":
+  
+    var 
+      conf = defaultTestWakuNodeConf()
+      extAddIp = ValidIpAddress.init("1.2.3.4")
+      extAddPort = Port(1234)
+      wsEnabled = true
+      wssEnabled = false
+      extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
+        
+    var netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      extMultiAddrs = extMultiAddrs,
+      wsEnabled = wsEnabled
+    )
+     
+    assert netConfigRes.isOk(), $netConfigRes.error
+
+    var netConfig = netConfigRes.get()
+
+    check:
+      netConfig.announcedAddresses.len == 2  # Bind address + extAddress
+      netConfig.announcedAddresses[1] == extMultiAddrs[0]
+
+    # Now same test for WSS external address
+    wssEnabled = true
+    extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
+    
+    netConfigRes = NetConfig.init(
+      bindIp = conf.listenAddress,
+      bindPort = conf.tcpPort,
+      extMultiAddrs = extMultiAddrs,
+      wssEnabled = wssEnabled
+    )
+
+    assert netConfigRes.isOk(), $netConfigRes.error
+
+    netConfig = netConfigRes.get()
+
+    check:
+      netConfig.announcedAddresses.len == 2  # Bind address + extAddress
+      netConfig.announcedAddresses[1] == extMultiAddrs[0]
+
+  asyncTest "Only extMultiAddrs are published when enabling extMultiAddrsOnly flag":
   
     let 
       conf = defaultTestWakuNodeConf()
       extAddIp = ValidIpAddress.init("1.2.3.4")
       extAddPort = Port(1234)
-      wssEnabled = false
-      extMultiAddrs = @[(ip4TcpEndPoint(extAddIp, extAddPort) & wsFlag(wssEnabled))]
+      extMultiAddrs = @[ip4TcpEndPoint(extAddIp, extAddPort)]
         
     let netConfigRes = NetConfig.init(
       bindIp = conf.listenAddress,
       bindPort = conf.tcpPort,
-      extMultiAddrs = extMultiAddrs
+      extMultiAddrs = extMultiAddrs,
+      extMultiAddrsOnly = true
     )
      
     assert netConfigRes.isOk(), $netConfigRes.error
@@ -358,6 +402,6 @@ suite "Waku NetConfig":
     let netConfig = netConfigRes.get()
 
     check:
-      netConfig.announcedAddresses.len == 2  # Bind address + extAddress
-      netConfig.announcedAddresses[1] == extMultiAddrs[0]
+      netConfig.announcedAddresses.len == 1  # ExtAddress
+      netConfig.announcedAddresses[0] == extMultiAddrs[0]
 

@@ -75,6 +75,7 @@ proc init*(T: type NetConfig,
     extIp = none(ValidIpAddress),
     extPort = none(Port),
     extMultiAddrs = newSeq[MultiAddress](),
+    extMultiAddrsOnly: bool = false,
     wsBindPort: Port = Port(8000),
     wsEnabled: bool = false,
     wssEnabled: bool = false,
@@ -125,20 +126,21 @@ proc init*(T: type NetConfig,
 
   var announcedAddresses = newSeq[MultiAddress]()
 
-  if hostExtAddress.isSome():
-    announcedAddresses.add(hostExtAddress.get())
-  else:
-    announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
+  if not extMultiAddrsOnly:
+    if hostExtAddress.isSome():
+      announcedAddresses.add(hostExtAddress.get())
+    else:
+      announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
 
+    if wsExtAddress.isSome():
+      announcedAddresses.add(wsExtAddress.get())
+    elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
+      # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
+      announcedAddresses.add(wsHostAddress.get())
+  
   # External multiaddrs that the operator may have configured
   if extMultiAddrs.len > 0:
     announcedAddresses.add(extMultiAddrs)
-
-  if wsExtAddress.isSome():
-    announcedAddresses.add(wsExtAddress.get())
-  elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
-    # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
-    announcedAddresses.add(wsHostAddress.get())
 
   let
     # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
