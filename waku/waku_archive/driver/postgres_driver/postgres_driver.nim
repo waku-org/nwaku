@@ -32,13 +32,14 @@ proc createTableQuery(): string =
   " timestamp BIGINT NOT NULL," &
   " id VARCHAR NOT NULL," &
   " storedAt BIGINT NOT NULL," &
+  " messageHash VARCHAR NOT NULL," &
   " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ");"
 
 proc insertRow(): string =
   # TODO: get the sql queries from a file
- """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
+ """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
+  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"""
 
 const MaxNumConns = 5 #TODO: we may need to set that from app args (maybe?)
 
@@ -99,6 +100,7 @@ method put*(s: PostgresDriver,
 
   let ret = await s.connPool.runStmt(insertRow(),
                                      @[toHex(digest.data),
+                                       toHex(digest.data),
                                        $receivedTime,
                                        message.contentTopic,
                                        toHex(message.payload),
@@ -147,7 +149,7 @@ method getAllMessages*(s: PostgresDriver):
 
   let rowsRes = await s.connPool.query("""SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
-                                       id FROM messages ORDER BY storedAt ASC""",
+                                       id, messageHash FROM messages ORDER BY storedAt ASC""",
                                        newSeq[string](0))
 
   if rowsRes.isErr():
@@ -173,7 +175,7 @@ method getMessages*(s: PostgresDriver,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   var query = """SELECT storedAt, contentTopic, payload,
-  pubsubTopic, version, timestamp, id FROM messages"""
+  pubsubTopic, version, timestamp, id, messageHash FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
