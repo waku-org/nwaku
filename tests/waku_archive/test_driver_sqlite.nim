@@ -60,7 +60,7 @@ suite "SQLite driver":
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, msg, digest, messageHash, storeTimestamp) = item
+        let (pubsubTopic, msg, digest, storeTimestamp) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
 
