@@ -71,7 +71,7 @@ Ensure all items in this list are ticked:
 ### After the release
 
 1. Announce the release on Twitter, Discord and other channels.
-2. Deploy the release image to [Dockerhub](https://hub.docker.com/layers/wakuorg/nwaku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/manual/build).
+2. Deploy the release image to [Dockerhub](https://hub.docker.com/layers/wakuorg/nwaku/a5f8b9/images/sha256-88691a8f82bd6a4242fa99053a65b7fc4762b23a2b4e879d0f8b578c798a0e09?context=explore) by triggering [the manual Jenkins deployment job](https://ci.infra.status.im/job/nim-waku/job/docker-manual/).
   > Ensure the following build parameters are set:
   > - `MAKE_TARGET`: `wakunode2`
   > - `IMAGE_TAG`: the release tag (e.g. `v0.16.0`)
@@ -87,3 +87,19 @@ Ensure all items in this list are ticked:
    - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
+
+### Performing a patch release
+
+1. Cherry-pick the relevant commits from master to the release branch 
+
+    ```
+    git cherry-pick <commit-hash>
+    ```
+
+2. Create a release-candidate tag with the same name as release and `-rc.N` suffix
+
+3. Update `CHANGELOG.md`. From the release branch, use the helper Make target after having cherry-picked the commits. Create a new branch and raise a PR with the changelog updates to master.
+
+4. Once the release-candidate has been validated, cherry-pick the changelog update from master to the release branch. Create a final release tag and push it.
+
+5. Create a [Github release](https://github.com/waku-org/nwaku/releases) from the release tag and follow the same post-release process as usual.
