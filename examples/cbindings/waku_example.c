@@ -30,6 +30,12 @@ struct ConfigNode {
     char  peers[2048];
 };
 
+// libwaku Context
+void* ctx;
+
+// For the case of C language we don't need to store a particular userData
+void* userData = NULL;
+
 // Arguments parsing
 static char doc[] = "\nC example that shows how to use the waku library.";
 static char args_doc[] = "";
@@ -78,8 +84,18 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
+void event_handler(int callerRet, const char* msg, size_t len) {
+    if (callerRet == RET_ERR) {
+        printf("Error: %s\n", msg);
+        exit(1);
+    }
+    else if (callerRet == RET_OK) {
+        printf("Receiving message %s\n", msg);
+    }
+}
+
 char* contentTopic = NULL;
-void handle_content_topic(const char* msg, size_t len) {
+void handle_content_topic(int callerRet, const char* msg, size_t len) {
     if (contentTopic != NULL) {
         free(contentTopic);
     }
@@ -89,7 +105,7 @@ void handle_content_topic(const char* msg, size_t len) {
 }
 
 char* publishResponse = NULL;
-void handle_publish_ok(const char* msg, size_t len) {
+void handle_publish_ok(int callerRet, const char* msg, size_t len) {
     printf("Publish Ok: %s %lu\n", msg, len);
 
     if (publishResponse != NULL) {
@@ -100,22 +116,19 @@ void handle_publish_ok(const char* msg, size_t len) {
     strcpy(publishResponse, msg);
 }
 
-void handle_error(const char* msg, size_t len) {
-    printf("Error: %s\n", msg);
-    exit(1);
-}
-
 #define MAX_MSG_SIZE 65535
 
 void publish_message(char* pubsubTopic, const char* msg) {
     char jsonWakuMsg[MAX_MSG_SIZE];
     char *msgPayload = b64_encode(msg, strlen(msg));
 
-    WAKU_CALL( waku_content_topic("appName",
+    WAKU_CALL( waku_content_topic(RET_OK,
+                                  "appName",
                                   1,
                                   "contentTopicName",
                                   "encoding",
-                                  handle_content_topic) );
+                                  handle_content_topic,
+                                  userData) );
 
     snprintf(jsonWakuMsg,
              MAX_MSG_SIZE,
@@ -124,10 +137,12 @@ void publish_message(char* pubsubTopic, const char* msg) {
 
     free(msgPayload);
 
-    WAKU_CALL( waku_relay_publish(pubsubTopic,
+    WAKU_CALL( waku_relay_publish(&ctx,
+                                  pubsubTopic,
                                   jsonWakuMsg,
                                   10000 /*timeout ms*/,
-                                  handle_error) );
+                                  event_handler,
+                                  userData) );
 
     printf("waku relay response [%s]\n", publishResponse);
 }
@@ -137,15 +152,11 @@ void show_help_and_exit() {
     exit(1);
 }
 
-void event_handler(const char* msg, size_t len) {
-    printf("Receiving message %s\n", msg);
-}
-
-void print_default_pubsub_topic(const char* msg, size_t len) {
+void print_default_pubsub_topic(int callerRet, const char* msg, size_t len) {
     printf("Default pubsub topic: %s\n", msg);
 }
 
-void print_waku_version(const char* msg, size_t len) {
+void print_waku_version(int callerRet, const char* msg, size_t len) {
     printf("Git Version: %s\n", msg);
 }
 
@@ -186,8 +197,10 @@ void handle_user_input() {
         char pubsubTopic[128];
         scanf("%127s", pubsubTopic);
 
-        WAKU_CALL( waku_relay_subscribe(pubsubTopic,
-                                        handle_error) );
+        WAKU_CALL( waku_relay_subscribe(&ctx,
+                                        pubsubTopic,
+                                        event_handler,
+                                        userData) );
         printf("The subscription went well\n");
 
         show_main_menu();
@@ -199,7 +212,7 @@ void handle_user_input() {
         printf("e.g.: /ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\n");
         char peerAddr[512];
         scanf("%511s", peerAddr);
-        WAKU_CALL(waku_connect(peerAddr, 10000 /* timeoutMs */, handle_error));
+        WAKU_CALL(waku_connect(&ctx, peerAddr, 10000 /* timeoutMs */, event_handler, userData));
         show_main_menu();
     break;
 
@@ -239,6 +252,8 @@ int main(int argc, char** argv) {
         show_help_and_exit();
     }
 
+    ctx = waku_init(event_handler, userData);
+
     char jsonConfig[1024];
     snprintf(jsonConfig, 1024, "{ \
                                     \"host\": \"%s\",   \
@@ -250,25 +265,29 @@ int main(int argc, char** argv) {
                                     cfgNode.key,
                                     cfgNode.relay ? "true":"false");
 
-    WAKU_CALL( waku_default_pubsub_topic(print_default_pubsub_topic) );
-    WAKU_CALL( waku_version(print_waku_version) );
+    WAKU_CALL( waku_default_pubsub_topic(&ctx, print_default_pubsub_topic, userData) );
+    WAKU_CALL( waku_version(&ctx, print_waku_version, userData) );
 
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    WAKU_CALL( waku_new(jsonConfig, handle_error) );
+    WAKU_CALL( waku_new(&ctx, jsonConfig, event_handler, userData) );
 
-    waku_set_event_callback(event_handler);
-    waku_start();
+    waku_set_event_callback(event_handler, userData);
+    waku_start(&ctx, event_handler, userData);
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
 
-    WAKU_CALL( waku_connect(cfgNode.peers,
+    WAKU_CALL( waku_connect(&ctx,
+                            cfgNode.peers,
                             10000 /* timeoutMs */,
-                            handle_error) );
+                            event_handler,
+                            userData) );
 
-    WAKU_CALL( waku_relay_subscribe("/waku/2/default-waku/proto",
-                                    handle_error) );
+    WAKU_CALL( waku_relay_subscribe(&ctx,
+                                    "/waku/2/default-waku/proto",
+                                    event_handler,
+                                    userData) );
     show_main_menu();
     while(1) {
         handle_user_input();
