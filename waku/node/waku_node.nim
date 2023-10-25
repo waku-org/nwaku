@@ -769,7 +769,7 @@ proc toArchiveQuery(request: HistoryQuery): ArchiveQuery =
   ArchiveQuery(
     pubsubTopic: request.pubsubTopic,
     contentTopics: request.contentTopics,
-    cursor: request.cursor.map(proc(cursor: HistoryCursor): ArchiveCursor = ArchiveCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, digest: cursor.digest)),
+    cursor: request.cursor.map(proc(cursor: HistoryCursor): ArchiveCursor = ArchiveCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, messageHash: cursor.messageHash)),
     startTime: request.startTime,
     endTime: request.endTime,
     pageSize: request.pageSize.uint,
@@ -793,7 +793,7 @@ proc toHistoryResult*(res: ArchiveResult): HistoryResult =
     let response = res.get()
     ok(HistoryResponse(
       messages: response.messages,
-      cursor: response.cursor.map(proc(cursor: ArchiveCursor): HistoryCursor = HistoryCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, digest: cursor.digest)),
+      cursor: response.cursor.map(proc(cursor: ArchiveCursor): HistoryCursor = HistoryCursor(pubsubTopic: cursor.pubsubTopic, senderTime: cursor.senderTime, storeTime: cursor.storeTime, messageHash: cursor.messageHash)),
     ))
 
 proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =

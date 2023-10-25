@@ -31,44 +31,44 @@ suite "Queue Driver - index":
 
   ## Test vars
   let
-    smallIndex1 = Index(digest: hashFromStr("1234"),
+    smallIndex1 = Index(messageHash: hashFromStr("1234"),
                         receiverTime: getNanosecondTime(0),
                         senderTime: getNanosecondTime(1000))
-    smallIndex2 = Index(digest: hashFromStr("1234567"), # digest is less significant than senderTime
+    smallIndex2 = Index(messageHash: hashFromStr("1234567"), # messageHash is less significant than senderTime
                         receiverTime: getNanosecondTime(0),
                         senderTime: getNanosecondTime(1000))
-    largeIndex1 = Index(digest: hashFromStr("1234"),
+    largeIndex1 = Index(messageHash: hashFromStr("1234"),
                         receiverTime: getNanosecondTime(0),
                         senderTime: getNanosecondTime(9000)) # only senderTime differ from smallIndex1
-    largeIndex2 = Index(digest: hashFromStr("12345"), # only digest differs from smallIndex1
+    largeIndex2 = Index(messageHash: hashFromStr("12345"), # only messageHash differs from smallIndex1
                         receiverTime: getNanosecondTime(0),
                         senderTime: getNanosecondTime(1000))
-    eqIndex1 = Index(digest: hashFromStr("0003"),
+    eqIndex1 = Index(messageHash: hashFromStr("0003"),
                      receiverTime: getNanosecondTime(0),
                      senderTime: getNanosecondTime(54321))
-    eqIndex2 = Index(digest: hashFromStr("0003"),
+    eqIndex2 = Index(messageHash: hashFromStr("0003"),
                      receiverTime: getNanosecondTime(0),
                      senderTime: getNanosecondTime(54321))
-    eqIndex3 = Index(digest: hashFromStr("0003"),
+    eqIndex3 = Index(messageHash: hashFromStr("0003"),
                      receiverTime: getNanosecondTime(9999), # receiverTime difference should have no effect on comparisons
                      senderTime: getNanosecondTime(54321))
-    diffPsTopic = Index(digest: hashFromStr("1234"),
+    diffPsTopic = Index(messageHash: hashFromStr("1234"),
                         receiverTime: getNanosecondTime(0),
                         senderTime: getNanosecondTime(1000),
                         pubsubTopic: "zzzz")
-    noSenderTime1 = Index(digest: hashFromStr("1234"),
+    noSenderTime1 = Index(messageHash: hashFromStr("1234"),
                           receiverTime: getNanosecondTime(1100),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
-    noSenderTime2 = Index(digest: hashFromStr("1234"),
+    noSenderTime2 = Index(messageHash: hashFromStr("1234"),
                           receiverTime: getNanosecondTime(10000),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
-    noSenderTime3 = Index(digest: hashFromStr("1234"),
+    noSenderTime3 = Index(messageHash: hashFromStr("1234"),
                           receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "aaaa")
-    noSenderTime4 = Index(digest: hashFromStr("0"),
+    noSenderTime4 = Index(messageHash: hashFromStr("0"),
                           receiverTime: getNanosecondTime(1200),
                           senderTime: getNanosecondTime(0),
                           pubsubTopic: "zzzz")
@@ -156,8 +156,8 @@ suite "Queue Driver - index":
 
     ## Then
     check:
-      index.digest.data.len != 0
-      index.digest.data.len == 32 # sha2 output length in bytes
+      index.messageHash.data.len != 0
+      index.messageHash.data.len == 32 # sha2 output length in bytes
       index.receiverTime == ts2 # the receiver timestamp should be a non-zero value
       index.senderTime == ts
       index.pubsubTopic == DefaultContentTopic
@@ -177,4 +177,4 @@ suite "Queue Driver - index":
 
     ## Then
     check:
-      index1.digest == index2.digest
+      index1.messageHash == index2.messageHash

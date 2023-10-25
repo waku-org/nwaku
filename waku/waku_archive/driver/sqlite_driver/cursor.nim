@@ -10,4 +10,4 @@ import
 
 type DbCursor* = (Timestamp, seq[byte], PubsubTopic)
 
-proc toDbCursor*(c: ArchiveCursor): DbCursor = (c.storeTime, @(c.digest.data), c.pubsubTopic)
+proc toDbCursor*(c: ArchiveCursor): DbCursor = (c.storeTime, @(c.messageHash.data), c.pubsubTopic)

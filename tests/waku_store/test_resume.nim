@@ -11,7 +11,7 @@ import
   ../../waku/node/message_store/sqlite_store,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
-  ../../waku/waku_store,
+  ../../waku/waku_store
   ./testlib/common,
   ./testlib/switch
 
@@ -58,7 +58,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp).isOk()
 
       store
 
@@ -76,7 +76,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList2:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp).isOk()
 
       store
 
@@ -272,7 +272,7 @@ suite "WakuNode - waku store":
     # Insert the same message in both node's store
     let
       receivedTime3 = now() + getNanosecondTime(10)
-      digest3 = computeDigest(msg3)
+      digest3 = computeDigest(msg3, DefaultPubsubTopic)
     require server.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
     require client.wakuStore.store.put(DefaultPubsubTopic, msg3, digest3, receivedTime3).isOk()
 

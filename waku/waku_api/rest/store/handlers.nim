@@ -76,7 +76,7 @@ proc parseTime(input: Option[string]):
 proc parseCursor(parsedPubsubTopic: Option[string],
                  senderTime: Option[string],
                  storeTime: Option[string],
-                 digest: Option[string]):
+                 messageHash: Option[string]):
   Result[Option[HistoryCursor], string] =
 
   # Parse sender time
@@ -90,7 +90,7 @@ proc parseCursor(parsedPubsubTopic: Option[string],
     return err(parsedStoreTime.error)
 
   # Parse message digest
-  let parsedMsgDigest = parseMsgDigest(digest)
+  let parsedMsgDigest = parseMsgDigest(messageHash)
   if not parsedMsgDigest.isOk():
     return err(parsedMsgDigest.error)
 
@@ -105,7 +105,7 @@ proc parseCursor(parsedPubsubTopic: Option[string],
                 pubsubTopic: parsedPubsubTopic.get(),
                 senderTime: parsedSenderTime.value.get(),
                 storeTime: parsedStoreTime.value.get(),
-                digest: parsedMsgDigest.value.get())
+                messageHash: parsedMsgDigest.value.get())
                 ))
   else:
     return ok(none(HistoryCursor))
@@ -115,7 +115,7 @@ proc createHistoryQuery(pubsubTopic: Option[string],
                         contentTopics: Option[string],
                         senderTime: Option[string],
                         storeTime: Option[string],
-                        digest: Option[string],
+                        messageHash: Option[string],
                         startTime: Option[string],
                         endTime: Option[string],
                         pageSize: Option[string],
@@ -142,7 +142,7 @@ proc createHistoryQuery(pubsubTopic: Option[string],
   let parsedCursor = ? parseCursor(parsedPubsubTopic,
                                    senderTime,
                                    storeTime,
-                                   digest)
+                                   messageHash)
 
   # Parse page size field
   var parsedPagedSize = DefaultPageSize
@@ -195,7 +195,7 @@ proc installStoreV1Handler(router: var RestRouter,
       contentTopics: Option[string],
       senderTime: Option[string],
       storeTime: Option[string],
-      digest: Option[string],
+      messageHash: Option[string],
       startTime: Option[string],
       endTime: Option[string],
       pageSize: Option[string],
@@ -228,7 +228,7 @@ proc installStoreV1Handler(router: var RestRouter,
                         contentTopics.toOpt(),
                         senderTime.toOpt(),
                         storeTime.toOpt(),
-                        digest.toOpt(),
+                        messageHash.toOpt(),
                         startTime.toOpt(),
                         endTime.toOpt(),
                         pageSize.toOpt(),

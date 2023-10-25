@@ -27,13 +27,15 @@ type WakuStoreResult*[T] = Result[T, string]
 
 type MessageDigest* = MDigest[256]
 
-proc computeDigest*(msg: WakuMessage): MessageDigest =
+proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageDigest =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()
 
-  ctx.update(msg.contentTopic.toBytes())
+  ctx.update(pubSubTopic.toBytes())
   ctx.update(msg.payload)
+  ctx.update(msg.contentTopic.toBytes())
+  ctx.update(msg.meta)
 
   # Computes the hash
   return ctx.finish()
@@ -46,7 +48,7 @@ type
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    digest*: MessageDigest
+    messageHash*: MessageDigest
 
   HistoryQuery* = object
     pubsubTopic*: Option[PubsubTopic]

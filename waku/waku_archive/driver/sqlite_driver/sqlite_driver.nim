@@ -65,7 +65,7 @@ method put*(s: SqliteDriver,
             Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
   let res = s.insertStmt.exec((
-    @(digest.data),                # id
+    @(digest.data),                # messageHash
     receivedTime,                  # storedAt
     toBytes(message.contentTopic), # contentTopic
     message.payload,               # payload

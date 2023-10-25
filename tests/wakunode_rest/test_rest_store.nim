@@ -32,11 +32,11 @@ logScope:
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
-    digest = waku_archive.computeDigest(message, pubsubTopic)
+    messageHash = waku_archive.computeDigest(message, pubsubTopic)
     receivedTime = if message.timestamp > 0: message.timestamp
                   else: getNanosecondTime(getTime().toUnixFloat())
 
-  store.put(pubsubTopic, message, digest, receivedTime)
+  store.put(pubsubTopic, message, messageHash, receivedTime)
 
 # Creates a new WakuNode
 proc testWakuNode(): WakuNode =
@@ -60,7 +60,7 @@ procSuite "Waku v2 Rest API - Store":
       payload: @[byte('H'), byte('i'), byte('!')]
     )
 
-    let messageDigest = waku_store.computeDigest(wakuMsg)
+    let messageDigest = waku_store.computeDigest(wakuMsg, DefaultPubsubTopic)
     let restMsgDigest = some(messageDigest.toRestStringMessageDigest())
     let parsedMsgDigest = restMsgDigest.parseMsgDigest().value
 
@@ -129,7 +129,7 @@ procSuite "Waku v2 Rest API - Store":
                         "6", # end time
                         "", # sender time
                         "", # store time
-                        "", # base64-encoded digest
+                        "", # base64-encoded messageHash
                         "", # empty implies default page size
                         "true" # ascending
           )
@@ -224,7 +224,7 @@ procSuite "Waku v2 Rest API - Store":
       # populate the cursor for next page
       if response.data.cursor.isSome():
         reqPubsubTopic = response.data.cursor.get().pubsubTopic
-        reqDigest = response.data.cursor.get().digest
+        reqDigest = response.data.cursor.get().messageHash
         reqSenderTime = response.data.cursor.get().senderTime
         reqStoreTime = response.data.cursor.get().storeTime
 

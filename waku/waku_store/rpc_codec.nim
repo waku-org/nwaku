@@ -23,7 +23,7 @@ proc encode*(index: PagingIndexRPC): ProtoBuffer =
   ## returns the resultant ProtoBuffer
   var pb = initProtoBuffer()
 
-  pb.write3(1, index.digest.data)
+  pb.write3(1, index.messageHash.data)
   pb.write3(2, zint64(index.receiverTime))
   pb.write3(3, zint64(index.senderTime))
   pb.write3(4, index.pubsubTopic)
@@ -38,13 +38,13 @@ proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtobufResult[T] =
 
   var data: seq[byte]
   if not ?pb.getField(1, data):
-    return err(ProtobufError.missingRequiredField("digest"))
+    return err(ProtobufError.missingRequiredField("messageHash"))
   else:
-    var digest = MessageDigest()
+    var messageHash = MessageDigest()
     for count, b in data:
-      digest.data[count] = b
+      messageHash.data[count] = b
 
-    rpc.digest = digest
+    rpc.messageHash = messageHash
 
   var receiverTime: zint64
   if not ?pb.getField(2, receiverTime):

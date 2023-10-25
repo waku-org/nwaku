@@ -14,12 +14,12 @@ logScope:
   topics = "waku archive migration"
 
 
-const SchemaVersion* = 7 # increase this when there is an update in the database schema
+const SchemaVersion* = 8 # increase this when there is an update in the database schema
 
 template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".."
 const MessageStoreMigrationPath: string = projectRoot / "migrations" / "message_store"
 
-proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
+proc isSchemaVersion8*(db: SqliteDatabase): DatabaseResult[bool] =
   ## Temporary proc created to analyse when the table actually belongs to the SchemaVersion 7.
   ##
   ## During many nwaku versions, 0.14.0 until 0.18.0, the SchemaVersion wasn't set or checked.
@@ -48,7 +48,7 @@ proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
     return ok(true)
 
   else:
-    info "Not considered schema version 7"
+    info "Not considered schema version 8"
     ok(false)
 
 proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
@@ -63,12 +63,12 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   debug "starting message store's sqlite database migration"
 
   let userVersion = ? db.getUserVersion()
-  let isSchemaVersion7 = ? db.isSchemaVersion7()
+  let isSchemaVersion8 = ? db.isSchemaVersion8()
 
-  if userVersion == 0'i64 and isSchemaVersion7:
+  if userVersion == 0'i64 and isSchemaVersion8:
     info "We found user_version 0 but the database schema reflects the user_version 7"
     ## Force the correct schema version
-    ? db.setUserVersion( 7 )
+    ? db.setUserVersion( 8 )
 
   let migrationRes = migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
   if migrationRes.isErr():

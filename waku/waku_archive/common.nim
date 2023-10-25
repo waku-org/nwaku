@@ -38,7 +38,7 @@ type DbCursor = object
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    digest*: MessageDigest
+    messageHash*: MessageDigest
 
 
 ## Public API types

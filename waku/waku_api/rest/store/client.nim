@@ -60,7 +60,7 @@ proc getStoreMessagesV1*(
                          # Optional cursor fields
                          senderTime: string = "",
                          storeTime: string = "",
-                         digest: string = "", # base64-encoded digest
+                         messageHash: string = "", # base64-encoded digest
 
                          pageSize: string = "",
                          ascending: string = ""

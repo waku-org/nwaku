@@ -23,7 +23,7 @@ proc genIndexedWakuMessage(i: int8): IndexedWakuMessage =
     cursor = Index(
       receiverTime: Timestamp(i),
       senderTime: Timestamp(i),
-      digest: MessageDigest(data: data),
+      messageHash: MessageDigest(data: data),
       pubsubTopic: "test-pubsub-topic"
     )
 

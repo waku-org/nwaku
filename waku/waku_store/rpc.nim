@@ -18,25 +18,25 @@ type PagingIndexRPC* = object
   pubsubTopic*: PubsubTopic
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
-  digest*: MessageDigest # calculated over payload and content topic
+  messageHash*: MessageDigest # calculated over payload and content topic
 
 proc `==`*(x, y: PagingIndexRPC): bool =
   ## receiverTime plays no role in index equality
   (x.senderTime == y.senderTime) and
-  (x.digest == y.digest) and
+  (x.messageHash == y.messageHash) and
   (x.pubsubTopic == y.pubsubTopic)
 
 proc compute*(T: type PagingIndexRPC, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
-    digest = computeDigest(msg)
+    digest = computeDigest(msg, pubsubTopic)
     senderTime = msg.timestamp
 
   PagingIndexRPC(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
     receiverTime: receivedTime,
-    digest: digest
+    messageHash: digest
   )
 
 
@@ -98,7 +98,7 @@ proc toRPC*(cursor: HistoryCursor): PagingIndexRPC {.gcsafe.}=
     pubsubTopic: cursor.pubsubTopic,
     senderTime: cursor.senderTime,
     receiverTime: cursor.storeTime,
-    digest: cursor.digest
+    messageHash: cursor.messageHash
   )
 
 proc toAPI*(rpc: PagingIndexRPC): HistoryCursor =
@@ -106,7 +106,7 @@ proc toAPI*(rpc: PagingIndexRPC): HistoryCursor =
     pubsubTopic: rpc.pubsubTopic,
     senderTime: rpc.senderTime,
     storeTime: rpc.receiverTime,
-    digest: rpc.digest
+    messageHash: rpc.messageHash
   )
 
 

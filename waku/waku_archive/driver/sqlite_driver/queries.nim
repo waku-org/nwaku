@@ -70,9 +70,9 @@ proc createTableQuery(table: string): SqlQueryStr =
   " payload BLOB," &
   " version INTEGER NOT NULL," &
   " timestamp INTEGER NOT NULL," &
-  " id BLOB," &
+  " messageHash BLOB," &
   " storedAt INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, messageHash)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
@@ -93,7 +93,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase):
 
 
 proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
-  "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
+  "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, messageHash);"
 
 proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createHistoryQueryIndexQuery(DbTable)
@@ -105,7 +105,7 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
 type InsertMessageParams* = (seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
+  "INSERT INTO " & table & "(messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
   " VALUES (?, ?, ?, ?, ?, ?, ?);"
 
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
@@ -181,9 +181,9 @@ proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64):
 ## Delete oldest messages not within limit
 
 proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
-  "DELETE FROM " & table & " WHERE (storedAt, id, pubsubTopic) NOT IN (" &
-  " SELECT storedAt, id, pubsubTopic FROM " & table &
-  " ORDER BY storedAt DESC, id DESC" &
+  "DELETE FROM " & table & " WHERE (storedAt, messageHash, pubsubTopic) NOT IN (" &
+  " SELECT storedAt, messageHash, pubsubTopic FROM " & table &
+  " ORDER BY storedAt DESC, messageHash DESC" &
   " LIMIT " & $limit &
   ");"
 
@@ -197,7 +197,7 @@ proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int):
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id" &
+  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, messageHash" &
   " FROM " & table &
   " ORDER BY storedAt ASC"
 
@@ -211,10 +211,10 @@ proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic,
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
       wakuMessage = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
-      digest = queryRowDigestCallback(s, digestCol=6)
+      messageHash = queryRowDigestCallback(s, digestCol=6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
 
-    rows.add((pubsubTopic, wakuMessage, digest, storedAt))
+    rows.add((pubsubTopic, wakuMessage, messageHash, storedAt))
 
   let query = selectAllMessagesQuery(DbTable)
   let res = db.query(query, queryRowCallback)
@@ -246,7 +246,7 @@ proc whereClause(cursor: Option[DbCursor],
         none(string)
       else:
         let comp = if ascending: ">" else: "<"
-        some("(storedAt, id) " & comp & " (?, ?)")
+        some("(storedAt, messageHash) " & comp & " (?, ?)")
 
   let pubsubTopicClause = if pubsubTopic.isNone():
         none(string)
@@ -280,13 +280,13 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
 
   var query: string
 
-  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, messageHash"
   query &= " FROM " & table
 
   if where.isSome():
     query &= " WHERE " & where.get()
 
-  query &= " ORDER BY storedAt " & order & ", id " & order
+  query &= " ORDER BY storedAt " & order & ", messageHash " & order
   query &= " LIMIT " & $limit & ";"
 
   query
@@ -308,11 +308,11 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
   # Bind params
   var paramIndex = 1
 
-  if cursor.isSome():  # cursor = storedAt, id, pubsubTopic
-    let (storedAt, id, _) = cursor.get()
+  if cursor.isSome():  # cursor = storedAt, messageHash, pubsubTopic
+    let (storedAt, messageHash, _) = cursor.get()
     checkErr bindParam(s, paramIndex, storedAt)
     paramIndex += 1
-    checkErr bindParam(s, paramIndex, id)
+    checkErr bindParam(s, paramIndex, messageHash)
     paramIndex += 1
 
   if pubsubTopic.isSome():
@@ -369,10 +369,10 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
       message = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
-      digest = queryRowDigestCallback(s, digestCol=6)
+      messageHash = queryRowDigestCallback(s, digestCol=6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
 
-    messages.add((pubsubTopic, message, digest, storedAt))
+    messages.add((pubsubTopic, message, messageHash, storedAt))
 
   let query = block:
     let where = whereClause(cursor, pubsubTopic, contentTopic, startTime, endTime, ascending)

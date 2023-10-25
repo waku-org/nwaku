@@ -25,7 +25,7 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
       index: Index(
         receiverTime: Timestamp(i),
         senderTime: Timestamp(i),
-        digest: MessageDigest(data: data)
+        messageHash: MessageDigest(data: data)
       )
     )
     discard testQueueDriver.add(msg)
@@ -156,7 +156,7 @@ procSuite "Queue driver - pagination":
       pubsubTopic: DefaultPubsubTopic,
       senderTime: msg.timestamp,
       storeTime: msg.timestamp,
-      digest: computeDigest(msg, DefaultPubsubTopic)
+      messageHash: computeDigest(msg, DefaultPubsubTopic)
     ).toIndex()
 
     let
@@ -337,7 +337,7 @@ procSuite "Queue driver - pagination":
       pubsubTopic: DefaultPubsubTopic,
       senderTime: msg.timestamp,
       storeTime: msg.timestamp,
-      digest: computeDigest(msg, DefaultPubsubTopic)
+      messageHash: computeDigest(msg, DefaultPubsubTopic)
     ).toIndex()
 
     let

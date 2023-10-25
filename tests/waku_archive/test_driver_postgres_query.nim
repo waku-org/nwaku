@@ -37,7 +37,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message, pubsubTopic)
+    messageHash: computeDigest(message, pubsubTopic)
   )
 
 suite "Postgres driver - query by content topic":

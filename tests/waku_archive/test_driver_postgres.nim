@@ -19,7 +19,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic,
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message, pubsubTopic)
+    messageHash: computeDigest(message, pubsubTopic)
   )
 
 suite "Postgres driver":
@@ -87,10 +87,10 @@ suite "Postgres driver":
     require:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, actualMsg, digest, storeTimestamp) = item
+        let (pubsubTopic, actualMsg, messageHash, storeTimestamp) = item
         actualMsg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic and
-        toHex(computedDigest.data) == toHex(digest) and
+        toHex(computedDigest.data) == toHex(messageHash) and
         toHex(actualMsg.payload) == toHex(msg.payload)
 
     (await driver.close()).expect("driver to close")

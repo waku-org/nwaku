@@ -24,7 +24,7 @@ type
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    digest*: MessageDigest
+    messageHash*: MessageDigest
 
   StoreRequestRest* = object
     # inspired by https://github.com/waku-org/nwaku/blob/f95147f5b7edfd45f914586f2d41cd18fb0e0d18/waku/v2//waku_store/common.nim#L52
@@ -119,7 +119,7 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
       pubsubTopic: histResp.cursor.get().pubsubTopic,
       senderTime: histResp.cursor.get().senderTime,
       storeTime: histResp.cursor.get().storeTime,
-      digest: histResp.cursor.get().digest
+      messageHash: histResp.cursor.get().messageHash
     ))
 
   StoreResponseRest(
@@ -247,7 +247,7 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.writeField("pubsub_topic", value.pubsubTopic)
   writer.writeField("sender_time", value.senderTime)
   writer.writeField("store_time", value.storeTime)
-  writer.writeField("digest", value.digest)
+  writer.writeField("messageHash", value.messageHash)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
@@ -257,7 +257,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     pubsubTopic = none(PubsubTopic)
     senderTime = none(Timestamp)
     storeTime = none(Timestamp)
-    digest = none(MessageDigest)
+    messageHash = none(MessageDigest)
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -273,10 +273,10 @@ proc readValue*(reader: var JsonReader[RestJson],
       if storeTime.isSome():
         reader.raiseUnexpectedField("Multiple `store_time` fields found", "HistoryCursorRest")
       storeTime = some(reader.readValue(Timestamp))
-    of "digest":
-      if digest.isSome():
-        reader.raiseUnexpectedField("Multiple `digest` fields found", "HistoryCursorRest")
-      digest = some(reader.readValue(MessageDigest))
+    of "messageHash":
+      if messageHash.isSome():
+        reader.raiseUnexpectedField("Multiple `messageHash` fields found", "HistoryCursorRest")
+      messageHash = some(reader.readValue(MessageDigest))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
@@ -289,14 +289,14 @@ proc readValue*(reader: var JsonReader[RestJson],
   if storeTime.isNone():
     reader.raiseUnexpectedValue("Field `store_time` is missing")
 
-  if digest.isNone():
-    reader.raiseUnexpectedValue("Field `digest` is missing")
+  if messageHash.isNone():
+    reader.raiseUnexpectedValue("Field `messageHash` is missing")
 
   value = HistoryCursorRest(
     pubsubTopic: pubsubTopic.get(),
     senderTime: senderTime.get(),
     storeTime: storeTime.get(),
-    digest: digest.get()
+    messageHash: messageHash.get()
   )
 
 ## End of HistoryCursorRest serde

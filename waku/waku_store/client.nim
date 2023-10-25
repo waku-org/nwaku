@@ -153,11 +153,11 @@ when defined(waku_exp_store_resume):
 
   proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
     let
-      digest = waku_archive.computeDigest(message, pubsubTopic)
+      messageHash = waku_archive.computeDigest(message, pubsubTopic)
       receivedTime = if message.timestamp > 0: message.timestamp
                     else: getNanosecondTime(getTime().toUnixFloat())
 
-    store.put(pubsubTopic, message, digest, receivedTime)
+    store.put(pubsubTopic, message, messageHash, receivedTime)
 
   proc resume*(w: WakuStoreClient,
               peerList = none(seq[RemotePeerInfo]),

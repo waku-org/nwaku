@@ -138,7 +138,7 @@ proc getPage(driver: QueueDriver,
 
       numberOfItems += 1
 
-      outSeq.add((key.pubsubTopic, data.msg, @(key.digest.data), key.receiverTime))
+      outSeq.add((key.pubsubTopic, data.msg, @(key.messageHash.data), key.receiverTime))
 
     currentEntry = if forward: w.next()
                    else: w.prev()
@@ -227,10 +227,10 @@ proc add*(driver: QueueDriver, msg: IndexedWakuMessage): ArchiveDriverResult[voi
 method put*(driver: QueueDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            digest: MessageDigest,
+            messageHash: MessageDigest,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
-  let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, digest: digest)
+  let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, messageHash: messageHash)
   let message = IndexedWakuMessage(msg: message, index: index, pubsubTopic: pubsubTopic)
   return driver.add(message)
 

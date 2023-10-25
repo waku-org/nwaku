@@ -16,19 +16,19 @@ type Index* = object
   pubsubTopic*: string
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
-  digest*: MessageDigest # calculated over payload and content topic
+  messageHash*: MessageDigest # calculated over payload and content topic
 
 proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
-    digest = computeDigest(msg, pubsubTopic)
+    messageHash = computeDigest(msg, pubsubTopic)
     senderTime = msg.timestamp
 
   Index(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
     receiverTime: receivedTime,
-    digest: digest
+    messageHash: messageHash
   )
 
 
@@ -37,7 +37,7 @@ proc tohistoryCursor*(index: Index): ArchiveCursor =
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     storeTime: index.receiverTime,
-    digest: index.digest
+    messageHash: index.messageHash
   )
 
 proc toIndex*(index: ArchiveCursor): Index =
@@ -45,14 +45,14 @@ proc toIndex*(index: ArchiveCursor): Index =
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     receiverTime: index.storeTime,
-    digest: index.digest
+    messageHash: index.messageHash
   )
 
 
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index equality
   (x.senderTime == y.senderTime) and
-  (x.digest == y.digest) and
+  (x.messageHash == y.messageHash) and
   (x.pubsubTopic == y.pubsubTopic)
 
 proc cmp*(x, y: Index): int =
@@ -84,7 +84,7 @@ proc cmp*(x, y: Index): int =
     return timecmp
 
   # Continue only when timestamps are equal
-  let digestcmp = cmp(x.digest.data, y.digest.data)
+  let digestcmp = cmp(x.messageHash.data, y.messageHash.data)
   if digestcmp != 0:
     return digestcmp
 

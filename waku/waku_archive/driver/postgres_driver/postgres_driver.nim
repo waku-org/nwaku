@@ -93,12 +93,12 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            digest: MessageDigest,
+            messageHash: MessageDigest,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
 
   let ret = await s.connPool.runStmt(insertRow(),
-                                     @[toHex(digest.data),
+                                     @[toHex(messageHash.data),
                                        $receivedTime,
                                        message.contentTopic,
                                        toHex(message.payload),
@@ -116,7 +116,7 @@ proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
   var pubSubTopic: string
   var contentTopic: string
   var storedAt: int64
-  var digest: string
+  var messageHash: string
   var payload: string
 
   try:
@@ -126,7 +126,7 @@ proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
     pubSubTopic = r[3]
     version = parseUInt(r[4])
     timestamp = parseInt(r[5])
-    digest = parseHexStr(r[6])
+    messageHash = parseHexStr(r[6])
   except ValueError:
     return err("could not parse timestamp")
 
@@ -137,7 +137,7 @@ proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
 
   return ok((pubSubTopic,
              wakuMessage,
-             @(digest.toOpenArrayByte(0, digest.high)),
+             @(messageHash.toOpenArrayByte(0, messageHash.high)),
              storedAt))
 
 method getAllMessages*(s: PostgresDriver):
@@ -190,7 +190,7 @@ method getMessages*(s: PostgresDriver,
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, id) " & comp & " (?,?)")
     args.add($cursor.get().storeTime)
-    args.add(toHex(cursor.get().digest.data))
+    args.add(toHex(cursor.get().messageHash.data))
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
