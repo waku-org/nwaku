@@ -25,8 +25,7 @@ type
     reqSignal: ThreadSignalPtr
     respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
     respSignal: ThreadSignalPtr
-
-var ctx {.threadvar.}: ptr Context
+    userData*: pointer
 
 # To control when the thread is running
 var running: Atomic[bool]
@@ -70,13 +69,13 @@ proc run(ctx: ptr Context) {.thread.} =
 
   tearDownForeignThreadGc()
 
-proc createWakuThread*(): Result[void, string] =
+proc createWakuThread*(): Result[ptr Context, string] =
   ## This proc is called from the main thread and it creates
   ## the Waku working thread.
 
   waku_init()
 
-  ctx = createShared(Context, 1)
+  var ctx = createShared(Context, 1)
   ctx.reqSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqSignal ThreadSignalPtr")
   ctx.respSignal = ThreadSignalPtr.new().valueOr:
@@ -92,16 +91,17 @@ proc createWakuThread*(): Result[void, string] =
 
     return err("failed to create the Waku thread: " & getCurrentExceptionMsg())
 
-  return ok()
+  return ok(ctx)
 
-proc stopWakuNodeThread*() =
+proc stopWakuNodeThread*(ctx: ptr Context) =
   running.store(false)
   joinThread(ctx.thread)
   discard ctx.reqSignal.close()
   discard ctx.respSignal.close()
   freeShared(ctx)
 
-proc sendRequestToWakuThread*(reqType: RequestType,
+proc sendRequestToWakuThread*(ctx: ptr Context,
+                              reqType: RequestType,
                               reqContent: pointer): Result[string, string] =
 
   let req = InterThreadRequest.createShared(reqType, reqContent)

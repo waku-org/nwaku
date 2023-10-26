@@ -59,7 +59,7 @@ jobs:
           echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
           docker login -u ${QUAY_USER} -p ${QUAY_PASSWORD} quay.io
-          docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=7d .
+          docker build -t ${IMAGE} -f docker/binaries/Dockerfile.bn.amd64 --label quay.expires-after=30d .
           docker push ${IMAGE}
         env:
           QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
