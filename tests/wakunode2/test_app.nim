@@ -89,10 +89,10 @@ suite "Wakunode2 - App initialization":
       node = wakunode2.node
       typedNodeEnr = node.enr.toTypedRecord()
       typedAppEnr = wakunode2.record.toTypedRecord()
-    
+
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
     assert typedAppEnr.isOk(), $typedAppEnr.error
-    
+
     check:
       # App started properly
       not node.isNil()

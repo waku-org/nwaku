@@ -17,7 +17,7 @@ import
 
 proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey):
                       Result[enr.Record, string] =
-  
+
   var enrBuilder = EnrBuilder.init(key)
 
   enrBuilder.withIpAddressAndPorts(
@@ -28,7 +28,7 @@ proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.Pri
 
   if netConfig.wakuFlags.isSome():
     enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
-  
+
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
   let topics =
@@ -56,9 +56,9 @@ proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.Pri
       error "failed to create record", error=recordRes.error
       return err($recordRes.error)
     else: recordRes.get()
-  
+
   return ok(record)
-  
+
 proc validateExtMultiAddrs*(vals: seq[string]):
                             Result[seq[MultiAddress], string] =
   var multiaddrs: seq[MultiAddress]

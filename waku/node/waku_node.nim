@@ -1083,9 +1083,9 @@ proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
 proc printNodeNetworkInfo*(node: WakuNode): void =
   let peerInfo = node.switch.peerInfo
   var listenStr = ""
-  
+
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  
+
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
     listenStr &= fulladdr
@@ -1093,7 +1093,7 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
   ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
-  
+
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
@@ -1105,7 +1105,7 @@ proc start*(node: WakuNode) {.async.} =
   for address in node.announcedAddresses:
     if isBindIpWithZeroPort(address):
       zeroPortPresent = true
-  
+
   if not zeroPortPresent:
     printNodeNetworkInfo(node)
   else:

@@ -302,18 +302,18 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
 proc getPorts(listenAddrs: seq[MultiAddress]):
               AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
-  
+
   var tcpPort, websocketPort = none(Port)
-  
+
   for a in listenAddrs:
     if a.isWsAddress():
       if websocketPort.isNone():
         let wsAddress = initTAddress(a).valueOr:
-          return err(error)
+          return err("getPorts wsAddr error:" & $error)
         websocketPort = some(wsAddress.port)
     elif tcpPort.isNone():
       let tcpAddress = initTAddress(a).valueOr:
-        return err(error)
+        return err("getPorts tcpAddr error:" & $error)
       tcpPort = some(tcpAddress.port)
 
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
@@ -323,21 +323,21 @@ proc updateNetConfig(app: var App): AppResult[void] =
   var conf = app.conf
   let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
     return err("Could not retrieve ports " & error)
-    
+
   if tcpPort.isSome():
     conf.tcpPort = tcpPort.get()
-    
+
   if websocketPort.isSome():
     conf.websocketPort = websocketPort.get()
-    
+
   # Rebuild NetConfig with bound port values
   let netConf = networkConfiguration(conf, clientId).valueOr:
     return err("Could not update NetConfig: " & error)
-  
+
   app.netConf = netConf
 
   return ok()
-  
+
 proc updateEnr(app: var App): AppResult[void] =
 
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
@@ -349,17 +349,17 @@ proc updateEnr(app: var App): AppResult[void] =
   if app.conf.discv5Discovery:
     app.wakuDiscV5 = some(app.setupDiscoveryV5())
 
-  ok()
+  return ok()
 
 proc updateApp(app: var App): AppResult[void] =
-  
+
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
-    
+
     updateNetConfig(app).isOkOr:
-      return err(error)
-    
+      return err("error calling updateNetConfig: " & &error)
+
     updateEnr(app).isOkOr:
-      return err(error)
+      return err("error calling updateEnr: " & $error)
 
     app.node.announcedAddresses = app.netConf.announcedAddresses
 
@@ -586,7 +586,7 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
   return ok()
 
 proc startApp*(app: var App): AppResult[void] =
-  
+
   try:
     (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
       return err(error)
@@ -596,7 +596,7 @@ proc startApp*(app: var App): AppResult[void] =
   # Update app data that is set dynamically on node start
   app.updateApp().isOkOr:
     return err("Error in updateApp: " & $error)
-  
+
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
@@ -606,7 +606,7 @@ proc startApp*(app: var App): AppResult[void] =
 
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
     asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
-  
+
   return ok()
 
 
