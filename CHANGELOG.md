@@ -1,4 +1,4 @@
-## v0.21.1 (2023-10-25)
+## v0.21.1 (2023-10-26)
 
 This patch release addresses the following issues:
 - WSS connections being suddenly terminated under rare conditions
