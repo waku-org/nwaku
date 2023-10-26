@@ -365,7 +365,7 @@ proc updateApp(app: var App): AppResult[void] =
 
     printNodeNetworkInfo(app.node)
 
-  ok()
+  return ok()
 
 ## Mount protocols
 
