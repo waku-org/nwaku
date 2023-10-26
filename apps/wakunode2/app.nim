@@ -356,7 +356,7 @@ proc updateApp(app: var App): AppResult[void] =
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
 
     updateNetConfig(app).isOkOr:
-      return err("error calling updateNetConfig: " & &error)
+      return err("error calling updateNetConfig: " & $error)
 
     updateEnr(app).isOkOr:
       return err("error calling updateEnr: " & $error)
