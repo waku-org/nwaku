@@ -49,4 +49,10 @@ method execute*(p: TimeRetentionPolicy,
   if res.isErr():
     return err("failed to delete oldest messages: " & res.error)
 
+  # vacuum to get the deleted pages defragments to save storage space
+  # this will resize the database size
+  let resVaccum = await driver.performVacuum()
+  if resVaccum.isErr():
+    return err("vacuumming failed: " & resVaccum.error)
+
   return ok()
