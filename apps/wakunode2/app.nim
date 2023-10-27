@@ -614,7 +614,33 @@ proc startApp*(app: var App): AppResult[void] =
 ## Monitoring and external interfaces
 
 proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
-  let server = ? newRestHttpServer(address, port)
+
+  # Used to register api endpoints that are not currently installed as keys,
+  # values are holding error messages to be returned to the client
+  var notInstalledTab: Table[string, string] = initTable[string, string]()
+
+  proc requestErrorHandler(error: RestRequestError,
+                                request: HttpRequestRef):
+                                Future[HttpResponseRef] {.async.} =
+    case error
+    of RestRequestError.Invalid:
+      return await request.respond(Http400, "Invalid request", HttpTable.init())
+    of RestRequestError.NotFound:
+      let rootPath = request.rawPath.split("/")[1]
+      if notInstalledTab.hasKey(rootPath):
+        return await request.respond(Http404, notInstalledTab[rootPath], HttpTable.init())
+      else:
+        return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
+    of RestRequestError.InvalidContentBody:
+      return await request.respond(Http400, "Invalid content body", HttpTable.init())
+    of RestRequestError.InvalidContentType:
+      return await request.respond(Http400, "Invalid content type", HttpTable.init())
+    of RestRequestError.Unexpected:
+      return defaultResponse()
+
+    return defaultResponse()
+
+  let server = ? newRestHttpServer(address, port, requestErrorHandler = requestErrorHandler)
 
   ## Admin REST API
   installAdminApiHandlers(server.router, app.node)
@@ -641,6 +667,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
       app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
 
     installRelayApiHandlers(server.router, app.node, cache)
+  else:
+    notInstalledTab["relay"] = "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
   if conf.filternode  != "" and
@@ -652,6 +680,9 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
     let filterCache = rest_filter_api.MessageCache.init()
     rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
+  else:
+    notInstalledTab["filter"] = "/filter endpoints are not available. Please check your configuration: --filternode"
+
 
   ## Store REST API
   installStoreApiHandlers(server.router, app.node)
@@ -660,6 +691,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
   if conf.lightpushnode  != "" and
      app.node.wakuLightpushClient != nil:
     rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
+  else:
+    notInstalledTab["lightpush"] = "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
