@@ -24,7 +24,7 @@ type
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    messageHash*: MessageDigest
+    messageHash*: MessageHash
 
   StoreRequestRest* = object
     # inspired by https://github.com/waku-org/nwaku/blob/f95147f5b7edfd45f914586f2d41cd18fb0e0d18/waku/v2//waku_store/common.nim#L52
@@ -53,37 +53,37 @@ type
 
 #### Type conversion
 
-# Converts a URL-encoded-base64 string into a 'MessageDigest'
+# Converts a URL-encoded-base64 string into a 'MessageHash'
 proc parseMsgDigest*(input: Option[string]):
-          Result[Option[MessageDigest], string] =
+          Result[Option[MessageHash], string] =
 
   if not input.isSome() or input.get() == "":
-    return ok(none(MessageDigest))
+    return ok(none(MessageHash))
 
   let decodedUrl = decodeUrl(input.get())
   let base64Decoded = base64.decode(Base64String(decodedUrl))
-  var messageDigest = MessageDigest()
+  var messageHash = MessageHash()
 
   if not base64Decoded.isOk():
     return err(base64Decoded.error)
 
   let base64DecodedArr = base64Decoded.get()
   # Next snippet inspired by "nwaku/waku/waku_archive/archive.nim"
-  # TODO: Improve coherence of MessageDigest type
-  messageDigest = block:
+  # TODO: Improve coherence of MessageHash type
+  messageHash = block:
       var data: array[32, byte]
       for i in 0..<min(base64DecodedArr.len, 32):
         data[i] = base64DecodedArr[i]
 
-      MessageDigest(data: data)
+      MessageHash(data: data)
 
-  return ok(some(messageDigest))
+  return ok(some(messageHash))
 
-# Converts a given MessageDigest object into a suitable
+# Converts a given MessageHash object into a suitable
 # Base64-URL-encoded string suitable to be transmitted in a Rest
-# request-response. The MessageDigest is first base64 encoded
+# request-response. The MessageHash is first base64 encoded
 # and this result is URL-encoded.
-proc toRestStringMessageDigest*(self: MessageDigest): string =
+proc toRestStringMessageDigest*(self: MessageHash): string =
   let base64Encoded = base64.encode(self.data)
   encodeUrl($base64Encoded)
 
@@ -203,17 +203,17 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## End of StoreWakuMessage serde
 
-## Beginning of MessageDigest serde
+## Beginning of MessageHash serde
 
 proc writeValue*(writer: var JsonWriter[RestJson],
-                 value: MessageDigest)
+                 value: MessageHash)
   {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("data", base64.encode(value.data))
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson],
-                value: var MessageDigest)
+                value: var MessageHash)
   {.raises: [SerializationError, IOError].} =
   var
     data = none(seq[byte])
@@ -222,10 +222,10 @@ proc readValue*(reader: var JsonReader[RestJson],
     case fieldName
     of "data":
       if data.isSome():
-        reader.raiseUnexpectedField("Multiple `data` fields found", "MessageDigest")
+        reader.raiseUnexpectedField("Multiple `data` fields found", "MessageHash")
       let decoded = base64.decode(reader.readValue(Base64String))
       if not decoded.isOk():
-        reader.raiseUnexpectedField("Failed decoding data", "MessageDigest")
+        reader.raiseUnexpectedField("Failed decoding data", "MessageHash")
       data = some(decoded.get())
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
@@ -236,7 +236,7 @@ proc readValue*(reader: var JsonReader[RestJson],
   for i in 0..<32:
     value.data[i] = data.get()[i]
 
-## End of MessageDigest serde
+## End of MessageHash serde
 
 ## Beginning of HistoryCursorRest serde
 
@@ -257,7 +257,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     pubsubTopic = none(PubsubTopic)
     senderTime = none(Timestamp)
     storeTime = none(Timestamp)
-    messageHash = none(MessageDigest)
+    messageHash = none(MessageHash)
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -276,7 +276,7 @@ proc readValue*(reader: var JsonReader[RestJson],
     of "messageHash":
       if messageHash.isSome():
         reader.raiseUnexpectedField("Multiple `messageHash` fields found", "HistoryCursorRest")
-      messageHash = some(reader.readValue(MessageDigest))
+      messageHash = some(reader.readValue(MessageHash))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 

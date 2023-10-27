@@ -16,9 +16,9 @@ import
 # TODO: Move this into the driver implementations. We should be passing
 #  here a buffer containing a serialized implementation dependent cursor.
 
-type MessageDigest* = MDigest[256]
+type MessageHash* = MDigest[256]
 
-proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageDigest =
+proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageHash =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()
@@ -38,7 +38,7 @@ type DbCursor = object
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    messageHash*: MessageDigest
+    messageHash*: MessageHash
 
 
 ## Public API types

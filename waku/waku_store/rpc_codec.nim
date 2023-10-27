@@ -40,7 +40,7 @@ proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtobufResult[T] =
   if not ?pb.getField(1, data):
     return err(ProtobufError.missingRequiredField("messageHash"))
   else:
-    var messageHash = MessageDigest()
+    var messageHash = MessageHash()
     for count, b in data:
       messageHash.data[count] = b
 

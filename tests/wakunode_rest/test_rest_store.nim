@@ -53,19 +53,19 @@ proc testWakuNode(): WakuNode =
 ################################################################################
 procSuite "Waku v2 Rest API - Store":
 
-  asyncTest "MessageDigest <-> string conversions":
-    # Validate MessageDigest conversion from a WakuMessage obj
+  asyncTest "MessageHash <-> string conversions":
+    # Validate MessageHash conversion from a WakuMessage obj
     let wakuMsg = WakuMessage(
       contentTopic: "Test content topic",
       payload: @[byte('H'), byte('i'), byte('!')]
     )
 
-    let messageDigest = waku_store.computeDigest(wakuMsg, DefaultPubsubTopic)
-    let restMsgDigest = some(messageDigest.toRestStringMessageDigest())
+    let messageHash = waku_store.computeDigest(wakuMsg, DefaultPubsubTopic)
+    let restMsgDigest = some(messageHash.toRestStringMessageDigest())
     let parsedMsgDigest = restMsgDigest.parseMsgDigest().value
 
     check:
-      messageDigest == parsedMsgDigest.get()
+      messageHash == parsedMsgDigest.get()
 
     # Random validation. Obtained the raw values manually
     let expected = some("ZjNhM2Q2NDkwMTE0MjMzNDg0MzJlMDdiZGI3NzIwYTc%3D")
@@ -198,7 +198,7 @@ procSuite "Waku v2 Rest API - Store":
     var reqPubsubTopic = DefaultPubsubTopic
     var reqSenderTime = Timestamp(0)
     var reqStoreTime = Timestamp(0)
-    var reqDigest = waku_store.MessageDigest()
+    var reqHash = waku_store.MessageHash()
 
     for i in 0..<2:
       let response =
@@ -210,7 +210,7 @@ procSuite "Waku v2 Rest API - Store":
                           "", # end time. Empty ignores the field.
                           encodeUrl($reqSenderTime), # sender time
                           encodeUrl($reqStoreTime), # store time
-                          reqDigest.toRestStringMessageDigest(), # base64-encoded digest. Empty ignores the field.
+                          reqHash.toRestStringMessageDigest(), # base64-encoded hash. Empty ignores the field.
                           "7", # page size. Empty implies default page size.
                           "true" # ascending
             )
@@ -224,7 +224,7 @@ procSuite "Waku v2 Rest API - Store":
       # populate the cursor for next page
       if response.data.cursor.isSome():
         reqPubsubTopic = response.data.cursor.get().pubsubTopic
-        reqDigest = response.data.cursor.get().messageHash
+        reqHash = response.data.cursor.get().messageHash
         reqSenderTime = response.data.cursor.get().senderTime
         reqStoreTime = response.data.cursor.get().storeTime
 

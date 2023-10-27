@@ -60,12 +60,12 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 method put*(s: SqliteDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            digest: MessageDigest,
+            messageHash: MessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
   let res = s.insertStmt.exec((
-    @(digest.data),                # messageHash
+    @(messageHash.data),                # messageHash
     receivedTime,                  # storedAt
     toBytes(message.contentTopic), # contentTopic
     message.payload,               # payload

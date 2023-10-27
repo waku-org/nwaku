@@ -11,7 +11,7 @@ import
   ../../waku/node/message_store/sqlite_store,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
-  ../../waku/waku_store
+  ../../waku/waku_store,
   ./testlib/common,
   ./testlib/switch
 

@@ -227,7 +227,7 @@ proc add*(driver: QueueDriver, msg: IndexedWakuMessage): ArchiveDriverResult[voi
 method put*(driver: QueueDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            messageHash: MessageDigest,
+            messageHash: MessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
   let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, messageHash: messageHash)

@@ -93,7 +93,7 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            messageHash: MessageDigest,
+            messageHash: MessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
 

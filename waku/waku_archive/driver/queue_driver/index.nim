@@ -16,7 +16,7 @@ type Index* = object
   pubsubTopic*: string
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
-  messageHash*: MessageDigest # calculated over payload and content topic
+  messageHash*: MessageHash # calculated over payload and content topic
 
 proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.

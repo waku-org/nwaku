@@ -89,23 +89,23 @@ proc parseCursor(parsedPubsubTopic: Option[string],
   if not parsedStoreTime.isOk():
     return err(parsedStoreTime.error)
 
-  # Parse message digest
-  let parsedMsgDigest = parseMsgDigest(messageHash)
-  if not parsedMsgDigest.isOk():
-    return err(parsedMsgDigest.error)
+  # Parse message hash
+  let parsedMsgHash = parseMsgDigest(messageHash)
+  if not parsedMsgHash.isOk():
+    return err(parsedMsgHash.error)
 
   # Parse cursor information
   if parsedPubsubTopic.isSome() and
      parsedSenderTime.value.isSome() and
      parsedStoreTime.value.isSome() and
-     parsedMsgDigest.value.isSome():
+     parsedMsgHash.value.isSome():
 
      return ok(some(
             HistoryCursor(
                 pubsubTopic: parsedPubsubTopic.get(),
                 senderTime: parsedSenderTime.value.get(),
                 storeTime: parsedStoreTime.value.get(),
-                messageHash: parsedMsgDigest.value.get())
+                messageHash: parsedMsgHash.value.get())
                 ))
   else:
     return ok(none(HistoryCursor))

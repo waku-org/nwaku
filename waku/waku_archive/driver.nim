@@ -25,7 +25,7 @@ type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 method put*(driver: ArchiveDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
-            digest: MessageDigest,
+            digest: MessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.base, async.} = discard
 

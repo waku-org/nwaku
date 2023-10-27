@@ -165,19 +165,19 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
     ## (i.e. the second last message in the rows list)
     let (pubsubTopic, message, messageHash, storeTimestamp) = rows[^2]
 
-    # TODO: Improve coherence of MessageDigest type
-    let messageDigest = block:
+    # TODO: Improve coherence of MessageHash type
+    let msgHash = block:
         var data: array[32, byte]
         for i in 0..<min(messageHash.len, 32):
           data[i] = messageHash[i]
 
-        MessageDigest(data: data)
+        MessageHash(data: data)
 
     cursor = some(ArchiveCursor(
       pubsubTopic: pubsubTopic,
       senderTime: message.timestamp,
       storeTime: storeTimestamp,
-      messageHash: messageDigest
+      messageHash: msgHash
     ))
 
   # All messages MUST be returned in chronological order

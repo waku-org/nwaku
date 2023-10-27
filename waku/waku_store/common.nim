@@ -23,11 +23,11 @@ const
 type WakuStoreResult*[T] = Result[T, string]
 
 
-## Waku message digest
+## Waku message hash
 
-type MessageDigest* = MDigest[256]
+type MessageHash* = MDigest[256]
 
-proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageDigest =
+proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageHash =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()
@@ -48,7 +48,7 @@ type
     pubsubTopic*: PubsubTopic
     senderTime*: Timestamp
     storeTime*: Timestamp
-    messageHash*: MessageDigest
+    messageHash*: MessageHash
 
   HistoryQuery* = object
     pubsubTopic*: Option[PubsubTopic]
