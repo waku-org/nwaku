@@ -59,7 +59,7 @@ proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
     # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
     return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
 
-proc isWsAddress(ma: MultiAddress): bool =
+proc isWsAddress*(ma: MultiAddress): bool =
   let
     isWs = ma.contains(multiCodec("ws")).get()
     isWss = ma.contains(multiCodec("wss")).get()
