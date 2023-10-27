@@ -107,6 +107,16 @@ proc close*(pool: PgAsyncPool):
 
   return ok()
 
+proc getFirstFreeConnIndex(pool: PgAsyncPool):
+                           DatabaseResult[int] =
+  for index in 0..<pool.conns.len:
+    if pool.conns[index].busy:
+      continue
+
+    ## Pick up the first free connection and set it busy
+    pool.conns[index].busy = true
+    return ok(index)
+
 proc getConnIndex(pool: PgAsyncPool):
                   Future[DatabaseResult[int]] {.async.} =
   ## Waits for a free connection or create if max connections limits have not been reached.
@@ -115,8 +125,20 @@ proc getConnIndex(pool: PgAsyncPool):
   if not pool.isLive():
     return err("pool is not live")
 
-  # stablish new connections if we are under the limit
-  if pool.isBusy() and pool.conns.len < pool.maxConnections:
+  if not pool.isBusy():
+    return pool.getFirstFreeConnIndex()
+
+  ## Pool is busy then
+
+  if pool.conns.len == pool.maxConnections:
+    ## Can't create more connections. Wait for a free connection without blocking the async runtime.
+    while pool.isBusy():
+      await sleepAsync(0.milliseconds)
+
+    return pool.getFirstFreeConnIndex()
+
+  elif pool.conns.len < pool.maxConnections:
+    ## stablish a new connection
     let connRes = dbconn.open(pool.connString)
     if connRes.isOk():
       let conn = connRes.get()
@@ -124,17 +146,6 @@ proc getConnIndex(pool: PgAsyncPool):
       return ok(pool.conns.len - 1)
     else:
       return err("failed to stablish a new connection: " & connRes.error)
-
-  # wait for a free connection without blocking the async runtime
-  while pool.isBusy():
-    await sleepAsync(0.milliseconds)
-
-  for index in 0..<pool.conns.len:
-    if pool.conns[index].busy:
-      continue
-
-    pool.conns[index].busy = true
-    return ok(index)
 
 proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
   ## Forces closing the connection pool.
