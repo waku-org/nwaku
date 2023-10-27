@@ -8,6 +8,8 @@ import
   stew/results,
   chronicles,
   chronos,
+  libp2p/wire,
+  libp2p/multicodec,
   libp2p/crypto/crypto,
   libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
@@ -117,39 +119,8 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  var enrBuilder = EnrBuilder.init(key)
+  let recordRes = enrConfiguration(conf, netConfig, key)
 
-  enrBuilder.withIpAddressAndPorts(
-    netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort
-  )
-
-  if netConfig.wakuFlags.isSome():
-    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
-
-  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
-
-  let topics =
-    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-      let shardsRes = conf.contentTopics.mapIt(getShard(it))
-      for res in shardsRes:
-        if res.isErr():
-          error "failed to shard content topic", error=res.error
-          quit(QuitFailure)
-
-      let shards = shardsRes.mapIt(it.get())
-
-      conf.pubsubTopics & shards
-    else:
-      conf.topics
-
-  let addShardedTopics = enrBuilder.withShardedTopics(topics)
-  if addShardedTopics.isErr():
-      error "failed to add sharded topics to ENR", error=addShardedTopics.error
-      quit(QuitFailure)
-
-  let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error
@@ -329,6 +300,72 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
+proc getPorts(listenAddrs: seq[MultiAddress]):
+              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+
+  var tcpPort, websocketPort = none(Port)
+
+  for a in listenAddrs:
+    if a.isWsAddress():
+      if websocketPort.isNone():
+        let wsAddress = initTAddress(a).valueOr:
+          return err("getPorts wsAddr error:" & $error)
+        websocketPort = some(wsAddress.port)
+    elif tcpPort.isNone():
+      let tcpAddress = initTAddress(a).valueOr:
+        return err("getPorts tcpAddr error:" & $error)
+      tcpPort = some(tcpAddress.port)
+
+  return ok((tcpPort: tcpPort, websocketPort: websocketPort))
+
+proc updateNetConfig(app: var App): AppResult[void] =
+
+  var conf = app.conf
+  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
+    return err("Could not retrieve ports " & error)
+
+  if tcpPort.isSome():
+    conf.tcpPort = tcpPort.get()
+
+  if websocketPort.isSome():
+    conf.websocketPort = websocketPort.get()
+
+  # Rebuild NetConfig with bound port values
+  let netConf = networkConfiguration(conf, clientId).valueOr:
+    return err("Could not update NetConfig: " & error)
+
+  app.netConf = netConf
+
+  return ok()
+
+proc updateEnr(app: var App): AppResult[void] =
+
+  let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
+    return err(error)
+
+  app.record = record
+  app.node.enr = record
+
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+
+  return ok()
+
+proc updateApp(app: var App): AppResult[void] =
+
+  if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
+
+    updateNetConfig(app).isOkOr:
+      return err("error calling updateNetConfig: " & $error)
+
+    updateEnr(app).isOkOr:
+      return err("error calling updateEnr: " & $error)
+
+    app.node.announcedAddresses = app.netConf.announcedAddresses
+
+    printNodeNetworkInfo(app.node)
+
+  return ok()
 
 ## Mount protocols
 
@@ -548,7 +585,18 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startApp*(app: App): Future[AppResult[void]] {.async.} =
+proc startApp*(app: var App): AppResult[void] =
+
+  try:
+    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
+      return err(error)
+  except CatchableError:
+    return err("exception starting node: " & getCurrentExceptionMsg())
+
+  # Update app data that is set dynamically on node start
+  app.updateApp().isOkOr:
+    return err("Error in updateApp: " & $error)
+
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
@@ -559,11 +607,8 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
     asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
 
-  return await startNode(
-    app.node,
-    app.conf,
-    app.dynamicBootstrapNodes
-  )
+  return ok()
+
 
 
 ## Monitoring and external interfaces
