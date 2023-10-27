@@ -27,6 +27,9 @@ logScope:
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
+const NoPeerNoDiscError* = RestApiResponse.preconditionFailed(
+            "No suitable service peer & no discovery method")
+
 # Queries the store-node with the query parameters and
 # returns a RestApiResponse that is sent back to the api client.
 proc performHistoryQuery(selfNode: WakuNode,
@@ -218,8 +221,7 @@ proc installStoreApiHandlers*(
     let peerAddr = parsedPeerAddr.valueOr:
       node.peerManager.selectPeer(WakuStoreCodec).valueOr:
         let handler = discHandler.valueOr:
-          return RestApiResponse.preconditionFailed(
-            "No suitable service peer & no discovery method")
+          return NoPeerNoDiscError
 
         let peerOp = (await handler()).valueOr:
           return RestApiResponse.internalServerError($error)
