@@ -158,8 +158,9 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
 
 proc query*(pool: PgAsyncPool,
             query: string,
-            args: seq[string] = newSeq[string](0)):
-            Future[DatabaseResult[seq[Row]]] {.async.} =
+            args: seq[string] = newSeq[string](0),
+            rowCallback: DataProc):
+            Future[DatabaseResult[void]] {.async.} =
   ## Runs the SQL query getting results.
   ## Retrieves info from the database.
 
@@ -170,11 +171,10 @@ proc query*(pool: PgAsyncPool,
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)
 
-  let rowsRes = await conn.rows(sql(query), args)
-  if rowsRes.isErr():
-    return err("error in asyncpool query: " & rowsRes.error)
+  (await conn.getRows(sql(query), args, rowCallback)).isOkOr:
+    return err("error in asyncpool query: " & $error)
 
-  return ok(rowsRes.get())
+  return ok()
 
 proc exec*(pool: PgAsyncPool,
            query: string,
@@ -190,7 +190,7 @@ proc exec*(pool: PgAsyncPool,
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)
 
-  let rowsRes = await conn.rows(sql(query), args)
+  let rowsRes = await conn.exec(sql(query), args)
   if rowsRes.isErr():
     return err("rowsRes is err in exec: " & rowsRes.error)
 
