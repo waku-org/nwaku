@@ -31,7 +31,7 @@ import
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/cache_handlers,
+  ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
   ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
@@ -679,18 +679,38 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
     rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
 
     let filterCache = rest_filter_api.MessageCache.init()
-    rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
+
+    let filterDiscoHandler = 
+      if app.wakuDiscv5.isSome():
+        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
+      else: none(DiscoveryHandler)
+
+    rest_filter_api.installFilterRestApiHandlers(
+      server.router,
+      app.node,
+      filterCache,
+      filterDiscoHandler,
+    )
   else:
     notInstalledTab["filter"] = "/filter endpoints are not available. Please check your configuration: --filternode"
 
-
   ## Store REST API
-  installStoreApiHandlers(server.router, app.node)
+  let storeDiscoHandler = 
+    if app.wakuDiscv5.isSome():
+      some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
+    else: none(DiscoveryHandler)
+
+  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
 
   ## Light push API
   if conf.lightpushnode  != "" and
      app.node.wakuLightpushClient != nil:
-    rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
+    let lightDiscoHandler = 
+      if app.wakuDiscv5.isSome():
+        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
+      else: none(DiscoveryHandler)
+
+    rest_lightpush_api.installLightPushRequestHandler(server.router, app.node, lightDiscoHandler)
   else:
     notInstalledTab["lightpush"] = "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
 
