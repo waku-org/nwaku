@@ -239,7 +239,7 @@ proc getInt(s: PostgresDriver,
             Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
-  let rowsRes = await s.readConnPool.query(query, newSeq[string](0))
+  let rowsRes = await s.readConnPool.query(query)
   if rowsRes.isErr():
     return err("failed in getRow: " & rowsRes.error)
 
