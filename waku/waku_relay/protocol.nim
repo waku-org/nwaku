@@ -72,7 +72,7 @@ const GossipsubParameters = GossipSubParams(
 
     d: 6,
     dLow: 4,
-    dHigh: 12,
+    dHigh: 8,
     dScore: 6,
     dOut: 3,
     dLazy: 6,
@@ -174,8 +174,8 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 
   return ok(w)
 
-proc addValidator*(w: WakuRelay, 
-                   topic: varargs[string], 
+proc addValidator*(w: WakuRelay,
+                   topic: varargs[string],
                    handler: WakuValidatorHandler) {.gcsafe.} =
   for t in topic:
     w.wakuValidators.mgetOrPut(t, @[]).add(handler)
@@ -196,7 +196,7 @@ proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
 
 proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
   # rejects messages that are not WakuMessage
-  let wrappedValidator = proc(pubsubTopic: string, 
+  let wrappedValidator = proc(pubsubTopic: string,
                               message: messages.Message): Future[ValidationResult] {.async.} =
     # can be optimized by checking if the message is a WakuMessage without allocating memory
     # see nim-libp2p protobuf library
@@ -245,7 +245,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic
-  
+
   debug "unsubscribe all", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
@@ -253,7 +253,7 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
 proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
   ## Unsubscribe this handler on this pubsub topic
-  
+
   debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
