@@ -114,7 +114,6 @@ proc dbConnQuery*(db: DbConn,
                   args: seq[string],
                   rowCallback: DataProc):
                   Future[Result[void, string]] {.async, gcsafe.} =
-  ## Runs the SQL getting results.
 
   (await db.sendQuery(query, args)).isOkOr:
     return err("error in dbConnQuery calling sendQuery: " & $error)
