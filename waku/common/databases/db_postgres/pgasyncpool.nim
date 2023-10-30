@@ -8,14 +8,10 @@ else:
 import
   std/[sequtils,nre, strformat],
   stew/results,
-  chronicles,
   chronos
 import
   ./dbconn,
   ../common
-
-logScope:
-  topics = "postgres asyncpool"
 
 type PgAsyncPoolState {.pure.} = enum
     Closed,
