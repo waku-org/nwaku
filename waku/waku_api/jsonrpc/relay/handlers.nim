@@ -17,7 +17,7 @@ import
   ../../../waku_rln_relay/rln/wrappers,
   ../../../waku_node,
   ../../message_cache,
-  ../../cache_handlers,
+  ../../handlers,
   ../message
 
 from std/times import getTime

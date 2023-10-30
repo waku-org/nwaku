@@ -59,7 +59,7 @@ proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
     # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
     return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
 
-proc isWsAddress(ma: MultiAddress): bool =
+proc isWsAddress*(ma: MultiAddress): bool =
   let
     isWs = ma.contains(multiCodec("ws")).get()
     isWss = ma.contains(multiCodec("wss")).get()
@@ -75,6 +75,7 @@ proc init*(T: type NetConfig,
     extIp = none(ValidIpAddress),
     extPort = none(Port),
     extMultiAddrs = newSeq[MultiAddress](),
+    extMultiAddrsOnly: bool = false,
     wsBindPort: Port = Port(8000),
     wsEnabled: bool = false,
     wssEnabled: bool = false,
@@ -125,20 +126,21 @@ proc init*(T: type NetConfig,
 
   var announcedAddresses = newSeq[MultiAddress]()
 
-  if hostExtAddress.isSome():
-    announcedAddresses.add(hostExtAddress.get())
-  else:
-    announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
+  if not extMultiAddrsOnly:
+    if hostExtAddress.isSome():
+      announcedAddresses.add(hostExtAddress.get())
+    else:
+      announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
 
+    if wsExtAddress.isSome():
+      announcedAddresses.add(wsExtAddress.get())
+    elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
+      # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
+      announcedAddresses.add(wsHostAddress.get())
+  
   # External multiaddrs that the operator may have configured
   if extMultiAddrs.len > 0:
     announcedAddresses.add(extMultiAddrs)
-
-  if wsExtAddress.isSome():
-    announcedAddresses.add(wsExtAddress.get())
-  elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
-    # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
-    announcedAddresses.add(wsHostAddress.get())
 
   let
     # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in

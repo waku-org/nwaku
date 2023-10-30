@@ -513,7 +513,7 @@ procSuite "Waku v2 Rest API - Store":
       response.status == 412
       $response.contentType == $MIMETYPE_TEXT
       response.data.messages.len == 0
-      response.data.error_message.get == "Missing known store-peer node"
+      response.data.error_message.get == NoPeerNoDiscError.errobj.message
 
     # Now add the storenode from "config"
     node.peerManager.addServicePeer(remotePeerInfo,
