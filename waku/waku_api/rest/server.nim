@@ -59,7 +59,8 @@ proc getRouter(allowedOrigin: Option[string]): RestRouter =
 proc init*(T: type RestServerRef,
               ip: ValidIpAddress, port: Port,
               allowedOrigin=none(string),
-              conf=RestServerConf.default()): RestServerResult[T] =
+              conf=RestServerConf.default(),
+              requestErrorHandler: RestRequestErrorHandler = nil): RestServerResult[T] =
   let address = initTAddress(ip, port)
   let serverFlags = {
     HttpServerFlags.QueryCommaSeparatedArray,
@@ -82,7 +83,8 @@ proc init*(T: type RestServerRef,
       serverFlags = serverFlags,
       httpHeadersTimeout = headersTimeout,
       maxHeadersSize = maxHeadersSize,
-      maxRequestBodySize = maxRequestBodySize
+      maxRequestBodySize = maxRequestBodySize,
+      requestErrorHandler = requestErrorHandler
     )
   except CatchableError:
     return err(getCurrentExceptionMsg())
@@ -92,5 +94,7 @@ proc init*(T: type RestServerRef,
 
 proc newRestHttpServer*(ip: ValidIpAddress, port: Port,
                         allowedOrigin=none(string),
-                        conf=RestServerConf.default()): RestServerResult[RestServerRef] =
-  RestServerRef.init(ip, port, allowedOrigin, conf)
+                        conf=RestServerConf.default(),
+                        requestErrorHandler: RestRequestErrorHandler = nil):
+                    RestServerResult[RestServerRef] =
+  RestServerRef.init(ip, port, allowedOrigin, conf, requestErrorHandler)

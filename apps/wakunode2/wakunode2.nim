@@ -87,7 +87,7 @@ when isMainModule:
 
   debug "5/7 Starting node and mounted protocols"
 
-  let res6 = waitFor wakunode2.startApp()
+  let res6 = wakunode2.startApp()
   if res6.isErr():
     error "5/7 Starting node and protocols failed", error=res6.error
     quit(QuitFailure)
