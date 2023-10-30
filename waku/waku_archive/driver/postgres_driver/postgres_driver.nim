@@ -318,10 +318,13 @@ method deleteOldestMessagesNotWithinLimit*(
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
-  (await s.writeConnPool.close()).isOkOr:
+  let writeCloseRes = await s.writeConnPool.close()
+  let readCloseRes = await s.readConnPool.close()
+
+  writeCloseRes.isOkOr:
     return err("error closing write pool: " & $error)
 
-  (await s.readConnPool.close()).isOkOr:
+  readCloseRes.isOkOr:
     return err("error closing read pool: " & $error)
 
   return ok()
