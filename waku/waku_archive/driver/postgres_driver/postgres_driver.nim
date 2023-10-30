@@ -70,7 +70,7 @@ proc new*(T: type PostgresDriver,
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
 
-  let execRes = await s.writeConnPool.exec(createTableQuery())
+  let execRes = await s.writeConnPool.pgQuery(createTableQuery())
   if execRes.isErr():
     return err("error in createMessageTable: " & execRes.error)
 
@@ -79,7 +79,7 @@ proc createMessageTable*(s: PostgresDriver):
 proc deleteMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(dropTableQuery())
+  let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
   if execRes.isErr():
     return err("error in deleteMessageTable: " & execRes.error)
 
@@ -168,7 +168,7 @@ method getAllMessages*(s: PostgresDriver):
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.query("""SELECT storedAt, contentTopic,
+  (await s.readConnPool.pgQuery("""SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
                                        id FROM messages ORDER BY storedAt ASC""",
                                        newSeq[string](0),
@@ -235,7 +235,7 @@ method getMessages*(s: PostgresDriver,
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.query(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -261,7 +261,7 @@ proc getInt(s: PostgresDriver,
       error "exception in getInt, parseInt", error = getCurrentExceptionMsg()
       return
 
-  (await s.readConnPool.query(query, newSeq[string](0), rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
     return err("failed in getRow: " & $error)
 
   return ok(retInt)
@@ -298,7 +298,7 @@ method deleteMessagesOlderThanTimestamp*(
                                  ts: Timestamp):
                                  Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(
+  let execRes = await s.writeConnPool.pgQuery(
                             "DELETE FROM messages WHERE storedAt < " & $ts)
   if execRes.isErr():
     return err("error in deleteMessagesOlderThanTimestamp: " & execRes.error)
@@ -310,7 +310,7 @@ method deleteOldestMessagesNotWithinLimit*(
                                  limit: int):
                                  Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(
+  let execRes = await s.writeConnPool.pgQuery(
                      """DELETE FROM messages WHERE id NOT IN
                           (
                         SELECT id FROM messages ORDER BY storedAt DESC LIMIT ?
@@ -347,7 +347,7 @@ proc sleep*(s: PostgresDriver, seconds: int):
 
   try:
     let params = @[$seconds]
-    (await s.writeConnPool.query("SELECT pg_sleep(?)", params, rowCallback)).isOkOr:
+    (await s.writeConnPool.pgQuery("SELECT pg_sleep(?)", params, rowCallback)).isOkOr:
       return err("error in postgres_driver sleep: " & $error)
 
   except DbError:

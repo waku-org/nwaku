@@ -109,31 +109,17 @@ proc waitQueryToFinish(db: DbConn,
 
     pqclear(pqResult)
 
-proc exec*(db: DbConn,
-           query: SqlQuery,
-           args: seq[string]):
-           Future[Result[void, string]] {.async, gcsafe.} =
+proc dbConnQuery*(db: DbConn,
+                  query: SqlQuery,
+                  args: seq[string],
+                  rowCallback: DataProc):
+                  Future[Result[void, string]] {.async, gcsafe.} =
   ## Runs the SQL getting results.
 
   (await db.sendQuery(query, args)).isOkOr:
-    return err("error in exec calling sendQuery: " & $error)
-
-  (await db.waitQueryToFinish()).isOkOr:
-    return err("error in exec calling waitQueryToFinish: " & $error)
-
-  return ok()
-
-proc getRows*(db: DbConn,
-              query: SqlQuery,
-              args: seq[string],
-              rowCallback: DataProc):
-              Future[Result[void, string]] {.async, gcsafe.} =
-  ## Runs the SQL getting results.
-
-  (await db.sendQuery(query, args)).isOkOr:
-    return err("error calling sendQuery: " & $error)
+    return err("error in dbConnQuery calling sendQuery: " & $error)
 
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
-    return err("error calling waitQueryToFinish: " & $error)
+    return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
   return ok()

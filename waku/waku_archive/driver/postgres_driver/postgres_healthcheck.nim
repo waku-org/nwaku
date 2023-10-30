@@ -21,7 +21,7 @@ proc checkConnectivity*(connPool: PgAsyncPool,
 
   while true:
 
-    (await connPool.exec(HealthCheckQuery)).isOkOr:
+    (await connPool.pgQuery(HealthCheckQuery)).isOkOr:
 
       ## The connection failed once. Let's try reconnecting for a while.
       ## Notice that the 'exec' proc tries to establish a new connection.
@@ -33,7 +33,7 @@ proc checkConnectivity*(connPool: PgAsyncPool,
 
         var numTrial = 0
         while numTrial < MaxNumTrials:
-          let res = await connPool.exec(HealthCheckQuery)
+          let res = await connPool.pgQuery(HealthCheckQuery)
           if res.isOk():
             ## Connection resumed. Let's go back to the normal healthcheck.
             break errorBlock

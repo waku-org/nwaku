@@ -167,13 +167,13 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
-proc query*(pool: PgAsyncPool,
-            query: string,
-            args: seq[string] = newSeq[string](0),
-            rowCallback: DataProc):
-            Future[DatabaseResult[void]] {.async.} =
-  ## Runs the SQL query getting results.
-  ## Retrieves info from the database.
+proc pgQuery*(pool: PgAsyncPool,
+              query: string,
+              args: seq[string] = newSeq[string](0),
+              rowCallback: DataProc = nil):
+              Future[DatabaseResult[void]] {.async.} =
+  ## rowCallback != nil when it is expected to retrieve info from the database.
+  ## rowCallback == nil for queries that change the database state.
 
   let connIndexRes = await pool.getConnIndex()
   if connIndexRes.isErr():
@@ -182,28 +182,8 @@ proc query*(pool: PgAsyncPool,
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)
 
-  (await conn.getRows(sql(query), args, rowCallback)).isOkOr:
+  (await conn.dbConnQuery(sql(query), args, rowCallback)).isOkOr:
     return err("error in asyncpool query: " & $error)
-
-  return ok()
-
-proc exec*(pool: PgAsyncPool,
-           query: string,
-           args: seq[string] = newSeq[string](0)):
-           Future[DatabaseResult[void]] {.async.} =
-  ## Runs the SQL query without results.
-  ## Alters the database state.
-
-  let connIndexRes = await pool.getConnIndex()
-  if connIndexRes.isErr():
-    return err("connRes is err in exec: " & connIndexRes.error)
-
-  let conn = pool.conns[connIndexRes.value].dbConn
-  defer: pool.releaseConn(conn)
-
-  let rowsRes = await conn.exec(sql(query), args)
-  if rowsRes.isErr():
-    return err("rowsRes is err in exec: " & rowsRes.error)
 
   return ok()
 
