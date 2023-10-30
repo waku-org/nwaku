@@ -15,6 +15,7 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../../waku/waku_node,
+  ../../waku/waku_core/topics,
   ../../waku/node/peer_manager,
   ../../waku/waku_discv5,
   ../../waku/waku_metadata,
@@ -23,8 +24,6 @@ import
 
 
 procSuite "Waku Metadata Protocol":
-
-  # TODO: Add tests with shards when ready
   asyncTest "request() returns the supported metadata of the peer":
     let clusterId = 10.uint32
     let
@@ -33,6 +32,9 @@ procSuite "Waku Metadata Protocol":
 
     # Start nodes
     await allFutures([node1.start(), node2.start()])
+
+    node1.topicSubscriptionQueue.emit((kind: PubsubSub, topic: "/waku/2/rs/10/7"))
+    node1.topicSubscriptionQueue.emit((kind: PubsubSub, topic: "/waku/2/rs/10/6"))
 
     # Create connection
     let connOpt = await node2.peerManager.dialPeer(node1.switch.peerInfo.toRemotePeerInfo(), WakuMetadataCodec)
@@ -48,3 +50,5 @@ procSuite "Waku Metadata Protocol":
 
     check:
       response1.get().clusterId.get() == clusterId
+      response1.get().shards == @[uint32(6), uint32(7)]
+      

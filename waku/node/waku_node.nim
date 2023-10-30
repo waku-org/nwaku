@@ -155,7 +155,7 @@ proc new*(T: type WakuNode,
   )
 
   # mount metadata protocol
-  let metadata = WakuMetadata.new(netConfig.clusterId)
+  let metadata = WakuMetadata.new(netConfig.clusterId, queue)
   node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
   node.wakuMetadata = metadata
   peerManager.wakuMetadata = metadata
@@ -1126,6 +1126,8 @@ proc start*(node: WakuNode) {.async.} =
   await node.switch.start()
 
   node.started = true
+
+  node.wakuMetadata.start()
 
   info "Node started successfully"
 

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, random],
+  std/[options, sequtils, random, sets],
   stew/results,
   chronicles,
   chronos,
@@ -27,57 +27,56 @@ const RpcResponseMaxBytes* = 1024
 type
   WakuMetadata* = ref object of LPProtocol
     clusterId*: uint32
-    shards*: seq[uint32]
+    shards*: HashSet[uint32]
+    topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
 
 proc respond(m: WakuMetadata, conn: Connection): Future[Result[void, string]] {.async, gcsafe.} =
-  try:
-    await conn.writeLP(WakuMetadataResponse(
-      clusterId: some(m.clusterId),
-      shards: m.shards
-      ).encode().buffer)
-  except CatchableError as exc:
-    return err(exc.msg)
+  let response = WakuMetadataResponse(
+    clusterId: some(m.clusterId),
+    shards: toSeq(m.shards)
+  )
+  
+  let res = catch: await conn.writeLP(response.encode().buffer)
+  if res.isErr():
+    return err(res.error.msg)
 
   return ok()
 
 proc request*(m: WakuMetadata, conn: Connection): Future[Result[WakuMetadataResponse, string]] {.async, gcsafe.} =
-  var buffer: seq[byte]
-  var error: string
-  try:
-    await conn.writeLP(WakuMetadataRequest(
-      clusterId: some(m.clusterId),
-      shards: m.shards,
-    ).encode().buffer)
-    buffer = await conn.readLp(RpcResponseMaxBytes)
-  except CatchableError as exc:
-    error = $exc.msg
-  finally:
-    # close, no more data is expected
-    await conn.closeWithEof()
+  let request = WakuMetadataRequest(clusterId: some(m.clusterId), shards: toSeq(m.shards))
 
-  if error.len > 0:
-    return err("write/read failed: " & error)
+  let writeRes = catch: await conn.writeLP(request.encode().buffer)
+  let readRes = catch: await conn.readLp(RpcResponseMaxBytes)
+  
+  # close no watter what
+  let closeRes = catch: await conn.closeWithEof()
+  if closeRes.isErr():
+    return err("close failed: " & closeRes.error.msg)
 
-  let decodedBuff = WakuMetadataResponse.decode(buffer)
-  if decodedBuff.isErr():
-    return err("decode failed: " & $decodedBuff.error)
+  if writeRes.isErr():
+    return err("write failed: " & writeRes.error.msg)
 
-  echo decodedBuff.get().clusterId
-  return ok(decodedBuff.get())
+  let buffer = 
+    if readRes.isErr():
+      return err("read failed: " & readRes.error.msg)
+    else: readRes.get()
+
+  let response = WakuMetadataResponse.decode(buffer).valueOr:
+    return err("decode failed: " & $error)
+
+  return ok(response)
 
 proc initProtocolHandler*(m: WakuMetadata) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    var buffer: seq[byte]
-    try:
-      buffer = await conn.readLp(RpcResponseMaxBytes)
-    except CatchableError as exc:
+    let res = catch: await conn.readLp(RpcResponseMaxBytes)
+    let buffer = res.valueOr:
+      error "Connection reading error", error=error.msg
       return
 
-    let decBuf = WakuMetadataResponse.decode(buffer)
-    if decBuf.isErr():
+    let response = WakuMetadataResponse.decode(buffer).valueOr:
+      error "Response decoding error", error=error
       return
 
-    let response = decBuf.get()
     debug "Received WakuMetadata request",
       remoteClusterId=response.clusterId,
       remoteShards=response.shards,
@@ -92,12 +91,50 @@ proc initProtocolHandler*(m: WakuMetadata) =
   m.handler = handle
   m.codec = WakuMetadataCodec
 
-proc new*(T: type WakuMetadata, clusterId: uint32): T =
-  let m = WakuMetadata(
-    clusterId: clusterId,
-    # TODO: must be updated real time
-    shards: @[],
-    )
-  m.initProtocolHandler()
+proc new*(T: type WakuMetadata,
+  clusterId: uint32,
+  queue: AsyncEventQueue[SubscriptionEvent],
+  ): T =
+  let wm = WakuMetadata(clusterId: clusterId, topicSubscriptionQueue: queue)
+
+  wm.initProtocolHandler()
+
   info "Created WakuMetadata protocol", clusterId=clusterId
-  return m
+
+  return wm
+
+proc subscriptionsListener(wm: WakuMetadata) {.async.} =
+  ## Listen for pubsub topics subscriptions changes
+  
+  let key = wm.topicSubscriptionQueue.register()
+
+  while wm.started:
+    let events = await wm.topicSubscriptionQueue.waitEvents(key)
+
+    for event in events:
+      let parsedTopic = NsPubsubTopic.parse(event.topic).valueOr:
+        continue
+
+      if parsedTopic.kind != NsPubsubTopicKind.StaticSharding:
+        continue
+
+      if parsedTopic.clusterId != wm.clusterId:
+        continue
+
+      case event.kind:
+        of PubsubSub:
+          wm.shards.incl(parsedTopic.shardId)
+        of PubsubUnsub:
+          wm.shards.excl(parsedTopic.shardId)
+        else:
+          continue
+      
+  wm.topicSubscriptionQueue.unregister(key)
+
+proc start*(wm: WakuMetadata) =
+  wm.started = true
+
+  asyncSpawn wm.subscriptionsListener()
+
+proc stop*(wm: WakuMetadata) =
+  wm.started = false
