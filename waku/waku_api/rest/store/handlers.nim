@@ -15,6 +15,7 @@ import
   ../../../waku_store/common,
   ../../../waku_node,
   ../../../node/peer_manager,
+  ../../handlers,
   ../responses,
   ../serdes,
   ./types
@@ -25,6 +26,9 @@ logScope:
   topics = "waku node rest store_api"
 
 const futTimeout* = 5.seconds # Max time to wait for futures
+
+const NoPeerNoDiscError* = RestApiResponse.preconditionFailed(
+            "No suitable service peer & no discovery method")
 
 # Queries the store-node with the query parameters and
 # returns a RestApiResponse that is sent back to the api client.
@@ -182,10 +186,12 @@ proc toOpt(self: Option[Result[string, cstring]]): Option[string] =
   if self.isSome() and self.get().value != "":
     return some(self.get().value)
 
-
 # Subscribes the rest handler to attend "/store/v1/messages" requests
-proc installStoreV1Handler(router: var RestRouter,
-                           node: WakuNode) =
+proc installStoreApiHandlers*(
+  router: var RestRouter,
+  node: WakuNode,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
 
   # Handles the store-query request according to the passed parameters
   router.api(MethodGet,
@@ -209,18 +215,20 @@ proc installStoreV1Handler(router: var RestRouter,
     # /store/v1/messages?peerAddr=%2Fip4%2F127.0.0.1%2Ftcp%2F60001%2Fp2p%2F16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\&pubsubTopic=my-waku-topic
 
     # Parse the peer address parameter
-    var parsedPeerAddr = parseUrlPeerAddr(peerAddr.toOpt())
-    if not parsedPeerAddr.isOk():
-      return RestApiResponse.badRequest(parsedPeerAddr.error)
+    let parsedPeerAddr = parseUrlPeerAddr(peerAddr.toOpt()).valueOr:
+      return RestApiResponse.badRequest(error)
 
-    var peerOpt = none(RemotePeerInfo)
-    if parsedPeerAddr.value.isSome():
-      peerOpt = parsedPeerAddr.value
-    else:
-      # The user didn't specify any store peer address.
-      peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
-      if peerOpt.isNone():
-        return RestApiResponse.preconditionFailed("Missing known store-peer node")
+    let peerAddr = parsedPeerAddr.valueOr:
+      node.peerManager.selectPeer(WakuStoreCodec).valueOr:
+        let handler = discHandler.valueOr:
+          return NoPeerNoDiscError
+
+        let peerOp = (await handler()).valueOr:
+          return RestApiResponse.internalServerError($error)
+
+        peerOp.valueOr:
+          return RestApiResponse.preconditionFailed(
+            "No suitable service peer & none discovered")
 
     # Parse the rest of the parameters and create a HistoryQuery
     let histQuery = createHistoryQuery(
@@ -238,10 +246,4 @@ proc installStoreV1Handler(router: var RestRouter,
     if not histQuery.isOk():
       return RestApiResponse.badRequest(histQuery.error)
 
-    return await node.performHistoryQuery(histQuery.value,
-                                          peerOpt.get())
-
-# Registers the Api Handlers
-proc installStoreApiHandlers*(router: var RestRouter,
-                              node: WakuNode) =
-  installStoreV1Handler(router, node)
+    return await node.performHistoryQuery(histQuery.value, peerAddr)
