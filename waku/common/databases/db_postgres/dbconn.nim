@@ -9,6 +9,8 @@ import
 
 include db_postgres
 
+type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe.}
+
 ## Connection management
 
 proc check*(db: DbConn): Result[void, string] =
@@ -43,11 +45,11 @@ proc open*(connString: string):
 
   ok(conn)
 
-proc rows*(db: DbConn,
-           query: SqlQuery,
-           args: seq[string]):
-           Future[Result[seq[Row], string]] {.async.} =
-  ## Runs the SQL getting results.
+proc sendQuery(db: DbConn,
+               query: SqlQuery,
+               args: seq[string]):
+               Future[Result[void, string]] {.async.} =
+  ## This proc can be used directly for queries that don't retrieve values back.
 
   if db.status != CONNECTION_OK:
     let checkRes = db.check()
@@ -71,7 +73,13 @@ proc rows*(db: DbConn,
 
     return err("failed pqsendQuery: unknown reason")
 
-  var ret = newSeq[Row](0)
+  return ok()
+
+proc waitQueryToFinish(db: DbConn,
+                       rowCallback: DataProc = nil):
+                       Future[Result[void, string]] {.async.} =
+  ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
+  ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
   while true:
 
@@ -84,22 +92,33 @@ proc rows*(db: DbConn,
       return err("failed pqconsumeInput: unknown reason")
 
     if db.pqisBusy() == 1:
-      await sleepAsync(0.milliseconds) # Do not block the async runtime
+      await sleepAsync(timer.milliseconds(0)) # Do not block the async runtime
       continue
 
-    var pqResult = db.pqgetResult()
+    let pqResult = db.pqgetResult()
     if pqResult == nil:
       # Check if its a real error or just end of results
       let checkRes = db.check()
       if checkRes.isErr():
         return err("error in rows: " & checkRes.error)
 
-      return ok(ret) # reached the end of the results
+      return ok() # reached the end of the results
 
-    var cols = pqResult.pqnfields()
-    var row = cols.newRow()
-    for i in 0'i32 .. pqResult.pqNtuples() - 1:
-      pqResult.setRow(row, i, cols) # puts the value in the row
-      ret.add(row)
+    if not rowCallback.isNil():
+      rowCallback(pqResult)
 
     pqclear(pqResult)
+
+proc dbConnQuery*(db: DbConn,
+                  query: SqlQuery,
+                  args: seq[string],
+                  rowCallback: DataProc):
+                  Future[Result[void, string]] {.async, gcsafe.} =
+
+  (await db.sendQuery(query, args)).isOkOr:
+    return err("error in dbConnQuery calling sendQuery: " & $error)
+
+  (await db.waitQueryToFinish(rowCallback)).isOkOr:
+    return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
+
+  return ok()

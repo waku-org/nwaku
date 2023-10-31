@@ -7,7 +7,9 @@ import
   std/[strformat,nre,options,strutils],
   stew/[results,byteutils],
   db_postgres,
-  chronos
+  postgres,
+  chronos,
+  chronicles
 import
   ../../../waku_core,
   ../../common,
@@ -68,7 +70,7 @@ proc new*(T: type PostgresDriver,
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
 
-  let execRes = await s.writeConnPool.exec(createTableQuery())
+  let execRes = await s.writeConnPool.pgQuery(createTableQuery())
   if execRes.isErr():
     return err("error in createMessageTable: " & execRes.error)
 
@@ -77,7 +79,7 @@ proc createMessageTable*(s: PostgresDriver):
 proc deleteMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(dropTableQuery())
+  let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
   if execRes.isErr():
     return err("error in deleteMessageTable: " & execRes.error)
 
@@ -96,6 +98,51 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   let ret = await s.deleteMessageTable()
   return ret
 
+proc rowCallbackImpl(pqResult: ptr PGresult,
+                     outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]) =
+  ## Proc aimed to contain the logic of the callback passed to the `psasyncpool`.
+  ## That callback is used in "SELECT" queries.
+  ##
+  ## pqResult - contains the query results
+  ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
+
+  let numFields = pqResult.pqnfields()
+  if numFields != 7:
+    error "Wrong number of fields"
+    return
+
+  for iRow in 0..<pqResult.pqNtuples():
+
+    var wakuMessage: WakuMessage
+    var timestamp: Timestamp
+    var version: uint
+    var pubSubTopic: string
+    var contentTopic: string
+    var storedAt: int64
+    var digest: string
+    var payload: string
+
+    try:
+      storedAt = parseInt( $(pqgetvalue(pqResult, iRow, 0)) )
+      contentTopic = $(pqgetvalue(pqResult, iRow, 1))
+      payload = parseHexStr( $(pqgetvalue(pqResult, iRow, 2)) )
+      pubSubTopic = $(pqgetvalue(pqResult, iRow, 3))
+      version = parseUInt( $(pqgetvalue(pqResult, iRow, 4)) )
+      timestamp = parseInt( $(pqgetvalue(pqResult, iRow, 5)) )
+      digest = parseHexStr( $(pqgetvalue(pqResult, iRow, 6)) )
+    except ValueError:
+      error "could not parse correctly", error = getCurrentExceptionMsg()
+
+    wakuMessage.timestamp = timestamp
+    wakuMessage.version = uint32(version)
+    wakuMessage.contentTopic = contentTopic
+    wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
+
+    outRows.add((pubSubTopic,
+                 wakuMessage,
+                 @(digest.toOpenArrayByte(0, digest.high)),
+                 storedAt))
+
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
@@ -113,60 +160,23 @@ method put*(s: PostgresDriver,
                                        $message.timestamp])
   return ret
 
-proc toArchiveRow(r: Row): ArchiveDriverResult[ArchiveRow] =
-  # Converts a postgres row into an ArchiveRow
-
-  var wakuMessage: WakuMessage
-  var timestamp: Timestamp
-  var version: uint
-  var pubSubTopic: string
-  var contentTopic: string
-  var storedAt: int64
-  var digest: string
-  var payload: string
-
-  try:
-    storedAt = parseInt(r[0])
-    contentTopic = r[1]
-    payload = parseHexStr(r[2])
-    pubSubTopic = r[3]
-    version = parseUInt(r[4])
-    timestamp = parseInt(r[5])
-    digest = parseHexStr(r[6])
-  except ValueError:
-    return err("could not parse timestamp")
-
-  wakuMessage.timestamp = timestamp
-  wakuMessage.version = uint32(version)
-  wakuMessage.contentTopic = contentTopic
-  wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
-
-  return ok((pubSubTopic,
-             wakuMessage,
-             @(digest.toOpenArrayByte(0, digest.high)),
-             storedAt))
-
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
 
-  let rowsRes = await s.readConnPool.query("""SELECT storedAt, contentTopic,
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (await s.readConnPool.pgQuery("""SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
                                        id FROM messages ORDER BY storedAt ASC""",
-                                       newSeq[string](0))
+                                       newSeq[string](0),
+                                       rowCallback
+                              )).isOkOr:
+    return err("failed in query: " & $error)
 
-  if rowsRes.isErr():
-    return err("failed in query: " & rowsRes.error)
-
-  var results: seq[ArchiveRow]
-  for r in rowsRes.value:
-    let rowRes = r.toArchiveRow()
-    if rowRes.isErr():
-      return err("failed to extract row")
-
-    results.add(rowRes.get())
-
-  return ok(results)
+  return ok(rows)
 
 method getMessages*(s: PostgresDriver,
                     contentTopic: seq[ContentTopic] = @[],
@@ -177,6 +187,7 @@ method getMessages*(s: PostgresDriver,
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+
   var query = """SELECT storedAt, contentTopic, payload,
   pubsubTopic, version, timestamp, id FROM messages"""
   var statements: seq[string]
@@ -220,43 +231,38 @@ method getMessages*(s: PostgresDriver,
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  let rowsRes = await s.readConnPool.query(query, args)
-  if rowsRes.isErr():
-    return err("failed to run query: " & rowsRes.error)
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
 
-  var results: seq[ArchiveRow]
-  for r in rowsRes.value:
-    let rowRes = r.toArchiveRow()
-    if rowRes.isErr():
-      return err("failed to extract row: " & rowRes.error)
+  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+    return err("failed to run query: " & $error)
 
-    results.add(rowRes.get())
-
-  return ok(results)
+  return ok(rows)
 
 proc getInt(s: PostgresDriver,
             query: string):
             Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
-  let rowsRes = await s.readConnPool.query(query)
-  if rowsRes.isErr():
-    return err("failed in getRow: " & rowsRes.error)
-
-  let rows = rowsRes.get()
-  if rows.len != 1:
-    return err("failed in getRow. Expected one row but got " & $rows.len)
-
-  let fields = rows[0]
-  if fields.len != 1:
-    return err("failed in getRow: Expected one field but got " & $fields.len)
-
   var retInt = 0'i64
-  try:
-    if fields[0] != "":
-      retInt = parseInt(fields[0])
-  except ValueError:
-    return err("exception in getRow, parseInt: " & getCurrentExceptionMsg())
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in getInt"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in getInt"
+      return
+
+    try:
+      retInt = parseInt( $(pqgetvalue(pqResult, 0, 0)) )
+    except ValueError:
+      error "exception in getInt, parseInt", error = getCurrentExceptionMsg()
+      return
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("failed in getRow: " & $error)
 
   return ok(retInt)
 
@@ -292,7 +298,7 @@ method deleteMessagesOlderThanTimestamp*(
                                  ts: Timestamp):
                                  Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(
+  let execRes = await s.writeConnPool.pgQuery(
                             "DELETE FROM messages WHERE storedAt < " & $ts)
   if execRes.isErr():
     return err("error in deleteMessagesOlderThanTimestamp: " & execRes.error)
@@ -304,7 +310,7 @@ method deleteOldestMessagesNotWithinLimit*(
                                  limit: int):
                                  Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.exec(
+  let execRes = await s.writeConnPool.pgQuery(
                      """DELETE FROM messages WHERE id NOT IN
                           (
                         SELECT id FROM messages ORDER BY storedAt DESC LIMIT ?
@@ -334,11 +340,16 @@ proc sleep*(s: PostgresDriver, seconds: int):
   # This is for testing purposes only. It is aimed to test the proper
   # implementation of asynchronous requests. It merely triggers a sleep in the
   # database for the amount of seconds given as a parameter.
+
+  proc rowCallback(result: ptr PGresult) =
+    ## We are not interested in any value in this case
+    discard
+
   try:
     let params = @[$seconds]
-    let sleepRes = await s.writeConnPool.query("SELECT pg_sleep(?)", params)
-    if sleepRes.isErr():
-      return err("error in postgres_driver sleep: " & sleepRes.error)
+    (await s.writeConnPool.pgQuery("SELECT pg_sleep(?)", params, rowCallback)).isOkOr:
+      return err("error in postgres_driver sleep: " & $error)
+
   except DbError:
     # This always raises an exception although the sleep works
     return err("exception sleeping: " & getCurrentExceptionMsg())

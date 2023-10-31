@@ -8,14 +8,10 @@ else:
 import
   std/[sequtils,nre, strformat],
   stew/results,
-  chronicles,
   chronos
 import
   ./dbconn,
   ../common
-
-logScope:
-  topics = "postgres asyncpool"
 
 type PgAsyncPoolState {.pure.} = enum
     Closed,
@@ -107,6 +103,16 @@ proc close*(pool: PgAsyncPool):
 
   return ok()
 
+proc getFirstFreeConnIndex(pool: PgAsyncPool):
+                           DatabaseResult[int] =
+  for index in 0..<pool.conns.len:
+    if pool.conns[index].busy:
+      continue
+
+    ## Pick up the first free connection and set it busy
+    pool.conns[index].busy = true
+    return ok(index)
+
 proc getConnIndex(pool: PgAsyncPool):
                   Future[DatabaseResult[int]] {.async.} =
   ## Waits for a free connection or create if max connections limits have not been reached.
@@ -115,8 +121,20 @@ proc getConnIndex(pool: PgAsyncPool):
   if not pool.isLive():
     return err("pool is not live")
 
-  # stablish new connections if we are under the limit
-  if pool.isBusy() and pool.conns.len < pool.maxConnections:
+  if not pool.isBusy():
+    return pool.getFirstFreeConnIndex()
+
+  ## Pool is busy then
+
+  if pool.conns.len == pool.maxConnections:
+    ## Can't create more connections. Wait for a free connection without blocking the async runtime.
+    while pool.isBusy():
+      await sleepAsync(0.milliseconds)
+
+    return pool.getFirstFreeConnIndex()
+
+  elif pool.conns.len < pool.maxConnections:
+    ## stablish a new connection
     let connRes = dbconn.open(pool.connString)
     if connRes.isOk():
       let conn = connRes.get()
@@ -124,17 +142,6 @@ proc getConnIndex(pool: PgAsyncPool):
       return ok(pool.conns.len - 1)
     else:
       return err("failed to stablish a new connection: " & connRes.error)
-
-  # wait for a free connection without blocking the async runtime
-  while pool.isBusy():
-    await sleepAsync(0.milliseconds)
-
-  for index in 0..<pool.conns.len:
-    if pool.conns[index].busy:
-      continue
-
-    pool.conns[index].busy = true
-    return ok(index)
 
 proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
   ## Forces closing the connection pool.
@@ -156,12 +163,13 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
-proc query*(pool: PgAsyncPool,
-            query: string,
-            args: seq[string] = newSeq[string](0)):
-            Future[DatabaseResult[seq[Row]]] {.async.} =
-  ## Runs the SQL query getting results.
-  ## Retrieves info from the database.
+proc pgQuery*(pool: PgAsyncPool,
+              query: string,
+              args: seq[string] = newSeq[string](0),
+              rowCallback: DataProc = nil):
+              Future[DatabaseResult[void]] {.async.} =
+  ## rowCallback != nil when it is expected to retrieve info from the database.
+  ## rowCallback == nil for queries that change the database state.
 
   let connIndexRes = await pool.getConnIndex()
   if connIndexRes.isErr():
@@ -170,29 +178,8 @@ proc query*(pool: PgAsyncPool,
   let conn = pool.conns[connIndexRes.value].dbConn
   defer: pool.releaseConn(conn)
 
-  let rowsRes = await conn.rows(sql(query), args)
-  if rowsRes.isErr():
-    return err("error in asyncpool query: " & rowsRes.error)
-
-  return ok(rowsRes.get())
-
-proc exec*(pool: PgAsyncPool,
-           query: string,
-           args: seq[string] = newSeq[string](0)):
-           Future[DatabaseResult[void]] {.async.} =
-  ## Runs the SQL query without results.
-  ## Alters the database state.
-
-  let connIndexRes = await pool.getConnIndex()
-  if connIndexRes.isErr():
-    return err("connRes is err in exec: " & connIndexRes.error)
-
-  let conn = pool.conns[connIndexRes.value].dbConn
-  defer: pool.releaseConn(conn)
-
-  let rowsRes = await conn.rows(sql(query), args)
-  if rowsRes.isErr():
-    return err("rowsRes is err in exec: " & rowsRes.error)
+  (await conn.dbConnQuery(sql(query), args, rowCallback)).isOkOr:
+    return err("error in asyncpool query: " & $error)
 
   return ok()
 
