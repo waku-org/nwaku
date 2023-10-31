@@ -104,12 +104,9 @@ pipeline {
 } // pipeline
 
 def getDefaultImageTag() {
-  if (env.JOB_BASE_NAME) {
-    return env.JOB_BASE_NAME
-  }
   switch (env.JOB_BASE_NAME) {
     case 'docker-latest':      return 'latest'
     case 'docker-release':     return 'stable'
-    default:                   return ''
+    default:                   return env.JOB_BASE_NAME
   }
 }
