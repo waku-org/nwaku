@@ -16,8 +16,7 @@ import
   chronos,
   chronicles,
   os,
-  libp2p/peerstore,
-  std/json
+  libp2p/peerstore
 
 import
   ../../../waku/[
