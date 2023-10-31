@@ -1,22 +1,40 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils, strutils],
+  std/[
+    options, 
+    tables, 
+    sequtils, 
+    strutils, 
+    json
+  ],
   testutils/unittests,
-  stew/[results, byteutils],
+  stew/[
+    results, 
+    byteutils
+  ],
   chronos,
   chronicles,
   os,
-  libp2p/peerstore,
-  std/json
+  libp2p/peerstore
 
 import
-  ../../../waku/node/peer_manager,
-  ../../../waku/waku_filter_v2,
-  ../../../waku/waku_filter_v2/client,
-  ../../../waku/waku_filter_v2/subscriptions,
-  ../../../waku/waku_core,
-  ../testlib/[common, wakucore, testasync, testutils, futures, sequtils],
+  ../../../waku/[
+    node/peer_manager,
+    waku_core
+  ],
+  ../../../waku/waku_filter_v2/[
+    client,
+    subscriptions
+  ],
+  ../testlib/[
+    common,
+    wakucore, 
+    testasync, 
+    testutils, 
+    futures, 
+    sequtils
+  ],
   ./waku_filter_utils.nim,
   ./test_data.nim
 
