@@ -146,7 +146,7 @@ suite "Waku Filter - End to End":
     # Then the subscription is successful
     check (not subscribeResponse.isOk())
 
-  asyncTest "Filter Client Node can receive messages after subscribing and stopping without unsubscribing, via Filter":    
+  asyncTest "Filter Client Node can receive messages after subscribing and restarting, via Filter":
     # Given a valid filter subscription
     let subscribeResponse = await client.filterSubscribe(
       some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
@@ -161,35 +161,17 @@ suite "Waku Filter - End to End":
     client.mountFilterClient()
 
     # When a message is sent to the subscribed content topic, via Filter; without refreshing the subscription
-    let msg1 = fakeWakuMessage(contentTopic=contentTopic)
-    await server.filterHandleMessage(pubsubTopic, msg1)
-
-    # Then the message is not pushed to the client
-    check (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT))
-
-    # Given the client refreshes the subscription
-    # TODO: CHECK IF THIS IS NECESSARY. 
-    # AT FIRST GLANCE IT SEEMS TO COLLIDE WITH WAKU_FILTER_CLIENT'S BEHAVIOUR: SHOULD NOT NEED?
-    let subscribeResponse2 = await client.filterSubscribe(
-      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-    )
-    check:
-      subscribeResponse2.isOk()
-      server.wakuFilter.subscriptions.len == 1
-
-    # When a message is sent to the subscribed content topic, via Filter
-    pushHandlerFuture = newPushHandlerFuture() # Clear previous future
-    let msg2 = fakeWakuMessage(contentTopic=contentTopic)
-    await server.filterHandleMessage(pubsubTopic, msg2)
+    let msg = fakeWakuMessage(contentTopic=contentTopic)
+    await server.filterHandleMessage(pubsubTopic, msg)
 
     # Then the message is pushed to the client
     check await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
     let (pushedMsgPubsubTopic, pushedMsg) = pushHandlerFuture.read()
     check:
       pushedMsgPubsubTopic == pubsubTopic
-      pushedMsg == msg2
+      pushedMsg == msg
 
-  asyncTest "Filter Client Node can't receive messages after subscribing and stopping without unsubscribing, via Relay":    # Given the server node has Relay enabled
+  asyncTest "Filter Client Node can't receive messages after subscribing and restarting, via Relay":  # Given the server node has Relay enabled
     await server.mountRelay()
 
     # Given a valid filter subscription
@@ -205,9 +187,14 @@ suite "Waku Filter - End to End":
     waitFor client.start()
     client.mountFilterClient()
 
-    # And refreshes the subscription
-    # TODO: CHECK IF THIS IS NECESSARY. 
-    # AT FIRST GLANCE IT SEEMS TO COLLIDE WITH WAKU_FILTER_CLIENT'S BEHAVIOUR
+    # When a message is sent to the subscribed content topic, via Relay
+    let msg = fakeWakuMessage(contentTopic=contentTopic)
+    await server.publish(some(pubsubTopic), msg)
+
+    # Then the message is not sent to the client's filter push handler
+    check (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT))
+
+    # Given the client refreshes the subscription
     let subscribeResponse2 = await client.filterSubscribe(
       some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
     )
@@ -216,8 +203,9 @@ suite "Waku Filter - End to End":
       server.wakuFilter.subscriptions.len == 1
 
     # When a message is sent to the subscribed content topic, via Relay
-    let msg = fakeWakuMessage(contentTopic=contentTopic)
-    await server.publish(some(pubsubTopic), msg)
+    pushHandlerFuture = newPushHandlerFuture()
+    let msg2 = fakeWakuMessage(contentTopic=contentTopic)
+    await server.publish(some(pubsubTopic), msg2)
 
     # Then the message is not sent to the client's filter push handler
     check (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT))
