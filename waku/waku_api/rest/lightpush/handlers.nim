@@ -75,14 +75,14 @@ proc installLightPushRequestHandler*(
     let req: PushRequest = decodedBody.value()
     
     let msg = req.message.toWakuMessage().valueOr:
-      return RestApiResponse.badRequest("Invalid message: {msg.error}")
+      return RestApiResponse.badRequest("Invalid message: " & $error)
 
     let peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
       let handler = discHandler.valueOr:
         return NoPeerNoDiscoError
 
       let peerOp = (await handler()).valueOr:
-        return RestApiResponse.internalServerError($error)
+        return RestApiResponse.internalServerError("No value in peerOp: " & $error)
 
       peerOp.valueOr:
         return NoPeerNoneFoundError
