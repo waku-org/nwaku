@@ -24,8 +24,10 @@ import
     waku_core
   ],
   ../../../waku/waku_filter_v2/[
+    common,
     client,
-    subscriptions
+    subscriptions,
+    protocol
   ],
   ../testlib/[
     wakucore,
@@ -34,8 +36,8 @@ import
     futures,
     sequtils
   ],
-  ./waku_filter_utils.nim,
-  ../resources/payloads.nim
+  ./waku_filter_utils,
+  ../resources/payloads
 
 
 suite "Waku Filter - End to End":
