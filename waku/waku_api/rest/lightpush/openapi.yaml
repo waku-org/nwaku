@@ -76,7 +76,7 @@ components:
     PushRequest:
       type: object
       properties:
-        pusbsubTopic:
+        pubsubTopic:
           $ref: '#/components/schemas/PubsubTopic'
         message:
           $ref: '#/components/schemas/WakuMessage'
