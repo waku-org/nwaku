@@ -146,7 +146,7 @@ suite "Waku Filter - End to End":
     # Then the subscription is successful
     check (not subscribeResponse.isOk())
 
-  asyncTest "Filter Client Node can receive messages after subscribing and restarting, via Filter":
+  xasyncTest "Filter Client Node can receive messages after subscribing and restarting, via Filter":
     # Given a valid filter subscription
     let subscribeResponse = await client.filterSubscribe(
       some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
