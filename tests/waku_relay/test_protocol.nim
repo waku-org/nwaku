@@ -196,7 +196,7 @@ suite "Waku Relay":
       let fromOtherWakuMessage = fakeWakuMessage("fromOther")
       discard await node.publish(pubsubTopic, fromOtherWakuMessage)
 
-      # Then the message is published only in both nodes
+      # Then the message is published in both nodes
       check:
         await handlerFuture.withTimeout(3.seconds)
         await otherHandlerFuture.withTimeout(3.seconds)
@@ -396,8 +396,8 @@ suite "Waku Relay":
 
       # When publishing an encrypted message
       let encodedText = cfbEncode(key, iv, data)
-      let encryptedWakuMessage = fakeWakuMessage(encodedText, pubsubTopic)
-      discard await node.publish(pubsubTopic, encryptedWakuMessage)
+      let encodedWakuMessage = fakeWakuMessage(encodedText, pubsubTopic)
+      discard await node.publish(pubsubTopic, encodedWakuMessage)
       
       # Then the message is published in both nodes
       check:
@@ -407,19 +407,19 @@ suite "Waku Relay":
       let (otherTopic1, otherMsg1) = otherHandlerFuture.read()
       check:
         topic1 == pubsubTopic
-        msg1 == encryptedWakuMessage
+        msg1 == encodedWakuMessage
         otherTopic1 == pubsubTopic
-        otherMsg1 == encryptedWakuMessage
+        otherMsg1 == encodedWakuMessage
       
-      # When decrypting the message
+      # When decoding the message
       let 
-        decryptedText = cfbDecode(key, iv, msg1.payload)
-        otherDecryptedText = cfbDecode(key, iv, otherMsg1.payload)
+        decodedText = cfbDecode(key, iv, msg1.payload)
+        otherDecodedText = cfbDecode(key, iv, otherMsg1.payload)
 
       # Then the message is decrypted in both nodes
       check:
-        decryptedText.toString() == data
-        otherDecryptedText.toString() == data
+        decodedText.toString() == data
+        otherDecodedText.toString() == data
       
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
@@ -723,9 +723,8 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == []
 
-      # When unsubscribing from a pubsub topic
+      # When unsubscribing from a pubsub topic from an unsubscribed topic handler
       node.unsubscribe(pubsubTopic, otherTopicHandler)
-      # discard unsubscribe(node, pubsubTopic, otherTopicHandler)
 
       # Then the node is still not subscribed
       check:
