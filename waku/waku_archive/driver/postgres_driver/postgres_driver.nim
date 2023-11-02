@@ -9,7 +9,8 @@ import
   stew/[results,byteutils],
   db_postgres,
   postgres,
-  chronos
+  chronos,
+  chronicles
 import
   ../../../waku_core,
   ../../common,
