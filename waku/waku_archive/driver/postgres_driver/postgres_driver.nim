@@ -4,12 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/[strformat,nre,options,strutils],
+  std/[strformat,nre,options,sequtils,strutils,
+  strformat],
   stew/[results,byteutils],
   db_postgres,
   postgres,
-  chronos,
-  chronicles
+  chronos
 import
   ../../../waku_core,
   ../../common,
@@ -39,10 +39,49 @@ proc createTableQuery(): string =
   " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
   ");"
 
-proc insertRow(): string =
+const InsertRowStmtName = "InsertRow"
+const InsertRowStmtDefinition =
   # TODO: get the sql queries from a file
  """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
   version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
+
+const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
+const SelectNoCursorAscStmtDef =
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          storedAt >= $3 AND
+          storedAt <= $4
+    ORDER BY storedAt ASC LIMIT $5;"""
+
+const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
+const SelectNoCursorDescStmtDef =
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          storedAt >= $3 AND
+          storedAt <= $4
+    ORDER BY storedAt DESC LIMIT $5;"""
+
+const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
+const SelectWithCursorDescStmtDef =
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          (storedAt, id) < ($3,$4) AND
+          storedAt >= $5 AND
+          storedAt <= $6
+    ORDER BY storedAt DESC LIMIT $7;"""
+
+const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
+const SelectWithCursorAscStmtDef =
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          (storedAt, id) > ($3,$4) AND
+          storedAt >= $5 AND
+          storedAt <= $6
+    ORDER BY storedAt ASC LIMIT $7;"""
 
 const MaxNumConns = 50 #TODO: we may need to set that from app args (maybe?)
 
@@ -150,15 +189,31 @@ method put*(s: PostgresDriver,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
 
-  let ret = await s.writeConnPool.runStmt(insertRow(),
-                                     @[toHex(digest.data),
-                                       $receivedTime,
-                                       message.contentTopic,
-                                       toHex(message.payload),
+  let digest = toHex(digest.data)
+  let rxTime = $receivedTime
+  let contentTopic = message.contentTopic
+  let payload = toHex(message.payload)
+  let version = $message.version
+  let timestamp = $message.timestamp
+
+  return await s.writeConnPool.runStmt(InsertRowStmtName,
+                                       InsertRowStmtDefinition,
+                                     @[digest,
+                                       rxTime,
+                                       contentTopic,
+                                       payload,
                                        pubsubTopic,
-                                       $message.version,
-                                       $message.timestamp])
-  return ret
+                                       version,
+                                       timestamp],
+                                     @[int32(digest.len),
+                                       int32(rxTime.len),
+                                       int32(contentTopic.len),
+                                       int32(payload.len),
+                                       int32(pubsubTopic.len),
+                                       int32(version.len),
+                                       int32(timestamp.len)],
+                                     @[int32(0), int32(0), int32(0), int32(0),
+                                       int32(0), int32(0), int32(0)])
 
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
@@ -178,7 +233,7 @@ method getAllMessages*(s: PostgresDriver):
 
   return ok(rows)
 
-method getMessages*(s: PostgresDriver,
+proc getMessagesArbitraryQuery(s: PostgresDriver,
                     contentTopic: seq[ContentTopic] = @[],
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
@@ -187,9 +242,9 @@ method getMessages*(s: PostgresDriver,
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
-  var query = """SELECT storedAt, contentTopic, payload,
-  pubsubTopic, version, timestamp, id FROM messages"""
+  var query = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
@@ -239,6 +294,114 @@ method getMessages*(s: PostgresDriver,
     return err("failed to run query: " & $error)
 
   return ok(rows)
+
+proc getMessagesPreparedStmt(s: PostgresDriver,
+                    contentTopic: string,
+                    pubsubTopic: PubsubTopic,
+                    cursor = none(ArchiveCursor),
+                    startTime: Timestamp,
+                    endTime: Timestamp,
+                    maxPageSize = DefaultPageSize,
+                    ascOrder = true):
+                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+
+  ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
+  ## prepared statements.
+  ##
+  ## contentTopic - string with list of conten topics. e.g: "'ctopic1','ctopic2','ctopic3'"
+
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  let startTimeStr = $startTime
+  let endTimeStr = $endTime
+  let limit = $maxPageSize
+
+  if cursor.isSome():
+    var stmtName = if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
+    var stmtDef = if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
+
+    let digest = toHex(cursor.get().digest.data)
+    let storeTime = $cursor.get().storeTime
+
+    (await s.readConnPool.runStmt(
+                                  stmtName,
+                                  stmtDef,
+                                 @[contentTopic,
+                                   pubsubTopic,
+                                   storeTime,
+                                   digest,
+                                   startTimeStr,
+                                   endTimeStr,
+                                   limit],
+                                 @[int32(contentTopic.len),
+                                   int32(pubsubTopic.len),
+                                   int32(storeTime.len),
+                                   int32(digest.len),
+                                   int32(startTimeStr.len),
+                                   int32(endTimeStr.len),
+                                   int32(limit.len)],
+                                 @[int32(0), int32(0), int32(0), int32(0),
+                                   int32(0), int32(0), int32(0)],
+                                 rowCallback)
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+  else:
+    var stmtName = if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
+    var stmtDef = if ascOrder: SelectNoCursorAscStmtDef else: SelectNoCursorDescStmtDef
+    (await s.readConnPool.runStmt(stmtName,
+                                  stmtDef,
+                                 @[contentTopic,
+                                   pubsubTopic,
+                                   startTimeStr,
+                                   endTimeStr,
+                                   limit],
+                                 @[int32(contentTopic.len),
+                                   int32(pubsubTopic.len),
+                                   int32(startTimeStr.len),
+                                   int32(endTimeStr.len),
+                                   int32(limit.len)],
+                                 @[int32(0), int32(0), int32(0), int32(0), int32(0)],
+                                 rowCallback)
+    ).isOkOr:
+      return err("failed to run query without cursor: " & $error)
+
+  return ok(rows)
+
+method getMessages*(s: PostgresDriver,
+                    contentTopicSeq: seq[ContentTopic] = @[],
+                    pubsubTopic = none(PubsubTopic),
+                    cursor = none(ArchiveCursor),
+                    startTime = none(Timestamp),
+                    endTime = none(Timestamp),
+                    maxPageSize = DefaultPageSize,
+                    ascendingOrder = true):
+                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+
+  if contentTopicSeq.len > 0 and
+     pubsubTopic.isSome() and
+     startTime.isSome() and
+     endTime.isSome():
+
+    ## Considered the most common query. Therefore, we use prepared statements to optimize it.
+    return await s.getMessagesPreparedStmt(contentTopicSeq.join(","),
+                                           PubsubTopic(pubsubTopic.get()),
+                                           cursor,
+                                           startTime.get(),
+                                           endTime.get(),
+                                           maxPageSize,
+                                           ascendingOrder)
+  else:
+    ## We will run atypical query. In this case we don't use prepared statemets
+    return await s.getMessagesArbitraryQuery(contentTopicSeq,
+                                             pubsubTopic,
+                                             cursor,
+                                             startTime,
+                                             endTime,
+                                             maxPageSize,
+                                             ascendingOrder)
 
 proc getInt(s: PostgresDriver,
             query: string):

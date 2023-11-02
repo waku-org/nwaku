@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils,nre, strformat],
+  std/[sequtils,nre,strformat,sets],
   stew/results,
   chronos
 import
@@ -21,9 +21,8 @@ type PgAsyncPoolState {.pure.} = enum
 type
   PgDbConn = object
     dbConn: DbConn
-    busy: bool
     open: bool
-    insertStmt: SqlPrepared
+    preparedStmts: HashSet[string] ## [stmtName's]
 
 type
   # Database connection pool
@@ -68,7 +67,7 @@ func isLive(pool: PgAsyncPool): bool =
   pool.state == PgAsyncPoolState.Live
 
 func isBusy(pool: PgAsyncPool): bool =
-  pool.conns.mapIt(it.busy).allIt(it)
+  return pool.conns.mapIt(it.dbConn.isBusy()).allIt(it)
 
 proc close*(pool: PgAsyncPool):
             Future[Result[void, string]] {.async.} =
@@ -83,15 +82,14 @@ proc close*(pool: PgAsyncPool):
 
   # wait for the connections to be released and close them, without
   # blocking the async runtime
-  while pool.conns.anyIt(it.busy):
+  while pool.conns.anyIt(it.dbConn.isBusy()):
     await sleepAsync(0.milliseconds)
 
     for i in 0..<pool.conns.len:
-      if pool.conns[i].busy:
+      if pool.conns[i].dbConn.isBusy():
         continue
 
       pool.conns[i].dbConn.close()
-      pool.conns[i].busy = false
       pool.conns[i].open = false
 
   for i in 0..<pool.conns.len:
@@ -106,11 +104,10 @@ proc close*(pool: PgAsyncPool):
 proc getFirstFreeConnIndex(pool: PgAsyncPool):
                            DatabaseResult[int] =
   for index in 0..<pool.conns.len:
-    if pool.conns[index].busy:
+    if pool.conns[index].dbConn.isBusy():
       continue
 
     ## Pick up the first free connection and set it busy
-    pool.conns[index].busy = true
     return ok(index)
 
 proc getConnIndex(pool: PgAsyncPool):
@@ -122,7 +119,8 @@ proc getConnIndex(pool: PgAsyncPool):
     return err("pool is not live")
 
   if not pool.isBusy():
-    return pool.getFirstFreeConnIndex()
+    let ret = pool.getFirstFreeConnIndex()
+    return ret
 
   ## Pool is busy then
 
@@ -138,7 +136,7 @@ proc getConnIndex(pool: PgAsyncPool):
     let connRes = dbconn.open(pool.connString)
     if connRes.isOk():
       let conn = connRes.get()
-      pool.conns.add(PgDbConn(dbConn: conn, busy: true, open: true))
+      pool.conns.add(PgDbConn(dbConn: conn, open: true, preparedStmts: initHashSet[string]()))
       return ok(pool.conns.len - 1)
     else:
       return err("failed to stablish a new connection: " & connRes.error)
@@ -148,35 +146,22 @@ proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
   ## This proc is intended to be called when the connection with the database
   ## got interrupted from the database side or a connectivity problem happened.
 
-  for i in 0..<pool.conns.len:
-    pool.conns[i].busy = false
-
   (await pool.close()).isOkOr:
     return err("error in resetConnPool: " & error)
 
   pool.state = PgAsyncPoolState.Live
   return ok()
 
-proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
-  ## Marks the connection as released.
-  for i in 0..<pool.conns.len:
-    if pool.conns[i].dbConn == conn:
-      pool.conns[i].busy = false
-
 proc pgQuery*(pool: PgAsyncPool,
               query: string,
               args: seq[string] = newSeq[string](0),
               rowCallback: DataProc = nil):
               Future[DatabaseResult[void]] {.async.} =
-  ## rowCallback != nil when it is expected to retrieve info from the database.
-  ## rowCallback == nil for queries that change the database state.
 
-  let connIndexRes = await pool.getConnIndex()
-  if connIndexRes.isErr():
-    return err("connRes.isErr in query: " & connIndexRes.error)
+  let connIndex = (await pool.getConnIndex()).valueOr:
+    return err("connRes.isErr in query: " & $error)
 
-  let conn = pool.conns[connIndexRes.value].dbConn
-  defer: pool.releaseConn(conn)
+  let conn = pool.conns[connIndex].dbConn
 
   (await conn.dbConnQuery(sql(query), args, rowCallback)).isOkOr:
     return err("error in asyncpool query: " & $error)
@@ -184,44 +169,43 @@ proc pgQuery*(pool: PgAsyncPool,
   return ok()
 
 proc runStmt*(pool: PgAsyncPool,
-              baseStmt: string,
-              args: seq[string]):
+              stmtName: string,
+              stmtDefinition: string,
+              paramValues: seq[string],
+              paramLengths: seq[int32],
+              paramFormats: seq[int32],
+              rowCallback: DataProc = nil):
+
               Future[DatabaseResult[void]] {.async.} =
-  # Runs a stored statement, for performance purposes.
-  # In the current implementation, this is aimed
-  # to run the 'insertRow' stored statement aimed to add a new Waku message.
+  ## Runs a stored statement, for performance purposes.
+  ## The stored statements are connection specific and is a technique of caching a very common
+  ## queries within the same connection.
+  ##
+  ## rowCallback != nil when it is expected to retrieve info from the database.
+  ## rowCallback == nil for queries that change the database state.
 
-  let connIndexRes = await pool.getConnIndex()
-  if connIndexRes.isErr():
-    return err(connIndexRes.error())
+  let connIndex = (await pool.getConnIndex()).valueOr:
+    return err("Error in runStmt: " & $error)
 
-  let conn = pool.conns[connIndexRes.value].dbConn
-  defer: pool.releaseConn(conn)
+  let conn = pool.conns[connIndex].dbConn
 
-  var preparedStmt = pool.conns[connIndexRes.value].insertStmt
-  if cast[string](preparedStmt) == "":
-    # The connection doesn't have insertStmt set yet. Let's create it.
-    # Each session/connection should have its own prepared statements.
-    const numParams = 7
+  if not pool.conns[connIndex].preparedStmts.contains(stmtName):
+    # The connection doesn't have that statement yet. Let's create it.
+    # Each session/connection has its own prepared statements.
     try:
-      pool.conns[connIndexRes.value].insertStmt =
-                                    conn.prepare("insertRow", sql(baseStmt),
-                                                 numParams)
+      let len = paramValues.len
+      discard conn.prepare(stmtName, sql(stmtDefinition), len)
     except DbError:
       return err("failed prepare in runStmt: " & getCurrentExceptionMsg())
 
-  preparedStmt = pool.conns[connIndexRes.value].insertStmt
+    pool.conns[connIndex].preparedStmts.incl(stmtName)
 
-  try:
-    let res = conn.tryExec(preparedStmt, args)
-    if not res:
-      let connCheckRes = conn.check()
-      if connCheckRes.isErr():
-        return err("failed to insert into database: " & connCheckRes.error)
-
-      return err("failed to insert into database: unkown reason")
-
-  except DbError:
-    return err("failed to insert into database: " & getCurrentExceptionMsg())
+  (await conn.dbConnQueryPrepared(stmtName,
+                                  paramValues,
+                                  paramLengths,
+                                  paramFormats,
+                                  rowCallback)
+  ).isOkOr:
+    return err("error in runStmt: " & $error)
 
   return ok()
