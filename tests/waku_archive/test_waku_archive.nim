@@ -30,7 +30,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message, pubsubTopic)
+    digest: computeDigest(message)
   )
 
 
@@ -152,7 +152,7 @@ procSuite "Waku Archive - find messages":
       archive = newTestWakuArchive(driver)
 
     for msg in msgListA:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
 
     archive
 
@@ -446,7 +446,7 @@ procSuite "Waku Archive - find messages":
       ]
 
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
 
     ## Given
     let req = ArchiveQuery(contentTopics: @[DefaultContentTopic])

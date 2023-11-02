@@ -18,15 +18,13 @@ import
 
 type MessageDigest* = MDigest[256]
 
-proc computeDigest*(msg: WakuMessage, pubSubTopic: string): MessageDigest =
+proc computeDigest*(msg: WakuMessage): MessageDigest =
   var ctx: sha256
   ctx.init()
   defer: ctx.clear()
 
-  ctx.update(pubSubTopic.toBytes())
-  ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
-  ctx.update(msg.meta)
+  ctx.update(msg.payload)
 
   # Computes the hash
   return ctx.finish()

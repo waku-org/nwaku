@@ -50,7 +50,7 @@ suite "SQLite driver":
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     ## When
-    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg, DefaultPubsubTopic), msg.timestamp)
+    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
 
     ## Then
     check:
