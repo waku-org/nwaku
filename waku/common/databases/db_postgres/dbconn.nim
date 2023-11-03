@@ -1,3 +1,8 @@
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect,DbError].}
+else:
+  {.push raises: [ValueError,DbError].}
+
 import
   std/[times, strutils, strformat],
   stew/results,
@@ -8,17 +13,6 @@ include db_postgres
 type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe.}
 
 ## Connection management
-
-proc isBusy*(db: DbConn): bool =
-  try:
-    return db.pqisBusy() == 1
-  except ValueError,DbError:
-    return true
-
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect,DbError].}
-else:
-  {.push raises: [ValueError,DbError].}
 
 proc check*(db: DbConn): Result[void, string] =
 
@@ -131,8 +125,14 @@ proc waitQueryToFinish(db: DbConn,
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  while db.isBusy():
-
+  while db.pqisBusy() == 1:
+    ## TODO: Enhance performance in concurrent queries.
+    ## The connection keeps busy for quite a long time when performing intense concurrect queries.
+    ## For example, a given query can last 11 milliseconds within from the database point of view
+    ## but, on the other hand, the connection remains in "db.pqisBusy() == 1" for 100ms more.
+    ## I think this is because `nwaku` is single-threaded and it has to handle many connections (20)
+    ## simultaneously. Therefore, there is an underlying resource sharing (cpu) that makes this
+    ## to happen. Notice that the _Postgres_ database spawns one process per each connection.
     let success = db.pqconsumeInput()
 
     if success != 1:
@@ -149,11 +149,6 @@ proc waitQueryToFinish(db: DbConn,
     let pqResult = db.pqgetResult()
 
     if pqResult == nil:
-      # Check if its a real error or just end of results
-      let checkRes = db.check()
-      if checkRes.isErr():
-        return err("error in rows: " & checkRes.error)
-
       return ok() # reached the end of the results
 
     if not rowCallback.isNil():
