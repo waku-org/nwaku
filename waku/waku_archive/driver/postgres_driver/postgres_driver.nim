@@ -4,8 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[strformat,nre,options,sequtils,strutils,
-  strformat],
+  std/[nre,options,sequtils,strutils,times],
   stew/[results,byteutils],
   db_postgres,
   postgres,
@@ -345,7 +344,7 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
                                    int32(limit.len)],
                                  @[int32(0), int32(0), int32(0), int32(0),
                                    int32(0), int32(0), int32(0)],
-                                 rowCallback)
+                                  rowCallback)
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
 
@@ -365,7 +364,7 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
                                    int32(endTimeStr.len),
                                    int32(limit.len)],
                                  @[int32(0), int32(0), int32(0), int32(0), int32(0)],
-                                 rowCallback)
+                                  rowCallback)
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
 
@@ -382,9 +381,9 @@ method getMessages*(s: PostgresDriver,
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
 
   if contentTopicSeq.len > 0 and
-     pubsubTopic.isSome() and
-     startTime.isSome() and
-     endTime.isSome():
+    pubsubTopic.isSome() and
+    startTime.isSome() and
+    endTime.isSome():
 
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
     return await s.getMessagesPreparedStmt(contentTopicSeq.join(","),
