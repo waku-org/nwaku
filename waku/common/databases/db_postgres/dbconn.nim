@@ -138,7 +138,7 @@ proc waitQueryToFinish(db: DbConn,
     if success != 1:
       let checkRes = db.check()
       if checkRes.isErr():
-        return err("failed pqconsumeInput: " & checkRes.error)
+        return err("failed pqconsumeInput: " & $checkRes.error)
 
       return err("failed pqconsumeInput: unknown reason")
 
@@ -149,6 +149,10 @@ proc waitQueryToFinish(db: DbConn,
     let pqResult = db.pqgetResult()
 
     if pqResult == nil:
+      let checkRes = db.check()
+      if checkRes.isErr():
+        return err("error in query: " & $checkRes.error)
+
       return ok() # reached the end of the results
 
     if not rowCallback.isNil():
