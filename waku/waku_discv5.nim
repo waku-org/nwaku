@@ -49,6 +49,8 @@ type WakuDiscoveryV5* = ref object
     protocol*: protocol.Protocol
     listening*: bool
     predicate: Option[WakuDiscv5Predicate]
+    peerManager: Option[PeerManager]
+    topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
 
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
@@ -72,7 +74,9 @@ proc new*(
   T: type WakuDiscoveryV5,
   rng: ref HmacDrbgContext,
   conf: WakuDiscoveryV5Config,
-  record: Option[waku_enr.Record]
+  record: Option[waku_enr.Record],
+  peerManager: Option[PeerManager] = none(PeerManager),
+  queue: AsyncEventQueue[SubscriptionEvent] = newAsyncEventQueue[SubscriptionEvent](30),
   ): T =
   let shardPredOp =
     if record.isSome(): shardingPredicate(record.get())
@@ -101,82 +105,26 @@ proc new*(
     enrUdpPort = none(Port),
   )
 
-  WakuDiscoveryV5(conf: conf, protocol: protocol, listening: false, predicate: shardPredOp)
-
-proc new*(T: type WakuDiscoveryV5,
-          extIp: Option[ValidIpAddress],
-          extTcpPort: Option[Port],
-          extUdpPort: Option[Port],
-          bindIP: ValidIpAddress,
-          discv5UdpPort: Port,
-          bootstrapEnrs = newSeq[enr.Record](),
-          enrAutoUpdate = false,
-          privateKey: eth_keys.PrivateKey,
-          flags: CapabilitiesBitfield,
-          multiaddrs = newSeq[MultiAddress](),
-          rng: ref HmacDrbgContext,
-          topics: seq[string],
-          discv5Config: protocol.DiscoveryConfig = protocol.defaultDiscoveryConfig
-          ): T {.
-  deprecated: "use the config and record proc variant instead".}=
-
-  let relayShardsRes = topicsToRelayShards(topics)
-
-  let relayShard =
-    if relayShardsRes.isErr():
-      debug "pubsub topic parsing error", reason = relayShardsRes.error
-      none(RelayShards)
-    else: relayShardsRes.get()
-
-  let record = block:
-        var builder = EnrBuilder.init(privateKey)
-        builder.withIpAddressAndPorts(
-            ipAddr = extIp,
-            tcpPort = extTcpPort,
-            udpPort = extUdpPort,
-        )
-        builder.withWakuCapabilities(flags)
-        builder.withMultiaddrs(multiaddrs)
-
-        if relayShard.isSome():
-          let res = builder.withWakuRelaySharding(relayShard.get())
-
-          if res.isErr():
-            debug "building ENR with relay sharding failed", reason = res.error
-          else:
-            debug "building ENR with relay sharding information", clusterId = $relayShard.get().clusterId(), shards = $relayShard.get().shardIds()
-
-        builder.build().expect("Record within size limits")
-
-  let conf = WakuDiscoveryV5Config(
-    discv5Config: some(discv5Config),
-    address: bindIP,
-    port: discv5UdpPort,
-    privateKey: privateKey,
-    bootstrapRecords: bootstrapEnrs,
-    autoupdateRecord: enrAutoUpdate,
-  )
-
-  WakuDiscoveryV5.new(rng, conf, some(record))
+  WakuDiscoveryV5(
+    conf: conf,
+    protocol: protocol,
+    listening: false,
+    predicate: shardPredOp,
+    peerManager: peerManager,
+    topicSubscriptionQueue: queue,
+    )
 
 proc updateENRShards(wd: WakuDiscoveryV5,
   newTopics: seq[PubsubTopic], add: bool):  Result[void, string] =
   ## Add or remove shards from the Discv5 ENR
+  let newShardOp = topicsToRelayShards(newTopics).valueOr:
+    return err("ENR update failed: " & error)
+    
+  let newShard = newShardOp.valueOr:
+    return ok()
 
-  let newShardOp = ?topicsToRelayShards(newTopics)
-
-  let newShard =
-    if newShardOp.isSome():
-      newShardOp.get()
-    else:
-      return ok()
-
-  let typedRecordRes = wd.protocol.localNode.record.toTyped()
-  let typedRecord =
-    if typedRecordRes.isErr():
-      return err($typedRecordRes.error)
-    else:
-      typedRecordRes.get()
+  let typedRecord = wd.protocol.localNode.record.toTyped().valueOr:
+    return err("ENR update failed: " & $error)
 
   let currentShardsOp = typedRecord.relaySharding()
 
@@ -185,14 +133,16 @@ proc updateENRShards(wd: WakuDiscoveryV5,
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR are limited to one clusterId id")
+        return err("ENR update failed: clusterId id mismatch")
 
-      ?RelayShards.init(currentShard.clusterId, currentShard.shardIds & newShard.shardIds)
+      RelayShards.init(currentShard.clusterId, currentShard.shardIds & newShard.shardIds).valueOr:
+        return err("ENR update failed: " & error)
+
     elif not add and currentShardsOp.isSome():
       let currentShard = currentShardsOp.get()
 
       if currentShard.clusterId != newShard.clusterId:
-        return err("ENR are limited to one clusterId id")
+        return err("ENR update failed: clusterId id mismatch")
 
       let currentSet = toHashSet(currentShard.shardIds)
       let newSet = toHashSet(newShard.shardIds)
@@ -200,16 +150,11 @@ proc updateENRShards(wd: WakuDiscoveryV5,
       let indices = toSeq(currentSet - newSet)
 
       if indices.len == 0:
-        # Can't create RelayShard with no indices so update then return
-        let (field, value) = (ShardingIndicesListEnrField, newSeq[byte](3))
+        return err("ENR update failed: cannot remove all shards")
 
-        let res = wd.protocol.updateRecord([(field, value)])
-        if res.isErr():
-          return err($res.error)
+      RelayShards.init(currentShard.clusterId, indices).valueOr:
+        return err("ENR update failed: " & error)
 
-        return ok()
-
-      ?RelayShards.init(currentShard.clusterId, indices)
     elif add and currentShardsOp.isNone(): newShard
     else: return ok()
   
@@ -217,18 +162,13 @@ proc updateENRShards(wd: WakuDiscoveryV5,
     if resultShard.shardIds.len >= ShardingIndicesListMaxLength:
       (ShardingBitVectorEnrField, resultShard.toBitVector())
     else:
-      let listRes = resultShard.toIndicesList()
-      let list = 
-        if listRes.isErr():
-          return err($listRes.error)
-        else:
-          listRes.get()
+      let list = resultShard.toIndicesList().valueOr:
+        return err("ENR update failed: " & $error)
 
       (ShardingIndicesListEnrField, list)
 
-  let res = wd.protocol.updateRecord([(field, value)])
-  if res.isErr():
-    return err($res.error)
+  wd.protocol.updateRecord([(field, value)]).isOkOr:
+    return err("ENR update failed: " & $error)
 
   return ok()
 
@@ -246,9 +186,11 @@ proc findRandomPeers*(wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predica
 
   return discoveredRecords
 
-#TODO abstract away PeerManager
-proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager) {.async.} =
+proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
   ## Continuously add newly discovered nodes
+
+  let peerManager = wd.peerManager.valueOr:
+    return
 
   info "Starting discovery v5 search"
 
@@ -267,50 +209,13 @@ proc searchLoop*(wd: WakuDiscoveryV5, peerManager: PeerManager) {.async.} =
     # Also, give some time to dial the discovered nodes and update stats, etc.
     await sleepAsync(5.seconds)
 
-proc start*(wd: WakuDiscoveryV5): Result[void, string] =
-  if wd.listening:
-    return err("already listening")
-
-  info "Starting discovery v5 service"
-
-  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
-  try:
-    wd.protocol.open()
-  except CatchableError:
-    return err("failed to open udp port: " & getCurrentExceptionMsg())
-
-  wd.listening = true
-
-  trace "start discv5 service"
-  wd.protocol.start()
-
-  debug "Successfully started discovery v5 service"
-  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
-
-  ok()
-
-proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
-  if not wd.listening:
-      return
-
-  info "Stopping discovery v5 service"
-
-  wd.listening = false
-  trace "Stop listening on discv5 port"
-  await wd.protocol.closeWait()
-
-  debug "Successfully stopped discovery v5 service"
-
-proc subscriptionsListener*(
-  wd: WakuDiscoveryV5,
-  topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
-  ) {.async.} =
+proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
   
-  let key = topicSubscriptionQueue.register()
+  let key = wd.topicSubscriptionQueue.register()
 
   while wd.listening:
-    let events = await topicSubscriptionQueue.waitEvents(key)
+    let events = await wd.topicSubscriptionQueue.waitEvents(key)
 
     # Since we don't know the events we will receive we have to anticipate.
 
@@ -336,7 +241,44 @@ proc subscriptionsListener*(
 
     wd.predicate = shardingPredicate(wd.protocol.localNode.record)
 
-  topicSubscriptionQueue.unregister(key)
+  wd.topicSubscriptionQueue.unregister(key)
+
+proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
+  if wd.listening:
+    return err("already listening")
+
+  info "Starting discovery v5 service"
+
+  debug "start listening on udp port", address = $wd.conf.address, port = $wd.conf.port
+  try:
+    wd.protocol.open()
+  except CatchableError:
+    return err("failed to open udp port: " & getCurrentExceptionMsg())
+
+  wd.listening = true
+
+  trace "start discv5 service"
+  wd.protocol.start()
+
+  asyncSpawn wd.searchLoop()
+  asyncSpawn wd.subscriptionsListener()
+
+  debug "Successfully started discovery v5 service"
+  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
+
+  ok()
+
+proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
+  if not wd.listening:
+      return
+
+  info "Stopping discovery v5 service"
+
+  wd.listening = false
+  trace "Stop listening on discv5 port"
+  await wd.protocol.closeWait()
+
+  debug "Successfully stopped discovery v5 service"
 
 ## Helper functions
 
