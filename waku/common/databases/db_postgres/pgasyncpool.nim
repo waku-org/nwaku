@@ -123,8 +123,7 @@ proc getConnIndex(pool: PgAsyncPool):
     return err("pool is not live")
 
   if not pool.isBusy():
-    let ret = pool.getFirstFreeConnIndex()
-    return ret
+    return pool.getFirstFreeConnIndex()
 
   ## Pool is busy then
 
@@ -137,16 +136,14 @@ proc getConnIndex(pool: PgAsyncPool):
 
   elif pool.conns.len < pool.maxConnections:
     ## stablish a new connection
-    let connRes = dbconn.open(pool.connString)
-    if connRes.isOk():
-      let conn = connRes.get()
-      pool.conns.add(PgDbConn(dbConn: conn,
-                              open: true,
-                              busy: true,
-                              preparedStmts: initHashSet[string]()))
-      return ok(pool.conns.len - 1)
-    else:
-      return err("failed to stablish a new connection: " & connRes.error)
+    let conn = dbconn.open(pool.connString).valueOr:
+      return err("failed to stablish a new connection: " & $error)
+
+    pool.conns.add(PgDbConn(dbConn: conn,
+                            open: true,
+                            busy: true,
+                            preparedStmts: initHashSet[string]()))
+    return ok(pool.conns.len - 1)
 
 proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
   ## Forces closing the connection pool.
@@ -210,11 +207,12 @@ proc runStmt*(pool: PgAsyncPool,
   if not pool.conns[connIndex].preparedStmts.contains(stmtName):
     # The connection doesn't have that statement yet. Let's create it.
     # Each session/connection has its own prepared statements.
-    try:
+    let res = catch:
       let len = paramValues.len
       discard conn.prepare(stmtName, sql(stmtDefinition), len)
-    except DbError:
-      return err("failed prepare in runStmt: " & getCurrentExceptionMsg())
+
+    if res.isErr():
+      return err("failed prepare in runStmt: " & res.error.msg)
 
     pool.conns[connIndex].preparedStmts.incl(stmtName)
 
