@@ -53,9 +53,8 @@ proc sendQuery(db: DbConn,
   ## This proc can be used directly for queries that don't retrieve values back.
 
   if db.status != CONNECTION_OK:
-    let checkRes = db.check()
-    if checkRes.isErr():
-      return err("failed to connect to database: " & checkRes.error)
+    db.check().isOkOr:
+      return err("failed to connect to database: " & $error)
 
     return err("unknown reason")
 
@@ -68,9 +67,8 @@ proc sendQuery(db: DbConn,
 
   let success = db.pqsendQuery(cstring(wellFormedQuery))
   if success != 1:
-    let checkRes = db.check()
-    if checkRes.isErr():
-      return err("failed pqsendQuery: " & checkRes.error)
+    db.check().isOkOr:
+      return err("failed pqsendQuery: " & $error)
 
     return err("failed pqsendQuery: unknown reason")
 
@@ -91,9 +89,8 @@ proc sendQueryPrepared(
     return err("lengths discrepancies in sendQueryPrepared: " & $lengthsErrMsg)
 
   if db.status != CONNECTION_OK:
-    let checkRes = db.check()
-    if checkRes.isErr():
-      return err("failed to connect to database: " & checkRes.error)
+    db.check().isOkOr:
+      return err("failed to connect to database: " & $error)
 
     return err("unknown reason")
 
@@ -111,9 +108,8 @@ proc sendQueryPrepared(
                                        unsafeAddr paramFormats[0],
                                        ResultFormat)
   if success != 1:
-    let checkRes = db.check()
-    if checkRes.isErr():
-      return err("failed pqsendQueryPrepared: " & checkRes.error)
+    db.check().isOkOr:
+      return err("failed pqsendQueryPrepared: " & $error)
 
     return err("failed pqsendQueryPrepared: unknown reason")
 
@@ -136,9 +132,8 @@ proc waitQueryToFinish(db: DbConn,
     let success = db.pqconsumeInput()
 
     if success != 1:
-      let checkRes = db.check()
-      if checkRes.isErr():
-        return err("failed pqconsumeInput: " & $checkRes.error)
+      db.check().isOkOr:
+        return err("failed pqconsumeInput: " & $error)
 
       return err("failed pqconsumeInput: unknown reason")
 
@@ -149,9 +144,8 @@ proc waitQueryToFinish(db: DbConn,
     let pqResult = db.pqgetResult()
 
     if pqResult == nil:
-      let checkRes = db.check()
-      if checkRes.isErr():
-        return err("error in query: " & $checkRes.error)
+      db.check().isOkOr:
+        return err("error in query: " & $error)
 
       return ok() # reached the end of the results
 
