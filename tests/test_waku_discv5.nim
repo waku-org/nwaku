@@ -320,6 +320,7 @@ procSuite "Waku Discovery v5":
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shardsTopics).isOk()
+      builder.withWakuCapabilities(Relay)
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -338,6 +339,7 @@ procSuite "Waku Discovery v5":
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shardsTopics).isOk()
+      builder.withWakuCapabilities(Relay)
 
       let recordRes = builder.build()
       require recordRes.isOk()
@@ -356,6 +358,7 @@ procSuite "Waku Discovery v5":
 
       var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
       require builder.withWakuRelaySharding(shardsTopics).isOk()
+      builder.withWakuCapabilities(Relay)
 
       let recordRes = builder.build()
       require recordRes.isOk()
