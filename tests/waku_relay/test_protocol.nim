@@ -1248,7 +1248,7 @@ suite "Waku Relay":
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
-    xasyncTest "Relay can receive messages after subscribing and stopping without unsubscribing":
+    asyncTest "Relay can't receive messages after subscribing and stopping without unsubscribing":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
@@ -1275,7 +1275,6 @@ suite "Waku Relay":
       
       await sleepAsync(500.millis)
 
-      # FIXME: Inconsistent behaviour with Filter protocol.
       # Given other node is stopped without unsubscribing
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
@@ -1283,12 +1282,11 @@ suite "Waku Relay":
       let msg1 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await node.publish(pubsubTopic, msg1)
 
-      # Then the message is received in both nodes
+      # Then the message is not received in any node
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-        await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
+        not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
         (pubsubTopic, msg1) == handlerFuture.read()
-        (pubsubTopic, msg1) == otherHandlerFuture.read()
 
       # When sending a message from other node
       handlerFuture = newPushHandlerFuture()
@@ -1298,7 +1296,6 @@ suite "Waku Relay":
 
       # Then the message is received in both nodes
       check:
-        await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+        not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-        (pubsubTopic, msg2) == handlerFuture.read()
         (pubsubTopic, msg2) == otherHandlerFuture.read()
