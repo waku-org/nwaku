@@ -123,7 +123,7 @@ suite "Waku Relay":
       # When subscribing the second node to the Pubsub Topic
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
 
-      # Then both nodes are subscribed
+      # Then the second node is subscribed, but not the first one
       check:
         not node.isSubscribed(pubsubTopic)
         node.subscribedTopics != pubsubTopicSeq
@@ -217,7 +217,7 @@ suite "Waku Relay":
       discard await node.publish(pubsubTopic, fromNodeWakuMessage)
       discard await otherNode.publish(pubsubTopic, fromNodeWakuMessage)
 
-      # Then the message is published only in the subscribed node
+      # Then the message is published in both nodes
       check:
         await handlerFuture.withTimeout(3.seconds)
         await otherHandlerFuture.withTimeout(3.seconds)
@@ -240,8 +240,10 @@ suite "Waku Relay":
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
-      let fromOtherWakuMessage = fakeWakuMessage("fromOther")
-      discard await node.publish(pubsubTopic, fromOtherWakuMessage)
+      let otherWakuMessage = fakeWakuMessage("fromOther")
+      discard await node.publish(pubsubTopic, otherWakuMessage)
+      check:
+        messageSeq == @[(pubsubTopic, otherWakuMessage)]
 
       # Given the subscription is refreshed
       var otherHandlerFuture = newPushHandlerFuture()
@@ -251,7 +253,7 @@ suite "Waku Relay":
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
-        messageSeq == @[(pubsubTopic, fromOtherWakuMessage)]
+        messageSeq == @[(pubsubTopic, otherWakuMessage)]
 
       # When publishing a message with the refreshed subscription
       handlerFuture = newPushHandlerFuture()
@@ -263,7 +265,7 @@ suite "Waku Relay":
       check:
         topic == pubsubTopic
         msg == wakuMessage
-        messageSeq == @[(pubsubTopic, fromOtherWakuMessage), (pubsubTopic, wakuMessage)]
+        messageSeq == @[(pubsubTopic, otherWakuMessage), (pubsubTopic, wakuMessage)]
 
     asyncTest "With additional validator":
       # Given a simple validator
@@ -1059,7 +1061,7 @@ suite "Waku Relay":
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg5)
 
-      # Then the message is received in both nodes
+      # Then the message is received in self, because there's no checking, but not in other node
       check:
         await handlerFuture.withTimeout(3.seconds)
         not await otherHandlerFuture.withTimeout(3.seconds)
@@ -1070,7 +1072,7 @@ suite "Waku Relay":
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg6)
 
-      # Then the message is received in both nodes
+      # Then the message is received in self, because there's no checking, but not in other node
       check:
         await handlerFuture.withTimeout(3.seconds)
         not await otherHandlerFuture.withTimeout(3.seconds)
@@ -1154,7 +1156,7 @@ suite "Waku Relay":
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
   suite "Security and Privacy":
-    xasyncTest "Relay can receive messages after reboot and reconnect":
+    asyncTest "Relay can receive messages after reboot and reconnect":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
@@ -1297,6 +1299,3 @@ suite "Waku Relay":
         await otherHandlerFuture.withTimeout(3.seconds)
         (pubsubTopic, msg2) == handlerFuture.read()
         (pubsubTopic, msg2) == otherHandlerFuture.read()
-      
-      # Finally stop the other node
-      await allFutures(otherSwitch.stop(), otherNode.stop())
