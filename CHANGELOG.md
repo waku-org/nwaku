@@ -1,3 +1,24 @@
+## v0.21.2 (2023-11-07)
+
+This patch release addresses the following issue:
+- Inability to send RLN messages through the REST API
+
+### Bug Fixes
+
+- **rest:** fix bug in rest api when sending rln message ([#2169](https://github.com/waku-org/nwaku/issues/2169)) ([33decd7a](https://github.com/waku-org/nwaku/commit/33decd7a))
+
+This is a patch release that is fully backwards-compatible with release `v0.21.0` and `v0.21.1`.
+
+It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 ## v0.21.1 (2023-10-26)
 
 This patch release addresses the following issues:
