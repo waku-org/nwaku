@@ -82,3 +82,7 @@ For bug reports, please [tag your issue with the `bug` label](https://github.com
 If you believe the reported issue requires critical attention, please [use the `critical` label](https://github.com/waku-org/nwaku/issues/new?labels=critical,bug) to assist with triaging.
 
 To get help, or participate in the conversation, join the [Waku Discord](https://discord.waku.org/) server.
+
+### Docs
+
+* [REST API Documentation](https://waku-org.github.io/waku-rest-api/)
