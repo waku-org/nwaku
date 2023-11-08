@@ -15,6 +15,7 @@ import
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
@@ -58,7 +59,8 @@ procSuite "WakuNode - Store":
 
     for msg in msgListA:
       let msg_digest = waku_archive.computeDigest(msg)
-      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
+      let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
+      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)).isOk()
 
     driver
 

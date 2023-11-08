@@ -29,7 +29,7 @@ suite "Waku Message - Deterministic hashing":
       )
 
     ## When
-    let messageHash = digest(pubsubTopic, message)
+    let messageHash = computeMessageHash(pubsubTopic, message)
 
     ## Then
     check:
@@ -58,7 +58,7 @@ suite "Waku Message - Deterministic hashing":
       )
 
     ## When
-    let messageHash = digest(pubsubTopic, message)
+    let messageHash = computeMessageHash(pubsubTopic, message)
 
     ## Then
     check:
@@ -87,7 +87,7 @@ suite "Waku Message - Deterministic hashing":
     )
 
     ## When
-    let messageHash = digest(pubsubTopic, message)
+    let messageHash = computeMessageHash(pubsubTopic, message)
 
     ## Then
     check:
@@ -116,7 +116,7 @@ suite "Waku Message - Deterministic hashing":
       )
 
     ## When
-    let messageHash = digest(pubsubTopic, message)
+    let messageHash = computeMessageHash(pubsubTopic, message)
 
     ## Then
     check:
