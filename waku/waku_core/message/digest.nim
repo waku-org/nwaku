@@ -25,19 +25,6 @@ converter toBytesArray*(digest: MDigest[256]): WakuMessageHash =
 converter toBytes*(digest: MDigest[256]): seq[byte] =
   toSeq(digest.data)
 
-
-# proc digest*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessageHash =
-#   var ctx: sha256
-#   ctx.init()
-#   defer: ctx.clear()
-
-#   ctx.update(pubsubTopic.toBytes())
-#   ctx.update(msg.payload)
-#   ctx.update(msg.contentTopic.toBytes())
-#   ctx.update(msg.meta)
-
-#   return ctx.finish()  # Computes the hash
-
 proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessageHash =
   var ctx: sha256
   ctx.init()
