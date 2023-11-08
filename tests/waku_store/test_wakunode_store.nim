@@ -34,7 +34,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryC
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: waku_archive.computeDigest(message, pubsubTopic)
+    digest: waku_archive.computeDigest(message)
   )
 
 procSuite "WakuNode - Store":
@@ -57,7 +57,7 @@ procSuite "WakuNode - Store":
     let driver = newTestArchiveDriver()
 
     for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg, DefaultPubsubTopic)
+      let msg_digest = waku_archive.computeDigest(msg)
       require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
 
     driver
