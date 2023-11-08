@@ -31,6 +31,12 @@ when isMainModule:
 
   trace "configuration", conf = $conf
 
+  let baseDir = conf.rlnRelayCredPath.splitFile().dir
+  if baseDir.len > 0 and not existsDir(baseDir):
+    let errMsg = "The next folder doesn't exist: " & baseDir
+    error "failure missing credentials folder", error=errMsg
+    quit(1)
+
   # 2. initialize rlnInstance
   let rlnInstanceRes = createRLNInstance(d=20,
                                          tree_path = genTempPath("rln_tree", "rln_keystore_generator"))
@@ -92,11 +98,6 @@ when isMainModule:
     treeIndex: groupManager.membershipIndex.get(),
     identityCredential: credential,
   )
-
-  let baseDir = conf.rlnRelayCredPath.splitFile().dir
-  if baseDir.len > 0 and not existsDir(baseDir):
-    info "Creating credentials keystore folder", dir=baseDir
-    createDir(baseDir)
 
   let persistRes = addMembershipCredentials(conf.rlnRelayCredPath,
                                             keystoreCred,
