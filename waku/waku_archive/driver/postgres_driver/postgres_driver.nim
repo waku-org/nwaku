@@ -210,6 +210,7 @@ method put*(s: PostgresDriver,
                                        version,
                                        timestamp],
                                      @[int32(digest.len),
+                                       int32(messageHash.len),
                                        int32(rxTime.len),
                                        int32(contentTopic.len),
                                        int32(payload.len),
@@ -217,7 +218,7 @@ method put*(s: PostgresDriver,
                                        int32(version.len),
                                        int32(timestamp.len)],
                                      @[int32(0), int32(0), int32(0), int32(0),
-                                       int32(0), int32(0), int32(0)])
+                                       int32(0), int32(0), int32(0), int32(0)])
 
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
