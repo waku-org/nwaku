@@ -21,9 +21,9 @@ import
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/rendezvous,
   libp2p/builders,
+  libp2p/transports/transport,
   libp2p/transports/tcptransport,
-  libp2p/transports/wstransport,
-  libp2p/transports/transport
+  libp2p/transports/wstransport
 import
   ../waku_core,
   ../waku_core/topics/sharding,
