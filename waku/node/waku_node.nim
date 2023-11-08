@@ -22,7 +22,8 @@ import
   libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/tcptransport,
-  libp2p/transports/wstransport
+  libp2p/transports/wstransport,
+  libp2p/transports/transport
 import
   ../waku_core,
   ../waku_core/topics/sharding,
@@ -1083,15 +1084,22 @@ proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
 proc printNodeNetworkInfo*(node: WakuNode): void =
   let peerInfo = node.switch.peerInfo
   var announcedStr = ""
+  var listenStr = ""
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
     announcedStr &= fulladdr
+  
+  for transport in node.switch.transports:
+    for address in transport.addrs:
+      var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+      listenStr &= fulladdr
 
   ## XXX: this should be /ip4..., / stripped?
-  info "Announcing", full = announcedStr
+  info "Listening on", full = listenStr, localIp = getPrimaryIPAddr()
+  info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
 proc start*(node: WakuNode) {.async.} =
