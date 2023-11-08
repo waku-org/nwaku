@@ -4,9 +4,10 @@ else:
   {.push raises: [].}
 
 import
+  os,
   chronicles,
   stew/[results],
-  std/tempfiles
+  std/[tempfiles,strutils]
 
 import
   ../../waku/waku_keystore,
@@ -91,6 +92,11 @@ when isMainModule:
     treeIndex: groupManager.membershipIndex.get(),
     identityCredential: credential,
   )
+
+  let baseDir = conf.rlnRelayCredPath.splitFile().dir
+  if baseDir.len > 0 and not existsDir(baseDir):
+    info "Creating credentials keystore folder", dir=baseDir
+    createDir(baseDir)
 
   let persistRes = addMembershipCredentials(conf.rlnRelayCredPath,
                                             keystoreCred,
