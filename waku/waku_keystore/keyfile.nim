@@ -373,24 +373,22 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   let params = ? kdfParams(kdfkind, toHex(salt, true), workfactor)
 
-  let json = %*
-    {
-      "crypto": {
-        "cipher": $cryptkind,
-        "cipherparams": {
-          "iv": toHex(iv, true)
-        },
-        "ciphertext": toHex(ciphertext, true),
-        "kdf": $kdfkind,
-        "kdfparams": params,
-        "mac": toHex(mac.data, true),
-      },
-    }
-
-  if IdInKeyfile:
-    json.add("id", %($u))
-  if VersionInKeyfile:
-    json.add("version", %version)
+  let json = %* (
+    "{" &
+    "  crypto: {" &
+    "    cipher: " & $cryptkind & "," &
+    "    cipherparams: {" &
+    "      iv: " & toHex(iv, true) &
+    "    }," &
+    "    ciphertext: " & toHex(ciphertext, true) & "," &
+    "    kdf: " & $kdfkind & "," &
+    "    kdfparams: " & $params & "," &
+    "    mac: " & toHex(mac.data, true) &
+    "  }" &
+    (if IdInKeyfile: ", id: " & $u else: "") &
+    (if VersionInKeyfile: ", version: " & $version else: "") &
+    "}"
+  )
 
   ok(json)
 
