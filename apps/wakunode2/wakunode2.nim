@@ -13,6 +13,7 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
+  ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../waku/common/logging,
   ./external_config,
   ./app
@@ -49,96 +50,99 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
+  case conf.cmd:
+  of generateRlnKeystore:
+    doRlnKeystoreGenerator(conf)
+  of noCommand:
+    var wakunode2 = App.init(rng, conf)
 
-  var wakunode2 = App.init(rng, conf)
+    ##############
+    # Node setup #
+    ##############
 
-  ##############
-  # Node setup #
-  ##############
+    debug "1/7 Setting up storage"
 
-  debug "1/7 Setting up storage"
-
-  ## Peer persistence
-  let res1 = wakunode2.setupPeerPersistence()
-  if res1.isErr():
-    error "1/7 Setting up storage failed", error=res1.error
-    quit(QuitFailure)
-
-  debug "2/7 Retrieve dynamic bootstrap nodes"
-
-  let res3 = wakunode2.setupDyamicBootstrapNodes()
-  if res3.isErr():
-    error "2/7 Retrieving dynamic bootstrap nodes failed", error=res3.error
-    quit(QuitFailure)
-
-  debug "3/7 Initializing node"
-
-  let res4 = wakunode2.setupWakuApp()
-  if res4.isErr():
-    error "3/7 Initializing node failed", error=res4.error
-    quit(QuitFailure)
-
-  debug "4/7 Mounting protocols"
-
-  let res5 = waitFor wakunode2.setupAndMountProtocols()
-  if res5.isErr():
-    error "4/7 Mounting protocols failed", error=res5.error
-    quit(QuitFailure)
-
-  debug "5/7 Starting node and mounted protocols"
-
-  let res6 = waitFor wakunode2.startApp()
-  if res6.isErr():
-    error "5/7 Starting node and protocols failed", error=res6.error
-    quit(QuitFailure)
-
-  debug "6/7 Starting monitoring and external interfaces"
-
-  let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
-  if res7.isErr():
-    error "6/7 Starting monitoring and external interfaces failed", error=res7.error
-    quit(QuitFailure)
-
-  debug "7/7 Setting up shutdown hooks"
-  ## Setup shutdown hooks for this process.
-  ## Stop node gracefully on shutdown.
-
-  proc asyncStopper(node: App) {.async.} =
-    await node.stop()
-    quit(QuitSuccess)
-
-  # Handle Ctrl-C SIGINT
-  proc handleCtrlC() {.noconv.} =
-    when defined(windows):
-      # workaround for https://github.com/nim-lang/Nim/issues/4057
-      setupForeignThreadGc()
-    notice "Shutting down after receiving SIGINT"
-    asyncSpawn asyncStopper(wakunode2)
-
-  setControlCHook(handleCtrlC)
-
-  # Handle SIGTERM
-  when defined(posix):
-    proc handleSigterm(signal: cint) {.noconv.} =
-      notice "Shutting down after receiving SIGTERM"
-      asyncSpawn asyncStopper(wakunode2)
-
-    c_signal(ansi_c.SIGTERM, handleSigterm)
-
-  # Handle SIGSEGV
-  when defined(posix):
-    proc handleSigsegv(signal: cint) {.noconv.} =
-      # Require --debugger:native
-      fatal "Shutting down after receiving SIGSEGV", stacktrace=getBacktrace()
-
-      # Not available in -d:release mode
-      writeStackTrace()
-
-      waitFor wakunode2.stop()
+    ## Peer persistence
+    let res1 = wakunode2.setupPeerPersistence()
+    if res1.isErr():
+      error "1/7 Setting up storage failed", error=res1.error
       quit(QuitFailure)
 
-    c_signal(ansi_c.SIGSEGV, handleSigsegv)
+    debug "2/7 Retrieve dynamic bootstrap nodes"
 
-  info "Node setup complete"
+    let res3 = wakunode2.setupDyamicBootstrapNodes()
+    if res3.isErr():
+      error "2/7 Retrieving dynamic bootstrap nodes failed", error=res3.error
+      quit(QuitFailure)
 
-  runForever()
+    debug "3/7 Initializing node"
+
+    let res4 = wakunode2.setupWakuApp()
+    if res4.isErr():
+      error "3/7 Initializing node failed", error=res4.error
+      quit(QuitFailure)
+
+    debug "4/7 Mounting protocols"
+
+    let res5 = waitFor wakunode2.setupAndMountProtocols()
+    if res5.isErr():
+      error "4/7 Mounting protocols failed", error=res5.error
+      quit(QuitFailure)
+
+    debug "5/7 Starting node and mounted protocols"
+
+    let res6 = waitFor wakunode2.startApp()
+    if res6.isErr():
+      error "5/7 Starting node and protocols failed", error=res6.error
+      quit(QuitFailure)
+
+    debug "6/7 Starting monitoring and external interfaces"
+
+    let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
+    if res7.isErr():
+      error "6/7 Starting monitoring and external interfaces failed", error=res7.error
+      quit(QuitFailure)
+
+    debug "7/7 Setting up shutdown hooks"
+    ## Setup shutdown hooks for this process.
+    ## Stop node gracefully on shutdown.
+
+    proc asyncStopper(node: App) {.async.} =
+      await node.stop()
+      quit(QuitSuccess)
+
+    # Handle Ctrl-C SIGINT
+    proc handleCtrlC() {.noconv.} =
+      when defined(windows):
+        # workaround for https://github.com/nim-lang/Nim/issues/4057
+        setupForeignThreadGc()
+      notice "Shutting down after receiving SIGINT"
+      asyncSpawn asyncStopper(wakunode2)
+
+    setControlCHook(handleCtrlC)
+
+    # Handle SIGTERM
+    when defined(posix):
+      proc handleSigterm(signal: cint) {.noconv.} =
+        notice "Shutting down after receiving SIGTERM"
+        asyncSpawn asyncStopper(wakunode2)
+
+      c_signal(ansi_c.SIGTERM, handleSigterm)
+
+    # Handle SIGSEGV
+    when defined(posix):
+      proc handleSigsegv(signal: cint) {.noconv.} =
+        # Require --debugger:native
+        fatal "Shutting down after receiving SIGSEGV", stacktrace=getBacktrace()
+
+        # Not available in -d:release mode
+        writeStackTrace()
+
+        waitFor wakunode2.stop()
+        quit(QuitFailure)
+
+      c_signal(ansi_c.SIGSEGV, handleSigsegv)
+
+    info "Node setup complete"
+
+    runForever()
