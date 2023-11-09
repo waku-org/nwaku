@@ -304,7 +304,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
         return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", contentTopic=message.contentTopic, rln=defined(rln)
+    debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
     if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", contentTopic=message.contentTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
