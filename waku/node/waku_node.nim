@@ -1114,11 +1114,6 @@ proc start*(node: WakuNode) {.async.} =
     if isBindIpWithZeroPort(address):
       zeroPortPresent = true
 
-  if not zeroPortPresent:
-    printNodeNetworkInfo(node)
-  else:
-    info "Listening port is dynamically allocated, address and ENR generation postponed"
-
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
     await node.startRelay()
@@ -1136,6 +1131,11 @@ proc start*(node: WakuNode) {.async.} =
   node.started = true
 
   node.wakuMetadata.start()
+
+  if not zeroPortPresent:
+    printNodeNetworkInfo(node)
+  else:
+    info "Listening port is dynamically allocated, address and ENR generation postponed"
 
   info "Node started successfully"
 
