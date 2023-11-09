@@ -3,7 +3,7 @@ In this tutorial you will learn how to:
 2. Obtain Sepolia ETH from faucet.
 3. Access a node on the Sepolia testnet using Infura.
 
-## 1. Create a Sepolia Ethereum Account and obtain its private key
+## 1. Create a Sepolia Ethereum account and obtain its private key
 
 1. Download and install Metamask. [https://metamask.io/download/](https://metamask.io/download/)
    If you already have Metamask installed, go to step 3.
@@ -41,7 +41,10 @@ In this tutorial you will learn how to:
     
     ![image](https://github.com/waku-org/nwaku/assets/68783915/ffbac631-b933-4292-a2c6-dc445bff153c)
 
-   You will be shown the private key. This private key is used elsewhere by Waku RLN registration tools to assist with membership registration in the Sepolia testnet. We strongly recommend that you create an account only for this purpose. NEVER expose a private key that controls any valuable assets or funds.
+   You will be shown the private key.
+   This private key is used elsewhere by Waku RLN registration tools to assist with membership registration in the Sepolia test network.
+   We strongly recommend that you create an account only for this purpose.
+   NEVER expose a private key that controls any valuable assets or funds.
 
 ## 2. Obtain Sepolia ETH from faucet
 
@@ -70,7 +73,7 @@ We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk9
     
     ![image](https://github.com/waku-org/nwaku/assets/68783915/9ace2824-9030-4507-9b5f-50354bb99127)    
     
-## 3. Setting up a hosted node on Sepolia Testnet using Infura
+## 3. Access a node on the Sepolia testnet using Infura
 
 > _*NOTE:*_ Infura provides a simple way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node.
 > Setting up Infura is not mandatory. Operators concerned with the centralized aspect introduced by Infura should use their own node.
