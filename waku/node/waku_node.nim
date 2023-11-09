@@ -1091,7 +1091,7 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
     announcedStr &= fulladdr
-  
+
   for transport in node.switch.transports:
     for address in transport.addrs:
       var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
