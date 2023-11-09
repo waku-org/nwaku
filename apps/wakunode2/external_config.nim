@@ -30,17 +30,15 @@ type ProtectedTopic* = object
   topic*: string
   key*: secp256k1.SkPublicKey
 
+type StartUpCommand* = enum
+    noCommand # default, runs waku
+    generateRlnKeystore # generates a new RLN keystore
+
 type
   WakuNodeConf* = object
     configFile* {.
       desc: "Loads configuration from a TOML file (cmd-line parameters take precedence)"
       name: "config-file" }: Option[InputFile]
-
-    ##  Application-level configuration
-    protectedTopics* {.
-      desc: "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated."
-      defaultValue: newSeq[ProtectedTopic](0)
-      name: "protected-topic" .}: seq[ProtectedTopic]
 
     ## Log configuration
     logLevel* {.
@@ -53,409 +51,432 @@ type
       defaultValue: logging.LogFormat.TEXT,
       name: "log-format" .}: logging.LogFormat
 
-    ## General node config
-    clusterId* {.
-      desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
-      defaultValue: 0
-      name: "cluster-id" }: uint32
-
-    agentString* {.
-      defaultValue: "nwaku",
-      desc: "Node agent string which is used as identifier in network"
-      name: "agent-string" .}: string
-
-    nodekey* {.
-      desc: "P2P node private key as 64 char hex string.",
-      name: "nodekey" }: Option[PrivateKey]
-
-    listenAddress* {.
-      defaultValue: defaultListenAddress()
-      desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic."
-      name: "listen-address"}: ValidIpAddress
-
-    tcpPort* {.
-      desc: "TCP listening port."
-      defaultValue: 60000
-      name: "tcp-port" }: Port
-
-    portsShift* {.
-      desc: "Add a shift to all port numbers."
-      defaultValue: 0
-      name: "ports-shift" }: uint16
-
-    nat* {.
-      desc: "Specify method to use for determining public address. " &
-            "Must be one of: any, none, upnp, pmp, extip:<IP>."
-      defaultValue: "any" }: string
-
-    extMultiAddrs* {.
-      desc: "External multiaddresses to advertise to the network. Argument may be repeated."
-      name: "ext-multiaddr" }: seq[string]
-
-    extMultiAddrsOnly* {.
-      desc: "Only announce external multiaddresses",
-      defaultValue: false,
-      name: "ext-multiaddr-only" }: bool
-
-    maxConnections* {.
-      desc: "Maximum allowed number of libp2p connections."
-      defaultValue: 50
-      name: "max-connections" }: uint16
-
-    maxRelayPeers* {.
-      desc: "Maximum allowed number of relay peers."
-      name: "max-relay-peers" }: Option[int]
-
-    peerStoreCapacity* {.
-      desc: "Maximum stored peers in the peerstore."
-      name: "peer-store-capacity" }: Option[int]
-
-    peerPersistence* {.
-      desc: "Enable peer persistence.",
-      defaultValue: false,
-      name: "peer-persistence" }: bool
-
-    ## DNS addrs config
-
-    dnsAddrs* {.
-      desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs"
-      defaultValue: true
-      name: "dns-addrs" }: bool
-
-    dnsAddrsNameServers* {.
-      desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
-      defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
-      name: "dns-addrs-name-server" }: seq[ValidIpAddress]
-
-    dns4DomainName* {.
-      desc: "The domain name resolving to the node's public IPv4 address",
-      defaultValue: ""
-      name: "dns4-domain-name" }: string
-
-    ## Relay config
-
-    relay* {.
-      desc: "Enable relay protocol: true|false",
-      defaultValue: true
-      name: "relay" }: bool
-
-    relayPeerExchange* {.
-      desc: "Enable gossipsub peer exchange in relay protocol: true|false",
-      defaultValue: false
-      name: "relay-peer-exchange" }: bool
-
-    rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
-      defaultValue: false
-      name: "rln-relay" }: bool
-
     rlnRelayCredPath* {.
       desc: "The path for peristing rln-relay credential",
-      defaultValue: ""
+      defaultValue: "",
       name: "rln-relay-cred-path" }: string
-
-    rlnRelayCredIndex* {.
-      desc: "the index of the onchain commitment to use",
-      name: "rln-relay-membership-index" }: Option[uint]
-
-    rlnRelayDynamic* {.
-      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
-      defaultValue: false
-      name: "rln-relay-dynamic" }: bool
-
-    rlnRelayIdKey* {.
-      desc: "Rln relay identity secret key as a Hex string",
-      defaultValue: ""
-      name: "rln-relay-id-key" }: string
-
-    rlnRelayIdCommitmentKey* {.
-      desc: "Rln relay identity commitment key as a Hex string",
-      defaultValue: ""
-      name: "rln-relay-id-commitment-key" }: string
 
     rlnRelayEthClientAddress* {.
       desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
-      defaultValue: "ws://localhost:8540/"
+      defaultValue: "ws://localhost:8540/",
       name: "rln-relay-eth-client-address" }: string
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",
-      defaultValue: ""
+      defaultValue: "",
       name: "rln-relay-eth-contract-address" }: string
 
     rlnRelayCredPassword* {.
       desc: "Password for encrypting RLN credentials",
-      defaultValue: ""
+      defaultValue: "",
       name: "rln-relay-cred-password" }: string
 
-    rlnRelayTreePath* {.
-      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
-      defaultValue: ""
-      name: "rln-relay-tree-path" }: string
-
-    rlnRelayBandwidthThreshold* {.
-      desc: "Message rate in bytes/sec after which verification of proofs should happen",
-      defaultValue: 0 # to maintain backwards compatibility
-      name: "rln-relay-bandwidth-threshold" }: int
-
-    staticnodes* {.
-      desc: "Peer multiaddr to directly connect with. Argument may be repeated."
-      name: "staticnode" }: seq[string]
-
-    keepAlive* {.
-      desc: "Enable keep-alive for idle connections: true|false",
-      defaultValue: false
-      name: "keep-alive" }: bool
-
-    topics* {.
-      desc: "Default topic to subscribe to. Argument may be repeated. Deprecated! Please use pubsub-topic and/or content-topic instead."
-      defaultValue: @["/waku/2/default-waku/proto"]
-      name: "topic" .}: seq[string]
-
-    pubsubTopics* {.
-      desc: "Default pubsub topic to subscribe to. Argument may be repeated."
-      name: "pubsub-topic" .}: seq[string]
-
-    contentTopics* {.
-      desc: "Default content topic to subscribe to. Argument may be repeated."
-      name: "content-topic" .}: seq[string]
-
-    ## Store and message store config
-
-    store* {.
-      desc: "Enable/disable waku store protocol",
-      defaultValue: false,
-      name: "store" }: bool
-
-    storenode* {.
-      desc: "Peer multiaddress to query for storage",
+    rlnRelayEthPrivateKey* {.
+      desc: "Private key for broadcasting transactions",
       defaultValue: "",
-      name: "storenode" }: string
+      name: "rln-relay-eth-private-key" }: string
 
-    storeMessageRetentionPolicy* {.
-      desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'. Size retention policy: 'size:<xMB/xGB>'. Set to 'none' to disable.",
-      defaultValue: "time:" & $2.days.seconds,
-      name: "store-message-retention-policy" }: string
+    case cmd* {.
+      command
+      defaultValue: noCommand }: StartUpCommand
 
-    storeMessageDbUrl* {.
-      desc: "The database connection URL for peristent storage.",
-      defaultValue: "sqlite://store.sqlite3",
-      name: "store-message-db-url" }: string
+    of generateRlnKeystore:
+      execute* {.
+        desc: "Runs the registration function on-chain. By default, a dry-run will occur",
+        defaultValue: false,
+        name: "execute" .}: bool
+      
 
-    storeMessageDbVacuum* {.
-      desc: "Enable database vacuuming at start. Only supported by SQLite database engine.",
-      defaultValue: false,
-      name: "store-message-db-vacuum" }: bool
+    of noCommand:
+      ##  Application-level configuration
+      protectedTopics* {.
+        desc: "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated."
+        defaultValue: newSeq[ProtectedTopic](0)
+        name: "protected-topic" .}: seq[ProtectedTopic]
 
-    storeMessageDbMigration* {.
-      desc: "Enable database migration at start.",
-      defaultValue: true,
-      name: "store-message-db-migration" }: bool
+      ## General node config
+      clusterId* {.
+        desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
+        defaultValue: 0
+        name: "cluster-id" }: uint32
 
-    ## Filter config
+      agentString* {.
+        defaultValue: "nwaku",
+        desc: "Node agent string which is used as identifier in network"
+        name: "agent-string" .}: string
 
-    filter* {.
-      desc: "Enable filter protocol: true|false",
-      defaultValue: false
-      name: "filter" }: bool
+      nodekey* {.
+        desc: "P2P node private key as 64 char hex string.",
+        name: "nodekey" }: Option[PrivateKey]
 
-    filternode* {.
-      desc: "Peer multiaddr to request content filtering of messages.",
-      defaultValue: ""
-      name: "filternode" }: string
+      listenAddress* {.
+        defaultValue: defaultListenAddress()
+        desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic."
+        name: "listen-address"}: ValidIpAddress
 
-    filterTimeout* {.
-      desc: "Timeout for filter node in seconds.",
-      defaultValue: 14400 # 4 hours
-      name: "filter-timeout" }: int64
+      tcpPort* {.
+        desc: "TCP listening port."
+        defaultValue: 60000
+        name: "tcp-port" }: Port
 
-    ## Lightpush config
+      portsShift* {.
+        desc: "Add a shift to all port numbers."
+        defaultValue: 0
+        name: "ports-shift" }: uint16
 
-    lightpush* {.
-      desc: "Enable lightpush protocol: true|false",
-      defaultValue: false
-      name: "lightpush" }: bool
+      nat* {.
+        desc: "Specify method to use for determining public address. " &
+              "Must be one of: any, none, upnp, pmp, extip:<IP>."
+        defaultValue: "any" }: string
 
-    lightpushnode* {.
-      desc: "Peer multiaddr to request lightpush of published messages.",
-      defaultValue: ""
-      name: "lightpushnode" }: string
+      extMultiAddrs* {.
+        desc: "External multiaddresses to advertise to the network. Argument may be repeated."
+        name: "ext-multiaddr" }: seq[string]
 
-    ## JSON-RPC config
+      extMultiAddrsOnly* {.
+        desc: "Only announce external multiaddresses",
+        defaultValue: false,
+        name: "ext-multiaddr-only" }: bool
 
-    rpc* {.
-      desc: "Enable Waku JSON-RPC server: true|false",
-      defaultValue: true
-      name: "rpc" }: bool
+      maxConnections* {.
+        desc: "Maximum allowed number of libp2p connections."
+        defaultValue: 50
+        name: "max-connections" }: uint16
 
-    rpcAddress* {.
-      desc: "Listening address of the JSON-RPC server.",
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "rpc-address" }: ValidIpAddress
+      maxRelayPeers* {.
+        desc: "Maximum allowed number of relay peers."
+        name: "max-relay-peers" }: Option[int]
 
-    rpcPort* {.
-      desc: "Listening port of the JSON-RPC server.",
-      defaultValue: 8545
-      name: "rpc-port" }: uint16
+      peerStoreCapacity* {.
+        desc: "Maximum stored peers in the peerstore."
+        name: "peer-store-capacity" }: Option[int]
 
-    rpcAdmin* {.
-      desc: "Enable access to JSON-RPC Admin API: true|false",
-      defaultValue: false
-      name: "rpc-admin" }: bool
+      peerPersistence* {.
+        desc: "Enable peer persistence.",
+        defaultValue: false,
+        name: "peer-persistence" }: bool
 
-    rpcPrivate* {.
-      desc: "Enable access to JSON-RPC Private API: true|false",
-      defaultValue: false
-      name: "rpc-private" }: bool
+      ## DNS addrs config
 
-    ## REST HTTP config
+      dnsAddrs* {.
+        desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs"
+        defaultValue: true
+        name: "dns-addrs" }: bool
 
-    rest* {.
-      desc: "Enable Waku REST HTTP server: true|false",
-      defaultValue: false
-      name: "rest" }: bool
+      dnsAddrsNameServers* {.
+        desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
+        defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+        name: "dns-addrs-name-server" }: seq[ValidIpAddress]
 
-    restAddress* {.
-      desc: "Listening address of the REST HTTP server.",
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "rest-address" }: ValidIpAddress
+      dns4DomainName* {.
+        desc: "The domain name resolving to the node's public IPv4 address",
+        defaultValue: ""
+        name: "dns4-domain-name" }: string
 
-    restPort* {.
-      desc: "Listening port of the REST HTTP server.",
-      defaultValue: 8645
-      name: "rest-port" }: uint16
+      ## Relay config
 
-    restRelayCacheCapacity* {.
-      desc: "Capacity of the Relay REST API message cache.",
-      defaultValue: 30
-      name: "rest-relay-cache-capacity" }: uint32
+      relay* {.
+        desc: "Enable relay protocol: true|false",
+        defaultValue: true
+        name: "relay" }: bool
 
-    restAdmin* {.
-      desc: "Enable access to REST HTTP Admin API: true|false",
-      defaultValue: false
-      name: "rest-admin" }: bool
+      relayPeerExchange* {.
+        desc: "Enable gossipsub peer exchange in relay protocol: true|false",
+        defaultValue: false
+        name: "relay-peer-exchange" }: bool
 
-    restPrivate* {.
-      desc: "Enable access to REST HTTP Private API: true|false",
-      defaultValue: false
-      name: "rest-private" }: bool
+      rlnRelay* {.
+        desc: "Enable spam protection through rln-relay: true|false",
+        defaultValue: false
+        name: "rln-relay" }: bool
 
-    ## Metrics config
+      rlnRelayCredIndex* {.
+        desc: "the index of the onchain commitment to use",
+        name: "rln-relay-membership-index" }: Option[uint]
 
-    metricsServer* {.
-      desc: "Enable the metrics server: true|false"
-      defaultValue: false
-      name: "metrics-server" }: bool
+      rlnRelayDynamic* {.
+        desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+        defaultValue: false
+        name: "rln-relay-dynamic" }: bool
 
-    metricsServerAddress* {.
-      desc: "Listening address of the metrics server."
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "metrics-server-address" }: ValidIpAddress
+      rlnRelayIdKey* {.
+        desc: "Rln relay identity secret key as a Hex string",
+        defaultValue: ""
+        name: "rln-relay-id-key" }: string
 
-    metricsServerPort* {.
-      desc: "Listening HTTP port of the metrics server."
-      defaultValue: 8008
-      name: "metrics-server-port" }: uint16
+      rlnRelayIdCommitmentKey* {.
+        desc: "Rln relay identity commitment key as a Hex string",
+        defaultValue: ""
+        name: "rln-relay-id-commitment-key" }: string
+      
+      rlnRelayTreePath* {.
+        desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+        defaultValue: ""
+        name: "rln-relay-tree-path" }: string
 
-    metricsLogging* {.
-      desc: "Enable metrics logging: true|false"
-      defaultValue: true
-      name: "metrics-logging" }: bool
+      rlnRelayBandwidthThreshold* {.
+        desc: "Message rate in bytes/sec after which verification of proofs should happen",
+        defaultValue: 0 # to maintain backwards compatibility
+        name: "rln-relay-bandwidth-threshold" }: int
 
-    ## DNS discovery config
+      staticnodes* {.
+        desc: "Peer multiaddr to directly connect with. Argument may be repeated."
+        name: "staticnode" }: seq[string]
 
-    dnsDiscovery* {.
-      desc: "Enable discovering nodes via DNS"
-      defaultValue: false
-      name: "dns-discovery" }: bool
+      keepAlive* {.
+        desc: "Enable keep-alive for idle connections: true|false",
+        defaultValue: false
+        name: "keep-alive" }: bool
 
-    dnsDiscoveryUrl* {.
-      desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
-      defaultValue: ""
-      name: "dns-discovery-url" }: string
+      topics* {.
+        desc: "Default topic to subscribe to. Argument may be repeated. Deprecated! Please use pubsub-topic and/or content-topic instead."
+        defaultValue: @["/waku/2/default-waku/proto"]
+        name: "topic" .}: seq[string]
 
-    dnsDiscoveryNameServers* {.
-      desc: "DNS name server IPs to query. Argument may be repeated."
-      defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
-      name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+      pubsubTopics* {.
+        desc: "Default pubsub topic to subscribe to. Argument may be repeated."
+        name: "pubsub-topic" .}: seq[string]
 
-    ## Discovery v5 config
+      contentTopics* {.
+        desc: "Default content topic to subscribe to. Argument may be repeated."
+        name: "content-topic" .}: seq[string]
 
-    discv5Discovery* {.
-      desc: "Enable discovering nodes via Node Discovery v5"
-      defaultValue: false
-      name: "discv5-discovery" }: bool
+      ## Store and message store config
 
-    discv5UdpPort* {.
-      desc: "Listening UDP port for Node Discovery v5."
-      defaultValue: 9000
-      name: "discv5-udp-port" }: Port
+      store* {.
+        desc: "Enable/disable waku store protocol",
+        defaultValue: false,
+        name: "store" }: bool
 
-    discv5BootstrapNodes* {.
-      desc: "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated."
-      name: "discv5-bootstrap-node" }: seq[string]
+      storenode* {.
+        desc: "Peer multiaddress to query for storage",
+        defaultValue: "",
+        name: "storenode" }: string
 
-    discv5EnrAutoUpdate* {.
-      desc: "Discovery can automatically update its ENR with the IP address " &
-            "and UDP port as seen by other nodes it communicates with. " &
-            "This option allows to enable/disable this functionality"
-      defaultValue: false
-      name: "discv5-enr-auto-update" .}: bool
+      storeMessageRetentionPolicy* {.
+        desc: "Message store retention policy. Time retention policy: 'time:<seconds>'. Capacity retention policy: 'capacity:<count>'. Size retention policy: 'size:<xMB/xGB>'. Set to 'none' to disable.",
+        defaultValue: "time:" & $2.days.seconds,
+        name: "store-message-retention-policy" }: string
 
-    discv5TableIpLimit* {.
-      hidden
-      desc: "Maximum amount of nodes with the same IP in discv5 routing tables"
-      defaultValue: 10
-      name: "discv5-table-ip-limit" .}: uint
+      storeMessageDbUrl* {.
+        desc: "The database connection URL for peristent storage.",
+        defaultValue: "sqlite://store.sqlite3",
+        name: "store-message-db-url" }: string
 
-    discv5BucketIpLimit* {.
-      hidden
-      desc: "Maximum amount of nodes with the same IP in discv5 routing table buckets"
-      defaultValue: 2
-      name: "discv5-bucket-ip-limit" .}: uint
+      storeMessageDbVacuum* {.
+        desc: "Enable database vacuuming at start. Only supported by SQLite database engine.",
+        defaultValue: false,
+        name: "store-message-db-vacuum" }: bool
 
-    discv5BitsPerHop* {.
-      hidden
-      desc: "Kademlia's b variable, increase for less hops per lookup"
-      defaultValue: 1
-      name: "discv5-bits-per-hop" .}: int
+      storeMessageDbMigration* {.
+        desc: "Enable database migration at start.",
+        defaultValue: true,
+        name: "store-message-db-migration" }: bool
 
-    ## waku peer exchange config
-    peerExchange* {.
-      desc: "Enable waku peer exchange protocol (responder side): true|false",
-      defaultValue: false
-      name: "peer-exchange" }: bool
+      ## Filter config
 
-    peerExchangeNode* {.
-      desc: "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
-      defaultValue: ""
-      name: "peer-exchange-node" }: string
+      filter* {.
+        desc: "Enable filter protocol: true|false",
+        defaultValue: false
+        name: "filter" }: bool
 
-    ## websocket config
-    websocketSupport* {.
-      desc: "Enable websocket:  true|false",
-      defaultValue: false
-      name: "websocket-support"}: bool
+      filternode* {.
+        desc: "Peer multiaddr to request content filtering of messages.",
+        defaultValue: ""
+        name: "filternode" }: string
 
-    websocketPort* {.
-      desc: "WebSocket listening port."
-      defaultValue: 8000
-      name: "websocket-port" }: Port
+      filterTimeout* {.
+        desc: "Timeout for filter node in seconds.",
+        defaultValue: 14400 # 4 hours
+        name: "filter-timeout" }: int64
 
-    websocketSecureSupport* {.
-      desc: "Enable secure websocket:  true|false",
-      defaultValue: false
-      name: "websocket-secure-support"}: bool
+      ## Lightpush config
 
-    websocketSecureKeyPath* {.
-      desc: "Secure websocket key path:   '/path/to/key.txt' ",
-      defaultValue: ""
-      name: "websocket-secure-key-path"}: string
+      lightpush* {.
+        desc: "Enable lightpush protocol: true|false",
+        defaultValue: false
+        name: "lightpush" }: bool
 
-    websocketSecureCertPath* {.
-      desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
-      defaultValue: ""
-      name: "websocket-secure-cert-path"}: string
+      lightpushnode* {.
+        desc: "Peer multiaddr to request lightpush of published messages.",
+        defaultValue: ""
+        name: "lightpushnode" }: string
+
+      ## JSON-RPC config
+
+      rpc* {.
+        desc: "Enable Waku JSON-RPC server: true|false",
+        defaultValue: true
+        name: "rpc" }: bool
+
+      rpcAddress* {.
+        desc: "Listening address of the JSON-RPC server.",
+        defaultValue: ValidIpAddress.init("127.0.0.1")
+        name: "rpc-address" }: ValidIpAddress
+
+      rpcPort* {.
+        desc: "Listening port of the JSON-RPC server.",
+        defaultValue: 8545
+        name: "rpc-port" }: uint16
+
+      rpcAdmin* {.
+        desc: "Enable access to JSON-RPC Admin API: true|false",
+        defaultValue: false
+        name: "rpc-admin" }: bool
+
+      rpcPrivate* {.
+        desc: "Enable access to JSON-RPC Private API: true|false",
+        defaultValue: false
+        name: "rpc-private" }: bool
+
+      ## REST HTTP config
+
+      rest* {.
+        desc: "Enable Waku REST HTTP server: true|false",
+        defaultValue: false
+        name: "rest" }: bool
+
+      restAddress* {.
+        desc: "Listening address of the REST HTTP server.",
+        defaultValue: ValidIpAddress.init("127.0.0.1")
+        name: "rest-address" }: ValidIpAddress
+
+      restPort* {.
+        desc: "Listening port of the REST HTTP server.",
+        defaultValue: 8645
+        name: "rest-port" }: uint16
+
+      restRelayCacheCapacity* {.
+        desc: "Capacity of the Relay REST API message cache.",
+        defaultValue: 30
+        name: "rest-relay-cache-capacity" }: uint32
+
+      restAdmin* {.
+        desc: "Enable access to REST HTTP Admin API: true|false",
+        defaultValue: false
+        name: "rest-admin" }: bool
+
+      restPrivate* {.
+        desc: "Enable access to REST HTTP Private API: true|false",
+        defaultValue: false
+        name: "rest-private" }: bool
+
+      ## Metrics config
+
+      metricsServer* {.
+        desc: "Enable the metrics server: true|false"
+        defaultValue: false
+        name: "metrics-server" }: bool
+
+      metricsServerAddress* {.
+        desc: "Listening address of the metrics server."
+        defaultValue: ValidIpAddress.init("127.0.0.1")
+        name: "metrics-server-address" }: ValidIpAddress
+
+      metricsServerPort* {.
+        desc: "Listening HTTP port of the metrics server."
+        defaultValue: 8008
+        name: "metrics-server-port" }: uint16
+
+      metricsLogging* {.
+        desc: "Enable metrics logging: true|false"
+        defaultValue: true
+        name: "metrics-logging" }: bool
+
+      ## DNS discovery config
+
+      dnsDiscovery* {.
+        desc: "Enable discovering nodes via DNS"
+        defaultValue: false
+        name: "dns-discovery" }: bool
+
+      dnsDiscoveryUrl* {.
+        desc: "URL for DNS node list in format 'enrtree://<key>@<fqdn>'",
+        defaultValue: ""
+        name: "dns-discovery-url" }: string
+
+      dnsDiscoveryNameServers* {.
+        desc: "DNS name server IPs to query. Argument may be repeated."
+        defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+        name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+
+      ## Discovery v5 config
+
+      discv5Discovery* {.
+        desc: "Enable discovering nodes via Node Discovery v5"
+        defaultValue: false
+        name: "discv5-discovery" }: bool
+
+      discv5UdpPort* {.
+        desc: "Listening UDP port for Node Discovery v5."
+        defaultValue: 9000
+        name: "discv5-udp-port" }: Port
+
+      discv5BootstrapNodes* {.
+        desc: "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated."
+        name: "discv5-bootstrap-node" }: seq[string]
+
+      discv5EnrAutoUpdate* {.
+        desc: "Discovery can automatically update its ENR with the IP address " &
+              "and UDP port as seen by other nodes it communicates with. " &
+              "This option allows to enable/disable this functionality"
+        defaultValue: false
+        name: "discv5-enr-auto-update" .}: bool
+
+      discv5TableIpLimit* {.
+        hidden
+        desc: "Maximum amount of nodes with the same IP in discv5 routing tables"
+        defaultValue: 10
+        name: "discv5-table-ip-limit" .}: uint
+
+      discv5BucketIpLimit* {.
+        hidden
+        desc: "Maximum amount of nodes with the same IP in discv5 routing table buckets"
+        defaultValue: 2
+        name: "discv5-bucket-ip-limit" .}: uint
+
+      discv5BitsPerHop* {.
+        hidden
+        desc: "Kademlia's b variable, increase for less hops per lookup"
+        defaultValue: 1
+        name: "discv5-bits-per-hop" .}: int
+
+      ## waku peer exchange config
+      peerExchange* {.
+        desc: "Enable waku peer exchange protocol (responder side): true|false",
+        defaultValue: false
+        name: "peer-exchange" }: bool
+
+      peerExchangeNode* {.
+        desc: "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
+        defaultValue: ""
+        name: "peer-exchange-node" }: string
+
+      ## websocket config
+      websocketSupport* {.
+        desc: "Enable websocket:  true|false",
+        defaultValue: false
+        name: "websocket-support"}: bool
+
+      websocketPort* {.
+        desc: "WebSocket listening port."
+        defaultValue: 8000
+        name: "websocket-port" }: Port
+
+      websocketSecureSupport* {.
+        desc: "Enable secure websocket:  true|false",
+        defaultValue: false
+        name: "websocket-secure-support"}: bool
+
+      websocketSecureKeyPath* {.
+        desc: "Secure websocket key path:   '/path/to/key.txt' ",
+        defaultValue: ""
+        name: "websocket-secure-key-path"}: string
+
+      websocketSecureCertPath* {.
+        desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
+        defaultValue: ""
+        name: "websocket-secure-cert-path"}: string
 
 ## Parsing
 
