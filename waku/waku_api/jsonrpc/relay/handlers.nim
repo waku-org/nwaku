@@ -118,7 +118,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic=pubsubTopic, rln=defined(rln)
+    debug "Publishing message", pubSubTopic=pubsubTopic, rln=not node.wakuRlnRelay.isNil()
     let publishFut = node.publish(some(pubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):
       raise newException(ValueError, "Failed to publish: timed out")
@@ -217,7 +217,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         raise newException(ValueError, "Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", contentTopic=message.contentTopic, rln=defined(rln)
+    debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
     let publishFut = node.publish(none(PubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):
       raise newException(ValueError, "Failed to publish: timed out")
