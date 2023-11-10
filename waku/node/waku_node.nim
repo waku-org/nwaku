@@ -1083,9 +1083,14 @@ proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
 
 proc printNodeNetworkInfo*(node: WakuNode): void =
   let peerInfo = node.switch.peerInfo
-  let localIp = getPrimaryIPAddr()
   var announcedStr = ""
   var listenStr = ""
+  var localIp = ""
+
+  try:
+    localIp = $getPrimaryIPAddr()
+  except CatchableError:
+    warn "Could not retrieve localIp"
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
