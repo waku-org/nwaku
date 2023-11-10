@@ -1089,8 +1089,8 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
 
   try:
     localIp = $getPrimaryIPAddr()
-  except CatchableError:
-    warn "Could not retrieve localIp"
+  except Exception as e:
+    warn "Could not retrieve localIp", msg=e.msg
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
