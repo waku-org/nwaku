@@ -5,6 +5,10 @@ In this tutorial you will learn how to:
 
 ## 1. Create a Sepolia Ethereum account and obtain its private key
 
+> _**WARNING:**_ The private key is used elsewhere by Waku RLN registration tools to assist with membership registration in the Sepolia test network.
+> We strongly recommend that you create an account only for this purpose.
+> NEVER expose a private key that controls any valuable assets or funds.
+
 1. Download and install Metamask. [https://metamask.io/download/](https://metamask.io/download/)
    If you already have Metamask installed, go to step 3.
    If you encounter any issues during the Metamask setup process, please refer to the [official Metamask support page](https://support.metamask.io/hc/en-us). 
@@ -42,9 +46,6 @@ In this tutorial you will learn how to:
     ![image](https://github.com/waku-org/nwaku/assets/68783915/ffbac631-b933-4292-a2c6-dc445bff153c)
 
    You will be shown the private key.
-   This private key is used elsewhere by Waku RLN registration tools to assist with membership registration in the Sepolia test network.
-   We strongly recommend that you create an account only for this purpose.
-   NEVER expose a private key that controls any valuable assets or funds.
 
 ## 2. Obtain Sepolia ETH from faucet
 
@@ -55,7 +56,7 @@ Three popular examples include:
   2. [Infura Sepolia faucet](https://www.infura.io/faucet/sepolia) (requires an Infura account)
   3. [Sepolia POW faucet](https://sepolia-faucet.pk910.de/)
 
-> _*NOTE:*_ This list is provided for convenience. We do not necessarily recommend or guarantee the security of any of these options.
+> _**NOTE:**_ This list is provided for convenience. We do not necessarily recommend or guarantee the security of any of these options.
 
 Many faucets limit the amount of Sepolia ETH you can obtain per day.
 We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk910.de/) as an example:
@@ -75,7 +76,7 @@ We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk9
     
 ## 3. Access a node on the Sepolia testnet using Infura
 
-> _*NOTE:*_ Infura provides a simple way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node.
+> _**NOTE:**_ Infura provides a simple way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node.
 > Setting up Infura is not mandatory. Operators concerned with the centralized aspect introduced by Infura should use their own node.
 
 1. Sign up for Infura if you do not have an account already. [https://infura.io/register](https://infura.io/register)
