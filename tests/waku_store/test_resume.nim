@@ -14,8 +14,8 @@ import
   ../../waku/waku_core,
   ../../waku/waku_core/message/digest,
   ../../waku/waku_store,
-  ../testlib/common
-  # ../testlib/switch
+  ../testlib/common,
+  ../testlib/switch
 
 
 proc newTestDatabase(): SqliteDatabase =
