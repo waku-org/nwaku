@@ -66,9 +66,12 @@ proc decodeBytes*(t: typedesc[string], value: openarray[byte],
 proc decodeBytes*[T](t: typedesc[T],
                   data: openArray[byte],
                   contentType: Opt[ContentTypeData]): RestResult[T] =
-  let reqMediaType = $contentType.split(";",1)[0] ## split content-type from additonal parameters like encoding
-  let reqContentType = MediaType.init(reqMediaType)
-  if reqContentType != MIMETYPE_JSON and reqContentType != MIMETYPE_TEXT:
+
+  let reqContentType = contentType.valueOr():
+    error "Unsupported response, missing contentType value"
+    return err("Unsupported response, missing contentType")
+
+  if reqContentType.mediaType != MIMETYPE_JSON and reqContentType.mediaType != MIMETYPE_TEXT:
     error "Unsupported response contentType value", contentType = contentType
     return err("Unsupported response contentType")
 
