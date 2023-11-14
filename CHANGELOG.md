@@ -10,7 +10,7 @@ Release highlights:
 * simplified the process of generating RLN credentials through the new `generateRlnKeystore` subcommand
 * added support for configuration of port 0 in order to bind to kernel selected ports
 * shards are now automatically updated in metadata protocol when supported shards change on runtime
-*
+* introduced `messageHash` attribute to SQLite which will later replace the `id` attribute
 
 ### Features
 
