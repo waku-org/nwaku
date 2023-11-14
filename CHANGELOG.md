@@ -2,7 +2,7 @@
 
 > Note: The `--topic` option is now deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`
 
-> Note: The `ext-multiaddr-only` CLI flag was introduced for cases in which the user wants to manually set their announced addresses
+> Note: The `--ext-multiaddr-only` CLI flag was introduced for cases in which the user wants to manually set their announced addresses
 
 ## What's Changed
 
