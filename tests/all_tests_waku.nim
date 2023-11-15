@@ -40,15 +40,10 @@ when defined(waku_exp_store_resume):
   import ./waku_store/test_resume
 
 
-# Waku relay test suite
-import
-  ./waku_relay/test_waku_relay,
-  ./waku_relay/test_wakunode_relay
+import 
+  ./waku_relay/test_all
+  ./waku_filter_v2/test_all
 
-# Waku filter test suite
-import
-  ./waku_filter_v2/test_waku_client,
-  ./waku_filter_v2/test_waku_filter_protocol
 
 import
   # Waku v2 tests

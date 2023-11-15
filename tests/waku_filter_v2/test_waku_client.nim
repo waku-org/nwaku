@@ -36,7 +36,7 @@ import
     sequtils
   ],
   ./waku_filter_utils.nim,
-  ./test_data.nim
+  ../resources/payloads.nim
 
 let FUTURE_TIMEOUT = 1.seconds
 
