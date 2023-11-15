@@ -239,7 +239,7 @@ suite "Waku Relay":
 
     asyncTest "Refreshing subscription":
       # Given a subscribed node
-      node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
@@ -252,7 +252,7 @@ suite "Waku Relay":
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
-      node.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      discard node.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
         node.subscribedTopics == pubsubTopicSeq
@@ -297,14 +297,14 @@ suite "Waku Relay":
         otherHandlerFuture.complete((topic, message))
 
       otherNode.addValidator(pubsubTopic, len4Validator)
-      otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
+      discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       await sleepAsync(500.millis)
       check:
         otherNode.isSubscribed(pubsubTopic)
 
       # Given a subscribed node with a validator
       node.addValidator(pubsubTopic, len4Validator)
-      node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
       await sleepAsync(500.millis)
       check:
         node.isSubscribed(pubsubTopic)
@@ -784,7 +784,7 @@ suite "Waku Relay":
 
     asyncTest "Single Node with Single Pubsub Topic":
       # Given a node subscribed to a pubsub topic
-      node.subscribe(pubsubTopic, simpleFutureHandler)
+      discard node.subscribe(pubsubTopic, simpleFutureHandler)
       check node.subscribedTopics == pubsubTopicSeq
 
       # When unsubscribing from all pubsub topics
