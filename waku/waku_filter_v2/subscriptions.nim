@@ -43,3 +43,11 @@ proc removePeers*(subscriptions: var FilterSubscriptions, peerIds: seq[PeerID]) 
   ## Remove all subscriptions for a given list of peers
   for peerId in peerIds:
     subscriptions.removePeer(peerId)
+
+proc containsAny*(criteria: FilterCriteria, otherCriteria: FilterCriteria): bool =
+  ## Check if a given pubsub topic is contained in a set of filter criteria
+  ## TODO: Better way to achieve this?
+  for criterion in otherCriteria:
+    if criterion in criteria:
+      return true
+  false
