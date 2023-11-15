@@ -1,3 +1,67 @@
+## v0.22.0 (2023-11-15)
+
+> Note: The `--topic` option is now deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`
+
+> Note: The `--ext-multiaddr-only` CLI flag was introduced for cases in which the user wants to manually set their announced addresses
+
+## What's Changed
+
+Release highlights:
+* simplified the process of generating RLN credentials through the new `generateRlnKeystore` subcommand
+* added support for configuration of port 0 in order to bind to kernel selected ports
+* shards are now automatically updated in metadata protocol when supported shards change on runtime
+* introduced `messageHash` attribute to SQLite which will later replace the `id` attribute
+
+### Features
+
+- rln-keystore-generator is now a subcommand ([#2189](https://github.com/waku-org/nwaku/issues/2189)) ([3498a846](https://github.com/waku-org/nwaku/commit/3498a846))
+- amending computeDigest func. + related test cases ([#2132](https://github.com/waku-org/nwaku/issues/2132))" ([#2180](https://github.com/waku-org/nwaku/issues/2180)) ([d7ef3ca1](https://github.com/waku-org/nwaku/commit/d7ef3ca1))
+- **discv5:** filter out peers without any listed capability ([#2186](https://github.com/waku-org/nwaku/issues/2186)) ([200a11da](https://github.com/waku-org/nwaku/commit/200a11da))
+- metadata protocol shard subscription ([#2149](https://github.com/waku-org/nwaku/issues/2149)) ([bcf8e963](https://github.com/waku-org/nwaku/commit/bcf8e963))
+- REST APIs discovery handlers ([#2109](https://github.com/waku-org/nwaku/issues/2109)) ([7ca516a5](https://github.com/waku-org/nwaku/commit/7ca516a5))
+- implementing port 0 support ([#2125](https://github.com/waku-org/nwaku/issues/2125)) ([f7b9afc2](https://github.com/waku-org/nwaku/commit/f7b9afc2))
+- messageHash attribute added in SQLite + testcase ([#2142](https://github.com/waku-org/nwaku/issues/2142))" ([#2154](https://github.com/waku-org/nwaku/issues/2154)) ([13aeebe4](https://github.com/waku-org/nwaku/commit/13aeebe4))
+- messageHash attribute added in SQLite + testcase ([#2142](https://github.com/waku-org/nwaku/issues/2142)) ([9cd8c73d](https://github.com/waku-org/nwaku/commit/9cd8c73d))
+- amending computeDigest func. + related test cases ([#2132](https://github.com/waku-org/nwaku/issues/2132)) ([1669f710](https://github.com/waku-org/nwaku/commit/1669f710))
+
+### Bug Fixes
+
+- typo ([6dd28063](https://github.com/waku-org/nwaku/commit/6dd28063))
+- lightpush rest  ([#2176](https://github.com/waku-org/nwaku/issues/2176)) ([fa467e24](https://github.com/waku-org/nwaku/commit/fa467e24))
+- **ci:** fix Docker tag for latest and release jobs ([52759faa](https://github.com/waku-org/nwaku/commit/52759faa))
+- **rest:** fix bug in rest api when sending rln message ([#2169](https://github.com/waku-org/nwaku/issues/2169)) ([250e8b98](https://github.com/waku-org/nwaku/commit/250e8b98))
+- updating v0.21.1 release date in changelog ([#2160](https://github.com/waku-org/nwaku/issues/2160)) ([3be61636](https://github.com/waku-org/nwaku/commit/3be61636))
+
+### Changes
+
+- Optimize postgres - prepared statements in select ([#2182](https://github.com/waku-org/nwaku/issues/2182)) ([6da1aeec](https://github.com/waku-org/nwaku/commit/6da1aeec))
+- **release:** update changelog for v0.21.2 release ([#2188](https://github.com/waku-org/nwaku/issues/2188)) ([d0a93e7c](https://github.com/waku-org/nwaku/commit/d0a93e7c))
+- upgrade dependencies v0.22 ([#2185](https://github.com/waku-org/nwaku/issues/2185)) ([b9563ae0](https://github.com/waku-org/nwaku/commit/b9563ae0))
+- Optimize postgres - use of rowCallback approach ([#2171](https://github.com/waku-org/nwaku/issues/2171)) ([2b4ca4d0](https://github.com/waku-org/nwaku/commit/2b4ca4d0))
+- **networking:** lower dhigh to limit amplification factor ([#2168](https://github.com/waku-org/nwaku/issues/2168)) ([f0f69b32](https://github.com/waku-org/nwaku/commit/f0f69b32))
+- Minor Postgres optimizations ([#2166](https://github.com/waku-org/nwaku/issues/2166)) ([282c2e81](https://github.com/waku-org/nwaku/commit/282c2e81))
+- adding patch release instructions to release doc ([#2157](https://github.com/waku-org/nwaku/issues/2157)) ([cc01bb07](https://github.com/waku-org/nwaku/commit/cc01bb07))
+- **release:** update changelog for v0.21.1 release ([#2155](https://github.com/waku-org/nwaku/issues/2155)) ([b109a583](https://github.com/waku-org/nwaku/commit/b109a583))
+- adding ext-multiaddr-only CLI flag ([#2141](https://github.com/waku-org/nwaku/issues/2141)) ([944dfdaa](https://github.com/waku-org/nwaku/commit/944dfdaa))
+- bumping nim-libp2p to include WSS fix ([#2150](https://github.com/waku-org/nwaku/issues/2150)) ([817a7b2e](https://github.com/waku-org/nwaku/commit/817a7b2e))
+- **cbindings:** avoid using global var in libwaku.nim ([#2118](https://github.com/waku-org/nwaku/issues/2118)) ([1e8f5771](https://github.com/waku-org/nwaku/commit/1e8f5771))
+- adding postgres flag to manual docker job instructions ([#2139](https://github.com/waku-org/nwaku/issues/2139)) ([459331e3](https://github.com/waku-org/nwaku/commit/459331e3))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+## Upgrade instructions
+
+* Note that the `--topic` CLI option is now deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`.
+
 ## v0.21.3 (2023-11-09)
 
 This patch release adds the following feature:
