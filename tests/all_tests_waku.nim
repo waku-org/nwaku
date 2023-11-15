@@ -41,7 +41,7 @@ when defined(waku_exp_store_resume):
 
 
 import 
-  ./waku_relay/test_all
+  ./waku_relay/test_all,
   ./waku_filter_v2/test_all
 
 
