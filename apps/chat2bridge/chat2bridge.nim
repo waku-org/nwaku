@@ -229,11 +229,11 @@ when isMainModule:
 
     # Install enabled API handlers:
     if conf.relay:
-      let cache = MessageCache[string].init(capacity=30)
+      let cache = MessageCache.init(capacity=30)
       installRelayApiHandlers(node, rpcServer, cache)
 
     if conf.filter:
-      let messageCache = filter_api.MessageCache.init(capacity=30)
+      let messageCache = MessageCache.init(capacity=30)
       installFilterApiHandlers(node, rpcServer, messageCache)
 
     if conf.store:

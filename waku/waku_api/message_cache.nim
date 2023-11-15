@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils],
+  std/[sequtils, sugar, algorithm],
   stew/results,
   chronicles,
   chronos,
@@ -15,68 +15,277 @@ import
 logScope:
   topics = "waku node message_cache"
 
-const DefaultMessageCacheCapacity*: uint = 30 # Max number of messages cached per topic @TODO make this configurable
+const DefaultMessageCacheCapacity: int = 50
 
+type MessageCache* = ref object
+  pubsubTopics: seq[PubsubTopic]
+  contentTopics: seq[ContentTopic]
 
-type MessageCacheResult*[T] = Result[T, cstring]
+  pubsubIndex: seq[tuple[pubsubIdx: int, msgIdx: int]]
+  contentIndex: seq[tuple[contentIdx: int, msgIdx: int]]
 
-type MessageCache*[K] = ref object
-  capacity: uint
-  table: Table[K, seq[WakuMessage]]
+  messages: seq[WakuMessage]
 
-func init*[K](T: type MessageCache[K], capacity=DefaultMessageCacheCapacity): T =
-  MessageCache[K](
-    capacity: capacity,
-    table: initTable[K, seq[WakuMessage]]()
+  capacity: int
+
+func `$`*(self: MessageCache): string =
+  "Messages: " & $self.messages.len &
+  " \nPubsubTopics: " & $self.pubsubTopics &
+  " \nContentTopics: " & $self.contentTopics &
+  " \nPubsubIndex: " & $self.pubsubIndex &
+  " \nContentIndex: " & $self.contentIndex
+
+func init*(T: type MessageCache, capacity=DefaultMessageCacheCapacity): T =
+  MessageCache(
+    capacity: capacity
   )
 
+proc messagesCount*(self: MessageCache): int =
+  self.messages.len
 
-proc isSubscribed*[K](t: MessageCache[K], topic: K): bool =
-  t.table.hasKey(topic)
+proc pubsubTopicCount*(self: MessageCache): int =
+  self.pubsubTopics.len
 
-proc subscribe*[K](t: MessageCache[K], topic: K) =
-  if t.isSubscribed(topic):
+proc contentTopicCount*(self: MessageCache): int =
+  self.contentTopics.len
+
+proc pubsubSearch(self: MessageCache, pubsubTopic: PubsubTopic): Option[int] =
+  # Return some with the index if found none otherwise.
+  
+  for i, topic in self.pubsubTopics:
+    if topic == pubsubTopic:
+      return some(i)
+
+  return none(int)
+
+proc contentSearch(self: MessageCache, contentTopic: ContentTopic): Option[int] =
+  # Return some with the index if found none otherwise.
+  
+  for i, topic in self.contentTopics:
+    if topic == contentTopic:
+      return some(i)
+
+  return none(int)
+
+proc isPubsubSubscribed*(self: MessageCache, pubsubTopic: PubsubTopic): bool =
+  self.pubsubSearch(pubsubTopic).isSome()
+
+proc isContentSubscribed*(self: MessageCache, contentTopic: ContentTopic): bool =
+  self.contentSearch(contentTopic).isSome()
+
+proc pubsubSubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
+  if self.pubsubSearch(pubsubTopic).isNone():
+    self.pubsubTopics.add(pubsubTopic)
+
+proc contentSubscribe*(self: MessageCache, contentTopic: ContentTopic) =
+  if self.contentSearch(contentTopic).isNone():
+    self.contentTopics.add(contentTopic)
+
+proc removeMessage(self: MessageCache, idx: int) =
+  # get last index because del() is a swap
+  let lastIndex = self.messages.high
+  
+  self.messages.del(idx)
+  
+  # update indices
+  var j = self.pubsubIndex.high
+  while j > -1:
+    let (pId, mId) = self.pubsubIndex[j]
+
+    if mId == idx:
+      self.pubsubIndex.del(j)
+    elif mId == lastIndex:
+      self.pubsubIndex[j] = (pId, idx)
+
+    dec(j)
+
+  j = self.contentIndex.high
+  while j > -1:
+    let (cId, mId) = self.contentIndex[j]
+
+    if mId == idx:
+      self.contentIndex.del(j)
+    elif mId == lastIndex:
+      self.contentIndex[j] = (cId, idx)
+
+    dec(j)
+
+proc pubsubUnsubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
+  let pubsubIdxOp = self.pubsubSearch(pubsubTopic)
+
+  let pubsubIdx =
+    if pubsubIdxOp.isSome(): pubsubIdxOp.get()
+    else: return
+
+  let lastIndex = self.pubsubTopics.high
+  self.pubsubTopics.del(pubsubIdx)
+  
+  var msgIndices = newSeq[int](0)
+
+  var j = self.pubsubIndex.high
+  while j > -1:
+    let (pId, mId) = self.pubsubIndex[j]
+    
+    if pId == pubsubIdx:
+      # remove index for this topic
+      self.pubsubIndex.del(j)
+      msgIndices.add(mId)
+    elif pId == lastIndex:
+      # swap the index because pubsubTopics.del() is a swap
+      self.pubsubIndex[j] = (pubsubIdx, mId)
+    
+    dec(j)
+  
+  # check if messages on this pubsub topic are indexed by any content topic, if not remove them.
+  for mId in msgIndices:
+    if not self.contentIndex.anyIt(it.msgIdx == mId):
+      self.removeMessage(mId)
+
+proc contentUnsubscribe*(self: MessageCache, contentTopic: ContentTopic) =
+  let contentIdxOP = self.contentSearch(contentTopic)
+
+  let contentIdx = 
+    if contentIdxOP.isSome(): contentIdxOP.get()
+    else: return
+
+  let lastIndex = self.contentTopics.high
+  self.contentTopics.del(contentIdx)
+  
+  var msgIndices = newSeq[int](0)
+
+  var j = self.contentIndex.high
+  while j > -1:
+    let (cId, mId) = self.contentIndex[j]
+
+    if cId == contentIdx:
+      # remove indices for this topic
+      self.contentIndex.del(j)
+      msgIndices.add(mId)
+    elif cId == lastIndex:
+      # swap the indices because contentTopics.del() is a swap
+      self.contentIndex[j] = (contentIdx, mId)
+    
+    dec(j)
+
+  # check if messages on this content topic are indexed by any pubsub topic, if not remove them.
+  for mId in msgIndices:
+    if not self.pubsubIndex.anyIt(it.msgIdx == mId):
+      self.removeMessage(mId)
+
+proc reset*(self: MessageCache) =
+  self.messages.setLen(0)
+  self.pubsubTopics.setLen(0)
+  self.contentTopics.setLen(0)
+  self.pubsubIndex.setLen(0)
+  self.contentIndex.setLen(0)
+
+proc addMessage*(
+  self: MessageCache,
+  pubsubTopic: PubsubTopic,
+  msg: WakuMessage
+  ) =
+  ## Idempotent message addition.
+  
+  var oldestTime = int64.high
+  var oldestMsg = int.high
+  for i, message in self.messages:
+    if message == msg:
+      return
+
+    if message.timestamp < oldestTime:
+        oldestTime = message.timestamp
+        oldestMsg = i
+
+  var pubsubIdxOp = self.pubsubSearch(pubsubTopic)
+  var contentIdxOp = self.contentSearch(msg.contentTopic)
+
+  if pubsubIdxOp.isNone() and contentIdxOp.isNone():
     return
-  t.table[topic] = @[]
 
-proc unsubscribe*[K](t: MessageCache[K], topic: K) =
-  if not t.isSubscribed(topic):
-    return
-  t.table.del(topic)
+  let pubsubIdx =
+    if pubsubIdxOp.isNone():
+      self.pubsubTopics.add(pubsubTopic)
+      self.pubsubTopics.high
+    else:
+      pubsubIdxOp.get()
 
-proc unsubscribeAll*[K](t: MessageCache[K]) =
-  t.table.clear()
+  let contentIdx =
+    if contentIdxOp.isNone():
+      self.contentTopics.add(msg.contentTopic)
+      self.contentTopics.high
+    else:
+      contentIdxOp.get()
 
-proc addMessage*[K](t: MessageCache, topic: K, msg: WakuMessage) =
-  if not t.isSubscribed(topic):
-    return
+  # add the message, make space if needed
+  if self.messages.len >= self.capacity:
+    self.removeMessage(oldestMsg)
+ 
+  let msgIdx = self.messages.len
+  self.messages.add(msg)
 
-  # Make a copy of msgs for this topic to modify
-  var messages = t.table.getOrDefault(topic, @[])
+  self.pubsubIndex.add((pubsubIdx, msgIdx))
+  self.contentIndex.add((contentIdx, msgIdx))
 
-  if messages.len >= t.capacity.int:
-    trace "Topic cache capacity reached", topic=topic
-    # Message cache on this topic exceeds maximum. Delete oldest.
-    # TODO: this may become a bottle neck if called as the norm rather than
-    #  exception when adding messages. Performance profile needed.
-    messages.delete(0,0)
+proc getMessages*(
+  self: MessageCache,
+  pubsubTopic: PubsubTopic,
+  clear=false
+  ): Result[seq[WakuMessage], string] =
+  ## Return all messages on this pubsub topic
 
-  messages.add(msg)
+  if self.pubsubTopics.len == 0:
+    return err("not subscribed to any pubsub topics")
 
-  # Replace indexed entry with copy
-  t.table[topic] = messages
+  var pubsubIdx = -1
+  for i, topic in self.pubsubTopics:
+    if topic == pubsubTopic:
+      pubsubIdx = i
+      break
 
-proc clearMessages*[K](t: MessageCache[K], topic: K) =
-  if not t.isSubscribed(topic):
-    return
-  t.table[topic] = @[]
+  if pubsubIdx == -1:
+    return err("not subscribed to this pubsub topic")
 
-proc getMessages*[K](t: MessageCache[K], topic: K, clear=false): MessageCacheResult[seq[WakuMessage]] =
-  if not t.isSubscribed(topic):
-    return err("Not subscribed to topic")
+  let msgIndices = collect:
+    for (pId, mId) in self.pubsubIndex:
+      if pId == pubsubIdx:
+        mId
 
-  let messages = t.table.getOrDefault(topic, @[])
+  let messages = msgIndices.mapIt(self.messages[it])
+
   if clear:
-    t.clearMessages(topic)
+    for idx in msgIndices.reversed:
+      self.removeMessage(idx)
+    
+  return ok(messages)
 
-  ok(messages)
+proc getAutoMessages*(
+  self: MessageCache,
+  contentTopic: ContentTopic,
+  clear=false
+  ): Result[seq[WakuMessage], string] =
+  ## Return all messages on this content topic
+
+  if self.contentTopics.len == 0:
+    return err("not subscribed to any content topics")
+
+  var contentIdx = -1
+  for i, topic in self.contentTopics:
+    if topic == contentTopic:
+      contentIdx = i
+      break
+
+  if contentIdx == -1:
+    return err("not subscribed to this content topic")
+
+  let msgIndices = collect:
+    for (cId, mId) in self.contentIndex:
+      if cId == contentIdx:
+        mId
+
+  let messages = msgIndices.mapIt(self.messages[it])
+
+  if clear:
+    for idx in msgIndices.reversed:
+      self.removeMessage(idx)
+    
+  return ok(messages)

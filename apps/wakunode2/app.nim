@@ -653,18 +653,17 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ## Relay REST API
   if conf.relay:
-    let cache = MessageCache[string].init(capacity=conf.restRelayCacheCapacity)
+    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
 
     let handler = messageCacheHandler(cache)
-    let autoHandler = autoMessageCacheHandler(cache)
 
     for pubsubTopic in conf.pubsubTopics:
-      cache.subscribe(pubsubTopic)
+      cache.pubsubSubscribe(pubsubTopic)
       app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
     for contentTopic in conf.contentTopics:
-      cache.subscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+      cache.contentSubscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
 
     installRelayApiHandlers(server.router, app.node, cache)
   else:
@@ -675,10 +674,10 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
      app.node.wakuFilterClient != nil and
      app.node.wakuFilterClientLegacy != nil:
 
-    let legacyFilterCache = rest_legacy_filter_api.MessageCache.init()
+    let legacyFilterCache = MessageCache.init()
     rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
 
-    let filterCache = rest_filter_api.MessageCache.init()
+    let filterCache = MessageCache.init()
 
     let filterDiscoHandler = 
       if app.wakuDiscv5.isSome():
@@ -731,23 +730,22 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
   installDebugApiHandlers(app.node, server)
 
   if conf.relay:
-    let cache = MessageCache[string].init(capacity=30)
+    let cache = MessageCache.init(capacity=50)
 
     let handler = messageCacheHandler(cache)
-    let autoHandler = autoMessageCacheHandler(cache)
 
     for pubsubTopic in conf.pubsubTopics:
-      cache.subscribe(pubsubTopic)
+      cache.pubsubSubscribe(pubsubTopic)
       app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
     for contentTopic in conf.contentTopics:
-      cache.subscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
+      cache.contentSubscribe(contentTopic)
+      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
 
     installRelayApiHandlers(app.node, server, cache)
 
   if conf.filternode != "":
-    let filterMessageCache = rpc_filter_api.MessageCache.init(capacity=30)
+    let filterMessageCache = MessageCache.init(capacity=50)
     installFilterApiHandlers(app.node, server, filterMessageCache)
 
   installStoreApiHandlers(app.node, server)
