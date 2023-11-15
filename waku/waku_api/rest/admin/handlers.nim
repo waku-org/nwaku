@@ -60,6 +60,14 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                   protocol: WakuLegacyFilterCodec,
                   connected: it.connectedness == Connectedness.Connected))
       tuplesToWakuPeers(peers, filterPeers)
+    
+    if not node.wakuFilter.isNil():
+      # Map WakuFilter peers to WakuPeers and add to return list
+      let filterPeers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec)
+          .mapIt((multiaddr: constructMultiaddrStr(it),
+                  protocol: WakuFilterSubscribeCodec,
+                  connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, filterPeers)
 
     if not node.wakuStore.isNil():
       # Map WakuStore peers to WakuPeers and add to return list
@@ -69,6 +77,15 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                                    protocol: WakuStoreCodec,
                                    connected: it.connectedness == Connectedness.Connected))
       tuplesToWakuPeers(peers, storePeers)
+    
+    if not node.wakuLightPush.isNil():
+      # Map WakuStore peers to WakuPeers and add to return list
+      let lightpushPeers = node.peerManager.peerStore
+                           .peers(WakuLightPushCodec)
+                           .mapIt((multiaddr: constructMultiaddrStr(it),
+                                   protocol: WakuLightPushCodec,
+                                   connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, lightpushPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status=Http200)
     if resp.isErr():
