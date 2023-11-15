@@ -1,12 +1,14 @@
 import 
   unittest,
-  stew/shims/net,
-  stew/[results, byteutils]
+  stew/[
+    shims/net,
+    results, 
+    byteutils
+  ],
+  nimcrypto/sha2,
+  libp2p/protocols/pubsub/rpc/messages
 
 import
-  stew/results,
-  nimcrypto/sha2,
-  libp2p/protocols/pubsub/rpc/messages,
   ../../../waku/waku_relay/message_id,
   ../testlib/sequtils
 
