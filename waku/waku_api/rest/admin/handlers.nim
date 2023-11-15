@@ -16,6 +16,8 @@ import
   ../../../waku_core,
   ../../../waku_store,
   ../../../waku_filter,
+  ../../../waku_filter_v2,
+  ../../../waku_lightpush,
   ../../../waku_relay,
   ../../../waku_node,
   ../../../node/peer_manager,
@@ -52,7 +54,15 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                                     connected: it.connectedness == Connectedness.Connected)
                                   )
       tuplesToWakuPeers(peers, relayPeers)
-    
+
+    if not node.wakuFilterLegacy.isNil():
+      # Map WakuFilter peers to WakuPeers and add to return list
+      let filterPeers = node.peerManager.peerStore.peers(WakuLegacyFilterCodec)
+          .mapIt((multiaddr: constructMultiaddrStr(it),
+                  protocol: WakuLegacyFilterCodec,
+                  connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, filterPeers)
+
     if not node.wakuFilter.isNil():
       # Map WakuFilter peers to WakuPeers and add to return list
       let filterPeers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec)
