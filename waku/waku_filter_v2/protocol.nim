@@ -86,7 +86,11 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
     return err(FilterSubscribeError.notFound())
 
   var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
-  # TODO: consider error response if filter criteria does not exist
+
+  if not peerSubscription.containsAny(filterCriteria):
+    debug "unsubscribing peer is not subscribed to any of the content topics in this pubsub topic", peerId=peerId, pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    return err(FilterSubscribeError.notFound())
+
   peerSubscription.excl(filterCriteria)
 
   if peerSubscription.len() == 0:

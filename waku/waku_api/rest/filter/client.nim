@@ -16,6 +16,7 @@ import
   ../../../waku_core,
   ../serdes,
   ../responses,
+  ../rest_serdes,
   ./types
 
 export types
@@ -25,52 +26,19 @@ logScope:
 
 proc encodeBytes*(value: FilterSubscribeRequest,
                   contentType: string): RestResult[seq[byte]] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  let encoded = ?encodeIntoJsonBytes(value)
-  return ok(encoded)
+  return encodeBytesOf(value, contentType)
 
 proc encodeBytes*(value: FilterSubscriberPing,
                   contentType: string): RestResult[seq[byte]] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  let encoded = ?encodeIntoJsonBytes(value)
-  return ok(encoded)
+  return encodeBytesOf(value, contentType)
 
 proc encodeBytes*(value: FilterUnsubscribeRequest,
                   contentType: string): RestResult[seq[byte]] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  let encoded = ?encodeIntoJsonBytes(value)
-  return ok(encoded)
+  return encodeBytesOf(value, contentType)
 
 proc encodeBytes*(value: FilterUnsubscribeAllRequest,
                   contentType: string): RestResult[seq[byte]] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  let encoded = ?encodeIntoJsonBytes(value)
-  return ok(encoded)
-
-proc decodeBytes*(t: typedesc[FilterSubscriptionResponse],
-                  value: openarray[byte],
-                  contentType: Opt[ContentTypeData]):
-
-                RestResult[FilterSubscriptionResponse] =
-
-  if MediaType.init($contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  let decoded = ?decodeFromJsonBytes(FilterSubscriptionResponse, value)
-  return ok(decoded)
+  return encodeBytesOf(value, contentType)
 
 proc filterSubscriberPing*(requestId: string):
         RestResponse[FilterSubscriptionResponse]
@@ -91,16 +59,6 @@ proc filterDeleteSubscriptions*(body: FilterUnsubscribeRequest):
 proc filterDeleteAllSubscriptions*(body: FilterUnsubscribeAllRequest):
         RestResponse[FilterSubscriptionResponse]
         {.rest, endpoint: "/filter/v2/subscriptions/all", meth: HttpMethod.MethodDelete.}
-
-proc decodeBytes*(t: typedesc[FilterGetMessagesResponse],
-                  data: openArray[byte],
-                  contentType: Opt[ContentTypeData]): RestResult[FilterGetMessagesResponse] =
-  if MediaType.init($contentType) != MIMETYPE_JSON:
-    error "Unsupported response contentType value", contentType = contentType
-    return err("Unsupported response contentType")
-
-  let decoded = ?decodeFromJsonBytes(FilterGetMessagesResponse, data)
-  return ok(decoded)
 
 proc filterGetMessagesV1*(contentTopic: string):
         RestResponse[FilterGetMessagesResponse]

@@ -21,6 +21,7 @@ import
   ../../../node/peer_manager,
   ../responses,
   ../serdes,
+  ../rest_serdes,
   ./types
 
 export types
@@ -31,23 +32,6 @@ logScope:
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
 
 type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
-
-func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
-  if contentBody.isNone():
-    return err(RestApiResponse.badRequest("Missing content body"))
-
-  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-  if reqBodyContentType != MIMETYPE_JSON:
-    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
-
-  let reqBodyData = contentBody.get().data
-
-  let requestResult = decodeFromJsonBytes(T, reqBodyData)
-  if requestResult.isErr():
-    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
-                                          $requestResult.error))
-
-  return ok(requestResult.get())
 
 proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
   for peer in peersTup:
