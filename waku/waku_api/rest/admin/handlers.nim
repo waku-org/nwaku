@@ -65,11 +65,11 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
 
     if not node.wakuFilter.isNil():
       # Map WakuFilter peers to WakuPeers and add to return list
-      let filterPeers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec)
+      let filterV2Peers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec)
           .mapIt((multiaddr: constructMultiaddrStr(it),
                   protocol: WakuFilterSubscribeCodec,
                   connected: it.connectedness == Connectedness.Connected))
-      tuplesToWakuPeers(peers, filterPeers)
+      tuplesToWakuPeers(peers, filterV2Peers)
 
     if not node.wakuStore.isNil():
       # Map WakuStore peers to WakuPeers and add to return list
