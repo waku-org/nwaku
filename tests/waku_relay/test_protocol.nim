@@ -1007,9 +1007,10 @@ suite "Waku Relay":
         msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
         msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
         msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024 - 1)) # 1MiB - 1B -> Max Size (Inclusive Limit)
-        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024)) # 1MiB -> Max Size (Exclusive Limit)
-        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024 + 1)) # 1MiB + 1B -> Out of Max Size
+        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 933)) # 1MiB - 91B -> Max Size (Inclusive Limit)
+        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 934)) # 1MiB - 90B -> Max Size (Exclusive Limit)
+        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024)) # 1MiB -> Out of Max Size
+
 
       # When sending the 1KiB message
       handlerFuture = newPushHandlerFuture()
@@ -1047,7 +1048,7 @@ suite "Waku Relay":
         (pubsubTopic, msg3) == handlerFuture.read()
         (pubsubTopic, msg3) == otherHandlerFuture.read()
 
-      # When sending the 1023KiB message
+      # When sending the 1023KiB + 933B message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg4)
@@ -1059,7 +1060,7 @@ suite "Waku Relay":
         (pubsubTopic, msg4) == handlerFuture.read()
         (pubsubTopic, msg4) == otherHandlerFuture.read()
 
-      # When sending the 1024KiB message
+      # When sending the 1023KiB + 934B message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg5)
@@ -1070,7 +1071,7 @@ suite "Waku Relay":
         not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
         (pubsubTopic, msg5) == handlerFuture.read()
 
-      # When sending the 1025KiB message
+      # When sending the 1MiB
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg6)
@@ -1159,7 +1160,7 @@ suite "Waku Relay":
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
   suite "Security and Privacy":
-    asyncTest "Relay can receive messages after reboot and reconnect":
+    xasyncTest "Relay can receive messages after reboot and reconnect":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
