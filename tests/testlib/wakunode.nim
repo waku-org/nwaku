@@ -22,6 +22,7 @@ import
 
 proc defaultTestWakuNodeConf*(): WakuNodeConf =
   WakuNodeConf(
+    cmd: noCommand,
     tcpPort: Port(60000),
     websocketPort: Port(8000),
     listenAddress: ValidIpAddress.init("0.0.0.0"),

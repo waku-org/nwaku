@@ -20,6 +20,7 @@ import
   ../../handlers,
   ../serdes,
   ../responses,
+  ../rest_serdes,
   ./types
 
 from std/times import getTime
@@ -55,16 +56,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
-      return RestApiResponse.badRequest()
-
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(seq[PubsubTopic], reqBodyData)
-    if reqResult.isErr():
-      return RestApiResponse.badRequest()
-
-    let req: seq[PubsubTopic] = reqResult.get()
+    let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
+      return error
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
@@ -83,16 +76,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
-      return RestApiResponse.badRequest()
-
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(seq[PubsubTopic], reqBodyData)
-    if reqResult.isErr():
-      return RestApiResponse.badRequest()
-
-    let req: seq[PubsubTopic] = reqResult.get()
+    let req: seq[PubsubTopic] = decodeRequestBody[seq[PubsubTopic]](contentBody).valueOr:
+      return error
 
     # Unsubscribe all handlers from requested topics
     for pubsubTopic in req:
@@ -139,20 +124,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
-      return RestApiResponse.badRequest()
+    let reqWakuMessage: RelayWakuMessage = decodeRequestBody[RelayWakuMessage](contentBody).valueOr:
+      return error
 
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayPostMessagesRequest, reqBodyData)
-    if reqResult.isErr():
+    var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
-
-    let resMessage = reqResult.value.toWakuMessage(version = 0)
-    if resMessage.isErr():
-      return RestApiResponse.badRequest()
-
-    var message = resMessage.get()
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
@@ -174,7 +150,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
         return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", pubSubTopic=pubSubTopic, rln=defined(rln)
+    debug "Publishing message", pubSubTopic=pubSubTopic, rln=not node.wakuRlnRelay.isNil()
     if not (waitFor node.publish(some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic=pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
@@ -191,16 +167,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
-      return RestApiResponse.badRequest()
-
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(seq[ContentTopic], reqBodyData)
-    if reqResult.isErr():
-      return RestApiResponse.badRequest()
-
-    let req: seq[ContentTopic] = reqResult.get()
+    let req: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](contentBody).valueOr:
+      return error
 
     # Only subscribe to topics for which we have no subscribed topic handlers yet
     let newTopics = req.filterIt(not cache.isSubscribed(it))
@@ -219,16 +187,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
-      return RestApiResponse.badRequest()
-
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(seq[ContentTopic], reqBodyData)
-    if reqResult.isErr():
-      return RestApiResponse.badRequest()
-
-    let req: seq[ContentTopic] = reqResult.get()
+    let req: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](contentBody).valueOr:
+      return error
 
     # Unsubscribe all handlers from requested topics
     for contentTopic in req:
@@ -266,23 +226,14 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if contentBody.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-    if reqBodyContentType != MIMETYPE_JSON:
+    let req: RelayWakuMessage = decodeRequestBody[RelayWakuMessage](contentBody).valueOr:
+      return error
+
+    if req.contentTopic.isNone():
       return RestApiResponse.badRequest()
 
-    let reqBodyData = contentBody.get().data
-    let reqResult = decodeFromJsonBytes(RelayPostMessagesRequest, reqBodyData)
-    if reqResult.isErr():
+    var message: WakuMessage = req.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
-
-    if reqResult.value.contentTopic.isNone():
-      return RestApiResponse.badRequest()
-
-    let resMessage = reqResult.value.toWakuMessage(version = 0)
-    if resMessage.isErr():
-      return RestApiResponse.badRequest()
-
-    var message = resMessage.get()
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
@@ -304,7 +255,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
         return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
-    debug "Publishing message", contentTopic=message.contentTopic, rln=defined(rln)
+    debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
     if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", contentTopic=message.contentTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
