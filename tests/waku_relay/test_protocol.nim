@@ -1008,7 +1008,7 @@ suite "Waku Relay":
         msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
         msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
         msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 933)) # 1MiB - 91B -> Max Size (Inclusive Limit)
-        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 934)) # 1MiB - 92B -> Max Size (Exclusive Limit)
+        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 934)) # 1MiB - 90B -> Max Size (Exclusive Limit)
         msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024)) # 1MiB -> Out of Max Size
 
 
