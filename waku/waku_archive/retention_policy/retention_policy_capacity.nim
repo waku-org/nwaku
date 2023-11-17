@@ -62,17 +62,13 @@ method execute*(p: CapacityRetentionPolicy,
                 driver: ArchiveDriver):
                 Future[RetentionPolicyResult[void]] {.async.} =
 
-  let numMessagesRes = await driver.getMessagesCount()
-  if numMessagesRes.isErr():
-    return err("failed to get messages count: " & numMessagesRes.error)
-
-  let numMessages = numMessagesRes.value
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
 
   if numMessages < p.totalCapacity:
     return ok()
 
-  let res = await driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)
-  if res.isErr():
-    return err("deleting oldest messages failed: " & res.error)
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
 
   return ok()

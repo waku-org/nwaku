@@ -62,10 +62,8 @@ method execute*(p: SizeRetentionPolicy,
     return ok()
 
   # to shread/delete messsges, get the total row/message count
-  let numMessagesRes = await driver.getMessagesCount()
-  if numMessagesRes.isErr():
-    return err("failed to get messages count: " & numMessagesRes.error)
-  let numMessages = numMessagesRes.value
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
 
   # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
   # if vacumming is done automatically then we aim to check DB size periodially for efficient
@@ -74,8 +72,7 @@ method execute*(p: SizeRetentionPolicy,
   # 80% of the total messages are to be kept, delete others
   let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
 
-  let res = await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)
-  if res.isErr():
-    return err("deleting oldest messages failed: " & res.error)
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
 
   return ok()
