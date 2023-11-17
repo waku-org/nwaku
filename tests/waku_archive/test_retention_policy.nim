@@ -99,20 +99,23 @@ suite "Waku Archive - Retention policy":
     pageCount = (waitFor driver.getPagesCount()).tryGet()
     sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
 
-    # execute policy provided the current db size oveflows 
+    # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
+
+    # get the rows count pre-deletion
+    let rowsCountBeforeDeletion = (waitFor driver.getMessagesCount()).tryGet()
+
+    # execute policy provided the current db size oveflows, results in rows deletion
     require (sizeDB >= sizeLimit)
     require (waitFor retentionPolicy.execute(driver)).isOk()
     
-    # update the current db size
-    pageSize = (waitFor driver.getPagesSize()).tryGet()
-    pageCount = (waitFor driver.getPagesCount()).tryGet()
-    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    # get the number or rows from DB
+    let rowCountAfterDeletion = (waitFor driver.getMessagesCount()).tryGet()
 
     check:
       # size of the database is used to check if the storage limit has been preserved
       # check the current database size with the limitSize provided by the user
       # it should be lower
-      sizeDB <= sizeLimit
+      rowCountAfterDeletion <= rowsCountBeforeDeletion
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
