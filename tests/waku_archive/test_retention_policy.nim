@@ -70,11 +70,6 @@ suite "Waku Archive - Retention policy":
     let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
-    # variables to check the db size
-    var pageSize = (waitFor driver.getPagesSize()).tryGet()
-    var pageCount = (waitFor driver.getPagesCount()).tryGet()
-    var sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
-
     # make sure that the db is empty to before test begins
     let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     # if there are messages in db, empty them
@@ -95,9 +90,9 @@ suite "Waku Archive - Retention policy":
 
     ## Then
     # calculate the current database size
-    pageSize = (waitFor driver.getPagesSize()).tryGet()
-    pageCount = (waitFor driver.getPagesCount()).tryGet()
-    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    let pageSize = (waitFor driver.getPagesSize()).tryGet()
+    let pageCount = (waitFor driver.getPagesCount()).tryGet()
+    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
 
     # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
 
