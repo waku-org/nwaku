@@ -403,7 +403,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   try:
     ethRpc = await newWeb3(g.ethClientUrl)
   except CatchableError:
-    raise newException(ValueError, "could not connect to the Ethereum client")
+    let errMsg = "could not connect to the Ethereum client: " & getCurrentExceptionMsg()
+    raise newException(ValueError, errMsg)
 
   # Set the chain id
   let chainId = await ethRpc.provider.eth_chainId()
