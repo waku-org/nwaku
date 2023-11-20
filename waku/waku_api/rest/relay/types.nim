@@ -22,6 +22,7 @@ type RelayWakuMessage* = object
       contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
+      meta*: Option[seq[byte]]
 
 
 type
@@ -35,7 +36,8 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     payload: base64.encode(msg.payload),
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
-    timestamp: some(msg.timestamp)
+    timestamp: some(msg.timestamp),
+    meta: some(msg.meta)
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -43,14 +45,15 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
     payload = ?msg.payload.decode()
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
+    meta = msg.meta.get(@[])
 
   var timestamp = msg.timestamp.get(0)
 
   if timestamp == 0:
     timestamp = getNanosecondTime(getTime().toUnixFloat())
 
-  return ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
-
+  return ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version,
+    timestamp: timestamp, meta: meta))
 
 #### Serialization and deserialization
 
@@ -73,6 +76,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     contentTopic = none(ContentTopic)
     version = none(Natural)
     timestamp = none(int64)
+    meta = none(seq[byte])
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -91,6 +95,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
       version = some(reader.readValue(Natural))
     of "timestamp":
       timestamp = some(reader.readValue(int64))
+    of "meta":
+      meta = some(reader.readValue(seq[byte]))
     else:
       unrecognizedFieldWarning()
 
