@@ -21,6 +21,7 @@ import
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/rendezvous,
   libp2p/builders,
+  libp2p/transports/transport,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
@@ -1082,16 +1083,29 @@ proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
 
 proc printNodeNetworkInfo*(node: WakuNode): void =
   let peerInfo = node.switch.peerInfo
+  var announcedStr = ""
   var listenStr = ""
+  var localIp = ""
+
+  try:
+    localIp = $getPrimaryIPAddr()
+  except Exception as e:
+    warn "Could not retrieve localIp", msg=e.msg
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
   for address in node.announcedAddresses:
     var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
-    listenStr &= fulladdr
+    announcedStr &= fulladdr
+
+  for transport in node.switch.transports:
+    for address in transport.addrs:
+      var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+      listenStr &= fulladdr
 
   ## XXX: this should be /ip4..., / stripped?
-  info "Listening on", full = listenStr
+  info "Listening on", full = listenStr, localIp = localIp
+  info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
 proc start*(node: WakuNode) {.async.} =
@@ -1105,11 +1119,6 @@ proc start*(node: WakuNode) {.async.} =
   for address in node.announcedAddresses:
     if isBindIpWithZeroPort(address):
       zeroPortPresent = true
-
-  if not zeroPortPresent:
-    printNodeNetworkInfo(node)
-  else:
-    info "Listening port is dynamically allocated, address and ENR generation postponed"
 
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
@@ -1128,6 +1137,11 @@ proc start*(node: WakuNode) {.async.} =
   node.started = true
 
   node.wakuMetadata.start()
+
+  if not zeroPortPresent:
+    printNodeNetworkInfo(node)
+  else:
+    info "Listening port is dynamically allocated, address and ENR generation postponed"
 
   info "Node started successfully"
 
