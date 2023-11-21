@@ -153,7 +153,7 @@ when defined(waku_exp_store_resume):
 
   proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
     let
-      digest = waku_archive.computeDigest(message, pubsubTopic)
+      digest = waku_archive.computeDigest(message)
       receivedTime = if message.timestamp > 0: message.timestamp
                     else: getNanosecondTime(getTime().toUnixFloat())
 

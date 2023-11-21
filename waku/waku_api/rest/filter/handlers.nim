@@ -21,8 +21,10 @@ import
   ../../../waku_filter_v2/client as filter_protocol_client,
   ../../../waku_filter_v2/common as filter_protocol_type,
   ../../message_cache,
+  ../../handlers,
   ../serdes,
   ../responses,
+  ../rest_serdes,
   ./types
 
 export types
@@ -42,23 +44,6 @@ const filterMessageCacheDefaultCapacity* = 30
 
 type
   MessageCache* = message_cache.MessageCache[ContentTopic]
-
-func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
-  if contentBody.isNone():
-    return err(RestApiResponse.badRequest("Missing content body"))
-
-  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-  if reqBodyContentType != MIMETYPE_JSON:
-    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
-
-  let reqBodyData = contentBody.get().data
-
-  let requestResult = decodeFromJsonBytes(T, reqBodyData)
-  if requestResult.isErr():
-    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
-                                          $requestResult.error))
-
-  return ok(requestResult.get())
 
 proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
@@ -145,11 +130,18 @@ proc makeRestResponse(requestId: string, protocolClientRes: filter_protocol_type
 
   return resp.get()
 
-proc filterPostPutSubscriptionRequestHandler(node: WakuNode,
-                                             contentBody: Option[ContentBody],
-                                             cache: MessageCache):
-                                          Future[RestApiResponse]
-                                          {.async.} =
+const NoPeerNoDiscoError = FilterSubscribeError.serviceUnavailable(
+  "No suitable service peer & no discovery method")
+
+const NoPeerNoneFoundError = FilterSubscribeError.serviceUnavailable(
+  "No suitable service peer & none discovered")
+
+proc filterPostPutSubscriptionRequestHandler(
+  node: WakuNode,
+  contentBody: Option[ContentBody],
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ): Future[RestApiResponse] {.async.} =
   ## handles any filter subscription requests, adds or modifies.
 
   let decodedBody = decodeRequestBody[FilterSubscribeRequest](contentBody)
@@ -159,14 +151,17 @@ proc filterPostPutSubscriptionRequestHandler(node: WakuNode,
 
   let req: FilterSubscribeRequest = decodedBody.value()
 
-  let peerOpt = node.peerManager.selectPeer(WakuFilterSubscribeCodec)
+  let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
+    let handler = discHandler.valueOr:
+      return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
-  if peerOpt.isNone():
-    return makeRestResponse(req.requestId, FilterSubscribeError.serviceUnavailable("No suitable peers"))
+    let peerOp = (await handler()).valueOr:
+      return RestApiResponse.internalServerError($error)
 
-  let subFut = node.filterSubscribe(req.pubsubTopic,
-                                      req.contentFilters,
-                                      peerOpt.get())
+    peerOp.valueOr:
+      return makeRestResponse(req.requestId, NoPeerNoneFoundError)
+
+  let subFut = node.filterSubscribe(req.pubsubTopic, req.contentFilters, peer)
 
   if not await subFut.withTimeout(futTimeoutForSubscriptionProcessing):
     error "Failed to subscribe to contentFilters do to timeout!"
@@ -178,29 +173,36 @@ proc filterPostPutSubscriptionRequestHandler(node: WakuNode,
 
   return makeRestResponse(req.requestId, subFut.read())
 
-proc installFilterPostSubscriptionsHandler(router: var RestRouter,
-                                           node: WakuNode,
-                                           cache: MessageCache) =
+proc installFilterPostSubscriptionsHandler(
+  router: var RestRouter,
+  node: WakuNode,
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
   router.api(MethodPost, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a pubsubTopic
     debug "post", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
-    let response = await filterPostPutSubscriptionRequestHandler(node, contentBody, cache)
-    return response
+    return await filterPostPutSubscriptionRequestHandler(node, contentBody, cache, discHandler)
 
-proc installFilterPutSubscriptionsHandler(router: var RestRouter,
-                                          node: WakuNode,
-                                          cache: MessageCache) =
+proc installFilterPutSubscriptionsHandler(
+  router: var RestRouter,
+  node: WakuNode,
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
   router.api(MethodPut, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Modifies a subscribtion of a node to a list of contentTopics of a pubsubTopic
     debug "put", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
-    let response = await filterPostPutSubscriptionRequestHandler(node, contentBody, cache)
-    return response
+    return await filterPostPutSubscriptionRequestHandler(node, contentBody, cache, discHandler)
 
-proc installFilterDeleteSubscriptionsHandler(router: var RestRouter,
-                                             node: WakuNode,
-                                             cache: MessageCache) =
+proc installFilterDeleteSubscriptionsHandler(
+  router: var RestRouter,
+  node: WakuNode,
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
   router.api(MethodDelete, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
@@ -213,13 +215,18 @@ proc installFilterDeleteSubscriptionsHandler(router: var RestRouter,
 
     let req: FilterUnsubscribeRequest = decodedBody.value()
 
-    let peerOpt = node.peerManager.selectPeer(WakuFilterSubscribeCodec)
+    let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
+      let handler = discHandler.valueOr:
+        return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
-    if peerOpt.isNone():
-      return makeRestResponse(req.requestId,
-                FilterSubscribeError.serviceUnavailable("No suitable peers"))
+      let peerOp = (await handler()).valueOr:
+        return RestApiResponse.internalServerError($error)
 
-    let unsubFut = node.filterUnsubscribe(req.pubsubTopic, req.contentFilters, peerOpt.get())
+      peerOp.valueOr:
+        return makeRestResponse(req.requestId, NoPeerNoneFoundError)
+
+    let unsubFut = node.filterUnsubscribe(req.pubsubTopic, req.contentFilters, peer)
+
     if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to unsubscribe from contentFilters due to timeout!"
       return makeRestResponse(req.requestId,
@@ -233,9 +240,12 @@ proc installFilterDeleteSubscriptionsHandler(router: var RestRouter,
     # Successfully unsubscribed from all requested contentTopics
     return makeRestResponse(req.requestId, unsubFut.read())
 
-proc installFilterDeleteAllSubscriptionsHandler(router: var RestRouter,
-                                             node: WakuNode,
-                                             cache: MessageCache) =
+proc installFilterDeleteAllSubscriptionsHandler(
+  router: var RestRouter,
+  node: WakuNode,
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
   router.api(MethodDelete, ROUTE_FILTER_ALL_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
@@ -248,13 +258,18 @@ proc installFilterDeleteAllSubscriptionsHandler(router: var RestRouter,
 
     let req: FilterUnsubscribeAllRequest = decodedBody.value()
 
-    let peerOpt = node.peerManager.selectPeer(WakuFilterSubscribeCodec)
+    let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
+      let handler = discHandler.valueOr:
+        return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
-    if peerOpt.isNone():
-      return makeRestResponse(req.requestId,
-                FilterSubscribeError.serviceUnavailable("No suitable peers"))
+      let peerOp = (await handler()).valueOr:
+        return RestApiResponse.internalServerError($error)
 
-    let unsubFut = node.filterUnsubscribeAll(peerOpt.get())
+      peerOp.valueOr:
+        return makeRestResponse(req.requestId, NoPeerNoneFoundError)
+
+    let unsubFut = node.filterUnsubscribeAll(peer)
+
     if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to unsubscribe from contentFilters due to timeout!"
       return makeRestResponse(req.requestId,
@@ -268,18 +283,26 @@ proc installFilterDeleteAllSubscriptionsHandler(router: var RestRouter,
 
 const ROUTE_FILTER_SUBSCRIBER_PING* = "/filter/v2/subscriptions/{requestId}"
 
-proc installFilterPingSubscriberHandler(router: var RestRouter,
-                                        node: WakuNode) =
+proc installFilterPingSubscriberHandler(
+  router: var RestRouter,
+  node: WakuNode,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
   router.api(MethodGet, ROUTE_FILTER_SUBSCRIBER_PING) do (requestId: string) -> RestApiResponse:
     ## Checks if a node has valid subscription or not.
     debug "get", ROUTE_FILTER_SUBSCRIBER_PING, requestId
 
-    let peerOpt = node.peerManager.selectPeer(WakuFilterSubscribeCodec)
-    if peerOpt.isNone():
-      return makeRestResponse(requestId.get(),
-                FilterSubscribeError.serviceUnavailable("No suitable remote filter peers"))
+    let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
+      let handler = discHandler.valueOr:
+        return makeRestResponse(requestId.get(), NoPeerNoDiscoError)
 
-    let pingFutRes = node.wakuFilterClient.ping(peerOpt.get())
+      let peerOp = (await handler()).valueOr:
+        return RestApiResponse.internalServerError($error)
+
+      peerOp.valueOr:
+        return makeRestResponse(requestId.get(), NoPeerNoneFoundError)
+
+    let pingFutRes = node.wakuFilterClient.ping(peer)
 
     if not await pingFutRes.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to ping filter service peer due to timeout!"
@@ -325,12 +348,15 @@ proc installFilterGetMessagesHandler(router: var RestRouter,
 
     return resp.get()
 
-proc installFilterRestApiHandlers*(router: var RestRouter,
-                                   node: WakuNode,
-                                   cache: MessageCache) =
-  installFilterPingSubscriberHandler(router, node)
-  installFilterPostSubscriptionsHandler(router, node, cache)
-  installFilterPutSubscriptionsHandler(router, node, cache)
-  installFilterDeleteSubscriptionsHandler(router, node, cache)
-  installFilterDeleteAllSubscriptionsHandler(router, node, cache)
+proc installFilterRestApiHandlers*(
+  router: var RestRouter,
+  node: WakuNode,
+  cache: MessageCache,
+  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+  ) =
+  installFilterPingSubscriberHandler(router, node, discHandler)
+  installFilterPostSubscriptionsHandler(router, node, cache, discHandler)
+  installFilterPutSubscriptionsHandler(router, node, cache, discHandler)
+  installFilterDeleteSubscriptionsHandler(router, node, cache, discHandler)
+  installFilterDeleteAllSubscriptionsHandler(router, node, cache, discHandler)
   installFilterGetMessagesHandler(router, node, cache)

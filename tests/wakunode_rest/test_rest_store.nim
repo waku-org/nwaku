@@ -32,7 +32,7 @@ logScope:
 
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
-    digest = waku_archive.computeDigest(message, pubsubTopic)
+    digest = waku_archive.computeDigest(message)
     receivedTime = if message.timestamp > 0: message.timestamp
                   else: getNanosecondTime(getTime().toUnixFloat())
 
@@ -513,7 +513,7 @@ procSuite "Waku v2 Rest API - Store":
       response.status == 412
       $response.contentType == $MIMETYPE_TEXT
       response.data.messages.len == 0
-      response.data.error_message.get == "Missing known store-peer node"
+      response.data.error_message.get == NoPeerNoDiscError.errobj.message
 
     # Now add the storenode from "config"
     node.peerManager.addServicePeer(remotePeerInfo,

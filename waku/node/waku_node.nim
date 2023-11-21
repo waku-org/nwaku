@@ -21,6 +21,7 @@ import
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/rendezvous,
   libp2p/builders,
+  libp2p/transports/transport,
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport
 import
@@ -155,7 +156,7 @@ proc new*(T: type WakuNode,
   )
 
   # mount metadata protocol
-  let metadata = WakuMetadata.new(netConfig.clusterId)
+  let metadata = WakuMetadata.new(netConfig.clusterId, queue)
   node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
   node.wakuMetadata = metadata
   peerManager.wakuMetadata = metadata
@@ -1073,6 +1074,39 @@ proc mountRendezvous*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.rendezvous)
 
+proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
+  let inputStr = $inputMultiAdd
+  if inputStr.contains("0.0.0.0/tcp/0") or inputStr.contains("127.0.0.1/tcp/0"):
+    return true
+
+  return false
+
+proc printNodeNetworkInfo*(node: WakuNode): void =
+  let peerInfo = node.switch.peerInfo
+  var announcedStr = ""
+  var listenStr = ""
+  var localIp = ""
+
+  try:
+    localIp = $getPrimaryIPAddr()
+  except Exception as e:
+    warn "Could not retrieve localIp", msg=e.msg
+
+  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
+
+  for address in node.announcedAddresses:
+    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+    announcedStr &= fulladdr
+
+  for transport in node.switch.transports:
+    for address in transport.addrs:
+      var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+      listenStr &= fulladdr
+
+  ## XXX: this should be /ip4..., / stripped?
+  info "Listening on", full = listenStr, localIp = localIp
+  info "Announcing addresses", full = announcedStr
+  info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
@@ -1081,16 +1115,10 @@ proc start*(node: WakuNode) {.async.} =
   waku_version.set(1, labelValues=[git_version])
   info "Starting Waku node", version=git_version
 
-  let peerInfo = node.switch.peerInfo
-  info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
-  var listenStr = ""
+  var zeroPortPresent = false
   for address in node.announcedAddresses:
-    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
-    listenStr &= fulladdr
-
-  ## XXX: this should be /ip4..., / stripped?
-  info "Listening on", full = listenStr
-  info "DNS: discoverable ENR ", enr = node.enr.toUri()
+    if isBindIpWithZeroPort(address):
+      zeroPortPresent = true
 
   # Perform relay-specific startup tasks TODO: this should be rethought
   if not node.wakuRelay.isNil():
@@ -1107,6 +1135,13 @@ proc start*(node: WakuNode) {.async.} =
   await node.switch.start()
 
   node.started = true
+
+  node.wakuMetadata.start()
+
+  if not zeroPortPresent:
+    printNodeNetworkInfo(node)
+  else:
+    info "Listening port is dynamically allocated, address and ENR generation postponed"
 
   info "Node started successfully"
 

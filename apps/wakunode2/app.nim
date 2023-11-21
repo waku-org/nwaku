@@ -8,6 +8,8 @@ import
   stew/results,
   chronicles,
   chronos,
+  libp2p/wire,
+  libp2p/multicodec,
   libp2p/crypto/crypto,
   libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
@@ -29,7 +31,7 @@ import
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/cache_handlers,
+  ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
   ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
@@ -117,39 +119,8 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: netConfigRes.get()
 
-  var enrBuilder = EnrBuilder.init(key)
+  let recordRes = enrConfiguration(conf, netConfig, key)
 
-  enrBuilder.withIpAddressAndPorts(
-    netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort
-  )
-
-  if netConfig.wakuFlags.isSome():
-    enrBuilder.withWakuCapabilities(netConfig.wakuFlags.get())
-
-  enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
-
-  let topics =
-    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-      let shardsRes = conf.contentTopics.mapIt(getShard(it))
-      for res in shardsRes:
-        if res.isErr():
-          error "failed to shard content topic", error=res.error
-          quit(QuitFailure)
-
-      let shards = shardsRes.mapIt(it.get())
-
-      conf.pubsubTopics & shards
-    else:
-      conf.topics
-
-  let addShardedTopics = enrBuilder.withShardedTopics(topics)
-  if addShardedTopics.isErr():
-      error "failed to add sharded topics to ENR", error=addShardedTopics.error
-      quit(QuitFailure)
-
-  let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
       error "failed to create record", error=recordRes.error
@@ -329,6 +300,72 @@ proc setupWakuApp*(app: var App): AppResult[void] =
 
   ok()
 
+proc getPorts(listenAddrs: seq[MultiAddress]):
+              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+
+  var tcpPort, websocketPort = none(Port)
+
+  for a in listenAddrs:
+    if a.isWsAddress():
+      if websocketPort.isNone():
+        let wsAddress = initTAddress(a).valueOr:
+          return err("getPorts wsAddr error:" & $error)
+        websocketPort = some(wsAddress.port)
+    elif tcpPort.isNone():
+      let tcpAddress = initTAddress(a).valueOr:
+        return err("getPorts tcpAddr error:" & $error)
+      tcpPort = some(tcpAddress.port)
+
+  return ok((tcpPort: tcpPort, websocketPort: websocketPort))
+
+proc updateNetConfig(app: var App): AppResult[void] =
+
+  var conf = app.conf
+  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
+    return err("Could not retrieve ports " & error)
+
+  if tcpPort.isSome():
+    conf.tcpPort = tcpPort.get()
+
+  if websocketPort.isSome():
+    conf.websocketPort = websocketPort.get()
+
+  # Rebuild NetConfig with bound port values
+  let netConf = networkConfiguration(conf, clientId).valueOr:
+    return err("Could not update NetConfig: " & error)
+
+  app.netConf = netConf
+
+  return ok()
+
+proc updateEnr(app: var App): AppResult[void] =
+
+  let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
+    return err(error)
+
+  app.record = record
+  app.node.enr = record
+
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+
+  return ok()
+
+proc updateApp(app: var App): AppResult[void] =
+
+  if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
+
+    updateNetConfig(app).isOkOr:
+      return err("error calling updateNetConfig: " & $error)
+
+    updateEnr(app).isOkOr:
+      return err("error calling updateEnr: " & $error)
+
+    app.node.announcedAddresses = app.netConf.announcedAddresses
+
+    printNodeNetworkInfo(app.node)
+
+  return ok()
 
 ## Mount protocols
 
@@ -548,7 +585,18 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
   return ok()
 
-proc startApp*(app: App): Future[AppResult[void]] {.async.} =
+proc startApp*(app: var App): AppResult[void] =
+
+  try:
+    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
+      return err(error)
+  except CatchableError:
+    return err("exception starting node: " & getCurrentExceptionMsg())
+
+  # Update app data that is set dynamically on node start
+  app.updateApp().isOkOr:
+    return err("Error in updateApp: " & $error)
+
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
 
@@ -559,17 +607,40 @@ proc startApp*(app: App): Future[AppResult[void]] {.async.} =
     asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
     asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
 
-  return await startNode(
-    app.node,
-    app.conf,
-    app.dynamicBootstrapNodes
-  )
+  return ok()
+
 
 
 ## Monitoring and external interfaces
 
 proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
-  let server = ? newRestHttpServer(address, port)
+
+  # Used to register api endpoints that are not currently installed as keys,
+  # values are holding error messages to be returned to the client
+  var notInstalledTab: Table[string, string] = initTable[string, string]()
+
+  proc requestErrorHandler(error: RestRequestError,
+                                request: HttpRequestRef):
+                                Future[HttpResponseRef] {.async.} =
+    case error
+    of RestRequestError.Invalid:
+      return await request.respond(Http400, "Invalid request", HttpTable.init())
+    of RestRequestError.NotFound:
+      let rootPath = request.rawPath.split("/")[1]
+      if notInstalledTab.hasKey(rootPath):
+        return await request.respond(Http404, notInstalledTab[rootPath], HttpTable.init())
+      else:
+        return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
+    of RestRequestError.InvalidContentBody:
+      return await request.respond(Http400, "Invalid content body", HttpTable.init())
+    of RestRequestError.InvalidContentType:
+      return await request.respond(Http400, "Invalid content type", HttpTable.init())
+    of RestRequestError.Unexpected:
+      return defaultResponse()
+
+    return defaultResponse()
+
+  let server = ? newRestHttpServer(address, port, requestErrorHandler = requestErrorHandler)
 
   ## Admin REST API
   installAdminApiHandlers(server.router, app.node)
@@ -596,6 +667,8 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
       app.node.subscribe((kind: ContentSub, topic: contentTopic), some(autoHandler))
 
     installRelayApiHandlers(server.router, app.node, cache)
+  else:
+    notInstalledTab["relay"] = "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
   if conf.filternode  != "" and
@@ -606,15 +679,40 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
     rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
 
     let filterCache = rest_filter_api.MessageCache.init()
-    rest_filter_api.installFilterRestApiHandlers(server.router, app.node, filterCache)
+
+    let filterDiscoHandler = 
+      if app.wakuDiscv5.isSome():
+        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
+      else: none(DiscoveryHandler)
+
+    rest_filter_api.installFilterRestApiHandlers(
+      server.router,
+      app.node,
+      filterCache,
+      filterDiscoHandler,
+    )
+  else:
+    notInstalledTab["filter"] = "/filter endpoints are not available. Please check your configuration: --filternode"
 
   ## Store REST API
-  installStoreApiHandlers(server.router, app.node)
+  let storeDiscoHandler = 
+    if app.wakuDiscv5.isSome():
+      some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
+    else: none(DiscoveryHandler)
+
+  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
 
   ## Light push API
   if conf.lightpushnode  != "" and
      app.node.wakuLightpushClient != nil:
-    rest_lightpush_api.installLightPushRequestHandler(server.router, app.node)
+    let lightDiscoHandler = 
+      if app.wakuDiscv5.isSome():
+        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
+      else: none(DiscoveryHandler)
+
+    rest_lightpush_api.installLightPushRequestHandler(server.router, app.node, lightDiscoHandler)
+  else:
+    notInstalledTab["lightpush"] = "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
 
   server.start()
   info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
