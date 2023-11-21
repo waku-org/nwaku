@@ -188,13 +188,16 @@ proc addMessage*(
   
   var oldestTime = int64.high
   var oldestMsg = int.high
-  for i, message in self.messages:
+  for i, message in self.messages.reversed:
     if message == msg:
       return
 
     if message.timestamp < oldestTime:
         oldestTime = message.timestamp
         oldestMsg = i
+
+  # reverse index
+  oldestMsg = self.messages.high - oldestMsg
 
   var pubsubIdxOp = self.pubsubSearch(pubsubTopic)
   var contentIdxOp = self.contentSearch(msg.contentTopic)

@@ -12,9 +12,10 @@ import
 suite "MessageCache":
   setup:
     ## Given
+    let capacity = 3
     let testPubsubTopic = DefaultPubsubTopic
     let testContentTopic = DefaultContentTopic
-    let cache = MessageCache.init(3)
+    let cache = MessageCache.init(capacity)
 
   test "subscribe to topic":
     ## When
@@ -128,7 +129,7 @@ suite "MessageCache":
     var testMessages = @[fakeWakuMessage(toBytes("MSG-1"))]
 
     # Prevent duplicate messages timestamp
-    for i in 0..4:
+    for i in 0..<5:
       var msg = fakeWakuMessage(toBytes("MSG-1"))
 
       while msg.timestamp <= testMessages[i].timestamp:
@@ -136,20 +137,20 @@ suite "MessageCache":
 
       testMessages.add(msg)
 
-    let testSet = toHashSet(testMessages)
-
     cache.pubsubSubscribe(testPubsubTopic)
 
     ## When
-    for msg in testSet:
+    for msg in testMessages:
       cache.addMessage(testPubsubTopic, msg)
 
     ## Then
     let messages = cache.getMessages(testPubsubTopic).tryGet()
     let messageSet = toHashSet(messages)
 
+    let testSet = toHashSet(testMessages)
+
     check:
-      messageSet.len == 3
+      messageSet.len == capacity
       messageSet < testSet
       testMessages[0] notin messages
 
