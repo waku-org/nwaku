@@ -16,6 +16,7 @@ import
   ../../../waku_core,
   ../serdes,
   ../responses,
+  ../rest_serdes,
   ./types
 
 export types
@@ -25,24 +26,8 @@ logScope:
 
 proc encodeBytes*(value: PushRequest,
                   contentType: string): RestResult[seq[byte]] =
-  if MediaType.init(contentType) != MIMETYPE_JSON:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
+  return encodeBytesOf(value, contentType)
 
-  let encoded = ?encodeIntoJsonBytes(value)
-  return ok(encoded)
-
-proc decodeBytes*(t: typedesc[string], value: openarray[byte],
-                  contentType: Opt[ContentTypeData]): RestResult[string] =
-  if MediaType.init($contentType) != MIMETYPE_TEXT:
-    error "Unsupported contentType value", contentType = contentType
-    return err("Unsupported contentType")
-
-  var res: string
-  if len(value) > 0:
-    res = newString(len(value))
-    copyMem(addr res[0], unsafeAddr value[0], len(value))
-  return ok(res)
 
 proc sendPushRequest*(body: PushRequest):
         RestResponse[string]

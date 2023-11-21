@@ -217,7 +217,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 
-  # we need to wrap the handler since gossipsub doesnt understand WakuMessage
+  # We need to wrap the handler since gossipsub doesnt understand WakuMessage
   let wrappedHandler =
     proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
       let decMsg = WakuMessage.decode(data)
@@ -230,7 +230,9 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       else:
         return handler(pubsubTopic, decMsg.get())
 
-  # add the ordered validator to the topic
+  # Add the ordered validator to the topic
+  # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
+  # Otherwise this might lead to unintended behaviour.
   if not w.validatorInserted.hasKey(pubSubTopic):
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
     w.validatorInserted[pubSubTopic] = true
