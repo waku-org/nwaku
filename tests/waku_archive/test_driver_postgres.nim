@@ -203,3 +203,5 @@ suite "Postgres driver":
     putRes = await driver.put(DefaultPubsubTopic,
                               msg2, computeDigest(msg2, DefaultPubsubTopic), msg2.timestamp)
     require not putRes.isOk()
+
+    (await driver.close()).expect("driver to close")

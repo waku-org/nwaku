@@ -52,25 +52,19 @@ type WakuDiscoveryV5* = ref object
 
 proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
+  let typedRecord = record.toTyped().valueOr:
+    debug "peer filtering failed", reason=error
+    return none(WakuDiscv5Predicate)
 
-  let typeRecordRes = record.toTyped()
-  let typedRecord =
-    if typeRecordRes.isErr():
-      debug "peer filtering failed", reason= $typeRecordRes.error
-      return none(WakuDiscv5Predicate)
-    else: typeRecordRes.get()
-
-  let nodeShardOp = typedRecord.relaySharding()
-  let nodeShard =
-    if nodeShardOp.isNone():
-      debug "no relay sharding information, peer filtering disabled"
-      return none(WakuDiscv5Predicate)
-    else: nodeShardOp.get()
-
+  let nodeShard = typedRecord.relaySharding().valueOr:
+    debug "no relay sharding information, peer filtering disabled"
+    return none(WakuDiscv5Predicate)
+  
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it))
+      record.getCapabilities().len > 0 and #RFC 31 requirement
+      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it)) #RFC 64 guideline
 
   return some(predicate)
 

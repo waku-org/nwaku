@@ -50,36 +50,29 @@ method execute*(p: SizeRetentionPolicy,
   if pageSize == 0:
     return err("failed to get Page size: " & pageSizeRes.error)
 
-  # keep deleting until the current db size falls within size limit 
-  while true:
-    # to get the size of the database, pageCount and PageSize is required
-    # get page count in "messages" database
-    let pageCount = (await driver.getPagesCount()).valueOr:
-      return err("failed to get Pages count: " & $error)
+  # to get the size of the database, pageCount and PageSize is required
+  # get page count in "messages" database
+  let pageCount = (await driver.getPagesCount()).valueOr:
+    return err("failed to get Pages count: " & $error)
 
-    # database size in megabytes (Mb)
-    let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
+  # database size in megabytes (Mb)
+  let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
 
-    if totalSizeOfDB < p.sizeLimit:
-      break
+  if totalSizeOfDB < p.sizeLimit:
+    return ok()
 
-    # to shread/delete messsges, get the total row/message count
-    let numMessagesRes = await driver.getMessagesCount()
-    if numMessagesRes.isErr():
-      return err("failed to get messages count: " & numMessagesRes.error)
-    let numMessages = numMessagesRes.value
+  # to shread/delete messsges, get the total row/message count
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
 
-    # 80% of the total messages are to be kept, delete others
-    let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+  # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+  # if vacumming is done automatically then we aim to check DB size periodially for efficient
+  # retention policy implementation.
 
-    let res = await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)
-    if res.isErr():
-        return err("deleting oldest messages failed: " & res.error)
-    
-    # vacuum to get the deleted pages defragments to save storage space
-    # this will resize the database size
-    let resVaccum = await driver.performVacuum()
-    if resVaccum.isErr():
-      return err("vacuumming failed: " & resVaccum.error)
+  # 80% of the total messages are to be kept, delete others
+  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
 
   return ok()

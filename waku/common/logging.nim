@@ -6,27 +6,16 @@ import
   chronicles/log_output,
   chronicles/topics_registry
 
+export chronicles.LogLevel
 
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
 
-
 type
-  LogLevel* = enum
-    TRACE, DEBUG, INFO, NOTICE, WARN, ERROR, FATAL
-
   LogFormat* = enum
     TEXT, JSON
-
-converter toChroniclesLogLevel(level: LogLevel): chronicles.LogLevel =
-  ## Map logging log levels to the corresponding nim-chronicles' log level
-  try:
-    parseEnum[chronicles.LogLevel]($level)
-  except CatchableError:
-    chronicles.LogLevel.NONE
-
 
 ## Utils
 
@@ -82,12 +71,12 @@ proc setupLogLevel*(level: LogLevel) =
   topics_registry.setLogLevel(level)
 
 proc setupLogFormat*(format: LogFormat, color=true) =
-  proc noOutputWriter(logLevel: chronicles.LogLevel, msg: LogOutputStr) = discard
+  proc noOutputWriter(logLevel: LogLevel, msg: LogOutputStr) = discard
 
-  proc stdoutOutputWriter(logLevel: chronicles.LogLevel, msg: LogOutputStr) =
+  proc stdoutOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
     writeAndFlush(io.stdout, msg)
 
-  proc stdoutNoColorOutputWriter(logLevel: chronicles.LogLevel, msg: LogOutputStr) =
+  proc stdoutNoColorOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
     writeAndFlush(io.stdout, stripAnsi(msg))
 
 

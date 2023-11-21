@@ -1,14 +1,18 @@
-In this tutotial you will learn how to:
-1. Create Sepolia Ethereum Account and obtain its private key.
-2. Obtain Sepolia Ethers from faucet.
-3. Set up a hosted node on Sepolia Testnet using Infura.
+In this tutorial you will learn how to:
+1. Create a Sepolia Ethereum account and obtain its private key.
+2. Obtain Sepolia ETH from faucet.
+3. Access a node on the Sepolia testnet using Infura.
 
-If you already have an Ethereum account with sufficient ethers on the Sepolia testnet then you can skip the first two sections.
-## Creating Sepolia Ethereum Account and obtaining its private key
+## 1. Create a Sepolia Ethereum account and obtain its private key
 
+> _**WARNING:**_ The private key is used elsewhere by Waku RLN registration tools to assist with membership registration in the Sepolia test network.
+> We strongly recommend that you create an account only for this purpose.
+> NEVER expose a private key that controls any valuable assets or funds.
 
 1. Download and install Metamask. [https://metamask.io/download/](https://metamask.io/download/)
-2. Create a new wallet and save your secret recovery key.
+   If you already have Metamask installed, go to step 3.
+   If you encounter any issues during the Metamask setup process, please refer to the [official Metamask support page](https://support.metamask.io/hc/en-us). 
+2. Create a new wallet and save your secret recovery phrase.
     
     ![](https://i.imgur.com/HEOI0kp.jpg)
 
@@ -16,96 +20,89 @@ If you already have an Ethereum account with sufficient ethers on the Sepolia te
     
     ![](https://i.imgur.com/zFduIV8.jpg)
 
-4. You should already see an account created. As you can see on top right, it should be pointing to Ethereum mainnet.
+4. By default, Metamask connects to the Ethereum Mainnet (dropdown menu in the top right corner).
     
     ![](https://i.imgur.com/gk3TWUd.jpg)
 
-5. You can use the same account for different networks. For Waku we need to connect to the Sepolia test network.
-6. You can switch to a test network by clicking on the drop down menu. Select Sepolia test network for Waku:
+   To publish messages to the Waku Network, you need to connect to the Sepolia test network.
+5. Switch to the Sepolia test network by selecting it from the dropdown menu. Ensure "Show test networks" is enabled.
 
-    ![](https://i.imgur.com/kbuup6y.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/670778eb-8bf0-42a6-8dd7-1dedfabeeb37)
 
-7. Click on Show/hide test networks.
-8. Enable “Show Test Networks".
+   The same account can be used with different networks. Note that the ETH balance is different for each network (each has its own native token).
     
-    ![](https://i.imgur.com/02x7iSX.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/0a5aa3a7-359c-4f4b-bd12-bad7c4844b34)
+
+6. To view the private key for this account, click on the three dots next to the account name and select "Account Details".
     
-    ![](https://i.imgur.com/UFsoRHR.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/83fffa23-4a3b-46f9-a492-9748bfd47cff)
 
-9. Close the settings and now you should see the test networks in the drop down on the top right.
+   Select "Show Private Key".
     
-    ![](https://i.imgur.com/leSYt4z.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/3a513389-2df1-4e32-86da-a1794126cdac)
 
-10. Switch to Sepolia Test Network.
-11. You can see that the same account can be used with different networks. But note that the ETH balance on different networks are different and are different tokens.
+   Enter your Metamask password and click "Confirm"
     
-    ![](https://i.imgur.com/Y7YkuEe.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/ffbac631-b933-4292-a2c6-dc445bff153c)
 
-12. Now to export your private key for the account, if needed, please click on the three dots beside the account.
+   You will be shown the private key.
+
+## 2. Obtain Sepolia ETH from faucet
+
+Sepolia ETH can be obtained from different faucets.
+Three popular examples include:
+
+  1. [sepoliafaucet.com](https://sepoliafaucet.com/) (requires an Alchemy account)
+  2. [Infura Sepolia faucet](https://www.infura.io/faucet/sepolia) (requires an Infura account)
+  3. [Sepolia POW faucet](https://sepolia-faucet.pk910.de/)
+
+> _**NOTE:**_ This list is provided for convenience. We do not necessarily recommend or guarantee the security of any of these options.
+
+Many faucets limit the amount of Sepolia ETH you can obtain per day.
+We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk910.de/) as an example:
+
+1. Enter your Sepolia Ethereum account public address, solve the Captcha and start mining.
     
-    ![](https://i.imgur.com/9BlBmhT.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/8bf2eece-956c-4449-ac4c-a7b9f4641c99)
 
-13. Click on Account Details.
-14. Click on Export Private Key.
+2. Keep the browser tab open for a while. You can see the estimated Sepolia ETH mined per hour. 
     
-    ![](https://i.imgur.com/7g6SyuX.jpg)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/fac1c6cb-b72f-47b1-a358-4ce41224a688)
 
-15. Enter your Metamask password when prompted.
+   Each session is limited to a few hours. 
+3. When you've mined enough Sepolia ETH (minimum of 0.05 Sepolia ETH), click on "Stop Mining" and claim your reward.
     
-    ![](https://i.imgur.com/VOojHY5.jpg)
-
-16. You will be shown the private key. Copy it as needed.
-
-Obtain Sepolia Ethers from faucet
----
-
-1. Ethers on Sepolia test networks can be obtained from different faucets.
-2. One of the faucets is as follows:
-    1. [https://sepoliafaucet.com//](https://sepoliafaucet.com/)
-    (NOTE: We have not tested the security of these faucets so please feel free to do your own research or obtain Sepolia ethers from other faucets if needed.)
-3. Please follow the instructions on the webpages of these faucets.
-4. A lot of faucets limit the Sepolia ETH to 0.05 ETH/day.
-5. To obtain more eth, you can do some POW mining. One of those POW faucet is:
-     [https://sepolia-faucet.pk910.de/](https://sepolia-faucet.pk910.de/)
-6. Enter your Eth account address, accept Captcha and start mining.
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/9ace2824-9030-4507-9b5f-50354bb99127)    
     
-    ![](https://i.imgur.com/IvHNsei.jpg)
+## 3. Access a node on the Sepolia testnet using Infura
 
-7. You can see the estimated Sepolia ETH mined per hour. Each session is restricted to a few hours.
-    
-    ![](https://i.imgur.com/qTWwyNr.jpg)
+> _**NOTE:**_ Infura provides a simple way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node.
+> Setting up Infura is not mandatory. Operators concerned with the centralized aspect introduced by Infura should use their own node.
 
-8. When you exceed the hour limit of the session, then the mining will be stopped.
-9. Alternatively, stop the mining when mined enough sepolia ether.
-10. Do not forget to claim your sepolia ether.
-    
-    ![](https://i.imgur.com/cGCSexB.jpg)
-    
-    
-Setting up a hosted node on Sepolia Testnet using Infura
----
-
-(Note: Infura provides a simple straight-forward way of setting up endpoints for interaction with the Ethereum chain and the Waku RLN smart contract without having to run a dedicated Ethereum node. Setting up infura is not mandatory. Operators concerned with the centralized aspect introduced by infura can setup their own node.)
-
-1. Sign up to infura if you do not have an account already. [https://infura.io/register](https://infura.io/register)
+1. Sign up for Infura if you do not have an account already. [https://infura.io/register](https://infura.io/register)
     
     ![](https://i.imgur.com/SyLaG6s.jpg)
 
-2. After registering and verifying the account, create a new project using Ethereum and give it a name.
-    
-    ![](https://i.imgur.com/fJbNqwd.jpg)
+   Follow the instructions to register and verify the account.
 
-3. After creating the project, you will be presented with a dashboard like follows. Note that your Project Id and secret will be different.
-    
-   ![](imgs/infura-dashboard-mainnet.png)
+2. Click on "Create a new API key".
 
-4. Select Sepolia network in Endpoints.
-    
-    ![](https://i.imgur.com/RgmH7C1.png)
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/3cf1d537-9f73-4a6a-b1ef-bbac148bac47)
 
-5. You can find the endpoints for the hosted node using https and wss. The wss endpoint is the relevant one for connecting the waku node to the RLN contract on Sepolia network. Like follows:
-    
-    ![](https://i.imgur.com/xqbOcOH.png)
+4. Select "Web 3 API", give your API key a descriptive name and click on "Create".
 
-6. You can change security settings or view usage options as required in the dashboard.
-7. Congratulations, you are now ready to use the Infura node.
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/f8c6c6b0-e55e-4681-8524-08303db11b9f)
+
+   You will be presented with a dashboard for the newly created key.
+    
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/54c7c2da-f512-4c48-b5bb-ff86cae021c6)
+
+4. Select "Sepolia" in the dropdown menu for Ethereum.
+    
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/945bf11e-15f6-48a9-9378-f7d39f73b02c)
+
+   Both Https and WebSockets endpoints are available. Waku requires the WebSockets endpoint.
+    
+    ![image](https://github.com/waku-org/nwaku/assets/68783915/adb2bac0-8f86-47d0-92cc-33d23f02aeb3)
+
+5. Copy this address (starting with `wss://sepolia.infura`) as needed when setting up your Waku node.

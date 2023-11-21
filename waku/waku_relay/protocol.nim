@@ -72,7 +72,7 @@ const GossipsubParameters = GossipSubParams(
 
     d: 6,
     dLow: 4,
-    dHigh: 12,
+    dHigh: 8,
     dScore: 6,
     dOut: 3,
     dLazy: 6,
@@ -174,8 +174,8 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
 
   return ok(w)
 
-proc addValidator*(w: WakuRelay, 
-                   topic: varargs[string], 
+proc addValidator*(w: WakuRelay,
+                   topic: varargs[string],
                    handler: WakuValidatorHandler) {.gcsafe.} =
   for t in topic:
     w.wakuValidators.mgetOrPut(t, @[]).add(handler)
@@ -196,7 +196,7 @@ proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
 
 proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
   # rejects messages that are not WakuMessage
-  let wrappedValidator = proc(pubsubTopic: string, 
+  let wrappedValidator = proc(pubsubTopic: string,
                               message: messages.Message): Future[ValidationResult] {.async.} =
     # can be optimized by checking if the message is a WakuMessage without allocating memory
     # see nim-libp2p protobuf library
@@ -217,7 +217,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 
-  # we need to wrap the handler since gossipsub doesnt understand WakuMessage
+  # We need to wrap the handler since gossipsub doesnt understand WakuMessage
   let wrappedHandler =
     proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
       let decMsg = WakuMessage.decode(data)
@@ -230,7 +230,9 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       else:
         return handler(pubsubTopic, decMsg.get())
 
-  # add the ordered validator to the topic
+  # Add the ordered validator to the topic
+  # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
+  # Otherwise this might lead to unintended behaviour.
   if not w.validatorInserted.hasKey(pubSubTopic):
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
     w.validatorInserted[pubSubTopic] = true
@@ -245,7 +247,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic
-  
+
   debug "unsubscribe all", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
@@ -253,7 +255,7 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
 
 proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
   ## Unsubscribe this handler on this pubsub topic
-  
+
   debug "unsubscribe", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribe(pubsubTopic, handler)
