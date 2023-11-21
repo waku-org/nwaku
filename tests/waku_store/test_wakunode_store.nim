@@ -259,3 +259,44 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+
+  test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
+    ## Setup
+    let
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    waitFor allFutures(client.start(), server.start())
+
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    waitFor server.mountStore()
+
+    client.mountStoreClient()
+
+    ## Forcing a bad cursor with empty digest data
+    var data: array[32, byte] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let cursor = HistoryCursor(
+          pubsubTopic: "pubsubTopic",
+          senderTime: now(),
+          storeTime: now(),
+          digest: waku_archive.MessageDigest(data: data)
+        )
+
+    ## Given
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], cursor: some(cursor))
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    ## When
+    let queryRes = waitFor client.query(req, peer=serverPeer)
+
+    ## Then
+    check not queryRes.isOk()
+
+    check queryRes.error == "BAD_REQUEST: invalid cursor"
+
+    # Cleanup
+    waitFor allFutures(client.stop(), server.stop())
