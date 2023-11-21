@@ -13,7 +13,7 @@ It is meant to be used to generate and persist a set of valid RLN credentials to
 1. First, we compile the binary
     
     ```bash
-    make -j12 rln-keystore-generator
+    make -j16 wakunode2
     ```
     This command will fetch the rln static library and link it automatically.
 
@@ -31,7 +31,7 @@ It is meant to be used to generate and persist a set of valid RLN credentials to
 3. Dry run the command to ensure better degree of execution 
 
     ```bash
-    ./build/rln_keystore_generator \
+    ./build/wakunode2 generateRlnKeystore \
     --rln-relay-eth-client-address:$RPC_URL \
     --rln-relay-eth-private-key:$PRIVATE_KEY \
     --rln-relay-eth-contract-address:$RLN_CONTRACT_ADDRESS \
@@ -43,7 +43,7 @@ It is meant to be used to generate and persist a set of valid RLN credentials to
 4. Run the keystore generator with the onchain registration
 
     ```bash
-    ./build/rln_keystore_generator \
+    ./build/wakunode2 generateRlnKeystore \
     --rln-relay-eth-client-address:$RPC_URL \
     --rln-relay-eth-private-key:$PRIVATE_KEY \
     --rln-relay-eth-contract-address:$RLN_CONTRACT_ADDRESS \
