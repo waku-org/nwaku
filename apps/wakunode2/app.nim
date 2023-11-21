@@ -127,6 +127,21 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: recordRes.get()
 
+  # Check the ENR sharding info for matching config cluster id
+  if conf.clusterId != 0:
+    let res = record.toTyped()
+    if res.isErr():
+      error "ENR setup failed", error = $res.get()
+      quit(QuitFailure)
+
+    let relayShard = res.get().relaySharding().valueOr:
+      error "no sharding info"
+      quit(QuitFailure)
+
+    if conf.clusterId != relayShard.clusterId:
+      error "cluster id mismatch"
+      quit(QuitFailure)
+
   App(
     version: git_version,
     conf: conf,
@@ -234,7 +249,13 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
     autoupdateRecord: app.conf.discv5EnrAutoUpdate,
   )
 
-  WakuDiscoveryV5.new(app.rng, discv5Conf, some(app.record))
+  WakuDiscoveryV5.new(
+    app.rng, 
+    discv5Conf,
+    some(app.record),
+    some(app.node.peerManager),
+    app.node.topicSubscriptionQueue,
+  )
 
 ## Init waku node instance
 
@@ -286,17 +307,16 @@ proc initNode(conf: WakuNodeConf,
   ok(node)
 
 proc setupWakuApp*(app: var App): AppResult[void] =
-
-  ## Discv5
-  if app.conf.discv5Discovery:
-    app.wakuDiscV5 = some(app.setupDiscoveryV5())
-
   ## Waku node
   let initNodeRes = initNode(app.conf, app.netConf, app.rng, app.key, app.record, app.peerStore, app.dynamicBootstrapNodes)
   if initNodeRes.isErr():
     return err("failed to init node: " & initNodeRes.error)
 
   app.node = initNodeRes.get()
+
+  ## Discv5
+  if app.conf.discv5Discovery:
+    app.wakuDiscV5 = some(app.setupDiscoveryV5())
 
   ok()
 
@@ -341,7 +361,17 @@ proc updateNetConfig(app: var App): AppResult[void] =
 proc updateEnr(app: var App): AppResult[void] =
 
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
-    return err(error)
+    return err("ENR setup failed: " & error)
+
+  if app.conf.clusterId != 0:
+    let tRecord = record.toTyped().valueOr:
+      return err("ENR setup failed: " & $error)
+
+    let relayShard = tRecord.relaySharding().valueOr:
+      return err("ENR setup failed: no sharding info")
+
+    if app.conf.clusterId != relayShard.clusterId:
+      return err("ENR setup failed: cluster id mismatch")
 
   app.record = record
   app.node.enr = record
@@ -376,6 +406,9 @@ proc setupProtocols(node: WakuNode,
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
+
+  node.mountMetadata(conf.clusterId).isOkOr:
+    return err("failed to mount waku metadata protocol: " & error)
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -587,11 +620,12 @@ proc startNode(node: WakuNode, conf: WakuNodeConf,
 
 proc startApp*(app: var App): AppResult[void] =
 
-  try:
-    (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes)).isOkOr:
-      return err(error)
-  except CatchableError:
-    return err("exception starting node: " & getCurrentExceptionMsg())
+  let nodeRes = catch: (waitFor startNode(app.node,app.conf,app.dynamicBootstrapNodes))
+  if nodeRes.isErr():
+    return err("exception starting node: " & nodeRes.error.msg)
+
+  nodeRes.get().isOkOr:
+    return err("exception starting node: " & error)
 
   # Update app data that is set dynamically on node start
   app.updateApp().isOkOr:
@@ -599,13 +633,12 @@ proc startApp*(app: var App): AppResult[void] =
 
   if app.wakuDiscv5.isSome():
     let wakuDiscv5 = app.wakuDiscv5.get()
+    let catchRes = catch: (waitFor wakuDiscv5.start())
+    let startRes = catchRes.valueOr:
+      return err("failed to start waku discovery v5: " & catchRes.error.msg)
 
-    let res = wakuDiscv5.start()
-    if res.isErr():
-      return err("failed to start waku discovery v5: " & $res.error)
-
-    asyncSpawn wakuDiscv5.searchLoop(app.node.peerManager)
-    asyncSpawn wakuDiscv5.subscriptionsListener(app.node.topicSubscriptionQueue)
+    startRes.isOkOr:
+      return err("failed to start waku discovery v5: " & error)
 
   return ok()
 
