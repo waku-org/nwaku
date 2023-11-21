@@ -42,9 +42,10 @@ pipeline {
         '-d:postgres',
       ].join(' ')
     )
-    string(
-      name: "LOG_LEVEL",
-      description: "Chronicles log level (default: TRACE)",
+    choice(
+      name: "LOWEST_LOG_LEVEL_ALLOWED",
+      choices: ['TRACE', 'DEGUG', 'INFO', 'NOTICE', 'WARN', 'ERROR', 'FATAL'],
+      description: "Defines the log level, which will be available at runtime (Chronicles log level)",
     )
     booleanParam(
       name: 'DEBUG',
@@ -61,7 +62,7 @@ pipeline {
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
-          (params.LOG_LEVEL != null ? "--build-arg=LOG_LEVEL='${params.LOG_LEVEL}' ": "") +
+          "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
           "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
       } }
