@@ -10,6 +10,7 @@ import
   libp2p/crypto/crypto
 import
   ../../../waku/waku_core/message,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/waku_core/topics,
   ../../../waku/waku_core/time,
   ../../../waku/waku_node,
@@ -33,10 +34,11 @@ logScope:
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
     digest = waku_archive.computeDigest(message)
+    msgHash = computeMessageHash(pubsubTopic, message)
     receivedTime = if message.timestamp > 0: message.timestamp
                   else: getNanosecondTime(getTime().toUnixFloat())
 
-  store.put(pubsubTopic, message, digest, receivedTime)
+  store.put(pubsubTopic, message, digest, msgHash, receivedTime)
 
 # Creates a new WakuNode
 proc testWakuNode(): WakuNode =

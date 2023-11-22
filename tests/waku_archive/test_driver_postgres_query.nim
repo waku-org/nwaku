@@ -9,11 +9,14 @@ import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore
 
+
 logScope:
   topics = "test archive postgres driver"
+
 
 ## This whole file is copied from the 'test_driver_sqlite_query.nim' file
 ## and it tests the same use cases but using the postgres driver.
@@ -65,7 +68,7 @@ suite "Postgres driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -107,7 +110,7 @@ suite "Postgres driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -150,7 +153,7 @@ suite "Postgres driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -195,7 +198,7 @@ suite "Postgres driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -233,7 +236,7 @@ suite "Postgres driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -260,7 +263,7 @@ suite "Postgres driver - query by content topic":
 
     for t in 0..<40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts=ts(t))
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -306,7 +309,7 @@ suite "Postgres driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -351,7 +354,7 @@ suite "Postgres driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -396,7 +399,7 @@ suite "Postgres driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -443,7 +446,7 @@ suite "Postgres driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
@@ -488,7 +491,7 @@ suite "Postgres driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
@@ -531,7 +534,7 @@ suite "Postgres driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
@@ -575,7 +578,7 @@ suite "Postgres driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
@@ -626,7 +629,7 @@ suite "Postgres driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[5][0], expected[5][1])
 
@@ -678,7 +681,7 @@ suite "Postgres driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[6][0], expected[6][1])
 
@@ -726,7 +729,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -768,7 +771,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -816,7 +819,7 @@ suite "Postgres driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -861,7 +864,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -904,7 +907,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -949,7 +952,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -994,7 +997,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
 
@@ -1042,7 +1045,7 @@ suite "Postgres driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
@@ -1093,7 +1096,7 @@ suite "Postgres driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
 
@@ -1147,7 +1150,7 @@ suite "Postgres driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[7][0], expected[7][1])
 
@@ -1201,7 +1204,7 @@ suite "Postgres driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
@@ -1256,7 +1259,7 @@ suite "Postgres driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
@@ -1306,7 +1309,7 @@ suite "Postgres driver - retention policy":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     var res = await driver.getOldestMessageTimestamp()
     assert res.isOk(), res.error
@@ -1341,7 +1344,7 @@ suite "Postgres driver - retention policy":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     var res = await driver.getMessagesCount()
     assert res.isOk(), res.error
@@ -1378,7 +1381,7 @@ suite "Postgres driver - retention policy":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     var res = await driver.getMessagesCount()
     assert res.isOk(), res.error

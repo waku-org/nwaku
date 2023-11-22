@@ -13,6 +13,7 @@ import
 import
   ../../../common/databases/db_sqlite,
   ../../../waku_core,
+  ../../../waku_core/message/digest,
   ../../common,
   ../../driver,
   ./cursor,
@@ -61,11 +62,13 @@ method put*(s: SqliteDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
   let res = s.insertStmt.exec((
     @(digest.data),                # id
+    @(messageHash),                # messageHash
     receivedTime,                  # storedAt
     toBytes(message.contentTopic), # contentTopic
     message.payload,               # payload
