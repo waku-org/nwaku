@@ -16,11 +16,14 @@ import
   ../../../waku_core,
   ../../../waku_store,
   ../../../waku_filter,
+  ../../../waku_filter_v2,
+  ../../../waku_lightpush,
   ../../../waku_relay,
   ../../../waku_node,
   ../../../node/peer_manager,
   ../responses,
   ../serdes,
+  ../rest_serdes,
   ./types
 
 export types
@@ -31,23 +34,6 @@ logScope:
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
 
 type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
-
-func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
-  if contentBody.isNone():
-    return err(RestApiResponse.badRequest("Missing content body"))
-
-  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-  if reqBodyContentType != MIMETYPE_JSON:
-    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
-
-  let reqBodyData = contentBody.get().data
-
-  let requestResult = decodeFromJsonBytes(T, reqBodyData)
-  if requestResult.isErr():
-    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
-                                          $requestResult.error))
-
-  return ok(requestResult.get())
 
 proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
   for peer in peersTup:
@@ -77,6 +63,14 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                   connected: it.connectedness == Connectedness.Connected))
       tuplesToWakuPeers(peers, filterPeers)
 
+    if not node.wakuFilter.isNil():
+      # Map WakuFilter peers to WakuPeers and add to return list
+      let filterV2Peers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec)
+          .mapIt((multiaddr: constructMultiaddrStr(it),
+                  protocol: WakuFilterSubscribeCodec,
+                  connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, filterV2Peers)
+
     if not node.wakuStore.isNil():
       # Map WakuStore peers to WakuPeers and add to return list
       let storePeers = node.peerManager.peerStore
@@ -85,6 +79,15 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                                    protocol: WakuStoreCodec,
                                    connected: it.connectedness == Connectedness.Connected))
       tuplesToWakuPeers(peers, storePeers)
+
+    if not node.wakuLightPush.isNil():
+      # Map WakuStore peers to WakuPeers and add to return list
+      let lightpushPeers = node.peerManager.peerStore
+                           .peers(WakuLightPushCodec)
+                           .mapIt((multiaddr: constructMultiaddrStr(it),
+                                   protocol: WakuLightPushCodec,
+                                   connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, lightpushPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status=Http200)
     if resp.isErr():

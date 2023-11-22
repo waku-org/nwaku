@@ -7,6 +7,7 @@ else:
 import
   std/sequtils,
   stew/byteutils,
+  stew/endians2,
   nimcrypto/sha2
 import
   ../topics,
@@ -34,5 +35,6 @@ proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessag
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.meta)
+  ctx.update(toBytesBE(uint64(msg.timestamp)))
 
   return ctx.finish()  # Computes the hash

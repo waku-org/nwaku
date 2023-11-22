@@ -36,7 +36,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("post_waku_v2_relay_v1_subscriptions") do (pubsubTopics: seq[PubsubTopic]) -> bool:
     if pubsubTopics.len == 0:
       raise newException(ValueError, "No pubsub topic provided")
-    
+
     ## Subscribes a node to a list of PubSub topics
     debug "post_waku_v2_relay_v1_subscriptions"
 
@@ -55,7 +55,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("delete_waku_v2_relay_v1_subscriptions") do (pubsubTopics: seq[PubsubTopic]) -> bool:
     if pubsubTopics.len == 0:
       raise newException(ValueError, "No pubsub topic provided")
-    
+
     ## Unsubscribes a node from a list of PubSub topics
     debug "delete_waku_v2_relay_v1_subscriptions"
 
@@ -74,7 +74,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("post_waku_v2_relay_v1_message") do (pubsubTopic: PubsubTopic, msg: WakuMessageRPC) -> bool:
     if pubsubTopic == "":
       raise newException(ValueError, "Empty pubsub topic")
-    
+
     ## Publishes a WakuMessage to a PubSub topic
     debug "post_waku_v2_relay_v1_message", pubsubTopic=pubsubTopic
 
@@ -107,7 +107,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
       if not success:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessage(message)
+      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
       if result == MessageValidationResult.Invalid:
         raise newException(ValueError, "Failed to publish: invalid RLN proof")
       elif result == MessageValidationResult.Spam:
@@ -128,7 +128,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("get_waku_v2_relay_v1_messages") do (pubsubTopic: PubsubTopic) -> seq[WakuMessageRPC]:
     if pubsubTopic == "":
       raise newException(ValueError, "Empty pubsub topic")
-    
+
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called
     debug "get_waku_v2_relay_v1_messages", topic=pubsubTopic
@@ -144,7 +144,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("post_waku_v2_relay_v1_auto_subscriptions") do (contentTopics: seq[ContentTopic]) -> bool:
     if contentTopics.len == 0:
       raise newException(ValueError, "No content topic provided")
-    
+
     ## Subscribes a node to a list of Content topics
     debug "post_waku_v2_relay_v1_auto_subscriptions"
 
@@ -163,7 +163,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("delete_waku_v2_relay_v1_auto_subscriptions") do (contentTopics: seq[ContentTopic]) -> bool:
     if contentTopics.len == 0:
       raise newException(ValueError, "No content topic provided")
-    
+
     ## Unsubscribes a node from a list of Content topics
     debug "delete_waku_v2_relay_v1_auto_subscriptions"
 
@@ -197,7 +197,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         timestamp: msg.timestamp.get(Timestamp(0)),
         ephemeral: msg.ephemeral.get(false)
       )
-    
+
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
@@ -206,7 +206,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
       if not success:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessage(message)
+      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
       if result == MessageValidationResult.Invalid:
         raise newException(ValueError, "Failed to publish: invalid RLN proof")
       elif result == MessageValidationResult.Spam:
@@ -227,7 +227,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("get_waku_v2_relay_v1_auto_messages") do (contentTopic: ContentTopic) -> seq[WakuMessageRPC]:
     if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
-    
+
     ## Returns all WakuMessages received on a Content topic since the
     ## last time this method was called
     debug "get_waku_v2_relay_v1_auto_messages", topic=contentTopic

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, random, sets],
+  std/[options, sequtils, sets],
   stew/results,
   chronicles,
   chronos,
@@ -15,7 +15,9 @@ import
   eth/p2p/discoveryv5/enr
 import
   ../common/nimchronos,
+  ../common/enr,
   ../waku_core,
+  ../waku_enr,
   ./rpc
 
 logScope:
@@ -93,13 +95,24 @@ proc initProtocolHandler*(m: WakuMetadata) =
 
 proc new*(T: type WakuMetadata,
   clusterId: uint32,
+  enr: Record,
   queue: AsyncEventQueue[SubscriptionEvent],
   ): T =
-  let wm = WakuMetadata(clusterId: clusterId, topicSubscriptionQueue: queue)
+  var (cluster, shards) = (clusterId, initHashSet[uint32]())
+
+  let enrRes = enr.toTyped()   
+  if enrRes.isOk():
+    let shardingRes =  enrRes.get().relaySharding()
+    if shardingRes.isSome():
+      let relayShard = shardingRes.get()
+      cluster = uint32(relayShard.clusterId)
+      shards = toHashSet(relayShard.shardIds.mapIt(uint32(it)))
+    
+  let wm = WakuMetadata(clusterId: cluster, shards: shards, topicSubscriptionQueue: queue)
 
   wm.initProtocolHandler()
 
-  info "Created WakuMetadata protocol", clusterId=clusterId
+  info "Created WakuMetadata protocol", clusterId=cluster
 
   return wm
 

@@ -24,6 +24,7 @@ import
   ../../handlers,
   ../serdes,
   ../responses,
+  ../rest_serdes,
   ./types
 
 export types
@@ -43,23 +44,6 @@ const filterMessageCacheDefaultCapacity* = 30
 
 type
   MessageCache* = message_cache.MessageCache[ContentTopic]
-
-func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
-  if contentBody.isNone():
-    return err(RestApiResponse.badRequest("Missing content body"))
-
-  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
-  if reqBodyContentType != MIMETYPE_JSON:
-    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
-
-  let reqBodyData = contentBody.get().data
-
-  let requestResult = decodeFromJsonBytes(T, reqBodyData)
-  if requestResult.isErr():
-    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
-                                          $requestResult.error))
-
-  return ok(requestResult.get())
 
 proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
@@ -169,7 +153,7 @@ proc filterPostPutSubscriptionRequestHandler(
 
   let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
     let handler = discHandler.valueOr:
-      return makeRestResponse(req.requestId, NoPeerNoDiscoError) 
+      return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
     let peerOp = (await handler()).valueOr:
       return RestApiResponse.internalServerError($error)
@@ -233,7 +217,7 @@ proc installFilterDeleteSubscriptionsHandler(
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
-        return makeRestResponse(req.requestId, NoPeerNoDiscoError) 
+        return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
       let peerOp = (await handler()).valueOr:
         return RestApiResponse.internalServerError($error)
@@ -276,7 +260,7 @@ proc installFilterDeleteAllSubscriptionsHandler(
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
-        return makeRestResponse(req.requestId, NoPeerNoDiscoError) 
+        return makeRestResponse(req.requestId, NoPeerNoDiscoError)
 
       let peerOp = (await handler()).valueOr:
         return RestApiResponse.internalServerError($error)
@@ -285,7 +269,7 @@ proc installFilterDeleteAllSubscriptionsHandler(
         return makeRestResponse(req.requestId, NoPeerNoneFoundError)
 
     let unsubFut = node.filterUnsubscribeAll(peer)
-    
+
     if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to unsubscribe from contentFilters due to timeout!"
       return makeRestResponse(req.requestId,
@@ -310,7 +294,7 @@ proc installFilterPingSubscriberHandler(
 
     let peer = node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let handler = discHandler.valueOr:
-        return makeRestResponse(requestId.get(), NoPeerNoDiscoError) 
+        return makeRestResponse(requestId.get(), NoPeerNoDiscoError)
 
       let peerOp = (await handler()).valueOr:
         return RestApiResponse.internalServerError($error)
