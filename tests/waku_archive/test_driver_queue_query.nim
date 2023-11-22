@@ -9,6 +9,7 @@ import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/queue_driver,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore
 
@@ -58,7 +59,7 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -102,7 +103,7 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -147,7 +148,7 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -194,7 +195,7 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -234,7 +235,7 @@ suite "Queue driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -263,7 +264,7 @@ suite "Queue driver - query by content topic":
 
     for t in 0..<40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts=ts(t))
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -312,7 +313,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -359,7 +360,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -406,7 +407,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -456,7 +457,7 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg,  computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
@@ -503,7 +504,7 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
@@ -548,7 +549,7 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
@@ -594,7 +595,7 @@ suite "Queue driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
@@ -647,7 +648,7 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[5][0], expected[5][1])
@@ -701,7 +702,7 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[6][0], expected[6][1])
@@ -752,7 +753,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -796,7 +797,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg),computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -846,7 +847,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -893,7 +894,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -938,7 +939,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -985,7 +986,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     ## When
@@ -1032,7 +1033,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
@@ -1082,7 +1083,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
@@ -1135,7 +1136,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
@@ -1191,7 +1192,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[7][0], expected[7][1])
@@ -1247,7 +1248,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
@@ -1304,7 +1305,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), msg.timestamp)
+      let retFut = waitFor driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)
       require retFut.isOk()
 
     let cursor = computeTestCursor(expected[1][0], expected[1][1])

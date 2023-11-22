@@ -21,6 +21,7 @@ import
 when defined(waku_exp_store_resume):
   import std/[sequtils, times]
   import ../waku_archive
+  import ../waku_core/message/digest
 
 
 logScope:
@@ -154,10 +155,11 @@ when defined(waku_exp_store_resume):
   proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Result[void, string] =
     let
       digest = waku_archive.computeDigest(message)
+      messageHash = computeMessageHash(pubsubTopic, message)
       receivedTime = if message.timestamp > 0: message.timestamp
                     else: getNanosecondTime(getTime().toUnixFloat())
 
-    store.put(pubsubTopic, message, digest, receivedTime)
+    store.put(pubsubTopic, message, digest, messageHash, receivedTime)
 
   proc resume*(w: WakuStoreClient,
               peerList = none(seq[RemotePeerInfo]),

@@ -35,15 +35,16 @@ proc createTableQuery(): string =
   " version INTEGER NOT NULL," &
   " timestamp BIGINT NOT NULL," &
   " id VARCHAR NOT NULL," &
+  " messageHash VARCHAR NOT NULL," &
   " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ");"
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   # TODO: get the sql queries from a file
- """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
+ """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
+  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
@@ -186,10 +187,12 @@ method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
 
   let digest = toHex(digest.data)
+  let messageHash = toHex(messageHash)
   let rxTime = $receivedTime
   let contentTopic = message.contentTopic
   let payload = toHex(message.payload)
@@ -199,6 +202,7 @@ method put*(s: PostgresDriver,
   return await s.writeConnPool.runStmt(InsertRowStmtName,
                                        InsertRowStmtDefinition,
                                      @[digest,
+                                       messageHash,
                                        rxTime,
                                        contentTopic,
                                        payload,
@@ -206,6 +210,7 @@ method put*(s: PostgresDriver,
                                        version,
                                        timestamp],
                                      @[int32(digest.len),
+                                       int32(messageHash.len),
                                        int32(rxTime.len),
                                        int32(contentTopic.len),
                                        int32(payload.len),
@@ -213,7 +218,7 @@ method put*(s: PostgresDriver,
                                        int32(version.len),
                                        int32(timestamp.len)],
                                      @[int32(0), int32(0), int32(0), int32(0),
-                                       int32(0), int32(0), int32(0)])
+                                       int32(0), int32(0), int32(0), int32(0)])
 
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =

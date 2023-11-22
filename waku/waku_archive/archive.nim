@@ -18,6 +18,7 @@ import
   ./retention_policy/retention_policy_capacity,
   ./retention_policy/retention_policy_time,
   ../waku_core,
+  ../waku_core/message/digest,
   ./common,
   ./archive_metrics
 
@@ -101,12 +102,13 @@ proc handleMessage*(w: WakuArchive,
   block:
     let
       msgDigest = computeDigest(msg)
+      msgHash = computeMessageHash(pubsubTopic, msg)
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
-    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest
+    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest, messageHash=msgHash
 
-    let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgReceivedTime)
+    let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
       error "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
