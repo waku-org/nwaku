@@ -32,7 +32,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
-    topics: @["/waku/2/default-waku/proto"],
+    topics: @[],
     relay: true
   )
 
@@ -55,28 +55,27 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
                       agentString = none(string),
-                      clusterId: uint32 = 0.uint32,
+                      clusterId: uint32 = 2.uint32,
+                      topics: seq[string] = @["/waku/2/rs/2/0"],
                       peerStoreCapacity = none(int)): WakuNode =
 
   var resolvedExtIp = extIp
 
   # Update extPort to default value if it's missing and there's an extIp or a DNS domain
-  let extPort = if (extIp.isSome() or dns4DomainName.isSome()) and
-                extPort.isNone():
-                some(Port(60000))
-              else:
-                extPort
+  let extPort =
+    if (extIp.isSome() or dns4DomainName.isSome()) and extPort.isNone(): some(Port(60000))
+    else: extPort
+
+  let conf = defaultTestWakuNodeConf()
 
   if dns4DomainName.isSome() and extIp.isNone():
-    let conf = defaultTestWakuNodeConf()
     # If there's an error resolving the IP, an exception is thrown and test fails
-    let dnsRes = waitFor dnsResolve(dns4DomainName.get(), conf)
-    if dnsRes.isErr():
-      raise newException(Defect, $dnsRes.error)
-    else:
-      resolvedExtIp = some(ValidIpAddress.init(dnsRes.get()))
+    let dns = (waitFor dnsResolve(dns4DomainName.get(), conf)).valueOr:
+      raise newException(Defect, error)
+    
+    resolvedExtIp = some(ValidIpAddress.init(dns))
 
-  let netConfigRes = NetConfig.init(
+  let netConf = NetConfig.init(
     bindIp = bindIp,
     clusterId = clusterId,
     bindPort = bindPort,
@@ -89,36 +88,33 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     wakuFlags = wakuFlags,
     dns4DomainName = dns4DomainName,
     discv5UdpPort = discv5UdpPort,
-  )
-  let netConf =
-    if netConfigRes.isErr():
-      raise newException(Defect, "Invalid network configuration: " & $netConfigRes.error)
-    else:
-      netConfigRes.get()
+  ).valueOr:
+    raise newException(Defect, "Invalid network configuration: " & error)
 
   var enrBuilder = EnrBuilder.init(nodeKey)
+
+  enrBuilder.withShardedTopics(topics).isOkOr:
+    raise newException(Defect, "Invalid record: " & error)
 
   enrBuilder.withIpAddressAndPorts(
       ipAddr = netConf.enrIp,
       tcpPort = netConf.enrPort,
       udpPort = netConf.discv5UdpPort,
   )
-  if netConf.wakuFlags.isSome():
-    enrBuilder.withWakuCapabilities(netConf.wakuFlags.get())
+
   enrBuilder.withMultiaddrs(netConf.enrMultiaddrs)
 
-  let recordRes = enrBuilder.build()
-  let record =
-    if recordRes.isErr():
-      raise newException(Defect, "Invalid record: " & $recordRes.error)
-    else:
-      recordRes.get()
+  if netConf.wakuFlags.isSome():
+    enrBuilder.withWakuCapabilities(netConf.wakuFlags.get())
+
+  let record = enrBuilder.build().valueOr:
+      raise newException(Defect, "Invalid record: " & $error)
 
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng())
   builder.withNodeKey(nodeKey)
   builder.withRecord(record)
-  builder.withNetworkConfiguration(netConfigRes.get())
+  builder.withNetworkConfiguration(netConf)
   builder.withPeerStorage(peerStorage, capacity = peerStoreCapacity)
   builder.withSwitchConfiguration(
     maxConnections = some(maxConnections),
