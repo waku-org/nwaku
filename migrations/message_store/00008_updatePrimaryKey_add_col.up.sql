@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS message (
   id BLOB,
   messageHash BLOB, -- Newly added, this will be populated with a counter value
   storedAt INTEGER NOT NULL,
-  CONSTRAINT messageIndex PRIMARY KEY (storedAt, messageHash)
+  CONSTRAINT messageIndex PRIMARY KEY (messageHash)
 ) WITHOUT ROWID;
 
 
@@ -21,11 +21,7 @@ SELECT
   mb.version,
   mb.timestamp,
   mb.id,
-  (
-    SELECT COUNT(*)
-    FROM message_backup AS mb2
-    WHERE mb2.storedAt <= mb.storedAt
-  ) as messageHash, -- to populate the counter values
+  randomblob(32), -- to populate 32-byte random blob
   mb.storedAt
 FROM message_backup AS mb;
 
