@@ -3,6 +3,7 @@
 import
   std/sequtils,
   stew/byteutils,
+  stew/endians2,
   testutils/unittests
 import
   ../../../waku/waku_core,
@@ -39,7 +40,7 @@ suite "Waku Message - Deterministic hashing":
       byteutils.toHex(message.contentTopic.toBytes()) == "2f77616b752f322f64656661756c742d636f6e74656e742f70726f746f"
       byteutils.toHex(message.payload) == "010203045445535405060708"
       byteutils.toHex(message.meta) == ""
-      byteutils.toHex(toBytesFromInt64(int64(message.timestamp))) == "175789bfa23f8400"
+      byteutils.toHex(toBytesBE(uint64(message.timestamp))) == "175789bfa23f8400"
       messageHash.toHex() == "a2554498b31f5bcdfcbf7fa58ad1c2d45f0254f3f8110a85588ec3cf10720fd8"
 
   test "digest computation - meta field (12 bytes)":
@@ -71,7 +72,7 @@ suite "Waku Message - Deterministic hashing":
       byteutils.toHex(message.contentTopic.toBytes()) == "2f77616b752f322f64656661756c742d636f6e74656e742f70726f746f"
       byteutils.toHex(message.payload) == "010203045445535405060708"
       byteutils.toHex(message.meta) == "73757065722d736563726574"
-      byteutils.toHex(toBytesFromInt64(int64(message.timestamp))) == "175789bfa23f8400"
+      byteutils.toHex(toBytesBE(uint64(message.timestamp))) == "175789bfa23f8400"
       messageHash.toHex() == "64cce733fed134e83da02b02c6f689814872b1a0ac97ea56b76095c3c72bfe05"
 
   test "digest computation - meta field (64 bytes)":
@@ -103,7 +104,7 @@ suite "Waku Message - Deterministic hashing":
       byteutils.toHex(message.contentTopic.toBytes()) == "2f77616b752f322f64656661756c742d636f6e74656e742f70726f746f"
       byteutils.toHex(message.payload) == "010203045445535405060708"
       byteutils.toHex(message.meta) == "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f"
-      byteutils.toHex(toBytesFromInt64(int64(message.timestamp))) == "175789bfa23f8400"
+      byteutils.toHex(toBytesBE(uint64(message.timestamp))) == "175789bfa23f8400"
       messageHash.toHex() == "7158b6498753313368b9af8f6e0a0a05104f68f972981da42a43bc53fb0c1b27"
 
   test "digest computation - zero length payload":

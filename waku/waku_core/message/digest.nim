@@ -7,6 +7,7 @@ else:
 import
   std/sequtils,
   stew/byteutils,
+  stew/endians2,
   nimcrypto/sha2
 import
   ../topics,
@@ -22,15 +23,6 @@ type WakuMessageDigest* = array[32, byte]
 converter toBytesArray*(digest: MDigest[256]): WakuMessageDigest =
   digest.data
 
-converter toBytesFromInt64*(num: int64): seq[byte] =
-  var bytes: seq[byte] = newSeq[byte](8)  # Create a sequence for 8 bytes (int64)
-
-  # Extract and store each byte uinsg Big-endian method
-  for i in 0..<8:
-      bytes[i] = byte((num shr (56 - i * 8)) and 0xFF)
-
-  return bytes
-
 converter toBytes*(digest: MDigest[256]): seq[byte] =
   toSeq(digest.data)
 
@@ -44,6 +36,6 @@ proc digest*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessageDigest =
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.meta)
-  ctx.update((msg.timestamp).toBytesFromInt64())
+  ctx.update(toBytesBE(uint64(msg.timestamp)))
 
   return ctx.finish()  # Computes the hash
