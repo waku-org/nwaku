@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
+  std/[options,sequtils],
   stew/results,
   stew/byteutils,
   nimcrypto/sha2
@@ -99,3 +99,18 @@ proc `$`*(err: HistoryError): string =
     "SERVICE_UNAVAILABLE"
   of HistoryErrorKind.UNKNOWN:
     "UNKNOWN"
+
+proc checkHistCursor*(self: HistoryCursor): Result[void, HistoryError] =
+  if self.pubsubTopic.len == 0:
+    return err(HistoryError(kind: BAD_REQUEST,
+                            cause: "empty pubsubTopic"))
+  if self.senderTime == 0:
+    return err(HistoryError(kind: BAD_REQUEST,
+                            cause: "invalid senderTime"))
+  if self.storeTime == 0:
+    return err(HistoryError(kind: BAD_REQUEST,
+                            cause: "invalid storeTime"))
+  if self.digest.data.all(proc (x: byte): bool = x == 0):
+    return err(HistoryError(kind: BAD_REQUEST,
+                            cause: "empty digest"))
+  return ok()

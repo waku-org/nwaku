@@ -816,6 +816,10 @@ proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   # TODO: Review this handler logic. Maybe, move it to the appplication code
   let queryHandler: HistoryQueryHandler = proc(request: HistoryQuery): Future[HistoryResult] {.async.} =
+      if request.cursor.isSome():
+        request.cursor.get().checkHistCursor().isOkOr:
+          return err(error)
+
       let request = request.toArchiveQuery()
       let response = await node.wakuArchive.findMessages(request)
       return response.toHistoryResult()
