@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, sugar, algorithm],
+  std/[sequtils, sugar, algorithm, options],
   stew/results,
   chronicles,
   chronos,
@@ -239,14 +239,11 @@ proc getMessages*(
   if self.pubsubTopics.len == 0:
     return err("not subscribed to any pubsub topics")
 
-  var pubsubIdx = -1
-  for i, topic in self.pubsubTopics:
-    if topic == pubsubTopic:
-      pubsubIdx = i
-      break
-
-  if pubsubIdx == -1:
-    return err("not subscribed to this pubsub topic")
+  let pubsubIdxOp = self.pubsubSearch(pubsubTopic)
+  let pubsubIdx =
+    if pubsubIdxOp.isNone:
+      return err("not subscribed to this pubsub topic")
+    else: pubsubIdxOp.get()
 
   let msgIndices = collect:
     for (pId, mId) in self.pubsubIndex:
@@ -271,14 +268,11 @@ proc getAutoMessages*(
   if self.contentTopics.len == 0:
     return err("not subscribed to any content topics")
 
-  var contentIdx = -1
-  for i, topic in self.contentTopics:
-    if topic == contentTopic:
-      contentIdx = i
-      break
-
-  if contentIdx == -1:
-    return err("not subscribed to this content topic")
+  let contentIdxOp = self.contentSearch(contentTopic)
+  let contentIdx =
+    if contentIdxOp.isNone():
+      return err("not subscribed to this content topic")
+    else: contentIdxOp.get()
 
   let msgIndices = collect:
     for (cId, mId) in self.contentIndex:
