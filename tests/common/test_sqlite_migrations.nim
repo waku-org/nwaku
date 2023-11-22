@@ -5,11 +5,9 @@ import
   stew/results,
   testutils/unittests
 import
-  ../../waku/common/databases/db_sqlite {.all.}
+  ../../waku/common/databases/db_sqlite {.all.},
+  ../waku_archive/archive_utils
 
-
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new(":memory:").tryGet()
 
 template sourceDir: string = currentSourcePath.rsplit(DirSep, 1)[0]
 
@@ -18,7 +16,7 @@ suite "SQLite - migrations":
 
   test "set and get user version":
     ## Given
-    let database = newTestDatabase()
+    let database = newSqliteDatabase()
 
     ## When
     let setRes = database.setUserVersion(5)
