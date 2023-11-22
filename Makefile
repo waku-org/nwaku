@@ -178,10 +178,6 @@ chat2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
-rln-keystore-generator: | build deps librln
-	echo -e $(BUILD_MSG) "build/$@" && \
-	$(ENV_SCRIPT) nim rln_keystore_generator $(NIM_PARAMS) waku.nims
-
 rln-db-inspector: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) waku.nims

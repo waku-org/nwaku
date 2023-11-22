@@ -34,10 +34,13 @@ proc newTestEnrRecord(privKey: libp2p_keys.PrivateKey,
   builder.build().tryGet()
 
 
-proc newTestDiscv5(privKey: libp2p_keys.PrivateKey,
-                       bindIp: string, tcpPort: uint16, udpPort: uint16,
-                       record: waku_enr.Record,
-                       bootstrapRecords = newSeq[waku_enr.Record]()): WakuDiscoveryV5 =
+proc newTestDiscv5(
+  privKey: libp2p_keys.PrivateKey,
+  bindIp: string, tcpPort: uint16, udpPort: uint16,
+  record: waku_enr.Record,
+  bootstrapRecords = newSeq[waku_enr.Record](),
+  queue = newAsyncEventQueue[SubscriptionEvent](30),
+  ): WakuDiscoveryV5 =
   let config = WakuDiscoveryV5Config(
       privateKey: eth_keys.PrivateKey(privKey.skkey),
       address: ValidIpAddress.init(bindIp),
@@ -45,7 +48,12 @@ proc newTestDiscv5(privKey: libp2p_keys.PrivateKey,
       bootstrapRecords: bootstrapRecords,
   )
 
-  let discv5 = WakuDiscoveryV5.new(rng(), config, some(record))
+  let discv5 = WakuDiscoveryV5.new(
+    rng = rng(),
+    conf = config,
+    record = some(record),
+    queue = queue,
+    )
 
   return discv5
 
@@ -122,13 +130,13 @@ procSuite "Waku Discovery v5":
         bootstrapRecords = @[record1, record2]
     )
 
-    let res1 = node1.start()
+    let res1 = await node1.start()
     assert res1.isOk(), res1.error
 
-    let res2 = node2.start()
+    let res2 = await node2.start()
     assert res2.isOk(), res2.error
 
-    let res3 = node3.start()
+    let res3 = await node3.start()
     assert res3.isOk(), res3.error
 
     ## When
@@ -240,16 +248,16 @@ procSuite "Waku Discovery v5":
     )
 
     # Start nodes' discoveryV5 protocols
-    let res1 = node1.start()
+    let res1 = await node1.start()
     assert res1.isOk(), res1.error
 
-    let res2 = node2.start()
+    let res2 = await node2.start()
     assert res2.isOk(), res2.error
 
-    let res3 = node3.start()
+    let res3 = await node3.start()
     assert res3.isOk(), res3.error
 
-    let res4 = node4.start()
+    let res4 = await node4.start()
     assert res4.isOk(), res4.error
 
     ## Given
@@ -401,21 +409,19 @@ procSuite "Waku Discovery v5":
         udpPort = udpPort,
     )
 
+    let queue = newAsyncEventQueue[SubscriptionEvent](30)
+
     let node = newTestDiscv5(
         privKey = privKey,
         bindIp = bindIp,
         tcpPort = tcpPort,
         udpPort = udpPort,
-        record = record
+        record = record,
+        queue = queue,
     )
 
-    let res = node.start()
+    let res = await node.start()
     assert res.isOk(), res.error
-
-    let queue = newAsyncEventQueue[SubscriptionEvent](0)
-
-    ## When
-    asyncSpawn node.subscriptionsListener(queue)
 
     ## Then
     queue.emit((kind: PubsubSub, topic: shard1))
@@ -442,14 +448,13 @@ procSuite "Waku Discovery v5":
 
     queue.emit((kind: PubsubUnsub, topic: shard1))
     queue.emit((kind: PubsubUnsub, topic: shard2))
-    queue.emit((kind: PubsubUnsub, topic: shard3))
 
     await sleepAsync(1.seconds)
 
     check:
       node.protocol.localNode.record.containsShard(shard1) == false
       node.protocol.localNode.record.containsShard(shard2) == false
-      node.protocol.localNode.record.containsShard(shard3) == false
+      node.protocol.localNode.record.containsShard(shard3) == true
 
     ## Cleanup
     await node.stop()
