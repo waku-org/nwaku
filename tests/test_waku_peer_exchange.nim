@@ -131,7 +131,8 @@ procSuite "Waku Peer Exchange":
     let disc1 = WakuDiscoveryV5.new(
         node1.rng,
         conf1,
-        some(node1.enr)
+        some(node1.enr),
+        some(node1.peerManager),
       )
 
     let conf2 = WakuDiscoveryV5Config(
@@ -146,17 +147,15 @@ procSuite "Waku Peer Exchange":
     let disc2 = WakuDiscoveryV5.new(
         node2.rng,
         conf2,
-        some(node2.enr)
+        some(node2.enr),
+        some(node2.peerManager),
       )
 
-
     await allFutures(node1.start(), node2.start(), node3.start())
-    let resultDisc1StartRes = disc1.start()
+    let resultDisc1StartRes = await disc1.start()
     assert resultDisc1StartRes.isOk(), resultDisc1StartRes.error
-    let resultDisc2StartRes = disc2.start()
+    let resultDisc2StartRes = await disc2.start()
     assert resultDisc2StartRes.isOk(), resultDisc2StartRes.error
-    asyncSpawn disc1.searchLoop(node1.peerManager)
-    asyncSpawn disc2.searchLoop(node2.peerManager)
 
     ## When
     var attempts = 10
