@@ -13,6 +13,8 @@ import
 
 ## Wire protocol
 
+const HistoryQueryAscendingDefaultValue = default(type HistoryQuery.ascending)
+
 type PagingIndexRPC* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   pubsubTopic*: PubsubTopic
@@ -120,7 +122,7 @@ proc toRPC*(query: HistoryQuery): HistoryQueryRPC =
   rpc.pagingInfo = block:
       if query.cursor.isNone() and
          query.pageSize == default(type query.pageSize) and
-         query.ascending == default(type query.ascending):
+         query.ascending == HistoryQueryAscendingDefaultValue:
         none(PagingInfoRPC)
       else:
         let
@@ -156,7 +158,7 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
     pageSize = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().pageSize.isNone(): 0'u64
                else: rpc.pagingInfo.get().pageSize.get()
 
-    ascending = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): true
+    ascending = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): HistoryQueryAscendingDefaultValue
                 else: rpc.pagingInfo.get().direction.get() == PagingDirectionRPC.FORWARD
 
   HistoryQuery(
