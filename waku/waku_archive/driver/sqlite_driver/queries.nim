@@ -73,7 +73,7 @@ proc createTableQuery(table: string): SqlQueryStr =
   " id BLOB," &
   " messageHash BLOB," &
   " storedAt INTEGER NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, messageHash)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =

@@ -37,7 +37,7 @@ proc createTableQuery(): string =
   " id VARCHAR NOT NULL," &
   " messageHash VARCHAR NOT NULL," &
   " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, messageHash)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ");"
 
 const InsertRowStmtName = "InsertRow"
