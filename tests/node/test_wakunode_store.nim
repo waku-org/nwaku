@@ -1,18 +1,10 @@
 {.used.}  
 
 import
-  std/[
-    options,
-    tables,
-    sequtils,
-    algorithm
-  ],
+  std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
-  chronicles,
-  os,
-  libp2p/peerstore,
   libp2p/crypto/crypto
 
 import
@@ -21,31 +13,16 @@ import
     node/peer_manager,
     waku_core,
     waku_store,
-    waku_store/client,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
+  ../waku_store/store_utils,
   ../testlib/[
-    common,
     wakucore,
     wakunode,
     testasync,
-    futures,
     testutils
   ]
-
-import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
-  ../../../waku/common/databases/db_sqlite
-
-
-proc reversed[T](input: seq[T]): seq[T] =
-  var output: seq[T] = @[]
-  for i in countdown(input.len - 1, 0):
-    echo i
-    output.add(input[i])
-  return output
 
 
 suite "Waku Store - End to End - Sorted Archive":
@@ -656,7 +633,6 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
       pageSize: 5
     )
 
-    let timeOrigin = now()
     unsortedArchiveMessages = @[  # Not providing explicit timestamp means it will be set in "arrive" order
       fakeWakuMessage(@[byte 09]),
       fakeWakuMessage(@[byte 07]),
@@ -728,3 +704,460 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
         unsortedArchiveMessages[8],
         unsortedArchiveMessages[9]
       ]
+
+
+suite "Waku Store - End to End - Archive with Multiple Topics":
+  var pubsubTopic {.threadvar.}: PubsubTopic
+  var pubsubTopicB {.threadvar.}: PubsubTopic
+  var contentTopic {.threadvar.}: ContentTopic
+  var contentTopicB {.threadvar.}: ContentTopic
+  var contentTopicC {.threadvar.}: ContentTopic
+  var contentTopicSpecials {.threadvar.}: ContentTopic
+  var contentTopicSeq {.threadvar.}: seq[ContentTopic]
+
+  var historyQuery {.threadvar.}: HistoryQuery
+  var originTs {.threadvar.}: proc(offset: int): Timestamp {.gcsafe, closure.}
+  var archiveMessages {.threadvar.}: seq[WakuMessage]
+
+  var server {.threadvar.}: WakuNode
+  var client {.threadvar.}: WakuNode
+
+  var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+
+  asyncSetup:
+    pubsubTopic = DefaultPubsubTopic
+    pubsubTopicB = "topicB"
+    contentTopic = DefaultContentTopic
+    contentTopicB = "topicB"
+    contentTopicC = "topicC"
+    contentTopicSpecials = "!@#$%^&*()_+"
+    contentTopicSeq = @[contentTopic, contentTopicB, contentTopicC, contentTopicSpecials]
+
+    historyQuery = HistoryQuery(
+      pubsubTopic: some(pubsubTopic),
+      contentTopics: contentTopicSeq,
+      ascending: true,
+      pageSize: 5
+    )
+
+    let timeOrigin = now()
+    originTs = proc(offset = 0): Timestamp {.gcsafe, closure.} =
+      ts(offset, timeOrigin)
+
+    archiveMessages = @[
+      fakeWakuMessage(@[byte 00], ts=originTs(00), contentTopic=contentTopic),
+      fakeWakuMessage(@[byte 01], ts=originTs(10), contentTopic=contentTopicB),
+      fakeWakuMessage(@[byte 02], ts=originTs(20), contentTopic=contentTopicC),
+      fakeWakuMessage(@[byte 03], ts=originTs(30), contentTopic=contentTopic),
+      fakeWakuMessage(@[byte 04], ts=originTs(40), contentTopic=contentTopicB),
+      fakeWakuMessage(@[byte 05], ts=originTs(50), contentTopic=contentTopicC),
+      fakeWakuMessage(@[byte 06], ts=originTs(60), contentTopic=contentTopic),
+      fakeWakuMessage(@[byte 07], ts=originTs(70), contentTopic=contentTopicB),
+      fakeWakuMessage(@[byte 08], ts=originTs(80), contentTopic=contentTopicC),
+      fakeWakuMessage(@[byte 09], ts=originTs(90), contentTopic=contentTopicSpecials) 
+    ]
+
+    let
+      serverKey = generateSecp256k1Key()
+      clientKey = generateSecp256k1Key()
+
+    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    let archiveDriver = newSqliteArchiveDriver(
+      ).put(
+        pubsubTopic, archiveMessages[0..<6]
+      ).put(
+        pubsubTopicB, archiveMessages[6..<10]
+      )
+    let mountUnsortedArchiveResult = server.mountArchive(archiveDriver)    
+
+    assert mountUnsortedArchiveResult.isOk()
+
+    waitFor server.mountStore()
+    client.mountStoreClient()
+
+    waitFor allFutures(server.start(), client.start())
+
+    serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
+
+  asyncTeardown:
+    waitFor allFutures(client.stop(), server.stop())
+
+  suite "Validation of Content Filtering":
+    asyncTest "Basic Content Filtering":
+      # Given a history query with content filtering
+      historyQuery.contentTopics = @[contentTopic]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[0],
+          archiveMessages[3]
+        ]
+
+    asyncTest "Multiple Content Filters":
+      # Given a history query with multiple content filtering
+      historyQuery.contentTopics = @[contentTopic, contentTopicB]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[0],
+          archiveMessages[1],
+          archiveMessages[3],
+          archiveMessages[4]
+        ]
+
+    asyncTest "Empty Content Filtering":
+      # Given a history query with empty content filtering
+      historyQuery.contentTopics = @[]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == archiveMessages[0..<5]
+      
+      # Given the next query
+      let historyQuery2 = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: none(PubsubTopic),
+        contentTopics: contentTopicSeq,
+        ascending: true,
+        pageSize: 5
+      )
+
+      # When making the next history query
+      let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse2.get().messages == archiveMessages[5..<10]
+
+    asyncTest "Non-Existent Content Topic":
+      # Given a history query with non-existent content filtering
+      historyQuery.contentTopics = @["non-existent-topic"]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages.len == 0
+
+    asyncTest "Special Characters in Content Filtering":
+      # Given a history query with special characters in content filtering
+      historyQuery.pubsubTopic = some(pubsubTopicB)
+      historyQuery.contentTopics = @["!@#$%^&*()_+"]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages == @[archiveMessages[9]]
+
+    asyncTest "PubsubTopic Specified":
+      # Given a history query with pubsub topic specified
+      historyQuery.pubsubTopic = some(pubsubTopicB)
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[6],
+          archiveMessages[7],
+          archiveMessages[8],
+          archiveMessages[9]
+        ]
+
+    asyncTest "PubsubTopic Left Empty":
+      # Given a history query with pubsub topic left empty
+      historyQuery.pubsubTopic = none(PubsubTopic)
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == archiveMessages[0..<5]
+      
+      # Given the next query
+      let historyQuery2 = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: none(PubsubTopic),
+        contentTopics: contentTopicSeq,
+        ascending: true,
+        pageSize: 5
+      )
+
+      # When making the next history query
+      let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse2.get().messages == archiveMessages[5..<10]
+
+  suite "Validation of Time-based Filtering":
+    asyncTest "Basic Time Filtering":
+      # Given a history query with start and end time
+      historyQuery.startTime = some(originTs(20))
+      historyQuery.endTime = some(originTs(40))
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[2],
+          archiveMessages[3],
+          archiveMessages[4]
+        ]
+
+    asyncTest "Only Start Time Specified":
+      # Given a history query with only start time
+      historyQuery.startTime = some(originTs(20))
+      historyQuery.endTime = none(Timestamp)
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[2],
+          archiveMessages[3],
+          archiveMessages[4],
+          archiveMessages[5]
+        ]
+
+    asyncTest "Only End Time Specified":
+      # Given a history query with only end time
+      historyQuery.startTime = none(Timestamp)
+      historyQuery.endTime = some(originTs(40))
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[0],
+          archiveMessages[1],
+          archiveMessages[2],
+          archiveMessages[3],
+          archiveMessages[4]
+        ]
+
+    asyncTest "Invalid Time Range":
+      # Given a history query with invalid time range
+      historyQuery.startTime = some(originTs(60))
+      historyQuery.endTime = some(originTs(40))
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages.len == 0
+
+    asyncTest "Time Filtering with Content Filtering":
+      # Given a history query with time and content filtering
+      historyQuery.startTime = some(originTs(20))
+      historyQuery.endTime = some(originTs(60))
+      historyQuery.contentTopics = @[contentTopicC]
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[2],
+          archiveMessages[5]
+        ]
+
+    asyncTest "Messages Outside of Time Range":
+      # Given a history query with a valid time range which does not contain any messages
+      historyQuery.startTime = some(originTs(100))
+      historyQuery.endTime = some(originTs(200))
+
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages.len == 0
+
+  suite "Ephemeral":
+    # TODO: Ephemeral value is not properly set for Sqlite
+    xasyncTest "Only ephemeral Messages:":
+      # Given an archive with only ephemeral messages
+      let
+        ephemeralMessages = @[
+          fakeWakuMessage(@[byte 00], ts=ts(00), ephemeral=true),
+          fakeWakuMessage(@[byte 01], ts=ts(10), ephemeral=true),
+          fakeWakuMessage(@[byte 02], ts=ts(20), ephemeral=true)
+        ]
+        ephemeralArchiveDriver = newSqliteArchiveDriver(
+          ).put(
+            pubsubTopic, ephemeralMessages
+          )
+      
+      # And a server node with the ephemeral archive
+      let 
+        ephemeralServerKey = generateSecp256k1Key()
+        ephemeralServer = newTestWakuNode(ephemeralServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+        mountEphemeralArchiveResult = ephemeralServer.mountArchive(ephemeralArchiveDriver)
+      assert mountEphemeralArchiveResult.isOk()
+
+      waitFor ephemeralServer.mountStore()
+      waitFor ephemeralServer.start()
+      let ephemeralServerRemotePeerInfo = ephemeralServer.peerInfo.toRemotePeerInfo()
+
+      # When making a history query to the server with only ephemeral messages
+      let queryResponse = await client.query(historyQuery, ephemeralServerRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages.len == 0
+
+      # Cleanup
+      waitFor ephemeralServer.stop()
+
+    xasyncTest "Mixed messages":
+      # Given an archive with both ephemeral and non-ephemeral messages
+      let
+        ephemeralMessages = @[
+          fakeWakuMessage(@[byte 00], ts=ts(00), ephemeral=true),
+          fakeWakuMessage(@[byte 01], ts=ts(10), ephemeral=true),
+          fakeWakuMessage(@[byte 02], ts=ts(20), ephemeral=true)
+        ]
+        nonEphemeralMessages = @[
+          fakeWakuMessage(@[byte 03], ts=ts(30), ephemeral=false),
+          fakeWakuMessage(@[byte 04], ts=ts(40), ephemeral=false),
+          fakeWakuMessage(@[byte 05], ts=ts(50), ephemeral=false)
+        ]
+        mixedArchiveDriver = newSqliteArchiveDriver(
+          ).put(
+            pubsubTopic, ephemeralMessages
+          ).put(
+            pubsubTopic, nonEphemeralMessages
+          )
+
+      # And a server node with the mixed archive
+      let 
+        mixedServerKey = generateSecp256k1Key()
+        mixedServer = newTestWakuNode(mixedServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+        mountMixedArchiveResult = mixedServer.mountArchive(mixedArchiveDriver)
+      assert mountMixedArchiveResult.isOk()
+
+      waitFor mixedServer.mountStore()
+      waitFor mixedServer.start()
+      let mixedServerRemotePeerInfo = mixedServer.peerInfo.toRemotePeerInfo()
+
+      # When making a history query to the server with mixed messages
+      let queryResponse = await client.query(historyQuery, mixedServerRemotePeerInfo)
+
+      # Then the response contains the non-ephemeral messages
+      check:
+        queryResponse.get().messages == nonEphemeralMessages
+      
+      # Cleanup
+      waitFor mixedServer.stop()
+
+  suite "Edge Case Scenarios":
+    asyncTest "Empty Message Store":
+      # Given an empty archive
+      let emptyArchiveDriver = newSqliteArchiveDriver()
+      
+      # And a server node with the empty archive
+      let 
+        emptyServerKey = generateSecp256k1Key()
+        emptyServer = newTestWakuNode(emptyServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+        mountEmptyArchiveResult = emptyServer.mountArchive(emptyArchiveDriver)
+      assert mountEmptyArchiveResult.isOk()
+
+      waitFor emptyServer.mountStore()
+      waitFor emptyServer.start()
+      let emptyServerRemotePeerInfo = emptyServer.peerInfo.toRemotePeerInfo()
+
+      # When making a history query to the server with an empty archive
+      let queryResponse = await client.query(historyQuery, emptyServerRemotePeerInfo)
+
+      # Then the response contains no messages
+      check:
+        queryResponse.get().messages.len == 0
+      
+      # Cleanup
+      waitFor emptyServer.stop()
+
+    asyncTest "Voluminous Message Store":
+      # Given a voluminous archive (1M+ messages)
+      var voluminousArchiveMessages: seq[WakuMessage] = @[]
+      for i in 0..<100000:
+        let topic = "topic" & $i
+        voluminousArchiveMessages.add(fakeWakuMessage(@[byte i], contentTopic=topic))
+      let voluminousArchiveDriverWithMessages = newArchiveDriverWithMessages(pubsubTopic, voluminousArchiveMessages)
+
+      # And a server node with the voluminous archive
+      let 
+        voluminousServerKey = generateSecp256k1Key()
+        voluminousServer = newTestWakuNode(voluminousServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+        mountVoluminousArchiveResult = voluminousServer.mountArchive(voluminousArchiveDriverWithMessages)
+      assert mountVoluminousArchiveResult.isOk()
+
+      waitFor voluminousServer.mountStore()
+      waitFor voluminousServer.start()
+      let voluminousServerRemotePeerInfo = voluminousServer.peerInfo.toRemotePeerInfo()
+
+      # Given the following history query
+      historyQuery.contentTopics = @[
+        "topic10000", "topic30000", "topic50000", "topic70000", "topic90000"
+      ]
+
+      # When making a history query to the server with a voluminous archive
+      let queryResponse = await client.query(historyQuery, voluminousServerRemotePeerInfo)
+
+      # Then the response contains the messages
+      check:
+        queryResponse.get().messages == @[
+          voluminousArchiveMessages[10000],
+          voluminousArchiveMessages[30000],
+          voluminousArchiveMessages[50000],
+          voluminousArchiveMessages[70000],
+          voluminousArchiveMessages[90000]
+        ]
+
+      # Cleanup
+      waitFor voluminousServer.stop()
+
+    asyncTest "Large contentFilters Array":
+      # Given a history query with the max contentFilters len, 10
+      historyQuery.contentTopics = @[
+        contentTopic
+      ]
+      for i in 0..<9:
+        let topic = "topic" & $i
+        historyQuery.contentTopics.add(topic)
+      
+      # When making a history query
+      let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
+
+      # Then the response should trigger no errors
+      check:
+        queryResponse.get().messages == @[
+          archiveMessages[0],
+          archiveMessages[3]
+        ]
