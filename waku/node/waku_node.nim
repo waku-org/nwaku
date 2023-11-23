@@ -155,12 +155,6 @@ proc new*(T: type WakuNode,
     topicSubscriptionQueue: queue
   )
 
-  # mount metadata protocol
-  let metadata = WakuMetadata.new(netConfig.clusterId, queue)
-  node.switch.mount(metadata, protocolMatcher(WakuMetadataCodec))
-  node.wakuMetadata = metadata
-  peerManager.wakuMetadata = metadata
-
   return node
 
 proc peerInfo*(node: WakuNode): PeerInfo =
@@ -189,6 +183,22 @@ proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], s
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source=source)
 
+## Waku Metadata
+
+proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
+  if not node.wakuMetadata.isNil():
+    return err("Waku metadata already mounted, skipping")
+  
+  let metadata = WakuMetadata.new(clusterId, node.enr, node.topicSubscriptionQueue)
+
+  node.wakuMetadata = metadata
+  node.peerManager.wakuMetadata = metadata
+
+  let catchRes = catch: node.switch.mount(node.wakuMetadata, protocolMatcher(WakuMetadataCodec))
+  if catchRes.isErr():
+    return err(catchRes.error.msg)
+
+  return ok()
 
 ## Waku relay
 
@@ -200,7 +210,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash=topic.digest(msg).to0xHex(),
+      hash=topic.computeMessageHash(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime(),
       payloadSizeBytes=msg.payload.len
 
@@ -329,7 +339,7 @@ proc publish*(
   trace "waku.relay published",
     peerId=node.peerId,
     pubsubTopic=pubsubTopic,
-    hash=pubsubTopic.digest(message).to0xHex(),
+    hash=pubsubTopic.computeMessageHash(message).to0xHex(),
     publishTime=getNowInNanosecondTime()
 
 proc startRelay*(node: WakuNode) {.async.} =
@@ -806,6 +816,10 @@ proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   # TODO: Review this handler logic. Maybe, move it to the appplication code
   let queryHandler: HistoryQueryHandler = proc(request: HistoryQuery): Future[HistoryResult] {.async.} =
+      if request.cursor.isSome():
+        request.cursor.get().checkHistCursor().isOkOr:
+          return err(error)
+
       let request = request.toArchiveQuery()
       let response = await node.wakuArchive.findMessages(request)
       return response.toHistoryResult()
@@ -1124,6 +1138,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil():
     await node.startRelay()
 
+  if not node.wakuMetadata.isNil():
+    node.wakuMetadata.start()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper =
@@ -1136,8 +1153,6 @@ proc start*(node: WakuNode) {.async.} =
 
   node.started = true
 
-  node.wakuMetadata.start()
-
   if not zeroPortPresent:
     printNodeNetworkInfo(node)
   else:
@@ -1148,6 +1163,9 @@ proc start*(node: WakuNode) {.async.} =
 proc stop*(node: WakuNode) {.async.} =
   if not node.wakuRelay.isNil():
     await node.wakuRelay.stop()
+
+  if not node.wakuMetadata.isNil():
+    node.wakuMetadata.stop()
 
   await node.switch.stop()
   node.peerManager.stop()

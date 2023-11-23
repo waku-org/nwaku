@@ -8,6 +8,7 @@ import
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive/retention_policy,
@@ -41,7 +42,7 @@ suite "Waku Archive - Retention policy":
     ## When
     for i in 1..capacity+excess:
       let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp))
     
     discard waitFor allFinished(putFutures)
 
@@ -79,11 +80,12 @@ suite "Waku Archive - Retention policy":
       require (waitFor driver.performVacuum()).isOk()
 
     ## When
+    ## 
 
     # create a number of messages so that the size of the DB overshoots
     for i in 1..excess:
         let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp))
 
     # waitFor is used to synchronously wait for the futures to complete.
     discard waitFor allFinished(putFutures)
@@ -137,7 +139,7 @@ suite "Waku Archive - Retention policy":
 
     ## When
     for msg in messages:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
       require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then

@@ -26,6 +26,7 @@ method put*(driver: ArchiveDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.base, async.} = discard
 

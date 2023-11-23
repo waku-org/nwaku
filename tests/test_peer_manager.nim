@@ -268,16 +268,38 @@ procSuite "Peer Manager":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Peer manager drops conections to peers on different networks":
-    let clusterId1 = 1.uint32
-    let clusterId2 = 2.uint32
+    let clusterId3 = 3.uint32
+    let clusterId4 = 4.uint32
 
     let
       # different network
-      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId1)
+      node1 = newTestWakuNode(
+        generateSecp256k1Key(),
+        ValidIpAddress.init("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId3,
+        topics = @["/waku/2/rs/3/0"],
+      )
 
       # same network
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId2)
-      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId2)
+      node2 = newTestWakuNode(
+        generateSecp256k1Key(),
+        ValidIpAddress.init("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId4,
+        topics = @["/waku/2/rs/4/0"],
+      )
+      node3 = newTestWakuNode(
+        generateSecp256k1Key(),
+        ValidIpAddress.init("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId4,
+        topics = @["/waku/2/rs/4/0"],
+      )
+
+    discard node1.mountMetadata(clusterId3)
+    discard node2.mountMetadata(clusterId4)
+    discard node3.mountMetadata(clusterId4)
 
     # Start nodes
     await allFutures([node1.start(), node2.start(), node3.start()])
