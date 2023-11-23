@@ -42,21 +42,12 @@ method execute*(p: SizeRetentionPolicy,
                 driver: ArchiveDriver):
                 Future[RetentionPolicyResult[void]] {.async.} =
   ## when db size overshoots the database limit, shread 20% of outdated messages 
-
-  # get page size of database
-  let pageSizeRes = await driver.getPagesSize()
-  let pageSize: int64 = int64(pageSizeRes.valueOr(0) div 1024)
-
-  if pageSize == 0:
-    return err("failed to get Page size: " & pageSizeRes.error)
-
-  # to get the size of the database, pageCount and PageSize is required
-  # get page count in "messages" database
-  let pageCount = (await driver.getPagesCount()).valueOr:
-    return err("failed to get Pages count: " & $error)
+  # get size of database
+  let dbSize = (await driver.getDatabasesSize()).valueOr:
+    return err("failed to get database size: " & $error)
 
   # database size in megabytes (Mb)
-  let totalSizeOfDB: float = float(pageSize * pageCount)/1024.0
+  let totalSizeOfDB: float = float(dbSize)/1024.0
 
   if totalSizeOfDB < p.sizeLimit:
     return ok()

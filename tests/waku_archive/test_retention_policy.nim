@@ -92,9 +92,7 @@ suite "Waku Archive - Retention policy":
 
     ## Then
     # calculate the current database size
-    let pageSize = (waitFor driver.getPagesSize()).tryGet()
-    let pageCount = (waitFor driver.getPagesCount()).tryGet()
-    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    let sizeDB = float((waitFor driver.getDatabasesSize()).tryGet()) / (1024.0)
 
     # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
 
