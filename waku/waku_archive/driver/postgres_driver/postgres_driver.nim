@@ -84,7 +84,7 @@ const SelectWithCursorAscStmtDef =
           storedAt <= $6
     ORDER BY storedAt ASC LIMIT $7;"""
 
-const DefaultMaxNumConns = 50 #TODO: we may need to set that from app args (maybe?)
+const DefaultMaxNumConns = 50
 
 proc new*(T: type PostgresDriver,
           dbUrl: string,
