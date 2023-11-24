@@ -491,6 +491,7 @@ proc setupProtocols(node: WakuNode,
     let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
                                              conf.storeMessageDbVacuum,
                                              conf.storeMessageDbMigration,
+                                             conf.storeMaxNumDbConnections,
                                              onErrAction)
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)
