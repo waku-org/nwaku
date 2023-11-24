@@ -70,12 +70,13 @@ suite "Peer Storage":
       resStoredInfo.connectedness == connectedness
       resStoredInfo.disconnectTime == disconn
     
-    if resStoredInfo.enr.isSome():
-      check: resStoredInfo.enr.get() == record
+    assert resStoredInfo.enr.isSome(), "The ENR info wasn't properly stored"
+    check: resStoredInfo.enr.get() == record
 
     # Test replace and retrieve (update an existing entry)
     stored.connectedness = CannotConnect
     stored.disconnectTime = disconn + 10
+    stored.enr = none(Record)
     require storage.put(stored).isOk
 
     responseCount = 0
@@ -94,6 +95,4 @@ suite "Peer Storage":
       resStoredInfo.publicKey == peerKey.getPublicKey().tryGet()
       resStoredInfo.connectedness == Connectedness.CannotConnect
       resStoredInfo.disconnectTime == disconn + 10
-
-    if resStoredInfo.enr.isSome():
-      check: resStoredInfo.enr.get() == record
+      resStoredInfo.enr.isNone()
