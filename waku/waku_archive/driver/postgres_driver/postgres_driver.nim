@@ -434,13 +434,13 @@ proc getInt(s: PostgresDriver,
 
   return ok(retInt)
 
-method getDatabasesSize*(s: PostgresDriver):
+method getDatabaseSize*(s: PostgresDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
 
-  let int = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
-    return err("error in getMessagesCount: " & error)
+  let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
+    return err("error in getDatabaseSize: " & error)
 
-  let databaseSize: int64 = int64(float(intRes.get())/1024.0)
+  let databaseSize: int64 = int64(float(intRes)/1024.0)
   return ok(databaseSize)
 
 method getMessagesCount*(s: PostgresDriver):

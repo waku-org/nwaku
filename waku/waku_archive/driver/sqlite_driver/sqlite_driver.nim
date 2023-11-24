@@ -120,7 +120,7 @@ method getPagesSize*(s: SqliteDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getPageSize()
 
-method getDatabasesSize*(s: SqliteDriver):
+method getDatabaseSize*(s: SqliteDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getDatabaseSize()
 

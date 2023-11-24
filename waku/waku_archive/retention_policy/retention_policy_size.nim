@@ -43,7 +43,7 @@ method execute*(p: SizeRetentionPolicy,
                 Future[RetentionPolicyResult[void]] {.async.} =
   ## when db size overshoots the database limit, shread 20% of outdated messages 
   # get size of database
-  let dbSize = (await driver.getDatabasesSize()).valueOr:
+  let dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("failed to get database size: " & $error)
 
   # database size in megabytes (Mb)
