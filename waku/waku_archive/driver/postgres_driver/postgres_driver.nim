@@ -440,7 +440,7 @@ method getDatabaseSize*(s: PostgresDriver):
   let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
     return err("error in getDatabaseSize: " & error)
 
-  let databaseSize: int64 = int64(float(intRes)/1024.0)
+  let databaseSize: int64 = int64(intRes)
   return ok(databaseSize)
 
 method getMessagesCount*(s: PostgresDriver):
