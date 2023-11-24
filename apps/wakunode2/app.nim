@@ -674,9 +674,9 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
     return defaultResponse()
 
   let server = ? newRestHttpServer(address, port, requestErrorHandler = requestErrorHandler)
-
   ## Admin REST API
-  installAdminApiHandlers(server.router, app.node)
+  if conf.restAdmin:
+    installAdminApiHandlers(server.router, app.node)
 
   ## Debug REST API
   installDebugApiHandlers(server.router, app.node)
