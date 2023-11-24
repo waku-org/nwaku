@@ -62,8 +62,8 @@ suite "Waku Archive - Retention policy":
   test "size retention policy - windowed message deletion":
     ## Given
     let
-      # in megabytes
-      sizeLimit:float = 0.05
+      # in bytes
+      sizeLimit:int64 = 52428
       excess = 325
 
     let driver = newTestArchiveDriver()
@@ -92,9 +92,7 @@ suite "Waku Archive - Retention policy":
 
     ## Then
     # calculate the current database size
-    let pageSize = (waitFor driver.getPagesSize()).tryGet()
-    let pageCount = (waitFor driver.getPagesCount()).tryGet()
-    let sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    let sizeDB = int64((waitFor driver.getDatabaseSize()).tryGet())
 
     # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
 
@@ -105,7 +103,7 @@ suite "Waku Archive - Retention policy":
     require (sizeDB >= sizeLimit)
     require (waitFor retentionPolicy.execute(driver)).isOk()
     
-    # get the number or rows from DB
+    # get the number or rows from database
     let rowCountAfterDeletion = (waitFor driver.getMessagesCount()).tryGet()
 
     check:

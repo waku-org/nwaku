@@ -52,6 +52,9 @@ method getPagesCount*(driver: ArchiveDriver):
 method getPagesSize*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
+method getDatabaseSize*(driver: ArchiveDriver):
+                         Future[ArchiveDriverResult[int64]] {.base, async.} = discard
+
 method performVacuum*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
