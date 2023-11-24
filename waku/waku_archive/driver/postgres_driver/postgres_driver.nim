@@ -84,18 +84,21 @@ const SelectWithCursorAscStmtDef =
           storedAt <= $6
     ORDER BY storedAt ASC LIMIT $7;"""
 
-const MaxNumConns = 50 #TODO: we may need to set that from app args (maybe?)
+const DefaultMaxNumConns = 50 #TODO: we may need to set that from app args (maybe?)
 
 proc new*(T: type PostgresDriver,
           dbUrl: string,
-          maxConnections: int = MaxNumConns,
+          maxConnections = DefaultMaxNumConns,
           onErrAction: OnErrHandler = nil):
           ArchiveDriverResult[T] =
 
-  let readConnPool = PgAsyncPool.new(dbUrl, maxConnections).valueOr:
+  ## Very simplistic split of max connections
+  let maxNumConnOnEachPool = int(maxConnections / 2)
+
+  let readConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating read conn pool PgAsyncPool")
 
-  let writeConnPool = PgAsyncPool.new(dbUrl, maxConnections).valueOr:
+  let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
   if not isNil(onErrAction):

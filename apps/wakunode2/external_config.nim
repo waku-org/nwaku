@@ -273,6 +273,11 @@ type
         defaultValue: true,
         name: "store-message-db-migration" }: bool
 
+      storeMaxNumDbConnections* {.
+        desc: "Maximum number of simultaneous Postgres connections.",
+        defaultValue: 50,
+        name: "store-max-num-db-connections" }: int
+
       ## Filter config
 
       filter* {.
