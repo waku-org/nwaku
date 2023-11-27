@@ -331,7 +331,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         try:
           conn = await pm.switch.dial(peerId, WakuMetadataCodec)
         except CatchableError:
-          reason = "waku metadata codec not supported"
+          reason = "waku metadata codec not supported: " & getCurrentExceptionMsg()
           break wakuMetadata
 
         # request metadata from connecting peer

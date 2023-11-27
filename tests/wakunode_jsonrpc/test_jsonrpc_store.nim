@@ -9,6 +9,7 @@ import
   json_rpc/[rpcserver, rpcclient]
 import
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_node,
   ../../../waku/waku_api/jsonrpc/store/handlers as store_api,
@@ -25,10 +26,11 @@ import
 proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
   let
     digest = waku_archive.computeDigest(message)
+    msgHash = computeMessageHash(pubsubTopic, message)
     receivedTime = if message.timestamp > 0: message.timestamp
                   else: getNanosecondTime(getTime().toUnixFloat())
 
-  store.put(pubsubTopic, message, digest, receivedTime)
+  store.put(pubsubTopic, message, digest, msgHash, receivedTime)
 
 procSuite "Waku v2 JSON-RPC API - Store":
 

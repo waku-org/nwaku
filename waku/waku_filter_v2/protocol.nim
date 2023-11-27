@@ -86,7 +86,11 @@ proc unsubscribe(wf: WakuFilter, peerId: PeerID, pubsubTopic: Option[PubsubTopic
     return err(FilterSubscribeError.notFound())
 
   var peerSubscription = wf.subscriptions.mgetOrPut(peerId, initHashSet[FilterCriterion]())
-  # TODO: consider error response if filter criteria does not exist
+
+  if not peerSubscription.containsAny(filterCriteria):
+    debug "unsubscribing peer is not subscribed to any of the content topics in this pubsub topic", peerId=peerId, pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    return err(FilterSubscribeError.notFound())
+
   peerSubscription.excl(filterCriteria)
 
   if peerSubscription.len() == 0:
@@ -159,7 +163,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
   await conn.get().writeLp(buffer)
 
 proc pushToPeers(wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush) {.async.} =
-  debug "pushing message to subscribed peers", pubsubTopic=messagePush.pubsubTopic, contentTopic=messagePush.wakuMessage.contentTopic, peers=peers, hash=messagePush.pubsubTopic.digest(messagePush.wakuMessage).to0xHex()
+  debug "pushing message to subscribed peers", pubsubTopic=messagePush.pubsubTopic, contentTopic=messagePush.wakuMessage.contentTopic, peers=peers, hash=messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
   let bufferToPublish = messagePush.encode().buffer
 
@@ -206,10 +210,10 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
           wakuMessage: message)
 
     if not await wf.pushToPeers(subscribedPeers, messagePush).withTimeout(MessagePushTimeout):
-      debug "timed out pushing message to peers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.digest(message).to0xHex()
+      debug "timed out pushing message to peers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.computeMessageHash(message).to0xHex()
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
     else:
-      debug "pushed message succesfully to all subscribers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.digest(message).to0xHex()
+      debug "pushed message succesfully to all subscribers", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic, hash=pubsubTopic.computeMessageHash(message).to0xHex()
 
 
   let

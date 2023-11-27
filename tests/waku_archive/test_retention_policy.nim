@@ -8,6 +8,7 @@ import
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive/retention_policy,
@@ -41,7 +42,7 @@ suite "Waku Archive - Retention policy":
     ## When
     for i in 1..capacity+excess:
       let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+      putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp))
     
     discard waitFor allFinished(putFutures)
 
@@ -61,19 +62,14 @@ suite "Waku Archive - Retention policy":
   test "size retention policy - windowed message deletion":
     ## Given
     let
-      # in megabytes
-      sizeLimit:float = 0.05
+      # in bytes
+      sizeLimit:int64 = 52428
       excess = 325
 
     let driver = newTestArchiveDriver()
 
     let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
-
-    # variables to check the db size
-    var pageSize = (waitFor driver.getPagesSize()).tryGet()
-    var pageCount = (waitFor driver.getPagesCount()).tryGet()
-    var sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
 
     # make sure that the db is empty to before test begins
     let storedMsg = (waitFor driver.getAllMessages()).tryGet()
@@ -84,35 +80,37 @@ suite "Waku Archive - Retention policy":
       require (waitFor driver.performVacuum()).isOk()
 
     ## When
+    ## 
 
     # create a number of messages so that the size of the DB overshoots
     for i in 1..excess:
         let msg = fakeWakuMessage(payload= @[byte i], contentTopic=DefaultContentTopic, ts=Timestamp(i))
-        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp))
+        putFutures.add(driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp))
 
     # waitFor is used to synchronously wait for the futures to complete.
     discard waitFor allFinished(putFutures)
 
     ## Then
     # calculate the current database size
-    pageSize = (waitFor driver.getPagesSize()).tryGet()
-    pageCount = (waitFor driver.getPagesCount()).tryGet()
-    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    let sizeDB = int64((waitFor driver.getDatabaseSize()).tryGet())
 
-    # execute policy provided the current db size oveflows 
+    # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
+
+    # get the rows count pre-deletion
+    let rowsCountBeforeDeletion = (waitFor driver.getMessagesCount()).tryGet()
+
+    # execute policy provided the current db size oveflows, results in rows deletion
     require (sizeDB >= sizeLimit)
     require (waitFor retentionPolicy.execute(driver)).isOk()
     
-    # update the current db size
-    pageSize = (waitFor driver.getPagesSize()).tryGet()
-    pageCount = (waitFor driver.getPagesCount()).tryGet()
-    sizeDB = float(pageCount * pageSize) / (1024.0 * 1024.0)
+    # get the number or rows from database
+    let rowCountAfterDeletion = (waitFor driver.getMessagesCount()).tryGet()
 
     check:
       # size of the database is used to check if the storage limit has been preserved
       # check the current database size with the limitSize provided by the user
       # it should be lower
-      sizeDB <= sizeLimit
+      rowCountAfterDeletion <= rowsCountBeforeDeletion
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
@@ -139,7 +137,7 @@ suite "Waku Archive - Retention policy":
 
     ## When
     for msg in messages:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
       require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then

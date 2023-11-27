@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
+import
   std/typetraits,
   stew/results,
   stew/byteutils,
@@ -15,7 +15,8 @@ import
   json_serialization/std/sets,
   presto/common
 
-logScope: 
+
+logScope:
   topics = "waku node rest"
 
 Json.createFlavor RestJson
