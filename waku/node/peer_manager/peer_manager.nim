@@ -101,19 +101,15 @@ proc calculateBackoff(initialBackoffInSec: int,
 # Helper functions #
 ####################
 
-proc insertOrReplace(ps: PeerStorage,
-                     peerId: PeerID,
-                     remotePeerInfo: RemotePeerInfo,
-                     connectedness: Connectedness,
-                     disconnectTime: int64 = 0) =
-  # Insert peer entry into persistent storage, or replace existing entry with updated info
-  let res = ps.put(peerId, remotePeerInfo, connectedness, disconnectTime)
-  if res.isErr:
-    warn "failed to store peers", err = res.error
+proc insertOrReplace(ps: PeerStorage, remotePeerInfo: RemotePeerInfo) =
+  ## Insert peer entry into persistent storage, or replace existing entry with updated info
+  ps.put(remotePeerInfo).isOkOr:
+    warn "failed to store peers", err = error
     waku_peers_errors.inc(labelValues = ["storage_failure"])
+    return
 
 proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownOrigin) =
-  # Adds peer to manager for the specified protocol
+  ## Adds peer to manager for the specified protocol
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
     # Do not attempt to manage our unmanageable self
@@ -140,7 +136,9 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
-    pm.storage.insertOrReplace(remotePeerInfo.peerId, remotePeerInfo, NotConnected)
+    remotePeerInfo.connectedness = NotConnected
+
+    pm.storage.insertOrReplace(remotePeerInfo)
 
 # Connects to a given node. Note that this function uses `connect` and
 # does not provide a protocol. Streams for relay (gossipsub) are created
@@ -231,15 +229,25 @@ proc dialPeer(pm: PeerManager,
   return none(Connection)
 
 proc loadFromStorage(pm: PeerManager) =
+  ## Load peers from storage, if available
+  
   debug "loading peers from storage"
-  # Load peers from storage, if available
+  
   var amount = 0
-  proc onData(peerId: PeerID, remotePeerInfo: RemotePeerInfo, connectedness: Connectedness, disconnectTime: int64) =
-    trace "loading peer", peerId=peerId, connectedness=connectedness
 
-    if peerId == pm.switch.peerInfo.peerId:
+  proc onData(remotePeerInfo: RemotePeerInfo) =
+    let peerId = remotePeerInfo.peerId
+    
+    if pm.switch.peerInfo.peerId == peerId:
       # Do not manage self
       return
+
+    trace "loading peer",
+      peerId = peerId,
+      address = remotePeerInfo.addrs,
+      protocols = remotePeerInfo.protocols,
+      agent = remotePeerInfo.agent,
+      version = remotePeerInfo.protoVersion
 
     # nim-libp2p books
     pm.peerStore[AddressBook][peerId] = remotePeerInfo.addrs
@@ -250,18 +258,20 @@ proc loadFromStorage(pm: PeerManager) =
 
     # custom books
     pm.peerStore[ConnectionBook][peerId] = NotConnected  # Reset connectedness state
-    pm.peerStore[DisconnectBook][peerId] = disconnectTime
+    pm.peerStore[DisconnectBook][peerId] = remotePeerInfo.disconnectTime
     pm.peerStore[SourceBook][peerId] = remotePeerInfo.origin
+    
+    if remotePeerInfo.enr.isSome():
+      pm.peerStore[ENRBook][peerId] = remotePeerInfo.enr.get()
 
     amount.inc()
 
-  let res = pm.storage.getAll(onData)
-  if res.isErr:
-    warn "failed to load peers from storage", err = res.error
+  pm.storage.getAll(onData).isOkOr:
+    warn "loading peers from storage failed", err = error
     waku_peers_errors.inc(labelValues = ["storage_load_failure"])
     return
 
-  debug "successfully queried peer storage", amount = amount
+  debug "recovered peers from storage", amount = amount
 
 proc canBeConnected*(pm: PeerManager,
                      peerId: PeerId): bool =
@@ -385,8 +395,12 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
   pm.peerStore[ConnectionBook][peerId] = connectedness
   pm.peerStore[DirectionBook][peerId] = direction
+
   if not pm.storage.isNil:
-    pm.storage.insertOrReplace(peerId, pm.peerStore.get(peerId), connectedness, getTime().toUnix)
+    var remotePeerInfo = pm.peerStore.get(peerId)
+    remotePeerInfo.disconnectTime = getTime().toUnix
+
+    pm.storage.insertOrReplace(remotePeerInfo)
 
 proc new*(T: type PeerManager,
           switch: Switch,
