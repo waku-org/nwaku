@@ -48,7 +48,9 @@ proc newArchiveDriverWithMessages*(pubsubTopic: PubSubTopic, msgList: seq[WakuMe
   let driver = newSqliteArchiveDriver()
 
   for msg in msgList:
-    let msgDigest = waku_archive.computeDigest(msg)
-    discard waitFor driver.put(pubsubTopic, msg, msgDigest, msg.timestamp)
+    let 
+      msgDigest = waku_archive.computeDigest(msg)
+      msgHash = computeMessageHash(pubsubTopic, msg)
+    discard waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
 
   return driver
