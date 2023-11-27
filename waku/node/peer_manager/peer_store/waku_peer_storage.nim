@@ -5,13 +5,13 @@ else:
 
 
 import
-  std/sets,
+  std/[sets, options],
   stew/results,
   sqlite3_abi,
+  eth/p2p/discoveryv5/enr,
   libp2p/protobuf/minprotobuf
 import
   ../../../common/databases/db_sqlite,
-  ../../../common/databases/common,
   ../../../waku_core,
   ../waku_peer_store,
   ./peer_storage
@@ -21,17 +21,20 @@ export db_sqlite
 type
   WakuPeerStorage* = ref object of PeerStorage
     database*: SqliteDatabase
-    replaceStmt: SqliteStmt[(seq[byte], seq[byte], int32, int64), void]
+    replaceStmt: SqliteStmt[(seq[byte], seq[byte]), void]
 
 ##########################
 # Protobuf Serialisation #
 ##########################
 
-proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
   var
     multiaddrSeq: seq[MultiAddress]
     protoSeq: seq[string]
     storedInfo = RemotePeerInfo()
+    rlpBytes: seq[byte]
+    connectedness: uint32
+    disconnectTime: uint64
 
   var pb = initProtoBuffer(buffer)
 
@@ -39,11 +42,20 @@ proc init*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
   discard ? pb.getRepeatedField(2, multiaddrSeq)
   discard ? pb.getRepeatedField(3, protoSeq)
   discard ? pb.getField(4, storedInfo.publicKey)
-
-  # TODO: Store the rest of parameters such as connectedness and disconnectTime
+  discard ? pb.getField(5, connectedness)
+  discard ? pb.getField(6, disconnectTime)
+  let hasENR = ? pb.getField(7, rlpBytes)
 
   storedInfo.addrs = multiaddrSeq
   storedInfo.protocols = protoSeq
+  storedInfo.connectedness = Connectedness(connectedness)
+  storedInfo.disconnectTime = int64(disconnectTime)
+
+  if hasENR:
+    var record: Record
+
+    if record.fromBytes(rlpBytes):
+      storedInfo.enr = some(record)
 
   ok(storedInfo)
 
@@ -58,113 +70,104 @@ proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
   for proto in remotePeerInfo.protocols.items:
     pb.write(3, proto)
 
-  try:
-    pb.write(4, remotePeerInfo.publicKey)
-  except ResultError[CryptoError] as e:
-    return err("Failed to encode public key")
+  let catchRes = catch: pb.write(4, remotePeerInfo.publicKey)
+  if catchRes.isErr():
+    return err("Enncoding public key failed: " & catchRes.error.msg)
 
-  ok(pb)
+  pb.write(5, uint32(ord(remotePeerInfo.connectedness)))
+
+  pb.write(6, uint64(remotePeerInfo.disconnectTime))
+
+  if remotePeerInfo.enr.isSome():
+    pb.write(7, remotePeerInfo.enr.get().raw)
+
+  return ok(pb)
 
 ##########################
 # Storage implementation #
 ##########################
 
 proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
-  ## Misconfiguration can lead to nil DB
+  # Misconfiguration can lead to nil DB
   if db.isNil():
     return err("db not initialized")
 
-  ## Create the "Peer" table
-  ## It contains:
-  ##  - peer id as primary key, stored as a blob
-  ##  - stored info (serialised protobuf), stored as a blob
-  ##  - last known enumerated connectedness state, stored as an integer
-  ##  - disconnect time in epoch seconds, if applicable
+  # Create the "Peer" table
+  # It contains:
+  #  - peer id as primary key, stored as a blob
+  #  - stored info (serialised protobuf), stored as a blob
+  let createStmt = db.prepareStmt(
+    """
+    CREATE TABLE IF NOT EXISTS Peer (
+        peerId BLOB PRIMARY KEY,
+        storedInfo BLOB
+    ) WITHOUT ROWID;
+    """,
+    NoParams,
+    void
+  ).expect("Valid statement")
 
-  # TODO: connectedness and disconnectTime are now stored in the storedInfo type
-  let
-    createStmt = db.prepareStmt("""
-      CREATE TABLE IF NOT EXISTS Peer (
-          peerId BLOB PRIMARY KEY,
-          storedInfo BLOB,
-          connectedness INTEGER,
-          disconnectTime INTEGER
-      ) WITHOUT ROWID;
-      """, NoParams, void).expect("this is a valid statement")
-
-  let res = createStmt.exec(())
-  if res.isErr:
+  createStmt.exec(()).isOkOr:
     return err("failed to exec")
 
   # We dispose of this prepared statement here, as we never use it again
   createStmt.dispose()
 
-  ## Reusable prepared statements
-  let
-    replaceStmt = db.prepareStmt(
-      "REPLACE INTO Peer (peerId, storedInfo, connectedness, disconnectTime) VALUES (?, ?, ?, ?);",
-      (seq[byte], seq[byte], int32, int64),
-      void
-    ).expect("this is a valid statement")
+  # Reusable prepared statements
+  let replaceStmt = db.prepareStmt(
+    "REPLACE INTO Peer (peerId, storedInfo) VALUES (?, ?);",
+    (seq[byte], seq[byte]),
+    void
+  ).expect("Valid statement")
 
-  ## General initialization
+  # General initialization
+  let ps = WakuPeerStorage(database: db, replaceStmt: replaceStmt)
 
-  ok(WakuPeerStorage(database: db,
-                     replaceStmt: replaceStmt))
+  return ok(ps)
 
-
-method put*(db: WakuPeerStorage,
-            peerId: PeerID,
-            remotePeerInfo: RemotePeerInfo,
-            connectedness: Connectedness,
-            disconnectTime: int64): PeerStorageResult[void] =
-
+method put*(
+  db: WakuPeerStorage,
+  remotePeerInfo: RemotePeerInfo
+  ): PeerStorageResult[void] =
   ## Adds a peer to storage or replaces existing entry if it already exists
-  let encoded = remotePeerInfo.encode()
+  
+  let encoded = remotePeerInfo.encode().valueOr:
+    return err("peer info encoding failed: " & error)
 
-  if encoded.isErr:
-    return err("failed to encode: " & encoded.error())
+  db.replaceStmt.exec((remotePeerInfo.peerId.data, encoded.buffer)).isOkOr:
+    return err("DB operation failed: " & error)
 
-  let res = db.replaceStmt.exec((peerId.data, encoded.get().buffer, int32(ord(connectedness)), disconnectTime))
-  if res.isErr:
-    return err("failed")
+  return ok()
 
-  ok()
-
-method getAll*(db: WakuPeerStorage, onData: peer_storage.DataProc): PeerStorageResult[bool] =
+method getAll*(
+  db: WakuPeerStorage,
+  onData: peer_storage.DataProc
+  ): PeerStorageResult[void] =
   ## Retrieves all peers from storage
-  var gotPeers = false
-
-  proc peer(s: ptr sqlite3_stmt) {.raises: [Defect, LPError, ResultError[ProtoError]].} =
-    gotPeers = true
+  
+  proc peer(s: ptr sqlite3_stmt) {.raises: [ResultError[ProtoError]].} =
     let
-      # Peer ID
-      pId = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 0))
-      pIdL = sqlite3_column_bytes(s, 0)
-      peerId = PeerID.init(@(toOpenArray(pId, 0, pIdL - 1))).tryGet()
       # Stored Info
       sTo = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))
       sToL = sqlite3_column_bytes(s, 1)
-      storedInfo = RemotePeerInfo.init(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
-      # Connectedness
-      connectedness = Connectedness(sqlite3_column_int(s, 2))
-      # DisconnectTime
-      disconnectTime = sqlite3_column_int64(s, 3)
+      storedInfo = RemotePeerInfo.decode(@(toOpenArray(sTo, 0, sToL - 1))).tryGet()
 
-    onData(peerId, storedInfo, connectedness, disconnectTime)
+    onData(storedInfo)
 
-  var queryResult: DatabaseResult[bool]
-  try:
-    queryResult = db.database.query("SELECT peerId, storedInfo, connectedness, disconnectTime FROM Peer", peer)
-  except LPError, ResultError[ProtoError]:
-    return err("failed to extract peer from query result")
+  let catchRes = catch: db.database.query("SELECT peerId, storedInfo FROM Peer", peer)
 
-  if queryResult.isErr:
-    return err("failed")
+  let queryRes =
+    if catchRes.isErr():
+      return err("failed to extract peer from query result: " & catchRes.error.msg)
+    else: catchRes.get()
 
-  ok gotPeers
+  if queryRes.isErr():
+    return err("peer storage query failed: " & queryRes.error)
+
+  return ok()
 
 proc close*(db: WakuPeerStorage) =
   ## Closes the database.
+  
   db.replaceStmt.dispose()
   db.database.close()
