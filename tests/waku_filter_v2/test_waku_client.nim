@@ -10,7 +10,7 @@ import
   ],
   testutils/unittests,
   stew/[
-    results, 
+    results,
     byteutils
   ],
   chronos,
