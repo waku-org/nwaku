@@ -83,6 +83,12 @@ int waku_connect(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_store_config(void* ctx,
+                      const char* peerMultiAddr,
+                      unsigned int timeoutMs,
+                      WakuCallBack callback,
+                      void* userData);
+
 #ifdef __cplusplus
 }
 #endif

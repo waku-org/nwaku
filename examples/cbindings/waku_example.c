@@ -288,6 +288,13 @@ int main(int argc, char** argv) {
                                     "/waku/2/default-waku/proto",
                                     event_handler,
                                     userData) );
+
+    WAKU_CALL ( waku_store_config(&ctx,
+                       "postgres://postgres:test123@localhost:5432/postgres",
+                       "time:6000000",
+                       event_handler,
+                       userData) );
+
     show_main_menu();
     while(1) {
         handle_user_input();
