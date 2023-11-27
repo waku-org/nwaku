@@ -9,6 +9,7 @@ import
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive,
   ../testlib/common,
@@ -152,7 +153,7 @@ procSuite "Waku Archive - find messages":
       archive = newTestWakuArchive(driver)
 
     for msg in msgListA:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     archive
 
@@ -446,7 +447,7 @@ procSuite "Waku Archive - find messages":
       ]
 
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## Given
     let req = ArchiveQuery(contentTopics: @[DefaultContentTopic])

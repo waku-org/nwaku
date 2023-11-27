@@ -8,6 +8,7 @@ import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../testlib/wakucore
 
 proc now():int64 = getTime().toUnix()
@@ -80,7 +81,7 @@ suite "Postgres driver":
 
     let computedDigest = computeDigest(msg)
 
-    let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, msg.timestamp)
+    let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
     assert putRes.isOk(), putRes.error
 
     let storedMsg = (await driver.getAllMessages()).tryGet()
@@ -113,12 +114,12 @@ suite "Postgres driver":
 
     let msg1 = fakeWakuMessage(contentTopic=contentTopic1)
 
-    var putRes = await driver.put(pubsubTopic1, msg1, computeDigest(msg1), msg1.timestamp)
+    var putRes = await driver.put(pubsubTopic1, msg1, computeDigest(msg1), computeMessageHash(pubsubTopic1, msg1), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
     let msg2 = fakeWakuMessage(contentTopic=contentTopic2)
 
-    putRes = await driver.put(pubsubTopic2, msg2, computeDigest(msg2), msg2.timestamp)
+    putRes = await driver.put(pubsubTopic2, msg2, computeDigest(msg2), computeMessageHash(pubsubTopic2, msg2), msg2.timestamp)
     assert putRes.isOk(), putRes.error
 
     let countMessagesRes = await driver.getMessagesCount()
@@ -197,11 +198,11 @@ suite "Postgres driver":
     let msg2 = fakeWakuMessage(ts = now)
 
     var putRes = await driver.put(DefaultPubsubTopic,
-                                  msg1, computeDigest(msg1), msg1.timestamp)
+                                  msg1, computeDigest(msg1), computeMessageHash(DefaultPubsubTopic, msg1), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
     putRes = await driver.put(DefaultPubsubTopic,
-                              msg2, computeDigest(msg2), msg2.timestamp)
+                              msg2, computeDigest(msg2), computeMessageHash(DefaultPubsubTopic, msg2), msg2.timestamp)
     require not putRes.isOk()
 
     (await driver.close()).expect("driver to close")

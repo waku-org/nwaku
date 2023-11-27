@@ -70,10 +70,6 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/"
 
-task rln_keystore_generator, "Build the rln keystore generator":
-  let name = "rln_keystore_generator"
-  buildBinary name, "tools/rln_keystore_generator/"
-
 task rln_db_inspector, "Build the rln db inspector":
   let name = "rln_db_inspector"
   buildBinary name, "tools/rln_db_inspector/"

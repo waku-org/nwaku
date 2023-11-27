@@ -8,9 +8,11 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/common/databases/db_sqlite,
-  ../../waku/node/message_store/sqlite_store,
+  ../../waku/waku_archive/driver,
+  ../../waku/waku_archive/driver/sqlite_driver/sqlite_driver,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
+  ../../waku/waku_core/message/digest,
   ../../waku/waku_store,
   ./testlib/common,
   ./testlib/switch
@@ -19,12 +21,12 @@ import
 proc newTestDatabase(): SqliteDatabase =
   SqliteDatabase.new("memory:").tryGet()
 
-proc newTestArchiveDriver(): ArchiveDriver =
+proc newTestArchiveDriver(): ArchiveDriverResult =
   let database = SqliteDatabase.new(":memory:").tryGet()
   SqliteDriver.init(database).tryGet()
 
 
-proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
+proc newTestWakuStore(switch: Switch, store: MessageStore = nil): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     proto = WakuStore.init(peerManager, rng, store)
@@ -58,7 +60,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp).isOk()
 
       store
 
@@ -76,7 +78,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList2:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp).isOk()
 
       store
 
