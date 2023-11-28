@@ -32,7 +32,7 @@ const futTimeout* = 5.seconds # Max time to wait for futures
 
 ## Waku Relay JSON-RPC API
 
-proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache[string]) =
+proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
   server.rpc("post_waku_v2_relay_v1_subscriptions") do (pubsubTopics: seq[PubsubTopic]) -> bool:
     if pubsubTopics.len == 0:
       raise newException(ValueError, "No pubsub topic provided")
@@ -41,13 +41,13 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     debug "post_waku_v2_relay_v1_subscriptions"
 
     # Subscribe to all requested topics
-    let newTopics = pubsubTopics.filterIt(not cache.isSubscribed(it))
+    let newTopics = pubsubTopics.filterIt(not cache.isPubsubSubscribed(it))
 
     for pubsubTopic in newTopics:
       if pubsubTopic == "":
         raise newException(ValueError, "Empty pubsub topic")
 
-      cache.subscribe(pubsubTopic)
+      cache.pubsubSubscribe(pubsubTopic)
       node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache)))
 
     return true
@@ -60,13 +60,13 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     debug "delete_waku_v2_relay_v1_subscriptions"
 
     # Unsubscribe all handlers from requested topics
-    let subscribedTopics = pubsubTopics.filterIt(cache.isSubscribed(it))
+    let subscribedTopics = pubsubTopics.filterIt(cache.isPubsubSubscribed(it))
 
     for pubsubTopic in subscribedTopics:
       if pubsubTopic == "":
         raise newException(ValueError, "Empty pubsub topic")
 
-      cache.unsubscribe(pubsubTopic)
+      cache.pubsubUnsubscribe(pubsubTopic)
       node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
 
     return true
@@ -148,15 +148,15 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     ## Subscribes a node to a list of Content topics
     debug "post_waku_v2_relay_v1_auto_subscriptions"
 
-    let newTopics = contentTopics.filterIt(not cache.isSubscribed(it))
+    let newTopics = contentTopics.filterIt(not cache.isContentSubscribed(it))
 
     # Subscribe to all requested topics
     for contentTopic in newTopics:
       if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
 
-      cache.subscribe(contentTopic)
-      node.subscribe((kind: ContentSub, topic: contentTopic), some(autoMessageCacheHandler(cache)))
+      cache.contentSubscribe(contentTopic)
+      node.subscribe((kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache)))
 
     return true
 
@@ -167,14 +167,14 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     ## Unsubscribes a node from a list of Content topics
     debug "delete_waku_v2_relay_v1_auto_subscriptions"
 
-    let subscribedTopics = contentTopics.filterIt(cache.isSubscribed(it))
+    let subscribedTopics = contentTopics.filterIt(cache.isContentSubscribed(it))
 
     # Unsubscribe all handlers from requested topics
     for contentTopic in subscribedTopics:
       if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
 
-      cache.unsubscribe(contentTopic)
+      cache.contentUnsubscribe(contentTopic)
       node.unsubscribe((kind: ContentUnsub, topic: contentTopic))
 
     return true
@@ -232,7 +232,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     ## last time this method was called
     debug "get_waku_v2_relay_v1_auto_messages", topic=contentTopic
 
-    let msgRes = cache.getMessages(contentTopic, clear=true)
+    let msgRes = cache.getAutoMessages(contentTopic, clear=true)
     if msgRes.isErr():
       raise newException(ValueError, "Not subscribed to content topic: " & contentTopic)
 
