@@ -116,7 +116,9 @@ proc parse*(T: type NsContentTopic, topic: ContentTopic|string): ParsingResult[N
 
       return ok(NsContentTopic.init(some(gen), app, ver, name, enc))
     else:
-      return err(ParsingError.invalidFormat("invalid topic structure"))
+
+      let errMsg = "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
+      return err(ParsingError.invalidFormat(errMsg))
 
 # Content topic compatibility
 
