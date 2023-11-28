@@ -1,7 +1,6 @@
 {.used.}
 
 import
-  std/sequtils,
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
@@ -9,7 +8,6 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/waku_api/message_cache,
-  ../../waku/common/base64,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/peer_manager,
@@ -44,7 +42,7 @@ type RestFilterTest = object
   subscriberNode: WakuNode
   restServer: RestServerRef
   restServerForService: RestServerRef
-  messageCache: filter_api.MessageCache
+  messageCache: MessageCache
   client: RestClientRef
   clientTwdServiceNode: RestClientRef
 
@@ -70,10 +68,10 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   testSetup.restServerForService = RestServerRef.init(restAddress, restPort2).tryGet()
 
   # through this one we will see if messages are pushed according to our content topic sub
-  testSetup.messageCache = filter_api.MessageCache.init()
+  testSetup.messageCache = MessageCache.init()
   installFilterRestApiHandlers(testSetup.restServer.router, testSetup.subscriberNode, testSetup.messageCache)
 
-  let topicCache = MessageCache[string].init()
+  let topicCache = MessageCache.init()
   installRelayApiHandlers(testSetup.restServerForService.router, testSetup.serviceNode, topicCache)
 
   testSetup.restServer.start()
@@ -242,7 +240,7 @@ suite "Waku v2 Rest API - Filter V2":
       restFilterTest = await RestFilterTest.init()
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
-    restFilterTest.messageCache.subscribe(DefaultPubsubTopic)
+    restFilterTest.messageCache.pubsubSubscribe(DefaultPubsubTopic)
     restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
 
     # When
@@ -272,7 +270,7 @@ suite "Waku v2 Rest API - Filter V2":
                                             toRelayWakuMessage(testMessage)
                                             )
     # Then
-    let messages = restFilterTest.messageCache.getMessages("1").tryGet()
+    let messages = restFilterTest.messageCache.getAutoMessages("1").tryGet()
 
     check:
       postMsgResponse.status == 200

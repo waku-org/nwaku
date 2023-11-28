@@ -44,7 +44,7 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
+    let cache = MessageCache.init()
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -66,9 +66,9 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      cache.isSubscribed("pubsub-topic-1")
-      cache.isSubscribed("pubsub-topic-2")
-      cache.isSubscribed("pubsub-topic-3")
+      cache.isPubsubSubscribed("pubsub-topic-1")
+      cache.isPubsubSubscribed("pubsub-topic-2")
+      cache.isPubsubSubscribed("pubsub-topic-3")
 
     check:
       toSeq(node.wakuRelay.subscribedTopics).len == pubSubTopics.len
@@ -92,11 +92,11 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
-    cache.subscribe("pubsub-topic-1")
-    cache.subscribe("pubsub-topic-2")
-    cache.subscribe("pubsub-topic-3")
-    cache.subscribe("pubsub-topic-x")
+    let cache = MessageCache.init()
+    cache.pubsubSubscribe("pubsub-topic-1")
+    cache.pubsubSubscribe("pubsub-topic-2")
+    cache.pubsubSubscribe("pubsub-topic-3")
+    cache.pubsubSubscribe("pubsub-topic-x")
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -119,15 +119,15 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      not cache.isSubscribed("pubsub-topic-1")
+      not cache.isPubsubSubscribed("pubsub-topic-1")
       not node.wakuRelay.isSubscribed("pubsub-topic-1")
-      not cache.isSubscribed("pubsub-topic-2")
+      not cache.isPubsubSubscribed("pubsub-topic-2")
       not node.wakuRelay.isSubscribed("pubsub-topic-2")
-      not cache.isSubscribed("pubsub-topic-3")
+      not cache.isPubsubSubscribed("pubsub-topic-3")
       not node.wakuRelay.isSubscribed("pubsub-topic-3")
-      cache.isSubscribed("pubsub-topic-x")
+      cache.isPubsubSubscribed("pubsub-topic-x")
       node.wakuRelay.isSubscribed("pubsub-topic-x")
-      not cache.isSubscribed("pubsub-topic-y")
+      not cache.isPubsubSubscribed("pubsub-topic-y")
       not node.wakuRelay.isSubscribed("pubsub-topic-y")
 
     await restServer.stop()
@@ -145,15 +145,23 @@ suite "Waku v2 Rest API - Relay":
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let pubSubTopic = "/waku/2/default-waku/proto"
-    let messages =  @[
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
+    
+    var messages = @[
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
     ]
 
-    let cache = MessageCache[string].init()
+    # Prevent duplicate messages
+    for i in 0..<2:
+      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
 
-    cache.subscribe(pubSubTopic)
+      while msg == messages[i]:
+        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      
+      messages.add(msg)
+    
+    let cache = MessageCache.init()
+
+    cache.pubsubSubscribe(pubSubTopic)
     for msg in messages:
       cache.addMessage(pubSubTopic, msg)
 
@@ -177,7 +185,7 @@ suite "Waku v2 Rest API - Relay":
 
 
     check:
-      cache.isSubscribed(pubSubTopic)
+      cache.isPubsubSubscribed(pubSubTopic)
       cache.getMessages(pubSubTopic).tryGet().len == 0
 
     await restServer.stop()
@@ -199,7 +207,7 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
+    let cache = MessageCache.init()
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -239,7 +247,7 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
+    let cache = MessageCache.init()
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -263,9 +271,9 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      cache.isSubscribed(contentTopics[0])
-      cache.isSubscribed(contentTopics[1])
-      cache.isSubscribed(contentTopics[2])
+      cache.isContentSubscribed(contentTopics[0])
+      cache.isContentSubscribed(contentTopics[1])
+      cache.isContentSubscribed(contentTopics[2])
 
     check:
       # Node should be subscribed to all shards
@@ -292,11 +300,11 @@ suite "Waku v2 Rest API - Relay":
       ContentTopic("/waku/2/default-contentX/proto")
     ]
 
-    let cache = MessageCache[string].init()
-    cache.subscribe(contentTopics[0])
-    cache.subscribe(contentTopics[1])
-    cache.subscribe(contentTopics[2])
-    cache.subscribe("/waku/2/default-contentY/proto")
+    let cache = MessageCache.init()
+    cache.contentSubscribe(contentTopics[0])
+    cache.contentSubscribe(contentTopics[1])
+    cache.contentSubscribe(contentTopics[2])
+    cache.contentSubscribe("/waku/2/default-contentY/proto")
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -312,10 +320,10 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      not cache.isSubscribed(contentTopics[1])
-      not cache.isSubscribed(contentTopics[2])
-      not cache.isSubscribed(contentTopics[3])
-      cache.isSubscribed("/waku/2/default-contentY/proto")
+      not cache.isContentSubscribed(contentTopics[1])
+      not cache.isContentSubscribed(contentTopics[2])
+      not cache.isContentSubscribed(contentTopics[3])
+      cache.isContentSubscribed("/waku/2/default-contentY/proto")
 
     await restServer.stop()
     await restServer.closeWait()
@@ -332,17 +340,25 @@ suite "Waku v2 Rest API - Relay":
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let contentTopic = DefaultContentTopic
-    let messages =  @[
-      fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")),
+
+    var messages = @[
+      fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
     ]
 
-    let cache = MessageCache[string].init()
+    # Prevent duplicate messages
+    for i in 0..<2:
+      var msg = fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
 
-    cache.subscribe(contentTopic)
+      while msg == messages[i]:
+        msg = fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
+      
+      messages.add(msg)
+    
+    let cache = MessageCache.init()
+
+    cache.contentSubscribe(contentTopic)
     for msg in messages:
-      cache.addMessage(contentTopic, msg)
+      cache.addMessage(DefaultPubsubTopic, msg)
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
@@ -363,8 +379,8 @@ suite "Waku v2 Rest API - Relay":
         msg.timestamp.get() != Timestamp(0)
 
     check:
-      cache.isSubscribed(contentTopic)
-      cache.getMessages(contentTopic).tryGet().len == 0 # The cache is cleared when getMessage is called
+      cache.isContentSubscribed(contentTopic)
+      cache.getAutoMessages(contentTopic).tryGet().len == 0 # The cache is cleared when getMessage is called
 
     await restServer.stop()
     await restServer.closeWait()
@@ -385,7 +401,7 @@ suite "Waku v2 Rest API - Relay":
     let restAddress = ValidIpAddress.init("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-    let cache = MessageCache[string].init()
+    let cache = MessageCache.init()
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 

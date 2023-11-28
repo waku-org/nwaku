@@ -40,10 +40,22 @@ const ROUTE_FILTER_SUBSCRIPTIONS* = "/filter/v2/subscriptions"
 
 const ROUTE_FILTER_ALL_SUBSCRIPTIONS* = "/filter/v2/subscriptions/all"
 
-const filterMessageCacheDefaultCapacity* = 30
+func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
+  if contentBody.isNone():
+    return err(RestApiResponse.badRequest("Missing content body"))
 
-type
-  MessageCache* = message_cache.MessageCache[ContentTopic]
+  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
+  if reqBodyContentType != MIMETYPE_JSON:
+    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
+
+  let reqBodyData = contentBody.get().data
+
+  let requestResult = decodeFromJsonBytes(T, reqBodyData)
+  if requestResult.isErr():
+    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
+                                          $requestResult.error))
+
+  return ok(requestResult.get())
 
 proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
@@ -169,7 +181,7 @@ proc filterPostPutSubscriptionRequestHandler(
 
   # Successfully subscribed to all content filters
   for cTopic in req.contentFilters:
-    cache.subscribe(cTopic)
+    cache.contentSubscribe(cTopic)
 
   return makeRestResponse(req.requestId, subFut.read())
 
@@ -235,7 +247,7 @@ proc installFilterDeleteSubscriptionsHandler(
 
     # Successfully subscribed to all content filters
     for cTopic in req.contentFilters:
-      cache.unsubscribe(cTopic)
+      cache.contentUnsubscribe(cTopic)
 
     # Successfully unsubscribed from all requested contentTopics
     return makeRestResponse(req.requestId, unsubFut.read())
@@ -276,7 +288,7 @@ proc installFilterDeleteAllSubscriptionsHandler(
                 FilterSubscribeError.serviceUnavailable(
                             "Failed to unsubscribe from all contentFilters due to timeout!"))
 
-    cache.unsubscribeAll()
+    cache.reset()
 
     # Successfully unsubscribed from all requested contentTopics
     return makeRestResponse(req.requestId, unsubFut.read())
@@ -321,7 +333,7 @@ proc installFilterGetMessagesHandler(router: var RestRouter,
   let pushHandler : FilterPushHandler = proc (pubsubTopic: PubsubTopic,
                                               msg: WakuMessage)
                                               {.async, gcsafe, closure.} =
-    cache.addMessage(msg.contentTopic, msg)
+    cache.addMessage(pubsubTopic, msg)
 
   node.wakuFilterClient.registerPushHandler(pushHandler)
 
@@ -336,7 +348,7 @@ proc installFilterGetMessagesHandler(router: var RestRouter,
 
     let contentTopic = contentTopic.get()
 
-    let msgRes = cache.getMessages(contentTopic, clear=true)
+    let msgRes = cache.getAutoMessages(contentTopic, clear=true)
     if msgRes.isErr():
       return RestApiResponse.badRequest("Not subscribed to topic: " & contentTopic)
 
