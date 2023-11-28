@@ -7,6 +7,7 @@ import
   chronicles,
   chronos,
   libp2p/crypto/crypto
+
 import
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
@@ -15,22 +16,8 @@ import
   ../../waku/waku_lightpush/protocol_metrics,
   ../../waku/waku_lightpush/rpc,
   ./testlib/common,
-  ./testlib/wakucore
-
-proc newTestWakuLightpushNode(switch: Switch, handler: PushMessageHandler): Future[WakuLightPush] {.async.} =
-  let
-    peerManager = PeerManager.new(switch)
-    proto = WakuLightPush.new(peerManager, rng, handler)
-
-  await proto.start()
-  switch.mount(proto)
-
-  return proto
-
-proc newTestWakuLightpushClient(switch: Switch): WakuLightPushClient =
-  let
-    peerManager = PeerManager.new(switch)
-  WakuLightPushClient.new(peerManager, rng)
+  ./testlib/wakucore,
+  ./lightpush_utils
 
 
 suite "Waku Lightpush":
