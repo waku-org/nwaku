@@ -14,16 +14,9 @@ import
   ../../../waku/waku_archive/retention_policy,
   ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
   ../../../waku/waku_archive/retention_policy/retention_policy_size,
+  ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore
-
-
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new(":memory:").tryGet()
-
-proc newTestArchiveDriver(): ArchiveDriver =
-  let db = newTestDatabase()
-  SqliteDriver.new(db).tryGet()
 
 
 suite "Waku Archive - Retention policy":
@@ -34,7 +27,7 @@ suite "Waku Archive - Retention policy":
       capacity = 100
       excess = 60
 
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     let retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
@@ -66,7 +59,7 @@ suite "Waku Archive - Retention policy":
       sizeLimit:int64 = 52428
       excess = 325
 
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
@@ -121,7 +114,7 @@ suite "Waku Archive - Retention policy":
     const contentTopic = "test-content-topic"
 
     let
-      driver = newTestArchiveDriver()
+      driver = newSqliteArchiveDriver()
       retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
 
     let messages = @[

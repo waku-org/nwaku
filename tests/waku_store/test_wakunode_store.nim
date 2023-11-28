@@ -22,21 +22,12 @@ import
   ../../../waku/waku_store,
   ../../../waku/waku_filter,
   ../../../waku/waku_node,
+  ../waku_store/store_utils,
+  ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc newTestArchiveDriver(): ArchiveDriver =
-  let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteDriver.new(database).tryGet()
-
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryCursor =
-  HistoryCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: waku_archive.computeDigest(message)
-  )
 
 procSuite "WakuNode - Store":
   ## Fixtures
@@ -55,7 +46,7 @@ procSuite "WakuNode - Store":
   ]
 
   let archiveA = block:
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     for msg in msgListA:
       let msg_digest = waku_archive.computeDigest(msg)
@@ -139,7 +130,7 @@ procSuite "WakuNode - Store":
 
     ## Then
     check:
-      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[6]))
+      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[6]))
       cursors[1] == none(HistoryCursor)
 
     check:
@@ -190,7 +181,7 @@ procSuite "WakuNode - Store":
 
     ## Then
     check:
-      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[3]))
+      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[3]))
       cursors[1] == none(HistoryCursor)
 
     check:
@@ -214,7 +205,7 @@ procSuite "WakuNode - Store":
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     let mountArchiveRes = server.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error

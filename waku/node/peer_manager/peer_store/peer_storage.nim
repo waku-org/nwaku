@@ -18,14 +18,14 @@ type
 
   PeerStorageResult*[T] = Result[T, string]
 
-  DataProc* = proc(peerId: PeerID, remotePeerInfo: RemotePeerInfo,
-                   connectedness: Connectedness, disconnectTime: int64) {.closure, raises: [Defect].}
+  DataProc* = proc(remotePeerInfo: RemotePeerInfo) {.closure, raises: [Defect].}
 
 # PeerStorage interface
-method put*(db: PeerStorage,
-            peerId: PeerID,
-            remotePeerInfo: RemotePeerInfo,
-            connectedness: Connectedness,
-            disconnectTime: int64): PeerStorageResult[void] {.base.} = discard
+method put*(
+  db: PeerStorage,
+  remotePeerInfo: RemotePeerInfo
+  ): PeerStorageResult[void] {.base.} =
+  return err("Unimplemented")
 
-method getAll*(db: PeerStorage, onData: DataProc): PeerStorageResult[bool] {.base.} = discard
+method getAll*(db: PeerStorage, onData: DataProc): PeerStorageResult[void] {.base.} =
+  return err("Unimplemented")
