@@ -31,6 +31,7 @@ when os == "Linux" and
 
 # Waku store test suite
 import
+  ./waku_store/test_client,
   ./waku_store/test_rpc_codec,
   ./waku_store/test_waku_store,
   ./waku_store/test_wakunode_store
@@ -42,14 +43,13 @@ when defined(waku_exp_store_resume):
 
 import 
   ./waku_relay/test_all,
-  ./waku_filter_v2/test_all
+  ./waku_filter_v2/test_all,
+  ./waku_lightpush/test_all,
 
 
 import
   # Waku v2 tests
   ./test_wakunode,
-  # Waku LightPush
-  ./test_waku_lightpush,
   ./test_wakunode_lightpush,
   # Waku Filter
   ./test_waku_filter_legacy,
