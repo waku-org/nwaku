@@ -89,7 +89,7 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "invalid topic structure"
+      err.cause == "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
 
   test "Parse content topic string - Invalid string: missing encoding part":
     ## Given
@@ -104,7 +104,7 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "invalid topic structure"
+      err.cause == "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
 
   test "Parse content topic string - Invalid string: wrong extra parts":
     ## Given
