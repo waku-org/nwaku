@@ -8,36 +8,16 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/common/databases/db_sqlite,
-  ../../waku/node/message_store/sqlite_store,
+  ../../waku/waku_archive/driver,
+  ../../waku/waku_archive/driver/sqlite_driver/sqlite_driver,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
+  ../../waku/waku_core/message/digest,
   ../../waku/waku_store,
+  ../waku_store/store_utils,
+  ../waku_archive/archive_utils,
   ./testlib/common,
   ./testlib/switch
-
-
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new("memory:").tryGet()
-
-proc newTestArchiveDriver(): ArchiveDriver =
-  let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteDriver.init(database).tryGet()
-
-
-proc newTestWakuStore(switch: Switch, store=newTestMessageStore()): Future[WakuStore] {.async.} =
-  let
-    peerManager = PeerManager.new(switch)
-    proto = WakuStore.init(peerManager, rng, store)
-
-  await proto.start()
-  switch.mount(proto)
-
-  return proto
-
-proc newTestWakuStoreClient(switch: Switch, store: MessageStore = nil): WakuStoreClient =
-  let
-    peerManager = PeerManager.new(switch)
-  WakuStoreClient.new(peerManager, rng, store)
 
 
 procSuite "Waku Store - resume store":
@@ -58,7 +38,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp).isOk()
 
       store
 
@@ -76,7 +56,7 @@ procSuite "Waku Store - resume store":
       ]
 
       for msg in msgList2:
-        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp).isOk()
+        require store.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp).isOk()
 
       store
 
@@ -220,7 +200,7 @@ suite "WakuNode - waku store":
 
     await allFutures(client.start(), server.start())
 
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
     server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
 

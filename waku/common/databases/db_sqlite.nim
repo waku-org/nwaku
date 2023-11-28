@@ -295,6 +295,20 @@ proc getPageCount*(db: SqliteDatabase): DatabaseResult[int64] =
 
   return ok(count)
 
+proc getDatabaseSize*(db: SqliteDatabase): DatabaseResult[int64] =
+  # get the database page size in bytes
+  var pageSize: int64 = ?db.getPageSize()
+
+  if pageSize == 0:
+    return err("failed to get page size ")
+
+  # get the database page count
+  let pageCount = ?db.getPageCount()
+
+  let databaseSize = (pageSize * pageCount)
+
+  return ok(databaseSize)
+
 proc gatherSqlitePageStats*(db: SqliteDatabase):
                             DatabaseResult[(int64, int64, int64)] =
   let

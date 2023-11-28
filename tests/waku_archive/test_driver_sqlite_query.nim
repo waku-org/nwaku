@@ -5,13 +5,17 @@ import
   testutils/unittests,
   chronos,
   chronicles
+
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../testlib/common,
-  ../testlib/wakucore
+  ../testlib/wakucore,
+  ../waku_archive/archive_utils
+
 
 logScope:
   topics = "test archive _driver"
@@ -21,29 +25,13 @@ logScope:
 common.randomize()
 
 
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new(":memory:").tryGet()
-
-proc newTestSqliteDriver(): ArchiveDriver =
-  let db = newTestDatabase()
-  SqliteDriver.new(db).tryGet()
-
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
-  ArchiveCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: computeDigest(message)
-  )
-
-
 suite "SQLite driver - query by content topic":
 
   asyncTest "no content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
@@ -62,7 +50,7 @@ suite "SQLite driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -85,7 +73,7 @@ suite "SQLite driver - query by content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -105,7 +93,7 @@ suite "SQLite driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -129,7 +117,7 @@ suite "SQLite driver - query by content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -149,7 +137,7 @@ suite "SQLite driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -175,7 +163,7 @@ suite "SQLite driver - query by content topic":
     const contentTopic2 = "test-content-topic-2"
     const contentTopic3 = "test-content-topic-3"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -195,7 +183,7 @@ suite "SQLite driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -219,7 +207,7 @@ suite "SQLite driver - query by content topic":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
@@ -234,7 +222,7 @@ suite "SQLite driver - query by content topic":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -258,11 +246,11 @@ suite "SQLite driver - query by content topic":
     ## Given
     const pageSize: uint = 50
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     for t in 0..<40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts=ts(t))
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -290,7 +278,7 @@ suite "SQLite driver - query by pubsub topic":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -310,7 +298,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -336,7 +324,7 @@ suite "SQLite driver - query by pubsub topic":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -356,7 +344,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -381,7 +369,7 @@ suite "SQLite driver - query by pubsub topic":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -402,7 +390,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -431,7 +419,7 @@ suite "SQLite driver - query by cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -451,9 +439,9 @@ suite "SQLite driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
@@ -477,7 +465,7 @@ suite "SQLite driver - query by cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -497,9 +485,9 @@ suite "SQLite driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
@@ -523,7 +511,7 @@ suite "SQLite driver - query by cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -541,9 +529,9 @@ suite "SQLite driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
@@ -568,7 +556,7 @@ suite "SQLite driver - query by cursor":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -586,9 +574,9 @@ suite "SQLite driver - query by cursor":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = await driver.getMessages(
@@ -614,7 +602,7 @@ suite "SQLite driver - query by cursor":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -638,9 +626,9 @@ suite "SQLite driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(expected[5][0], expected[5][1])
+    let cursor = computeArchiveCursor(expected[5][0], expected[5][1])
 
     ## When
     let res = await driver.getMessages(
@@ -667,7 +655,7 @@ suite "SQLite driver - query by cursor":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -691,9 +679,9 @@ suite "SQLite driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(expected[6][0], expected[6][1])
+    let cursor = computeArchiveCursor(expected[6][0], expected[6][1])
 
     ## When
     let res = await driver.getMessages(
@@ -722,7 +710,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -741,7 +729,7 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -765,7 +753,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -784,7 +772,7 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -809,7 +797,7 @@ suite "SQLite driver - query by time range":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -833,7 +821,7 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -859,7 +847,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -879,7 +867,7 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -904,7 +892,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -923,7 +911,7 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -947,7 +935,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -969,7 +957,7 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -993,7 +981,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1015,9 +1003,9 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[3])
 
     ## When
     let res = await driver.getMessages(
@@ -1042,7 +1030,7 @@ suite "SQLite driver - query by time range":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1064,9 +1052,9 @@ suite "SQLite driver - query by time range":
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
 
     for msg in messages:
-      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = await driver.getMessages(
@@ -1092,7 +1080,7 @@ suite "SQLite driver - query by time range":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1116,9 +1104,9 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
+    let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[1][1])
 
     ## When
     let res = await driver.getMessages(
@@ -1147,7 +1135,7 @@ suite "SQLite driver - query by time range":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1171,9 +1159,9 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(expected[7][0], expected[7][1])
+    let cursor = computeArchiveCursor(expected[7][0], expected[7][1])
 
     ## When
     let res = await driver.getMessages(
@@ -1202,7 +1190,7 @@ suite "SQLite driver - query by time range":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1226,9 +1214,9 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeArchiveCursor(expected[1][0], expected[1][1])
 
     ## When
     let res = await driver.getMessages(
@@ -1258,7 +1246,7 @@ suite "SQLite driver - query by time range":
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1282,9 +1270,9 @@ suite "SQLite driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      require (await driver.put(topic, msg, computeDigest(msg), msg.timestamp)).isOk()
+      require (await driver.put(topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp)).isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeArchiveCursor(expected[1][0], expected[1][1])
 
     ## When
     let res = await driver.getMessages(

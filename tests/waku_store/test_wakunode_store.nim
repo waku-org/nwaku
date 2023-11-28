@@ -15,27 +15,19 @@ import
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
+  ../../../waku/waku_core/message/digest,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_store,
   ../../../waku/waku_filter,
   ../../../waku/waku_node,
+  ../waku_store/store_utils,
+  ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
-proc newTestArchiveDriver(): ArchiveDriver =
-  let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteDriver.new(database).tryGet()
-
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryCursor =
-  HistoryCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: waku_archive.computeDigest(message)
-  )
 
 procSuite "WakuNode - Store":
   ## Fixtures
@@ -54,11 +46,12 @@ procSuite "WakuNode - Store":
   ]
 
   let archiveA = block:
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     for msg in msgListA:
       let msg_digest = waku_archive.computeDigest(msg)
-      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg.timestamp)).isOk()
+      let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
+      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)).isOk()
 
     driver
 
@@ -137,7 +130,7 @@ procSuite "WakuNode - Store":
 
     ## Then
     check:
-      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[6]))
+      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[6]))
       cursors[1] == none(HistoryCursor)
 
     check:
@@ -188,7 +181,7 @@ procSuite "WakuNode - Store":
 
     ## Then
     check:
-      cursors[0] == some(computeTestCursor(DefaultPubsubTopic, msgListA[3]))
+      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[3]))
       cursors[1] == none(HistoryCursor)
 
     check:
@@ -212,7 +205,7 @@ procSuite "WakuNode - Store":
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
 
     let mountArchiveRes = server.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -259,3 +252,44 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+
+  test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
+    ## Setup
+    let
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    waitFor allFutures(client.start(), server.start())
+
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    waitFor server.mountStore()
+
+    client.mountStoreClient()
+
+    ## Forcing a bad cursor with empty digest data
+    var data: array[32, byte] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    let cursor = HistoryCursor(
+          pubsubTopic: "pubsubTopic",
+          senderTime: now(),
+          storeTime: now(),
+          digest: waku_archive.MessageDigest(data: data)
+        )
+
+    ## Given
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], cursor: some(cursor))
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    ## When
+    let queryRes = waitFor client.query(req, peer=serverPeer)
+
+    ## Then
+    check not queryRes.isOk()
+
+    check queryRes.error == "BAD_REQUEST: invalid cursor"
+
+    # Cleanup
+    waitFor allFutures(client.stop(), server.stop())

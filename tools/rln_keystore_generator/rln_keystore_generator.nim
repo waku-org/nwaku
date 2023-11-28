@@ -13,21 +13,13 @@ import
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
   ../../waku/waku_rln_relay/group_manager/on_chain,
-  ./external_config
+  ../../apps/wakunode2/external_config
 
 logScope:
   topics = "rln_keystore_generator"
 
-when isMainModule:
-  {.pop.}
+proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
   # 1. load configuration
-  let confRes = RlnKeystoreGeneratorConf.loadConfig()
-  if confRes.isErr():
-    error "failure while loading the configuration", error=confRes.error
-    quit(1)
-
-  let conf = confRes.get()
-
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
@@ -102,5 +94,9 @@ when isMainModule:
 
   info "credentials persisted", path = conf.rlnRelayCredPath
 
-  waitFor groupManager.stop()
+  try:
+    waitFor groupManager.stop()
+  except CatchableError:
+    error "failure while stopping OnchainGroupManager", error=getCurrentExceptionMsg()
+    quit(0) # 0 because we already registered on-chain
   quit(0)

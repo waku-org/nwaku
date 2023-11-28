@@ -228,6 +228,7 @@ method put*(driver: QueueDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
   let index = Index(pubsubTopic: pubsubTopic, senderTime: message.timestamp, receiverTime: receivedTime, digest: digest)
@@ -285,6 +286,10 @@ method getPagesCount*(driver: QueueDriver):
   return ok(int64(driver.len()))
 
 method getPagesSize*(driver: QueueDriver):
+                         Future[ArchiveDriverResult[int64]] {.async} =
+  return ok(int64(driver.len()))
+
+method getDatabasesSize*(driver: QueueDriver):
                          Future[ArchiveDriverResult[int64]] {.async} =
   return ok(int64(driver.len()))
 

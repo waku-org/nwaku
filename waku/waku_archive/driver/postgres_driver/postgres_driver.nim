@@ -35,15 +35,16 @@ proc createTableQuery(): string =
   " version INTEGER NOT NULL," &
   " timestamp BIGINT NOT NULL," &
   " id VARCHAR NOT NULL," &
+  " messageHash VARCHAR NOT NULL," &
   " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (storedAt, id, pubsubTopic)" &
+  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ");"
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   # TODO: get the sql queries from a file
- """INSERT INTO messages (id, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7);"""
+ """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
+  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
@@ -83,18 +84,21 @@ const SelectWithCursorAscStmtDef =
           storedAt <= $6
     ORDER BY storedAt ASC LIMIT $7;"""
 
-const MaxNumConns = 50 #TODO: we may need to set that from app args (maybe?)
+const DefaultMaxNumConns = 50
 
 proc new*(T: type PostgresDriver,
           dbUrl: string,
-          maxConnections: int = MaxNumConns,
+          maxConnections = DefaultMaxNumConns,
           onErrAction: OnErrHandler = nil):
           ArchiveDriverResult[T] =
 
-  let readConnPool = PgAsyncPool.new(dbUrl, maxConnections).valueOr:
+  ## Very simplistic split of max connections
+  let maxNumConnOnEachPool = int(maxConnections / 2)
+
+  let readConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating read conn pool PgAsyncPool")
 
-  let writeConnPool = PgAsyncPool.new(dbUrl, maxConnections).valueOr:
+  let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
   if not isNil(onErrAction):
@@ -186,10 +190,12 @@ method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.async.} =
 
   let digest = toHex(digest.data)
+  let messageHash = toHex(messageHash)
   let rxTime = $receivedTime
   let contentTopic = message.contentTopic
   let payload = toHex(message.payload)
@@ -199,6 +205,7 @@ method put*(s: PostgresDriver,
   return await s.writeConnPool.runStmt(InsertRowStmtName,
                                        InsertRowStmtDefinition,
                                      @[digest,
+                                       messageHash,
                                        rxTime,
                                        contentTopic,
                                        payload,
@@ -206,6 +213,7 @@ method put*(s: PostgresDriver,
                                        version,
                                        timestamp],
                                      @[int32(digest.len),
+                                       int32(messageHash.len),
                                        int32(rxTime.len),
                                        int32(contentTopic.len),
                                        int32(payload.len),
@@ -213,7 +221,7 @@ method put*(s: PostgresDriver,
                                        int32(version.len),
                                        int32(timestamp.len)],
                                      @[int32(0), int32(0), int32(0), int32(0),
-                                       int32(0), int32(0), int32(0)])
+                                       int32(0), int32(0), int32(0), int32(0)])
 
 method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
@@ -428,6 +436,15 @@ proc getInt(s: PostgresDriver,
     return err("failed in getRow: " & $error)
 
   return ok(retInt)
+
+method getDatabaseSize*(s: PostgresDriver):
+                         Future[ArchiveDriverResult[int64]] {.async.} =
+
+  let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
+    return err("error in getDatabaseSize: " & error)
+
+  let databaseSize: int64 = int64(intRes)
+  return ok(databaseSize)
 
 method getMessagesCount*(s: PostgresDriver):
                          Future[ArchiveDriverResult[int64]] {.async.} =

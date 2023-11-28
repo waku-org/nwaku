@@ -26,6 +26,7 @@ method put*(driver: ArchiveDriver,
             pubsubTopic: PubsubTopic,
             message: WakuMessage,
             digest: MessageDigest,
+            messageHash: WakuMessageHash,
             receivedTime: Timestamp):
             Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
@@ -49,6 +50,9 @@ method getPagesCount*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
 method getPagesSize*(driver: ArchiveDriver):
+                         Future[ArchiveDriverResult[int64]] {.base, async.} = discard
+
+method getDatabaseSize*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 
 method performVacuum*(driver: ArchiveDriver):

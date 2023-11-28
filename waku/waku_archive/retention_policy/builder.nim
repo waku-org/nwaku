@@ -56,24 +56,27 @@ proc new*(T: type RetentionPolicy,
     var retentionSize: string
     retentionSize = policyArgs
     
-    # captures the size unit such as Gb or Mb
+    # captures the size unit such as GB or MB
     let sizeUnit = retentionSize.substr(retentionSize.len-2)
     # captures the string type number data of the size provided  
     let sizeQuantityStr = retentionSize.substr(0,retentionSize.len-3)
     # to hold the numeric value data of size
-    var sizeQuantity: float
+    var inptSizeQuantity: float
+    var sizeQuantity: int64
     
     if sizeUnit in ["gb", "Gb", "GB", "gB"]:
       # parse the actual value into integer type var
       try:
-        sizeQuantity = parseFloat(sizeQuantityStr)
+        inptSizeQuantity = parseFloat(sizeQuantityStr)
       except ValueError:
         return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
-      # Gb data is converted into Mb for uniform processing
-      sizeQuantity = sizeQuantity * 1024
+      # GB data is converted into bytes for uniform processing
+      sizeQuantity =  int64(inptSizeQuantity * 1024.0 * 1024.0 * 1024.0)
     elif sizeUnit in ["mb", "Mb", "MB", "mB"]:
       try:
-        sizeQuantity = parseFloat(sizeQuantityStr)  
+        inptSizeQuantity = parseFloat(sizeQuantityStr)
+        # MB data is converted into bytes for uniform processing
+        sizeQuantity = int64(inptSizeQuantity * 1024.0 * 1024.0)
       except ValueError:
         return err("invalid size retention policy argument")
     else:
