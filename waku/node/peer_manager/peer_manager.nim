@@ -679,7 +679,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     asyncSpawn(pm.switch.disconnect(p))
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
-  var peersToConnect: seq[RemotePeerInfo]
+  var peersToConnect: HashSet[RemotePeerInfo]
   var peersToDisconnect: int
 
   # Get all connected peers for Waku Relay
@@ -707,32 +707,31 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     if outPeerDiff <= 0:
       continue
 
-    # Get all connectable relay peers for this shard
+    # Get all peers for this shard
     var connectablePeers = pm.peerStore.getPeersByShard(
       uint16(pm.wakuMetadata.clusterId), uint16(shard))
   
-    debug "Peers on this shard",
-      ShardNumber = shard,
-      Peers = connectablePeers.len
+    let shardCount = connectablePeers.len
 
     connectablePeers.keepItIf(
       not pm.peerStore.isConnected(it.peerId) and
       pm.canBeConnected(it.peerId))
 
-    debug "Connectable Peers",
-      ShardNumber = shard,
-      Peers = connectablePeers.len
+    let connectableCount = connectablePeers.len
 
     connectablePeers.keepItIf(it.protocols.contains(WakuRelayCodec))
 
-    debug "Target Peer Count",
-      ShardNumber = shard,
-      Inbound = $connectedInPeers.len & "/" & $inTarget,
-      Outbound = $connectedOutPeers.len & "/" & $outTarget,
-      RelayConnectable = connectablePeers.len
+    let relayCount = connectablePeers.len
 
+    debug "Sharded Peer Management",
+      Shard = shard,
+      Connectable = $connectableCount & "/" & $shardCount,
+      RelayConnectable = $relayCount & "/" & $shardCount,
+      RelayInboundTarget = $connectedInPeers.len & "/" & $inTarget,
+      RelayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
+      
     let length = min(outPeerDiff, connectablePeers.len)
-    peersToConnect.add(connectablePeers[0..<length])
+    peersToConnect = peersToConnect + toHashSet(connectablePeers[0..<length])
 
   await pm.pruneInRelayConns(peersToDisconnect)
   
@@ -740,7 +739,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     return
 
   # Even with duplicates, after a couple of iteration the target will be reached
-  let uniquePeers = peersToConnect.deduplicate()
+  let uniquePeers = toSeq(peersToConnect)
 
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
