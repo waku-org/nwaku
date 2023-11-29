@@ -1,3 +1,23 @@
+## v0.22.1 (2023-11-29)
+
+This patch release adds the following feature:
+- Adding `messageHash` DB column
+
+### Features
+
+- Add new DB column messageHash ([#2202](https://github.com/waku-org/nwaku/pull/2202)) ([aeb77a3e](https://github.com/waku-org/nwaku/commit/aeb77a3e))
+
+This is a patch release that is fully backwards-compatible with release `v0.22.0`.
+
+It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
 ## v0.22.0 (2023-11-15)
 
 > Note: The `--topic` option is now deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`
