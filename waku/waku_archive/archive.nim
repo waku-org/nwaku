@@ -46,7 +46,7 @@ type DefaultMessageValidator* = ref object of MessageValidator
 
 method validate*(validator: DefaultMessageValidator, msg: WakuMessage): ValidationResult =
   if msg.timestamp == 0:
-    return ok()
+    return err(timestampIsZero)
 
   let
     now = getNanosecondTime(getTime().toUnixFloat())
