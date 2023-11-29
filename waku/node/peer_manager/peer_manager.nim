@@ -731,7 +731,11 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
       RelayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
       
     let length = min(outPeerDiff, connectablePeers.len)
-    peersToConnect = peersToConnect + toHashSet(connectablePeers[0..<length])
+    let target = peersToConnect.len + length
+    for peer in connectablePeers:
+      peersToConnect.incl(peer)
+      if peersToConnect.len >= target:
+        break
 
   await pm.pruneInRelayConns(peersToDisconnect)
   
