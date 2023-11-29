@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, uri],
+  std/[options, sequtils, strutils, uri, hashes],
   stew/results,
   stew/shims/net,
   chronos,
@@ -84,6 +84,8 @@ proc init*(T: typedesc[RemotePeerInfo],
   let peerId = PeerID.init(peerId).tryGet()
   RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols)
 
+template hash*(remotePeerInfo: RemotePeerInfo): Hash =
+  hash(remotePeerInfo.peerId)
 
 ## Parse
 
