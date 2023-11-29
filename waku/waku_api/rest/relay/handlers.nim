@@ -125,7 +125,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       return error
 
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
-      return RestApiResponse.badRequest()
+      return RestApiResponse.badRequest($error)
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
