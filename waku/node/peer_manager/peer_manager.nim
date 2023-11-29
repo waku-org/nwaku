@@ -17,6 +17,10 @@ import
   ../../waku_core,
   ../../waku_relay,
   ../../waku_enr/sharding,
+  ../../waku_enr/capabilities,
+  ../../waku_store/common,
+  ../../waku_filter_v2/common,
+  ../../waku_lightpush/common,
   ../../waku_metadata,
   ./peer_store/peer_storage,
   ./waku_peer_store
@@ -134,6 +138,24 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   
   if remotePeerInfo.protocols.len > 0:
     pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
+  elif remotePeerInfo.enr.isSome():
+    # RemotePeerInfo from discv5 always have empty protocol list
+    let caps = remotePeerInfo.enr.get().getCapabilities()
+    
+    var protos: seq[string]
+    for cap in caps:
+      case cap:
+        of Relay:
+          protos.add(WakuRelayCodec)
+        of Store:
+          protos.add(WakuStoreCodec)
+        of Filter:
+          protos.add(WakuFilterSubscribeCodec)
+          protos.add(WakuFilterPushCodec)
+        of LightPush:
+          protos.add(WakuLightPushCodec)
+
+    pm.peerStore[ProtoBook][remotePeerInfo.peerId] = protos
 
   if remotePeerInfo.enr.isSome():
     pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
@@ -689,20 +711,25 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     var connectablePeers = pm.peerStore.getPeersByShard(
       uint16(pm.wakuMetadata.clusterId), uint16(shard))
   
-    debug "Unfiltered Connectable peers",
+    debug "Peers on this shard",
       ShardNumber = shard,
       Peers = connectablePeers.len
 
     connectablePeers.keepItIf(
-      it.protocols.contains(WakuRelayCodec) and
       not pm.peerStore.isConnected(it.peerId) and
       pm.canBeConnected(it.peerId))
 
-    debug "Target Peer Count per Shard",
+    debug "Connectable Peers",
+      ShardNumber = shard,
+      Peers = connectablePeers.len
+
+    connectablePeers.keepItIf(it.protocols.contains(WakuRelayCodec))
+
+    debug "Target Peer Count",
       ShardNumber = shard,
       Inbound = $connectedInPeers.len & "/" & $inTarget,
       Outbound = $connectedOutPeers.len & "/" & $outTarget,
-      Connectable = connectablePeers.len
+      RelayConnectable = connectablePeers.len
 
     let length = min(outPeerDiff, connectablePeers.len)
     peersToConnect.add(connectablePeers[0..<length])
