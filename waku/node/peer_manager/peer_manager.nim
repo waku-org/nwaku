@@ -676,6 +676,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
   let connsToPrune = min(amount, inRelayPeers.len)
 
   for p in inRelayPeers[0..<connsToPrune]:
+    info "Peer Pruning", Peer=$p
     asyncSpawn(pm.switch.disconnect(p))
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
@@ -684,6 +685,10 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   # Get all connected peers for Waku Relay
   var (inPeers, outPeers) = pm.connectedPeers(WakuRelayCodec)
+
+  info "Connected to Peers",
+    InPeers=$inPeers,
+    OutPeers=$outPeers
 
   # Calculate in/out target number of peers for each shards
   let inTarget = pm.inRelayPeersTarget div pm.wakuMetadata.shards.len
@@ -723,7 +728,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let relayCount = connectablePeers.len
 
-    debug "Sharded Peer Management",
+    info "Sharded Peer Management",
       Shard = shard,
       Connectable = $connectableCount & "/" & $shardCount,
       RelayConnectable = $relayCount & "/" & $shardCount,
@@ -733,6 +738,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     let length = min(outPeerDiff, connectablePeers.len)
     let target = peersToConnect.len + length
     for peer in connectablePeers:
+      info "Peer To Connect To", Peer=$peer.peerId
       peersToConnect.incl(peer)
       if peersToConnect.len >= target:
         break
@@ -748,6 +754,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
     let stop = min(i + MaxParallelDials, uniquePeers.len)
+    info "Connecting to Peers", Peers=$uniquePeers[i..<stop].mapIt(it.peerId)
     await pm.connectToNodes(uniquePeers[i..<stop])
 
 proc prunePeerStore*(pm: PeerManager) =
