@@ -391,38 +391,22 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   var obj = KeystoreEntry(
     crypto: CryptoNew(
-        cipher: "my cypher",
+        cipher: $cryptkind,
         cipherparams: CypherParams(
-          iv: "AAAA iv"
+          iv: toHex(iv, true)
         ),
-        ciphertext: "cipher text AAA",
-        kdf: "kfd example",
+        ciphertext: toHex(ciphertext, true),
+        kdf: $kdfkind,
         kdfparams: params,
-        mac: "string AAAA"
-    ),
-    id: "aAAA",
-    version: "version"
+        mac: toHex(mac.data, true)
+    )
   )
 
   let json = %* obj
-
-  # let json = %* (
-  #   "{" &
-  #   "  crypto: {" &
-  #   "    cipher: " & $cryptkind & "," &
-  #   "    cipherparams: {" &
-  #   "      iv: " & toHex(iv, true) &
-  #   "    }," &
-  #   "    ciphertext: " & toHex(ciphertext, true) & "," &
-  #   "    kdf: " & $kdfkind & "," &
-  #   "    kdfparams: " & $params & "," &
-  #   "    mac: " & toHex(mac.data, true) &
-  #   "  }" &
-  #   (if IdInKeyfile: ", id: " & $u else: "") &
-  #   (if VersionInKeyfile: ", version: " & $version else: "") &
-  #   "}"
-  # )
-
+  if IdInKeyfile:
+    json.add("id", %($u))
+  if VersionInKeyfile:
+    json.add("version", %version)
 
   ok(json)
 
