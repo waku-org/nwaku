@@ -682,6 +682,9 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     asyncSpawn(pm.switch.disconnect(p))
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
+  if pm.wakuMetadata.shards.len == 0:
+    return
+  
   var peersToConnect: HashSet[RemotePeerInfo]
   var peersToDisconnect: int
 

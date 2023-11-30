@@ -32,7 +32,8 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
-    topics: @[],
+    clusterId: 1.uint32,
+    topics: @["/waku/2/rs/1/0"],
     relay: true
   )
 
@@ -55,8 +56,8 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
                       dns4DomainName = none(string),
                       discv5UdpPort = none(Port),
                       agentString = none(string),
-                      clusterId: uint32 = 2.uint32,
-                      topics: seq[string] = @["/waku/2/rs/2/0"],
+                      clusterId: uint32 = 1.uint32,
+                      topics: seq[string] = @["/waku/2/rs/1/0"],
                       peerStoreCapacity = none(int)): WakuNode =
 
   var resolvedExtIp = extIp
@@ -68,6 +69,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
 
   var conf = defaultTestWakuNodeConf()
 
+  conf.clusterId = clusterId
   conf.topics = topics
 
   if dns4DomainName.isSome() and extIp.isNone():
