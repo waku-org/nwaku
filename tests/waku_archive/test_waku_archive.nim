@@ -341,7 +341,7 @@ procSuite "Waku Archive - find messages":
     ## Given
     let req = ArchiveQuery(
       pageSize: 4,
-      ascending: true
+      direction: true
     )
 
     ## When
@@ -377,7 +377,7 @@ procSuite "Waku Archive - find messages":
     ## Given
     let req = ArchiveQuery(
       pageSize: 4,
-      ascending: false  # backward
+      direction: false  # backward
     )
 
     ## When
@@ -454,7 +454,7 @@ procSuite "Waku Archive - find messages":
       contentTopics: @[ContentTopic("1")],
       startTime: some(ts(15, timeOrigin)),
       endTime: some(ts(55, timeOrigin)),
-      ascending: true
+      direction: true
     )
 
     ## When

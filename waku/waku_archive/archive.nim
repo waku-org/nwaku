@@ -131,7 +131,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
     qEndTime = query.endTime
     qMaxPageSize = if query.pageSize <= 0: DefaultPageSize
                    else: min(query.pageSize, MaxPageSize)
-    qAscendingOrder = query.ascending
+    qDirection = query.direction
 
   if qContentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
@@ -145,7 +145,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
       startTime = qStartTime,
       endTime = qEndTime,
       maxPageSize = qMaxPageSize + 1,
-      ascendingOrder = qAscendingOrder
+      ascendingOrder = qDirection
     )
 
   let queryDuration = getTime().toUnixFloat() - queryStartTime
@@ -188,7 +188,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
     ))
 
   # All messages MUST be returned in chronological order
-  if not qAscendingOrder:
+  if not qDirection:
     reverse(messages)
 
   return ok(ArchiveResponse(messages: messages, cursor: cursor))

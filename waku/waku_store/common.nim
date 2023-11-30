@@ -55,7 +55,7 @@ type
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
     pageSize*: uint64
-    ascending*: bool
+    direction*: bool
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]

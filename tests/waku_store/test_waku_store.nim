@@ -46,7 +46,7 @@ suite "Waku Store - query handler":
       server = await newTestWakuStore(serverSwitch, handler=queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], direction: true)
 
     ## When
     let queryRes = await client.query(req, peer=serverPeerInfo)
@@ -88,7 +88,7 @@ suite "Waku Store - query handler":
       server = await newTestWakuStore(serverSwitch, handler=queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], direction: true)
 
     ## When
     let queryRes = await client.query(req, peer=serverPeerInfo)

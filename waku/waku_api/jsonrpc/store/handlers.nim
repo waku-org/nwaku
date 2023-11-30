@@ -65,7 +65,7 @@ proc installStoreApiHandlers*(node: WakuNode, server: RpcServer) =
       contentTopics: contentFiltersOption.get(@[]).mapIt(it.contentTopic),
       startTime: startTime,
       endTime: endTime,
-      ascending: if pagingOptions.isNone(): true
+      direction: if pagingOptions.isNone(): true
                  else: pagingOptions.get().forward,
       pageSize: if pagingOptions.isNone(): DefaultPageSize
                 else: min(pagingOptions.get().pageSize, MaxPageSize),

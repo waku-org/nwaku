@@ -107,7 +107,7 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: true)
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -158,7 +158,7 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, ascending: false)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: false)
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When

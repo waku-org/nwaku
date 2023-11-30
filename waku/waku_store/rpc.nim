@@ -13,7 +13,7 @@ import
 
 ## Wire protocol
 
-const HistoryQueryAscendingDefaultValue = default(type HistoryQuery.ascending)
+const HistoryQueryDirectionDefaultValue = default(type HistoryQuery.direction)
 
 type PagingIndexRPC* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
@@ -122,13 +122,13 @@ proc toRPC*(query: HistoryQuery): HistoryQueryRPC =
   rpc.pagingInfo = block:
       if query.cursor.isNone() and
          query.pageSize == default(type query.pageSize) and
-         query.ascending == HistoryQueryAscendingDefaultValue:
+         query.direction == HistoryQueryDirectionDefaultValue:
         none(PagingInfoRPC)
       else:
         let
           pageSize = some(query.pageSize)
           cursor = query.cursor.map(toRPC)
-          direction = if query.ascending: some(PagingDirectionRPC.FORWARD)
+          direction = if query.direction: some(PagingDirectionRPC.FORWARD)
                       else: some(PagingDirectionRPC.BACKWARD)
         some(PagingInfoRPC(
           pageSize: pageSize,
@@ -158,7 +158,7 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
     pageSize = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().pageSize.isNone(): 0'u64
                else: rpc.pagingInfo.get().pageSize.get()
 
-    ascending = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): HistoryQueryAscendingDefaultValue
+    direction = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): HistoryQueryDirectionDefaultValue
                 else: rpc.pagingInfo.get().direction.get() == PagingDirectionRPC.FORWARD
 
   HistoryQuery(
@@ -168,7 +168,7 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
     startTime: startTime,
     endTime: endTime,
     pageSize: pageSize,
-    ascending: ascending
+    direction: direction
   )
 
 
