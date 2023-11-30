@@ -327,6 +327,22 @@ proc compareMac(m1: openArray[byte], m2: openArray[byte]): bool =
   else:
     return false
 
+type CypherParams = object
+  iv: string
+
+type CryptoNew = object
+  cipher: string
+  cipherparams: CypherParams
+  ciphertext: string
+  kdf: string
+  kdfparams: JsonNode
+  mac: string
+
+type KeystoreEntry = object
+  crypto: CryptoNew
+  id: string
+  version: string
+
 # Creates a keyfile for secret encrypted with password according to the other parameters
 # Returns keyfile in JSON according to Web3 Secure storage format (here, differently than standard, version and id are optional)
 proc createKeyFileJson*(secret: openArray[byte],
@@ -373,22 +389,40 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   let params = ? kdfParams(kdfkind, toHex(salt, true), workfactor)
 
-  let json = %* (
-    "{" &
-    "  crypto: {" &
-    "    cipher: " & $cryptkind & "," &
-    "    cipherparams: {" &
-    "      iv: " & toHex(iv, true) &
-    "    }," &
-    "    ciphertext: " & toHex(ciphertext, true) & "," &
-    "    kdf: " & $kdfkind & "," &
-    "    kdfparams: " & $params & "," &
-    "    mac: " & toHex(mac.data, true) &
-    "  }" &
-    (if IdInKeyfile: ", id: " & $u else: "") &
-    (if VersionInKeyfile: ", version: " & $version else: "") &
-    "}"
+  var obj = KeystoreEntry(
+    crypto: CryptoNew(
+        cipher: "my cypher",
+        cipherparams: CypherParams(
+          iv: "AAAA iv"
+        ),
+        ciphertext: "cipher text AAA",
+        kdf: "kfd example",
+        kdfparams: params,
+        mac: "string AAAA"
+    ),
+    id: "aAAA",
+    version: "version"
   )
+
+  let json = %* obj
+
+  # let json = %* (
+  #   "{" &
+  #   "  crypto: {" &
+  #   "    cipher: " & $cryptkind & "," &
+  #   "    cipherparams: {" &
+  #   "      iv: " & toHex(iv, true) &
+  #   "    }," &
+  #   "    ciphertext: " & toHex(ciphertext, true) & "," &
+  #   "    kdf: " & $kdfkind & "," &
+  #   "    kdfparams: " & $params & "," &
+  #   "    mac: " & toHex(mac.data, true) &
+  #   "  }" &
+  #   (if IdInKeyfile: ", id: " & $u else: "") &
+  #   (if VersionInKeyfile: ", version: " & $version else: "") &
+  #   "}"
+  # )
+
 
   ok(json)
 
