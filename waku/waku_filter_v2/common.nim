@@ -13,11 +13,11 @@ const
 type
   FilterSubscribeErrorKind* {.pure.} = enum
     UNKNOWN = uint32(000)
-    PEER_DIAL_FAILURE = uint32(200) # TODO shouldn't this be an error code, e.g. 504 Gateway Timeout?
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
     NOT_FOUND = uint32(404)
     SERVICE_UNAVAILABLE = uint32(503)
+    PEER_DIAL_FAILURE = uint32(504)
 
   FilterSubscribeError* = object
     case kind*: FilterSubscribeErrorKind
