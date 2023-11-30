@@ -4,7 +4,6 @@ import
   std/[options, sequtils, tempfiles],
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
   libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
@@ -15,10 +14,8 @@ import
   ../../../waku/waku_node,
   ../../../waku/waku_api/jsonrpc/relay/handlers as relay_api,
   ../../../waku/waku_api/jsonrpc/relay/client as relay_api_client,
-  ../../../waku/waku_core,
   ../../../waku/waku_relay,
   ../../../waku/waku_rln_relay,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -37,7 +34,7 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    let cache = MessageCache[string].init(capacity=30)
+    let cache = MessageCache.init(capacity=30)
     installRelayApiHandlers(node, server, cache)
     server.start()
 
@@ -111,7 +108,7 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    let cache = MessageCache[string].init(capacity=30)
+    let cache = MessageCache.init(capacity=30)
     installRelayApiHandlers(srcNode, server, cache)
     server.start()
 
@@ -181,7 +178,7 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    let cache = MessageCache[string].init(capacity=30)
+    let cache = MessageCache.init(capacity=30)
     installRelayApiHandlers(dstNode, server, cache)
     server.start()
 
@@ -244,7 +241,7 @@ suite "Waku v2 JSON-RPC API - Relay":
       ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
-    let cache = MessageCache[string].init(capacity=30)
+    let cache = MessageCache.init(capacity=30)
     installRelayApiHandlers(dstNode, server, cache)
     server.start()
 

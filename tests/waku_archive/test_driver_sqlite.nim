@@ -9,23 +9,16 @@ import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_core,
+  ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore
-
-
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new(":memory:").tryGet()
-
-proc newTestSqliteDriver(): ArchiveDriver =
-  let db = newTestDatabase()
-  SqliteDriver.new(db).tryGet()
 
 
 suite "SQLite driver":
 
   test "init driver and database":
     ## Given
-    let database = newTestDatabase()
+    let database = newSqliteDatabase()
 
     ## When
     let driverRes = SqliteDriver.new(database)
@@ -45,12 +38,12 @@ suite "SQLite driver":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let driver = newTestSqliteDriver()
+    let driver = newSqliteArchiveDriver()
 
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     ## When
-    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msg.timestamp)
+    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
 
     ## Then
     check:

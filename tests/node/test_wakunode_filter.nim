@@ -1,29 +1,38 @@
 {.used.}  
 
 import
-  std/[options, tables, sequtils],
+  std/[
+    options, 
+    tables, 
+    sequtils
+  ],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,
   os,
-  libp2p/peerstore,
-  libp2p/crypto/crypto
+  libp2p/[
+    peerstore, 
+    crypto/crypto
+  ]
 
 import
-  ../../../waku/waku_core,
-  ../../../waku/node/peer_manager,
-  ../../../waku/node/waku_node,
-  ../../../waku/waku_filter_v2,
-  ../../../waku/waku_filter_v2/client,
-  ../../../waku/waku_filter_v2/subscriptions,
-  ../testlib/common,
-  ../testlib/wakucore,
-  ../testlib/wakunode,
-  ../testlib/testasync,
-  ../testlib/futures
-
-let FUTURE_TIMEOUT = 1.seconds
+  ../../../waku/[
+    waku_core,
+    node/peer_manager,
+    node/waku_node,
+    waku_filter_v2,
+    waku_filter_v2/client,
+    waku_filter_v2/subscriptions
+  ],
+  ../testlib/[
+    common,
+    wakucore,
+    wakunode,
+    testasync,
+    futures,
+    testutils
+  ]
 
 suite "Waku Filter - End to End":
   var client {.threadvar.}: WakuNode
@@ -185,7 +194,7 @@ suite "Waku Filter - End to End":
     # And the client node reboots
     waitFor client.stop()
     waitFor client.start()
-    client.mountFilterClient()
+    discard client.mountFilterClient()
 
     # When a message is sent to the subscribed content topic, via Relay
     let msg = fakeWakuMessage(contentTopic=contentTopic)

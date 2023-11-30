@@ -24,11 +24,6 @@ logScope:
 
 const futTimeout* = 5.seconds # Max time to wait for futures
 
-
-type
-  MessageCache* = message_cache.MessageCache[ContentTopic]
-
-
 proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
 
   server.rpc("post_waku_v2_filter_v1_subscription") do (contentFilters: seq[ContentFilter], pubsubTopic: Option[PubsubTopic]) -> bool:
@@ -42,7 +37,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
     let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
     let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
-        cache.addMessage(msg.contentTopic, msg)
+        cache.addMessage(pubsubTopic, msg)
 
     let subFut = node.legacyFilterSubscribe(pubsubTopic, contentTopics, handler, peerOpt.get())
     if not await subFut.withTimeout(futTimeout):
@@ -50,7 +45,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
 
     # Successfully subscribed to all content filters
     for cTopic in contentTopics:
-      cache.subscribe(cTopic)
+      cache.contentSubscribe(cTopic)
 
     return true
 
@@ -69,7 +64,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
       raise newException(ValueError, "Failed to unsubscribe from contentFilters")
 
     for cTopic in contentTopics:
-      cache.unsubscribe(cTopic)
+      cache.contentUnsubscribe(cTopic)
 
     return true
 
@@ -78,7 +73,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
     ## last time this method was called
     debug "get_waku_v2_filter_v1_messages", contentTopic=contentTopic
 
-    if not cache.isSubscribed(contentTopic):
+    if not cache.isContentSubscribed(contentTopic):
       raise newException(ValueError, "Not subscribed to topic: " & contentTopic)
 
     let msgRes = cache.getMessages(contentTopic, clear=true)

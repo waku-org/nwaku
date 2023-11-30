@@ -46,30 +46,31 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
     var bootstrapNodeEnr: enr.Record
     discard bootstrapNodeEnr.fromURI(bootstrapNode)
 
+    let discv5Conf = WakuDiscoveryV5Config(
+      discv5Config: none(DiscoveryConfig),
+      address: ip,
+      port: Port(discv5Port),
+      privateKey: keys.PrivateKey(nodeKey.skkey),
+      bootstrapRecords: @[bootstrapNodeEnr],
+      autoupdateRecord: true,
+    )
+
     # assumes behind a firewall, so not care about being discoverable
     let wakuDiscv5 = WakuDiscoveryV5.new(
-        extIp= none(ValidIpAddress),
-        extTcpPort = none(Port),
-        extUdpPort = none(Port),
-        bindIP = ip,
-        discv5UdpPort = Port(discv5Port),
-        bootstrapEnrs = @[bootstrapNodeEnr],
-        privateKey = keys.PrivateKey(nodeKey.skkey),
-        flags = flags,
-        rng = node.rng,
-        topics = @[],
-        )
+      node.rng, 
+      discv5Conf,
+      some(node.enr),
+      some(node.peerManager),
+      node.topicSubscriptionQueue,
+    )
 
     await node.start()
     await node.mountRelay()
     node.peerManager.start()
 
-    let discv5Res = wakuDiscv5.start()
-    if discv5Res.isErr():
-      error "failed to start discv5", error = discv5Res.error
+    (await wakuDiscv5.start()).isOkOr:
+      error "failed to start discv5", error = error
       quit(1)
-
-    asyncSpawn wakuDiscv5.searchLoop(node.peerManager)
 
     # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
     while true:

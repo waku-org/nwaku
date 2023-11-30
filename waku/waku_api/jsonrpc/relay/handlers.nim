@@ -32,22 +32,22 @@ const futTimeout* = 5.seconds # Max time to wait for futures
 
 ## Waku Relay JSON-RPC API
 
-proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache[string]) =
+proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageCache) =
   server.rpc("post_waku_v2_relay_v1_subscriptions") do (pubsubTopics: seq[PubsubTopic]) -> bool:
     if pubsubTopics.len == 0:
       raise newException(ValueError, "No pubsub topic provided")
-    
+
     ## Subscribes a node to a list of PubSub topics
     debug "post_waku_v2_relay_v1_subscriptions"
 
     # Subscribe to all requested topics
-    let newTopics = pubsubTopics.filterIt(not cache.isSubscribed(it))
+    let newTopics = pubsubTopics.filterIt(not cache.isPubsubSubscribed(it))
 
     for pubsubTopic in newTopics:
       if pubsubTopic == "":
         raise newException(ValueError, "Empty pubsub topic")
 
-      cache.subscribe(pubsubTopic)
+      cache.pubsubSubscribe(pubsubTopic)
       node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache)))
 
     return true
@@ -55,18 +55,18 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("delete_waku_v2_relay_v1_subscriptions") do (pubsubTopics: seq[PubsubTopic]) -> bool:
     if pubsubTopics.len == 0:
       raise newException(ValueError, "No pubsub topic provided")
-    
+
     ## Unsubscribes a node from a list of PubSub topics
     debug "delete_waku_v2_relay_v1_subscriptions"
 
     # Unsubscribe all handlers from requested topics
-    let subscribedTopics = pubsubTopics.filterIt(cache.isSubscribed(it))
+    let subscribedTopics = pubsubTopics.filterIt(cache.isPubsubSubscribed(it))
 
     for pubsubTopic in subscribedTopics:
       if pubsubTopic == "":
         raise newException(ValueError, "Empty pubsub topic")
 
-      cache.unsubscribe(pubsubTopic)
+      cache.pubsubUnsubscribe(pubsubTopic)
       node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
 
     return true
@@ -74,7 +74,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("post_waku_v2_relay_v1_message") do (pubsubTopic: PubsubTopic, msg: WakuMessageRPC) -> bool:
     if pubsubTopic == "":
       raise newException(ValueError, "Empty pubsub topic")
-    
+
     ## Publishes a WakuMessage to a PubSub topic
     debug "post_waku_v2_relay_v1_message", pubsubTopic=pubsubTopic
 
@@ -107,7 +107,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
       if not success:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessage(message)
+      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
       if result == MessageValidationResult.Invalid:
         raise newException(ValueError, "Failed to publish: invalid RLN proof")
       elif result == MessageValidationResult.Spam:
@@ -128,7 +128,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("get_waku_v2_relay_v1_messages") do (pubsubTopic: PubsubTopic) -> seq[WakuMessageRPC]:
     if pubsubTopic == "":
       raise newException(ValueError, "Empty pubsub topic")
-    
+
     ## Returns all WakuMessages received on a PubSub topic since the
     ## last time this method was called
     debug "get_waku_v2_relay_v1_messages", topic=pubsubTopic
@@ -144,37 +144,37 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("post_waku_v2_relay_v1_auto_subscriptions") do (contentTopics: seq[ContentTopic]) -> bool:
     if contentTopics.len == 0:
       raise newException(ValueError, "No content topic provided")
-    
+
     ## Subscribes a node to a list of Content topics
     debug "post_waku_v2_relay_v1_auto_subscriptions"
 
-    let newTopics = contentTopics.filterIt(not cache.isSubscribed(it))
+    let newTopics = contentTopics.filterIt(not cache.isContentSubscribed(it))
 
     # Subscribe to all requested topics
     for contentTopic in newTopics:
       if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
 
-      cache.subscribe(contentTopic)
-      node.subscribe((kind: ContentSub, topic: contentTopic), some(autoMessageCacheHandler(cache)))
+      cache.contentSubscribe(contentTopic)
+      node.subscribe((kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache)))
 
     return true
 
   server.rpc("delete_waku_v2_relay_v1_auto_subscriptions") do (contentTopics: seq[ContentTopic]) -> bool:
     if contentTopics.len == 0:
       raise newException(ValueError, "No content topic provided")
-    
+
     ## Unsubscribes a node from a list of Content topics
     debug "delete_waku_v2_relay_v1_auto_subscriptions"
 
-    let subscribedTopics = contentTopics.filterIt(cache.isSubscribed(it))
+    let subscribedTopics = contentTopics.filterIt(cache.isContentSubscribed(it))
 
     # Unsubscribe all handlers from requested topics
     for contentTopic in subscribedTopics:
       if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
 
-      cache.unsubscribe(contentTopic)
+      cache.contentUnsubscribe(contentTopic)
       node.unsubscribe((kind: ContentUnsub, topic: contentTopic))
 
     return true
@@ -197,7 +197,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
         timestamp: msg.timestamp.get(Timestamp(0)),
         ephemeral: msg.ephemeral.get(false)
       )
-    
+
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
@@ -206,7 +206,7 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
       if not success:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessage(message)
+      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
       if result == MessageValidationResult.Invalid:
         raise newException(ValueError, "Failed to publish: invalid RLN proof")
       elif result == MessageValidationResult.Spam:
@@ -227,12 +227,12 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
   server.rpc("get_waku_v2_relay_v1_auto_messages") do (contentTopic: ContentTopic) -> seq[WakuMessageRPC]:
     if contentTopic == "":
         raise newException(ValueError, "Empty content topic")
-    
+
     ## Returns all WakuMessages received on a Content topic since the
     ## last time this method was called
     debug "get_waku_v2_relay_v1_auto_messages", topic=contentTopic
 
-    let msgRes = cache.getMessages(contentTopic, clear=true)
+    let msgRes = cache.getAutoMessages(contentTopic, clear=true)
     if msgRes.isErr():
       raise newException(ValueError, "Not subscribed to content topic: " & contentTopic)
 

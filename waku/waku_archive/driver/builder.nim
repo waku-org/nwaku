@@ -28,12 +28,14 @@ proc new*(T: type ArchiveDriver,
           url: string,
           vacuum: bool,
           migrate: bool,
+          maxNumConn: int,
           onErrAction: OnErrHandler):
           Result[T, string] =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
   ## migrate - if true, the database schema will be updated
-  ## onErrAction - called if, e.g., the connection with db got lost forever
+  ## maxNumConn - defines the maximum number of connections to handle simultaneously (Postgres)
+  ## onErrAction - called if, e.g., the connection with db got lost
 
   let dbUrlValidationRes = dburl.validateDbUrl(url)
   if dbUrlValidationRes.isErr():
@@ -81,7 +83,9 @@ proc new*(T: type ArchiveDriver,
 
   of "postgres":
     when defined(postgres):
-      let res = PostgresDriver.new(dbUrl = url, onErrAction = onErrAction)
+      let res = PostgresDriver.new(dbUrl = url,
+                                   maxConnections = maxNumConn,
+                                   onErrAction = onErrAction)
       if res.isErr():
         return err("failed to init postgres archive driver: " & res.error)
 

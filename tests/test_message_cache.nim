@@ -1,153 +1,217 @@
 {.used.}
 
 import
+  std/sets,
   stew/[results, byteutils],
-  testutils/unittests,
-  chronicles
+  testutils/unittests
 import
   ../../waku/waku_core,
   ../../waku/waku_api/message_cache,
-  ./testlib/common,
   ./testlib/wakucore
 
-
-type TestMessageCache = MessageCache[(PubsubTopic, ContentTopic)]
-
 suite "MessageCache":
-  test "subscribe to topic":
+  setup:
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
-    let cache = TestMessageCache.init()
+    let capacity = 3
+    let testPubsubTopic = DefaultPubsubTopic
+    let testContentTopic = DefaultContentTopic
+    let cache = MessageCache.init(capacity)
 
+  test "subscribe to topic":
     ## When
-    cache.subscribe(testTopic)
+    cache.pubsubSubscribe(testPubsubTopic)
+    cache.pubsubSubscribe(testPubsubTopic)
+
+    # idempotence of subscribe is also tested
+    cache.contentSubscribe(testContentTopic)
+    cache.contentSubscribe(testContentTopic)
 
     ## Then
     check:
-      cache.isSubscribed(testTopic)
-
+      cache.isPubsubSubscribed(testPubsubTopic)
+      cache.isContentSubscribed(testContentTopic)
+      cache.pubsubTopicCount() == 1
+      cache.contentTopicCount() == 1
 
   test "unsubscribe from topic":
-    ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
-    let cache = TestMessageCache.init()
-
     # Init cache content
-    cache.subscribe(testTopic)
+    cache.pubsubSubscribe(testPubsubTopic)
+    cache.contentSubscribe(testContentTopic)
+
+    cache.pubsubSubscribe("AnotherPubsubTopic")
+    cache.contentSubscribe("AnotherContentTopic")
 
     ## When
-    cache.unsubscribe(testTopic)
+    cache.pubsubUnsubscribe(testPubsubTopic)
+    cache.contentUnsubscribe(testContentTopic)
 
     ## Then
     check:
-      not cache.isSubscribed(testTopic)
-
+      not cache.isPubsubSubscribed(testPubsubTopic)
+      not cache.isContentSubscribed(testContentTopic)
+      cache.pubsubTopicCount() == 1
+      cache.contentTopicCount() == 1
 
   test "get messages of a subscribed topic":
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init()
 
     # Init cache content
-    cache.subscribe(testTopic)
-    cache.addMessage(testTopic, testMessage)
+    cache.pubsubSubscribe(testPubsubTopic)
+    cache.addMessage(testPubsubTopic, testMessage)
 
     ## When
-    let res = cache.getMessages(testTopic)
+    let res = cache.getMessages(testPubsubTopic)
 
     ## Then
     check:
       res.isOk()
       res.get() == @[testMessage]
 
-
   test "get messages with clean flag shoud clear the messages cache":
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init()
 
     # Init cache content
-    cache.subscribe(testTopic)
-    cache.addMessage(testTopic, testMessage)
+    cache.pubsubSubscribe(testPubsubTopic)
+    cache.addMessage(testPubsubTopic, testMessage)
 
     ## When
-    var res = cache.getMessages(testTopic, clear=true)
+    var res = cache.getMessages(testPubsubTopic, clear=true)
     require(res.isOk())
 
-    res = cache.getMessages(testTopic)
+    res = cache.getMessages(testPubsubTopic)
 
     ## Then
     check:
       res.isOk()
       res.get().len == 0
 
-
   test "get messages of a non-subscribed topic":
-    ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
-    let cache = TestMessageCache.init()
-
     ## When
-    let res = cache.getMessages(testTopic)
+    cache.pubsubSubscribe(PubsubTopic("dummyPubsub"))
+    let res = cache.getMessages(testPubsubTopic)
 
     ## Then
     check:
       res.isErr()
-      res.error() == "Not subscribed to topic"
-
+      res.error() == "not subscribed to this pubsub topic"
 
   test "add messages to subscribed topic":
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init()
 
-    cache.subscribe(testTopic)
+    cache.pubsubSubscribe(testPubsubTopic)
 
     ## When
-    cache.addMessage(testTopic, testMessage)
+    cache.addMessage(testPubsubTopic, testMessage)
 
     ## Then
-    let messages = cache.getMessages(testTopic).tryGet()
+    let messages = cache.getMessages(testPubsubTopic).tryGet()
     check:
       messages == @[testMessage]
 
-
   test "add messages to non-subscribed topic":
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
     let testMessage = fakeWakuMessage()
-    let cache = TestMessageCache.init()
 
     ## When
-    cache.addMessage(testTopic, testMessage)
+    cache.addMessage(testPubsubTopic, testMessage)
 
     ## Then
-    let res = cache.getMessages(testTopic)
+    let res = cache.getMessages(testPubsubTopic)
     check:
      res.isErr()
-     res.error() == "Not subscribed to topic"
-
+     res.error() == "not subscribed to any pubsub topics"
 
   test "add messages beyond the capacity":
     ## Given
-    let testTopic = (PubsubTopic("test-pubsub-topic"), ContentTopic("test-content-topic"))
-    let testMessages = @[
-      fakeWakuMessage(toBytes("MSG-1")),
-      fakeWakuMessage(toBytes("MSG-2")),
-      fakeWakuMessage(toBytes("MSG-3"))
-    ]
+    var testMessages = @[fakeWakuMessage(toBytes("MSG-1"))]
 
-    let cache = TestMessageCache.init(capacity = 2)
-    cache.subscribe(testTopic)
+    # Prevent duplicate messages timestamp
+    for i in 0..<5:
+      var msg = fakeWakuMessage(toBytes("MSG-1"))
+
+      while msg.timestamp <= testMessages[i].timestamp:
+        msg = fakeWakuMessage(toBytes("MSG-1"))
+
+      testMessages.add(msg)
+
+    cache.pubsubSubscribe(testPubsubTopic)
 
     ## When
     for msg in testMessages:
-      cache.addMessage(testTopic, msg)
+      cache.addMessage(testPubsubTopic, msg)
 
     ## Then
-    let messages = cache.getMessages(testTopic).tryGet()
+    let messages = cache.getMessages(testPubsubTopic).tryGet()
+    let messageSet = toHashSet(messages)
+
+    let testSet = toHashSet(testMessages)
+
     check:
-      messages == testMessages[1..2]
+      messageSet.len == capacity
+      messageSet < testSet
+      testMessages[0] notin messages
+
+  test "get messages on pubsub via content topics":
+    cache.pubsubSubscribe(testPubsubTopic)
+
+    let fakeMessage = fakeWakuMessage()
+
+    cache.addMessage(testPubsubTopic, fakeMessage)
+
+    let getRes = cache.getAutoMessages(DefaultContentTopic)
+
+    check:
+      getRes.isOk
+      getRes.get() == @[fakeMessage]
+  
+  test "add same message twice":
+    cache.pubsubSubscribe(testPubsubTopic)
+
+    let fakeMessage = fakeWakuMessage()
+
+    cache.addMessage(testPubsubTopic, fakeMessage)
+    cache.addMessage(testPubsubTopic, fakeMessage)
+
+    check:
+      cache.messagesCount() == 1
+
+  test "unsubscribing remove messages":
+    let topic0 = "PubsubTopic0"
+    let topic1 = "PubsubTopic1"
+    let topic2 = "PubsubTopic2"
+
+    let fakeMessage0 = fakeWakuMessage(toBytes("MSG-0"))
+    let fakeMessage1 = fakeWakuMessage(toBytes("MSG-1"))
+    let fakeMessage2 = fakeWakuMessage(toBytes("MSG-2"))
+
+    cache.pubsubSubscribe(topic0)
+    cache.pubsubSubscribe(topic1)
+    cache.pubsubSubscribe(topic2)
+    cache.contentSubscribe("ContentTopic0")
+
+    cache.addMessage(topic0, fakeMessage0)
+    cache.addMessage(topic1, fakeMessage1)
+    cache.addMessage(topic2, fakeMessage2)
+
+    cache.pubsubUnsubscribe(topic0)
+
+    # at this point, fakeMessage0 is only ref by DefaultContentTopic
+
+    let res = cache.getAutoMessages(DefaultContentTopic)
+
+    check:
+      res.isOk()
+      res.get().len == 3
+      cache.isPubsubSubscribed(topic0) == false
+      cache.isPubsubSubscribed(topic1) == true
+      cache.isPubsubSubscribed(topic2) == true
+
+    cache.contentUnsubscribe(DefaultContentTopic)
+
+    # msg0 was delete because no refs
+
+    check:
+      cache.messagesCount() == 2
