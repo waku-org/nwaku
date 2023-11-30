@@ -685,7 +685,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
   
-  var peersToConnect: HashSet[RemotePeerInfo]
+  var peersToConnect: HashSet[PeerId] # Can't use RemotePeerInfo as they are ref object
   var peersToDisconnect: int
 
   # Get all connected peers for Waku Relay
@@ -747,7 +747,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
       info "Peer To Connect To",
         Peer = $peer.peerId
       
-      peersToConnect.incl(peer)
+      peersToConnect.incl(peer.peerId)
       if peersToConnect.len >= target:
         break
 
@@ -756,19 +756,16 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if peersToConnect.len == 0:
     return
 
+  let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.get(it))
+
   # Connect to all nodes
   for i in countup(0, peersToConnect.len, MaxParallelDials):
     var stop = min(i + MaxParallelDials, peersToConnect.len)
     
-    var peers: seq[RemotePeerInfo]
-    while stop > 0:
-      peers.add(peersToConnect.pop())
-      dec(stop)
-
     info "Connecting to Peers",
-      Peers = $(peers.mapIt(it.peerId))
+      Peers = $uniquePeers[i..<stop]
 
-    await pm.connectToNodes(peers)
+    await pm.connectToNodes(uniquePeers[i..<stop])
 
 proc prunePeerStore*(pm: PeerManager) =
   let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
