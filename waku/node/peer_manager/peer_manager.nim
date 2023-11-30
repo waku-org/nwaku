@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[options, sets, sequtils, times, strutils, math],
+  std/[options, sugar, sets, sequtils, times, strutils, math],
   chronos,
   chronicles,
   metrics,
@@ -753,17 +753,19 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if peersToConnect.len == 0:
     return
 
-  # Even with duplicates, after a couple of iteration the target will be reached
-  let uniquePeers = toSeq(peersToConnect)
-
   # Connect to all nodes
-  for i in countup(0, uniquePeers.len, MaxParallelDials):
-    let stop = min(i + MaxParallelDials, uniquePeers.len)
+  for i in countup(0, peersToConnect.len, MaxParallelDials):
+    var stop = min(i + MaxParallelDials, peersToConnect.len)
     
-    info "Connecting to Peers",
-      Peers = $(uniquePeers[i..<stop].mapIt(it.peerId))
+    var peers: seq[RemotePeerInfo]
+    while stop > 0:
+      peers.add(peersToConnect.pop())
+      dec(stop)
 
-    await pm.connectToNodes(uniquePeers[i..<stop])
+    info "Connecting to Peers",
+      Peers = $(peers.mapIt(it.peerId))
+
+    await pm.connectToNodes(peers)
 
 proc prunePeerStore*(pm: PeerManager) =
   let numPeers = toSeq(pm.peerStore[AddressBook].book.keys).len
