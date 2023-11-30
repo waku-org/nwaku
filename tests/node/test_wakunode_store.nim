@@ -23,6 +23,7 @@ import
     waku_store,
     waku_store/client,
   ],
+  ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../testlib/[
     common,
@@ -58,6 +59,7 @@ suite "Waku Store - End to End - Sorted Archive":
   var server {.threadvar.}: WakuNode
   var client {.threadvar.}: WakuNode
 
+  var archiveDriver {.threadvar.}: ArchiveDriver
   var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
   var clientPeerId {.threadvar.}: PeerId  
 
@@ -83,7 +85,7 @@ suite "Waku Store - End to End - Sorted Archive":
     historyQuery = HistoryQuery(
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
@@ -94,9 +96,8 @@ suite "Waku Store - End to End - Sorted Archive":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    let
-      archiveDriverWithMessages = newArchiveDriverWithMessages(pubsubTopic, archiveMessages)
-      mountArchiveResult = server.mountArchive(archiveDriverWithMessages)
+    archiveDriver = newArchiveDriverWithMessages(pubsubTopic, archiveMessages)
+    let mountArchiveResult = server.mountArchive(archiveDriver)
     assert mountArchiveResult.isOk()
 
     waitFor server.mountStore()
@@ -124,7 +125,7 @@ suite "Waku Store - End to End - Sorted Archive":
         cursor: queryResponse.get().cursor,
         pubsubTopic: some(pubsubTopic),
         contentTopics: contentTopicSeq,
-        ascending: true,
+        direction: true,
         pageSize: 5
       )
 
@@ -137,7 +138,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
     asyncTest "Backward Pagination":
       # Given the history query is backward
-      historyQuery.ascending = false
+      historyQuery.direction = false
 
       # When making a history query
       let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
@@ -151,7 +152,7 @@ suite "Waku Store - End to End - Sorted Archive":
         cursor: queryResponse.get().cursor,
         pubsubTopic: some(pubsubTopic),
         contentTopics: contentTopicSeq,
-        ascending: false,
+        direction: false,
         pageSize: 5
       )
 
@@ -179,7 +180,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse1.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 2
         )
 
@@ -195,7 +196,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse2.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 2
         )
 
@@ -211,7 +212,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse3.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 2
         )
 
@@ -227,7 +228,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse4.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 2
         )
 
@@ -254,7 +255,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse1.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 8
         )
 
@@ -303,7 +304,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse1.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 4
         )
 
@@ -319,7 +320,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: queryResponse2.get().cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 6
         )
 
@@ -330,12 +331,30 @@ suite "Waku Store - End to End - Sorted Archive":
         check:
           queryResponse3.get().messages == archiveMessages[6..<10]
 
-      asyncTest "Pagination with Default Page Size (0)":
+      asyncTest "Pagination with Default Page Size":
+        # Given a message list of size higher than the default page size
+        let currentStoreLen = uint((await archiveDriver.getMessagesCount()).get())
+        assert archive.DefaultPageSize > currentStoreLen, "This test requires a store with more than (DefaultPageSize) messages"
+        let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
+
+        # TODO: Improving in next PR
+        let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
+        for i in 0..<missingMessagesAmount:
+          let
+            timestampOffset = 10 * int(i + 1) # + 1 to avoid collision with existing messages
+            message = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
+            messageDigest = waku_archive.computeDigest(message)
+            messageHash = computeMessageHash(pubsubTopic, message)
+          discard waitFor archiveDriver.put(
+            pubsubTopic, message, messageDigest, messageHash, message.timestamp
+          )
+          archiveMessages.add(message)
+
         # Given a query with default page size
         historyQuery = HistoryQuery(
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true
+          direction: true
         )
 
         # When making a history query
@@ -343,7 +362,22 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse.get().messages == archiveMessages[0..<10]
+          queryResponse.get().messages == archiveMessages[0..<archive.DefaultPageSize]
+
+        # Given the next query
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: true
+        )
+
+        # When making the next history query
+        let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
+
+        # Then the response contains the messages
+        check:
+          queryResponse2.get().messages == archiveMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
 
     suite "Pagination with Different Cursors":
       asyncTest "Starting Cursor":
@@ -415,7 +449,7 @@ suite "Waku Store - End to End - Sorted Archive":
           cursor: cursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
-          ascending: true,
+          direction: true,
           pageSize: 5
         )
         let otherQueryResponse = await client.query(otherHistoryQuery, otherServerRemotePeerInfo)
@@ -449,7 +483,7 @@ suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
     historyQuery = HistoryQuery(
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
@@ -509,7 +543,7 @@ suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
       cursor: queryResponse.get().cursor,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
@@ -529,7 +563,7 @@ suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
   asyncTest "Backward pagination with Ascending Sorting":
     # Given a history query with backward pagination
     let cursor = computeHistoryCursor(pubsubTopic, unsortedArchiveMessages[4])
-    historyQuery.ascending = false
+    historyQuery.direction = false
     historyQuery.cursor = some(cursor)
 
     # When making a history query
@@ -546,7 +580,7 @@ suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
   asyncTest "Forward Pagination with Ascending Sorting":
     # Given a history query with forward pagination
     let cursor = computeHistoryCursor(pubsubTopic, unsortedArchiveMessages[4])
-    historyQuery.ascending = true
+    historyQuery.direction = true
     historyQuery.cursor = some(cursor)
 
     # When making a history query
@@ -584,7 +618,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
     historyQuery = HistoryQuery(
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
@@ -644,7 +678,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
       cursor: queryResponse.get().cursor,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
