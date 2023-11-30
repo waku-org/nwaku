@@ -741,7 +741,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
       RelayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
       
     let length = min(outPeerDiff, connectablePeers.len)
-    for peer in connectablePeers[0..length]:
+    for peer in connectablePeers[0..<length]:
       
       info "Peer To Connect To",
         Peer = $peer.peerId
@@ -757,7 +757,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
-    var stop = min(i + MaxParallelDials, uniquePeers.len)
+    let stop = min(i + MaxParallelDials, uniquePeers.len)
     
     info "Connecting to Peers",
       Peers = $uniquePeers[i..<stop]
