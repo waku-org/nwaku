@@ -72,7 +72,7 @@ suite "Waku Archive - message handling":
 
     ## Then
     check:
-      (waitFor driver.getMessagesCount()).tryGet() == 1
+      (waitFor driver.getMessagesCount()).tryGet() == 0
 
   test "it should not driver a message with a sender time variance greater than max time variance (future)":
     ## Setup
