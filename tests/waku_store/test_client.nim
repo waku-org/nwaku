@@ -74,7 +74,6 @@ suite "Store Client":
   
   suite "HistoryQuery Creation and Execution":
     asyncTest "Valid Queries":
-      assert false
       # When a valid query is sent to the server
       let queryResponse = await client.query(historyQuery, peer=serverPeerInfo)
 
