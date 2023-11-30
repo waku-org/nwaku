@@ -756,8 +756,8 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.get(it))
 
   # Connect to all nodes
-  for i in countup(0, peersToConnect.len, MaxParallelDials):
-    var stop = min(i + MaxParallelDials, peersToConnect.len)
+  for i in countup(0, uniquePeers.len, MaxParallelDials):
+    var stop = min(i + MaxParallelDials, uniquePeers.len)
     
     info "Connecting to Peers",
       Peers = $uniquePeers[i..<stop]
