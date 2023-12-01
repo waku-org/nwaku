@@ -63,10 +63,10 @@ type
 
   HistoryErrorKind* {.pure.} = enum
     UNKNOWN = uint32(000)
-    PEER_DIAL_FAILURE = uint32(200)
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
     SERVICE_UNAVAILABLE = uint32(503)
+    PEER_DIAL_FAILURE = uint32(504)
 
   HistoryError* = object
     case kind*: HistoryErrorKind
