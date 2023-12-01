@@ -92,6 +92,23 @@ type
   DKey = array[DKLen, byte]
   KfResult*[T] = Result[T, KeyFileError]
 
+  # basic types for building Keystore JSON
+  CypherParams = object
+    iv: string
+
+  CryptoNew = object
+    cipher: string
+    cipherparams: CypherParams
+    ciphertext: string
+    kdf: string
+    kdfparams: JsonNode
+    mac: string
+
+  KeystoreEntry = object
+    crypto: CryptoNew
+    id: string
+    version: string
+
 const
   SupportedHashes = [
     "sha224", "sha256", "sha384", "sha512",
@@ -326,22 +343,6 @@ proc compareMac(m1: openArray[byte], m2: openArray[byte]): bool =
     return equalMem(unsafeAddr m1[0], unsafeAddr m2[0], len(m1))
   else:
     return false
-
-type CypherParams = object
-  iv: string
-
-type CryptoNew = object
-  cipher: string
-  cipherparams: CypherParams
-  ciphertext: string
-  kdf: string
-  kdfparams: JsonNode
-  mac: string
-
-type KeystoreEntry = object
-  crypto: CryptoNew
-  id: string
-  version: string
 
 # Creates a keyfile for secret encrypted with password according to the other parameters
 # Returns keyfile in JSON according to Web3 Secure storage format (here, differently than standard, version and id are optional)
