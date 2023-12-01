@@ -1,7 +1,7 @@
 # BUILD NIM APP ----------------------------------------------------------------
 
 # alpine:edge supports building rust binaries, alpine:3.16 doesn't for some reason
-FROM alpine@sha256:880fafbab5a7602db21ac37f0d17088a29a9a48f98d581f01ce17312c22ccbb5  AS nim-build
+FROM alpine@sha256:3e44438281baf26907675b99c9a4a421c4d4a57c954120327e703aa8329086bd  AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
