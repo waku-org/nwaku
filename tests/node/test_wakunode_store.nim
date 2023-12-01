@@ -277,17 +277,6 @@ suite "Waku Store - End to End - Sorted Archive":
         check:
           queryResponse1.get().messages == archiveMessages[0..<10]
 
-      asyncTest "Pagination with Zero Page Size":
-        # Given the first query (1/1)
-        historyQuery.pageSize = 0
-
-        # When making a history query
-        let queryResponse1 = await client.query(historyQuery, serverRemotePeerInfo)
-
-        # Then the response contains the messages
-        check:
-          queryResponse1.get().messages == archiveMessages[0..<10]
-
       asyncTest "Pagination with Mixed Page Size":
         # Given the first query (1/3)
         historyQuery.pageSize = 2
@@ -331,6 +320,51 @@ suite "Waku Store - End to End - Sorted Archive":
         check:
           queryResponse3.get().messages == archiveMessages[6..<10]
 
+      asyncTest "Pagination with Zero Page Size (Behaves as DefaultPageSize))":
+        # Given a message list of size higher than the default page size
+        let currentStoreLen = uint((await archiveDriver.getMessagesCount()).get())
+        assert archive.DefaultPageSize > currentStoreLen, "This test requires a store with more than (DefaultPageSize) messages"
+        let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
+
+        # TODO: Improving in next PR
+        let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
+        for i in 0..<missingMessagesAmount:
+          let
+            timestampOffset = 10 * int(i + 1) # + 1 to avoid collision with existing messages
+            message = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
+            messageDigest = waku_archive.computeDigest(message)
+            messageHash = computeMessageHash(pubsubTopic, message)
+          discard waitFor archiveDriver.put(
+            pubsubTopic, message, messageDigest, messageHash, message.timestamp
+          )
+          archiveMessages.add(message)
+
+        # Given the a query with zero page size (1/2)
+        historyQuery.pageSize = 0
+
+        # When making a history query
+        let queryResponse1 = await client.query(historyQuery, serverRemotePeerInfo)
+
+        # Then the response contains the archive.DefaultPageSize messages
+        check:
+          queryResponse1.get().messages == archiveMessages[0..<archive.DefaultPageSize]
+        
+        # Given the next query (2/2)
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse1.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: true,
+          pageSize: 0
+        )
+
+        # When making the next history query
+        let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
+
+        # Then the response contains the remaining messages
+        check:
+          queryResponse2.get().messages == archiveMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
+
       asyncTest "Pagination with Default Page Size":
         # Given a message list of size higher than the default page size
         let currentStoreLen = uint((await archiveDriver.getMessagesCount()).get())
@@ -350,7 +384,7 @@ suite "Waku Store - End to End - Sorted Archive":
           )
           archiveMessages.add(message)
 
-        # Given a query with default page size
+        # Given a query with default page size (1/2)
         historyQuery = HistoryQuery(
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -364,7 +398,7 @@ suite "Waku Store - End to End - Sorted Archive":
         check:
           queryResponse.get().messages == archiveMessages[0..<archive.DefaultPageSize]
 
-        # Given the next query
+        # Given the next query (2/2)
         let historyQuery2 = HistoryQuery(
           cursor: queryResponse.get().cursor,
           pubsubTopic: some(pubsubTopic),
