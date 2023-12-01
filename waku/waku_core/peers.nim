@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, uri, hashes],
+  std/[options, sequtils, strutils, uri],
   stew/results,
   stew/shims/net,
   chronos,
@@ -83,9 +83,6 @@ proc init*(T: typedesc[RemotePeerInfo],
 
   let peerId = PeerID.init(peerId).tryGet()
   RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols)
-
-template hash*(remotePeerInfo: RemotePeerInfo): Hash =
-  hash(remotePeerInfo.peerId)
 
 ## Parse
 
@@ -217,9 +214,8 @@ converter toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
   )
 
 converter toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
-  ## Converts the local peerInfo to dialable RemotePeerInfo.
-  ## Useful for testing or internal connections.
-  ## Result in a RemotePeerInfo without ENR.
+  ## Converts the local peerInfo to dialable RemotePeerInfo
+  ## Useful for testing or internal connections
   RemotePeerInfo(
     peerId: peerInfo.peerId,
     addrs: peerInfo.listenAddrs,

@@ -249,8 +249,6 @@ procSuite "Peer Manager":
     let is12Connected = await node1.peerManager.connectRelay(remotePeerInfo2)
     assert is12Connected == true, "Node 1 and 2 not connected"
 
-    # When node use 0.0.0.0 and port 0
-    # After connecting the peer store is updated with the wrong address
     check:
       node1.peerManager.peerStore[AddressBook][remotePeerInfo2.peerId] == remotePeerInfo2.addrs
 
@@ -291,7 +289,7 @@ procSuite "Peer Manager":
       # Reconnected to node2 after "restart"
       node3.peerManager.peerStore.peers().len == 1
       node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
-      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected 
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 

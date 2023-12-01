@@ -62,7 +62,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.minutes(1)
+  LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
   ColocationLimit = 5
@@ -125,12 +125,7 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
     # Peer already managed and ENR info is already saved
     return
 
-  trace "Adding peer to manager",
-    peerId = remotePeerInfo.peerId,
-    addresses = remotePeerInfo.addrs,
-    protocols = remotePeerInfo.protocols,
-    origin = origin,
-    enr = remotePeerInfo.enr
+  trace "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
     
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
@@ -194,19 +189,20 @@ proc connectRelay*(pm: PeerManager,
   let res = catch: await workfut or deadline
 
   let reasonFailed = 
-    if workfut.finished():
-      if res.isOk():
-        if not deadline.finished():
-          await deadline.cancelAndWait()
-        
-        waku_peers_dials.inc(labelValues = ["successful"])
-        waku_node_conns_initiated.inc(labelValues = [source])
-        pm.peerStore[NumberFailedConnBook][peerId] = 0
-        return true
-      else: res.error.msg
-    else:
+    if not workfut.finished():
       await workfut.cancelAndWait()
       "timed out"
+    elif res.isErr(): res.error.msg
+    else: 
+      if not deadline.finished():
+        await deadline.cancelAndWait()
+      
+      waku_peers_dials.inc(labelValues = ["successful"])
+      waku_node_conns_initiated.inc(labelValues = [source])
+
+      pm.peerStore[NumberFailedConnBook][peerId] = 0
+
+      return true
   
   # Dial failed
   pm.peerStore[NumberFailedConnBook][peerId] = pm.peerStore[NumberFailedConnBook][peerId] + 1
@@ -346,12 +342,7 @@ proc getPeerIp(pm: PeerManager, peerId: PeerId): Option[string] =
 
 # called when a connection i) is created or ii) is closed
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
-  case event.kind
-  of ConnEventKind.Connected:
-    #let direction = if event.incoming: Inbound else: Outbound
-    discard
-  of ConnEventKind.Disconnected:
-    discard
+  discard
 
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
   # To prevent metadata protocol from breaking prev nodes, by now we only
@@ -373,7 +364,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
     return
 
   let clusterId = metadata.clusterId.valueOr:
-    info "disconnecting from peer", peerId=peerId, reason="empty clusterId reported"
+    info "disconnecting from peer", peerId=peerId, reason="empty cluster-id reported"
     asyncSpawn(pm.switch.disconnect(peerId))
     pm.peerStore.delete(peerId)
     return
@@ -387,7 +378,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
     return
 
   if not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it)):
-    info "disconnecting from peer", peerId=peerId, reason="no shard in common"
+    info "disconnecting from peer", peerId=peerId, reason="no shards in common"
     asyncSpawn(pm.switch.disconnect(peerId))
     pm.peerStore.delete(peerId)
     return
@@ -676,9 +667,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
   let connsToPrune = min(amount, inRelayPeers.len)
 
   for p in inRelayPeers[0..<connsToPrune]:
-    info "Peer Pruning",
-      Peer = $p
-
+    trace "Pruning Peer", Peer = $p
     asyncSpawn(pm.switch.disconnect(p))
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
@@ -690,10 +679,6 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   # Get all connected peers for Waku Relay
   var (inPeers, outPeers) = pm.connectedPeers(WakuRelayCodec)
-
-  info "Connected to Peers",
-    InPeers = $inPeers,
-    OutPeers = $outPeers
 
   # Calculate in/out target number of peers for each shards
   let inTarget = pm.inRelayPeersTarget div pm.wakuMetadata.shards.len
@@ -733,7 +718,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let relayCount = connectablePeers.len
 
-    info "Sharded Peer Management",
+    debug "Sharded Peer Management",
       Shard = shard,
       Connectable = $connectableCount & "/" & $shardCount,
       RelayConnectable = $relayCount & "/" & $shardCount,
@@ -742,10 +727,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
       
     let length = min(outPeerDiff, connectablePeers.len)
     for peer in connectablePeers[0..<length]:
-      
-      info "Peer To Connect To",
-        Peer = $peer.peerId
-      
+      trace "Peer To Connect To", Peer = $peer.peerId
       peersToConnect.incl(peer.peerId)
 
   await pm.pruneInRelayConns(peersToDisconnect)
@@ -758,10 +740,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
     let stop = min(i + MaxParallelDials, uniquePeers.len)
-    
-    info "Connecting to Peers",
-      Peers = $uniquePeers[i..<stop]
-
+    trace "Connecting to Peers", Peers = $uniquePeers[i..<stop]
     await pm.connectToNodes(uniquePeers[i..<stop])
 
 proc prunePeerStore*(pm: PeerManager) =
@@ -847,7 +826,6 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     # log metrics
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
-    #let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
     let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
     let totalConnections = pm.switch.connManager.getConnections().len

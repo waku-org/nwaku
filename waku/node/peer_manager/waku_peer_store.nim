@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, times, options, strutils],
+  std/[tables, sequtils, sets, options, strutils],
   chronos,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
