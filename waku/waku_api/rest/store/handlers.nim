@@ -15,6 +15,7 @@ import
   ../../../waku_store/common,
   ../../../waku_node,
   ../../../node/peer_manager,
+  ../../../common/paging,
   ../../handlers,
   ../responses,
   ../serdes,
@@ -164,9 +165,12 @@ proc createHistoryQuery(pubsubTopic: Option[string],
   let parsedEndTime = ? parseTime(endTime)
 
   # Parse ascending field
-  var parsedDirection = true
+  var parsedDirection = PagingDirection.FORWARD
   if direction.isSome() and direction.get() != "":
-    parsedDirection = direction.get() == "true"
+    parsedDirection = (
+      if direction.get() == "forward": PagingDirection.FORWARD 
+      else: PagingDirection.BACKWARD
+    )
 
   return ok(
       HistoryQuery(pubsubTopic: parsedPubsubTopic,

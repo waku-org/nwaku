@@ -124,8 +124,9 @@ paths:
           schema:
             type: string
           description: >
-            "true" for paging forward, "false" for paging backward
-          example: "true"
+            "forward" for paging forward, "backward" for paging backward.
+            If not specified or if specified with an invalid value, the default is "forward".
+          example: "forward"
 
       responses:
         '200':

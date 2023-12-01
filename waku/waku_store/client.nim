@@ -199,7 +199,7 @@ when defined(waku_exp_store_resume):
       startTime: some(queryStartTime),
       endTime: some(queryEndTime),
       pageSize: uint64(pageSize),
-      direction: true
+      direction: PagingDirection.FORWARD
     )
 
     var res: WakuStoreResult[seq[WakuMessage]]

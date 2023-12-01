@@ -8,6 +8,7 @@ import
   stew/results
 import
   ../waku_core,
+  ../common/paging,
   ./common
 
 
@@ -43,16 +44,11 @@ proc compute*(T: type PagingIndexRPC, msg: WakuMessage, receivedTime: Timestamp,
 
 
 type
-  PagingDirectionRPC* {.pure.} = enum
-    ## PagingDirection determines the direction of pagination
-    BACKWARD = uint32(0)
-    FORWARD = uint32(1)
-
   PagingInfoRPC* = object
     ## This type holds the information needed for the pagination
     pageSize*: Option[uint64]
     cursor*: Option[PagingIndexRPC]
-    direction*: Option[PagingDirectionRPC]
+    direction*: Option[PagingDirection]
 
 
 type
@@ -128,8 +124,8 @@ proc toRPC*(query: HistoryQuery): HistoryQueryRPC =
         let
           pageSize = some(query.pageSize)
           cursor = query.cursor.map(toRPC)
-          direction = if query.direction: some(PagingDirectionRPC.FORWARD)
-                      else: some(PagingDirectionRPC.BACKWARD)
+          direction = some(query.direction)
+
         some(PagingInfoRPC(
           pageSize: pageSize,
           cursor: cursor,
@@ -159,7 +155,7 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
                else: rpc.pagingInfo.get().pageSize.get()
 
     direction = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): HistoryQueryDirectionDefaultValue
-                else: rpc.pagingInfo.get().direction.get() == PagingDirectionRPC.FORWARD
+                else: rpc.pagingInfo.get().direction.get()
 
   HistoryQuery(
     pubsubTopic: pubsubTopic,
