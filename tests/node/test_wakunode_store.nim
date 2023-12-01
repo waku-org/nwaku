@@ -13,14 +13,19 @@ import
     node/peer_manager,
     waku_core,
     waku_store,
+    waku_store/client,
+    waku_archive,
+    waku_archive/driver/sqlite_driver,
+    common/databases/db_sqlite
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../waku_store/store_utils,
   ../testlib/[
+    common,
     wakucore,
     wakunode,
     testasync,
+    futures,
     testutils
   ]
 
@@ -297,24 +302,22 @@ suite "Waku Store - End to End - Sorted Archive":
         check:
           queryResponse3.get().messages == archiveMessages[6..<10]
 
-      asyncTest "Pagination with Zero Page Size (Behaves as DefaultPageSize))":
+      asyncTest "Pagination with Zero Page Size (Behaves as DefaultPageSize)":
         # Given a message list of size higher than the default page size
         let currentStoreLen = uint((await archiveDriver.getMessagesCount()).get())
         assert archive.DefaultPageSize > currentStoreLen, "This test requires a store with more than (DefaultPageSize) messages"
         let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
 
-        # TODO: Improving in next PR
         let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
+        var extraMessages: seq[WakuMessage] = @[]
         for i in 0..<missingMessagesAmount:
-          let
+          let 
             timestampOffset = 10 * int(i + 1) # + 1 to avoid collision with existing messages
-            message = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
-            messageDigest = waku_archive.computeDigest(message)
-            messageHash = computeMessageHash(pubsubTopic, message)
-          discard waitFor archiveDriver.put(
-            pubsubTopic, message, messageDigest, messageHash, message.timestamp
-          )
-          archiveMessages.add(message)
+            message: WakuMessage = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
+          extraMessages.add(message)
+        discard archiveDriver.put(pubsubTopic, extraMessages)
+
+        let totalMessages = archiveMessages & extraMessages
 
         # Given the a query with zero page size (1/2)
         historyQuery.pageSize = 0
@@ -324,7 +327,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the archive.DefaultPageSize messages
         check:
-          queryResponse1.get().messages == archiveMessages[0..<archive.DefaultPageSize]
+          queryResponse1.get().messages == totalMessages[0..<archive.DefaultPageSize]
         
         # Given the next query (2/2)
         let historyQuery2 = HistoryQuery(
@@ -340,7 +343,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the remaining messages
         check:
-          queryResponse2.get().messages == archiveMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
+          queryResponse2.get().messages == totalMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
 
       asyncTest "Pagination with Default Page Size":
         # Given a message list of size higher than the default page size
@@ -348,18 +351,16 @@ suite "Waku Store - End to End - Sorted Archive":
         assert archive.DefaultPageSize > currentStoreLen, "This test requires a store with more than (DefaultPageSize) messages"
         let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
 
-        # TODO: Improving in next PR
         let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
+        var extraMessages: seq[WakuMessage] = @[]
         for i in 0..<missingMessagesAmount:
-          let
+          let 
             timestampOffset = 10 * int(i + 1) # + 1 to avoid collision with existing messages
-            message = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
-            messageDigest = waku_archive.computeDigest(message)
-            messageHash = computeMessageHash(pubsubTopic, message)
-          discard waitFor archiveDriver.put(
-            pubsubTopic, message, messageDigest, messageHash, message.timestamp
-          )
-          archiveMessages.add(message)
+            message: WakuMessage = fakeWakuMessage(@[byte i], ts=ts(timestampOffset, lastMessageTimestamp))
+          extraMessages.add(message)
+        discard archiveDriver.put(pubsubTopic, extraMessages)
+
+        let totalMessages = archiveMessages & extraMessages
 
         # Given a query with default page size (1/2)
         historyQuery = HistoryQuery(
@@ -373,7 +374,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse.get().messages == archiveMessages[0..<archive.DefaultPageSize]
+          queryResponse.get().messages == totalMessages[0..<archive.DefaultPageSize]
 
         # Given the next query (2/2)
         let historyQuery2 = HistoryQuery(
@@ -388,7 +389,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse2.get().messages == archiveMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
+          queryResponse2.get().messages == totalMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
 
     suite "Pagination with Different Cursors":
       asyncTest "Starting Cursor":
@@ -736,7 +737,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     historyQuery = HistoryQuery(
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
-      ascending: true,
+      direction: true,
       pageSize: 5
     )
 
@@ -831,7 +832,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         cursor: queryResponse.get().cursor,
         pubsubTopic: none(PubsubTopic),
         contentTopics: contentTopicSeq,
-        ascending: true,
+        direction: true,
         pageSize: 5
       )
 
@@ -897,7 +898,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         cursor: queryResponse.get().cursor,
         pubsubTopic: none(PubsubTopic),
         contentTopics: contentTopicSeq,
-        ascending: true,
+        direction: true,
         pageSize: 5
       )
 
