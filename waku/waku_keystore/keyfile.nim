@@ -92,6 +92,23 @@ type
   DKey = array[DKLen, byte]
   KfResult*[T] = Result[T, KeyFileError]
 
+  # basic types for building Keystore JSON
+  CypherParams = object
+    iv: string
+
+  CryptoNew = object
+    cipher: string
+    cipherparams: CypherParams
+    ciphertext: string
+    kdf: string
+    kdfparams: JsonNode
+    mac: string
+
+  KeystoreEntry = object
+    crypto: CryptoNew
+    id: string
+    version: string
+
 const
   SupportedHashes = [
     "sha224", "sha256", "sha384", "sha512",
@@ -373,20 +390,20 @@ proc createKeyFileJson*(secret: openArray[byte],
 
   let params = ? kdfParams(kdfkind, toHex(salt, true), workfactor)
 
-  let json = %*
-    {
-      "crypto": {
-        "cipher": $cryptkind,
-        "cipherparams": {
-          "iv": toHex(iv, true)
-        },
-        "ciphertext": toHex(ciphertext, true),
-        "kdf": $kdfkind,
-        "kdfparams": params,
-        "mac": toHex(mac.data, true),
-      },
-    }
+  var obj = KeystoreEntry(
+    crypto: CryptoNew(
+        cipher: $cryptkind,
+        cipherparams: CypherParams(
+          iv: toHex(iv, true)
+        ),
+        ciphertext: toHex(ciphertext, true),
+        kdf: $kdfkind,
+        kdfparams: params,
+        mac: toHex(mac.data, true)
+    )
+  )
 
+  let json = %* obj
   if IdInKeyfile:
     json.add("id", %($u))
   if VersionInKeyfile:
