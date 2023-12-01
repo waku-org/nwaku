@@ -133,7 +133,7 @@ procSuite "Waku v2 Rest API - Store":
                         "", # store time
                         "", # base64-encoded digest
                         "", # empty implies default page size
-                        "true" # ascending
+                        "forward" # ascending
           )
 
     check:
@@ -214,7 +214,7 @@ procSuite "Waku v2 Rest API - Store":
                           encodeUrl($reqStoreTime), # store time
                           reqDigest.toRestStringMessageDigest(), # base64-encoded digest. Empty ignores the field.
                           "7", # page size. Empty implies default page size.
-                          "true" # ascending
+                          "forward" # ascending
             )
 
       var wakuMessages = newSeq[WakuMessage](0)

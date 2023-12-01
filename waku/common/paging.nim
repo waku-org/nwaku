@@ -7,7 +7,6 @@ type
     FORWARD = uint32(1)
 
 
-proc default*(): PagingDirection {.inline.} =
   PagingDirection.FORWARD
 
 
