@@ -2,8 +2,6 @@
 
 import
   std/options,
-  std/strscans,
-  testutils/unittests,
   chronicles,
   chronos,
   libp2p/crypto/crypto
@@ -13,8 +11,6 @@ import
   ../../waku/waku_core,
   ../../waku/waku_lightpush,
   ../../waku/waku_lightpush/client,
-  ../../waku/waku_lightpush/protocol_metrics,
-  ../../waku/waku_lightpush/rpc,
   ../testlib/[
     common, 
     wakucore
