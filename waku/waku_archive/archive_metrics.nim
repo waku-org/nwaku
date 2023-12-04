@@ -19,4 +19,3 @@ const
   invalidMessageFuture* = "invalid_message_future_timestamp"
   insertFailure* = "insert_failure"
   retPolicyFailure* = "retpolicy_failure"
-  timestampIsZero* = "msg_timestamp_is_equal_zero"
