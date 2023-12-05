@@ -1,7 +1,3 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect,DbError].}
-else:
-  {.push raises: [ValueError,DbError].}
 
 import
   std/[times, strutils, strformat],
@@ -10,7 +6,7 @@ import
 
 include db_postgres
 
-type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe.}
+type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 
 ## Connection management
 
@@ -80,7 +76,7 @@ proc sendQueryPrepared(
                paramValues: openArray[string],
                paramLengths: openArray[int32],
                paramFormats: openArray[int32]):
-               Result[void, string] =
+               Result[void, string] {.raises: [].} =
   ## This proc can be used directly for queries that don't retrieve values back.
 
   if paramValues.len != paramLengths.len or paramValues.len != paramFormats.len or

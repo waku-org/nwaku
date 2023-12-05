@@ -22,6 +22,8 @@ logScope:
   topics = "waku lightpush"
 
 type WakuLightPush* = ref object of LPProtocol
+  PushMessageHandler* = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage):
+                        Future[WakuLightPushResult[void]] {.gcsafe, closure, raises: [].}
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     pushHandler*: PushMessageHandler

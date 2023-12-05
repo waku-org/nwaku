@@ -100,7 +100,7 @@ proc new*(
     bootstrapRecords = bootstrapRecords,
     enrAutoUpdate = conf.autoupdateRecord,
     previousRecord = record,
-    enrIp = none(ValidIpAddress),
+    enrIp = none(IpAddress),
     enrTcpPort = none(Port),
     enrUdpPort = none(Port),
   )

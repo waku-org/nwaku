@@ -845,7 +845,7 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 
 # App shutdown
 
-proc stop*(app: App): Future[void] {.async.} =
+proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
   if app.restServer.isSome():
     await app.restServer.get().stop()
 

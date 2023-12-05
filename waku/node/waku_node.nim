@@ -1149,7 +1149,7 @@ proc start*(node: WakuNode) {.async.} =
 
   info "Node started successfully"
 
-proc stop*(node: WakuNode) {.async.} =
+proc stop*(node: WakuNode) {.async: (raises: [Exception]).} =
   if not node.wakuRelay.isNil():
     await node.wakuRelay.stop()
 
@@ -1160,14 +1160,14 @@ proc stop*(node: WakuNode) {.async.} =
   node.peerManager.stop()
 
   if not node.wakuRlnRelay.isNil():
-    await node.wakuRlnRelay.stop()
+    await node.wakuRlnRelay.stop() ## this can raise an exception
 
   if not node.wakuArchive.isNil():
     await node.wakuArchive.stop()
 
   node.started = false
 
-proc isReady*(node: WakuNode): Future[bool] {.async.} =
+proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =
   if node.wakuRlnRelay == nil:
     return true
   return await node.wakuRlnRelay.isReady()

@@ -79,7 +79,7 @@ type WakuRLNRelay* = ref object of RootObj
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
 
-method stop*(rlnPeer: WakuRLNRelay) {.async.} =
+method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
   ## Throws an error if it cannot stop the rln-relay protocol
 
@@ -354,7 +354,7 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
 
 proc mount(conf: WakuRlnConfig,
            registrationHandler = none(RegistrationHandler)
-          ): Future[WakuRlnRelay] {.async.} =
+          ): Future[WakuRlnRelay] {.async: (raises: [Exception]).} =
   var
     groupManager: GroupManager
   # create an RLN instance
@@ -393,7 +393,7 @@ proc mount(conf: WakuRlnConfig,
 
   return WakuRLNRelay(groupManager: groupManager)
 
-proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async.} =
+proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages
   ## returns false otherwise
   
@@ -416,6 +416,6 @@ proc new*(T: type WakuRlnRelay,
   try:
     let rlnRelay = await mount(conf, registrationHandler)
     return ok(rlnRelay)
-  except CatchableError as e:
-    return err(e.msg)
+  except:
+    return err("exception in new WakuRlnRelay: " & getCurrentExceptionMsg())
 
