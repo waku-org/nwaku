@@ -133,25 +133,7 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   
   if remotePeerInfo.protocols.len > 0:
     pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
-  elif remotePeerInfo.enr.isSome():
-    # RemotePeerInfo from discv5 always have empty protocol list
-    let caps = remotePeerInfo.enr.get().getCapabilities()
-    
-    var protos: seq[string]
-    for cap in caps:
-      case cap:
-        of Relay:
-          protos.add(WakuRelayCodec)
-        of Store:
-          protos.add(WakuStoreCodec)
-        of Filter:
-          protos.add(WakuFilterSubscribeCodec)
-          protos.add(WakuFilterPushCodec)
-        of LightPush:
-          protos.add(WakuLightPushCodec)
-
-    pm.peerStore[ProtoBook][remotePeerInfo.peerId] = protos
-
+  
   if remotePeerInfo.enr.isSome():
     pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
@@ -716,7 +698,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let connectableCount = connectablePeers.len
 
-    connectablePeers.keepItIf(it.protocols.contains(WakuRelayCodec))
+    connectablePeers.keepItIf(pm.peerStore.hasCapability(it.peerId, Relay))
 
     let relayCount = connectablePeers.len
 

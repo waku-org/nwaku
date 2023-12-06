@@ -97,13 +97,13 @@ proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo]
   peerStore.peers.filterIt(it.protocols.anyIt(protocolMatcher(it)))
 
 proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
-  # Return the connection state of the given, managed peer
-  # TODO: the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
-  # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
-  return peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
+  peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
 proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint16): bool =
-  peerStore[ENRBook][peerId].containsShard(cluster, shard)
+  peerStore[ENRBook].book.getOrDefault(peerId).containsShard(cluster, shard)
+
+proc hasCapability*(peerStore: PeerStore, peerId: PeerID, cap: Capabilities): bool =
+  peerStore[ENRBook].book.getOrDefault(peerId).supportsCapability(cap)
 
 proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
   # Returns `true` if the peer is connected

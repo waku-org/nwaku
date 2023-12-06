@@ -22,6 +22,7 @@ import
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/waku_node,
   ../../waku/waku_core,
+  ../../waku/waku_enr/capabilities,
   ../../waku/waku_relay/protocol,
   ../../waku/waku_store/common,
   ../../waku/waku_filter/protocol,
@@ -402,7 +403,16 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager connects to all peers supporting a given protocol":
     # Create 4 nodes
-    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes =
+      toSeq(0..<4)
+        .mapIt(
+          newTestWakuNode(
+            nodeKey = generateSecp256k1Key(),
+            bindIp = ValidIpAddress.init("0.0.0.0"),
+            bindPort = Port(0),
+            wakuFlags = some(CapabilitiesBitfield.init(@[Relay]))
+          )
+        )
 
     # Start them
     discard nodes.mapIt(it.mountMetadata(0))
