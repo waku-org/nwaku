@@ -34,10 +34,22 @@ const futTimeoutForSubscriptionProcessing* = 5.seconds
 
 const ROUTE_FILTER_SUBSCRIPTIONSV1* = "/filter/v1/subscriptions"
 
-const filterMessageCacheDefaultCapacity* = 30
+func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
+  if contentBody.isNone():
+    return err(RestApiResponse.badRequest("Missing content body"))
 
-type
-  MessageCache* = message_cache.MessageCache[ContentTopic]
+  let reqBodyContentType = MediaType.init($contentBody.get().contentType)
+  if reqBodyContentType != MIMETYPE_JSON:
+    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
+
+  let reqBodyData = contentBody.get().data
+
+  let requestResult = decodeFromJsonBytes(T, reqBodyData)
+  if requestResult.isErr():
+    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
+                                          $requestResult.error))
+
+  return ok(requestResult.get())
 
 proc installFilterV1PostSubscriptionsV1Handler*(router: var RestRouter,
                                               node: WakuNode,
@@ -45,7 +57,7 @@ proc installFilterV1PostSubscriptionsV1Handler*(router: var RestRouter,
   let pushHandler: FilterPushHandler =
           proc(pubsubTopic: PubsubTopic,
                msg: WakuMessage) {.async, gcsafe, closure.} =
-            cache.addMessage(msg.contentTopic, msg)
+            cache.addMessage(pubsubTopic, msg)
 
   router.api(MethodPost, ROUTE_FILTER_SUBSCRIPTIONSV1) do (contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a pubsubTopic
@@ -74,7 +86,7 @@ proc installFilterV1PostSubscriptionsV1Handler*(router: var RestRouter,
 
     # Successfully subscribed to all content filters
     for cTopic in req.contentFilters:
-      cache.subscribe(cTopic)
+      cache.contentSubscribe(cTopic)
 
     return RestApiResponse.ok()
 
@@ -103,7 +115,7 @@ proc installFilterV1DeleteSubscriptionsV1Handler*(router: var RestRouter,
       return RestApiResponse.internalServerError("Failed to unsubscribe from contentFilters")
 
     for cTopic in req.contentFilters:
-      cache.unsubscribe(cTopic)
+      cache.contentUnsubscribe(cTopic)
 
     # Successfully unsubscribed from all requested contentTopics
     return RestApiResponse.ok()
@@ -124,7 +136,7 @@ proc installFilterV1GetMessagesV1Handler*(router: var RestRouter,
 
     let contentTopic = contentTopic.get()
 
-    let msgRes = cache.getMessages(contentTopic, clear=true)
+    let msgRes = cache.getAutoMessages(contentTopic, clear=true)
     if msgRes.isErr():
       return RestApiResponse.badRequest("Not subscribed to topic: " & contentTopic)
 

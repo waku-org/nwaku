@@ -24,12 +24,17 @@ pipeline {
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'wakuorg/nwaku',
+      defaultValue: params.IMAGE_NAME ?: 'waku-org/nwaku',
     )
     string(
       name: 'DOCKER_CRED',
-      description: 'Name of Docker Hub credential.',
-      defaultValue: params.DOCKER_CRED ?: 'dockerhub-vacorgbot-api-token',
+      description: 'Name of Docker Registry credential.',
+      defaultValue: params.DOCKER_CRED ?: 'harbor-wakuorg-robot',
+    )
+    string(
+      name: 'DOCKER_REGISTRY_URL',
+      description: 'URL of the Docker Registry',
+      defaultValue: params.DOCKER_REGISTRY_URL ?: 'https://harbor.status.im'
     )
     string(
       name: 'NIMFLAGS',
@@ -80,7 +85,7 @@ pipeline {
       when { expression { params.IMAGE_TAG != '' } }
       steps { script {
         withDockerRegistry([
-          credentialsId: params.DOCKER_CRED, url: ""
+          credentialsId: params.DOCKER_CRED, url: params.DOCKER_REGISTRY_URL
         ]) {
           image.push()
           /* If Git ref is a tag push it as Docker tag too. */

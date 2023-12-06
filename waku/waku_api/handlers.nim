@@ -40,11 +40,6 @@ proc defaultDiscoveryHandler*(discv5: WakuDiscoveryV5, cap: Capabilities): Disco
 
 ### Message Cache
 
-proc messageCacheHandler*(cache: MessageCache[string]): WakuRelayHandler =
+proc messageCacheHandler*(cache: MessageCache): WakuRelayHandler =
   return proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
-    cache.addMessage(PubSubTopic(pubsubTopic), msg)
-
-proc autoMessageCacheHandler*(cache: MessageCache[string]): WakuRelayHandler =
-  return proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
-    if cache.isSubscribed(msg.contentTopic):
-      cache.addMessage(msg.contentTopic, msg)
+    cache.addMessage(pubsubTopic, msg)

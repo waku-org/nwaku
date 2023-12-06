@@ -54,14 +54,14 @@ Metrics are divided into two categories:
 
 The following metrics are available. See `http://localhost:8008/metrics`
 
-* `peer_type_as_per_enr`: Number of peers supporting each capability according the the ENR (Relay, Store, Lightpush, Filter)
+* `peer_type_as_per_enr`: Number of peers supporting each capability according to the ENR (Relay, Store, Lightpush, Filter)
 * `peer_type_as_per_protocol`: Number of peers supporting each protocol, after a successful connection)
 * `peer_user_agents`: List of useragents found in the network and their count
 
 Other relevant metrics reused from `nim-eth`:
 
 * `routing_table_nodes`: Inherited from nim-eth, number of nodes in the routing table
-* `discovery_message_requests_outgoing_total`: Inherited from nim-eth, number of outging discovery requests, useful to know if the node is actiely looking for new peers
+* `discovery_message_requests_outgoing_total`: Inherited from nim-eth, number of outgoing discovery requests, useful to know if the node is actively looking for new peers
 
 ### Custom Metrics
 

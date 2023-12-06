@@ -1,12 +1,15 @@
 {.used.}
 
 import
+  std/options,
   testutils/unittests,
+  eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto
 import
   ../../waku/common/databases/db_sqlite,
   ../../waku/node/peer_manager/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
+  ../../waku/waku_enr,
   ./testlib/wakucore
 
 
@@ -19,14 +22,22 @@ suite "Peer Storage":
 
       # Test Peer
       peerLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
-      peerKey = generateEcdsaKey()
+      peerKey = generateSecp256k1Key()
       peer = PeerInfo.new(peerKey, @[peerLoc])
       peerProto = "/waku/2/default-waku/codec"
       connectedness = Connectedness.CanConnect
       disconn = 999999
-      stored = RemotePeerInfo(
+      topics = @["/waku/2/rs/2/0", "/waku/2/rs/2/1"]
+    
+    # Create ENR
+    var enrBuilder = EnrBuilder.init(peerKey)
+    enrBuilder.withShardedTopics(topics).expect("Valid topics")
+    let record = enrBuilder.build().expect("Valid record")
+
+    let stored = RemotePeerInfo(
         peerId: peer.peerId,
         addrs: @[peerLoc],
+        enr: some(record),
         protocols: @[peerProto],
         publicKey: peerKey.getPublicKey().tryGet(),
         connectedness: connectedness,
@@ -36,72 +47,52 @@ suite "Peer Storage":
 
     # Test insert and retrieve
 
-    require storage.put(peer.peerId, stored, connectedness, disconn).isOk
+    require storage.put(stored).isOk
 
     var responseCount = 0
 
-    # Fetched variables from callback
-    var resPeerId: PeerId
+    # Fetched variable from callback
     var resStoredInfo: RemotePeerInfo
-    var resConnectedness: Connectedness
-    var resDisconnect: int64
 
-    proc data(peerId: PeerID, storedInfo: RemotePeerInfo,
-              connectedness: Connectedness, disconnectTime: int64) {.raises: [Defect].} =
+    proc data(storedInfo: RemotePeerInfo) =
       responseCount += 1
-
-      # Note: cannot use `check` within `{.raises: [Defect].}` block
-      # @TODO: /Nim/lib/pure/unittest.nim(577, 16) Error: can raise an unlisted exception: Exception
-      # These flags are checked outside this block.
-      resPeerId = peerId
       resStoredInfo = storedInfo
-      resConnectedness = connectedness
-      resDisconnect = disconnectTime
 
     let res = storage.getAll(data)
 
     check:
       res.isErr == false
       responseCount == 1
-      resPeerId == peer.peerId
       resStoredInfo.peerId == peer.peerId
       resStoredInfo.addrs == @[peerLoc]
       resStoredInfo.protocols == @[peerProto]
       resStoredInfo.publicKey == peerKey.getPublicKey().tryGet()
-      # TODO: For compatibility, we don't store connectedness and disconnectTime
-      #resStoredInfo.connectedness == connectedness
-      #resStoredInfo.disconnectTime == disconn
-      resConnectedness == Connectedness.CanConnect
-      resDisconnect == disconn
+      resStoredInfo.connectedness == connectedness
+      resStoredInfo.disconnectTime == disconn
+    
+    assert resStoredInfo.enr.isSome(), "The ENR info wasn't properly stored"
+    check: resStoredInfo.enr.get() == record
 
     # Test replace and retrieve (update an existing entry)
-    require storage.put(peer.peerId, stored, Connectedness.CannotConnect, disconn + 10).isOk
+    stored.connectedness = CannotConnect
+    stored.disconnectTime = disconn + 10
+    stored.enr = none(Record)
+    require storage.put(stored).isOk
 
     responseCount = 0
-    proc replacedData(peerId: PeerID, storedInfo: RemotePeerInfo,
-                      connectedness: Connectedness, disconnectTime: int64) {.raises: [Defect].} =
+    proc replacedData(storedInfo: RemotePeerInfo) =
       responseCount += 1
-
-      # Note: cannot use `check` within `{.raises: [Defect].}` block
-      # @TODO: /Nim/lib/pure/unittest.nim(577, 16) Error: can raise an unlisted exception: Exception
-      # These flags are checked outside this block.
-      resPeerId = peerId
       resStoredInfo = storedInfo
-      resConnectedness = connectedness
-      resDisconnect = disconnectTime
 
     let repRes = storage.getAll(replacedData)
 
     check:
       repRes.isErr == false
       responseCount == 1
-      resPeerId == peer.peerId
       resStoredInfo.peerId == peer.peerId
       resStoredInfo.addrs == @[peerLoc]
       resStoredInfo.protocols == @[peerProto]
       resStoredInfo.publicKey == peerKey.getPublicKey().tryGet()
-      # TODO: For compatibility, we don't store connectedness and disconnectTime
-      #resStoredInfo.connectedness == connectedness
-      #resStoredInfo.disconnectTime == disconn
-      resConnectedness == Connectedness.CannotConnect
-      resDisconnect == disconn + 10
+      resStoredInfo.connectedness == Connectedness.CannotConnect
+      resStoredInfo.disconnectTime == disconn + 10
+      resStoredInfo.enr.isNone()

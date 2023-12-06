@@ -39,7 +39,7 @@ type RestFilterTest = object
   filterNode: WakuNode
   clientNode: WakuNode
   restServer: RestServerRef
-  messageCache: filter_api.MessageCache
+  messageCache: MessageCache
   client: RestClientRef
 
 
@@ -59,7 +59,7 @@ proc setupRestFilter(): Future[RestFilterTest] {.async.} =
   let restAddress = ValidIpAddress.init("0.0.0.0")
   result.restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
-  result.messageCache = filter_api.MessageCache.init()
+  result.messageCache = MessageCache.init()
   installLegacyFilterRestApiHandlers(result.restServer.router
                                      ,result.clientNode
                                      ,result.messageCache)
@@ -100,10 +100,10 @@ suite "Waku v2 Rest API - Filter":
       response.data == "OK"
 
     check:
-      restFilterTest.messageCache.isSubscribed(DefaultContentTopic)
-      restFilterTest.messageCache.isSubscribed("2")
-      restFilterTest.messageCache.isSubscribed("3")
-      restFilterTest.messageCache.isSubscribed("4")
+      restFilterTest.messageCache.isContentSubscribed(DefaultContentTopic)
+      restFilterTest.messageCache.isContentSubscribed("2")
+      restFilterTest.messageCache.isContentSubscribed("3")
+      restFilterTest.messageCache.isContentSubscribed("4")
 
     # When - error case
     let badRequestBody = FilterLegacySubscribeRequest(contentFilters: @[]
@@ -125,10 +125,10 @@ suite "Waku v2 Rest API - Filter":
       restFilterTest: RestFilterTest = await setupRestFilter()
 
     # When
-    restFilterTest.messageCache.subscribe("1")
-    restFilterTest.messageCache.subscribe("2")
-    restFilterTest.messageCache.subscribe("3")
-    restFilterTest.messageCache.subscribe("4")
+    restFilterTest.messageCache.contentSubscribe("1")
+    restFilterTest.messageCache.contentSubscribe("2")
+    restFilterTest.messageCache.contentSubscribe("3")
+    restFilterTest.messageCache.contentSubscribe("4")
 
     let contentFilters = @[ContentTopic("1")
                       ,ContentTopic("2")
@@ -148,10 +148,10 @@ suite "Waku v2 Rest API - Filter":
       response.data == "OK"
 
     check:
-      not restFilterTest.messageCache.isSubscribed("1")
-      not restFilterTest.messageCache.isSubscribed("2")
-      not restFilterTest.messageCache.isSubscribed("3")
-      restFilterTest.messageCache.isSubscribed("4")
+      not restFilterTest.messageCache.isContentSubscribed("1")
+      not restFilterTest.messageCache.isContentSubscribed("2")
+      not restFilterTest.messageCache.isContentSubscribed("3")
+      restFilterTest.messageCache.isContentSubscribed("4")
 
     await restFilterTest.shutdown()
 
@@ -164,15 +164,22 @@ suite "Waku v2 Rest API - Filter":
     let pubSubTopic = "/waku/2/default-waku/proto"
     let contentTopic = ContentTopic( "content-topic-x" )
 
-    let messages =  @[
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1")),
+    var messages = @[
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
     ]
 
-    restFilterTest.messageCache.subscribe(contentTopic)
+    # Prevent duplicate messages
+    for i in 0..<2:
+      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+
+      while msg == messages[i]:
+        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      
+      messages.add(msg)
+
+    restFilterTest.messageCache.contentSubscribe(contentTopic)
     for msg in messages:
-      restFilterTest.messageCache.addMessage(contentTopic, msg)
+      restFilterTest.messageCache.addMessage(pubSubTopic, msg)
 
     # When
     let response = await restFilterTest.client.filterGetMessagesV1(contentTopic)

@@ -7,7 +7,7 @@ It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to
 Each fleet is a publicly accessible network of Waku v2 peers, providing a bootstrap connection point for new peers, historical message storage, etc.
 The Waku team is currently using this application on the _production_ fleet for internal testing.
 For more information on the available fleets, see [`Connecting to a Waku v2 fleet`](#connecting-to-a-waku-v2-fleet).
-If you want try our protocols, or join the dogfooding fun, follow the instructions below.
+If you want to try our protocols, or join the dogfooding fun, follow the instructions below.
 
 ## Preparation
 
