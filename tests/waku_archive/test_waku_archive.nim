@@ -20,7 +20,7 @@ import
 
 suite "Waku Archive - message handling":
 
-  test "it should driver a valid and non-ephemeral message":
+  test "it should archive a valid and non-ephemeral message":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
@@ -36,7 +36,7 @@ suite "Waku Archive - message handling":
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 1
 
-  test "it should not driver an ephemeral message":
+  test "it should not archive ephemeral messages":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
@@ -58,7 +58,7 @@ suite "Waku Archive - message handling":
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 2
 
-  test "it should driver a message with no sender timestamp":
+  test "it should archive a message with no sender timestamp":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
@@ -74,7 +74,7 @@ suite "Waku Archive - message handling":
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 1
 
-  test "it should not driver a message with a sender time variance greater than max time variance (future)":
+  test "it should not archive a message with a sender time variance greater than max time variance (future)":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
@@ -93,7 +93,7 @@ suite "Waku Archive - message handling":
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 0
 
-  test "it should not driver a message with a sender time variance greater than max time variance (past)":
+  test "it should not archive a message with a sender time variance greater than max time variance (past)":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
