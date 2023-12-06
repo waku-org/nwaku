@@ -342,7 +342,12 @@ proc getPeerIp(pm: PeerManager, peerId: PeerId): Option[string] =
 
 # called when a connection i) is created or ii) is closed
 proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
-  discard
+  case event.kind
+    of ConnEventKind.Connected:
+      #let direction = if event.incoming: Inbound else: Outbound
+      discard
+    of ConnEventKind.Disconnected:
+      discard
 
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
   # To prevent metadata protocol from breaking prev nodes, by now we only
@@ -351,38 +356,35 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
     return
 
   let res = catch: await pm.switch.dial(peerId, WakuMetadataCodec)
-  let conn = res.valueOr:
-    info "disconnecting from peer", peerId=peerId, reason="dial failed: " & error.msg
-    asyncSpawn(pm.switch.disconnect(peerId))
-    pm.peerStore.delete(peerId)
-    return
-  
-  let metadata = (await pm.wakuMetadata.request(conn)).valueOr:
-    info "disconnecting from peer", peerId=peerId, reason="waku metatdata request failed: " & error
-    asyncSpawn(pm.switch.disconnect(peerId))
-    pm.peerStore.delete(peerId)
-    return
 
-  let clusterId = metadata.clusterId.valueOr:
-    info "disconnecting from peer", peerId=peerId, reason="empty cluster-id reported"
-    asyncSpawn(pm.switch.disconnect(peerId))
-    pm.peerStore.delete(peerId)
-    return
+  var reason: string
+  block guardClauses:
+    let conn = res.valueOr:
+      reason = "dial failed: " & error.msg
+      break guardClauses
+    
+    let metadata = (await pm.wakuMetadata.request(conn)).valueOr:
+      reason = "waku metatdata request failed: " & error
+      break guardClauses
 
-  if pm.wakuMetadata.clusterId != clusterId:
-    info "disconnecting from peer",
-      peerId=peerId,
-      reason="different clusterId reported: " & $pm.wakuMetadata.clusterId & " vs " & $clusterId
-    asyncSpawn(pm.switch.disconnect(peerId))
-    pm.peerStore.delete(peerId)
-    return
+    let clusterId = metadata.clusterId.valueOr:
+      reason = "empty cluster-id reported"
+      break guardClauses
 
-  if not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it)):
-    info "disconnecting from peer", peerId=peerId, reason="no shards in common"
-    asyncSpawn(pm.switch.disconnect(peerId))
-    pm.peerStore.delete(peerId)
+    if pm.wakuMetadata.clusterId != clusterId:
+      reason = "different clusterId reported: " & $pm.wakuMetadata.clusterId & " vs " & $clusterId
+      break guardClauses
+
+    if not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it)):
+      reason = "no shards in common"
+      break guardClauses
+
     return
    
+  info "disconnecting from peer", peerId=peerId, reason=reason
+  asyncSpawn(pm.switch.disconnect(peerId))
+  pm.peerStore.delete(peerId)
+
 # called when a peer i) first connects to us ii) disconnects all connections from us
 proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   if not pm.wakuMetadata.isNil() and event.kind == PeerEventKind.Joined:
@@ -719,15 +721,15 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     let relayCount = connectablePeers.len
 
     debug "Sharded Peer Management",
-      Shard = shard,
-      Connectable = $connectableCount & "/" & $shardCount,
-      RelayConnectable = $relayCount & "/" & $shardCount,
-      RelayInboundTarget = $connectedInPeers.len & "/" & $inTarget,
-      RelayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
+      shard = shard,
+      connectable = $connectableCount & "/" & $shardCount,
+      relayConnectable = $relayCount & "/" & $shardCount,
+      relayInboundTarget = $connectedInPeers.len & "/" & $inTarget,
+      relayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
       
     let length = min(outPeerDiff, connectablePeers.len)
     for peer in connectablePeers[0..<length]:
-      trace "Peer To Connect To", Peer = $peer.peerId
+      trace "Peer To Connect To", peerId = $peer.peerId
       peersToConnect.incl(peer.peerId)
 
   await pm.pruneInRelayConns(peersToDisconnect)
@@ -740,7 +742,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
     let stop = min(i + MaxParallelDials, uniquePeers.len)
-    trace "Connecting to Peers", Peers = $uniquePeers[i..<stop]
+    trace "Connecting to Peers", peerIds = $uniquePeers[i..<stop]
     await pm.connectToNodes(uniquePeers[i..<stop])
 
 proc prunePeerStore*(pm: PeerManager) =
