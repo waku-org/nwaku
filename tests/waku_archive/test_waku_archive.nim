@@ -58,7 +58,7 @@ suite "Waku Archive - message handling":
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 2
 
-  test "it should not archive a message with no sender timestamp":
+  test "it should archive a message with no sender timestamp":
     ## Setup
     let driver = newSqliteArchiveDriver()
     let archive = newWakuArchive(driver)
@@ -72,7 +72,7 @@ suite "Waku Archive - message handling":
 
     ## Then
     check:
-      (waitFor driver.getMessagesCount()).tryGet() == 0
+      (waitFor driver.getMessagesCount()).tryGet() == 1
 
   test "it should not archive a message with a sender time variance greater than max time variance (future)":
     ## Setup
