@@ -51,7 +51,7 @@ type
     seen: seq[Hash] #FIFO queue
     contentTopic: string
 
-  MbMessageHandler* = proc (jsonNode: JsonNode) {.gcsafe.}
+  MbMessageHandler* = proc (jsonNode: JsonNode) {.gcsafe, raises: [].}
 
 ###################
 # Helper funtions #
@@ -183,7 +183,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   debug "Start polling Matterbridge"
 
   # Start Matterbridge polling (@TODO: use streaming interface)
-  proc mbHandler(jsonNode: JsonNode) {.gcsafe, raises: [Exception].} =
+  proc mbHandler(jsonNode: JsonNode) {.gcsafe.} =
     trace "Bridging message from Matterbridge to chat2", jsonNode=jsonNode
     waitFor cmb.toChat2(jsonNode)
 
@@ -200,9 +200,12 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
-  proc relayHandler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+  proc relayHandler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async.} =
     trace "Bridging message from Chat2 to Matterbridge", msg=msg
-    cmb.toMatterbridge(msg)
+    try:
+      cmb.toMatterbridge(msg)
+    except:
+      error "exception in relayHandler: " & getCurrentExceptionMsg()
 
   cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
 
