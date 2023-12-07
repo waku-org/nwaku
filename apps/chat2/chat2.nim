@@ -269,7 +269,10 @@ proc writeAndPrint(c: Chat) {.async.} =
 
       echo "quitting..."
 
-      await c.node.stop()
+      try:
+        await c.node.stop()
+      except:
+        echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
       quit(QuitSuccess)
     else:
