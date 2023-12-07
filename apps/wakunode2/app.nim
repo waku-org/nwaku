@@ -181,7 +181,10 @@ proc setupPeerPersistence*(app: var App): AppResult[void] =
 
 ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
-proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): AppResult[seq[RemotePeerInfo]] =
+proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool,
+                                    dnsDiscoveryUrl: string,
+                                    dnsDiscoveryNameServers: seq[IpAddress]):
+                                    AppResult[seq[RemotePeerInfo]] =
 
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
@@ -647,7 +650,7 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
+proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
 
   # Used to register api endpoints that are not currently installed as keys,
   # values are holding error messages to be returned to the client
@@ -752,7 +755,7 @@ proc startRestServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNo
 
   ok(server)
 
-proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNodeConf): AppResult[RpcHttpServer] =
+proc startRpcServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RpcHttpServer] =
   let ta = initTAddress(address, port)
 
   var server: RpcHttpServer
@@ -792,7 +795,7 @@ proc startRpcServer(app: App, address: ValidIpAddress, port: Port, conf: WakuNod
 
   ok(server)
 
-proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): AppResult[MetricsHttpServerRef] =
+proc startMetricsServer(serverIp: IpAddress, serverPort: Port): AppResult[MetricsHttpServerRef] =
   info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
 
   let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)

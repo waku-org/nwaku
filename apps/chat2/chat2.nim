@@ -154,7 +154,7 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   return await transp.readLine()
 
 
-proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
+proc startMetricsServer(serverIp: IpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
   info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
 
   let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)

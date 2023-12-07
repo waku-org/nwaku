@@ -112,7 +112,7 @@ type
       listenAddress* {.
         defaultValue: defaultListenAddress()
         desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic."
-        name: "listen-address"}: ValidIpAddress
+        name: "listen-address"}: IpAddress
 
       tcpPort* {.
         desc: "TCP listening port."
@@ -165,8 +165,8 @@ type
 
       dnsAddrsNameServers* {.
         desc: "DNS name server IPs to query for DNS multiaddrs resolution. Argument may be repeated."
-        defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
-        name: "dns-addrs-name-server" }: seq[ValidIpAddress]
+        defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
+        name: "dns-addrs-name-server" }: seq[IpAddress]
 
       dns4DomainName* {.
         desc: "The domain name resolving to the node's public IPv4 address",
@@ -316,8 +316,8 @@ type
 
       rpcAddress* {.
         desc: "Listening address of the JSON-RPC server.",
-        defaultValue: ValidIpAddress.init("127.0.0.1")
-        name: "rpc-address" }: ValidIpAddress
+        defaultValue: parseIpAddress("127.0.0.1")
+        name: "rpc-address" }: IpAddress
 
       rpcPort* {.
         desc: "Listening port of the JSON-RPC server.",
@@ -343,8 +343,8 @@ type
 
       restAddress* {.
         desc: "Listening address of the REST HTTP server.",
-        defaultValue: ValidIpAddress.init("127.0.0.1")
-        name: "rest-address" }: ValidIpAddress
+        defaultValue: parseIpAddress("127.0.0.1")
+        name: "rest-address" }: IpAddress
 
       restPort* {.
         desc: "Listening port of the REST HTTP server.",
@@ -375,8 +375,8 @@ type
 
       metricsServerAddress* {.
         desc: "Listening address of the metrics server."
-        defaultValue: ValidIpAddress.init("127.0.0.1")
-        name: "metrics-server-address" }: ValidIpAddress
+        defaultValue: parseIpAddress("127.0.0.1")
+        name: "metrics-server-address" }: IpAddress
 
       metricsServerPort* {.
         desc: "Listening HTTP port of the metrics server."
@@ -402,8 +402,8 @@ type
 
       dnsDiscoveryNameServers* {.
         desc: "DNS name server IPs to query. Argument may be repeated."
-        defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
-        name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+        defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
+        name: "dns-discovery-name-server" }: seq[IpAddress]
 
       ## Discovery v5 config
 
@@ -510,19 +510,19 @@ proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
 proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
+proc parseCmdArg*(T: type IpAddress, p: string): T =
   try:
-    ValidIpAddress.init(p)
+    parseIpAddress(p)
   except CatchableError:
     raise newException(ValueError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
+proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
-proc defaultListenAddress*(): ValidIpAddress =
+proc defaultListenAddress*(): IpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  (static ValidIpAddress.init("0.0.0.0"))
+  (static parseIpAddress("0.0.0.0"))
 
 proc parseCmdArg*(T: type Port, p: string): T =
   try:

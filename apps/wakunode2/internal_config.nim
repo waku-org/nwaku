@@ -143,7 +143,7 @@ proc networkConfiguration*(conf: WakuNodeConf,
       if dnsRes.isErr():
         return err($dnsRes.error) # Pass error down the stack
 
-      extIp = some(ValidIpAddress.init(dnsRes.get()))
+      extIp = some(parseIpAddress(dnsRes.get()))
     except CatchableError:
       return err("Could not update extIp to resolved DNS IP: " & getCurrentExceptionMsg())
 

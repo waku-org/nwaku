@@ -33,7 +33,7 @@ logScope:
 
 type WakuDiscoveryV5Config* = object
     discv5Config*: Option[DiscoveryConfig]
-    address*: ValidIpAddress
+    address*: IpAddress
     port*: Port
     privateKey*: eth_keys.PrivateKey
     bootstrapRecords*: seq[waku_enr.Record]
