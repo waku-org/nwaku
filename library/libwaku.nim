@@ -345,27 +345,6 @@ proc waku_connect(ctx: ptr ptr Context,
 
   return RET_OK
 
-proc waku_store_config(ctx: ptr ptr Context,
-                       dbUrl: cstring,
-                       retentionPolicy: cstring,
-                       callback: WakuCallBack,
-                       userData: pointer): cint
-                       {.dynlib, exportc.} =
-
-  ctx[][].userData = userData
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
-                                ctx[],
-                                RequestType.STORE,
-                                StoreConfigRequest.createShared(StoreConfigState.STORE_ENABLE,
-                                                                dbUrl,
-                                                                retentionPolicy))
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
-
-  return RET_OK
-
 proc waku_store_query(ctx: ptr ptr Context,
                       queryJson: cstring,
                       peerId: cstring,

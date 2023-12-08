@@ -49,7 +49,6 @@ proc run(ctx: ptr Context) {.thread.} =
   ## and attends library user requests (stop, connect_to, etc.)
 
   var node: WakuNode
-  node.mountStoreClient()
 
   while running.load == true:
     ## Trying to get a request from the libwaku main thread
