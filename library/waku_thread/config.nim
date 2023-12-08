@@ -91,6 +91,71 @@ proc parseRelay(jsonNode: JsonNode,
 
   return true
 
+proc parseStore(jsonNode: JsonNode,
+                store: var bool,
+                storeNode: var string,
+                storeRetentionPolicy: var string,
+                storeDbUrl: var string,
+                storeVacuum: var bool,
+                storeDbMigration: var bool,
+                storeMaxNumDbConnections: var int,
+                jsonResp: var JsonEvent): bool =
+
+  if not jsonNode.contains("store"):
+    ## the store parameter is not required. By default is is disabled
+    store = false
+    return true
+
+  if jsonNode["store"].kind != JsonNodeKind.JBool:
+    jsonResp = JsonErrorEvent.new("The store config param should be a boolean");
+    return false
+
+  store = jsonNode["store"].getBool()
+
+  if jsonNode.contains("storeNode"):
+    if jsonNode["storeNode"].kind != JsonNodeKind.JString:
+      jsonResp = JsonErrorEvent.new("The storeNode config param should be a string");
+      return false
+
+    storeNode = jsonNode["storeNode"].getStr()
+
+  if jsonNode.contains("storeRetentionPolicy"):
+    if jsonNode["storeRetentionPolicy"].kind != JsonNodeKind.JString:
+      jsonResp = JsonErrorEvent.new("The storeRetentionPolicy config param should be a string");
+      return false
+
+    storeRetentionPolicy = jsonNode["storeRetentionPolicy"].getStr()
+
+  if jsonNode.contains("storeDbUrl"):
+    if jsonNode["storeDbUrl"].kind != JsonNodeKind.JString:
+      jsonResp = JsonErrorEvent.new("The storeDbUrl config param should be a string");
+      return false
+
+    storeDbUrl = jsonNode["storeDbUrl"].getStr()
+
+  if jsonNode.contains("storeVacuum"):
+    if jsonNode["storeVacuum"].kind != JsonNodeKind.JBool:
+      jsonResp = JsonErrorEvent.new("The storeVacuum config param should be a bool");
+      return false
+
+    storeVacuum = jsonNode["storeVacuum"].getBool()
+
+  if jsonNode.contains("storeDbMigration"):
+    if jsonNode["storeDbMigration"].kind != JsonNodeKind.JBool:
+      jsonResp = JsonErrorEvent.new("The storeDbMigration config param should be a bool");
+      return false
+
+    storeDbMigration = jsonNode["storeDbMigration"].getBool()
+
+  if jsonNode.contains("storeMaxNumDbConnections"):
+    if jsonNode["storeMaxNumDbConnections"].kind != JsonNodeKind.JInt:
+      jsonResp = JsonErrorEvent.new("The storeMaxNumDbConnections config param should be an int");
+      return false
+
+    storeMaxNumDbConnections = jsonNode["storeMaxNumDbConnections"].getInt()
+
+  return true
+
 proc parseTopics(jsonNode: JsonNode, topics: var seq[string]) =
   if jsonNode.contains("topics"):
     for topic in jsonNode["topics"].items:
@@ -103,6 +168,13 @@ proc parseConfig*(configNodeJson: string,
                   netConfig: var NetConfig,
                   relay: var bool,
                   topics: var seq[string],
+                  store: var bool,
+                  storeNode: var string,
+                  storeRetentionPolicy: var string,
+                  storeDbUrl: var string,
+                  storeVacuum: var bool,
+                  storeDbMigration: var bool,
+                  storeMaxNumDbConnections: var int,
                   jsonResp: var JsonEvent): bool =
 
   if configNodeJson.len == 0:
@@ -110,7 +182,6 @@ proc parseConfig*(configNodeJson: string,
     return false
 
   var jsonNode: JsonNode
-  
   try:
     jsonNode = parseJson(configNodeJson)
   except JsonParsingError:
@@ -151,6 +222,11 @@ proc parseConfig*(configNodeJson: string,
 
   # topics
   parseTopics(jsonNode, topics)
+
+  # store
+  if not parseStore(jsonNode, store, storeNode, storeRetentionPolicy, storeDbUrl,
+                    storeVacuum, storeDbMigration, storeMaxNumDbConnections, jsonResp):
+    return false
 
   let wakuFlags = CapabilitiesBitfield.init(
         lightpush = false,
