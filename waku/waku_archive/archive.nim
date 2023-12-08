@@ -68,6 +68,7 @@ type
     driver*: ArchiveDriver  # TODO: Make this field private. Remove asterisk
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
+    retPolicyFut: Future[Result[void, string]]  ## retention policy cancelable future
 
 proc new*(T: type WakuArchive,
           driver: ArchiveDriver,
@@ -189,19 +190,25 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
   return ok(ArchiveResponse(messages: messages, cursor: cursor))
 
 # Retention policy
+const WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
 
-proc executeMessageRetentionPolicy*(w: WakuArchive):
-                                    Future[Result[void, string]] {.async.} =
+proc loopApplyRetentionPolicy*(w: WakuArchive):
+                               Future[Result[void, string]] {.async.} =
+
   if w.retentionPolicy.isNil():
     return err("retentionPolicy is Nil in executeMessageRetentionPolicy")
 
   if w.driver.isNil():
     return err("driver is Nil in executeMessageRetentionPolicy")
 
-  let retPolicyRes = await w.retentionPolicy.execute(w.driver)
-  if retPolicyRes.isErr():
-      waku_archive_errors.inc(labelValues = [retPolicyFailure])
-      return err("failed execution of retention policy: " & retPolicyRes.error)
+  while true:
+    debug "executing message retention policy"
+    let retPolicyRes = await w.retentionPolicy.execute(w.driver)
+    if retPolicyRes.isErr():
+        waku_archive_errors.inc(labelValues = [retPolicyFailure])
+        error "failed execution of retention policy", error=retPolicyRes.error
+
+    await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
 
   return ok()
 
@@ -218,26 +225,8 @@ proc reportStoredMessagesMetric*(w: WakuArchive):
 
   return ok()
 
-proc startMessageRetentionPolicyPeriodicTask*(w: WakuArchive,
-                                              interval: timer.Duration) =
-  # Start the periodic message retention policy task
-  # https://github.com/nim-lang/Nim/issues/17369
+proc start*(self: WakuArchive) {.async.} =
+  self.retPolicyFut = self.loopApplyRetentionPolicy()
 
-  var executeRetentionPolicy: CallbackFunc
-  executeRetentionPolicy =
-    CallbackFunc(
-      proc (arg: pointer) {.gcsafe, raises: [].} =
-        try:
-          let retPolRes = waitFor w.executeMessageRetentionPolicy()
-          if retPolRes.isErr():
-            waku_archive_errors.inc(labelValues = [retPolicyFailure])
-            error "error in periodic retention policy", error = retPolRes.error
-        except CatchableError:
-          waku_archive_errors.inc(labelValues = [retPolicyFailure])
-          error "exception in periodic retention policy",
-                error = getCurrentExceptionMsg()
-
-        discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
-    )
-
-  discard setTimer(Moment.fromNow(interval), executeRetentionPolicy)
+proc stop*(self: WakuArchive) {.async.} =
+  self.retPolicyFut.cancel()

@@ -740,7 +740,6 @@ proc filterUnsubscribeAll*(node: WakuNode,
 # yet incompatible to handle both type of filters - use specific filter registration instead
 
 ## Waku archive
-const WakuArchiveDefaultRetentionPolicyInterval* = 30.minutes
 proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
@@ -760,18 +759,7 @@ proc mountArchive*(node: WakuNode,
   except CatchableError:
     return err("exception in mountArchive: " & getCurrentExceptionMsg())
 
-  if retentionPolicy.isSome():
-    try:
-      debug "executing message retention policy"
-      let retPolRes = waitFor node.wakuArchive.executeMessageRetentionPolicy()
-      if retPolRes.isErr():
-        return err("error in mountArchive: " & retPolRes.error)
-    except CatchableError:
-      return err("exception in mountArch-ret-pol: " & getCurrentExceptionMsg())
-
-    node.wakuArchive.startMessageRetentionPolicyPeriodicTask(
-      WakuArchiveDefaultRetentionPolicyInterval)
-
+  asyncSpawn node.wakuArchive.start()
   return ok()
 
 ## Waku store
@@ -1173,6 +1161,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuRlnRelay.isNil():
     await node.wakuRlnRelay.stop()
+
+  if not node.wakuArchive.isNil():
+    await node.wakuArchive.stop()
 
   node.started = false
 
