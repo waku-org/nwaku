@@ -355,6 +355,8 @@ proc waku_store_query(ctx: ptr ptr Context,
 
   ctx[][].userData = userData
 
+  ## TODO: implement the logic that make the "self" node to act as a Store client
+
   # if sendReqRes.isErr():
   #   let msg = $sendReqRes.error
   #   callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
