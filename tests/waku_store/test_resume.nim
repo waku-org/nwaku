@@ -14,32 +14,10 @@ import
   ../../waku/waku_core,
   ../../waku/waku_core/message/digest,
   ../../waku/waku_store,
+  ../waku_store/store_utils,
+  ../waku_archive/archive_utils,
   ./testlib/common,
   ./testlib/switch
-
-
-proc newTestDatabase(): SqliteDatabase =
-  SqliteDatabase.new("memory:").tryGet()
-
-proc newTestArchiveDriver(): ArchiveDriverResult =
-  let database = SqliteDatabase.new(":memory:").tryGet()
-  SqliteDriver.init(database).tryGet()
-
-
-proc newTestWakuStore(switch: Switch, store: MessageStore = nil): Future[WakuStore] {.async.} =
-  let
-    peerManager = PeerManager.new(switch)
-    proto = WakuStore.init(peerManager, rng, store)
-
-  await proto.start()
-  switch.mount(proto)
-
-  return proto
-
-proc newTestWakuStoreClient(switch: Switch, store: MessageStore = nil): WakuStoreClient =
-  let
-    peerManager = PeerManager.new(switch)
-  WakuStoreClient.new(peerManager, rng, store)
 
 
 procSuite "Waku Store - resume store":
@@ -222,7 +200,7 @@ suite "WakuNode - waku store":
 
     await allFutures(client.start(), server.start())
 
-    let driver = newTestArchiveDriver()
+    let driver = newSqliteArchiveDriver()
     server.mountArchive(some(driver), none(MessageValidator), none(RetentionPolicy))
     await server.mountStore()
 

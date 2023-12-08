@@ -26,7 +26,7 @@ logScope:
 #discovery_message_requests_outgoing_total{response="no_response"}
 
 declarePublicGauge networkmonitor_peer_type_as_per_enr,
-    "Number of peers supporting each capability according the the ENR",
+    "Number of peers supporting each capability according to the ENR",
     labels = ["capability"]
 
 declarePublicGauge networkmonitor_peer_type_as_per_protocol,

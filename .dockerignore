@@ -4,4 +4,6 @@
 /LICENSE*
 /tests
 /metrics
+/nimcache
+librln*
 **/vendor/*

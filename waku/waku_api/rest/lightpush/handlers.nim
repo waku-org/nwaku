@@ -5,7 +5,6 @@ else:
 
 import
   std/strformat,
-  std/sequtils,
   stew/byteutils,
   chronicles,
   json_serialization,
@@ -14,10 +13,9 @@ import
   presto/common
 
 import
-  ../../../waku_core,
   ../../waku/node/peer_manager,
   ../../../waku_node,
-  ../../waku/waku_lightpush,
+  ../../waku/waku_lightpush/common,
   ../../handlers,
   ../serdes,
   ../responses,

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sets, strformat],
+  std/[sets, strformat, times],
   chronicles,
   json_serialization,
   json_serialization/std/options,
@@ -43,9 +43,13 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
     payload = ?msg.payload.decode()
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
-    timestamp = msg.timestamp.get(0)
 
-  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
+  var timestamp = msg.timestamp.get(0)
+
+  if timestamp == 0:
+    timestamp = getNanosecondTime(getTime().toUnixFloat())
+
+  return ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
 
 
 #### Serialization and deserialization

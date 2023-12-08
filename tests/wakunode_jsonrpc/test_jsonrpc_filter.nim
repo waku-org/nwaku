@@ -4,8 +4,6 @@ import
   std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
-  libp2p/crypto/crypto,
   json_rpc/[rpcserver, rpcclient]
 import
   ../../../waku/waku_core,
@@ -19,11 +17,6 @@ import
   ../../../waku/waku_filter/client,
   ../testlib/wakucore,
   ../testlib/wakunode
-
-
-proc newTestMessageCache(): filter_api.MessageCache =
-  filter_api.MessageCache.init(capacity=30)
-
 
 procSuite "Waku v2 JSON-RPC API - Filter":
   let
@@ -49,7 +42,8 @@ procSuite "Waku v2 JSON-RPC API - Filter":
       ta = initTAddress(bindIp, rpcPort)
       server = newRpcHttpServer([ta])
 
-    installFilterApiHandlers(node2, server, newTestMessageCache())
+    let cache = MessageCache.init(capacity=30)
+    installFilterApiHandlers(node2, server, cache)
     server.start()
 
     let client = newRpcHttpClient()

@@ -34,8 +34,6 @@ import
     testutils
   ]
 
-let FUTURE_TIMEOUT = 1.seconds
-
 suite "Waku Filter - End to End":
   var client {.threadvar.}: WakuNode
   var clientPeerId {.threadvar.}: PeerId

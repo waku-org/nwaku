@@ -55,7 +55,7 @@ After successfully building the project, you may bring the bundled runtime into 
 ```bash
 source env.sh
 ```
-If everything went well, your should see your prompt suffixed with `[Nimbus env]$`. Now you can run `nim` commands as usual.
+If everything went well, you should see your prompt suffixed with `[Nimbus env]$`. Now you can run `nim` commands as usual.
 
 ### Waku Protocol Test Suite
 

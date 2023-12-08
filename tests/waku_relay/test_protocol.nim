@@ -1011,7 +1011,6 @@ suite "Waku Relay":
         msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 934)) # 1MiB - 90B -> Max Size (Exclusive Limit)
         msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024)) # 1MiB -> Out of Max Size
 
-
       # When sending the 1KiB message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
