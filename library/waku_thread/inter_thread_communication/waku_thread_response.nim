@@ -6,6 +6,8 @@
 import
   std/json,
   stew/results
+import
+  ../../alloc
 
 type
   ResponseType {.pure.} = enum
@@ -26,13 +28,11 @@ proc createShared*(T: type InterThreadResponse,
   if res.isOk():
     let value = res.get()
     ret[].respType = ResponseType.OK
-    ret[].content = cast[cstring](allocShared0(value.len + 1))
-    copyMem(ret[].content, unsafeAddr value, value.len + 1)
+    ret[].content = value.alloc()
   else:
     let error = res.error
     ret[].respType = ResponseType.ERR
-    ret[].content = cast[cstring](allocShared0(error.len + 1))
-    copyMem(ret[].content, unsafeAddr error, error.len + 1)
+    ret[].content = res.error.alloc()
   return ret
 
 proc process*(T: type InterThreadResponse,
