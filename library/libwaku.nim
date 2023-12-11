@@ -63,8 +63,15 @@ proc relayEventCallback(pubsubTopic: PubsubTopic,
 ################################################################################
 ### Exported procs
 
-proc waku_init(callback: WakuCallback): pointer {.dynlib, exportc, cdecl.} =
-  ## Initializes the waku library.
+proc waku_new(configJson: cstring,
+              callback: WakuCallback,
+              userData: pointer): pointer
+              {.dynlib, exportc, cdecl.} =
+  ## Creates a new instance of the WakuNode.
+
+  if isNil(callback):
+    echo "error: missing callback in waku_new"
+    return nil
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
   var ctx = waku_thread.createWakuThread().valueOr:
@@ -72,23 +79,10 @@ proc waku_init(callback: WakuCallback): pointer {.dynlib, exportc, cdecl.} =
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
     return nil
 
-  return ctx
-
-proc waku_new(ctx: ptr ptr Context,
-              configJson: cstring,
-              callback: WakuCallback,
-              userData: pointer): cint
-              {.dynlib, exportc, cdecl.} =
-  ## Creates a new instance of the WakuNode.
-  ## Notice that the ConfigNode type is also exported and available for users.
-
-  ctx[][].userData = userData
-
-  if isNil(callback):
-    return RET_MISSING_CALLBACK
+  ctx.userData = userData
 
   let sendReqRes = waku_thread.sendRequestToWakuThread(
-                                      ctx[],
+                                      ctx,
                                       RequestType.LIFECYCLE,
                                       NodeLifecycleRequest.createShared(
                                               NodeLifecycleMsgType.CREATE_NODE,
@@ -96,9 +90,9 @@ proc waku_new(ctx: ptr ptr Context,
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
-    return RET_ERR
+    return nil
 
-  return RET_OK
+  return ctx
 
 proc waku_version(ctx: ptr ptr Context,
                   callback: WakuCallBack,
