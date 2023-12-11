@@ -18,8 +18,10 @@ import
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
   ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
+  ./waku_thread/inter_thread_communication/requests/protocols/store_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
-  ./alloc
+  ./alloc,
+  ./callback
 
 ################################################################################
 ### Wrapper around the waku node
@@ -31,11 +33,6 @@ import
 const RET_OK: cint = 0
 const RET_ERR: cint = 1
 const RET_MISSING_CALLBACK: cint = 2
-
-type
-  WakuCallBack* = proc(callerRet: cint,
-                       msg: ptr cchar,
-                       len: csize_t) {.cdecl, gcsafe.}
 
 ### End of exported types
 ################################################################################
@@ -345,6 +342,25 @@ proc waku_connect(ctx: ptr ptr Context,
     let msg = $connRes.error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
     return RET_ERR
+
+  return RET_OK
+
+proc waku_store_query(ctx: ptr ptr Context,
+                      queryJson: cstring,
+                      peerId: cstring,
+                      timeoutMs: cint,
+                      callback: WakuCallBack,
+                      userData: pointer): cint
+                      {.dynlib, exportc.} =
+
+  ctx[][].userData = userData
+
+  ## TODO: implement the logic that make the "self" node to act as a Store client
+
+  # if sendReqRes.isErr():
+  #   let msg = $sendReqRes.error
+  #   callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+  #   return RET_ERR
 
   return RET_OK
 

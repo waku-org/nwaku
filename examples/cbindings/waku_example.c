@@ -28,6 +28,13 @@ struct ConfigNode {
     char     key[128];
     int         relay;
     char  peers[2048];
+    int         store;
+    char storeNode[2048];
+    char storeRetentionPolicy[64];
+    char storeDbUrl[256];
+    int                 storeVacuum;
+    int            storeDbMigration;
+    int    storeMaxNumDbConnections;
 };
 
 // libwaku Context
@@ -247,6 +254,14 @@ int main(int argc, char** argv) {
     cfgNode.port = 60000;
     cfgNode.relay = 1;
 
+    cfgNode.store = 1;
+    snprintf(cfgNode.storeNode, 2048, "");
+    snprintf(cfgNode.storeRetentionPolicy, 64, "time:6000000");
+    snprintf(cfgNode.storeDbUrl, 256, "postgres://postgres:test123@localhost:5432/postgres");
+    cfgNode.storeVacuum = 0;
+    cfgNode.storeDbMigration = 0;
+    cfgNode.storeMaxNumDbConnections = 30;
+
     if (argp_parse(&argp, argc, argv, 0, 0, &cfgNode)
                     == ARGP_ERR_UNKNOWN) {
         show_help_and_exit();
@@ -254,16 +269,24 @@ int main(int argc, char** argv) {
 
     ctx = waku_init(event_handler, userData);
 
-    char jsonConfig[1024];
-    snprintf(jsonConfig, 1024, "{ \
-                                    \"host\": \"%s\",   \
-                                    \"port\": %d,       \
-                                    \"key\": \"%s\",    \
-                                    \"relay\": %s       \
+    char jsonConfig[2048];
+    snprintf(jsonConfig, 2048, "{ \
+                                    \"host\": \"%s\",    \
+                                    \"port\": %d,        \
+                                    \"key\": \"%s\",     \
+                                    \"relay\": %s,       \
+                                    \"store\": %s,       \
+                                    \"storeDbUrl\": \"%s\",  \
+                                    \"storeRetentionPolicy\": \"%s\",  \
+                                    \"storeMaxNumDbConnections\": %d \
                                 }", cfgNode.host,
                                     cfgNode.port,
                                     cfgNode.key,
-                                    cfgNode.relay ? "true":"false");
+                                    cfgNode.relay ? "true":"false",
+                                    cfgNode.store ? "true":"false",
+                                    cfgNode.storeDbUrl,
+                                    cfgNode.storeRetentionPolicy,
+                                    cfgNode.storeMaxNumDbConnections);
 
     WAKU_CALL( waku_default_pubsub_topic(&ctx, print_default_pubsub_topic, userData) );
     WAKU_CALL( waku_version(&ctx, print_waku_version, userData) );
@@ -272,7 +295,6 @@ int main(int argc, char** argv) {
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
     WAKU_CALL( waku_new(&ctx, jsonConfig, event_handler, userData) );
-
     waku_set_event_callback(event_handler, userData);
     waku_start(&ctx, event_handler, userData);
 
@@ -288,6 +310,7 @@ int main(int argc, char** argv) {
                                     "/waku/2/default-waku/proto",
                                     event_handler,
                                     userData) );
+
     show_main_menu();
     while(1) {
         handle_user_input();

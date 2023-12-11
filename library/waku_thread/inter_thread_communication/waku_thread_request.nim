@@ -12,13 +12,15 @@ import
   ../../../waku/node/waku_node,
   ./requests/node_lifecycle_request,
   ./requests/peer_manager_request,
-  ./requests/protocols/relay_request
+  ./requests/protocols/relay_request,
+  ./requests/protocols/store_request
 
 type
   RequestType* {.pure.} = enum
     LIFECYCLE,
     PEER_MANAGER,
     RELAY,
+    STORE,
 
 type
   InterThreadRequest* = object
@@ -50,6 +52,8 @@ proc process*(T: type InterThreadRequest,
         cast[ptr PeerManagementRequest](request[].reqContent).process(node[])
       of RELAY:
         cast[ptr RelayRequest](request[].reqContent).process(node)
+      of STORE:
+        cast[ptr StoreRequest](request[].reqContent).process(node)
 
   return await retFut
 
