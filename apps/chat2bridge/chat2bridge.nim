@@ -8,7 +8,8 @@ import
   chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
   metrics, metrics/chronos_httpserver,
   stew/byteutils,
-  stew/shims/net as stewNet, json_rpc/rpcserver,
+  eth/net/nat,
+  json_rpc/rpcserver,
   # Matterbridge client imports
   ../../waku/common/utils/matterbridge_client,
   # Waku v2 imports
@@ -51,7 +52,7 @@ type
     seen: seq[Hash] #FIFO queue
     contentTopic: string
 
-  MbMessageHandler* = proc (jsonNode: JsonNode) {.gcsafe, raises: [].}
+  MbMessageHandler = proc (jsonNode: JsonNode) {.async.}
 
 ###################
 # Helper funtions #
@@ -129,7 +130,7 @@ proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async
 
     if getRes.isOk():
       for jsonNode in getRes[]:
-        handler(jsonNode)
+        await handler(jsonNode)
     else:
       error "Matterbridge host unreachable. Sleeping before retrying."
       await sleepAsync(chronos.seconds(10))
@@ -145,8 +146,8 @@ proc new*(T: type Chat2MatterBridge,
           mbGateway: string,
           # NodeV2 initialisation
           nodev2Key: crypto.PrivateKey,
-          nodev2BindIp: ValidIpAddress, nodev2BindPort: Port,
-          nodev2ExtIp = none[ValidIpAddress](), nodev2ExtPort = none[Port](),
+          nodev2BindIp: IpAddress, nodev2BindPort: Port,
+          nodev2ExtIp = none[IpAddress](), nodev2ExtPort = none[Port](),
           contentTopic: string): T
   {.raises: [Defect, ValueError, KeyError, TLSStreamProtocolError, IOError, LPError].} =
 
@@ -183,7 +184,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
   debug "Start polling Matterbridge"
 
   # Start Matterbridge polling (@TODO: use streaming interface)
-  proc mbHandler(jsonNode: JsonNode) {.gcsafe.} =
+  proc mbHandler(jsonNode: JsonNode) {.async.} =
     trace "Bridging message from Matterbridge to chat2", jsonNode=jsonNode
     waitFor cmb.toChat2(jsonNode)
 
@@ -209,7 +210,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   cmb.nodev2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
 
-proc stop*(cmb: Chat2MatterBridge) {.async.} =
+proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
   info "Stopping Chat2MatterBridge"
 
   cmb.running = false

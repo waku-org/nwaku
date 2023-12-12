@@ -13,7 +13,7 @@ type
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
       desc: "Listening address for the LibP2P traffic"
-      name: "listen-address"}: ValidIpAddress
+      name: "listen-address"}: IpAddress
 
     libp2pTcpPort* {.
       desc: "Libp2p TCP listening port (for Waku v2)"
@@ -42,8 +42,8 @@ type
 
     rpcAddress* {.
       desc: "Listening address of the RPC server",
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "rpc-address" }: ValidIpAddress
+      defaultValue: parseIpAddress("127.0.0.1")
+      name: "rpc-address" }: IpAddress
 
     rpcPort* {.
       desc: "Listening port of the RPC server"
@@ -57,8 +57,8 @@ type
 
     metricsServerAddress* {.
       desc: "Listening address of the metrics server"
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "metrics-server-address" }: ValidIpAddress
+      defaultValue: parseIpAddress("127.0.0.1")
+      name: "metrics-server-address" }: IpAddress
 
     metricsServerPort* {.
       desc: "Listening HTTP port of the metrics server"
@@ -109,8 +109,8 @@ type
     # Matterbridge options    
     mbHostAddress* {.
       desc: "Listening address of the Matterbridge host",
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "mb-host-address" }: ValidIpAddress
+      defaultValue: parseIpAddress("127.0.0.1")
+      name: "mb-host-address" }: IpAddress
 
     mbHostPort* {.
       desc: "Listening port of the Matterbridge host",
@@ -149,14 +149,14 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
+proc parseCmdArg*(T: type IpAddress, p: string): T =
   try:
-    result = ValidIpAddress.init(p)
+    result = parseIpAddress(p)
   except CatchableError:
     raise newException(ValueError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
+proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
-func defaultListenAddress*(conf: Chat2MatterbridgeConf): ValidIpAddress =
-  (static ValidIpAddress.init("0.0.0.0"))
+func defaultListenAddress*(conf: Chat2MatterbridgeConf): IpAddress =
+  (parseIpAddress("0.0.0.0"))
