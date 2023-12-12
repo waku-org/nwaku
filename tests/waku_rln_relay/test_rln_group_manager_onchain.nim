@@ -133,7 +133,7 @@ proc runGanache(): Process =
           ganacheStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:8540"):
             break
-      except CatchableError:
+      except Exception, CatchableError:
         break
     debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
     return runGanache
@@ -221,14 +221,20 @@ suite "Onchain group manager":
     let manager = await setup()
 
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
     await manager.stop()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = await setup()
 
     expect(ValueError):
-      await manager.startGroupSync()
+      try:
+        await manager.startGroupSync()
+      except Exception, CatchableError:
+        assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
     await manager.stop()
 
   asyncTest "startGroupSync: should sync to the state of the group":
@@ -252,10 +258,12 @@ suite "Onchain group manager":
         fut.complete()
       return callback
 
-    manager.onRegister(generateCallback(fut))
-
-    await manager.register(credentials)
-    await manager.startGroupSync()
+    try:
+      manager.onRegister(generateCallback(fut))
+      await manager.register(credentials)
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
 
@@ -292,11 +300,15 @@ suite "Onchain group manager":
           futs[futureIndex].complete()
           futureIndex += 1
       return callback
-    manager.onRegister(generateCallback(futures, credentials))
-    await manager.startGroupSync()
 
-    for i in 0 ..< credentials.len():
-      await manager.register(credentials[i])
+    try:
+      manager.onRegister(generateCallback(futures, credentials))
+      await manager.startGroupSync()
+
+      for i in 0 ..< credentials.len():
+        await manager.register(credentials[i])
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await allFutures(futures)
 
@@ -315,20 +327,31 @@ suite "Onchain group manager":
     let dummyCommitment = default(IDCommitment)
 
     expect(ValueError):
-      await manager.register(dummyCommitment)
+      try:
+        await manager.register(dummyCommitment)
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
     await manager.stop()
 
   asyncTest "register: should register successfully":
     let manager = await setup()
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
     require:
         merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
-    await manager.register(idCommitment)
+
+    try:
+      await manager.register(idCommitment)
+    except Exception, CatchableError:
+      assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
+
     let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
     require:
       merkleRootAfterRes.isOk()
@@ -354,9 +377,11 @@ suite "Onchain group manager":
 
     manager.onRegister(callback)
     await manager.init()
-    await manager.startGroupSync()
-
-    await manager.register(idCommitment)
+    try:
+      await manager.startGroupSync()
+      await manager.register(idCommitment)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
 
@@ -369,7 +394,10 @@ suite "Onchain group manager":
     let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
 
     expect(ValueError):
-      await manager.withdraw(idSecretHash)
+      try:
+        await manager.withdraw(idSecretHash)
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
     await manager.stop()
 
   asyncTest "validateRoot: should validate good root":
@@ -390,8 +418,12 @@ suite "Onchain group manager":
 
     manager.onRegister(callback)
 
-    await manager.startGroupSync()
-    await manager.register(credentials)
+    try:
+      await manager.startGroupSync()
+      await manager.register(credentials)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     await fut
 
     let messageBytes = "Hello".toBytes()
@@ -417,7 +449,10 @@ suite "Onchain group manager":
   asyncTest "validateRoot: should reject bad root":
     let manager = await setup()
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
     let credentials = generateCredentials(manager.rlnInstance)
 
@@ -462,8 +497,11 @@ suite "Onchain group manager":
 
     manager.onRegister(callback)
 
-    await manager.startGroupSync()
-    await manager.register(credentials)
+    try:
+      await manager.startGroupSync()
+      await manager.register(credentials)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
     await fut
 
     let messageBytes = "Hello".toBytes()
@@ -491,10 +529,17 @@ suite "Onchain group manager":
   asyncTest "verifyProof: should reject invalid proof":
     let manager = await setup()
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
     let idCredential = generateCredentials(manager.rlnInstance)
-    await manager.register(idCredential.idCommitment)
+
+    try:
+      await manager.register(idCredential.idCommitment)
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
     let idCredential2 = generateCredentials(manager.rlnInstance)
 
@@ -546,11 +591,13 @@ suite "Onchain group manager":
           futureIndex += 1
       return callback
 
-    manager.onRegister(generateCallback(futures, credentials))
-    await manager.startGroupSync()
-
-    for i in 0 ..< credentials.len():
-      await manager.register(credentials[i])
+    try:
+      manager.onRegister(generateCallback(futures, credentials))
+      await manager.startGroupSync()
+      for i in 0 ..< credentials.len():
+        await manager.register(credentials[i])
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await allFutures(futures)
 
@@ -561,7 +608,10 @@ suite "Onchain group manager":
 
     # We can now simulate a chain reorg by calling backfillRootQueue
     let expectedLastRoot = manager.validRootBuffer[0]
-    await manager.backfillRootQueue(1)
+    try:
+      await manager.backfillRootQueue(1)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     # We should now have 5 roots in the queue, and no partial buffer
     check:
@@ -576,26 +626,50 @@ suite "Onchain group manager":
 
     manager.ethRpc = none(Web3)
 
+    var isReady = true
+    try:
+      isReady = await manager.isReady()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     check:
-      (await manager.isReady()) == false
+      isReady == false
+
     await manager.stop()
 
   asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
     var manager = await setup()
     await manager.init()
 
+    var isReady = true
+    try:
+      isReady = await manager.isReady()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     check:
-      (await manager.isReady()) == false
+      isReady == false
+
     await manager.stop()
 
   asyncTest "isReady should return true if ethRpc is ready":
     var manager = await setup()
     await manager.init()
     # node can only be ready after group sync is done
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
     
+    var isReady = true
+    try:
+      isReady = await manager.isReady()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     check:
-      (await manager.isReady()) == true
+      isReady == false
+
     await manager.stop()
 
 

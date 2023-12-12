@@ -73,16 +73,22 @@ suite "Static group manager":
     require:
       manager.validRoots.len() == 1
       manager.rlnInstance.getMerkleRoot().get() == manager.validRoots[0]
-    await manager.startGroupSync()
+
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = StaticGroupManager(groupSize: 0,
                                      membershipIndex: some(MembershipIndex(0)),
                                      groupKeys: @[],
                                      rlnInstance: rlnInstance)
-
     expect(ValueError):
-      await manager.startGroupSync()
+      try:
+        await manager.startGroupSync()
+      except Exception, CatchableError:
+        assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
   asyncTest "register: should guard against uninitialized state":
     let manager = StaticGroupManager(groupSize: 0,
@@ -93,18 +99,27 @@ suite "Static group manager":
     let dummyCommitment = default(IDCommitment)
 
     expect(ValueError):
-      await manager.register(dummyCommitment)
+      try:
+        await manager.register(dummyCommitment)
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "register: should register successfully":
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
     require:
         merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
-    await manager.register(idCommitment)
+    try:
+      await manager.register(idCommitment)
+    except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
     let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
     require:
       merkleRootAfterRes.isOk()
@@ -127,11 +142,13 @@ suite "Static group manager":
       callbackCalled = true
       fut.complete()
 
-    manager.onRegister(callback)
-    await manager.init()
-    await manager.startGroupSync()
-
-    await manager.register(idCommitment)
+    try:
+      manager.onRegister(callback)
+      await manager.init()
+      await manager.startGroupSync()
+      await manager.register(idCommitment)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
     check:
@@ -141,18 +158,28 @@ suite "Static group manager":
     let idSecretHash = credentials[0].idSecretHash
 
     expect(ValueError):
-      await manager.withdraw(idSecretHash)
+      try:
+        await manager.withdraw(idSecretHash)
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
+
 
   asyncTest "withdraw: should withdraw successfully":
     await manager.init()
-    await manager.startGroupSync()
+    try:
+      await manager.startGroupSync()
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     let idSecretHash = credentials[0].idSecretHash
     let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
     require:
       merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
-    await manager.withdraw(idSecretHash)
+    try:
+      await manager.withdraw(idSecretHash)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
     let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
     require:
       merkleRootAfterRes.isOk()
@@ -174,11 +201,14 @@ suite "Static group manager":
       callbackCalled = true
       fut.complete()
 
-    manager.onWithdraw(callback)
-    await manager.init()
-    await manager.startGroupSync()
+    try:
+      manager.onWithdraw(callback)
+      await manager.init()
+      await manager.startGroupSync()
 
-    await manager.withdraw(idSecretHash)
+      await manager.withdraw(idSecretHash)
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
     check:
