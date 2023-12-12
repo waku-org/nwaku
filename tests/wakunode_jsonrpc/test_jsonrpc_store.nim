@@ -154,7 +154,11 @@ procSuite "Waku v2 JSON-RPC API - Store":
                                   some(Timestamp(9)),
                                   some(StorePagingOptions()))
     except ValueError:
-      jsonError = parseJson(getCurrentExceptionMsg())
+
+      try:
+        jsonError = parseJson(getCurrentExceptionMsg())
+      except Exception:
+        assert false, "exception calling parseJson: " & getCurrentExceptionMsg()
 
     check:
       $jsonError["code"] == "-32000"
