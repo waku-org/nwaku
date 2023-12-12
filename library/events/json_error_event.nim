@@ -14,5 +14,5 @@ proc new*(T: type JsonErrorEvent,
             eventType: "error",
             message: message)
 
-method `$`*(jsonError: JsonErrorEvent): string =
+method `$`*(jsonError: JsonErrorEvent): string {.raises: [].}=
   $( %* jsonError )
