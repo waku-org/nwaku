@@ -26,7 +26,7 @@ type TestConf = object
     listenAddress* {.
       defaultValue: parseIpAddress("127.0.0.1"),
       desc: "Listening address",
-      name: "listen-address"}: ValidIpAddress
+      name: "listen-address"}: IpAddress
 
     tcpPort* {.
       desc: "TCP listening port",
