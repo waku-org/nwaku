@@ -28,8 +28,7 @@ proc toPagingInfo*(pagingOptions: StorePagingOptions): PagingInfoRPC =
   PagingInfoRPC(
     pageSize: some(pagingOptions.pageSize),
     cursor: pagingOptions.cursor,
-    direction: if pagingOptions.forward: some(PagingDirection.FORWARD)
-               else: some(PagingDirection.BACKWARD)
+    direction: some(pagingOptions.forward)
   )
 
 proc toPagingOptions*(pagingInfo: PagingInfoRPC): StorePagingOptions =
