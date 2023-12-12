@@ -121,8 +121,8 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   # create dns resolver
   let
     nameServers = @[
-      initTAddress(ValidIpAddress.init("1.1.1.1"), Port(53)),
-      initTAddress(ValidIpAddress.init("1.0.0.1"), Port(53))]
+      initTAddress(parseIpAddress("1.1.1.1"), Port(53)),
+      initTAddress(parseIpAddress("1.0.0.1"), Port(53))]
     resolver: DnsResolver = DnsResolver.new(nameServers)
 
   if conf.logLevel != LogLevel.NONE:
@@ -149,7 +149,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]
-    bindIp = ValidIpAddress.init("0.0.0.0")
+    bindIp = parseIpAddress("0.0.0.0")
     wsBindPort = Port(conf.nodePort + WebSocketPortOffset)
     nodeTcpPort = Port(conf.nodePort)
     isWs = peer.addrs[0].contains(multiCodec("ws")).get()

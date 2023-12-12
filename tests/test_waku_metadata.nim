@@ -27,8 +27,8 @@ procSuite "Waku Metadata Protocol":
   asyncTest "request() returns the supported metadata of the peer":
     let clusterId = 10.uint32
     let
-      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId)
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), clusterId = clusterId)
+      node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), clusterId = clusterId)
+      node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), clusterId = clusterId)
 
     # Start nodes
     await allFutures([node1.start(), node2.start()])

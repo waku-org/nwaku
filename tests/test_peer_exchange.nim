@@ -21,7 +21,7 @@ procSuite "Peer Exchange":
 
     # Create nodes and ENR. These will be added to the discoverable list
     let
-      bindIp = ValidIpAddress.init("0.0.0.0")
+      bindIp = parseIpAddress("0.0.0.0")
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, bindIp, Port(0))
       nodeKey2 = generateSecp256k1Key()

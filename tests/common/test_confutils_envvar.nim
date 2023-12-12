@@ -24,7 +24,7 @@ type TestConf = object
       name: "test-file" }: Option[InputFile]
 
     listenAddress* {.
-      defaultValue: ValidIpAddress.init("127.0.0.1"),
+      defaultValue: parseIpAddress("127.0.0.1"),
       desc: "Listening address",
       name: "listen-address"}: ValidIpAddress
 
@@ -70,7 +70,7 @@ suite "nim-confutils - envvar":
 
     let conf = confLoadRes.get()
     check:
-      conf.listenAddress == ValidIpAddress.init(listenAddress)
+      conf.listenAddress == parseIpAddress(listenAddress)
       conf.tcpPort == Port(8080)
     
       conf.configFile.isSome()

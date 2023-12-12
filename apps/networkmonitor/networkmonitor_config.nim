@@ -46,7 +46,7 @@ type
 
     metricsServerAddress* {.
       desc: "Listening address of the metrics server."
-      defaultValue: ValidIpAddress.init("127.0.0.1")
+      defaultValue: parseIpAddress("127.0.0.1")
       name: "metrics-server-address" }: ValidIpAddress
 
     metricsServerPort* {.
@@ -66,7 +66,7 @@ type
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
-    result = ValidIpAddress.init(p)
+    result = parseIpAddress(p)
   except CatchableError as e:
     raise newException(ValueError, "Invalid IP address")
 

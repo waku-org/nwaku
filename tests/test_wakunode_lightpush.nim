@@ -19,11 +19,11 @@ suite "WakuNode - Lightpush":
     ## Setup
     let
       lightNodeKey = generateSecp256k1Key()
-      lightNode = newTestWakuNode(lightNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      lightNode = newTestWakuNode(lightNodeKey, parseIpAddress("0.0.0.0"), Port(0))
       bridgeNodeKey = generateSecp256k1Key()
-      bridgeNode = newTestWakuNode(bridgeNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      bridgeNode = newTestWakuNode(bridgeNodeKey, parseIpAddress("0.0.0.0"), Port(0))
       destNodeKey = generateSecp256k1Key()
-      destNode = newTestWakuNode(destNodeKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      destNode = newTestWakuNode(destNodeKey, parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 

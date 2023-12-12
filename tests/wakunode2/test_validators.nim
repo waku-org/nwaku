@@ -25,7 +25,7 @@ suite "WakuNode2 - Validators":
 
   asyncTest "Spam protected topic accepts signed messages":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")
@@ -94,7 +94,7 @@ suite "WakuNode2 - Validators":
 
   asyncTest "Spam protected topic rejects non-signed/wrongly-signed/no-timestamp messages":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")
@@ -204,7 +204,7 @@ suite "WakuNode2 - Validators":
 
   asyncTest "Spam protected topic rejects a spammer node":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Protected topic and key to sign
     let spamProtectedTopic = PubSubTopic("some-spam-protected-topic")

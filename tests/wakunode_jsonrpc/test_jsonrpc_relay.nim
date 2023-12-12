@@ -23,7 +23,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
   asyncTest "subscribe and unsubscribe from topics":
     ## Setup
-    let node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+    let node = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
 
     await node.start()
     await node.mountRelay(@[])
@@ -31,7 +31,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     # JSON-RPC server
     let
       rpcPort = Port(8547)
-      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      ta = initTAddress(parseIpAddress("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
     let cache = MessageCache.init(capacity=30)
@@ -84,8 +84,8 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     # Relay nodes setup
     let
-      srcNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      dstNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      srcNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+      dstNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(srcNode.start(), dstNode.start())
 
@@ -105,7 +105,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     # RPC server (source node)
     let
       rpcPort = Port(8548)
-      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      ta = initTAddress(parseIpAddress("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
     let cache = MessageCache.init(capacity=30)
@@ -162,8 +162,8 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     # Relay nodes setup
     let
-      srcNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      dstNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      srcNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+      dstNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(srcNode.start(), dstNode.start())
 
@@ -175,7 +175,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     # RPC server (destination node)
     let
       rpcPort = Port(8549)
-      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      ta = initTAddress(parseIpAddress("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
     let cache = MessageCache.init(capacity=30)
@@ -223,8 +223,8 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     # Relay nodes setup
     let
-      srcNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      dstNode = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      srcNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+      dstNode = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
 
     await allFutures(srcNode.start(), dstNode.start())
 
@@ -238,7 +238,7 @@ suite "Waku v2 JSON-RPC API - Relay":
     # RPC server (destination node)
     let
       rpcPort = Port(8550)
-      ta = initTAddress(ValidIpAddress.init("0.0.0.0"), rpcPort)
+      ta = initTAddress(parseIpAddress("0.0.0.0"), rpcPort)
       server = newRpcHttpServer([ta])
 
     let cache = MessageCache.init(capacity=30)

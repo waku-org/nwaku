@@ -135,7 +135,7 @@ type
 
     rpcAddress* {.
       desc: "Listening address of the JSON-RPC server.",
-      defaultValue: ValidIpAddress.init("127.0.0.1")
+      defaultValue: parseIpAddress("127.0.0.1")
       name: "rpc-address" }: ValidIpAddress
 
     rpcPort* {.
@@ -162,7 +162,7 @@ type
 
     metricsServerAddress* {.
       desc: "Listening address of the metrics server."
-      defaultValue: ValidIpAddress.init("127.0.0.1")
+      defaultValue: parseIpAddress("127.0.0.1")
       name: "metrics-server-address" }: ValidIpAddress
 
     metricsServerPort* {.
@@ -189,7 +189,7 @@ type
 
     dnsDiscoveryNameServers* {.
       desc: "DNS name server IPs to query. Argument may be repeated."
-      defaultValue: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+      defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
       name: "dns-discovery-name-server" }: seq[ValidIpAddress]
 
     ## Chat2 configuration
@@ -280,7 +280,7 @@ proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
 
 proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
   try:
-    result = ValidIpAddress.init(p)
+    result = parseIpAddress(p)
   except CatchableError as e:
     raise newException(ValueError, "Invalid IP address")
 
@@ -305,4 +305,4 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
 func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
-  (static ValidIpAddress.init("0.0.0.0"))
+  (static parseIpAddress("0.0.0.0"))

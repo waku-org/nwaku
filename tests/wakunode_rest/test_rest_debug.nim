@@ -24,8 +24,8 @@ import
 proc testWakuNode(): WakuNode =
   let
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
+    bindIp = parseIpAddress("0.0.0.0")
+    extIp = parseIpAddress("127.0.0.1")
     port = Port(58000)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
@@ -39,7 +39,7 @@ suite "Waku v2 REST API - Debug":
     await node.mountRelay()
 
     let restPort = Port(58001)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     installDebugApiHandlers(restServer.router, node)
@@ -66,7 +66,7 @@ suite "Waku v2 REST API - Debug":
     await node.mountRelay()
 
     let restPort = Port(58002)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     installDebugApiHandlers(restServer.router, node)

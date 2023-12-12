@@ -328,7 +328,7 @@ proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, 
 
 proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], string] =
   try:
-    let dnsNameServers = @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")]
+    let dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
     let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
     if not dynamicBootstrapNodesRes.isOk():
       error("failed discovering peers from DNS")
@@ -350,12 +350,12 @@ proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], 
 
 proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV5), string] =
   let bindIp = try:
-    ValidIpAddress.init("0.0.0.0")
+    parseIpAddress("0.0.0.0")
   except CatchableError:
     return err("could not start node: " & getCurrentExceptionMsg())
 
   let extIp = try:
-    ValidIpAddress.init("127.0.0.1")
+    parseIpAddress("127.0.0.1")
   except CatchableError:
     return err("could not start node: " & getCurrentExceptionMsg())
 
