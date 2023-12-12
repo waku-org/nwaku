@@ -386,7 +386,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         
         let idx = max((peersBehindIp.len - pm.colocationLimit), 0)
         for peerId in peersBehindIp[0..<idx]:
-          trace "Pruning connection due to ip colocation", peerId = peerId, ip = ip
+          debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
           asyncSpawn(pm.switch.disconnect(peerId))
           pm.peerStore.delete(peerId)
     of Left:
