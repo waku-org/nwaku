@@ -25,11 +25,11 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     cmd: noCommand,
     tcpPort: Port(60000),
     websocketPort: Port(8000),
-    listenAddress: ValidIpAddress.init("0.0.0.0"),
-    rpcAddress: ValidIpAddress.init("127.0.0.1"),
-    restAddress: ValidIpAddress.init("127.0.0.1"),
-    metricsServerAddress: ValidIpAddress.init("127.0.0.1"),
-    dnsAddrsNameServers: @[ValidIpAddress.init("1.1.1.1"), ValidIpAddress.init("1.0.0.1")],
+    listenAddress: parseIpAddress("0.0.0.0"),
+    rpcAddress: parseIpAddress("127.0.0.1"),
+    restAddress: parseIpAddress("127.0.0.1"),
+    metricsServerAddress: parseIpAddress("127.0.0.1"),
+    dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
     clusterId: 1.uint32,
@@ -38,9 +38,9 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
   )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
-                      bindIp: ValidIpAddress,
+                      bindIp: IpAddress,
                       bindPort: Port,
-                      extIp = none(ValidIpAddress),
+                      extIp = none(IpAddress),
                       extPort = none(Port),
                       extMultiAddrs = newSeq[MultiAddress](),
                       peerStorage: PeerStorage = nil,
@@ -77,7 +77,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     let dns = (waitFor dnsResolve(dns4DomainName.get(), conf)).valueOr:
       raise newException(Defect, error)
     
-    resolvedExtIp = some(ValidIpAddress.init(dns))
+    resolvedExtIp = some(parseIpAddress(dns))
 
   let netConf = NetConfig.init(
     bindIp = bindIp,
