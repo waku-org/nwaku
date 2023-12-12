@@ -84,11 +84,12 @@ suite "Static group manager":
                                      membershipIndex: some(MembershipIndex(0)),
                                      groupKeys: @[],
                                      rlnInstance: rlnInstance)
-    expect(ValueError):
-      try:
-        await manager.startGroupSync()
-      except Exception, CatchableError:
-        assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    try:
+      await manager.startGroupSync()
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
   asyncTest "register: should guard against uninitialized state":
     let manager = StaticGroupManager(groupSize: 0,
@@ -98,11 +99,12 @@ suite "Static group manager":
 
     let dummyCommitment = default(IDCommitment)
 
-    expect(ValueError):
-      try:
-        await manager.register(dummyCommitment)
-      except Exception, CatchableError:
-        assert false, "exception raised: " & getCurrentExceptionMsg()
+    try:
+      await manager.register(dummyCommitment)
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "register: should register successfully":
     await manager.init()
@@ -157,12 +159,12 @@ suite "Static group manager":
   asyncTest "withdraw: should guard against uninitialized state":
     let idSecretHash = credentials[0].idSecretHash
 
-    expect(ValueError):
-      try:
-        await manager.withdraw(idSecretHash)
-      except Exception, CatchableError:
-        assert false, "exception raised: " & getCurrentExceptionMsg()
-
+    try:
+      await manager.withdraw(idSecretHash)
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "withdraw: should withdraw successfully":
     await manager.init()

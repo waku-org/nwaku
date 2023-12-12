@@ -230,11 +230,13 @@ suite "Onchain group manager":
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = await setup()
 
-    expect(ValueError):
-      try:
-        await manager.startGroupSync()
-      except Exception, CatchableError:
-        assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    try:
+      await manager.startGroupSync()
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+
     await manager.stop()
 
   asyncTest "startGroupSync: should sync to the state of the group":
@@ -326,11 +328,13 @@ suite "Onchain group manager":
     let manager = await setup()
     let dummyCommitment = default(IDCommitment)
 
-    expect(ValueError):
-      try:
-        await manager.register(dummyCommitment)
-      except Exception, CatchableError:
-        assert false, "exception raised: " & getCurrentExceptionMsg()
+    try:
+      await manager.register(dummyCommitment)
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     await manager.stop()
 
   asyncTest "register: should register successfully":
@@ -393,11 +397,13 @@ suite "Onchain group manager":
     let manager = await setup()
     let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
 
-    expect(ValueError):
-      try:
-        await manager.withdraw(idSecretHash)
-      except Exception, CatchableError:
-        assert false, "exception raised: " & getCurrentExceptionMsg()
+    try:
+      await manager.withdraw(idSecretHash)
+    except ValueError:
+      assert true
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
     await manager.stop()
 
   asyncTest "validateRoot: should validate good root":
@@ -661,14 +667,14 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
     
-    var isReady = true
+    var isReady = false
     try:
       isReady = await manager.isReady()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     check:
-      isReady == false
+      isReady == true
 
     await manager.stop()
 

@@ -49,7 +49,7 @@ method init*(g: GroupManager): Future[void] {.base,gcsafe.} =
 
 # This proc is used to start the group sync process
 # It should be used to sync the group state with the rest of the group members
-method startGroupSync*(g: GroupManager): Future[void] {.base,gcsafe.} =
+method startGroupSync*(g: GroupManager): Future[void] {.base, async: (raises: [Exception]).} =
   raise newException(CatchableError, "startGroupSync proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
@@ -67,7 +67,7 @@ method register*(g: GroupManager, credentials: IdentityCredential): Future[void]
 # This proc is used to register a batch of new identity commitments into the merkle tree
 # The user may or may not have the identity secret to these commitments
 # It should be used when detecting a batch of new members in the group, and syncing the group state
-method registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future[void] {.base,gcsafe.} =
+method registerBatch*(g: GroupManager, idCommitments: seq[IDCommitment]): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when a new identity commitment is registered
