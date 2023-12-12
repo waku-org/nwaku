@@ -111,7 +111,7 @@ proc handleMessage*(w: WakuArchive,
 
     let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
-      error "failed to insert message", err=putRes.error
+      trace "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
