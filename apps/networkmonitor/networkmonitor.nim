@@ -300,7 +300,7 @@ proc crawlNetwork(node: WakuNode,
 
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
-proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[ValidIpAddress]): Result[seq[RemotePeerInfo], string] =
+proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]): Result[seq[RemotePeerInfo], string] =
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
     debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl

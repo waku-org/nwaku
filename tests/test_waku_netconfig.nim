@@ -32,7 +32,7 @@ suite "Waku NetConfig":
     let netConfigRes = NetConfig.init(
       bindIp = conf.listenAddress,
       bindPort = conf.tcpPort,
-      extIp = none(ValidIpAddress),
+      extIp = none(IpAddress),
       extPort = none(Port),
       extMultiAddrs = @[],
       wsBindPort = conf.websocketPort,

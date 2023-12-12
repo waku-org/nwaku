@@ -30,7 +30,7 @@ type
     listenAddress* {.
       defaultValue: defaultListenAddress(config)
       desc: "Listening address for the LibP2P traffic."
-      name: "listen-address"}: ValidIpAddress
+      name: "listen-address"}: IpAddress
 
     tcpPort* {.
       desc: "TCP listening port."
@@ -136,7 +136,7 @@ type
     rpcAddress* {.
       desc: "Listening address of the JSON-RPC server.",
       defaultValue: parseIpAddress("127.0.0.1")
-      name: "rpc-address" }: ValidIpAddress
+      name: "rpc-address" }: IpAddress
 
     rpcPort* {.
       desc: "Listening port of the JSON-RPC server.",
@@ -163,7 +163,7 @@ type
     metricsServerAddress* {.
       desc: "Listening address of the metrics server."
       defaultValue: parseIpAddress("127.0.0.1")
-      name: "metrics-server-address" }: ValidIpAddress
+      name: "metrics-server-address" }: IpAddress
 
     metricsServerPort* {.
       desc: "Listening HTTP port of the metrics server."
@@ -190,7 +190,7 @@ type
     dnsDiscoveryNameServers* {.
       desc: "DNS name server IPs to query. Argument may be repeated."
       defaultValue: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
-      name: "dns-discovery-name-server" }: seq[ValidIpAddress]
+      name: "dns-discovery-name-server" }: seq[IpAddress]
 
     ## Chat2 configuration
 
@@ -278,13 +278,13 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
+proc parseCmdArg*(T: type IpAddress, p: string): T =
   try:
     result = parseIpAddress(p)
   except CatchableError as e:
     raise newException(ValueError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
+proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type Port, p: string): T =
@@ -302,7 +302,7 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
 
-func defaultListenAddress*(conf: Chat2Conf): ValidIpAddress =
+func defaultListenAddress*(conf: Chat2Conf): IpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static parseIpAddress("0.0.0.0"))
