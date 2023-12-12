@@ -322,6 +322,7 @@ proc generateRlnValidator*(wakuRlnRelay: WakuRLNRelay,
     let decodeRes = RateLimitProof.init(message.proof)
 
     if decodeRes.isErr():
+      trace "generateRlnValidator reject", error=decodeRes.error
       return pubsub.ValidationResult.Reject
 
     let msgProof = decodeRes.get()
