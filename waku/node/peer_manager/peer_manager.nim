@@ -159,7 +159,7 @@ proc connectRelay*(pm: PeerManager,
     pm.addPeer(peer)
 
   let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
-  debug "Connecting to relay peer",
+  trace "Connecting to relay peer",
     wireAddr=peer.addrs, peerId=peerId, failedAttempts=failedAttempts
 
   var deadline = sleepAsync(dialTimeout)
@@ -189,7 +189,7 @@ proc connectRelay*(pm: PeerManager,
   pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   pm.peerStore[ConnectionBook][peerId] = CannotConnect
 
-  debug "Connecting relay peer failed",
+  trace "Connecting relay peer failed",
           peerId = peerId,
           reason = reasonFailed,
           failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
@@ -215,7 +215,7 @@ proc dialPeer(pm: PeerManager,
     error "dial shall not be used to connect to relays"
     return none(Connection)
 
-  debug "Dialing peer", wireAddr=addrs, peerId=peerId, proto=proto
+  trace "Dialing peer", wireAddr=addrs, peerId=peerId, proto=proto
 
   # Dial Peer
   let dialFut = pm.switch.dial(peerId, addrs, proto)
@@ -229,14 +229,14 @@ proc dialPeer(pm: PeerManager,
     if res.isOk: "timed out"
     else: res.error.msg
 
-  debug "Dialing peer failed", peerId=peerId, reason=reasonFailed, proto=proto
+  trace "Dialing peer failed", peerId=peerId, reason=reasonFailed, proto=proto
 
   return none(Connection)
 
 proc loadFromStorage(pm: PeerManager) =
   ## Load peers from storage, if available
   
-  debug "loading peers from storage"
+  trace "loading peers from storage"
   
   var amount = 0
 
@@ -276,7 +276,7 @@ proc loadFromStorage(pm: PeerManager) =
     waku_peers_errors.inc(labelValues = ["storage_load_failure"])
     return
 
-  debug "recovered peers from storage", amount = amount
+  trace "recovered peers from storage", amount = amount
 
 proc canBeConnected*(pm: PeerManager,
                      peerId: PeerId): bool =
@@ -489,10 +489,10 @@ proc new*(T: type PeerManager,
   pm.ipTable = initTable[string, seq[PeerId]]()
 
   if not storage.isNil():
-    debug "found persistent peer storage"
+    trace "found persistent peer storage"
     pm.loadFromStorage() # Load previously managed peers.
   else:
-    debug "no peer storage found"
+    trace "no peer storage found"
 
   return pm
 
@@ -520,13 +520,13 @@ proc reconnectPeers*(pm: PeerManager,
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
 
-  debug "Reconnecting peers", proto=proto
+  trace "Reconnecting peers", proto=proto
 
   # Proto is not persisted, we need to iterate over all peers.
   for peerInfo in pm.peerStore.peers(protocolMatcher(proto)):
     # Check that the peer can be connected
     if peerInfo.connectedness == CannotConnect:
-      debug "Not reconnecting to unreachable or non-existing peer", peerId=peerInfo.peerId
+      error "Not reconnecting to unreachable or non-existing peer", peerId=peerInfo.peerId
       continue
 
     # Respect optional backoff period where applicable.
@@ -540,7 +540,7 @@ proc reconnectPeers*(pm: PeerManager,
 
     # TODO: This blocks the whole function. Try to connect to another peer in the meantime.
     if backoffTime > ZeroDuration:
-      debug "Backing off before reconnect...", peerId=peerInfo.peerId, backoffTime=backoffTime
+      trace "Backing off before reconnect...", peerId=peerInfo.peerId, backoffTime=backoffTime
       # We disconnected recently and still need to wait for a backoff period before connecting
       await sleepAsync(backoffTime)
 
@@ -700,7 +700,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let relayCount = connectablePeers.len
 
-    debug "Sharded Peer Management",
+    trace "Sharded Peer Management",
       shard = shard,
       connectable = $connectableCount & "/" & $shardCount,
       relayConnectable = $relayCount & "/" & $shardCount,
@@ -731,7 +731,7 @@ proc prunePeerStore*(pm: PeerManager) =
   if numPeers <= capacity:
     return
 
-  debug "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
+  trace "Peer store capacity exceeded", numPeers = numPeers, capacity = capacity
   let pruningCount = numPeers - capacity
   var peersToPrune: HashSet[PeerId]
 
@@ -793,13 +793,13 @@ proc prunePeerStore*(pm: PeerManager) =
 
   let afterNumPeers = pm.peerStore[AddressBook].book.len
 
-  debug "Finished pruning peer store", beforeNumPeers = numPeers,
+  trace "Finished pruning peer store", beforeNumPeers = numPeers,
                                        afterNumPeers = afterNumPeers,
                                        capacity = capacity,
                                        pruned = peersToPrune.len
 
 proc selectPeer*(pm: PeerManager, proto: string, shard: Option[PubsubTopic] = none(PubsubTopic)): Option[RemotePeerInfo] =
-  debug "Selecting peer from peerstore", protocol=proto
+  trace "Selecting peer from peerstore", protocol=proto
 
   # Selects the best peer for a given protocol
   var peers = pm.peerStore.getPeersByProtocol(proto)
@@ -811,33 +811,33 @@ proc selectPeer*(pm: PeerManager, proto: string, shard: Option[PubsubTopic] = no
   if proto == WakuRelayCodec:
     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
     if peers.len > 0:
-      debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
+      trace "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
       return some(peers[0])
-    debug "No peer found for protocol", protocol=proto
+    trace "No peer found for protocol", protocol=proto
     return none(RemotePeerInfo)
 
   # For other protocols, we select the peer that is slotted for the given protocol
   pm.serviceSlots.withValue(proto, serviceSlot):
-    debug "Got peer from service slots", peerId=serviceSlot[].peerId, multi=serviceSlot[].addrs[0], protocol=proto
+    trace "Got peer from service slots", peerId=serviceSlot[].peerId, multi=serviceSlot[].addrs[0], protocol=proto
     return some(serviceSlot[])
 
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
-    debug "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
+    trace "Got peer from peerstore", peerId=peers[0].peerId, multi=peers[0].addrs[0], protocol=proto
     return some(peers[0])
-  debug "No peer found for protocol", protocol=proto
+  trace "No peer found for protocol", protocol=proto
   return none(RemotePeerInfo)
 
 # Prunes peers from peerstore to remove old/stale ones
 proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
-  debug "Starting prune peerstore loop"
+  trace "Starting prune peerstore loop"
   while pm.started:
     pm.prunePeerStore()
     await sleepAsync(PrunePeerStoreInterval)
 
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
-  debug "Starting relay connectivity loop"
+  trace "Starting relay connectivity loop"
   while pm.started:
     await pm.manageRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
