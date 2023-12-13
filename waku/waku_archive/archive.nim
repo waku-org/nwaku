@@ -69,6 +69,7 @@ type
     validator: MessageValidator
     retentionPolicy: RetentionPolicy
     retPolicyFut: Future[Result[void, string]]  ## retention policy cancelable future
+    retMetricsRepFut: Future[Result[void, string]]  ## metrics reporting cancelable future
 
 proc new*(T: type WakuArchive,
           driver: ArchiveDriver,
@@ -212,21 +213,29 @@ proc loopApplyRetentionPolicy*(w: WakuArchive):
 
   return ok()
 
-proc reportStoredMessagesMetric*(w: WakuArchive):
-                                 Future[Result[void, string]] {.async.} =
+# Metrics reporting
+const WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
+
+proc loopReportStoredMessagesMetric*(w: WakuArchive):
+                                     Future[Result[void, string]] {.async.} =
   if w.driver.isNil():
-    return err("driver is Nil in reportStoredMessagesMetric")
+    return err("driver is Nil in loopReportStoredMessagesMetric")
 
-  let resCount = await w.driver.getMessagesCount()
-  if resCount.isErr():
-    return err("failed to get messages count: " & resCount.error)
+  while true:
+    let resCount = await w.driver.getMessagesCount()
+    if resCount.isErr():
+      return err("loopReportStoredMessagesMetric failed to get messages count: " & resCount.error)
 
-  waku_archive_messages.set(resCount.value, labelValues = ["stored"])
+    waku_archive_messages.set(resCount.value, labelValues = ["stored"])
+    await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
   return ok()
 
 proc start*(self: WakuArchive) {.async.} =
+  ## TODO: better control the Result in case of error. Now it is ignored
   self.retPolicyFut = self.loopApplyRetentionPolicy()
+  self.retMetricsRepFut = self.loopReportStoredMessagesMetric()
 
 proc stop*(self: WakuArchive) {.async.} =
   self.retPolicyFut.cancel()
+  self.retMetricsRepFut.cancel()
