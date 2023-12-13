@@ -369,7 +369,12 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(node: WakuNode,
                  pubsubTopics: seq[string] = @[],
-                 peerExchangeHandler = none(RoutingRecordsHandler)) {.async, gcsafe.} =
+                 peerExchangeHandler = none(RoutingRecordsHandler),
+                 metadataClusterId: uint32 = 1) {.async, gcsafe.} =
+
+  ## metadataClusterId: Param needed by the WakuMetadata protocol.
+  ##                    Defaults to 1 to indicate The Waku Network, aka TWN.
+
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
     return
@@ -399,6 +404,13 @@ proc mountRelay*(node: WakuNode,
   # Subscribe to topics
   for pubsubTopic in pubsubTopics:
     node.subscribe((kind: PubsubSub, topic: pubsubTopic))
+
+  ## Mount the WakuMetadata protocol
+  ## Notice that we mount the WakuMetadata at this point because there couldn't exist
+  ## WakuRelay without WakuMetadata.
+  node.mountMetadata(metadataClusterId).isOkOr:
+    error "failed to mount waku metadata protocol", error=error
+    return
 
 ## Waku filter
 

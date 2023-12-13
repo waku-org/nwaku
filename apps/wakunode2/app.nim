@@ -410,9 +410,6 @@ proc setupProtocols(node: WakuNode,
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
-  node.mountMetadata(conf.clusterId).isOkOr:
-    return err("failed to mount waku metadata protocol: " & error)
-
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
   if conf.relayPeerExchange:
@@ -441,7 +438,8 @@ proc setupProtocols(node: WakuNode,
         conf.topics
 
     try:
-      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
+      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler,
+                       metadataClusterId = conf.clusterId)
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
