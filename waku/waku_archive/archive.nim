@@ -134,7 +134,7 @@ proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {
     qEndTime = query.endTime
     qMaxPageSize = if query.pageSize <= 0: DefaultPageSize
                    else: min(query.pageSize, MaxPageSize)
-    isAscendingOrder = query.direction == PagingDirection.FORWARD
+    isAscendingOrder = query.direction.into()
 
   if qContentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))

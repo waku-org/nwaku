@@ -165,12 +165,9 @@ proc createHistoryQuery(pubsubTopic: Option[string],
   let parsedEndTime = ? parseTime(endTime)
 
   # Parse ascending field
-  var parsedDirection = PagingDirection.FORWARD
+  var parsedDirection = default()
   if direction.isSome() and direction.get() != "":
-    parsedDirection = (
-      if direction.get() == "forward": PagingDirection.FORWARD 
-      else: PagingDirection.BACKWARD
-    )
+    parsedDirection = direction.get().into()
 
   return ok(
       HistoryQuery(pubsubTopic: parsedPubsubTopic,
