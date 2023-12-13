@@ -32,4 +32,4 @@ proc into*(d: Option[PagingDirection]): bool =
 
 
 proc into*(s: string): PagingDirection =
-  (s == "forward").into()
+  (s == "true").into()
