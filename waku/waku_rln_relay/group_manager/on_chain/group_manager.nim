@@ -548,7 +548,7 @@ proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
   return syncing.getBool()
 
 method isReady*(g: OnchainGroupManager):
-                Future[bool] {.async: (raises: [Exception]), gcsafe.} =
+                Future[bool] {.async.} =
   initializedGuard(g)
 
   if g.ethRpc.isNone():

@@ -15,7 +15,7 @@ template initializedGuard*(g: StaticGroupManager): untyped =
   if not g.initialized:
       raise newException(ValueError, "StaticGroupManager is not initialized")
 
-method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
+method init*(g: StaticGroupManager): Future[void] {.async.} =
   let
     groupSize = g.groupSize
     groupKeys = g.groupKeys
@@ -40,12 +40,9 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
 
   return
 
-method startGroupSync*(g: StaticGroupManager): Future[void] =
+method startGroupSync*(g: StaticGroupManager): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
-  var retFuture = newFuture[void]("StaticGroupManager.startGroupSync")
   # No-op
-  retFuture.complete()
-  return retFuture
 
 method register*(g: StaticGroupManager, idCommitment: IDCommitment):
                  Future[void] {.async: (raises: [Exception]).} =
@@ -108,15 +105,10 @@ method onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-method stop*(g: StaticGroupManager): Future[void] =
+method stop*(g: StaticGroupManager): Future[void] {.async.} =
   initializedGuard(g)
   # No-op
-  var retFut = newFuture[void]("StaticGroupManager.stop")
-  retFut.complete()
-  return retFut
 
-method isReady*(g: StaticGroupManager): Future[bool] {.gcsafe.} =
+method isReady*(g: StaticGroupManager): Future[bool] {.async.} =
   initializedGuard(g)
-  var retFut = newFuture[bool]("StaticGroupManager.isReady")
-  retFut.complete(true)
-  return retFut
+  return true

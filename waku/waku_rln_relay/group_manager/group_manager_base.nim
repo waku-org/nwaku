@@ -44,7 +44,7 @@ type
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
-method init*(g: GroupManager): Future[void] {.base,gcsafe.} =
+method init*(g: GroupManager): Future[void] {.base,async.} =
   raise newException(CatchableError, "init proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to start the group sync process
@@ -55,13 +55,13 @@ method startGroupSync*(g: GroupManager): Future[void] {.base, async: (raises: [E
 # This proc is used to register a new identity commitment into the merkle tree
 # The user may or may not have the identity secret to this commitment
 # It should be used when detecting new members in the group, and syncing the group state
-method register*(g: GroupManager, idCommitment: IDCommitment): Future[void] {.base,gcsafe.} =
+method register*(g: GroupManager, idCommitment: IDCommitment): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "register proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user should have the identity secret to this commitment
 # It should be used when the user wants to join the group
-method register*(g: GroupManager, credentials: IdentityCredential): Future[void] {.base,gcsafe.} =
+method register*(g: GroupManager, credentials: IdentityCredential): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "register proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a batch of new identity commitments into the merkle tree
@@ -77,19 +77,19 @@ method onRegister*(g: GroupManager, cb: OnRegisterCallback) {.base,gcsafe.} =
 
 # This proc is used to withdraw/remove an identity commitment from the merkle tree
 # The user should have the identity secret hash to this commitment, by either deriving it, or owning it
-method withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Future[void] {.base,gcsafe.} =
+method withdraw*(g: GroupManager, identitySecretHash: IdentitySecretHash): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "withdraw proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to withdraw/remove a batch of identity commitments from the merkle tree
 # The user should have the identity secret hash to these commitments, by either deriving them, or owning them
-method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.base,gcsafe.} =
+method withdrawBatch*(g: GroupManager, identitySecretHashes: seq[IdentitySecretHash]): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "withdrawBatch proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to insert and remove a set of commitments from the merkle tree
-method atomicBatch*(g: GroupManager, idCommitments: seq[IDCommitment], toRemoveIndices: seq[MembershipIndex]): Future[void] {.base,gcsafe.} =
+method atomicBatch*(g: GroupManager, idCommitments: seq[IDCommitment], toRemoveIndices: seq[MembershipIndex]): Future[void] {.base,async: (raises: [Exception]).} =
   raise newException(CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet")
 
-method stop*(g: GroupManager): Future[void] {.base,gcsafe.} =
+method stop*(g: GroupManager): Future[void] {.base,async.} =
   raise newException(CatchableError, "stop proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to set a callback that will be called when an identity commitment is withdrawn
@@ -163,5 +163,5 @@ method generateProof*(g: GroupManager,
     return err("proof generation failed: " & $proofGenRes.error())
   return ok(proofGenRes.value())
 
-method isReady*(g: GroupManager): Future[bool] {.base,gcsafe.} =
+method isReady*(g: GroupManager): Future[bool] {.base,async.} =
   raise newException(CatchableError, "isReady proc for " & $g.type & " is not implemented yet")
