@@ -107,9 +107,8 @@ proc createNode(configJson: cstring):
                 Future[Result[WakuNode, string]] {.async.} =
 
   var privateKey: PrivateKey
-  var netConfig = NetConfig.init(ValidIpAddress.init("127.0.0.1"),
+  var netConfig = NetConfig.init(parseIpAddress("127.0.0.1"),
                                  Port(60000'u16)).value
-
   ## relay
   var relay: bool
   var topics = @[""]
@@ -125,20 +124,23 @@ proc createNode(configJson: cstring):
 
   var jsonResp: JsonEvent
 
-  if not parseConfig($configJson,
-                     privateKey,
-                     netConfig,
-                     relay,
-                     topics,
-                     store,
-                     storeNode,
-                     storeRetentionPolicy,
-                     storeDbUrl,
-                     storeVacuum,
-                     storeDbMigration,
-                     storeMaxNumDbConnections,
-                     jsonResp):
-    return err($jsonResp)
+  try:
+    if not parseConfig($configJson,
+                      privateKey,
+                      netConfig,
+                      relay,
+                      topics,
+                      store,
+                      storeNode,
+                      storeRetentionPolicy,
+                      storeDbUrl,
+                      storeVacuum,
+                      storeDbMigration,
+                      storeMaxNumDbConnections,
+                      jsonResp):
+      return err($jsonResp)
+  except Exception:
+    return err("exception calling parseConfig: " & getCurrentExceptionMsg())
 
   var enrBuilder = EnrBuilder.init(privateKey)
 
@@ -217,6 +219,9 @@ proc process*(self: ptr NodeLifecycleRequest,
       await node[].start()
 
     of STOP_NODE:
-      await node[].stop()
+      try:
+        await node[].stop()
+      except Exception:
+        return err("exception stopping node: " & getCurrentExceptionMsg())
 
   return ok("")

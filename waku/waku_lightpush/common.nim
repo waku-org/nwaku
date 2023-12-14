@@ -18,4 +18,4 @@ type PushMessageHandler* = proc(
   peer: PeerId,
   pubsubTopic: PubsubTopic,
   message: WakuMessage
-  ): Future[WakuLightPushResult[void]] {.gcsafe, closure.}
+  ): Future[WakuLightPushResult[void]] {.async.}

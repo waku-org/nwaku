@@ -15,7 +15,7 @@ template initializedGuard*(g: StaticGroupManager): untyped =
   if not g.initialized:
       raise newException(ValueError, "StaticGroupManager is not initialized")
 
-method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
+method init*(g: StaticGroupManager): Future[void] {.async.} =
   let
     groupSize = g.groupSize
     groupKeys = g.groupKeys
@@ -40,20 +40,19 @@ method init*(g: StaticGroupManager): Future[void] {.async,gcsafe.} =
 
   return
 
-method startGroupSync*(g: StaticGroupManager): Future[void] =
+method startGroupSync*(g: StaticGroupManager): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
-  var retFuture = newFuture[void]("StaticGroupManager.startGroupSync")
   # No-op
-  retFuture.complete()
-  return retFuture
 
-method register*(g: StaticGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method register*(g: StaticGroupManager, idCommitment: IDCommitment):
+                 Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   await g.registerBatch(@[idCommitment])
 
 
-method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]):
+                      Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
@@ -72,7 +71,8 @@ method registerBatch*(g: StaticGroupManager, idCommitments: seq[IDCommitment]): 
 
   return
 
-method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Future[void] {.async.} =
+method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash):
+                 Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let groupKeys = g.groupKeys
@@ -91,7 +91,8 @@ method withdraw*(g: StaticGroupManager, idSecretHash: IdentitySecretHash): Futur
         return
 
 
-method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]): Future[void] {.async.} =
+method withdrawBatch*(g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]):
+                      Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   # call withdraw on each idSecretHash
@@ -104,15 +105,10 @@ method onRegister*(g: StaticGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: StaticGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-method stop*(g: StaticGroupManager): Future[void] =
+method stop*(g: StaticGroupManager): Future[void] {.async.} =
   initializedGuard(g)
   # No-op
-  var retFut = newFuture[void]("StaticGroupManager.stop")
-  retFut.complete()
-  return retFut
 
-method isReady*(g: StaticGroupManager): Future[bool] {.gcsafe.} =
+method isReady*(g: StaticGroupManager): Future[bool] {.async.} =
   initializedGuard(g)
-  var retFut = newFuture[bool]("StaticGroupManager.isReady")
-  retFut.complete(true)
-  return retFut
+  return true

@@ -61,7 +61,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
       seqNum = 1u64
       privateKey = ethSecp256k1Key("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
 
-      enrIpAddr = ValidIpAddress.init("127.0.0.1")
+      enrIpAddr = parseIpAddress("127.0.0.1")
       enrUdpPort = Port(30303)
 
     ## When
@@ -82,7 +82,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
       seqNum = 1u64
       privateKey = generateSecp256k1Key()
 
-      enrIpAddr = ValidIpAddress.init("127.0.0.1")
+      enrIpAddr = parseIpAddress("127.0.0.1")
       enrTcpPort = Port(30301)
 
     let expectedPubKey = privateKey.getPublicKey().get().getRawBytes().get()
@@ -112,7 +112,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
       seqNum = 1u64
       privateKey = generateSecp256k1Key()
 
-      enrIpAddr = ValidIpAddress.init("::1")
+      enrIpAddr = parseIpAddress("::1")
       enrUdpPort = Port(30301)
 
     let expectedPubKey = privateKey.getPublicKey().get().getRawBytes().get()

@@ -24,13 +24,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
@@ -105,7 +105,7 @@ procSuite "WakuNode - RLN relay":
   asyncTest "testing rln-relay is applied in all rln pubsub/content topics":
 
     # create 3 nodes
-    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<3).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
     await allFutures(nodes.mapIt(it.start()))
 
     let pubsubTopics = @[
@@ -183,13 +183,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
@@ -282,13 +282,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 
@@ -402,13 +402,13 @@ procSuite "WakuNode - RLN relay":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
       # Relay node
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       # Subscriber
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
       contentTopic = ContentTopic("/waku/2/default-content/proto")
 

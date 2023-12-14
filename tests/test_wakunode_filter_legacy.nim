@@ -22,9 +22,9 @@ suite "WakuNode - Filter":
     ## Setup
     let
       serverKey = generateSecp256k1Key()
-      server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
-      client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     waitFor allFutures(server.start(), client.start())
 

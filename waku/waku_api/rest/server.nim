@@ -57,7 +57,7 @@ proc getRouter(allowedOrigin: Option[string]): RestRouter =
   RestRouter.init(validate, allowedOrigin = allowedOrigin)
 
 proc init*(T: type RestServerRef,
-              ip: ValidIpAddress, port: Port,
+              ip: IpAddress, port: Port,
               allowedOrigin=none(string),
               conf=RestServerConf.default(),
               requestErrorHandler: RestRequestErrorHandler = nil): RestServerResult[T] =
@@ -92,7 +92,7 @@ proc init*(T: type RestServerRef,
   # RestResult error type is cstring, so we need to map it to string
   res.mapErr(proc(err: cstring): string = $err)
 
-proc newRestHttpServer*(ip: ValidIpAddress, port: Port,
+proc newRestHttpServer*(ip: IpAddress, port: Port,
                         allowedOrigin=none(string),
                         conf=RestServerConf.default(),
                         requestErrorHandler: RestRequestErrorHandler = nil):

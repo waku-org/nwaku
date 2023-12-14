@@ -46,8 +46,8 @@ type
 
     metricsServerAddress* {.
       desc: "Listening address of the metrics server."
-      defaultValue: ValidIpAddress.init("127.0.0.1")
-      name: "metrics-server-address" }: ValidIpAddress
+      defaultValue: parseIpAddress("127.0.0.1")
+      name: "metrics-server-address" }: IpAddress
 
     metricsServerPort* {.
       desc: "Listening HTTP port of the metrics server."
@@ -64,13 +64,13 @@ type
       defaultValue: 8009,
       name: "metrics-rest-port" }: uint16
 
-proc parseCmdArg*(T: type ValidIpAddress, p: string): T =
+proc parseCmdArg*(T: type IpAddress, p: string): T =
   try:
-    result = ValidIpAddress.init(p)
+    result = parseIpAddress(p)
   except CatchableError as e:
     raise newException(ValueError, "Invalid IP address")
 
-proc completeCmdArg*(T: type ValidIpAddress, val: string): seq[string] =
+proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =

@@ -37,8 +37,8 @@ procSuite "Waku v2 JSON-RPC API - Store":
   asyncTest "query a node and retrieve historical messages":
     let
       privkey = generateSecp256k1Key()
-      bindIp = ValidIpAddress.init("0.0.0.0")
-      extIp = ValidIpAddress.init("127.0.0.1")
+      bindIp = parseIpAddress("0.0.0.0")
+      extIp = parseIpAddress("127.0.0.1")
       port = Port(0)
       node = newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
@@ -110,8 +110,8 @@ procSuite "Waku v2 JSON-RPC API - Store":
   asyncTest "check error response when peer-store-node is not available":
     let
       privkey = generateSecp256k1Key()
-      bindIp = ValidIpAddress.init("0.0.0.0")
-      extIp = ValidIpAddress.init("127.0.0.1")
+      bindIp = parseIpAddress("0.0.0.0")
+      extIp = parseIpAddress("127.0.0.1")
       port = Port(0)
       node = newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
@@ -154,7 +154,11 @@ procSuite "Waku v2 JSON-RPC API - Store":
                                   some(Timestamp(9)),
                                   some(StorePagingOptions()))
     except ValueError:
-      jsonError = parseJson(getCurrentExceptionMsg())
+
+      try:
+        jsonError = parseJson(getCurrentExceptionMsg())
+      except Exception:
+        assert false, "exception calling parseJson: " & getCurrentExceptionMsg()
 
     check:
       $jsonError["code"] == "-32000"

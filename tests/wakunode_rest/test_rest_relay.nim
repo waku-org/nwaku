@@ -26,8 +26,8 @@ import
 proc testWakuNode(): WakuNode =
   let
     privkey = generateSecp256k1Key()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
+    bindIp = parseIpAddress("0.0.0.0")
+    extIp = parseIpAddress("127.0.0.1")
     port = Port(0)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
@@ -41,7 +41,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
 
     let restPort = Port(58011)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let cache = MessageCache.init()
@@ -89,7 +89,7 @@ suite "Waku v2 Rest API - Relay":
       ])
 
     let restPort = Port(58012)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let cache = MessageCache.init()
@@ -141,7 +141,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
 
     let restPort = Port(58013)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let pubSubTopic = "/waku/2/default-waku/proto"
@@ -204,7 +204,7 @@ suite "Waku v2 Rest API - Relay":
 
     # RPC server setup
     let restPort = Port(58014)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let cache = MessageCache.init()
@@ -244,7 +244,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
 
     let restPort = Port(58011)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let cache = MessageCache.init()
@@ -290,7 +290,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
 
     let restPort = Port(58012)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let contentTopics = @[
@@ -336,7 +336,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
 
     let restPort = Port(58013)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let contentTopic = DefaultContentTopic
@@ -398,7 +398,7 @@ suite "Waku v2 Rest API - Relay":
 
     # RPC server setup
     let restPort = Port(58014)
-    let restAddress = ValidIpAddress.init("0.0.0.0")
+    let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     let cache = MessageCache.init()

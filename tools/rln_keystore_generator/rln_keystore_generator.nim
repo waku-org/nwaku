@@ -64,7 +64,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
   # 5. register on-chain
   try:
     waitFor groupManager.register(credential)
-  except CatchableError:
+  except Exception, CatchableError:
     error "failure while registering credentials on-chain", error=getCurrentExceptionMsg()
     quit(1)
 

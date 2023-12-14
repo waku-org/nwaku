@@ -35,8 +35,12 @@ proc installHealthApiHandler*(router: var RestRouter, node: WakuNode) =
     var msg = "Node is healthy"
     var status = Http200
 
-    if not isReadyStateFut.read():
-      msg = "Node is not ready"
-      status = Http503
+    try:
+      if not isReadyStateFut.read():
+        msg = "Node is not ready"
+        status = Http503
+    except:
+      msg = "exception reading state: " & getCurrentExceptionMsg()
+      status = Http500
 
     return RestApiResponse.textResponse(msg, status)

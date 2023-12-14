@@ -13,9 +13,9 @@ export
   net, 
   envvar_serialization
 
-proc readValue*(r: var EnvvarReader, value: var ValidIpAddress) {.raises: [SerializationError].} =
+proc readValue*(r: var EnvvarReader, value: var IpAddress) {.raises: [SerializationError].} =
   try: 
-    value = ValidIpAddress.init(r.readValue(string))
+    value = parseIpAddress(r.readValue(string))
   except ValueError, IOError:
     raise newException(SerializationError, "Invalid IP address: " & getCurrentExceptionMsg())
 

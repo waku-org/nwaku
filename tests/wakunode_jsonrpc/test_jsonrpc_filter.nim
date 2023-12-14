@@ -20,7 +20,7 @@ import
 
 procSuite "Waku v2 JSON-RPC API - Filter":
   let
-    bindIp = ValidIpAddress.init("0.0.0.0")
+    bindIp = parseIpAddress("0.0.0.0")
 
   asyncTest "subscribe and unsubscribe":
     let

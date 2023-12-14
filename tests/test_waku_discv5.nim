@@ -23,7 +23,7 @@ proc newTestEnrRecord(privKey: libp2p_keys.PrivateKey,
                       flags = none(CapabilitiesBitfield)): waku_enr.Record =
   var builder = EnrBuilder.init(privKey)
   builder.withIpAddressAndPorts(
-      ipAddr = some(ValidIpAddress.init(extIp)),
+      ipAddr = some(parseIpAddress(extIp)),
       tcpPort = some(Port(tcpPort)),
       udpPort = some(Port(udpPort)),
   )
@@ -43,7 +43,7 @@ proc newTestDiscv5(
   ): WakuDiscoveryV5 =
   let config = WakuDiscoveryV5Config(
       privateKey: eth_keys.PrivateKey(privKey.skkey),
-      address: ValidIpAddress.init(bindIp),
+      address: parseIpAddress(bindIp),
       port: Port(udpPort),
       bootstrapRecords: bootstrapRecords,
   )
