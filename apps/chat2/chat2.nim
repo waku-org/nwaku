@@ -154,7 +154,7 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   return await transp.readLine()
 
 
-proc startMetricsServer(serverIp: ValidIpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
+proc startMetricsServer(serverIp: IpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
   info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
 
   let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
@@ -269,7 +269,10 @@ proc writeAndPrint(c: Chat) {.async.} =
 
       echo "quitting..."
 
-      await c.node.stop()
+      try:
+        await c.node.stop()
+      except:
+        echo "exception happened when stopping: " & getCurrentExceptionMsg()
 
       quit(QuitSuccess)
     else:

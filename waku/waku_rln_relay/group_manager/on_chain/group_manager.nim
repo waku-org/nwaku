@@ -99,7 +99,8 @@ proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
 method atomicBatch*(g: OnchainGroupManager,
                     start: MembershipIndex,
                     idCommitments = newSeq[IDCommitment](),
-                    toRemoveIndices = newSeq[MembershipIndex]()): Future[void] {.async.} =
+                    toRemoveIndices = newSeq[MembershipIndex]()):
+                    Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
@@ -123,20 +124,23 @@ method atomicBatch*(g: OnchainGroupManager,
   if setMetadataRes.isErr():
     error "failed to persist rln metadata", error=setMetadataRes.error
 
-method register*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method register*(g: OnchainGroupManager, idCommitment: IDCommitment):
+                 Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   await g.registerBatch(@[idCommitment])
 
 
-method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method registerBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]):
+                      Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   await g.atomicBatch(g.latestIndex, idCommitments)
   g.latestIndex += MembershipIndex(idCommitments.len())
 
 
-method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential): Future[void] {.async.} =
+method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential):
+                 Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
@@ -183,12 +187,14 @@ method register*(g: OnchainGroupManager, identityCredentials: IdentityCredential
   # don't handle member insertion into the tree here, it will be handled by the event listener
   return
 
-method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment): Future[void] {.async.} =
+method withdraw*(g: OnchainGroupManager, idCommitment: IDCommitment):
+                 Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract
 
-method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]): Future[void] {.async.} =
+method withdrawBatch*(g: OnchainGroupManager, idCommitments: seq[IDCommitment]):
+                      Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
     # TODO: after slashing is enabled on the contract, use atomicBatch internally
@@ -217,7 +223,8 @@ proc parseEvent(event: type MemberRegistered,
 
 type BlockTable* = OrderedTable[BlockNumber, seq[(Membership, bool)]]
 
-proc backfillRootQueue*(g: OnchainGroupManager, len: uint): Future[void] {.async.} =
+proc backfillRootQueue*(g: OnchainGroupManager, len: uint):
+                        Future[void] {.async: (raises: [Exception]).} =
   if len > 0:
     # backfill the tree's acceptable roots
     for i in 0..len-1:
@@ -237,7 +244,7 @@ proc insert(blockTable: var BlockTable, blockNumber: BlockNumber, member: Member
 
 proc getRawEvents(g: OnchainGroupManager,
                   fromBlock: BlockNumber,
-                  toBlock: BlockNumber): Future[JsonNode] {.async.} =
+                  toBlock: BlockNumber): Future[JsonNode] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
@@ -252,7 +259,7 @@ proc getRawEvents(g: OnchainGroupManager,
 
 proc getBlockTable(g: OnchainGroupManager,
                    fromBlock: BlockNumber,
-                   toBlock: BlockNumber): Future[BlockTable] {.async.} =
+                   toBlock: BlockNumber): Future[BlockTable] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   var blockTable = default(BlockTable)
@@ -276,7 +283,7 @@ proc getBlockTable(g: OnchainGroupManager,
   return blockTable
 
 proc handleEvents(g: OnchainGroupManager,
-                  blockTable: BlockTable): Future[void] {.async.} =
+                  blockTable: BlockTable): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   for blockNumber, members in blockTable.pairs():
@@ -295,7 +302,8 @@ proc handleEvents(g: OnchainGroupManager,
 
   return
 
-proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future[void] {.async.} =
+proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable):
+                         Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   # count number of blocks that have been removed
@@ -308,7 +316,7 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable): Future
 
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
-                        toBlock: BlockNumber): Future[void] {.async.} =
+                        toBlock: BlockNumber): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
@@ -339,7 +347,8 @@ proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
 proc newHeadErrCallback(error: CatchableError) =
   warn "failed to get new head", error=error.msg
 
-proc startListeningToEvents(g: OnchainGroupManager): Future[void] {.async.} =
+proc startListeningToEvents(g: OnchainGroupManager):
+                            Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
@@ -348,7 +357,8 @@ proc startListeningToEvents(g: OnchainGroupManager): Future[void] {.async.} =
   retryWrapper(blockHeaderSub, RetryStrategy.new(), "Failed to subscribe to block headers"):
     await ethRpc.subscribeForBlockHeaders(newHeadCallback, newHeadErrCallback)
 
-proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
+proc startOnchainSync(g: OnchainGroupManager):
+                      Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
@@ -387,7 +397,8 @@ proc startOnchainSync(g: OnchainGroupManager): Future[void] {.async.} =
   except CatchableError:
     raise newException(ValueError, "failed to start listening to events: " & getCurrentExceptionMsg())
 
-method startGroupSync*(g: OnchainGroupManager): Future[void] {.async.} =
+method startGroupSync*(g: OnchainGroupManager):
+                       Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
   # Get archive history
   try:
@@ -536,7 +547,8 @@ proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
     await ethRpc.provider.eth_syncing()
   return syncing.getBool()
 
-method isReady*(g: OnchainGroupManager): Future[bool] {.async,gcsafe.} =
+method isReady*(g: OnchainGroupManager):
+                Future[bool] {.async.} =
   initializedGuard(g)
 
   if g.ethRpc.isNone():

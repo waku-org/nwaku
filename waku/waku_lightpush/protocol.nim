@@ -22,9 +22,9 @@ logScope:
   topics = "waku lightpush"
 
 type WakuLightPush* = ref object of LPProtocol
-    rng*: ref rand.HmacDrbgContext
-    peerManager*: PeerManager
-    pushHandler*: PushMessageHandler
+  rng*: ref rand.HmacDrbgContext
+  peerManager*: PeerManager
+  pushHandler*: PushMessageHandler
 
 proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Future[PushRPC] {.async.} = 
   let reqDecodeRes = PushRPC.decode(buffer)

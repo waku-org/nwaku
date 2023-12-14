@@ -37,7 +37,7 @@ import
 procSuite "Peer Manager":
   asyncTest "connectRelay() works":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
     await allFutures(nodes.mapIt(it.start()))
 
     let connOk = await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
@@ -50,7 +50,7 @@ procSuite "Peer Manager":
 
   asyncTest "dialPeer() works":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -78,7 +78,7 @@ procSuite "Peer Manager":
 
   asyncTest "dialPeer() fails gracefully":
     # Create 2 nodes and start them
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
 
@@ -101,7 +101,7 @@ procSuite "Peer Manager":
 
   asyncTest "Adding, selecting and filtering peers work":
     let
-      node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
 
       # Create filter peer
       filterLoc = MultiAddress.init("/ip4/127.0.0.1/tcp/0").tryGet()
@@ -132,7 +132,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager keeps track of connections":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -176,7 +176,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer manager updates failed peers correctly":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
@@ -228,11 +228,11 @@ procSuite "Peer Manager":
       storage = WakuPeerStorage.new(database)[]
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("127.0.0.1"),
+        parseIpAddress("127.0.0.1"),
         Port(44048),
         peerStorage = storage
         )
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(34023))
+      node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(34023))
       
     node1.mountMetadata(0).expect("Mounted Waku Metadata")
     node2.mountMetadata(0).expect("Mounted Waku Metadata")
@@ -265,7 +265,7 @@ procSuite "Peer Manager":
     # Simulate restart by initialising a new node using the same storage
     let node3 = newTestWakuNode(
       generateSecp256k1Key(),
-      ValidIpAddress.init("127.0.0.1"),
+      parseIpAddress("127.0.0.1"),
       Port(56037),
       peerStorage = storage
       )
@@ -302,7 +302,7 @@ procSuite "Peer Manager":
       # different network
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("0.0.0.0"),
+        parseIpAddress("0.0.0.0"),
         Port(0),
         clusterId = clusterId3,
         topics = @["/waku/2/rs/3/0"],
@@ -311,14 +311,14 @@ procSuite "Peer Manager":
       # same network
       node2 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("0.0.0.0"),
+        parseIpAddress("0.0.0.0"),
         Port(0),
         clusterId = clusterId4,
         topics = @["/waku/2/rs/4/0"],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("0.0.0.0"),
+        parseIpAddress("0.0.0.0"),
         Port(0),
         clusterId = clusterId4,
         topics = @["/waku/2/rs/4/0"],
@@ -350,8 +350,8 @@ procSuite "Peer Manager":
     let
       database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
-      node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), peerStorage = storage)
-      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), peerStorage = storage)
+      node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       peerInfo2 = node2.switch.peerInfo
       betaCodec = "/vac/waku/relay/2.0.0-beta2"
       stableCodec = "/vac/waku/relay/2.0.0"
@@ -375,7 +375,7 @@ procSuite "Peer Manager":
 
     # Simulate restart by initialising a new node using the same storage
     let
-      node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0), peerStorage = storage)
+      node3 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0), peerStorage = storage)
 
     await node3.mountRelay()
     node3.wakuRelay.codec = stableCodec
@@ -408,7 +408,7 @@ procSuite "Peer Manager":
         .mapIt(
           newTestWakuNode(
             nodeKey = generateSecp256k1Key(),
-            bindIp = ValidIpAddress.init("0.0.0.0"),
+            bindIp = parseIpAddress("0.0.0.0"),
             bindPort = Port(0),
             wakuFlags = some(CapabilitiesBitfield.init(@[Relay]))
           )
@@ -457,7 +457,7 @@ procSuite "Peer Manager":
 
   asyncTest "Peer store keeps track of incoming connections":
     # Create 4 nodes
-    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Start them
     await allFutures(nodes.mapIt(it.start()))
@@ -520,7 +520,7 @@ procSuite "Peer Manager":
     let basePeerId = "16Uiu2HAm7QGEZKujdSbbo1aaQyfDPQ6Bw3ybQnj6fruH5Dxwd7D"
 
     let
-      node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      node = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       peers = toSeq(1..5)
                 .mapIt(
                     parsePeerInfo("/ip4/0.0.0.0/tcp/30300/p2p/" & basePeerId & $it)
@@ -562,7 +562,7 @@ procSuite "Peer Manager":
 
   asyncTest "connectedPeers() returns expected number of connections per protocol":
     # Create 4 nodes
-    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<4).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Start them with relay + filter
     await allFutures(nodes.mapIt(it.start()))
@@ -613,7 +613,7 @@ procSuite "Peer Manager":
 
   asyncTest "getNumStreams() returns expected number of connections per protocol":
     # Create 2 nodes
-    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<2).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Start them with relay + filter
     await allFutures(nodes.mapIt(it.start()))
@@ -839,7 +839,7 @@ procSuite "Peer Manager":
 
   asyncTest "colocationLimit is enforced by pruneConnsByIp()":
     # Create 5 nodes
-    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)))
+    let nodes = toSeq(0..<5).mapIt(newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0)))
 
     # Start them with relay + filter
     await allFutures(nodes.mapIt(it.start()))

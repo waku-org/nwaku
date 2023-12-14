@@ -18,7 +18,7 @@ logScope:
 
 proc setupNat*(natConf, clientId: string,
                tcpPort, udpPort: Port):
-               Result[tuple[ip: Option[ValidIpAddress],
+               Result[tuple[ip: Option[IpAddress],
                             tcpPort: Option[Port],
                             udpPort: Option[Port]], string]
                {.gcsafe.} =
@@ -30,12 +30,12 @@ proc setupNat*(natConf, clientId: string,
       of "pmp": NatPmp
       else: NatNone
 
-  var endpoint: tuple[ip: Option[ValidIpAddress], tcpPort: Option[Port], udpPort: Option[Port]]
+  var endpoint: tuple[ip: Option[IpAddress], tcpPort: Option[Port], udpPort: Option[Port]]
 
   if strategy != NatNone:
     let extIp = getExternalIP(strategy)
     if extIP.isSome():
-      endpoint.ip = some(ValidIpAddress.init(extIp.get()))
+      endpoint.ip = some(extIp.get())
       # RedirectPorts in considered a gcsafety violation
       # because it obtains the address of a non-gcsafe proc?
       var extPorts: Option[(Port, Port)]
@@ -59,7 +59,7 @@ proc setupNat*(natConf, clientId: string,
 
     try:
       # any required port redirection is assumed to be done by hand
-      endpoint.ip = some(ValidIpAddress.init(natConf[6..^1]))
+      endpoint.ip = some(parseIpAddress(natConf[6..^1]))
     except ValueError:
       return err("not a valid IP address: " & $natConf[6..^1])
 

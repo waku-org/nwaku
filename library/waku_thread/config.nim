@@ -37,7 +37,7 @@ proc parsePrivateKey(jsonNode: JsonNode,
   return true
 
 proc parseListenAddr(jsonNode: JsonNode,
-                     listenAddr: var ValidIpAddress,
+                     listenAddr: var IpAddress,
                      jsonResp: var JsonEvent): bool =
 
   if not jsonNode.contains("host"):
@@ -51,7 +51,7 @@ proc parseListenAddr(jsonNode: JsonNode,
   let host = jsonNode["host"].getStr()
 
   try:
-    listenAddr = ValidIpAddress.init(host)
+    listenAddr = parseIpAddress(host)
   except CatchableError:
     let msg = "Invalid host IP address: " & getCurrentExceptionMsg()
     jsonResp = JsonErrorEvent.new(msg)
@@ -175,7 +175,7 @@ proc parseConfig*(configNodeJson: string,
                   storeVacuum: var bool,
                   storeDbMigration: var bool,
                   storeMaxNumDbConnections: var int,
-                  jsonResp: var JsonEvent): bool =
+                  jsonResp: var JsonEvent): bool {.raises: [].} =
 
   if configNodeJson.len == 0:
     jsonResp = JsonErrorEvent.new("The configNodeJson is empty")
@@ -184,29 +184,42 @@ proc parseConfig*(configNodeJson: string,
   var jsonNode: JsonNode
   try:
     jsonNode = parseJson(configNodeJson)
-  except JsonParsingError:
+  except Exception, IOError, JsonParsingError:
     jsonResp = JsonErrorEvent.new("Exception: " & getCurrentExceptionMsg())
     return false
 
   # key
-  if not parsePrivateKey(jsonNode, privateKey, jsonResp):
+  try:
+    if not parsePrivateKey(jsonNode, privateKey, jsonResp):
+      return false
+  except Exception, KeyError:
+    jsonResp = JsonErrorEvent.new("Exception calling parsePrivateKey: " & getCurrentExceptionMsg())
     return false
 
   # listenAddr
-  var listenAddr = ValidIpAddress.init("127.0.0.1")
-  if not parseListenAddr(jsonNode, listenAddr, jsonResp):
+  var listenAddr: IpAddress
+  try:
+    listenAddr = parseIpAddress("127.0.0.1")
+    if not parseListenAddr(jsonNode, listenAddr, jsonResp):
+      return false
+  except Exception, ValueError:
+    jsonResp = JsonErrorEvent.new("Exception calling parseIpAddress: " & getCurrentExceptionMsg())
     return false
 
   # port
   var port = 0
-  if not parsePort(jsonNode, port, jsonResp):
+  try:
+    if not parsePort(jsonNode, port, jsonResp):
+      return false
+  except Exception, ValueError:
+    jsonResp = JsonErrorEvent.new("Exception calling parsePort: " & getCurrentExceptionMsg())
     return false
 
   let natRes = setupNat("any", clientId,
                         Port(uint16(port)),
                         Port(uint16(port)))
   if natRes.isErr():
-    jsonResp = JsonErrorEvent.new(fmt"failed to setup NAT: {$natRes.error}")
+    jsonResp = JsonErrorEvent.new("failed to setup NAT: " & $natRes.error)
     return false
 
   let (extIp, extTcpPort, _) = natRes.get()
@@ -217,15 +230,27 @@ proc parseConfig*(configNodeJson: string,
                   extTcpPort
 
   # relay
-  if not parseRelay(jsonNode, relay, jsonResp):
+  try:
+    if not parseRelay(jsonNode, relay, jsonResp):
+      return false
+  except Exception, KeyError:
+    jsonResp = JsonErrorEvent.new("Exception calling parseRelay: " & getCurrentExceptionMsg())
     return false
 
   # topics
-  parseTopics(jsonNode, topics)
+  try:
+    parseTopics(jsonNode, topics)
+  except Exception, KeyError:
+    jsonResp = JsonErrorEvent.new("Exception calling parseTopics: " & getCurrentExceptionMsg())
+    return false
 
   # store
-  if not parseStore(jsonNode, store, storeNode, storeRetentionPolicy, storeDbUrl,
-                    storeVacuum, storeDbMigration, storeMaxNumDbConnections, jsonResp):
+  try:
+    if not parseStore(jsonNode, store, storeNode, storeRetentionPolicy, storeDbUrl,
+                      storeVacuum, storeDbMigration, storeMaxNumDbConnections, jsonResp):
+      return false
+  except Exception, KeyError:
+    jsonResp = JsonErrorEvent.new("Exception calling parseStore: " & getCurrentExceptionMsg())
     return false
 
   let wakuFlags = CapabilitiesBitfield.init(

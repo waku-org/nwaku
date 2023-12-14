@@ -107,7 +107,7 @@ when isMainModule:
     ## Setup shutdown hooks for this process.
     ## Stop node gracefully on shutdown.
 
-    proc asyncStopper(node: App) {.async.} =
+    proc asyncStopper(node: App) {.async: (raises: [Exception]).} =
       await node.stop()
       quit(QuitSuccess)
 

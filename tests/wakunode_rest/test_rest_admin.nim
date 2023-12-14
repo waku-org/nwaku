@@ -32,17 +32,17 @@ suite "Waku v2 Rest API - Admin":
   var client{.threadvar.}: RestClientRef
 
   asyncSetup:
-    node1 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60600))
-    node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60602))
+    node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60600))
+    node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60602))
     peerInfo2 = node2.switch.peerInfo
-    node3 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(60604))
+    node3 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
     peerInfo3 = node3.switch.peerInfo
 
     await allFutures(node1.start(), node2.start(), node3.start())
     await allFutures(node1.mountRelay(), node2.mountRelay(), node3.mountRelay())
 
     let restPort = Port(58011)
-    let restAddress = ValidIpAddress.init("127.0.0.1")
+    let restAddress = parseIpAddress("127.0.0.1")
     restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
     installAdminApiHandlers(restServer.router, node1)

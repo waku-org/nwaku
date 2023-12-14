@@ -21,8 +21,8 @@ import
 procSuite "Waku v2 JSON-RPC API - Debug":
   let
     privkey = generateSecp256k1Key()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
+    bindIp = parseIpAddress("0.0.0.0")
+    extIp = parseIpAddress("127.0.0.1")
     port = Port(0)
     node = newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 

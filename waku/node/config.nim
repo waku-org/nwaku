@@ -21,17 +21,17 @@ type NetConfig* = object
   hostExtAddress*: Option[MultiAddress]
   wsExtAddress*: Option[MultiAddress]
   wssEnabled*: bool
-  extIp*: Option[ValidIpAddress]
+  extIp*: Option[IpAddress]
   extPort*: Option[Port]
   dns4DomainName*: Option[string]
   announcedAddresses*: seq[MultiAddress]
   extMultiAddrs*: seq[MultiAddress]
   enrMultiAddrs*: seq[MultiAddress]
-  enrIp*: Option[ValidIpAddress]
+  enrIp*: Option[IpAddress]
   enrPort*: Option[Port]
   discv5UdpPort*: Option[Port]
   wakuFlags*: Option[CapabilitiesBitfield]
-  bindIp*: ValidIpAddress
+  bindIp*: IpAddress
   bindPort*: Port
 
 type NetConfigResult* = Result[NetConfig, string]
@@ -70,9 +70,9 @@ proc containsWsAddress(extMultiAddrs: seq[MultiAddress]): bool =
   return extMultiAddrs.filterIt( it.isWsAddress() ).len > 0
 
 proc init*(T: type NetConfig,
-    bindIp: ValidIpAddress,
+    bindIp: IpAddress,
     bindPort: Port,
-    extIp = none(ValidIpAddress),
+    extIp = none(IpAddress),
     extPort = none(Port),
     extMultiAddrs = newSeq[MultiAddress](),
     extMultiAddrsOnly: bool = false,

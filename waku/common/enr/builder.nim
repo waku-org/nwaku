@@ -51,7 +51,7 @@ proc build*(builder: EnrBuilder): EnrResult[enr.Record] =
   enr.Record.init(
     seqNum = builder.seqNumber,
     pk = builder.privateKey,
-    ip = none(ValidIpAddress),
+    ip = none(IpAddress),
     tcpPort = none(Port),
     udpPort = none(Port),
     extraFields = builder.fields
@@ -60,7 +60,7 @@ proc build*(builder: EnrBuilder): EnrResult[enr.Record] =
 
 ## Builder extension: IP address and TCP/UDP ports
 
-proc addAddressAndPorts(builder: var EnrBuilder, ip: ValidIpAddress, tcpPort, udpPort: Option[Port]) =
+proc addAddressAndPorts(builder: var EnrBuilder, ip: IpAddress, tcpPort, udpPort: Option[Port]) =
   # Based on: https://github.com/status-im/nim-eth/blob/4b22fcd/eth/p2p/discoveryv5/enr.nim#L166
   let isV6 = ip.family == IPv6
 
@@ -93,7 +93,7 @@ proc addPorts(builder: var EnrBuilder, tcp, udp: Option[Port]) =
 
 
 proc withIpAddressAndPorts*(builder: var EnrBuilder,
-                            ipAddr = none(ValidIpAddress),
+                            ipAddr = none(IpAddress),
                             tcpPort = none(Port),
                             udpPort = none(Port)) =
   if ipAddr.isSome():

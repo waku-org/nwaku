@@ -40,7 +40,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     notice "starting publisher", wakuPort=wakuPort, discv5Port=discv5Port
     let
         nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
-        ip = ValidIpAddress.init("0.0.0.0")
+        ip = parseIpAddress("0.0.0.0")
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
     var builder = WakuNodeBuilder.init()

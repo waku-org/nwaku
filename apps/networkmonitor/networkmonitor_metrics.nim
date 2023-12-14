@@ -90,7 +90,7 @@ proc installHandler*(router: var RestRouter,
     # TODO: toJson() includes the hash
     return RestApiResponse.response($(%numMessagesPerContentTopic), contentType="application/json")
 
-proc startMetricsServer*(serverIp: ValidIpAddress, serverPort: Port): Result[void, string] =
+proc startMetricsServer*(serverIp: IpAddress, serverPort: Port): Result[void, string] =
     info "Starting metrics HTTP server", serverIp, serverPort
 
     try:

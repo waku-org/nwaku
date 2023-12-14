@@ -68,9 +68,9 @@ proc withNetworkConfiguration*(builder: var WakuNodeBuilder, config: NetConfig) 
   builder.netConfig = some(config)
 
 proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
-          bindIp: ValidIpAddress,
+          bindIp: IpAddress,
           bindPort: Port,
-          extIp = none(ValidIpAddress),
+          extIp = none(IpAddress),
           extPort = none(Port),
           extMultiAddrs = newSeq[MultiAddress](),
           wsBindPort: Port = Port(8000),

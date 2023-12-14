@@ -23,9 +23,9 @@ suite "Waku Keepalive":
   asyncTest "handle ping keepalives":
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, ValidIpAddress.init("0.0.0.0"), Port(0))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
 
     var completionFut = newFuture[bool]()
 

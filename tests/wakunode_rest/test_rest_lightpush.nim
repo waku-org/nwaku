@@ -28,8 +28,8 @@ import
 proc testWakuNode(): WakuNode =
   let
     privkey = generateSecp256k1Key()
-    bindIp = ValidIpAddress.init("0.0.0.0")
-    extIp = ValidIpAddress.init("127.0.0.1")
+    bindIp = parseIpAddress("0.0.0.0")
+    extIp = parseIpAddress("127.0.0.1")
     port = Port(0)
 
   return newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
@@ -70,7 +70,7 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
             WakuLightPushCodec)
 
   let restPort = Port(58011)
-  let restAddress = ValidIpAddress.init("127.0.0.1")
+  let restAddress = parseIpAddress("127.0.0.1")
   testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
 
   installLightPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)

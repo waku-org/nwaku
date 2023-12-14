@@ -12,7 +12,7 @@ suite "Waku Core - Published Address":
   
   test "Test IP 0.0.0.0":  
     let 
-      node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init(
+      node = newTestWakuNode(generateSecp256k1Key(), parseIpAddress(
         "0.0.0.0"),Port(0))
  
     check:
@@ -20,7 +20,7 @@ suite "Waku Core - Published Address":
 
   test "Test custom IP":  
     let 
-      node = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init(
+      node = newTestWakuNode(generateSecp256k1Key(), parseIpAddress(
         "8.8.8.8"),Port(0))
  
     check:
