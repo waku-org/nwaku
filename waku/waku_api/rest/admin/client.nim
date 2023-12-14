@@ -33,3 +33,7 @@ proc getPeers*():
 proc postPeers*(body: seq[string]):
       RestResponse[string]
       {.rest, endpoint: "/admin/v1/peers", meth: HttpMethod.MethodPost.}
+
+proc getFilterData*():
+    RestResponse[seq[tuple[peerId: string, filterCriteria: string]]]
+    {.rest, endpoint: "/admin/v1/filter", meth: HttpMethod.MethodGet.}

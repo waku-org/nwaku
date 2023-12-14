@@ -4,8 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/strformat,
-  std/sequtils,
+  std/[strformat,sequtils,sets,tables],
   stew/byteutils,
   chronicles,
   json_serialization,
@@ -32,6 +31,7 @@ logScope:
   topics = "waku node rest admin api"
 
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
+const ROUTE_ADMIN_V1_FILTER* = "/admin/v1/filter"
 
 type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
 
@@ -111,6 +111,26 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
 
     return RestApiResponse.ok()
 
+proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
+  router.api(MethodGet, ROUTE_ADMIN_V1_FILTER) do () -> RestApiResponse:
+    
+    var subscriptions: seq[tuple[peerId: string, filterCriteria: string]] = @[]
+
+    if not node.wakuFilter.isNil():
+
+      for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
+        subscriptions.add(($peerId, $criteria))
+
+      echo subscriptions
+
+    let resp = RestApiResponse.jsonResponse(subscriptions, status=Http200)
+    if resp.isErr():
+      error "An error ocurred while building the json respose: ", error=resp.error
+      return RestApiResponse.internalServerError(fmt("An error ocurred while building the json respose: {resp.error}"))
+
+    return resp.get()
+
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
   installAdminV1PostPeersHandler(router, node)
+  installAdminV1GetFilterHandler(router, node)
