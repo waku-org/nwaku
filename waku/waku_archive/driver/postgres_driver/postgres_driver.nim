@@ -388,7 +388,7 @@ method getMessages*(s: PostgresDriver,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
 
-  if contentTopicSeq.len > 0 and
+  if contentTopicSeq.len == 1 and
     pubsubTopic.isSome() and
     startTime.isSome() and
     endTime.isSome():
