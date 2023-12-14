@@ -14,6 +14,7 @@ import
   libp2p/crypto/crypto
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
   ./external_config,
   ./app
@@ -53,6 +54,8 @@ when isMainModule:
   case conf.cmd:
   of generateRlnKeystore:
     doRlnKeystoreGenerator(conf)
+  of inspectRlnDb:
+    doInspectRlnDb(conf)
   of noCommand:
     var wakunode2 = App.init(rng, conf)
 
