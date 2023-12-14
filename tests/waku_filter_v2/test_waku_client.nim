@@ -21,7 +21,8 @@ import
 import
   ../../../waku/[
     node/peer_manager,
-    waku_core
+    waku_core,
+    waku_filter/rpc_codec
   ],
   ../../../waku/waku_filter_v2/[
     common,
@@ -2009,9 +2010,9 @@ suite "Waku Filter - End to End":
           msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
           msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
           msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 968)) # 4MiB - 56B -> Max Size (Inclusive Limit)
-          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 969)) # 4MiB - 55B -> Max Size (Exclusive Limit)
-          msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(3*1024*1024 + 1023*1024 + 970)) # 4MiB - 54B -> Out of Max Size
+          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize - 1024)) # Max Size (Inclusive Limit)
+          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize)) # Max Size (Exclusive Limit)
+          msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize)) # Out of Max Size
 
         # When sending the 1KiB message
         await wakuFilter.handleMessage(pubsubTopic, msg1)
