@@ -317,6 +317,9 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   ## prepared statements.
   ##
   ## contentTopic - string with list of conten topics. e.g: "'ctopic1','ctopic2','ctopic3'"
+  ## 
+  
+  warn "Conntent topics joined", topic=contentTopic
 
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
   proc rowCallback(pqResult: ptr PGresult) =
@@ -394,7 +397,7 @@ method getMessages*(s: PostgresDriver,
     endTime.isSome():
 
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
-    return await s.getMessagesPreparedStmt(contentTopicSeq.join(","),
+    return await s.getMessagesPreparedStmt("'" & contentTopicSeq.join("','") & "'",
                                            PubsubTopic(pubsubTopic.get()),
                                            cursor,
                                            startTime.get(),
