@@ -398,7 +398,7 @@ procSuite "WakuNode - RLN relay":
     await node3.stop()
 
   asyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
-    
+
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -445,7 +445,7 @@ procSuite "WakuNode - RLN relay":
       proofAdded1 = node1.wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-      proofAdded2 = node1.wakuRlnRelay.appendRLNProof(wm2, time + EpochUnitSeconds)
+      proofAdded2 = node1.wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
       proofAdded3 = node1.wakuRlnRelay.appendRLNProof(wm3, time + EpochUnitSeconds * 2)
@@ -455,7 +455,7 @@ procSuite "WakuNode - RLN relay":
       proofAdded1
       proofAdded2
       proofAdded3
-    
+
     #  relay handler for node2
     var completionFut1 = newFuture[bool]()
     var completionFut2 = newFuture[bool]()
@@ -469,25 +469,25 @@ procSuite "WakuNode - RLN relay":
           completionFut2.complete(true)
         if msg == wm3:
           completionFut3.complete(true)
-    
+
     # mount the relay handler for node2
     node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
     await node1.publish(some(DefaultPubsubTopic), wm1)
-    await sleepAsync(10.seconds)
     await node1.publish(some(DefaultPubsubTopic), wm2)
-    await sleepAsync(10.seconds)
     await node1.publish(some(DefaultPubsubTopic), wm3)
-    
+
     let
       res1 = await completionFut1.withTimeout(10.seconds)
       res2 = await completionFut2.withTimeout(10.seconds)
       res3 = await completionFut3.withTimeout(10.seconds)
 
     check:
-      (res1 and res2 and res3) == true # all 3 are valid
-      node2.wakuRlnRelay.nullifierLog.len() == 1 # after clearing, only 1 is stored
+      res1 == true
+      res2 == false
+      res3 == true
+      node2.wakuRlnRelay.nullifierLog.len() == 2
 
     await node1.stop()
     await node2.stop()
