@@ -17,13 +17,10 @@ extern "C" {
 
 typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len);
 
-// Initializes the waku library and returns a pointer to the Context.
-void* waku_init(WakuCallBack callback,
-                void* userData);
-
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
-int waku_new(void* ctx,
+// Returns a pointer to the Context needed by the rest of the API functions.
+void* waku_new(
              const char* configJson,
              WakuCallBack callback,
              void* userData);
