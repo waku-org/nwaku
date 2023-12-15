@@ -267,8 +267,6 @@ int main(int argc, char** argv) {
         show_help_and_exit();
     }
 
-    ctx = waku_init(event_handler, userData);
-
     char jsonConfig[2048];
     snprintf(jsonConfig, 2048, "{ \
                                     \"host\": \"%s\",    \
@@ -288,13 +286,14 @@ int main(int argc, char** argv) {
                                     cfgNode.storeRetentionPolicy,
                                     cfgNode.storeMaxNumDbConnections);
 
+    ctx = waku_new(jsonConfig, event_handler, userData);
+
     WAKU_CALL( waku_default_pubsub_topic(&ctx, print_default_pubsub_topic, userData) );
     WAKU_CALL( waku_version(&ctx, print_waku_version, userData) );
 
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    WAKU_CALL( waku_new(&ctx, jsonConfig, event_handler, userData) );
     waku_set_event_callback(event_handler, userData);
     waku_start(&ctx, event_handler, userData);
 
