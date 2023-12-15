@@ -111,7 +111,10 @@ proc handleMessage*(w: WakuArchive,
 
     let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
-      trace "failed to insert message", err=putRes.error
+      if "duplicate key value violates unique constraint" in putRes.error:
+        trace "failed to insert message", err=putRes.error
+      else:
+        debug "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
