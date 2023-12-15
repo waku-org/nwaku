@@ -76,7 +76,8 @@ proc `$`*(err: FilterSubscribeResponse): string =
   "FilterSubscribeResponse of req:" & err.requestId & " [" & $err.statusCode & "] " & $err.statusDesc
 
 proc `$`*(req: FilterSubscribeRequest): string =
-  "FilterSubscribeRequest of req:" & req.requestId & " [" & $req.filterSubscribeType & "] " & $req.pubsubTopic
+  "FilterSubscribeRequest of req:" & req.requestId & " [" & $req.filterSubscribeType & 
+    "] pubsubTopic:" & $req.pubsubTopic & " contentTopics:" & $req.contentTopics
 
 proc `$`*(t: FilterSubscribeType): string =
   result = case t:
