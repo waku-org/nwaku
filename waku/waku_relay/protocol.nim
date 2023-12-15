@@ -202,6 +202,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     # see nim-libp2p protobuf library
     let msgRes = WakuMessage.decode(message.data)
     if msgRes.isErr():
+      trace "protocol generateOrderedValidator reject decode error", error=msgRes.error
       return ValidationResult.Reject
     let msg = msgRes.get()
 
