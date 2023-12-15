@@ -751,14 +751,6 @@ proc mountArchive*(node: WakuNode,
     return err("error in mountArchive: " & wakuArchiveRes.error)
 
   node.wakuArchive = wakuArchiveRes.get()
-
-  try:
-    let reportMetricRes = waitFor node.wakuArchive.reportStoredMessagesMetric()
-    if reportMetricRes.isErr():
-      return err("error in mountArchive: " & reportMetricRes.error)
-  except CatchableError:
-    return err("exception in mountArchive: " & getCurrentExceptionMsg())
-
   asyncSpawn node.wakuArchive.start()
   return ok()
 
