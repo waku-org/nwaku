@@ -11,14 +11,11 @@ else:
 
 import
   ../topics,
-  ../time
+  ../time,
+  ./default_values
 
 const
   MaxMetaAttrLength* = 64 # 64 bytes
-
-  ## https://rfc.vac.dev/spec/64/#message-size
-  MaxWakuMessageSize* = 150 * 1024 # Remember that 1 MiB is the PubSub default
-
 
 type WakuMessage* = object
     # Data payload transmitted.
