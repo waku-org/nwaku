@@ -13,6 +13,7 @@ import
     node/peer_manager,
     waku_core,
     waku_lightpush,
+    waku_lightpush/common,
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc
@@ -20,7 +21,8 @@ import
   ../testlib/[
     wakucore,
     testasync,
-    futures
+    futures,
+    testutils
   ],
   ./lightpush_utils,
   ../resources/[
@@ -31,42 +33,42 @@ import
 
 
 suite "Waku Lightpush Client":
+  var
+    handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
+    handler {.threadvar.}: PushMessageHandler
+
+    serverSwitch {.threadvar.}: Switch
+    clientSwitch {.threadvar.}: Switch
+    server {.threadvar.}: WakuLightPush
+    client {.threadvar.}: WakuLightPushClient
+
+    serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    pubsubTopic {.threadvar.}: PubsubTopic
+    contentTopic {.threadvar.}: ContentTopic
+    message {.threadvar.}: WakuMessage
+    
+  asyncSetup:
+    handlerFuture = newPushHandlerFuture()
+    handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
+      handlerFuture.complete((pubsubTopic, message))
+      return ok()
+
+    serverSwitch = newTestSwitch()
+    clientSwitch = newTestSwitch()
+    server = await newTestWakuLightpushNode(serverSwitch, handler)
+    client = newTestWakuLightpushClient(clientSwitch)
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+    pubsubTopic = DefaultPubsubTopic
+    contentTopic = DefaultContentTopic
+    message = fakeWakuMessage()
+
+  asyncTeardown:
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+
   suite "Verification of PushRequest Payload":
-    var
-      handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
-      handler {.threadvar.}: PushMessageHandler
-
-      serverSwitch {.threadvar.}: Switch
-      clientSwitch {.threadvar.}: Switch
-      server {.threadvar.}: WakuLightPush
-      client {.threadvar.}: WakuLightPushClient
-
-      serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
-      pubsubTopic {.threadvar.}: PubsubTopic
-      contentTopic {.threadvar.}: ContentTopic
-      message {.threadvar.}: WakuMessage
-      
-    asyncSetup:
-      handlerFuture = newPushHandlerFuture()
-      handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
-        handlerFuture.complete((pubsubTopic, message))
-        return ok()
-
-      serverSwitch = newTestSwitch()
-      clientSwitch = newTestSwitch()
-      server = await newTestWakuLightpushNode(serverSwitch, handler)
-      client = newTestWakuLightpushClient(clientSwitch)
-
-      await allFutures(serverSwitch.start(), clientSwitch.start())
-
-      serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
-      pubsubTopic = DefaultPubsubTopic
-      contentTopic = DefaultContentTopic
-      message = fakeWakuMessage()
-
-    asyncTeardown:
-      await allFutures(clientSwitch.stop(), serverSwitch.stop())
-
     asyncTest "Valid Payload Types":
       # Given the following payloads
       let
@@ -249,29 +251,29 @@ suite "Waku Lightpush Client":
         not publishResponse5.isOk()
         (await handlerFuture.waitForResult()).isErr()
 
-    asyncTest "Invalid Payloads":
+    # TODO: No known invalid payloads
+    xasyncTest "Invalid Payloads":
       discard
-  
+
   suite "Verification of PushResponse Payload":
     asyncTest "Positive Responses":
-      discard
+      # When sending a valid PushRequest
+      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo)
+
+      # Then the response is positive
+      check publishResponse.isOk()
     
+    # TODO: Improve: Add more negative responses variations
     asyncTest "NegativeResponses":
-      discard
-  
-  suite "Assessment of Message Relaying Mechanisms":
-    asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
-      discard
-    
-    asyncTest "Utilizing 44/WAKU2-DANDELION Stem":
-      discard
+      # Given a server that does not support Waku Lightpush
+      let 
+        serverSwitch2 = newTestSwitch()
+        serverRemotePeerInfo2 = serverSwitch2.peerInfo.toRemotePeerInfo()
 
-    asyncTest "Relay Interruptions":
-      discard
+      await serverSwitch2.start()
 
-  suite "Analysis of Bandwidth Limitations":
-    asyncTest "For Messages ≤ 1MB":
-      discard
-    
-    asyncTest "For Messages > 1MB":
-      discard
+      # When sending an invalid PushRequest
+      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
+
+      # Then the response is negative
+      check not publishResponse.isOk()
