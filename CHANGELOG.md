@@ -5,7 +5,7 @@
 Release highlights:
 * Bug fix in Postgres when querying more than one content topic.
 * Shard aware peer management.
-* Add new DB column `messageHash`.
+* :warning: Add new DB column `messageHash`. This requires a manual database update in _Postgres_.
 * Updated deterministic message hash algorithm.
 * REST admin can inform whether a node supports lightpush and/or filter protocols.
 * Improvements to cluster id and shards setup.
