@@ -10,6 +10,7 @@ import
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
   ../../waku/waku_lightpush,
+  ../../waku/waku_lightpush/common,
   ../../waku/waku_lightpush/client,
   ../testlib/[
     common, 
