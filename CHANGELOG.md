@@ -3,24 +3,15 @@
 ## What's Changed
 
 Release highlights:
-* More appropriate logs.
-* Simplification of libwaku. The `waku_init` function is not needed.
-* Store protocol can be mounted from libwaku.
 * Bug fix in Postgres when querying more than one content topic.
-* Make the retention policy not blocking when the node starts.
 * Shard aware peer management.
-* Add protection in rest service to always publish with timestamp if user doesn't provide it.
-* Admin REST API to be enabled only if config is set.
 * Add new DB column `messageHash`.
 * Updated deterministic message hash algorithm.
 * REST admin can inform whether a node supports lightpush and/or filter protocols.
-* Better response when the store is requested with wrong cursor.
 * Improvements to cluster id and shards setup.
 * Properly apply RLN when publishing from REST or jsonrpc API.
 * Remove trailing commas from the RLN keystore json generated during credentials registration.
-* Peer management better feedback if can't dial peer with WakuMetadataCodec.
-* Update docs for rln-keystore-generator.
-* General test cleanup and better relay tests and new filter unsubscribe tests.
+* General test cleanup, better relay tests and new filter unsubscribe tests.
 * Rewrite docs for clarity and update screenshots.
 
 ### Features
