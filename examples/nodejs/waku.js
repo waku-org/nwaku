@@ -27,15 +27,18 @@ function event_handler(event) {
     console.log("evento NodeJs: " + event)
 }
 
+wakuMod.wakuNew(cfg)
+
 wakuMod.wakuVersion(function(msg){ console.log("Waku Version: " + msg) })
 
 // Example on how to retrieve a value from the waku library
 var defaultPubsubTopic = ""
 wakuMod.wakuDefaultPubsubTopic(function(msg){ defaultPubsubTopic = msg })
 
+console.log("Default pubsub topic: " + defaultPubsubTopic)
+
 console.log("Setting callback event callback function")
 wakuMod.wakuSetEventCallback(event_handler)
-wakuMod.wakuNew(cfg)
 
 wakuMod.wakuStart()
 

@@ -34,6 +34,12 @@ do {                                                                           \
   }                                                                            \
 } while (0)
 
+// libwaku Context
+void* ctx;
+
+// For the case of C language we don't need to store a particular userData
+void* userData = NULL;
+
 static napi_env my_env;
 
 // This function is responsible for converting data coming in from the worker
@@ -80,7 +86,7 @@ static void CallJs(napi_env env, napi_value js_cb, void* context, void* data) {
   free(data);
 }
 
-void handle_waku_version(const char* msg, size_t len) {
+void handle_waku_version(int callerRet, const char* msg, size_t len) {
   if (ref_version_callback == NULL) {
     napi_throw_type_error(my_env, NULL, "ERROR in event_handler. ref_version_callback == NULL");
   }
@@ -106,7 +112,7 @@ void handle_waku_version(const char* msg, size_t len) {
 
 // This function is directly passed as a callback to the libwaku and it
 // calls a NodeJs function if it has been set.
-void event_handler(const char* msg, size_t len) {
+void event_handler(int callerRet, const char* msg, size_t len) {
   if (thsafe_fn == NULL) {
   // if (ref_event_callback == NULL) {
     napi_throw_type_error(my_env, NULL, "ERROR in event_handler. ref_event_callback == NULL");
@@ -118,7 +124,7 @@ void event_handler(const char* msg, size_t len) {
   NAPI_CALL(napi_call_threadsafe_function(thsafe_fn, allocated_msg, napi_tsfn_nonblocking));
 }
 
-void handle_error(const char* msg, size_t len) {
+void handle_error(int callerRet, const char* msg, size_t len) {
   if (ref_on_error_callback == NULL) {
     napi_throw_type_error(my_env, NULL, "ERROR in event_handler. ref_on_error_callback == NULL");
   }
@@ -139,7 +145,7 @@ void handle_error(const char* msg, size_t len) {
 }
 
 char* contentTopic = NULL;
-void handle_content_topic(const char* msg, size_t len) {
+void handle_content_topic(int callerRet, const char* msg, size_t len) {
     if (contentTopic != NULL) {
         free(contentTopic);
     }
@@ -148,7 +154,7 @@ void handle_content_topic(const char* msg, size_t len) {
     strcpy(contentTopic, msg);
 }
 
-void handle_default_pubsub_topic(const char* msg, size_t len) {
+void handle_default_pubsub_topic(int callerRet, const char* msg, size_t len) {
   if (ref_def_pubsub_topic_callback == NULL) {
     napi_throw_type_error(my_env, NULL,
            "ERROR in event_handler. ref_def_pubsub_topic_callback == NULL");
@@ -194,7 +200,7 @@ static napi_value WakuNew(napi_env env, napi_callback_info info) {
   str_size = str_size + 1;
   napi_get_value_string_utf8(env, args[0], jsonConfig, str_size, &str_size_read);
 
-  WAKU_CALL( waku_new(jsonConfig, event_handler) );
+  ctx = waku_new(jsonConfig, event_handler, userData);
 
   free(jsonConfig);
 
@@ -228,7 +234,7 @@ static napi_value WakuVersion(napi_env env, napi_callback_info info) {
 
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_version_callback));
 
-  WAKU_CALL( waku_version( handle_waku_version ) );
+  WAKU_CALL( waku_version(&ctx, handle_waku_version, userData) );
 
   return NULL;
 }
@@ -278,13 +284,13 @@ static napi_value WakuSetEventCallback(napi_env env, napi_callback_info info) {
 
   // Inside 'event_handler', the event will be dispatched to the NodeJs
   // if there is a proper napi_function (ref_event_callback) being set.
-  waku_set_event_callback(event_handler);
+  waku_set_event_callback(event_handler, userData);
 
   return NULL;
 }
 
 static napi_value WakuStart(napi_env env, napi_callback_info info) {
-  waku_start();
+  waku_start(&ctx, event_handler, userData);
   return NULL;
 }
 
@@ -341,7 +347,7 @@ static napi_value WakuConnect(napi_env env, napi_callback_info info) {
   my_env = env;
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
-  WAKU_CALL(waku_connect(peers, timeoutMs, handle_error));
+  WAKU_CALL(waku_connect(&ctx, peers, timeoutMs, handle_error, userData));
 
   // Free allocated memory
   free(peers);
@@ -412,11 +418,13 @@ static napi_value WakuRelayPublish(napi_env env, napi_callback_info info) {
   char *msgPayload = b64_encode((unsigned char*) msg, strlen(msg));
 
   // TODO: move all the 'waku_content_topic' logic inside the libwaku
-  WAKU_CALL( waku_content_topic("appName",
+  WAKU_CALL( waku_content_topic(&ctx,
+                                "appName",
                                 1,
                                 content_topic_name,
                                 "encoding",
-                                handle_content_topic) );
+                                handle_content_topic,
+                                userData) );
   snprintf(jsonWakuMsg,
            1024,
            "{\"payload\":\"%s\",\"content_topic\":\"%s\"}",
@@ -449,10 +457,12 @@ static napi_value WakuRelayPublish(napi_env env, napi_callback_info info) {
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
   // Perform the actual 'publish'
-  WAKU_CALL( waku_relay_publish(pubsub_topic,
+  WAKU_CALL( waku_relay_publish(&ctx,
+                                pubsub_topic,
                                 jsonWakuMsg,
                                 timeoutMs,
-                                handle_error) );
+                                handle_error,
+                                userData) );
   free(pubsub_topic);
   free(content_topic_name);
 
@@ -486,7 +496,7 @@ static napi_value WakuDefaultPubsubTopic(napi_env env, napi_callback_info info) 
 
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_def_pubsub_topic_callback));
 
-  WAKU_CALL( waku_default_pubsub_topic(handle_default_pubsub_topic) );
+  WAKU_CALL( waku_default_pubsub_topic(&ctx, handle_default_pubsub_topic, userData) );
 
   return NULL;
 }
@@ -533,7 +543,7 @@ static napi_value WakuRelaySubscribe(napi_env env, napi_callback_info info) {
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
   // Calling the actual 'subscribe' waku function
-  WAKU_CALL( waku_relay_subscribe(pubsub_topic, handle_error) );
+  WAKU_CALL( waku_relay_subscribe(&ctx, pubsub_topic, handle_error, userData) );
 
   free(pubsub_topic);
 
