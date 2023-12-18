@@ -192,8 +192,6 @@ static napi_value WakuNew(napi_env env, napi_callback_info info) {
     return NULL;
   }
 
-  ctx = waku_init(event_handler, userData);
-
   size_t str_size;
   size_t str_size_read;
   napi_get_value_string_utf8(env, args[0], NULL, 0, &str_size);
@@ -202,7 +200,7 @@ static napi_value WakuNew(napi_env env, napi_callback_info info) {
   str_size = str_size + 1;
   napi_get_value_string_utf8(env, args[0], jsonConfig, str_size, &str_size_read);
 
-  WAKU_CALL( waku_new(&ctx, jsonConfig, event_handler, userData) );
+  ctx = waku_new(jsonConfig, event_handler, userData);
 
   free(jsonConfig);
 
