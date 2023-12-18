@@ -9,15 +9,19 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../waku/node/peer_manager,
-  ../../waku/waku_core,
-  ../../waku/waku_lightpush,
-  ../../waku/waku_lightpush/common,
-  ../../waku/waku_lightpush/client,
-  ../../waku/waku_lightpush/protocol_metrics,
-  ../../waku/waku_lightpush/rpc,
-  ./testlib/common,
-  ./testlib/wakucore,
+  ../../waku/[
+    node/peer_manager,
+    waku_core,
+    waku_lightpush,
+    waku_lightpush/common,
+    waku_lightpush/client,
+    waku_lightpush/protocol_metrics,
+    waku_lightpush/rpc
+  ],
+  ../testlib/[
+    common,
+    wakucore
+  ],
   ./lightpush_utils
 
 
