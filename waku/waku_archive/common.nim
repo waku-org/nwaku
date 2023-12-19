@@ -9,7 +9,8 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../waku_core
+  ../waku_core,
+  ../common/paging
 
 
 ## Waku message digest
@@ -54,7 +55,7 @@ type
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
     pageSize*: uint
-    ascending*: bool
+    direction*: PagingDirection
 
   ArchiveResponse* = object
     messages*: seq[WakuMessage]

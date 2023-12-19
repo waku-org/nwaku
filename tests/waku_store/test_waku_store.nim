@@ -9,6 +9,7 @@ import
 
 import
   ../../../waku/[
+    common/paging,
     node/peer_manager,
     waku_core,
     waku_store,
@@ -46,7 +47,7 @@ suite "Waku Store - query handler":
       server = await newTestWakuStore(serverSwitch, handler=queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD)
 
     ## When
     let queryRes = await client.query(req, peer=serverPeerInfo)
@@ -88,7 +89,7 @@ suite "Waku Store - query handler":
       server = await newTestWakuStore(serverSwitch, handler=queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD)
 
     ## When
     let queryRes = await client.query(req, peer=serverPeerInfo)

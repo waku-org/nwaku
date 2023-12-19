@@ -764,7 +764,7 @@ proc toArchiveQuery(request: HistoryQuery): ArchiveQuery =
     startTime: request.startTime,
     endTime: request.endTime,
     pageSize: request.pageSize.uint,
-    ascending: request.ascending
+    direction: request.direction
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code

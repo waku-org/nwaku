@@ -8,11 +8,14 @@ import
   chronicles,
   json_rpc/rpcserver
 import
-  ../../../waku_core,
-  ../../../waku_store,
+  ../../../[
+    waku_core,
+    waku_store,
+    waku_node
+  ],
   ../../../waku_store/rpc,
-  ../../../waku_node,
   ../../../node/peer_manager,
+  ../../../common/paging,
   ./types
 
 
@@ -27,16 +30,14 @@ proc toPagingInfo*(pagingOptions: StorePagingOptions): PagingInfoRPC =
   PagingInfoRPC(
     pageSize: some(pagingOptions.pageSize),
     cursor: pagingOptions.cursor,
-    direction: if pagingOptions.forward: some(PagingDirectionRPC.FORWARD)
-               else: some(PagingDirectionRPC.BACKWARD)
+    direction: some(pagingOptions.forward.into())
   )
 
 proc toPagingOptions*(pagingInfo: PagingInfoRPC): StorePagingOptions =
   StorePagingOptions(
     pageSize: pagingInfo.pageSize.get(0'u64),
     cursor: pagingInfo.cursor,
-    forward: if pagingInfo.direction.isNone(): true
-             else: pagingInfo.direction.get() == PagingDirectionRPC.FORWARD
+    forward: pagingInfo.direction.into()
   )
 
 proc toJsonRPCStoreResponse*(response: HistoryResponse): StoreResponse =
@@ -65,8 +66,8 @@ proc installStoreApiHandlers*(node: WakuNode, server: RpcServer) =
       contentTopics: contentFiltersOption.get(@[]).mapIt(it.contentTopic),
       startTime: startTime,
       endTime: endTime,
-      ascending: if pagingOptions.isNone(): true
-                 else: pagingOptions.get().forward,
+      direction: if pagingOptions.isNone(): default()
+                 else: pagingOptions.get().forward.into(),
       pageSize: if pagingOptions.isNone(): DefaultPageSize
                 else: min(pagingOptions.get().pageSize, MaxPageSize),
       cursor: if pagingOptions.isNone(): none(HistoryCursor)

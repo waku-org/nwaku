@@ -7,7 +7,7 @@ import
   std/options,
   nimcrypto/hash
 import
-  ../common/protobuf,
+  ../common/[protobuf, paging],
   ../waku_core,
   ./common,
   ./rpc
@@ -74,7 +74,7 @@ proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
 
   pb.write3(1, rpc.pageSize)
   pb.write3(2, rpc.cursor.map(encode))
-  pb.write3(3, rpc.direction.map(proc(d: PagingDirectionRPC): uint32 = uint32(ord(d))))
+  pb.write3(3, rpc.direction.map(proc(d: PagingDirection): uint32 = uint32(ord(d))))
   pb.finish3()
 
   pb
@@ -99,9 +99,9 @@ proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtobufResult[T] =
 
   var direction: uint32
   if not ?pb.getField(3, direction):
-    rpc.direction = none(PagingDirectionRPC)
+    rpc.direction = none(PagingDirection)
   else:
-    rpc.direction = some(PagingDirectionRPC(direction))
+    rpc.direction = some(PagingDirection(direction))
 
   ok(rpc)
 

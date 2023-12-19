@@ -9,7 +9,8 @@ import
   stew/byteutils,
   nimcrypto/sha2
 import
-  ../waku_core
+  ../waku_core,
+  ../common/paging
 
 
 const
@@ -55,7 +56,7 @@ type
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
     pageSize*: uint64
-    ascending*: bool
+    direction*: PagingDirection
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]

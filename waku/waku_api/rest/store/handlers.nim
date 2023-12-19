@@ -15,6 +15,7 @@ import
   ../../../waku_store/common,
   ../../../waku_node,
   ../../../node/peer_manager,
+  ../../../common/paging,
   ../../handlers,
   ../responses,
   ../serdes,
@@ -123,7 +124,7 @@ proc createHistoryQuery(pubsubTopic: Option[string],
                         startTime: Option[string],
                         endTime: Option[string],
                         pageSize: Option[string],
-                        ascending: Option[string]):
+                        direction: Option[string]):
 
                   Result[HistoryQuery, string] =
 
@@ -164,16 +165,16 @@ proc createHistoryQuery(pubsubTopic: Option[string],
   let parsedEndTime = ? parseTime(endTime)
 
   # Parse ascending field
-  var parsedAscending = true
-  if ascending.isSome() and ascending.get() != "":
-    parsedAscending = ascending.get() == "true"
+  var parsedDirection = default()
+  if direction.isSome() and direction.get() != "":
+    parsedDirection = direction.get().into()
 
   return ok(
       HistoryQuery(pubsubTopic: parsedPubsubTopic,
                    contentTopics: parsedContentTopics,
                    startTime: parsedStartTime,
                    endTime: parsedEndTime,
-                   ascending: parsedAscending,
+                   direction: parsedDirection,
                    pageSize: parsedPagedSize,
                    cursor: parsedCursor
                    ))
