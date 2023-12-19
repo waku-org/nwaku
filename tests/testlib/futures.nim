@@ -21,6 +21,12 @@ proc toResult*[T](future: Future[T]): Result[T, string] =
   else:
     return chronos.err("Future not finished.")
 
+proc toResult*(future: Future[void]): Result[void, string] =
+  if future.finished():
+    return chronos.ok()
+  else:
+    return chronos.err("Future not finished.")
+
 proc waitForResult*[T](future: Future[T], timeout = FUTURE_TIMEOUT): Future[Result[T, string]] {.async.} =
   discard await future.withTimeout(timeout)
   return future.toResult()
