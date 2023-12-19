@@ -9,6 +9,7 @@ import
 
 import
   ../../../waku/common/databases/db_sqlite,
+  ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive/driver/sqlite_driver,
@@ -341,7 +342,7 @@ procSuite "Waku Archive - find messages":
     ## Given
     let req = ArchiveQuery(
       pageSize: 4,
-      ascending: true
+      direction: PagingDirection.FORWARD
     )
 
     ## When
@@ -377,7 +378,7 @@ procSuite "Waku Archive - find messages":
     ## Given
     let req = ArchiveQuery(
       pageSize: 4,
-      ascending: false  # backward
+      direction: PagingDirection.BACKWARD
     )
 
     ## When
@@ -454,7 +455,7 @@ procSuite "Waku Archive - find messages":
       contentTopics: @[ContentTopic("1")],
       startTime: some(ts(15, timeOrigin)),
       endTime: some(ts(55, timeOrigin)),
-      ascending: true
+      direction: PagingDirection.FORWARD
     )
 
     ## When
