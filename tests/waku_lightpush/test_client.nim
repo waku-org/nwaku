@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options],
+  std/[options, strscans],
   testutils/unittests,
   chronicles,
   chronos,
@@ -43,6 +43,7 @@ suite "Waku Lightpush Client":
     client {.threadvar.}: WakuLightPushClient
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    clientPeerId {.threadvar.}: PeerId
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
@@ -61,6 +62,7 @@ suite "Waku Lightpush Client":
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
     serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+    clientPeerId = clientSwitch.peerInfo.peerId
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
     message = fakeWakuMessage()
@@ -231,29 +233,71 @@ suite "Waku Lightpush Client":
       check:
         publishResponse3.isOk()
         (pubsubTopic, message3) == (await handlerFuture.waitForResult()).value()
-
+      echo "1"
       # When publishing the 1MiB + 63KiB + 911B payload (1113999B)
       handlerFuture = newPushHandlerFuture()
       let publishResponse4 = await client.publish(pubsubTopic, message4, serverRemotePeerInfo)
-
+      echo "2"
       # Then the message is received by the server
       check:
         publishResponse4.isOk()
-        # Result[(string, WakuMessage), string].ok((pubsubTopic, message4)) == await handlerFuture.waitForResult()
         (pubsubTopic, message4) == (await handlerFuture.waitForResult()).value()
-        
+      echo "3"
       # When publishing the 1MiB + 63KiB + 912B payload (1114000B)
       handlerFuture = newPushHandlerFuture()
+      echo "31"
       let publishResponse5 = await client.publish(pubsubTopic, message5, serverRemotePeerInfo)
-
+      echo "4"
       # Then the message is not received by the server
       check:
         not publishResponse5.isOk()
         (await handlerFuture.waitForResult()).isErr()
 
-    # TODO: No known invalid payloads
-    xasyncTest "Invalid Payloads":
-      discard
+    asyncTest "Invalid Encoding Payload":
+      # Given a payload with an invalid encoding
+      let fakeBuffer = @[byte(42)]
+
+      # When publishing the payload
+      let publishResponse = await server.handleRequest(clientPeerId, fakeBuffer)
+
+      # Then the response is negative
+      check:
+        publishResponse.requestId == ""
+      
+      # And the error is returned
+      let response = publishResponse.response.get()
+      check:
+        response.isSuccess == false 
+        response.info.isSome()
+        scanf(response.info.get(), decodeRpcFailure)
+
+    asyncTest "Handle Error":
+      # Given a lightpush server that fails
+      let 
+        handlerError = "handler-error"
+        handlerFuture2 = newFuture[void]()
+        handler2 = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
+          handlerFuture2.complete()
+          return err(handlerError)
+
+      let
+        serverSwitch2 = newTestSwitch()
+        server2 = await newTestWakuLightpushNode(serverSwitch2, handler2)
+      
+      await serverSwitch2.start()
+
+      let serverRemotePeerInfo2 = serverSwitch2.peerInfo.toRemotePeerInfo()
+
+      # When publishing a payload
+      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
+
+      # Then the response is negative
+      check:
+        handlerError == publishResponse.error()
+        (await handlerFuture2.waitForResult()).isOk()
+
+      # Cleanup
+      await serverSwitch2.stop()
 
   suite "Verification of PushResponse Payload":
     asyncTest "Positive Responses":
