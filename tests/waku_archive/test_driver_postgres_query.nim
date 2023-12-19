@@ -201,18 +201,36 @@ suite "Postgres driver - query by content topic":
       require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    var res = await driver.getMessages(
       contentTopic= @[contentTopic1, contentTopic2],
+      pubsubTopic=some(DefaultPubsubTopic),
       maxPageSize=2,
-      ascendingOrder=true
+      ascendingOrder=true,
+      startTime=some(ts(00)),
+      endTime=some(ts(40))
     )
 
     ## Then
     assert res.isOk(), res.error
+    var filteredMessages = res.tryGet().mapIt(it[1])
+    check filteredMessages == expected[2..3]
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
-    check:
-      filteredMessages == expected[2..3]
+    ## When
+    ## This is very similar to the previous one but we enforce to use the prepared
+    ## statement by querying one single content topic
+    res = await driver.getMessages(
+      contentTopic= @[contentTopic1],
+      pubsubTopic=some(DefaultPubsubTopic),
+      maxPageSize=2,
+      ascendingOrder=true,
+      startTime=some(ts(00)),
+      endTime=some(ts(40))
+    )
+
+    ## Then
+    assert res.isOk(), res.error
+    filteredMessages = res.tryGet().mapIt(it[1])
+    check filteredMessages == @[expected[2]]
 
     ## Cleanup
     (await driver.close()).expect("driver to close")
