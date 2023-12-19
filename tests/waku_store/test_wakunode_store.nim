@@ -14,6 +14,7 @@ import
   libp2p/protocols/pubsub/gossipsub
 import
   ../../../waku/common/databases/db_sqlite,
+  ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../../../waku/node/peer_manager,
@@ -107,7 +108,7 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, ascending: true)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: PagingDirection.FORWARD)
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -158,7 +159,7 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, ascending: false)
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: PagingDirection.BACKWARD)
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
