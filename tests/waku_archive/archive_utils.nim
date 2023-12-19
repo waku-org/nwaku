@@ -3,7 +3,6 @@
 import
   std/options,
   chronos,
-  chronicles,
   libp2p/crypto/crypto
 
 import
@@ -13,11 +12,9 @@ import
     waku_archive,
     waku_archive/common,
     waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite,
-    waku_store
+    common/databases/db_sqlite
   ],
   ../testlib/[
-    common,
     wakucore
   ]
 
@@ -44,13 +41,16 @@ proc computeArchiveCursor*(pubsubTopic: PubsubTopic, message: WakuMessage): Arch
   )
 
 
-proc newArchiveDriverWithMessages*(pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]): ArchiveDriver = 
-  let driver = newSqliteArchiveDriver()
-
+proc put*(driver: ArchiveDriver, pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]): ArchiveDriver =
   for msg in msgList:
     let 
       msgDigest = waku_archive.computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
     discard waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+  return driver
 
+
+proc newArchiveDriverWithMessages*(pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]): ArchiveDriver = 
+  var driver = newSqliteArchiveDriver()
+  driver = driver.put(pubsubTopic, msgList)
   return driver
