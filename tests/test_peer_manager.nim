@@ -282,7 +282,7 @@ procSuite "Peer Manager":
 
     await node3.mountRelay()
 
-    await node3.peerManager.manageRelayPeers()
+    await node3.peerManager.connectToRelayPeers()
 
     await sleepAsync(chronos.milliseconds(500))
 
@@ -432,7 +432,7 @@ procSuite "Peer Manager":
     nodes[0].peerManager.addPeer(peerInfos[3])
 
     # Connect to relay peers
-    await nodes[0].peerManager.manageRelayPeers()
+    await nodes[0].peerManager.connectToRelayPeers()
 
     check:
       # Peerstore track all three peers

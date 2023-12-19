@@ -54,7 +54,7 @@ const
   MaxParallelDials = 10
 
   # Delay between consecutive relayConnectivityLoop runs
-  ConnectivityLoopInterval = chronos.minutes(1)
+  ConnectivityLoopInterval = chronos.seconds(15)
 
   # How often the peer store is pruned
   PrunePeerStoreInterval = chronos.minutes(10)
@@ -652,78 +652,24 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     trace "Pruning Peer", Peer = $p
     asyncSpawn(pm.switch.disconnect(p))
 
-proc manageRelayPeers*(pm: PeerManager) {.async.} =
-  if pm.wakuMetadata.shards.len == 0:
-    return
-  
-  var peersToConnect: HashSet[PeerId] # Can't use RemotePeerInfo as they are ref objects
-  var peersToDisconnect: int
+proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  let maxConnections = pm.switch.connManager.inSema.size
+  let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  # Get all connected peers for Waku Relay
-  var (inPeers, outPeers) = pm.connectedPeers(WakuRelayCodec)
+  # TODO: Temporally disabled. Might be causing connection issues
+  #if inRelayPeers.len > pm.inRelayPeersTarget:
+  #  await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
-  # Calculate in/out target number of peers for each shards
-  let inTarget = pm.inRelayPeersTarget div pm.wakuMetadata.shards.len
-  let outTarget = pm.outRelayPeersTarget div pm.wakuMetadata.shards.len
-
-  for shard in pm.wakuMetadata.shards.items:
-    # Filter out peer not on this shard
-    let connectedInPeers = inPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard)))
-
-    let connectedOutPeers = outPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard)))
-
-    # Calculate the difference between current values and targets
-    let inPeerDiff = connectedInPeers.len - inTarget
-    let outPeerDiff = outTarget - connectedOutPeers.len
-
-    if inPeerDiff > 0:
-      peersToDisconnect += inPeerDiff
-
-    if outPeerDiff <= 0:
-      continue
-
-    # Get all peers for this shard
-    var connectablePeers = pm.peerStore.getPeersByShard(
-      uint16(pm.wakuMetadata.clusterId), uint16(shard))
-  
-    let shardCount = connectablePeers.len
-
-    connectablePeers.keepItIf(
-      not pm.peerStore.isConnected(it.peerId) and
-      pm.canBeConnected(it.peerId))
-
-    let connectableCount = connectablePeers.len
-
-    connectablePeers.keepItIf(pm.peerStore.hasCapability(it.peerId, Relay))
-
-    let relayCount = connectablePeers.len
-
-    trace "Sharded Peer Management",
-      shard = shard,
-      connectable = $connectableCount & "/" & $shardCount,
-      relayConnectable = $relayCount & "/" & $shardCount,
-      relayInboundTarget = $connectedInPeers.len & "/" & $inTarget,
-      relayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
-      
-    let length = min(outPeerDiff, connectablePeers.len)
-    for peer in connectablePeers[0..<length]:
-      trace "Peer To Connect To", peerId = $peer.peerId
-      peersToConnect.incl(peer.peerId)
-
-  await pm.pruneInRelayConns(peersToDisconnect)
-  
-  if peersToConnect.len == 0:
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.get(it))
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+  let numPeersToConnect = min(outsideBackoffPeers.len, MaxParallelDials)
 
-  # Connect to all nodes
-  for i in countup(0, uniquePeers.len, MaxParallelDials):
-    let stop = min(i + MaxParallelDials, uniquePeers.len)
-    trace "Connecting to Peers", peerIds = $uniquePeers[i..<stop]
-    await pm.connectToNodes(uniquePeers[i..<stop])
+  await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect])
 
 proc prunePeerStore*(pm: PeerManager) =
   let numPeers = pm.peerStore[AddressBook].book.len
@@ -839,7 +785,7 @@ proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
   trace "Starting relay connectivity loop"
   while pm.started:
-    await pm.manageRelayPeers()
+    await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
 proc logAndMetrics(pm: PeerManager) {.async.} =
