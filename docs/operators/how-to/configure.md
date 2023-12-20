@@ -81,7 +81,7 @@ provided via environment variables.
 
 ### Configuration file
 
-The third configuration mechanism in order of precedence is the configuration via a TOML file. The previous mechanims take precedence over this mechanism as explained above.
+The third configuration mechanism in order of precedence is the configuration via a TOML file. The previous mechanisms take precedence over this mechanism as explained above.
 
 The configuration file follows the [TOML](https://toml.io/en/) format:
 
