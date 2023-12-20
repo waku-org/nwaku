@@ -9,7 +9,7 @@ sending more than one message per epoch.
 At the time of this tutorial, the epoch duration is set to `10` seconds.
 You can inspect the current epoch value by checking the following [constant variable](https://github.com/status-im/nim-waku/blob/21cac6d491a6d995a7a8ba84c85fecc7817b3d8b/waku/v2/protocol/waku_rln_relay/constants.nim#L245) in the nim-waku codebase.
 Your messages will be routed via test fleets and will arrive at other live chat2 clients that are running in rate-limited mode over the same content topic i.e., `/toy-chat/3/mingde/proto`.
-Your samp activity will be detected by them and a proper message will be shown on their console.  
+Your spam activity will be detected by them and a proper message will be shown on their console.  
 
 # Set up
 ## Build chat2
