@@ -35,8 +35,7 @@ import
   ../waku_filter/client as legacy_filter_client, #TODO: support for legacy filter protocol will be removed
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
-  ../waku_lightpush/common,
-  ../waku_lightpush/protocol,
+  ../waku_lightpush,
   ../waku_metadata,
   ../waku_lightpush/client as lightpush_client,
   ../waku_enr,

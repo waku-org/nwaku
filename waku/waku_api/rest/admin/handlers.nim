@@ -17,7 +17,7 @@ import
   ../../../waku_store,
   ../../../waku_filter,
   ../../../waku_filter_v2,
-  ../../../waku_lightpush/common,
+  ../../../waku_lightpush,
   ../../../waku_relay,
   ../../../waku_node,
   ../../../node/peer_manager,

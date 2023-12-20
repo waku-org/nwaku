@@ -4,12 +4,16 @@ import
   std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronos
+  chronicles,
+  chronos,
+  libp2p/crypto/crypto,
+  libp2p/switch
 import
   ../../waku/waku_core,
-  ../../waku/waku_lightpush/common,
+  ../../waku/waku_lightpush,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
+  ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode
 
