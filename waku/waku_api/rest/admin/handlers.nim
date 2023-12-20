@@ -119,7 +119,7 @@ proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
     if not node.wakuFilter.isNil():
 
       for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
-        subscriptions.add(($peerId, $criteria))
+        subscriptions.add(($peerId, $criteria.toSeq()))
 
     let resp = RestApiResponse.jsonResponse(subscriptions, status=Http200)
     if resp.isErr():
