@@ -41,7 +41,7 @@ There is a set of configuration options to customize the waku store protocol's m
   + SQLite engine: The only database engine supported by the nwaku node. The database URL has this shape: `sqlite://<database-file-path>`. If the `<database-file-path>` is not an absolute path (preceded by a `/` character), the file will be created in the current working directory. The SQLite engine also supports to select a non-persistent in-memory database by setting the `<database-file-path>` to `:memory:`.
   + In the case you don't want to use a persistent message store; set the `--store-message-db-url` to an empty string, `""`. This will instruct the node to use the fallback in-memory message store.
 
-By default the node message store will be configured with a time retention policy set to `14400` seconds (4 hours). Additionaly, by default, the node message store will use the SQLite database engine to store historical messages in order to persist these between restarts. 
+By default the node message store will be configured with a time retention policy set to `14400` seconds (4 hours). Additionally, by default, the node message store will use the SQLite database engine to store historical messages in order to persist these between restarts. 
 
 > :warning: Note the 3 slashes, `///`,  after the SQLite database URL schema. The third slash indicates that it is an absolute path: `/mnt/nwaku/data/db1/store.sqlite3`
 
