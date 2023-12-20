@@ -4,7 +4,6 @@
 
 Release highlights:
 * Bug fix in Postgres when querying more than one content topic.
-* Shard aware peer management.
 * :warning: Add new DB column `messageHash`. This requires a manual database update in _Postgres_.
 * Updated deterministic message hash algorithm.
 * REST admin can inform whether a node supports lightpush and/or filter protocols.
@@ -16,7 +15,6 @@ Release highlights:
 
 ### Features
 
-- shard aware peer management ([#2151](https://github.com/waku-org/nwaku/issues/2151)) ([dba9820c](https://github.com/waku-org/nwaku/commit/dba9820c))
 - setting image deployment to harbor registry ([93dd5ae5](https://github.com/waku-org/nwaku/commit/93dd5ae5))
 - Add new DB column `messageHash` ([#2202](https://github.com/waku-org/nwaku/issues/2202)) ([aeb77a3e](https://github.com/waku-org/nwaku/commit/aeb77a3e))
 
@@ -70,6 +68,8 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 | [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
 | [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 | [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
