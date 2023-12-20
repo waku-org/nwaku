@@ -14,7 +14,7 @@ import
   ../node/peer_manager,
   ../utils/requests,
   ../waku_core,
-  ./common,
+  ./protocol,
   ./protocol_metrics,
   ./rpc,
   ./rpc_codec
