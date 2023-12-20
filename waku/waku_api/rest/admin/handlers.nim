@@ -121,8 +121,6 @@ proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
       for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
         subscriptions.add(($peerId, $criteria))
 
-      echo subscriptions
-
     let resp = RestApiResponse.jsonResponse(subscriptions, status=Http200)
     if resp.isErr():
       error "An error ocurred while building the json respose: ", error=resp.error
