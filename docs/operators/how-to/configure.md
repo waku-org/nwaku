@@ -90,7 +90,7 @@ log-level = "DEBUG"
 tcp-port = 65000
 ```
 
-The path to the TOML file can be specified usin one of the previous configuration mechanisms:
+The path to the TOML file can be specified using one of the previous configuration mechanisms:
 
 * By passing the `--config-file` command line option:
   ```shell
