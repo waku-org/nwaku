@@ -438,8 +438,7 @@ proc setupProtocols(node: WakuNode,
         conf.topics
 
     try:
-      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler,
-                       metadataClusterId = conf.clusterId)
+      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
@@ -567,6 +566,12 @@ proc setupProtocols(node: WakuNode,
         node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
       else:
         return err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+
+  # waku metadata protocol
+  if conf.relay or conf.filter or conf.lightpush:
+    node.mountMetadata(conf.clusterId).isOkOr:
+      error "failed to mount waku metadata protocol", error=error
+      return
 
   return ok()
 
