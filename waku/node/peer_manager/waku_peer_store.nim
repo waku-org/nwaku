@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, sequtils, sets, options, strutils],
+  std/[tables, sequtils, sets, options, times, strutils],
   chronos,
   eth/p2p/discoveryv5/enr,
   libp2p/builders,
@@ -12,8 +12,6 @@ import
 
 import
   ../../waku_core,
-  ../../waku_enr/sharding,
-  ../../waku_enr/capabilities,
   ../../common/utils/sequence
 
 export peerstore, builders
@@ -97,13 +95,10 @@ proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo]
   peerStore.peers.filterIt(it.protocols.anyIt(protocolMatcher(it)))
 
 proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
-  peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
-
-proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint16): bool =
-  peerStore[ENRBook].book.getOrDefault(peerId).containsShard(cluster, shard)
-
-proc hasCapability*(peerStore: PeerStore, peerId: PeerID, cap: Capabilities): bool =
-  peerStore[ENRBook].book.getOrDefault(peerId).supportsCapability(cap)
+  # Return the connection state of the given, managed peer
+  # TODO: the PeerManager should keep and update local connectedness state for peers, redial on disconnect, etc.
+  # TODO: richer return than just bool, e.g. add enum "CanConnect", "CannotConnect", etc. based on recent connection attempts
+  return peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
 proc isConnected*(peerStore: PeerStore, peerId: PeerID): bool =
   # Returns `true` if the peer is connected
@@ -136,9 +131,3 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.connectedness == CanConnect or it.connectedness == Connected)
-
-proc getPeersByShard*(peerStore: PeerStore, cluster, shard: uint16): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().containsShard(cluster, shard))
-
-proc getPeersByCapability*(peerStore: PeerStore, cap: Capabilities): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))

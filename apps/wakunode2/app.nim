@@ -53,7 +53,7 @@ import
   ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
-  ../../waku/waku_lightpush/common,
+  ../../waku/waku_lightpush,
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ./wakunode2_validator_signed,
