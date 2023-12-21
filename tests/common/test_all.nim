@@ -4,4 +4,5 @@ import
   ./test_enr_builder,
   ./test_envvar_serialization,
   ./test_protobuf_validation,
-  ./test_sqlite_migrations
+  ./test_sqlite_migrations,
+  ./test_parse_size

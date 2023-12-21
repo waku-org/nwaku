@@ -80,9 +80,9 @@ type
       name: "rln-relay-eth-private-key" }: string
 
     maxMessageSize* {.
-      desc: "Maximum message size in bytes. e.j. to set a 1 MiB, set this to 1048576 (1024*1024)."
-      defaultValue: MaxWakuMessageSize
-      name: "max-num-bytes-msg-size" }: int
+      desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
+      defaultValue: DefaultMaxWakuMessageSizeStr
+      name: "max-num-bytes-msg-size" }: string
 
     case cmd* {.
       command
