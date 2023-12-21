@@ -43,6 +43,9 @@ method getMessages*(driver: ArchiveDriver,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} = discard
 
+method getDbType*(driver: ArchiveDriver): string {.base, raises: [ValueError].} =
+    raise newException(ValueError, "Database type method not implemented in subclass")
+
 method getMessagesCount*(driver: ArchiveDriver):
                          Future[ArchiveDriverResult[int64]] {.base, async.} = discard
 

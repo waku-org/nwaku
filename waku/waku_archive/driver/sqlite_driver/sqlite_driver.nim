@@ -47,6 +47,9 @@ type SqliteDriver* = ref object of ArchiveDriver
     db: SqliteDatabase
     insertStmt: SqliteStmt[InsertMessageParams, void]
 
+method getDbType*(s: SqliteDriver): string =
+    return "sqlite"
+
 proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
   # Database initialization

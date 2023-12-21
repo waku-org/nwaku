@@ -24,6 +24,9 @@ type PostgresDriver* = ref object of ArchiveDriver
   writeConnPool: PgAsyncPool
   readConnPool: PgAsyncPool
 
+method getDbType*(s: PostgresDriver): string =
+    return "postgres"
+
 proc dropTableQuery(): string =
   "DROP TABLE messages"
 
@@ -534,4 +537,18 @@ proc sleep*(s: PostgresDriver, seconds: int):
     # This always raises an exception although the sleep works
     return err("exception sleeping: " & getCurrentExceptionMsg())
 
+  return ok()
+
+method performVacuum*(s: PostgresDriver):
+                     Future[ArchiveDriverResult[void]] {.async.} =
+  ## Perform a VACUUM operation to clean up the database.
+  debug "starting Postgres database vacuuming"
+  try:
+    let execRes = await s.writeConnPool.pgQuery("VACUUM")
+    if execRes.isErr:
+      return err("error in Postgres Vacuum operation: " & execRes.error)
+  except DbError as e:
+    return err("Database error occurred during Postgres VACUUM: " & $e.msg)
+
+  debug "finished Postgres database vacuuming"
   return ok()

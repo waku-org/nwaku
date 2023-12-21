@@ -4,19 +4,32 @@ import
   std/[sequtils,times],
   stew/results,
   testutils/unittests,
-  chronos
+  chronos,
+  os
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
+    ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_archive/retention_policy,
   ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
   ../../../waku/waku_archive/retention_policy/retention_policy_size,
   ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore
+
+
+const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
+
+proc newTestPostgresDriver(): ArchiveDriver =
+  let driver = PostgresDriver.new(dbUrl = storeMessageDbUrl).tryGet()
+  discard waitFor driver.reset()
+
+  let initRes = waitFor driver.init()
+  assert initRes.isOk(), initRes.error
+
+  return driver
 
 
 suite "Waku Archive - Retention policy":
@@ -27,7 +40,7 @@ suite "Waku Archive - Retention policy":
       capacity = 100
       excess = 60
 
-    let driver = newSqliteArchiveDriver()
+    let driver = newTestPostgresDriver()
 
     let retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
@@ -54,15 +67,8 @@ suite "Waku Archive - Retention policy":
   
   test "size retention policy - windowed message deletion":
     ## Given
-    let
-      # in bytes
-      sizeLimit:int64 = 52428
-      excess = 325
-
-    let driver = newSqliteArchiveDriver()
-
-    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
-    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
+    let driver = newTestPostgresDriver()
+    let dbEngine = driver.getDbType()
 
     # make sure that the db is empty to before test begins
     let storedMsg = (waitFor driver.getAllMessages()).tryGet()
@@ -71,6 +77,13 @@ suite "Waku Archive - Retention policy":
       let now = getNanosecondTime(getTime().toUnixFloat())
       require (waitFor driver.deleteMessagesOlderThanTimestamp(ts=now)).isOk()  
       require (waitFor driver.performVacuum()).isOk()
+
+    # in bytes
+    let sizeLimit:int64 = 10122851
+    let excess = 69
+
+    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
+    var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     ## When
     ## 
@@ -85,25 +98,19 @@ suite "Waku Archive - Retention policy":
 
     ## Then
     # calculate the current database size
-    let sizeDB = int64((waitFor driver.getDatabaseSize()).tryGet())
+    var sizeDB = int64((waitFor driver.getDatabaseSize()).tryGet())
 
-    # NOTE: since vacuumin is done manually, this needs to be revisited if vacuuming done automatically
-
-    # get the rows count pre-deletion
-    let rowsCountBeforeDeletion = (waitFor driver.getMessagesCount()).tryGet()
-
-    # execute policy provided the current db size oveflows, results in rows deletion
     require (sizeDB >= sizeLimit)
     require (waitFor retentionPolicy.execute(driver)).isOk()
     
-    # get the number or rows from database
-    let rowCountAfterDeletion = (waitFor driver.getMessagesCount()).tryGet()
+    # get the updated DB size post vacuum
+    sizeDB = int64((waitFor driver.getDatabaseSize()).tryGet())
 
     check:
       # size of the database is used to check if the storage limit has been preserved
       # check the current database size with the limitSize provided by the user
       # it should be lower
-      rowCountAfterDeletion <= rowsCountBeforeDeletion
+      sizeDB <= sizeLimit
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
@@ -114,7 +121,7 @@ suite "Waku Archive - Retention policy":
     const contentTopic = "test-content-topic"
 
     let
-      driver = newSqliteArchiveDriver()
+      driver = newTestPostgresDriver()
       retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
 
     let messages = @[

@@ -84,6 +84,9 @@ proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T
   var items = SortedSet[Index, IndexedWakuMessage].init()
   return QueueDriver(items: items, capacity: capacity)
 
+method getDbType*(driver: QueueDriver): string =
+    return "sqlite"
+
 proc contains*(driver: QueueDriver, index: Index): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.
   driver.items.eq(index).isOk()

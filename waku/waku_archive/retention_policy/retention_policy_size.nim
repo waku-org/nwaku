@@ -41,29 +41,44 @@ proc init*(T: type SizeRetentionPolicy, size=DefaultRetentionSize): T =
 method execute*(p: SizeRetentionPolicy,
                 driver: ArchiveDriver):
                 Future[RetentionPolicyResult[void]] {.async.} =
+
+  # In SQLite vacuuming is done manually,
+  let dbEngine = driver.getDbType()
+  if dbEngine == "sqlite":
+    return ok()
+
   ## when db size overshoots the database limit, shread 20% of outdated messages 
   # get size of database
-  let dbSize = (await driver.getDatabaseSize()).valueOr:
+  var dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("failed to get database size: " & $error)
 
   # database size in bytes
-  let totalSizeOfDB: int64 = int64(dbSize)
+  var totalSizeOfDB: int64 = int64(dbSize)
 
   if totalSizeOfDB < p.sizeLimit:
     return ok()
+  
+    # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+    # if vacumming is done automatically then we aim to check DB size periodially for efficient
+    # retention policy implementation.
+  while (totalSizeOfDB > p.sizeLimit):
+    # to shread/delete messsges, get the total row/message count
+    let numMessages = (await driver.getMessagesCount()).valueOr:
+      return err("failed to get messages count: " & error)
 
-  # to shread/delete messsges, get the total row/message count
-  let numMessages = (await driver.getMessagesCount()).valueOr:
-    return err("failed to get messages count: " & error)
+    # 80% of the total messages are to be kept, delete others
+    let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
 
-  # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
-  # if vacumming is done automatically then we aim to check DB size periodially for efficient
-  # retention policy implementation.
+    (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+      return err("deleting oldest messages failed: " & error)
 
-  # 80% of the total messages are to be kept, delete others
-  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
-
-  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
-    return err("deleting oldest messages failed: " & error)
+    # perform vacuum
+    let resVaccum = await driver.performVacuum()
+    if resVaccum.isErr():
+      return err("vacuumming failed: " & resVaccum.error)
+    # recompute the DB size
+    dbSize = (await driver.getDatabaseSize()).valueOr:
+      return err("failed to get database size: " & $error)
+    totalSizeOfDB = int64(dbSize)
 
   return ok()
