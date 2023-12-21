@@ -106,24 +106,24 @@ suite "Waku v2 Rest API - Admin":
       contentFiltersNode3 = @[ContentTopic("3"), ContentTopic("4")]
       pubsubTopicNode2 = DefaultPubsubTopic
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
-      
+
       expectedFilterData2 = fmt"(peerId: ""{$peerInfo2}"", filterCriteria:" &
-        fmt" ""@[(\""{pubsubTopicNode2}\"", \""{contentFiltersNode2[0]}\""), " & 
-        fmt"(\""{pubsubTopicNode2}\"", \""{contentFiltersNode2[1]}\""), " &
-        fmt"(\""{pubsubTopicNode2}\"", \""{contentFiltersNode2[2]}\"")]"")"
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}"")]"
 
       expectedFilterData3 = fmt"(peerId: ""{$peerInfo3}"", filterCriteria:" &
-        fmt" ""@[(\""{pubsubTopicNode3}\"", \""{contentFiltersNode3[0]}\""), " & 
-        fmt"(\""{pubsubTopicNode3}\"", \""{contentFiltersNode3[1]}\"")]"")"
-    
-    let 
-        subscribeResponse2 = await node2.wakuFilterClient.subscribe(
-          peerInfo1, pubsubTopicNode2, contentFiltersNode2
-        )
-        subscribeResponse3 = await node3.wakuFilterClient.subscribe(
-          peerInfo1, pubsubTopicNode3, contentFiltersNode3
-        )
-    
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[1]}"")]"
+
+    let
+      subscribeResponse2 = await node2.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode2, contentFiltersNode2
+      )
+      subscribeResponse3 = await node3.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode3, contentFiltersNode3
+      )
+
     assert subscribeResponse2.isOk(), $subscribeResponse2.error
     assert subscribeResponse3.isOk(), $subscribeResponse3.error
 

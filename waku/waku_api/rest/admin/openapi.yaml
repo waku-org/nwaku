@@ -49,6 +49,24 @@ paths:
           description: Cannot connect to one or more peers.
         '5XX':
           description: Unexpected error.
+  /admin/v1/filter:
+    get:
+      summary: Get filter protocol info
+      description: Retrieve information about the serving filter subscriptions
+      operationId: getFilterInfo
+      tags:
+        - admin
+      responses:
+        '200':
+          description: Information about subscribed filter peers and topics
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FilterSubscription'
+        '5XX':
+          description: Unexpected error.
 
 components:
   schemas:
@@ -72,3 +90,24 @@ components:
                 type: string
               connected:
                 type: boolean
+
+    FilterSubscription:
+      type: object
+      required:
+        - peerId
+        - filterCriteria
+      properties:
+        peerId:
+          type: string
+        filterCriteria:
+          type: array
+          items:
+            type: object
+            required:
+              - pubsubTopic
+              - contentTopic
+            properties:
+              pubsubTopic:
+                type: string
+              contentTopic:
+                type: string

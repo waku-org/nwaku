@@ -114,12 +114,18 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
 proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_FILTER) do () -> RestApiResponse:
     
-    var subscriptions: seq[tuple[peerId: string, filterCriteria: string]] = @[]
+    var subscriptions: seq[FilterSubscription] = @[]
 
     if not node.wakuFilter.isNil():
 
+      var filterCriteria: seq[FilterTopic]
+
       for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
-        subscriptions.add(($peerId, $criteria.toSeq()))
+      
+        filterCriteria = criteria.toSeq().mapIt(FilterTopic(pubsubTopic: it[0],
+          contentTopic: it[1]))
+
+        subscriptions.add(FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria))
 
     let resp = RestApiResponse.jsonResponse(subscriptions, status=Http200)
     if resp.isErr():

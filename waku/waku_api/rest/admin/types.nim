@@ -25,6 +25,16 @@ type
 
 type WakuPeers* = seq[WakuPeer]
 
+type
+  FilterTopic* = object
+    pubsubTopic*: string
+    contentTopic*: string 
+
+type
+  FilterSubscription* = object
+    peerId*: string
+    filterCriteria*: seq[FilterTopic]
+
 #### Serialization and deserialization
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ProtocolState)
