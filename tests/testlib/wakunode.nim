@@ -33,7 +33,8 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     nat: "any",
     maxConnections: 50,
     topics: @[],
-    relay: true
+    relay: true,
+    maxMessageSize: "1024 KiB"
   )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
