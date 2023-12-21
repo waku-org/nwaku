@@ -54,6 +54,8 @@ method execute*(p: SizeRetentionPolicy,
 
   # database size in bytes
   var totalSizeOfDB: int64 = int64(dbSize)
+  let retryLimit = 2
+  var retryCounter:int = 0
 
   if totalSizeOfDB < p.sizeLimit:
     return ok()
@@ -61,7 +63,7 @@ method execute*(p: SizeRetentionPolicy,
     # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
     # if vacumming is done automatically then we aim to check DB size periodially for efficient
     # retention policy implementation.
-  while (totalSizeOfDB > p.sizeLimit):
+  while (totalSizeOfDB > p.sizeLimit) and (retryLimit > retryCounter):
     # to shread/delete messsges, get the total row/message count
     let numMessages = (await driver.getMessagesCount()).valueOr:
       return err("failed to get messages count: " & error)
@@ -76,9 +78,12 @@ method execute*(p: SizeRetentionPolicy,
     let resVaccum = await driver.performVacuum()
     if resVaccum.isErr():
       return err("vacuumming failed: " & resVaccum.error)
-    # recompute the DB size
+    # recompute the DB size to check if the size has actually reduced or not
+    
     dbSize = (await driver.getDatabaseSize()).valueOr:
       return err("failed to get database size: " & $error)
     totalSizeOfDB = int64(dbSize)
+    retryCounter += 1
+    sleep(150*retryCounter)
 
   return ok()
