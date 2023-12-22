@@ -193,16 +193,26 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     
     debug "get_waku_v2_relay_v1_auto_messages", contentTopic=contentTopic
 
+    info "-------------------- 1 ---------------"
+
     let contentTopic = contentTopic.valueOr:
       return RestApiResponse.badRequest($error)
 
+    info "-------------------- 2 ---------------"
+
     let messages = cache.getAutoMessages(contentTopic, clear=true).valueOr:
+      info "-------------------- 3 ---------------"
       debug "Not subscribed to topic", topic=contentTopic
       return RestApiResponse.notFound(contentTopic)
 
+    info "-------------------- 4 ---------------"
+
     let data = RelayGetMessagesResponse(messages.map(toRelayWakuMessage))
 
+    info "-------------------- 5 ---------------"
+
     return RestApiResponse.jsonResponse(data, status=Http200).valueOr:
+      info "-------------------- 6 ---------------"
       debug "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError($error)
 
@@ -237,8 +247,25 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
     
-    if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
+       
+    #[ let publishFut = node.publish(some(pubsubTopic), message)
+    if not waitFor publishFut.withTimeout(futTimeout):
+      raise newException(ValueError, "Failed to publish: timed out") ]#
+    
+    var publishFut = node.publish(none(PubSubTopic), message)
+    if not await publishFut.withTimeout(futTimeout):
+       return RestApiResponse.internalServerError("Failed to publish: timedout")    
+
+    #[ try:
+      if not isReadyStateFut.read():
+        msg = "Node is not ready"
+        status = Http503
+    except:
+      msg = "exception reading state: " & getCurrentExceptionMsg()
+      status = Http500 ]#
+    
+    #[ if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", contentTopic=message.contentTopic
-      return RestApiResponse.internalServerError("Failed to publish: timedout")
+      return RestApiResponse.internalServerError("Failed to publish: timedout") ]#
 
     return RestApiResponse.ok()
