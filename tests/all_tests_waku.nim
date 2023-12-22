@@ -17,7 +17,6 @@ import
   ./waku_archive/test_driver_queue,
   ./waku_archive/test_driver_sqlite_query,
   ./waku_archive/test_driver_sqlite,
-  ./waku_archive/test_retention_policy,
   ./waku_archive/test_waku_archive
 
 const os* {.strdefine.} = ""
@@ -27,6 +26,7 @@ when os == "Linux" and
   defined(postgres):
   import
     ./waku_archive/test_driver_postgres_query,
+    ./waku_archive/test_retention_policy,
     ./waku_archive/test_driver_postgres
 
 # Waku store test suite
