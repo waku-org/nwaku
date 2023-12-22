@@ -135,3 +135,59 @@ suite "Waku v2 Rest API - Admin":
       getRes.data.len() == 2
       ($getRes.data).contains(expectedFilterData2)
       ($getRes.data).contains(expectedFilterData3)
+
+  asyncTest "Get filter data":
+    await allFutures(node1.mountFilter(), node2.mountFilterClient(), node3.mountFilterClient())
+
+    let
+      contentFiltersNode2 = @[DefaultContentTopic, ContentTopic("2"), ContentTopic("3")]
+      contentFiltersNode3 = @[ContentTopic("3"), ContentTopic("4")]
+      pubsubTopicNode2 = DefaultPubsubTopic
+      pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
+
+      expectedFilterData2 = fmt"(peerId: ""{$peerInfo2}"", filterCriteria:" &
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}"")]"
+
+      expectedFilterData3 = fmt"(peerId: ""{$peerInfo3}"", filterCriteria:" &
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[1]}"")]"
+
+    let
+      subscribeResponse2 = await node2.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode2, contentFiltersNode2
+      )
+      subscribeResponse3 = await node3.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode3, contentFiltersNode3
+      )
+
+    assert subscribeResponse2.isOk(), $subscribeResponse2.error
+    assert subscribeResponse3.isOk(), $subscribeResponse3.error
+
+    let getRes = await client.getFilterData()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 2
+      ($getRes.data).contains(expectedFilterData2)
+      ($getRes.data).contains(expectedFilterData3)
+
+  asyncTest "Get filter data - no filter subscribers":
+    await node1.mountFilter()
+
+    let getRes = await client.getFilterData()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 0
+
+  asyncTest "Get filter data - filter not mounted":
+    let getRes = await client.getFilterData()
+    
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 0
