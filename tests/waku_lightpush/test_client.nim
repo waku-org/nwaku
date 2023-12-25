@@ -13,7 +13,6 @@ import
     node/peer_manager,
     waku_core,
     waku_lightpush,
-    waku_lightpush/common,
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc
