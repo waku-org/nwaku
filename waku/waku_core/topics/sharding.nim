@@ -85,6 +85,7 @@ proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopi
           return err("Cannot autoshard content topic: " & $shardsRes.error)
         else: shardsRes.get()
     
+    # check if this is even needed
     if not topicMap.hasKey(pubsub):
       topicMap[pubsub] = @[]
     
