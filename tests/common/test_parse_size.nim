@@ -74,7 +74,7 @@ suite "Size serialization test":
 
     sizeInBytesRes = parseMsgSize("   1024 kib")
     assert sizeInBytesRes.isOk(), sizeInBytesRes.error
-    check sizeInBytesRes.get() == (1024 * 1024)
+    check sizeInBytesRes.get() == uint64(1024 * 1024)
 
   test "parse wrong sizes":
     var sizeInBytesRes = parseMsgSize("150K")
