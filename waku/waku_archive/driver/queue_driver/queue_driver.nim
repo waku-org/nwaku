@@ -85,7 +85,7 @@ proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T
   return QueueDriver(items: items, capacity: capacity)
 
 method getDbType*(driver: QueueDriver): string =
-    return "sqlite"
+    return "queue"
 
 proc contains*(driver: QueueDriver, index: Index): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.

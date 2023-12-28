@@ -49,4 +49,12 @@ method execute*(p: TimeRetentionPolicy,
   if res.isErr():
     return err("failed to delete oldest messages: " & res.error)
 
+   # perform vacuum
+  let resVaccum = await driver.performVacuum()
+  if resVaccum.isErr():
+    return err("vacuumming failed: " & resVaccum.error)
+
+    # sleep to give it some time to complete vacuuming
+  await sleepAsync(350)
+  
   return ok()

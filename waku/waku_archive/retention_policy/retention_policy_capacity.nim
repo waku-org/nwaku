@@ -71,4 +71,12 @@ method execute*(p: CapacityRetentionPolicy,
   (await driver.deleteOldestMessagesNotWithinLimit(limit=p.capacity + p.deleteWindow)).isOkOr:
     return err("deleting oldest messages failed: " & error)
 
+  # perform vacuum
+  let resVaccum = await driver.performVacuum()
+  if resVaccum.isErr():
+    return err("vacuumming failed: " & resVaccum.error)
+
+    # sleep to give it some time to complete vacuuming
+  await sleepAsync(350)
+  
   return ok()

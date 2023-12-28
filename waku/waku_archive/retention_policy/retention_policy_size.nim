@@ -49,41 +49,35 @@ method execute*(p: SizeRetentionPolicy,
 
   ## when db size overshoots the database limit, shread 20% of outdated messages 
   # get size of database
-  var dbSize = (await driver.getDatabaseSize()).valueOr:
+  let dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("failed to get database size: " & $error)
 
   # database size in bytes
-  var totalSizeOfDB: int64 = int64(dbSize)
-  let retryLimit = 2
-  var retryCounter:int = 0
+  let totalSizeOfDB: int64 = int64(dbSize)
 
   if totalSizeOfDB < p.sizeLimit:
     return ok()
-  
-    # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
-    # if vacumming is done automatically then we aim to check DB size periodially for efficient
-    # retention policy implementation.
-  while (totalSizeOfDB > p.sizeLimit) and (retryLimit > retryCounter):
-    # to shread/delete messsges, get the total row/message count
-    let numMessages = (await driver.getMessagesCount()).valueOr:
-      return err("failed to get messages count: " & error)
 
-    # 80% of the total messages are to be kept, delete others
-    let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+  # NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+  # if vacumming is done automatically then we aim to check DB size periodially for efficient
+  # retention policy implementation.
+  # to shread/delete messsges, get the total row/message count
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
 
-    (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
-      return err("deleting oldest messages failed: " & error)
+  # 80% of the total messages are to be kept, delete others
+  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+  echo ("deleting oldest messages not within limit: " & $pageDeleteWindow)
 
-    # perform vacuum
-    let resVaccum = await driver.performVacuum()
-    if resVaccum.isErr():
-      return err("vacuumming failed: " & resVaccum.error)
-    # recompute the DB size to check if the size has actually reduced or not
-    
-    dbSize = (await driver.getDatabaseSize()).valueOr:
-      return err("failed to get database size: " & $error)
-    totalSizeOfDB = int64(dbSize)
-    retryCounter += 1
-    sleep(150*retryCounter)
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
+
+  # perform vacuum
+  let resVaccum = await driver.performVacuum()
+  if resVaccum.isErr():
+    return err("vacuumming failed: " & resVaccum.error)
+
+  # sleep to give it some time to complete vacuuming
+  await sleepAsync(350)
 
   return ok()
