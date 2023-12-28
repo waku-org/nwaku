@@ -2012,7 +2012,6 @@ suite "Waku Filter - End to End":
           msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
           msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize - 1024)) # Max Size (Inclusive Limit)
           msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize)) # Max Size (Exclusive Limit)
-          msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize)) # Out of Max Size
 
         # When sending the 1KiB message
         await wakuFilter.handleMessage(pubsubTopic, msg1)
@@ -2046,7 +2045,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic3 == pubsubTopic
           pushedMsg3 == msg3
 
-        # When sending the 4MiB - 56B message
+        # When sending the MaxRpcSize - 1024B message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg4)
 
@@ -2057,16 +2056,9 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic4 == pubsubTopic
           pushedMsg4 == msg4
 
-        # When sending the 4MiB - 55B message
+        # When sending the MaxRpcSize message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg5)
-
-        # Then the message is not pushed to the client
-        check not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-
-        # When sending the 4MiB - 54B message
-        pushHandlerFuture = newPushHandlerFuture() # Clear previous future
-        await wakuFilter.handleMessage(pubsubTopic, msg6)
 
         # Then the message is not pushed to the client
         check not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
