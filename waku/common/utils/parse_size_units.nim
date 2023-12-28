@@ -4,7 +4,7 @@ import
   stew/results,
   regex
 
-proc parseMsgSize*(input: string): Result[int, string] =
+proc parseMsgSize*(input: string): Result[uint64, string] =
   ## Parses size strings such as "1.2 KiB" or "3Kb" and returns the equivalent number of bytes
   ## if the parse task goes well. If not, it returns an error describing the problem.
 
@@ -38,4 +38,16 @@ proc parseMsgSize*(input: string): Result[int, string] =
 
   value = value * multiplier
 
-  return ok(int(value))
+  return ok(uint64(value))
+
+proc parseCorrectMsgSize*(input: string): uint64 =
+  ## This proc always returns an int and wraps the following proc:
+  ##
+  ##     proc parseMsgSize*(input: string): Result[int, string] = ...
+  ##
+  ## in case of error, it just returns 0, and this is expected to
+  ## be called only from a controlled and well-known inputs
+
+  let ret = parseMsgSize(input).valueOr:
+    return 0
+  return ret

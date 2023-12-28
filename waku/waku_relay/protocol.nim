@@ -153,7 +153,7 @@ proc initProtocolHandler(w: WakuRelay) =
 
 proc new*(T: type WakuRelay,
           switch: Switch,
-          maxMessageSize = MaxWakuMessageSize): WakuRelayResult[T] =
+          maxMessageSize = int(MaxWakuMessageSize)): WakuRelayResult[T] =
   ## maxMessageSize: max num bytes that are allowed for the WakuMessage
 
   var w: WakuRelay

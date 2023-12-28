@@ -370,7 +370,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(node: WakuNode,
                  pubsubTopics: seq[string] = @[],
                  peerExchangeHandler = none(RoutingRecordsHandler),
-                 maxMessageSize = MaxWakuMessageSize) {.async, gcsafe.} =
+                 maxMessageSize = int(MaxWakuMessageSize)) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
     return

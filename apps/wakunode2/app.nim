@@ -448,7 +448,7 @@ proc setupProtocols(node: WakuNode,
 
     try:
       await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler,
-                       parsedMaxMsgSize)
+                       int(parsedMaxMsgSize))
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
