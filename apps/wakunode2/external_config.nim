@@ -82,7 +82,7 @@ type
     maxMessageSize* {.
       desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
       defaultValue: DefaultMaxWakuMessageSizeStr
-      name: "max-num-bytes-msg-size" }: string
+      name: "max-msg-size" }: string
 
     case cmd* {.
       command
