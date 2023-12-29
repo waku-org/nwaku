@@ -35,6 +35,7 @@ type
 
     # Peer manager config
     maxRelayPeers: Option[int]
+    colocationLimit: int
 
     # Libp2p switch
     switchMaxConnections: Option[int]
@@ -107,7 +108,9 @@ proc withPeerManagerConfig*(builder: var WakuNodeBuilder,
                             maxRelayPeers = none(int)) =
   builder.maxRelayPeers = maxRelayPeers
 
-
+proc withColocationLimit*(builder: var WakuNodeBuilder,
+                          colocationLimit: int) =
+  builder.colocationLimit = colocationLimit
 
 ## Waku switch
 
@@ -170,6 +173,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     switch = switch,
     storage = builder.peerStorage.get(nil),
     maxRelayPeers = builder.maxRelayPeers,
+    colocationLimit = builder.colocationLimit,
   )
 
   var node: WakuNode
