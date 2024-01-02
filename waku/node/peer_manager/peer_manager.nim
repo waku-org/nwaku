@@ -62,7 +62,7 @@ const
   LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
-  ColocationLimit = 5
+  DefaultColocationLimit* = 5
 
 type
   PeerManager* = ref object of RootObj
@@ -375,7 +375,9 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       pm.ipTable.mgetOrPut(ip.get, newSeq[PeerId]()).add(peerId)
 
       let peersBehindIp = pm.ipTable[ip.get]
-      if peersBehindIp.len > pm.colocationLimit:
+      # pm.colocationLimit == 0 disables the ip colocation limit
+      if pm.colocationLimit != 0 and
+         peersBehindIp.len > pm.colocationLimit:
         # in theory this should always be one, but just in case
         for peerId in peersBehindIp[0..<(peersBehindIp.len - pm.colocationLimit)]:
           debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
@@ -411,7 +413,7 @@ proc new*(T: type PeerManager,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
           maxFailedAttempts = MaxFailedAttempts,
-          colocationLimit = ColocationLimit,): PeerManager =
+          colocationLimit = DefaultColocationLimit,): PeerManager =
 
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
