@@ -29,23 +29,16 @@ proc createAppKeystore*(path: string,
   var jsonKeystore: string
   jsonKeystore.toUgly(%keystore)
 
-  var f: File
-  if not f.open(path, fmWrite):
-    return err(AppKeystoreError(kind: KeystoreOsError,
-                                msg: "Cannot open file for writing"))
-
-  try:
+  try:    
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(path, {fpUserWrite, fpUserRead})
-    f.write(jsonKeystore)
-    # We separate keystores with separator
-    f.write(separator)
+    writeFile(path, jsonKeystore)
+        # We separate keystores with separator
+    writeFile(path, separator)
     ok()
   except CatchableError:
     err(AppKeystoreError(kind: KeystoreOsError,
                          msg: getCurrentExceptionMsg()))
-  finally:
-    f.close()
 
 # This proc load a keystore based on the application, appIdentifier and version filters.
 # If none is found, it automatically creates an empty keystore for the passed parameters
@@ -53,24 +46,33 @@ proc loadAppKeystore*(path: string,
                       appInfo: AppInfo,
                       separator: string = "\n"): KeystoreResult[JsonNode] =
 
+  
+  echo "--------- loadAppKeystore 1 ---------------"
   ## Load and decode JSON keystore from pathname
   var data: JsonNode
   var matchingAppKeystore: JsonNode
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
+    echo "--------- loadAppKeystore 2 ---------------"
     let newKeystoreRes = createAppKeystore(path, appInfo, separator)
     if newKeystoreRes.isErr():
+      echo "--------- loadAppKeystore 3 ---------------"
       return err(newKeystoreRes.error)
 
   try:
 
+    echo "--------- loadAppKeystore 4 ---------------"
     # We read all the file contents
     var f: File
     if not f.open(path, fmRead):
+      echo "--------- loadAppKeystore 5 ---------------"
       return err(AppKeystoreError(kind: KeystoreOsError,
                                   msg: "Cannot open file for reading"))
+    
+    echo "--------- loadAppKeystore 6 ---------------"
     let fileContents = readAll(f)
+    echo "--------- loadAppKeystore 7 ---------------"
 
     # We iterate over each substring split by separator (which we expect to correspond to a single keystore json)
     for keystore in fileContents.split(separator):
@@ -98,22 +100,28 @@ proc loadAppKeystore*(path: string,
           break
       # TODO: we might continue rather than return for some of these errors
       except JsonParsingError:
+        echo "--------- loadAppKeystore 8 ---------------"
         return err(AppKeystoreError(kind: KeystoreJsonError,
                                     msg: getCurrentExceptionMsg()))
       except ValueError:
+        echo "--------- loadAppKeystore 9 ---------------"
         return err(AppKeystoreError(kind: KeystoreJsonError,
                                     msg: getCurrentExceptionMsg()))
       except OSError:
+        echo "--------- loadAppKeystore 10 ---------------"
         return err(AppKeystoreError(kind: KeystoreOsError,
                                     msg: getCurrentExceptionMsg()))
       except Exception: #parseJson raises Exception
+        echo "--------- loadAppKeystore 11 ---------------"
         return err(AppKeystoreError(kind: KeystoreOsError,
                                     msg: getCurrentExceptionMsg()))
 
   except IOError:
+    echo "--------- loadAppKeystore 12 ---------------"
     return err(AppKeystoreError(kind: KeystoreIoError,
                                 msg: getCurrentExceptionMsg()))
 
+  echo "--------- loadAppKeystore 13 ---------------"
   return ok(matchingAppKeystore)
 
 
