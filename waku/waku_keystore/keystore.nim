@@ -29,9 +29,7 @@ proc createAppKeystore*(path: string,
   var jsonKeystore: string
   jsonKeystore.toUgly(%keystore)
 
-  try:    
-    # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
-    setFilePermissions(path, {fpUserWrite, fpUserRead})
+  try:
     writeFile(path, jsonKeystore)
         # We separate keystores with separator
     writeFile(path, separator)
