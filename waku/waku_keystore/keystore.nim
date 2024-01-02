@@ -30,9 +30,8 @@ proc createAppKeystore*(path: string,
   jsonKeystore.toUgly(%keystore)
 
   try:
-    writeFile(path, jsonKeystore)
-        # We separate keystores with separator
-    writeFile(path, separator)
+    writeFile(path, jsonKeystore & separator)
+    # We separate keystores with separator
     ok()
   except CatchableError:
     err(AppKeystoreError(kind: KeystoreOsError,
