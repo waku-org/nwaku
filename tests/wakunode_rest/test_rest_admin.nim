@@ -127,7 +127,7 @@ suite "Waku v2 Rest API - Admin":
     assert subscribeResponse2.isOk(), $subscribeResponse2.error
     assert subscribeResponse3.isOk(), $subscribeResponse3.error
 
-    let getRes = await client.getFilterData()
+    let getRes = await client.getFilterSubscriptions()
 
     check:
       getRes.status == 200
@@ -165,7 +165,7 @@ suite "Waku v2 Rest API - Admin":
     assert subscribeResponse2.isOk(), $subscribeResponse2.error
     assert subscribeResponse3.isOk(), $subscribeResponse3.error
 
-    let getRes = await client.getFilterData()
+    let getRes = await client.getFilterSubscriptions()
 
     check:
       getRes.status == 200
@@ -177,7 +177,7 @@ suite "Waku v2 Rest API - Admin":
   asyncTest "Get filter data - no filter subscribers":
     await node1.mountFilter()
 
-    let getRes = await client.getFilterData()
+    let getRes = await client.getFilterSubscriptions()
 
     check:
       getRes.status == 200
@@ -185,7 +185,7 @@ suite "Waku v2 Rest API - Admin":
       getRes.data.len() == 0
 
   asyncTest "Get filter data - filter not mounted":
-    let getRes = await client.getFilterData()
+    let getRes = await client.getFilterSubscriptions()
     
     check:
       getRes.status == 200

@@ -31,7 +31,7 @@ logScope:
   topics = "waku node rest admin api"
 
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
-const ROUTE_ADMIN_V1_FILTER* = "/admin/v1/filter"
+const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
 
 type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
 
@@ -111,8 +111,8 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
 
     return RestApiResponse.ok()
 
-proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
-  router.api(MethodGet, ROUTE_ADMIN_V1_FILTER) do () -> RestApiResponse:
+proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) =
+  router.api(MethodGet, ROUTE_ADMIN_V1_FILTER_SUBS) do () -> RestApiResponse:
     
     var subscriptions: seq[FilterSubscription] = @[]
 
@@ -137,4 +137,4 @@ proc installAdminV1GetFilterHandler(router: var RestRouter, node: WakuNode) =
 proc installAdminApiHandlers*(router: var RestRouter, node: WakuNode) =
   installAdminV1GetPeersHandler(router, node)
   installAdminV1PostPeersHandler(router, node)
-  installAdminV1GetFilterHandler(router, node)
+  installAdminV1GetFilterSubsHandler(router, node)

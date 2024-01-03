@@ -49,9 +49,9 @@ paths:
           description: Cannot connect to one or more peers.
         '5XX':
           description: Unexpected error.
-  /admin/v1/filter:
+  /admin/v1/filter/subscriptions:
     get:
-      summary: Get filter protocol info
+      summary: Get filter protocol subscribers
       description: Retrieve information about the serving filter subscriptions
       operationId: getFilterInfo
       tags:
