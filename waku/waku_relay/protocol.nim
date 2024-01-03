@@ -151,7 +151,10 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
+proc new*(T: type WakuRelay,
+          switch: Switch,
+          maxMessageSize = int(MaxWakuMessageSize)): WakuRelayResult[T] =
+  ## maxMessageSize: max num bytes that are allowed for the WakuMessage
 
   var w: WakuRelay
   try:
@@ -162,7 +165,7 @@ proc new*(T: type WakuRelay, switch: Switch): WakuRelayResult[T] =
       sign = false,
       triggerSelf = true,
       msgIdProvider = defaultMessageIdProvider,
-      maxMessageSize = MaxWakuMessageSize,
+      maxMessageSize = maxMessageSize,
       parameters = GossipsubParameters
     )
 

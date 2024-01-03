@@ -20,6 +20,9 @@ import
   ../../waku/waku_enr,
   ../../waku/node/peer_manager
 
+include
+  ../../waku/waku_core/message/default_values
+
 export
   confTomlDefs,
   confTomlNet,
@@ -77,6 +80,11 @@ type
       defaultValue: "",
       name: "rln-relay-eth-private-key" }: string
 
+    maxMessageSize* {.
+      desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
+      defaultValue: DefaultMaxWakuMessageSizeStr
+      name: "max-msg-size" }: string
+
     case cmd* {.
       command
       defaultValue: noCommand }: StartUpCommand
@@ -86,7 +94,6 @@ type
         desc: "Runs the registration function on-chain. By default, a dry-run will occur",
         defaultValue: false,
         name: "execute" .}: bool
-      
 
     of noCommand:
       ##  Application-level configuration

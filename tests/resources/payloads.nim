@@ -70,7 +70,7 @@ proc getSampleJsonList*(): JsonNode =
   ]
 
 
-proc getByteSequence*(bytesNumber: int): seq[byte] =
+proc getByteSequence*(bytesNumber: uint64): seq[byte] =
   result = newSeq[byte](bytesNumber)
   for i in 0 ..< bytesNumber:
     result[i] = cast[byte](i mod 256)

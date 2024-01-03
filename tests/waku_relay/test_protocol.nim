@@ -23,7 +23,8 @@ import
     node/peer_manager,
     waku_relay/protocol,
     waku_relay,
-    waku_core
+    waku_core,
+    waku_core/message/codec
   ],
   ../testlib/[
     wakucore,
@@ -1004,12 +1005,21 @@ suite "Waku Relay":
 
       # Given some valid payloads
       let
+        msgWithoutPayload =
+              fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(0))
+        sizeEmptyMsg = uint64(msgWithoutPayload.encode().buffer.len)
+
+      let
         msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
         msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
         msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 933)) # 1MiB - 91B -> Max Size (Inclusive Limit)
-        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1023*1024 + 934)) # 1MiB - 90B -> Max Size (Exclusive Limit)
-        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024*1024)) # 1MiB -> Out of Max Size
+        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 38)) # Max Size (Inclusive Limit)
+        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 37)) # Max Size (Exclusive Limit)
+        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize)) # MaxWakuMessageSize -> Out of Max Size
+
+      # Notice that the message is wrapped with more data in https://github.com/status-im/nim-libp2p/blob/3011ba4326fa55220a758838835797ff322619fc/libp2p/protocols/pubsub/gossipsub.nim#L627-L632
+      # And therefore, we need to substract a hard-coded values above (for msg4 & msg5), obtained empirically,
+      # running the tests with 'TRACE' level: nim c -r -d:chronicles_log_level=DEBUG -d:release -d:postgres  -d:rln --passL:librln_v0.3.4.a --passL:-lm -d:nimDebugDlOpen tests/waku_relay/test_protocol.nim test "Valid Payload Sizes"
 
       # When sending the 1KiB message
       handlerFuture = newPushHandlerFuture()
@@ -1047,7 +1057,7 @@ suite "Waku Relay":
         (pubsubTopic, msg3) == handlerFuture.read()
         (pubsubTopic, msg3) == otherHandlerFuture.read()
 
-      # When sending the 1023KiB + 933B message
+      # When sending the 'MaxWakuMessageSize - sizeEmptyMsg - 38' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg4)
@@ -1059,7 +1069,7 @@ suite "Waku Relay":
         (pubsubTopic, msg4) == handlerFuture.read()
         (pubsubTopic, msg4) == otherHandlerFuture.read()
 
-      # When sending the 1023KiB + 934B message
+      # When sending the 'MaxWakuMessageSize - sizeEmptyMsg - 37' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg5)
@@ -1070,7 +1080,7 @@ suite "Waku Relay":
         not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
         (pubsubTopic, msg5) == handlerFuture.read()
 
-      # When sending the 1MiB
+      # When sending the 'MaxWakuMessageSize' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg6)

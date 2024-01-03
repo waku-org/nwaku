@@ -128,7 +128,7 @@ proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
 proc initProtocolHandler(wfc: WakuFilterClient) =
 
   proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(MaxPushSize)
+    let buf = await conn.readLp(int(MaxPushSize))
 
     let decodeRes = MessagePush.decode(buf)
     if decodeRes.isErr():
