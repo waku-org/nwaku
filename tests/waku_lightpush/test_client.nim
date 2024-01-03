@@ -7,7 +7,6 @@ import
   chronos,
   libp2p/crypto/crypto
 
-
 import
   ../../../waku/[
     node/peer_manager,
@@ -17,19 +16,9 @@ import
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc
   ],
-  ../testlib/[
-    wakucore,
-    testasync,
-    futures,
-    testutils
-  ],
+  ../testlib/[wakucore, testasync, futures, testutils],
   ./lightpush_utils,
-  ../resources/[
-    pubsub_topics,
-    content_topics,
-    payloads
-  ]
-
+  ../resources/[pubsub_topics, content_topics, payloads]
 
 suite "Waku Lightpush Client":
   var
@@ -46,12 +35,15 @@ suite "Waku Lightpush Client":
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
-    
+
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
-    handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
-      handlerFuture.complete((pubsubTopic, message))
-      return ok()
+    handler =
+      proc(
+        peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+      ): Future[WakuLightPushResult[void]] {.async.} =
+          handlerFuture.complete((pubsubTopic, message))
+          return ok()
 
     serverSwitch = newTestSwitch()
     clientSwitch = newTestSwitch()
@@ -83,132 +75,174 @@ suite "Waku Lightpush Client":
         message9 = fakeWakuMessage(payloads.TEXT_LARGE, content_topics.TESTNET)
 
       # When publishing a valid payload
-      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo)
+      let
+        publishResponse =
+          await client.publish(pubsubTopic, message, serverRemotePeerInfo)
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsubTopic, message) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse2 = await client.publish(pubsub_topics.CURRENT, message2, serverRemotePeerInfo)
+      let
+        publishResponse2 =
+          await client.publish(pubsub_topics.CURRENT, message2, serverRemotePeerInfo)
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse2.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.CURRENT, message2) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse3 = await client.publish(pubsub_topics.CURRENT_NESTED, message3, serverRemotePeerInfo)
+      let
+        publishResponse3 =
+          await client.publish(
+            pubsub_topics.CURRENT_NESTED, message3, serverRemotePeerInfo
+          )
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse3.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.CURRENT_NESTED, message3) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse4 = await client.publish(pubsub_topics.SHARDING, message4, serverRemotePeerInfo)
+      let
+        publishResponse4 =
+          await client.publish(pubsub_topics.SHARDING, message4, serverRemotePeerInfo)
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse4.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.SHARDING, message4) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse5 = await client.publish(pubsub_topics.PLAIN, message5, serverRemotePeerInfo)
+      let
+        publishResponse5 =
+          await client.publish(pubsub_topics.PLAIN, message5, serverRemotePeerInfo)
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse5.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.PLAIN, message5) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse6 = await client.publish(pubsub_topics.LEGACY, message6, serverRemotePeerInfo)
-      
+      let
+        publishResponse6 =
+          await client.publish(pubsub_topics.LEGACY, message6, serverRemotePeerInfo)
+
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse6.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY, message6) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse7 = await client.publish(pubsub_topics.LEGACY_NESTED, message7, serverRemotePeerInfo)
+      let
+        publishResponse7 =
+          await client.publish(
+            pubsub_topics.LEGACY_NESTED, message7, serverRemotePeerInfo
+          )
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse7.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY_NESTED, message7) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse8 = await client.publish(pubsub_topics.LEGACY_ENCODING, message8, serverRemotePeerInfo)
+      let
+        publishResponse8 =
+          await client.publish(
+            pubsub_topics.LEGACY_ENCODING, message8, serverRemotePeerInfo
+          )
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse8.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY_ENCODING, message8) == handlerFuture.read()
 
       # When publishing a valid payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse9 = await client.publish(pubsubTopic, message9, serverRemotePeerInfo)
+      let
+        publishResponse9 =
+          await client.publish(pubsubTopic, message9, serverRemotePeerInfo)
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         publishResponse9.isOk()
         handlerFuture.finished()
-      
+
       # And the message is received with the correct topic and payload
       check (pubsubTopic, message9) == handlerFuture.read()
 
     xasyncTest "Valid Paylod Sizes":
       # Given some valid payloads
       let
-        message1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
-        message2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
-        message3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-        message4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1*1024*1024 + 63 * 1024 + 911)) # 1113999B -> Max Size (Inclusive Limit)
-        message5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1*1024*1024 + 63 * 1024 + 912)) # 1114000B -> Max Size (Exclusive Limit)
-      
+        message1 =
+          fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(1024))
+          # 1KiB
+        message2 =
+          fakeWakuMessage(
+            contentTopic = contentTopic, payload = getByteSequence(10 * 1024)
+          ) # 10KiB 
+        message3 =
+          fakeWakuMessage(
+            contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
+          ) # 100KiB
+        message4 =
+          fakeWakuMessage(
+            contentTopic = contentTopic,
+            payload = getByteSequence(1 * 1024 * 1024 + 63 * 1024 + 911),
+          ) # 1113999B -> Max Size (Inclusive Limit)
+        message5 =
+          fakeWakuMessage(
+            contentTopic = contentTopic,
+            payload = getByteSequence(1 * 1024 * 1024 + 63 * 1024 + 912),
+          ) # 1114000B -> Max Size (Exclusive Limit)
+
       # When publishing the 1KiB payload
-      let publishResponse1 = await client.publish(pubsubTopic, message1, serverRemotePeerInfo)
+      let
+        publishResponse1 =
+          await client.publish(pubsubTopic, message1, serverRemotePeerInfo)
 
       # Then the message is received by the server
       check:
@@ -217,7 +251,9 @@ suite "Waku Lightpush Client":
 
       # When publishing the 10KiB payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse2 = await client.publish(pubsubTopic, message2, serverRemotePeerInfo)
+      let
+        publishResponse2 =
+          await client.publish(pubsubTopic, message2, serverRemotePeerInfo)
 
       # Then the message is received by the server
       check:
@@ -226,27 +262,32 @@ suite "Waku Lightpush Client":
 
       # When publishing the 100KiB payload
       handlerFuture = newPushHandlerFuture()
-      let publishResponse3 = await client.publish(pubsubTopic, message3, serverRemotePeerInfo)
+      let
+        publishResponse3 =
+          await client.publish(pubsubTopic, message3, serverRemotePeerInfo)
 
       # Then the message is received by the server
       check:
         publishResponse3.isOk()
         (pubsubTopic, message3) == (await handlerFuture.waitForResult()).value()
-      echo "1"
+
       # When publishing the 1MiB + 63KiB + 911B payload (1113999B)
       handlerFuture = newPushHandlerFuture()
-      let publishResponse4 = await client.publish(pubsubTopic, message4, serverRemotePeerInfo)
-      echo "2"
+      let
+        publishResponse4 =
+          await client.publish(pubsubTopic, message4, serverRemotePeerInfo)
+
       # Then the message is received by the server
       check:
         publishResponse4.isOk()
         (pubsubTopic, message4) == (await handlerFuture.waitForResult()).value()
-      echo "3"
+
       # When publishing the 1MiB + 63KiB + 912B payload (1114000B)
       handlerFuture = newPushHandlerFuture()
-      echo "31"
-      let publishResponse5 = await client.publish(pubsubTopic, message5, serverRemotePeerInfo)
-      echo "4"
+      let
+        publishResponse5 =
+          await client.publish(pubsubTopic, message5, serverRemotePeerInfo)
+
       # Then the message is not received by the server
       check:
         not publishResponse5.isOk()
@@ -262,33 +303,38 @@ suite "Waku Lightpush Client":
       # Then the response is negative
       check:
         publishResponse.requestId == ""
-      
+
       # And the error is returned
       let response = publishResponse.response.get()
       check:
-        response.isSuccess == false 
+        response.isSuccess == false
         response.info.isSome()
         scanf(response.info.get(), decodeRpcFailure)
 
     asyncTest "Handle Error":
       # Given a lightpush server that fails
-      let 
+      let
         handlerError = "handler-error"
         handlerFuture2 = newFuture[void]()
-        handler2 = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
-          handlerFuture2.complete()
-          return err(handlerError)
+        handler2 =
+          proc(
+            peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+          ): Future[WakuLightPushResult[void]] {.async.} =
+              handlerFuture2.complete()
+              return err(handlerError)
 
       let
         serverSwitch2 = newTestSwitch()
         server2 = await newTestWakuLightpushNode(serverSwitch2, handler2)
-      
+
       await serverSwitch2.start()
 
       let serverRemotePeerInfo2 = serverSwitch2.peerInfo.toRemotePeerInfo()
 
       # When publishing a payload
-      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
+      let
+        publishResponse =
+          await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
 
       # Then the response is negative
       check:
@@ -301,22 +347,26 @@ suite "Waku Lightpush Client":
   suite "Verification of PushResponse Payload":
     asyncTest "Positive Responses":
       # When sending a valid PushRequest
-      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo)
+      let
+        publishResponse =
+          await client.publish(pubsubTopic, message, serverRemotePeerInfo)
 
       # Then the response is positive
       check publishResponse.isOk()
-    
+
     # TODO: Improve: Add more negative responses variations
-    asyncTest "NegativeResponses":
+    asyncTest "Negative Responses":
       # Given a server that does not support Waku Lightpush
-      let 
+      let
         serverSwitch2 = newTestSwitch()
         serverRemotePeerInfo2 = serverSwitch2.peerInfo.toRemotePeerInfo()
 
       await serverSwitch2.start()
 
       # When sending an invalid PushRequest
-      let publishResponse = await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
+      let
+        publishResponse =
+          await client.publish(pubsubTopic, message, serverRemotePeerInfo2)
 
       # Then the response is negative
       check not publishResponse.isOk()
