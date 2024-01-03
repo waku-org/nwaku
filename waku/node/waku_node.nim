@@ -327,14 +327,14 @@ proc publish*(
   
   if node.wakuRelay.isNil():
     let msg = "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
-    error msg
+    error "publish error", msg=msg
     # TODO: Improve error handling
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
     getShard(message.contentTopic).valueOr:
-      let msg = "Autosharding error: ", error
-      error msg
+      let msg = "Autosharding error: " & error
+      error "publish error", msg=msg
       return err(msg)
 
   #TODO instead of discard return error when 0 peers received the message

@@ -246,26 +246,14 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
-    
-       
-    #[ let publishFut = node.publish(some(pubsubTopic), message)
-    if not waitFor publishFut.withTimeout(futTimeout):
-      raise newException(ValueError, "Failed to publish: timed out") ]#
-    
+
     var publishFut = node.publish(none(PubSubTopic), message)
     if not await publishFut.withTimeout(futTimeout):
        return RestApiResponse.internalServerError("Failed to publish: timedout")    
 
-    #[ try:
-      if not isReadyStateFut.read():
-        msg = "Node is not ready"
-        status = Http503
-    except:
-      msg = "exception reading state: " & getCurrentExceptionMsg()
-      status = Http500 ]#
-    
-    #[ if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
-      error "Failed to publish message to topic", contentTopic=message.contentTopic
-      return RestApiResponse.internalServerError("Failed to publish: timedout") ]#
+    var res = publishFut.read()
+
+    if res.isErr():
+      return RestApiResponse.badRequest("Failed to publish. " & res.error)
 
     return RestApiResponse.ok()
