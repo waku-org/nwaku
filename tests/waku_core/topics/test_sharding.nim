@@ -148,6 +148,23 @@ suite "Autosharding":
       check:
         topicMap.error() == "Cannot autoshard content topic: Generation > 0 are not supported yet"
 
-    xtest "catchable error on add to topicMap":
-      # TODO: Trigger a CatchableError or mock
-      discard
+    test "catchable error on add to topicMap":
+      # Given the sequence.add function returns a CatchableError
+      let backup = system.add
+      mock(system.add):
+        proc mockedAdd(x: var seq[NsContentTopic], y: sink NsContentTopic) =
+          raise newException(ValueError, "mockedAdd")
+
+        mockedAdd
+
+      # When calling the function
+      let topicMap = parseSharding(some(pubsubTopic04), contentTopicShort)
+
+      # Then the result 
+      check:
+        topicMap ==
+          Result[Table[NsPubsubTopic, seq[NsContentTopic]], string].error("mockedAdd")
+
+      # Cleanup
+      mock(system.add):
+        backup
