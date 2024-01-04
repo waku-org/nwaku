@@ -54,25 +54,17 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
 
 #### Serialization and deserialization
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
-  {.raises: [IOError].} =
-  writer.writeValue(string(value))
-
 proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
   {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", value.payload)
-  if value.contentTopic.isSome:
-    writer.writeField("contentTopic", value.contentTopic)
-  if value.version.isSome:
-    writer.writeField("version", value.version)
-  if value.timestamp.isSome:
-    writer.writeField("timestamp", value.timestamp)
+  if value.contentTopic.isSome():
+    writer.writeField("contentTopic", value.contentTopic.get())
+  if value.version.isSome():
+    writer.writeField("version", value.version.get())
+  if value.timestamp.isSome():
+    writer.writeField("timestamp", value.timestamp.get())
   writer.endRecord()
-
-proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
-  {.raises: [SerializationError, IOError].} =
-  value = Base64String(reader.readValue(string))
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
   {.raises: [SerializationError, IOError].} =
