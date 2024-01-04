@@ -11,7 +11,7 @@ import ../../../../waku/[common/databases/db_sqlite, common/databases/common]
 
 suite "Migrations":
   test "migrate ok":
-    # Given the db_sqlite.migrate function returns an error
+    # Given the db_sqlite.migrate function returns ok
     let backup = db_sqlite.migrate
     mock(db_sqlite.migrate):
       proc mockedMigrate(
