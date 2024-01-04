@@ -34,8 +34,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: DebugWakuInfo)
   {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("listenAddresses", value.listenAddresses)
-  if value.enrUri.isSome:
-    writer.writeField("enrUri", value.enrUri)
+  if value.enrUri.isSome():
+    writer.writeField("enrUri", value.enrUri.get())
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var DebugWakuInfo)

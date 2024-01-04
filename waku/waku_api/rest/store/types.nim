@@ -50,6 +50,10 @@ type
     # field that contains error information
     errorMessage*: Option[string]
 
+createJsonFlavor RestJson
+
+Json.setWriter JsonWriter,
+               PreferredOutput = string
 
 #### Type conversion
 
@@ -127,40 +131,26 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
     cursor: cursor
   )
 
-## Beginning of Base64String serde
-
-proc writeValue*(writer: var JsonWriter[RestJson],
-                 value: Base64String)
-  {.raises: [IOError].} =
-  writer.writeValue(string(value))
-
-proc readValue*(reader: var JsonReader[RestJson],
-                value: var Base64String)
-  {.raises: [SerializationError, IOError].} =
-  value = Base64String(reader.readValue(string))
-
-## End of Base64String serde
-
 ## Beginning of StoreWakuMessage serde
 
-proc writeValue*(writer: var JsonWriter[RestJson],
+proc writeValue*(writer: var JsonWriter,
                  value: StoreWakuMessage)
-                {.raises: [IOError].} =
+                {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", $value.payload)
-  if value.contentTopic.isSome:
-    writer.writeField("content_topic", value.contentTopic)
-  if value.version.isSome:
-    writer.writeField("version", value.version)
-  if value.timestamp.isSome:
-    writer.writeField("timestamp", value.timestamp)
-  if value.ephemeral.isSome:
-    writer.writeField("ephemeral", value.ephemeral)
+  if value.contentTopic.isSome():
+    writer.writeField("content_topic", value.contentTopic.get())
+  if value.version.isSome():
+    writer.writeField("version", value.version.get())
+  if value.timestamp.isSome():
+    writer.writeField("timestamp", value.timestamp.get())
+  if value.ephemeral.isSome():
+    writer.writeField("ephemeral", value.ephemeral.get())
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson],
+proc readValue*(reader: var JsonReader,
                 value: var StoreWakuMessage)
-          {.raises: [SerializationError, IOError].} =
+          {.gcsafe, raises: [SerializationError, IOError].} =
   var
     payload = none(Base64String)
     contentTopic = none(ContentTopic)
@@ -205,16 +195,16 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## Beginning of MessageDigest serde
 
-proc writeValue*(writer: var JsonWriter[RestJson],
+proc writeValue*(writer: var JsonWriter,
                  value: MessageDigest)
-  {.raises: [IOError].} =
+  {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("data", base64.encode(value.data))
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson],
+proc readValue*(reader: var JsonReader,
                 value: var MessageDigest)
-  {.raises: [SerializationError, IOError].} =
+  {.gcsafe, raises: [SerializationError, IOError].} =
   var
     data = none(seq[byte])
 
@@ -240,9 +230,9 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## Beginning of HistoryCursorRest serde
 
-proc writeValue*(writer: var JsonWriter[RestJson],
+proc writeValue*(writer: var JsonWriter,
                  value: HistoryCursorRest)
-  {.raises: [IOError].} =
+  {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("pubsub_topic", value.pubsubTopic)
   writer.writeField("sender_time", value.senderTime)
@@ -250,9 +240,9 @@ proc writeValue*(writer: var JsonWriter[RestJson],
   writer.writeField("digest", value.digest)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson],
+proc readValue*(reader: var JsonReader,
                 value: var HistoryCursorRest)
-  {.raises: [SerializationError, IOError].} =
+  {.gcsafe, raises: [SerializationError, IOError].} =
   var
     pubsubTopic = none(PubsubTopic)
     senderTime = none(Timestamp)
@@ -303,20 +293,20 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## Beginning of StoreResponseRest serde
 
-proc writeValue*(writer: var JsonWriter[RestJson],
+proc writeValue*(writer: var JsonWriter,
                  value: StoreResponseRest)
-  {.raises: [IOError].} =
+  {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("messages", value.messages)
-  if value.cursor.isSome:
-    writer.writeField("cursor", value.cursor)
-  if value.errorMessage.isSome:
-    writer.writeField("error_message", value.errorMessage)
+  if value.cursor.isSome():
+    writer.writeField("cursor", value.cursor.get())
+  if value.errorMessage.isSome():
+    writer.writeField("error_message", value.errorMessage.get())
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson],
+proc readValue*(reader: var JsonReader,
                 value: var StoreResponseRest)
-  {.raises: [SerializationError, IOError].} =
+  {.gcsafe, raises: [SerializationError, IOError].} =
   var
     messages = none(seq[StoreWakuMessage])
     cursor = none(HistoryCursorRest)
@@ -352,18 +342,18 @@ proc readValue*(reader: var JsonReader[RestJson],
 
 ## Beginning of StoreRequestRest serde
 
-proc writeValue*(writer: var JsonWriter[RestJson],
+proc writeValue*(writer: var JsonWriter,
                  value: StoreRequestRest)
-  {.raises: [IOError].} =
+  {.gcsafe, raises: [IOError].} =
 
   writer.beginRecord()
-  if value.pubsubTopic.isSome:
-    writer.writeField("pubsub_topic", value.pubsubTopic)
+  if value.pubsubTopic.isSome():
+    writer.writeField("pubsub_topic", value.pubsubTopic.get())
   writer.writeField("content_topics", value.contentTopics)
-  if value.startTime.isSome:
-    writer.writeField("start_time", value.startTime)
-  if value.endTime.isSome:
-    writer.writeField("end_time", value.endTime)
+  if value.startTime.isSome():
+    writer.writeField("start_time", value.startTime.get())
+  if value.endTime.isSome():
+    writer.writeField("end_time", value.endTime.get())
   writer.writeField("page_size", value.pageSize)
   writer.writeField("ascending", value.ascending)
   writer.endRecord()
