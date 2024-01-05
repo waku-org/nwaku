@@ -24,7 +24,7 @@ suite "Migrations":
     # When we call the migrate function
     let migrationResult = migrations.migrate(newSqliteDatabase(), 1)
 
-    # Then we expect the result to be an error
+    # Then we expect the result to be ok
     check:
       migrationResult == DatabaseResult[void].ok()
 
