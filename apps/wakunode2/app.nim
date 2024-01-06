@@ -254,7 +254,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
   )
 
   WakuDiscoveryV5.new(
-    app.rng, 
+    app.rng,
     discv5Conf,
     some(app.record),
     some(app.node.peerManager),
@@ -326,7 +326,7 @@ proc setupWakuApp*(app: var App): AppResult[void] =
   ok()
 
 proc getPorts(listenAddrs: seq[MultiAddress]):
-              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] =
 
   var tcpPort, websocketPort = none(Port)
 
@@ -548,7 +548,15 @@ proc setupProtocols(node: WakuNode,
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
-      await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+      await mountLegacyFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+    except CatchableError:
+      return err("failed to mount waku legacy filter protocol: " & getCurrentExceptionMsg())
+
+    try:
+      await mountFilter(node,
+                        subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
+                        maxFilterPeers = conf.filterMaxPeersToServe,
+                        maxFilterCriteriaPerPeer = conf.filterMaxCriteria)
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
@@ -724,7 +732,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
 
     let filterCache = MessageCache.init()
 
-    let filterDiscoHandler = 
+    let filterDiscoHandler =
       if app.wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
       else: none(DiscoveryHandler)
@@ -739,7 +747,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
     notInstalledTab["filter"] = "/filter endpoints are not available. Please check your configuration: --filternode"
 
   ## Store REST API
-  let storeDiscoHandler = 
+  let storeDiscoHandler =
     if app.wakuDiscv5.isSome():
       some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
     else: none(DiscoveryHandler)
@@ -749,7 +757,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
   ## Light push API
   if conf.lightpushnode  != "" and
      app.node.wakuLightpushClient != nil:
-    let lightDiscoHandler = 
+    let lightDiscoHandler =
       if app.wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
       else: none(DiscoveryHandler)

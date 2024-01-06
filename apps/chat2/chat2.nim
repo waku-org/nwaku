@@ -468,6 +468,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let peerInfo = parsePeerInfo(conf.filternode)
     if peerInfo.isOk():
       await node.mountFilter()
+      await node.mountLegacyFilter()
       await node.mountFilterClient()
       node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
@@ -507,7 +508,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           echo "A spam message is found and discarded"
         chat.prompt = false
         showChatPrompt(chat)
-    
+
       echo "rln-relay preparation is in progress..."
 
       let rlnConf = WakuRlnConfig(

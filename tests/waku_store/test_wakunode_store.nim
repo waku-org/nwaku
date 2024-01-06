@@ -205,7 +205,7 @@ procSuite "WakuNode - Store":
 
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
-    waitFor filterSource.mountFilter()
+    waitFor filterSource.mountLegacyFilter()
     let driver = newSqliteArchiveDriver()
 
     let mountArchiveRes = server.mountArchive(driver)

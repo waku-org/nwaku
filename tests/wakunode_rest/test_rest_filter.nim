@@ -11,7 +11,6 @@ import
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/peer_manager,
-  ../../waku/waku_filter,
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/client,
   ../../waku/waku_api/rest/responses,
