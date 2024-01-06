@@ -21,6 +21,7 @@ import
   metrics/chronos_httpserver
 import
   ../../waku/common/utils/nat,
+  ../../waku/common/utils/parse_size_units,
   ../../waku/common/databases/db_sqlite,
   ../../waku/waku_archive/driver/builder,
   ../../waku/waku_archive/retention_policy/builder,
@@ -303,6 +304,7 @@ proc initNode(conf: WakuNodeConf,
       sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
       agentString = some(conf.agentString)
   )
+  builder.withColocationLimit(conf.colocationLimit)
   builder.withPeerManagerConfig(maxRelayPeers = conf.maxRelayPeers)
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
@@ -440,8 +442,14 @@ proc setupProtocols(node: WakuNode,
       else:
         conf.topics
 
+    let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
+      return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
+
+    debug "Setting max message size", num_bytes=parsedMaxMsgSize
+
     try:
-      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler)
+      await mountRelay(node, pubsubTopics, peerExchangeHandler = peerExchangeHandler,
+                       int(parsedMaxMsgSize))
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 

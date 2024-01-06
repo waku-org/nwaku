@@ -11,13 +11,11 @@ else:
 
 import
   ../topics,
-  ../time
+  ../time,
+  ./default_values
 
 const
   MaxMetaAttrLength* = 64 # 64 bytes
-
-  MaxWakuMessageSize* = 1024 * 1024 # 1 Mibytes. Corresponds to PubSub default
-
 
 type WakuMessage* = object
     # Data payload transmitted.

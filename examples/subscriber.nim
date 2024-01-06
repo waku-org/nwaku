@@ -38,8 +38,18 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         ip = parseIpAddress("0.0.0.0")
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
+    var enrBuilder = EnrBuilder.init(nodeKey)
+
+    let recordRes = enrBuilder.build()
+    let record =
+      if recordRes.isErr():
+        error "failed to create enr record", error=recordRes.error
+        quit(QuitFailure)
+      else: recordRes.get()
+
     var builder = WakuNodeBuilder.init()
     builder.withNodeKey(nodeKey)
+    builder.withRecord(record)
     builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
     let node = builder.build().tryGet()
 
@@ -57,7 +67,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
 
     # assumes behind a firewall, so not care about being discoverable
     let wakuDiscv5 = WakuDiscoveryV5.new(
-      node.rng, 
+      node.rng,
       discv5Conf,
       some(node.enr),
       some(node.peerManager),

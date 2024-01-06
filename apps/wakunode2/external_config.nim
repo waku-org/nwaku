@@ -17,7 +17,11 @@ import
   ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
   ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
   ../../waku/common/logging,
-  ../../waku/waku_enr
+  ../../waku/waku_enr,
+  ../../waku/node/peer_manager
+
+include
+  ../../waku/waku_core/message/default_values
 
 export
   confTomlDefs,
@@ -76,6 +80,11 @@ type
       defaultValue: "",
       name: "rln-relay-eth-private-key" }: string
 
+    maxMessageSize* {.
+      desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
+      defaultValue: DefaultMaxWakuMessageSizeStr
+      name: "max-msg-size" }: string
+
     case cmd* {.
       command
       defaultValue: noCommand }: StartUpCommand
@@ -85,7 +94,6 @@ type
         desc: "Runs the registration function on-chain. By default, a dry-run will occur",
         defaultValue: false,
         name: "execute" .}: bool
-      
 
     of noCommand:
       ##  Application-level configuration
@@ -142,6 +150,11 @@ type
         desc: "Maximum allowed number of libp2p connections."
         defaultValue: 50
         name: "max-connections" }: uint16
+
+      colocationLimit* {.
+        desc: "Max num allowed peers from the same IP. Set it to 0 to remove the limitation."
+        defaultValue: defaultColocationLimit()
+        name: "ip-colocation-limit" }: int
 
       maxRelayPeers* {.
         desc: "Maximum allowed number of relay peers."
@@ -523,6 +536,9 @@ proc defaultListenAddress*(): IpAddress =
   # TODO: How should we select between IPv4 and IPv6
   # Maybe there should be a config option for this.
   (static parseIpAddress("0.0.0.0"))
+
+proc defaultColocationLimit*(): int =
+  return DefaultColocationLimit
 
 proc parseCmdArg*(T: type Port, p: string): T =
   try:
