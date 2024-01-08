@@ -4,7 +4,7 @@ How to do releases.
 
 For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
-## How to to do releases
+## How to do releases
 
 ### Before release
 

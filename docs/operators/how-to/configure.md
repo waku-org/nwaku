@@ -81,7 +81,7 @@ provided via environment variables.
 
 ### Configuration file
 
-The third configuration mechanism in order of precedence is the configuration via a TOML file. The previous mechanims take precedence over this mechanism as explained above.
+The third configuration mechanism in order of precedence is the configuration via a TOML file. The previous mechanisms take precedence over this mechanism as explained above.
 
 The configuration file follows the [TOML](https://toml.io/en/) format:
 
@@ -90,7 +90,7 @@ log-level = "DEBUG"
 tcp-port = 65000
 ```
 
-The path to the TOML file can be specified usin one of the previous configuration mechanisms:
+The path to the TOML file can be specified using one of the previous configuration mechanisms:
 
 * By passing the `--config-file` command line option:
   ```shell
