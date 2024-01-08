@@ -37,3 +37,7 @@ proc postPeers*(body: seq[string]):
 proc getFilterSubscriptions*():
     RestResponse[seq[FilterSubscription]]
     {.rest, endpoint: "/admin/v1/filter/subscriptions", meth: HttpMethod.MethodGet.}
+
+proc getFilterSubscriptionsFilterNotMounted*():
+    RestResponse[string]
+    {.rest, endpoint: "/admin/v1/filter/subscriptions", meth: HttpMethod.MethodGet.}
