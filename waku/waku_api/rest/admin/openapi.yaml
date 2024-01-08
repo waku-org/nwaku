@@ -65,6 +65,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/FilterSubscription'
+        '400':
+          description: Filter Protocol is not mounted to the node
         '5XX':
           description: Unexpected error.
 
