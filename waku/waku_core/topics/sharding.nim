@@ -90,6 +90,7 @@ proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopi
     
     try:
       topicMap[pubsub].add(content)
+      toInt(3.3)
     except CatchableError:
       return err(getCurrentExceptionMsg())
 

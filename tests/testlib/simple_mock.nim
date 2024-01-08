@@ -7,7 +7,7 @@ type
     bytes: array[8, byte]
     value: uint64
 
-proc mockImpl(target, replacement: pointer) =
+proc mockImpl*(target, replacement: pointer) =
   # YOLO who needs alignment
   #doAssert (cast[ByteAddress](target) and ByteAddress(0x07)) == 0
   var page = cast[pointer](cast[ByteAddress](target) and (not 0xfff))
@@ -48,3 +48,43 @@ proc mockImpl(target, replacement: pointer) =
 # helloWorld = backup  # Restore the original function
 template mock*(target, replacement: untyped): untyped =
   mockImpl(cast[pointer](target), cast[pointer](replacement))
+
+import std/macros
+import std/[macros, genasts]
+
+macro extractProc*(t: typed): untyped =
+  if t.kind != nnkCall:
+    error("Expected a call", t)
+  t[0]
+
+macro extractProcImpl2(call: typed): untyped =
+  call[0]
+
+macro extractProc2*(prc: typed, params: varargs[typed]): untyped =
+  result = newCall(prc)
+  for param in params:
+    case param.kind
+    of nnkVarTy:
+      result.add:
+        genast(typ = param[^1]):
+          var param: typ
+          param
+    else:
+      result.add newCall("default", param)
+  result = newCall(bindSym"extractProcImpl2", result)
+
+macro getProc*(sym: typed, types: varargs[typedesc]): untyped =
+  for procSym in sym:
+    let params = procSym.getImpl.params
+
+    block verifyCheck:
+      if (params.len - 1) != types.len:
+        break verifyCheck
+
+      for i in 1..<params.len:
+        let paramTy = params[i]
+        # params len is 1 greater than types len
+        if paramTy[1] != types[i - 1]:
+          break verifyCheck
+      # if all the params are the same
+      return procSym
