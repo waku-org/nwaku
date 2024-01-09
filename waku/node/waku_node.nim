@@ -337,12 +337,14 @@ proc publish*(
 
   #TODO instead of discard return error when 0 peers received the message
   discard await node.wakuRelay.publish(pubsubTopic, message)
-
+  
   trace "waku.relay published",
     peerId=node.peerId,
     pubsubTopic=pubsubTopic,
     hash=pubsubTopic.computeMessageHash(message).to0xHex(),
     publishTime=getNowInNanosecondTime()
+  
+  return ok()
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
