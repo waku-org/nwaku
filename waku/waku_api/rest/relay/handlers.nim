@@ -193,26 +193,16 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     
     debug "get_waku_v2_relay_v1_auto_messages", contentTopic=contentTopic
 
-    info "-------------------- 1 ---------------"
-
     let contentTopic = contentTopic.valueOr:
       return RestApiResponse.badRequest($error)
 
-    info "-------------------- 2 ---------------"
-
     let messages = cache.getAutoMessages(contentTopic, clear=true).valueOr:
-      info "-------------------- 3 ---------------"
       debug "Not subscribed to topic", topic=contentTopic
       return RestApiResponse.notFound(contentTopic)
 
-    info "-------------------- 4 ---------------"
-
     let data = RelayGetMessagesResponse(messages.map(toRelayWakuMessage))
 
-    info "-------------------- 5 ---------------"
-
     return RestApiResponse.jsonResponse(data, status=Http200).valueOr:
-      info "-------------------- 6 ---------------"
       debug "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError($error)
 

@@ -322,8 +322,6 @@ proc publish*(
   ## Publish a `WakuMessage`. Pubsub topic contains; none, a named or static shard.
   ## `WakuMessage` should contain a `contentTopic` field for light node functionality.
   ## It is also used to determine the shard.
-
-  info "-------- GABRIEL ------------ called publish"
   
   if node.wakuRelay.isNil():
     let msg = "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
