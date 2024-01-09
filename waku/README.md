@@ -166,7 +166,7 @@ It is possible to configure an IPv4 DNS domain name that resolves to the node's 
 wakunode2 --dns4-domain-name=mynode.example.com
 ```
 
-This allows for the node's publically announced `multiaddrs` to use the `/dns4` scheme.
+This allows for the node's publicly announced `multiaddrs` to use the `/dns4` scheme.
 In addition, nodes with domain name and [secure websocket configured](#enabling-websocket),
 will generate a discoverable ENR containing the `/wss` multiaddr with `/dns4` domain name.
 This is necessary to verify domain certificates when connecting to this node over secure websocket.

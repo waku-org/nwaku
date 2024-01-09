@@ -13,7 +13,7 @@ Nwaku (formerly `nim-waku`) aims to be a lightweight and robust Waku v2 client.
 It serves as the reference implementation for researchers,
 who extend the client in parallel to spec development.
 As such, it is first in line to support innovative and new Waku v2 protocols,
-but configurable enough to serve the adaptive needs of a various operators.
+but configurable enough to serve the adaptive needs of various operators.
 We are also developing a set of operator-focused tools to monitor and maintain a running nwaku node.
 
 This guide provides step-by-step tutorials covering how to build and configure your own nwaku node,

@@ -8,7 +8,7 @@ The CI setup exists on the Status.im Jenkins instance:
 
 https://ci.infra.status.im/job/nim-waku/
 
-It currently consists four jobs:
+It currently consists of four jobs:
 
 * [manual](https://ci.infra.status.im/job/nim-waku/job/manual/) - For manually executing builds using parameters.
 * [deploy-wakuv1-test](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv1-test/) - Builds every new commit in `master` and deploys to `wakuv1.test` fleet.
