@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/sequtils,
+  std/[sequtils,strformat],
   stew/shims/net,
   testutils/unittests,
   presto, presto/client as presto_client,
@@ -10,6 +10,7 @@ import
 import
   ../../waku/waku_core,
   ../../waku/waku_node,
+  ../../waku/waku_filter_v2/client,
   ../../waku/node/peer_manager,
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/client,
@@ -26,6 +27,7 @@ suite "Waku v2 Rest API - Admin":
   var node1 {.threadvar.}: WakuNode
   var node2 {.threadvar.}: WakuNode
   var node3 {.threadvar.}: WakuNode
+  var peerInfo1 {.threadvar.}: RemotePeerInfo
   var peerInfo2 {.threadvar.}: RemotePeerInfo
   var peerInfo3 {.threadvar.}: RemotePeerInfo
   var restServer {.threadvar.}: RestServerRef
@@ -33,6 +35,7 @@ suite "Waku v2 Rest API - Admin":
 
   asyncSetup:
     node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60600))
+    peerInfo1 = node1.switch.peerInfo
     node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60602))
     peerInfo2 = node2.switch.peerInfo
     node3 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
@@ -94,3 +97,58 @@ suite "Waku v2 Rest API - Admin":
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
       getRes.data.len() == 0
+
+  asyncTest "Get filter data":
+    await allFutures(node1.mountFilter(), node2.mountFilterClient(), node3.mountFilterClient())
+
+    let
+      contentFiltersNode2 = @[DefaultContentTopic, ContentTopic("2"), ContentTopic("3")]
+      contentFiltersNode3 = @[ContentTopic("3"), ContentTopic("4")]
+      pubsubTopicNode2 = DefaultPubsubTopic
+      pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
+
+      expectedFilterData2 = fmt"(peerId: ""{$peerInfo2}"", filterCriteria:" &
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}"")]"
+
+      expectedFilterData3 = fmt"(peerId: ""{$peerInfo3}"", filterCriteria:" &
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[0]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[1]}"")]"
+
+    let
+      subscribeResponse2 = await node2.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode2, contentFiltersNode2
+      )
+      subscribeResponse3 = await node3.wakuFilterClient.subscribe(
+        peerInfo1, pubsubTopicNode3, contentFiltersNode3
+      )
+
+    assert subscribeResponse2.isOk(), $subscribeResponse2.error
+    assert subscribeResponse3.isOk(), $subscribeResponse3.error
+
+    let getRes = await client.getFilterSubscriptions()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 2
+      ($getRes.data).contains(expectedFilterData2)
+      ($getRes.data).contains(expectedFilterData3)
+
+  asyncTest "Get filter data - no filter subscribers":
+    await node1.mountFilter()
+
+    let getRes = await client.getFilterSubscriptions()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 0
+
+  asyncTest "Get filter data - filter not mounted":
+    let getRes = await client.getFilterSubscriptionsFilterNotMounted()
+
+    check:
+      getRes.status == 400
+      getRes.data == "Error: Filter Protocol is not mounted to the node"
