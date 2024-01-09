@@ -117,17 +117,15 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
     if node.wakuFilter.isNil():
       return RestApiResponse.badRequest("Error: Filter Protocol is not mounted to the node")
 
-    var subscriptions: seq[FilterSubscription] = @[]
+    var
+      subscriptions: seq[FilterSubscription] = @[]
+      filterCriteria: seq[FilterTopic]
 
-    if not node.wakuFilter.isNil():
+    for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
+      filterCriteria = criteria.toSeq().mapIt(FilterTopic(pubsubTopic: it[0],
+        contentTopic: it[1]))
 
-      var filterCriteria: seq[FilterTopic]
-
-      for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
-        filterCriteria = criteria.toSeq().mapIt(FilterTopic(pubsubTopic: it[0],
-          contentTopic: it[1]))
-
-        subscriptions.add(FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria))
+      subscriptions.add(FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria))
 
     let resp = RestApiResponse.jsonResponse(subscriptions, status=Http200)
     if resp.isErr():
