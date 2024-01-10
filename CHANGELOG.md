@@ -1,4 +1,4 @@
-## v0.23.1 (2023-01-05)
+## v0.23.1 (2023-01-09)
 
 This patch release fixes the following bug:
 - Sort order ignored in store nodes.
