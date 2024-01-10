@@ -1,32 +1,41 @@
 ## v0.24.0 (2024-01-10)
 
+> Note: The Waku message size limit (150 KiB) is now enforced according to the specifications. To change this limit please use `--max-msg-size="1MiB"`
+
 ## What's Changed
 
 Release highlights:
 * IP colocation filter can now be changed via a configuration parameter.
 * New filter admin endpoint can now be used to access subscription data.
+* Waku message size limit can now be configured via a configuration parameter.
 
 ### Features
 
 - feat: adding filter data admin endpoint (REST) [#2314](https://github.com/waku-org/nwaku/pull/2314)
-- ip colocation is parameterizable. If set to 0, it is disabled [#2323](https://github.com/waku-org/nwaku/pull/2323)
+- ip colocation is parameterizable. if set to 0, it is disabled [#2323](https://github.com/waku-org/nwaku/pull/2323)
 
 ### Bug Fixes
-
-- fix: Set record to the Waku Node Builder in the examples as it is required [#2328](https://github.com/waku-org/nwaku/pull/2328)
+- fix: revert "feat: shard aware peer management [#2151](https://github.com/waku-org/nwaku/pull/2151)" [#2312](https://github.com/waku-org/nwaku/pull/2312)
+- fix: setting connectivity loop interval to 15 seconds [#2307](https://github.com/waku-org/nwaku/pull/2307)
+- fix: set record to the Waku node builder in the examples as it is required [#2328](https://github.com/waku-org/nwaku/pull/2328)
 - fix(discv5): add bootnode filter exception [#2267](https://github.com/waku-org/nwaku/pull/2267)
 
-### Changes
 
-- chore: Update CHANGELOG.md to reflect bug fix for issue [#2317](https://github.com/waku-org/nwaku/issues/2317) [#2340](https://github.com/waku-org/nwaku/pull/2340) in v0.23.1
-- test(peer-connection-managenent): Functional Tests [#2321](https://github.com/waku-org/nwaku/pull/2321) @ e9d083b introduced build error through ambigous function call, testwaku build failed on master [#2337](https://github.com/waku-org/nwaku/pull/2337)
-- docs: update after release steps [#2336](https://github.com/waku-org/nwaku/pull/2336)
-- docs: Fix Typos Across Various Documentation Files [#2310](https://github.com/waku-org/nwaku/pull/2310)
-- test(peer-connection-managenent): Functional Tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+### Changes
+- update CHANGELOG.md for 0.23.0 [#2309](https://github.com/waku-org/nwaku/pull/2309)
+- test(store): Implement store tests [#2235](https://github.com/waku-org/nwaku/pull/2235), [#2240](https://github.com/waku-org/nwaku/commit/86353e22a871820c132deee077f65e7af4356671)
+- refactor(store): HistoryQuery.direction [#2263](https://github.com/waku-org/nwaku/pull/2263)
+- test_driver_postgres: enhance test coverage, multiple and single topic [#2301](https://github.com/waku-org/nwaku/pull/2301)
+- chore: examples/nodejs - adapt code to latest callback and ctx/userData definitions [#2281](https://github.com/waku-org/nwaku/pull/2281)
+- chore: update `CHANGELOG.md` to reflect bug fix for issue [#2317](https://github.com/waku-org/nwaku/issues/2317) [#2340](https://github.com/waku-org/nwaku/pull/2340) in v0.23.1
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+- docs: update post-release steps [#2336](https://github.com/waku-org/nwaku/pull/2336)
+- docs: fix typos across various documentation files [#2310](https://github.com/waku-org/nwaku/pull/2310)
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
 - bump vendors for 0.24.0 [#2333](https://github.com/waku-org/nwaku/pull/2333)
-- test(autosharding): Functional Tests [#2318](https://github.com/waku-org/nwaku/pull/2318)
-- docs: add benchmar around postgres adoption [#2316](https://github.com/waku-org/nwaku/pull/2316)
-- chore: message.nim - set max message size to 150KiB according to spec [#2298](https://github.com/waku-org/nwaku/pull/2298)
+- test(autosharding): functional tests [#2318](https://github.com/waku-org/nwaku/pull/2318)
+- docs: add benchmark around postgres adoption [#2316](https://github.com/waku-org/nwaku/pull/2316)
+- chore: set max Waku message size to 150KiB according to spec [#2298](https://github.com/waku-org/nwaku/pull/2298)
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
