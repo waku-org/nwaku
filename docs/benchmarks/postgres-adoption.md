@@ -1,4 +1,9 @@
-# Epic
+---
+title: Postgres adoption
+description: Document that describes why Nim-Waku started to use Postgres and shows some benchmark and comparison results.
+---
+
+# Introduction
 
 The *Nim Waku Node*, *nwaku*, has the capability of archiving messages until a certain limit (e.g. 30 days) so that other nodes can synchronize their message history throughout the *Store* protocol.
 
