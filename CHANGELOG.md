@@ -7,7 +7,7 @@
 Release highlights:
 * IP colocation filter can now be changed via a configuration parameter.
 * New filter admin endpoint can now be used to access subscription data.
-* Waku message size limit can now be configured via a configuration parameter.
+* Waku message size limit can now be changed via a configuration parameter.
 
 ### Features
 
