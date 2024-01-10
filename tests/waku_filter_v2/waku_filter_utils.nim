@@ -2,7 +2,9 @@ import
   std/[
     options,
     tables,
-    sets
+    sets,
+    sequtils,
+    algorithm
   ],
   chronos,
   chronicles,
@@ -51,12 +53,13 @@ proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[Co
 
   return contentTopics
 
-proc cmpSeqNoOrder*[T](seq1, seq2: seq[T]): bool {.noSideEffect.} =
-  if seq1.len() != seq2.len():
-    return false
+proc unorderedCompare*[T](a, b: seq[T]): bool =
+  if a == b:
+    return true
 
-  for item in seq1:
-    if item notin seq2:
-      return false
+  var aSorted = a
+  var bSorted = b
+  aSorted.sort()
+  bSorted.sort()
 
-  return true
+  return aSorted == bSorted

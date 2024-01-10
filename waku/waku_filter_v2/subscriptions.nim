@@ -119,7 +119,7 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
 
   s.peersSubscribed.withValue(peerId, data):
     if data.criteriaCount + cast[uint](filterCriteria.len()) > s.maxCriteriaPerPeer:
-      return err("Max number of criteria for peer (" & $s.maxCriteriaPerPeer & ") reached")
+      return err("peer has reached maximum number of filter criteria")
 
     data.lastSeen = Moment.now()
     peerData = data
@@ -127,7 +127,7 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
   do:
     ## not yet subscribed
     if cast[uint](s.peersSubscribed.len()) >= s.maxPeers:
-      return err("Max number of peers (" & $s.maxPeers & ") reached")
+      return err("node has reached maximum number of subscriptions")
 
     let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
     peerData = addr(s.peersSubscribed.mgetOrPut(peerId, newPeerData))

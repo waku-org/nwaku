@@ -13,7 +13,8 @@ import
   ../../../waku/waku_filter_v2/subscriptions,
   ../../../waku/waku_core,
   ../testlib/common,
-  ../testlib/wakucore
+  ../testlib/wakucore,
+  ./waku_filter_utils
 
 proc newTestWakuFilter(switch: Switch): WakuFilter =
   let
@@ -109,7 +110,7 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest.contentTopics
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest.contentTopics)
       response.requestId == filterSubscribeRequest.requestId
       response.statusCode == 200
       response.statusDesc.get() == "OK"
@@ -159,7 +160,7 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest1.contentTopics
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest1.contentTopics)
       response1.requestId == filterSubscribeRequest1.requestId
       response1.statusCode == 200
       response1.statusDesc.get() == "OK"
@@ -171,9 +172,9 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
-      wakuFilter.getSubscribedContentTopics(peerId) ==
-        filterSubscribeRequest1.contentTopics &
-        filterSubscribeRequest2.contentTopics
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId),
+                    filterSubscribeRequest1.contentTopics &
+                      filterSubscribeRequest2.contentTopics)
       response2.requestId == filterSubscribeRequest2.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -185,7 +186,7 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest2.contentTopics
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest2.contentTopics)
       response3.requestId == filterUnsubscribeRequest1.requestId
       response3.statusCode == 200
       response3.statusDesc.get() == "OK"

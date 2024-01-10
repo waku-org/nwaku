@@ -23,9 +23,9 @@ template keepItIf*[A, B](tableParam: var TableRef[A, B], itPredicate: untyped) =
     let key {.inject.} : A
     let val {.inject.} : B
 
-    for key, val in t:
+    for key, val in t[]:
       if not itPredicate:
         itemsToDelete.add(key)
 
     for item in itemsToDelete:
-      t.del(item)
+      t[].del(item)

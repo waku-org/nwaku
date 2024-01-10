@@ -170,7 +170,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When sending a message to the subscribed content topic
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -232,7 +232,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq)
 
         # When sending a message to the one of the subscribed content topics
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -316,7 +316,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When subscribing to a different pubsub topic
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -328,7 +328,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq & otherContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq & otherContentTopicSeq)
 
         # When sending a message to one of the subscribed content topics
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -372,7 +372,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), otherContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), otherContentTopicSeq)
 
         # When sending a message to the previously subscribed content topic
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -430,7 +430,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When subscribing to a different content topic
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -442,7 +442,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq & otherContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq & otherContentTopicSeq)
 
         # When sending a message to one of the subscribed content topics
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -480,7 +480,7 @@ suite "Waku Filter - End to End":
         let unsubscribeResponse = await wakuFilterClient.unsubscribeAll(serverRemotePeerInfo)
 
         # Then the unsubscription is successful
-        # assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
+        assert unsubscribeResponse.isOk(), $unsubscribeResponse.error
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 0
 
@@ -513,7 +513,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq1)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq1)
 
         # When subscribing to a different pubsub topic
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -525,7 +525,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq1 & contentTopicsSeq2)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicsSeq1 & contentTopicsSeq2)
 
         # When sending a message to (pubsubTopic, contentTopic)
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -588,7 +588,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @[contentTopic, otherContentTopic2])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @[contentTopic, otherContentTopic2])
 
         # When sending a message to (pubsubTopic, contentTopic)
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -763,7 +763,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When subscribing to the second service node
         let subscriptionResponse2 = await wakuFilterClient.subscribe(
@@ -775,13 +775,13 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter2.subscriptions.subscribedPeerCount() == 1
           wakuFilter2.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter2.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter2.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # And the first service node is still subscribed
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When sending a message to the subscribed content topic on the first service node
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -815,7 +815,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When refreshing the subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -827,7 +827,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When sending a message to the refreshed subscription
         let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -938,7 +938,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When unsubscribing from the subscription
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -959,7 +959,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When refreshing the subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -971,7 +971,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), contentTopicSeq)
 
         # When unsubscribing from the subscription
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -993,7 +993,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from one of the content topics
         let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
@@ -1005,7 +1005,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
 
         # When unsubscribing from the other content topic
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1027,7 +1027,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from all content topics
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1049,7 +1049,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # And a successful complete refresh of the subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -1060,7 +1060,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from one of the content topics
         let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
@@ -1072,7 +1072,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
 
         # When unsubscribing from the other content topic
         let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
@@ -1094,7 +1094,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # And a successful complete refresh of the subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -1105,7 +1105,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from all content topics
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
@@ -1127,7 +1127,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # Unsubscribing from one content topic
         let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
@@ -1137,7 +1137,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
 
         # And a successful refresh of the partial subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -1147,7 +1147,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from one of the content topics
         let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
@@ -1159,7 +1159,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
 
         # When unsubscribing from the other content topic
         let unsubscribeResponse3 = await wakuFilterClient.unsubscribe(
@@ -1181,7 +1181,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # Unsubscribing from one content topic
         let unsubscribeResponse1 = await wakuFilterClient.unsubscribe(
@@ -1191,7 +1191,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), @["other-content-topic"])
 
         # And a successful refresh of the partial subscription
         let subscribeResponse2 = await wakuFilterClient.subscribe(
@@ -1201,7 +1201,7 @@ suite "Waku Filter - End to End":
         check:
           wakuFilter.subscriptions.subscribedPeerCount() == 1
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
-          cmpSeqNoOrder(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
+          unorderedCompare(wakuFilter.getSubscribedContentTopics(clientPeerId), multipleContentTopicSeq)
 
         # When unsubscribing from all content topics
         let unsubscribeResponse2 = await wakuFilterClient.unsubscribe(
