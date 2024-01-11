@@ -2,7 +2,7 @@
 
 ## Nim API
 
-The Nim Waku API consist of a set of methods opearting on the Waku Node object.
+The Nim Waku API consist of a set of methods operating on the Waku Node object.
 Some of them have different arity depending on what privacy/bandwidth trade-off
 the consumer wants to make. These methods are:
 

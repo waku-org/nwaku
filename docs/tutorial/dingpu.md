@@ -21,7 +21,7 @@ Then type messages to publish.
 
 ## Interactively add a node
 
-There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is adviced not to use this until this has been addressed. See https://github.com/waku-org/nwaku/issues/231
+There is also an interactive mode. Type `/connect` then paste address of other node. However, this currently has some timing issues with mesh not being updated, so it is advised not to use this until this has been addressed. See https://github.com/waku-org/nwaku/issues/231
 
 ## Dingpu cluster node
 
