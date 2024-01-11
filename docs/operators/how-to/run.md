@@ -36,7 +36,7 @@ Different ways to connect to other nodes are expanded upon in our [connection gu
 
 Find the log entry beginning with `Listening on`.
 It should be printed at INFO level when you start your node
-and contains a list of all publically announced listening addresses for the nwaku node.
+and contains a list of all publicly announced listening addresses for the nwaku node.
 
 For example
 

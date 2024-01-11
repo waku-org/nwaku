@@ -1,6 +1,6 @@
 # Connect to other peers
 
-*Note that this tutorial describes how to **configure** a node to connect to other peers before runnning the node.
+*Note that this tutorial describes how to **configure** a node to connect to other peers before running the node.
 For connecting a running node to existing peers,
 see the [JSON-RPC API](https://rfc.vac.dev/spec/16/).*
 
