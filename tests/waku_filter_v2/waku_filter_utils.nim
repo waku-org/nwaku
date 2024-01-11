@@ -24,10 +24,14 @@ import
   ]
 
 
-proc newTestWakuFilter*(switch: Switch): Future[WakuFilter] {.async.} =
+proc newTestWakuFilter*(switch: Switch,
+                        subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
+                        maxFilterPeers: uint32 = MaxFilterPeers,
+                        maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer):
+                    Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilter.new(peerManager)
+    proto = WakuFilter.new(peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer)
 
   await proto.start()
   switch.mount(proto)
