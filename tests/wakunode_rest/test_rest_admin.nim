@@ -130,10 +130,6 @@ suite "Waku v2 Rest API - Admin":
 
     let getRes = await client.getFilterSubscriptions()
 
-    echo "getRes.data: ",$getRes.data
-    echo "expectedFilterData2: ",$expectedFilterData2
-    echo "expectedFilterData3: ",$expectedFilterData3
-
     check:
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
