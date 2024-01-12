@@ -282,4 +282,5 @@ method stop*(wf: WakuFilter) {.async.} =
   debug "stopping filter protocol"
   if not wf.maintenanceTask.isNil():
     wf.maintenanceTask.clearTimer()
+
   await procCall LPProtocol(wf).stop()

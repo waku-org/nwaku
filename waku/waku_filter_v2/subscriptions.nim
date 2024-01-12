@@ -95,8 +95,7 @@ proc removePeer*(s: var FilterSubscriptions, peerId: PeerID) =
 
 proc removePeers*(s: var FilterSubscriptions, peerIds: seq[PeerID]) =
   ## Remove all subscriptions for a given list of peers
-  for peerId in peerIds:
-    s.removePeer(peerId)
+  s.peersSubscribed.keepItIf(key notin peerIds)
 
 proc cleanUp*(fs: var FilterSubscriptions) =
   ## Remove all subscriptions for peers that have not been seen for a while
