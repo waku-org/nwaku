@@ -1,3 +1,55 @@
+## v0.24.0 (2024-01-10)
+
+> Note: The Waku message size limit (150 KiB) is now enforced according to the specifications. To change this limit please use `--max-msg-size="1MiB"`
+
+> Note: `--ip-colocation-limit=2` is the new parameter for limiting connections from the same IP 
+
+## What's Changed
+
+Release highlights:
+* IP colocation filter can now be changed via a configuration parameter.
+* New filter admin endpoint can now be used to access subscription data.
+* Waku message size limit can now be changed via a configuration parameter.
+
+### Features
+
+- feat: adding filter data admin endpoint (REST) [#2314](https://github.com/waku-org/nwaku/pull/2314)
+- ip colocation is parameterizable. if set to 0, it is disabled [#2323](https://github.com/waku-org/nwaku/pull/2323)
+
+### Bug Fixes
+- fix: revert "feat: shard aware peer management [#2151](https://github.com/waku-org/nwaku/pull/2151)" [#2312](https://github.com/waku-org/nwaku/pull/2312)
+- fix: setting connectivity loop interval to 15 seconds [#2307](https://github.com/waku-org/nwaku/pull/2307)
+- fix: set record to the Waku node builder in the examples as it is required [#2328](https://github.com/waku-org/nwaku/pull/2328)
+- fix(discv5): add bootnode filter exception [#2267](https://github.com/waku-org/nwaku/pull/2267)
+
+
+### Changes
+- update CHANGELOG.md for 0.23.0 [#2309](https://github.com/waku-org/nwaku/pull/2309)
+- test(store): Implement store tests [#2235](https://github.com/waku-org/nwaku/pull/2235), [#2240](https://github.com/waku-org/nwaku/commit/86353e22a871820c132deee077f65e7af4356671)
+- refactor(store): HistoryQuery.direction [#2263](https://github.com/waku-org/nwaku/pull/2263)
+- test_driver_postgres: enhance test coverage, multiple and single topic [#2301](https://github.com/waku-org/nwaku/pull/2301)
+- chore: examples/nodejs - adapt code to latest callback and ctx/userData definitions [#2281](https://github.com/waku-org/nwaku/pull/2281)
+- chore: update `CHANGELOG.md` to reflect bug fix for issue [#2317](https://github.com/waku-org/nwaku/issues/2317) [#2340](https://github.com/waku-org/nwaku/pull/2340) in v0.23.1
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+- docs: update post-release steps [#2336](https://github.com/waku-org/nwaku/pull/2336)
+- docs: fix typos across various documentation files [#2310](https://github.com/waku-org/nwaku/pull/2310)
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+- bump vendors for 0.24.0 [#2333](https://github.com/waku-org/nwaku/pull/2333)
+- test(autosharding): functional tests [#2318](https://github.com/waku-org/nwaku/pull/2318)
+- docs: add benchmark around postgres adoption [#2316](https://github.com/waku-org/nwaku/pull/2316)
+- chore: set max Waku message size to 150KiB according to spec [#2298](https://github.com/waku-org/nwaku/pull/2298)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 ## v0.23.1 (2023-01-09)
 
 This patch release fixes the following bug:
