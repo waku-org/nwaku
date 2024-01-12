@@ -2,6 +2,8 @@
 
 > Note: The Waku message size limit (150 KiB) is now enforced according to the specifications. To change this limit please use `--max-msg-size="1MiB"`
 
+> Note: `--ip-colocation-limit=2` is the new parameter for limiting connections from the same IP 
+
 ## What's Changed
 
 Release highlights:
