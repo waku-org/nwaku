@@ -50,10 +50,10 @@ proc subscribe(wf: WakuFilter,
                contentTopics: seq[ContentTopic]): FilterSubscribeResult =
 
   # TODO: check if this condition is valid???
-  if pubsubTopic.isNone() or contentTopics.len() == 0:
+  if pubsubTopic.isNone() or contentTopics.len == 0:
     return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
 
-  if contentTopics.len() > MaxContentTopicsPerRequest:
+  if contentTopics.len > MaxContentTopicsPerRequest:
     return err(FilterSubscribeError.badRequest("exceeds maximum content topics: " &
                 $MaxContentTopicsPerRequest))
 
@@ -70,10 +70,10 @@ proc unsubscribe(wf: WakuFilter,
                  peerId: PeerID,
                  pubsubTopic: Option[PubsubTopic],
                  contentTopics: seq[ContentTopic]): FilterSubscribeResult =
-  if pubsubTopic.isNone() or contentTopics.len() == 0:
+  if pubsubTopic.isNone() or contentTopics.len == 0:
     return err(FilterSubscribeError.badRequest("pubsubTopic and contentTopics must be specified"))
 
-  if contentTopics.len() > MaxContentTopicsPerRequest:
+  if contentTopics.len > MaxContentTopicsPerRequest:
     return err(FilterSubscribeError.badRequest("exceeds maximum content topics: " & $MaxContentTopicsPerRequest))
 
   let filterCriteria = toHashSet(contentTopics.mapIt((pubsubTopic.get(), it)))
@@ -81,7 +81,6 @@ proc unsubscribe(wf: WakuFilter,
   debug "unsubscribing peer from filter criteria", peerId=peerId, filterCriteria=filterCriteria
 
   wf.subscriptions.removeSubscription(peerId, filterCriteria).isOkOr:
-    # debug error, peerId=peerId, pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
     return err(FilterSubscribeError.notFound())
 
   ok()
@@ -177,13 +176,13 @@ proc maintainSubscriptions*(wf: WakuFilter) =
       debug "peer has been removed from peer store, removing subscription", peerId=peerId
       peersToRemove.add(peerId)
 
-  if peersToRemove.len() > 0:
+  if peersToRemove.len > 0:
     wf.subscriptions.removePeers(peersToRemove)
 
   wf.subscriptions.cleanUp()
 
   ## Periodic report of number of subscriptions
-  waku_filter_subscriptions.set(wf.subscriptions.peersSubscribed.len().float64)
+  waku_filter_subscriptions.set(wf.subscriptions.peersSubscribed.len.float64)
 
 const MessagePushTimeout = 20.seconds
 proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
@@ -194,7 +193,7 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
   block:
     ## Find subscribers and push message to them
     let subscribedPeers = wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
-    if subscribedPeers.len() == 0:
+    if subscribedPeers.len == 0:
       trace "no subscribed peers found", pubsubTopic=pubsubTopic, contentTopic=message.contentTopic
       return
 

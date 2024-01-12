@@ -37,10 +37,10 @@ type
 
   FilterSubscriptions* = object
     peersSubscribed*    : Table[PeerID, PeerData]
-    subscriptions*      : Table[FilterCriterion, SubscribedPeers]
-    subscriptionTimeout*: Duration
-    maxPeers*           : uint
-    maxCriteriaPerPeer* : uint
+    subscriptions       : Table[FilterCriterion, SubscribedPeers]
+    subscriptionTimeout : Duration
+    maxPeers            : uint
+    maxCriteriaPerPeer  : uint
 
 proc init*(T: type FilterSubscriptions,
           subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
@@ -62,7 +62,7 @@ proc isSubscribed*(s: var FilterSubscriptions, peerId: PeerID): bool =
   return false
 
 proc subscribedPeerCount*(s: FilterSubscriptions): uint =
-  return cast[uint](s.peersSubscribed.len())
+  return cast[uint](s.peersSubscribed.len)
 
 proc getPeerSubscriptions*(s: var FilterSubscriptions, peerId: PeerID): seq[FilterCriterion] =
   ## Get all pubsub-content topics a peer is subscribed to
@@ -107,7 +107,7 @@ proc cleanUp*(fs: var FilterSubscriptions) =
   for filterCriterion, subscribedPeers in fs.subscriptions.mpairs:
     subscribedPeers.keepItIf(fs.isSubscribed(it)==true)
 
-  fs.subscriptions.keepItIf(val.len() > 0)
+  fs.subscriptions.keepItIf(val.len > 0)
 
 proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
   s.peersSubscribed.withValue(peerId, data):
@@ -118,7 +118,7 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
   var peerData: ptr PeerData
 
   s.peersSubscribed.withValue(peerId, data):
-    if data.criteriaCount + cast[uint](filterCriteria.len()) > s.maxCriteriaPerPeer:
+    if data.criteriaCount + cast[uint](filterCriteria.len) > s.maxCriteriaPerPeer:
       return err("peer has reached maximum number of filter criteria")
 
     data.lastSeen = Moment.now()
@@ -126,7 +126,7 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
 
   do:
     ## not yet subscribed
-    if cast[uint](s.peersSubscribed.len()) >= s.maxPeers:
+    if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
       return err("node has reached maximum number of subscriptions")
 
     let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
@@ -140,7 +140,10 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
 
   return ok()
 
-proc removeSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria): Result[void, string] =
+proc removeSubscription*(s: var FilterSubscriptions,
+                        peerId: PeerID,
+                        filterCriteria: FilterCriteria):
+                  Result[void, string] =
   ## Remove a subscription for a given peer
 
   s.peersSubscribed.withValue(peerId, peerData):
@@ -150,7 +153,7 @@ proc removeSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCrite
         if peers[].missingOrexcl(peerId) == false:
           peerData.criteriaCount -= 1
 
-          if peers[].len() == 0:
+          if peers[].len == 0:
             s.subscriptions.del(filterCriterion)
           if peerData.criteriaCount == 0:
             s.peersSubscribed.del(peerId)

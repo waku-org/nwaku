@@ -319,9 +319,8 @@ type
         defaultValue: 1000
         name: "filter-max-peers-to-serve" }: uint32
 
-
       filterMaxCriteria* {.
-        desc: "Maximum number of criteria per peers at a time. Only for v2 filter protocol.",
+        desc: "Maximum number of pubsub- and content topic combination per peers at a time. Only for v2 filter protocol.",
         defaultValue: 1000
         name: "filter-max-criteria" }: uint32
 
