@@ -19,7 +19,7 @@ import
   chronos,
   libp2p/crypto/crypto,
   eth/keys,
-  discovery/dnsdisc/builder
+  dnsdisc/builder
 
 import
   std/tempfiles
