@@ -83,7 +83,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58011)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -153,7 +153,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58012)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -251,7 +251,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58013)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -325,7 +325,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58014)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -416,7 +416,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58015)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -473,7 +473,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58016)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -482,7 +482,7 @@ procSuite "Waku v2 Rest API - Store":
     let driver: ArchiveDriver = QueueDriver.new()
     let mountArchiveRes = node.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
-    
+
     await node.mountStore()
     node.mountStoreClient()
 

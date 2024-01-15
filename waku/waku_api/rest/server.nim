@@ -8,11 +8,25 @@ import
   stew/shims/net,
   chronicles,
   chronos,
-  presto
+  chronos/apps/http/httpserver,
+  presto,
+  presto/middleware,
+  presto/servercommon
+
+import
+  ./origin_handler
 
 
-type RestServerResult*[T] = Result[T, string]
+type
+  RestServerResult*[T] = Result[T, string]
 
+  WakuRestServer* = object of RootObj
+    router*: RestRouter
+    httpServer*: HttpServerRef
+    # restMiddleware*: HttpServerMiddlewareRef
+    # originHandlerMiddleware*: OriginHandlerMiddlewareRef
+
+  WakuRestServerRef* = ref WakuRestServer
 
 ### Configuration
 
@@ -46,7 +60,57 @@ proc default*(T: type RestServerConf): T =
 
 ### Initialization
 
-proc getRouter(allowedOrigin: Option[string]): RestRouter =
+proc new*(t: typedesc[WakuRestServerRef],
+          router: RestRouter,
+          address: TransportAddress,
+          serverIdent: string = PrestoIdent,
+          serverFlags = {HttpServerFlags.NotifyDisconnect},
+          socketFlags: set[ServerFlags] = {ReuseAddr},
+          serverUri = Uri(),
+          maxConnections: int = -1,
+          backlogSize: int = DefaultBacklogSize,
+          bufferSize: int = 4096,
+          httpHeadersTimeout = 10.seconds,
+          maxHeadersSize: int = 8192,
+          maxRequestBodySize: int = 1_048_576,
+          requestErrorHandler: RestRequestErrorHandler = nil,
+          dualstack = DualStackType.Auto,
+          allowedOrigin: Option[string] = none(string)
+          ): RestServerResult[WakuRestServerRef] =
+  var server = WakuRestServerRef(router: router)
+
+  let restMiddleware = RestServerMiddlewareRef.new(router = server.router, errorHandler = requestErrorHandler)
+  let originHandlerMiddleware = OriginHandlerMiddlewareRef.new(allowedOrigin)
+
+  let middlewares = [originHandlerMiddleware,
+                     restMiddleware]
+
+  proc defaultProcessCallback(rf: RequestFence): Future[HttpResponseRef] {.
+        async: (raises: [CancelledError]).} =
+    discard
+
+
+  let sres = HttpServerRef.new(address
+                              , defaultProcessCallback
+                              , serverFlags
+                              , socketFlags
+                              , serverUri
+                              , serverIdent
+                              , maxConnections
+                              , bufferSize
+                              , backlogSize
+                              , httpHeadersTimeout
+                              , maxHeadersSize
+                              , maxRequestBodySize
+                              , dualstack = dualstack
+                              , middlewares = middlewares)
+  if sres.isOk():
+    server.httpServer = sres.get()
+    ok(server)
+  else:
+    err(sres.error)
+
+proc getRouter(): RestRouter =
   # TODO: Review this `validate` method. Check in nim-presto what is this used for.
   proc validate(pattern: string, value: string): int =
     ## This is rough validation procedure which should be simple and fast,
@@ -54,9 +118,10 @@ proc getRouter(allowedOrigin: Option[string]): RestRouter =
     if pattern.startsWith("{") and pattern.endsWith("}"): 0
     else: 1
 
-  RestRouter.init(validate, allowedOrigin = allowedOrigin)
+  # disable allowed origin handling by presto, we add our own handling as middleware
+  RestRouter.init(validate, allowedOrigin = none(string))
 
-proc init*(T: type RestServerRef,
+proc init*(T: type WakuRestServerRef,
               ip: IpAddress, port: Port,
               allowedOrigin=none(string),
               conf=RestServerConf.default(),
@@ -73,28 +138,64 @@ proc init*(T: type RestServerRef,
     maxHeadersSize = conf.maxRequestHeadersSize * 1024
     maxRequestBodySize = conf.maxRequestBodySize * 1024
 
-  let router = getRouter(allowedOrigin)
+  let router = getRouter()
 
-  var res: RestResult[RestServerRef]
   try:
-    res = RestServerRef.new(
-      router,
-      address,
-      serverFlags = serverFlags,
-      httpHeadersTimeout = headersTimeout,
-      maxHeadersSize = maxHeadersSize,
-      maxRequestBodySize = maxRequestBodySize,
-      requestErrorHandler = requestErrorHandler
-    )
+    return WakuRestServerRef.new(
+                                router,
+                                address,
+                                serverFlags = serverFlags,
+                                httpHeadersTimeout = headersTimeout,
+                                maxHeadersSize = maxHeadersSize,
+                                maxRequestBodySize = maxRequestBodySize,
+                                requestErrorHandler = requestErrorHandler,
+                                allowedOrigin = allowedOrigin
+                              )
   except CatchableError:
     return err(getCurrentExceptionMsg())
-
-  # RestResult error type is cstring, so we need to map it to string
-  res.mapErr(proc(err: cstring): string = $err)
 
 proc newRestHttpServer*(ip: IpAddress, port: Port,
                         allowedOrigin=none(string),
                         conf=RestServerConf.default(),
                         requestErrorHandler: RestRequestErrorHandler = nil):
-                    RestServerResult[RestServerRef] =
-  RestServerRef.init(ip, port, allowedOrigin, conf, requestErrorHandler)
+                    RestServerResult[WakuRestServerRef] =
+  WakuRestServerRef.init(ip, port, allowedOrigin, conf, requestErrorHandler)
+
+proc localAddress*(rs: WakuRestServerRef): TransportAddress =
+  ## Returns `rs` bound local socket address.
+  rs.httpServer.instance.localAddress()
+
+proc state*(rs: WakuRestServerRef): RestServerState =
+  ## Returns current REST server's state.
+  case rs.httpServer.state
+  of HttpServerState.ServerClosed:
+    RestServerState.Closed
+  of HttpServerState.ServerStopped:
+    RestServerState.Stopped
+  of HttpServerState.ServerRunning:
+    RestServerState.Running
+
+proc start*(rs: WakuRestServerRef) =
+  ## Starts REST server.
+  rs.httpServer.start()
+  notice "REST service started", address = $rs.localAddress()
+
+proc stop*(rs: WakuRestServerRef) {.async: (raises: []).} =
+  ## Stop REST server from accepting new connections.
+  await rs.httpServer.stop()
+  notice "REST service stopped", address = $rs.localAddress()
+
+proc drop*(rs: WakuRestServerRef): Future[void] {.
+     async: (raw: true, raises: []).} =
+  ## Drop all pending connections.
+  rs.httpServer.drop()
+
+proc closeWait*(rs: WakuRestServerRef) {.async: (raises: []).} =
+  ## Stop REST server and drop all the pending connections.
+  await rs.httpServer.closeWait()
+  notice "REST service closed", address = $rs.localAddress()
+
+proc join*(rs: WakuRestServerRef): Future[void] {.
+     async: (raw: true, raises: [CancelledError]).} =
+  ## Wait until REST server will not be closed.
+  rs.httpServer.join()

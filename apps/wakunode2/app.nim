@@ -84,7 +84,7 @@ type
     node: WakuNode
 
     rpcServer: Option[RpcHttpServer]
-    restServer: Option[RestServerRef]
+    restServer: Option[WakuRestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
 
   AppResult*[T] = Result[T, string]
@@ -665,34 +665,46 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
+proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[WakuRestServerRef] =
 
   # Used to register api endpoints that are not currently installed as keys,
   # values are holding error messages to be returned to the client
   var notInstalledTab: Table[string, string] = initTable[string, string]()
 
-  proc requestErrorHandler(error: RestRequestError,
-                                request: HttpRequestRef):
-                                Future[HttpResponseRef] {.async.} =
-    case error
-    of RestRequestError.Invalid:
-      return await request.respond(Http400, "Invalid request", HttpTable.init())
-    of RestRequestError.NotFound:
-      let rootPath = request.rawPath.split("/")[1]
-      if notInstalledTab.hasKey(rootPath):
-        return await request.respond(Http404, notInstalledTab[rootPath], HttpTable.init())
-      else:
-        return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
-    of RestRequestError.InvalidContentBody:
-      return await request.respond(Http400, "Invalid content body", HttpTable.init())
-    of RestRequestError.InvalidContentType:
-      return await request.respond(Http400, "Invalid content type", HttpTable.init())
-    of RestRequestError.Unexpected:
-      return defaultResponse()
+  let requestErrorHandler : RestRequestErrorHandler = proc (error: RestRequestError,
+                           request: HttpRequestRef):
+                                Future[HttpResponseRef]
+                                {.async: (raises: [CancelledError]).} =
+    try:
+      case error
+      of RestRequestError.Invalid:
+        return await request.respond(Http400, "Invalid request", HttpTable.init())
+      of RestRequestError.NotFound:
+        let rootPath = request.rawPath.split("/")[1]
+        notInstalledTab.withValue(rootPath, errMsg):
+          return await request.respond(Http404, errMsg[], HttpTable.init())
+        do:
+          return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
+      of RestRequestError.InvalidContentBody:
+        return await request.respond(Http400, "Invalid content body", HttpTable.init())
+      of RestRequestError.InvalidContentType:
+        return await request.respond(Http400, "Invalid content type", HttpTable.init())
+      of RestRequestError.Unexpected:
+        return defaultResponse()
+    except HttpWriteError:
+      discard
 
     return defaultResponse()
 
-  let server = ? newRestHttpServer(address, port, requestErrorHandler = requestErrorHandler)
+  let allowedOrigin = if len(conf.restAllowOrigin) > 0 :
+                        some(conf.restAllowOrigin.join(","))
+                      else:
+                        none(string)
+
+  let server = ? newRestHttpServer(address, port,
+                                   allowedOrigin = allowedOrigin,
+                                   requestErrorHandler = requestErrorHandler)
+
   ## Admin REST API
   if conf.restAdmin:
     installAdminApiHandlers(server.router, app.node)

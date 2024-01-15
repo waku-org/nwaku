@@ -414,6 +414,14 @@ type
         defaultValue: false
         name: "rest-private" }: bool
 
+      restAllowOrigin* {.
+        desc: "Allow cross-origin requests from the specified origin." &
+              "Argument may be repeated." &
+              "Wildcards: * or ? allowed." &
+              "Ex.: \"localhost:*\" or \"127.0.0.1:8080\"",
+        defaultValue: @[""]
+        name: "rest-allow-origin" }: seq[string]
+
       ## Metrics config
 
       metricsServer* {.

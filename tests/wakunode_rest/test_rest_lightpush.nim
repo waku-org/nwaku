@@ -39,7 +39,7 @@ type RestLightPushTest = object
   serviceNode: WakuNode
   pushNode: WakuNode
   consumerNode: WakuNode
-  restServer: RestServerRef
+  restServer: WakuRestServerRef
   client: RestClientRef
 
 
@@ -71,7 +71,7 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
 
   let restPort = Port(58011)
   let restAddress = parseIpAddress("127.0.0.1")
-  testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
+  testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
   installLightPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)
 
