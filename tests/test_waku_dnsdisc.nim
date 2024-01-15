@@ -9,7 +9,7 @@ import
   chronos,
   libp2p/crypto/crypto,
   eth/keys,
-  discovery/dnsdisc/builder
+  dnsdisc/builder
 import
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
