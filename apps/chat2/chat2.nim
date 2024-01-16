@@ -212,8 +212,11 @@ proc publish(c: Chat, line: string) =
       # Attempt lightpush
       asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
     else:
-      (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
-        error "failed to publish message", error = error
+      try:
+        (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish message", error = error
+      except CatchableError:
+        error "caught error publishing message: ", error = getCurrentExceptionMsg()      
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
