@@ -116,7 +116,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
       if res.isOk:
         notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       else:
-        error "failed to publish message", error = error
+        error "failed to publish message", error = res.error
       
       await sleepAsync(5000)
 
