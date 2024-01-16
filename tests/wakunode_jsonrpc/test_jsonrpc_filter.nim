@@ -32,6 +32,7 @@ procSuite "Waku v2 JSON-RPC API - Filter":
     await allFutures(node1.start(), node2.start())
 
     await node1.mountFilter()
+    await node1.mountLegacyFilter()
     await node2.mountFilterClient()
 
     node2.peerManager.addServicePeer(node1.peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)

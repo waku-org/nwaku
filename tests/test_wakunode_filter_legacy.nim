@@ -29,6 +29,7 @@ suite "WakuNode - Filter":
     waitFor allFutures(server.start(), client.start())
 
     waitFor server.mountFilter()
+    waitFor server.mountLegacyFilter()
     waitFor client.mountFilterClient()
 
     ## Given

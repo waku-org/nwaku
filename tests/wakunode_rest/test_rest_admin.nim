@@ -107,10 +107,11 @@ suite "Waku v2 Rest API - Admin":
       pubsubTopicNode2 = DefaultPubsubTopic
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
 
+      ## TODO: Note that such checks may depend heavily on the order of the returned data!
       expectedFilterData2 = fmt"(peerId: ""{$peerInfo2}"", filterCriteria:" &
-        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}""), " &
-        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
-        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}"")]"
+        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}""), " &
+        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}"")]"
 
       expectedFilterData3 = fmt"(peerId: ""{$peerInfo3}"", filterCriteria:" &
         fmt" @[(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[0]}""), " &
