@@ -382,7 +382,7 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm2)
     discard await node1.publish(some(DefaultPubsubTopic), wm3)
     discard await node1.publish(some(DefaultPubsubTopic), wm4)
-    discard await sleepAsync(2000.millis)
+    await sleepAsync(2000.millis)
 
     let
       res1 = await completionFut1.withTimeout(10.seconds)
