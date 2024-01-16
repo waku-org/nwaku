@@ -50,9 +50,9 @@ proc newTestWakuFilterClient*(switch: Switch): Future[WakuFilterClient] {.async.
 
 proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
   var contentTopics: seq[ContentTopic] = @[]
-  let peersCreitera = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
+  let peersCriteria = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
 
-  for filterCriterion in peersCreitera:
+  for filterCriterion in peersCriteria:
     contentTopics.add(filterCriterion.contentTopic)
 
   return contentTopics

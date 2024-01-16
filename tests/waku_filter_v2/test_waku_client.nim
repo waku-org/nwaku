@@ -89,7 +89,6 @@ suite "Waku Filter - End to End":
           )
         assert subscribeResponse.isOk(), $subscribeResponse.error
         check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-        check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
         # When
         let subscribedPingResponse = await wakuFilterClient.ping(serverRemotePeerInfo)
@@ -2225,7 +2224,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -2255,7 +2253,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -2297,7 +2294,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -2323,7 +2319,6 @@ suite "Waku Filter - End to End":
       await sleepAsync(1200)
 
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic=contentTopic2nd)
@@ -2345,7 +2340,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg1 = fakeWakuMessage(contentTopic=contentTopic2nd)
@@ -2370,7 +2364,6 @@ suite "Waku Filter - End to End":
       await sleepAsync(1200)
 
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       let msg2 = fakeWakuMessage(contentTopic=contentTopic)
@@ -2393,7 +2386,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       await sleepAsync(1000)
 
@@ -2404,7 +2396,6 @@ suite "Waku Filter - End to End":
 
       assert subscribeResponse2nd.isOk(), $subscribeResponse2nd.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId2nd)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
@@ -2457,7 +2448,6 @@ suite "Waku Filter - End to End":
         )
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
 
       let
         subscribeResponse2nd = await wakuFilterClient2nd.subscribe(
@@ -2466,7 +2456,6 @@ suite "Waku Filter - End to End":
 
       assert subscribeResponse2nd.isOk(), $subscribeResponse2nd.error
       check wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
-      check wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId2nd)
 
       pushHandlerFuture = newPushHandlerFuture() # Clear previous future
       pushHandlerFuture2nd = newPushHandlerFuture() # Clear previous future
@@ -2493,8 +2482,6 @@ suite "Waku Filter - End to End":
 
       check not wakuFilter.subscriptions.isSubscribed(clientPeerId)
       check not wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
-      check not wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId)
-      check not wakuFilter.subscriptions.peersSubscribed.hasKey(clientPeerId2nd)
 
 
 
