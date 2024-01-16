@@ -53,6 +53,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
+    await allFutures(nodes.mapIt(it.mountLegacyFilter()))
 
     # Dial node2 from node1
     let conn = await nodes[0].peerManager.dialPeer(nodes[1].peerInfo.toRemotePeerInfo(), WakuLegacyFilterCodec)
@@ -528,6 +529,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
+    await allFutures(nodes.mapIt(it.mountLegacyFilter()))
 
     let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
 
@@ -579,6 +581,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
     await allFutures(nodes.mapIt(it.mountRelay()))
     await allFutures(nodes.mapIt(it.mountFilter()))
+    await allFutures(nodes.mapIt(it.mountLegacyFilter()))
 
     let pInfos = nodes.mapIt(it.switch.peerInfo.toRemotePeerInfo())
 

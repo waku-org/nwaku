@@ -288,6 +288,7 @@ when isMainModule:
 
   if conf.filter:
     waitFor mountFilter(bridge.nodev2)
+    waitFor mountLegacyFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)

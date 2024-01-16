@@ -13,7 +13,8 @@ import
   ../../../waku/waku_filter_v2/subscriptions,
   ../../../waku/waku_core,
   ../testlib/common,
-  ../testlib/wakucore
+  ../testlib/wakucore,
+  ./waku_filter_utils
 
 proc newTestWakuFilter(switch: Switch): WakuFilter =
   let
@@ -38,9 +39,11 @@ proc createRequest(filterSubscribeType: FilterSubscribeType, pubsubTopic = none(
   )
 
 proc getSubscribedContentTopics(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
-  var contentTopics: seq[ContentTopic]
-  for filterCriterion in wakuFilter.subscriptions[peerId]:
-    contentTopics.add(filterCriterion[1])
+  var contentTopics: seq[ContentTopic] = @[]
+  let peersCreitera = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
+
+  for filterCriterion in peersCreitera:
+    contentTopics.add(filterCriterion.contentTopic)
 
   return contentTopics
 
@@ -68,8 +71,8 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions[peerId].len == 1
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
       response.requestId == filterSubscribeRequest.requestId
       response.statusCode == 200
       response.statusDesc.get() == "OK"
@@ -79,7 +82,7 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
       response2.requestId == filterUnsubscribeRequest.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -105,9 +108,9 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions[peerId].len == 2
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest.contentTopics
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest.contentTopics)
       response.requestId == filterSubscribeRequest.requestId
       response.statusCode == 200
       response.statusDesc.get() == "OK"
@@ -117,7 +120,7 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
       response2.requestId == filterUnsubscribeAllRequest.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -155,9 +158,9 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions[peerId].len == 1
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest1.contentTopics
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest1.contentTopics)
       response1.requestId == filterSubscribeRequest1.requestId
       response1.statusCode == 200
       response1.statusDesc.get() == "OK"
@@ -167,11 +170,11 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions[peerId].len == 2
-      wakuFilter.getSubscribedContentTopics(peerId) ==
-        filterSubscribeRequest1.contentTopics &
-        filterSubscribeRequest2.contentTopics
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId),
+                    filterSubscribeRequest1.contentTopics &
+                      filterSubscribeRequest2.contentTopics)
       response2.requestId == filterSubscribeRequest2.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -181,9 +184,9 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions[peerId].len == 1
-      wakuFilter.getSubscribedContentTopics(peerId) == filterSubscribeRequest2.contentTopics
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
+      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest2.contentTopics)
       response3.requestId == filterUnsubscribeRequest1.requestId
       response3.statusCode == 200
       response3.statusDesc.get() == "OK"
@@ -193,7 +196,7 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
       response4.requestId == filterUnsubscribeRequest2.requestId
       response4.statusCode == 200
       response4.statusDesc.get() == "OK"
@@ -255,9 +258,9 @@ suite "Waku Filter - handling subscribe requests":
 
     # When
     let
-      filterCriteria = toSeq(1 .. MaxCriteriaPerSubscription + 1).mapIt((DefaultPubsubTopic, ContentTopic("/waku/2/content-$#/proto" % [$it])))
+      filterCriteria = toSeq(1 .. MaxFilterCriteriaPerPeer).mapIt((DefaultPubsubTopic, ContentTopic("/waku/2/content-$#/proto" % [$it])))
 
-    wakuFilter.subscriptions[peerId] = filterCriteria.toHashSet()
+    discard wakuFilter.subscriptions.addSubscription(peerId, filterCriteria.toHashSet())
 
     let
       reqTooManyFilterCriteria = createRequest(
@@ -276,9 +279,11 @@ suite "Waku Filter - handling subscribe requests":
     ## Max subscriptions exceeded
 
     # When
-    wakuFilter.subscriptions.clear()
-    for _ in 1 .. MaxTotalSubscriptions:
-      wakuFilter.subscriptions[PeerId.random().get()] = @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet()
+    wakuFilter.subscriptions.removePeer(peerId)
+    wakuFilter.subscriptions.cleanUp()
+
+    for _ in 1 .. MaxFilterPeers:
+      discard wakuFilter.subscriptions.addSubscription(PeerId.random().get(), @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet())
 
     let
       reqTooManySubscriptions = createRequest(
@@ -443,10 +448,10 @@ suite "Waku Filter - subscription maintenance":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 3
-      wakuFilter.subscriptions.hasKey(peerId1)
-      wakuFilter.subscriptions.hasKey(peerId2)
-      wakuFilter.subscriptions.hasKey(peerId3)
+      wakuFilter.subscriptions.subscribedPeerCount() == 3
+      wakuFilter.subscriptions.isSubscribed(peerId1)
+      wakuFilter.subscriptions.isSubscribed(peerId2)
+      wakuFilter.subscriptions.isSubscribed(peerId3)
 
     # When
     # Maintenance loop should leave all peers in peer store intact
@@ -454,10 +459,10 @@ suite "Waku Filter - subscription maintenance":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 3
-      wakuFilter.subscriptions.hasKey(peerId1)
-      wakuFilter.subscriptions.hasKey(peerId2)
-      wakuFilter.subscriptions.hasKey(peerId3)
+      wakuFilter.subscriptions.subscribedPeerCount() == 3
+      wakuFilter.subscriptions.isSubscribed(peerId1)
+      wakuFilter.subscriptions.isSubscribed(peerId2)
+      wakuFilter.subscriptions.isSubscribed(peerId3)
 
     # When
     # Remove peerId1 and peerId3 from peer store
@@ -467,8 +472,8 @@ suite "Waku Filter - subscription maintenance":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 1
-      wakuFilter.subscriptions.hasKey(peerId2)
+      wakuFilter.subscriptions.subscribedPeerCount() == 1
+      wakuFilter.subscriptions.isSubscribed(peerId2)
 
     # When
     # Remove peerId2 from peer store
@@ -477,4 +482,4 @@ suite "Waku Filter - subscription maintenance":
 
     # Then
     check:
-      wakuFilter.subscriptions.len == 0
+      wakuFilter.subscriptions.subscribedPeerCount() == 0

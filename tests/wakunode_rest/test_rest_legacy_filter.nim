@@ -50,6 +50,7 @@ proc setupRestFilter(): Future[RestFilterTest] {.async.} =
   await allFutures(result.filterNode.start(), result.clientNode.start())
 
   await result.filterNode.mountFilter()
+  await result.filterNode.mountLegacyFilter()
   await result.clientNode.mountFilterClient()
 
   result.clientNode.peerManager.addServicePeer(result.filterNode.peerInfo.toRemotePeerInfo()
@@ -174,7 +175,7 @@ suite "Waku v2 Rest API - Filter":
 
       while msg == messages[i]:
         msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
-      
+
       messages.add(msg)
 
     restFilterTest.messageCache.contentSubscribe(contentTopic)
