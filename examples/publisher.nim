@@ -111,10 +111,13 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
                                 ephemeral: true,                # tell store nodes to not store it
                                 timestamp: now())               # current timestamp
       
-      (await node.publish(some(pubSubTopic), message)).isOkOr:
+      let res = await node.publish(some(pubSubTopic), message)
+      
+      if res.isOk:
+        notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
+      else:
         error "failed to publish message", error = error
       
-      notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
       await sleepAsync(5000)
 
 when isMainModule:
