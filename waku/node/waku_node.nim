@@ -337,7 +337,7 @@ proc publish*(
 
   #TODO instead of discard return error when 0 peers received the message
   discard await node.wakuRelay.publish(pubsubTopic, message)
-  
+
   trace "waku.relay published",
     peerId=node.peerId,
     pubsubTopic=pubsubTopic,
