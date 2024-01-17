@@ -35,6 +35,7 @@ import
   ../waku_filter/client as legacy_filter_client, #TODO: support for legacy filter protocol will be removed
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
+  ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_lightpush,
   ../waku_metadata,
   ../waku_lightpush/client as lightpush_client,
@@ -66,9 +67,6 @@ const git_version* {.strdefine.} = "n/a"
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
-
-# Default Waku Filter Timeout
-const WakuFilterTimeout: Duration = 1.days
 
 const WakuNodeVersionString* = "version / git commit hash: " & git_version
 
@@ -188,7 +186,7 @@ proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], s
 proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
-  
+
   let metadata = WakuMetadata.new(clusterId, node.enr, node.topicSubscriptionQueue)
 
   node.wakuMetadata = metadata
@@ -403,18 +401,36 @@ proc mountRelay*(node: WakuNode,
 
 ## Waku filter
 
-proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout)
+proc mountLegacyFilter*(node: WakuNode, filterTimeout: Duration = WakuLegacyFilterTimeout)
                  {.async, raises: [Defect, LPError]} =
+  ## Mounting legacy filter protocol with separation from new v2 filter protocol for easier removal later
+  ## TODO: remove legacy filter protocol
+
+  info "mounting legacy filter protocol"
+  node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout)
+
+  if node.started:
+    await node.wakuFilterLegacy.start() #TODO: remove legacy
+
+  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuLegacyFilterCodec))
+
+proc mountFilter*(node: WakuNode,
+                  subscriptionTimeout: Duration = filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
+                  maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
+                  maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer)
+                 {.async, raises: [Defect, LPError]} =
+  ## Mounting filter v2 protocol
+
   info "mounting filter protocol"
-  node.wakuFilter = WakuFilter.new(node.peerManager)
-  node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
+  node.wakuFilter = WakuFilter.new(node.peerManager,
+                                   subscriptionTimeout,
+                                   maxFilterPeers,
+                                   maxFilterCriteriaPerPeer)
 
   if node.started:
     await node.wakuFilter.start()
-    await node.wakuFilterLegacy.start() #TODO: remove legacy
 
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
-  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuLegacyFilterCodec)) #TODO: remove legacy
 
 proc filterHandleMessage*(node: WakuNode,
                           pubsubTopic: PubsubTopic,

@@ -1,9 +1,9 @@
-{.used.}  
+{.used.}
 
 import
   std/[
-    options, 
-    tables, 
+    options,
+    tables,
     sequtils
   ],
   stew/shims/net as stewNet,
@@ -12,7 +12,7 @@ import
   chronicles,
   os,
   libp2p/[
-    peerstore, 
+    peerstore,
     crypto/crypto
   ]
 
@@ -45,7 +45,7 @@ suite "Waku Filter - End to End":
   var contentTopicSeq {.threadvar.}: seq[ContentTopic]
   var pushHandlerFuture {.threadvar.}: Future[(string, WakuMessage)]
   var messagePushHandler {.threadvar.}: FilterPushHandler
-  
+
   asyncSetup:
     pushHandlerFuture = newFuture[(string, WakuMessage)]()
     messagePushHandler = proc(
@@ -90,8 +90,8 @@ suite "Waku Filter - End to End":
     # Then the subscription is successful
     check:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.len == 1
-      server.wakuFilter.subscriptions.hasKey(clientPeerId)
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+      server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
     # When sending a message to the subscribed content topic
     let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -112,7 +112,7 @@ suite "Waku Filter - End to End":
     # Then the unsubscription is successful
     check:
       unsubscribeResponse.isOk()
-      server.wakuFilter.subscriptions.len == 0
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 0
 
     # When sending a message to the previously subscribed content topic
     pushHandlerFuture = newPushHandlerFuture() # Clear previous future
@@ -122,7 +122,7 @@ suite "Waku Filter - End to End":
     # Then the message is not pushed to the client
     check:
       not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-  
+
   asyncTest "Client Node can't receive Push from Server Node, via Relay":
     # Given the server node has Relay enabled
     await server.mountRelay()
@@ -133,7 +133,7 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.len == 1
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # When a server node gets a Relay message
     let msg1 = fakeWakuMessage(contentTopic=contentTopic)
@@ -147,7 +147,7 @@ suite "Waku Filter - End to End":
     let
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
-    
+
     await server.start()
     await server.mountRelay()
 
@@ -168,8 +168,8 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.len == 1
-    
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+
     # And the client node reboots
     await client.stop()
     await clientClone.start() # Mimic restart by starting the clone
@@ -194,8 +194,8 @@ suite "Waku Filter - End to End":
     )
     require:
       subscribeResponse.isOk()
-      server.wakuFilter.subscriptions.len == 1
-      
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
+
     # And the client node reboots
     await client.stop()
     await clientClone.start() # Mimic restart by starting the clone
@@ -213,7 +213,7 @@ suite "Waku Filter - End to End":
     )
     check:
       subscribeResponse2.isOk()
-      server.wakuFilter.subscriptions.len == 1
+      server.wakuFilter.subscriptions.subscribedPeerCount() == 1
 
     # When a message is sent to the subscribed content topic, via Relay
     pushHandlerFuture = newPushHandlerFuture()
