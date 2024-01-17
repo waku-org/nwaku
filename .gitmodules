@@ -10,9 +10,9 @@
 	branch = master
 [submodule "vendor/nim-libp2p"]
 	path = vendor/nim-libp2p
-	url = https://github.com/status-im/nim-libp2p.git
+	url = https://github.com/gabrielmer/nim-libp2p.git
 	ignore = dirty
-	branch = unstable
+	branch = adding-ws-connection-debug-logs
 [submodule "vendor/nim-stew"]
 	path = vendor/nim-stew
 	url = https://github.com/status-im/nim-stew.git
