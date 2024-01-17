@@ -40,9 +40,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -88,9 +90,11 @@ suite "Waku v2 Rest API - Relay":
       "pubsub-topic-x",
       ])
 
-    let restPort = Port(58012)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
     cache.pubsubSubscribe("pubsub-topic-1")
@@ -140,9 +144,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58013)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let pubSubTopic = "/waku/2/default-waku/proto"
     
@@ -203,9 +209,11 @@ suite "Waku v2 Rest API - Relay":
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
-    let restPort = Port(58014)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -243,9 +251,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -289,9 +299,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58012)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let contentTopics = @[
       ContentTopic("/waku/2/default-content1/proto"),
@@ -335,9 +347,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58013)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let contentTopic = DefaultContentTopic
 
@@ -397,9 +411,11 @@ suite "Waku v2 Rest API - Relay":
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
-    let restPort = Port(58014)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
     installRelayApiHandlers(restServer.router, node, cache)
@@ -439,9 +455,11 @@ suite "Waku v2 Rest API - Relay":
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
-    let restPort = Port(58014)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
     installRelayApiHandlers(restServer.router, node, cache)
