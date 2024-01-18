@@ -208,14 +208,15 @@ proc publish(c: Chat, line: string) =
       # update the last epoch
       c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
-    if not c.node.wakuLightPush.isNil():
-      # Attempt lightpush
-      asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
-    else:
-      try:
+    try:
+      if not c.node.wakuLightPush.isNil():
+        # Attempt lightpush
+        (waitFor c.node.lightpushPublish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish lightpush message", error = error
+      else:
         (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
           error "failed to publish message", error = error
-      except CatchableError:
+    except CatchableError:
         error "caught error publishing message: ", error = getCurrentExceptionMsg()      
 
 # TODO This should read or be subscribe handler subscribe
