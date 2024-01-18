@@ -930,22 +930,25 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[void] {.async, gcsafe,
+proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[WakuLightPushResult[void]] {.async, gcsafe,
   deprecated: "Use 'node.lightpushPublish()' instead".} =
   if node.wakuLightpushClient.isNil():
-    error "failed to publish message", error="waku lightpush client is nil"
-    return
+    let msg = "waku lightpush client is nil"
+    error "failed to publish message", msg=msg
+    return err(msg)
 
   let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
-    error "failed to publish message", error="no suitable remote peers"
-    return
+    let msg = "no suitable remote peers"
+    error "failed to publish message", msg=msg
+    return err(msg)
 
   let publishRes = await node.lightpushPublish(pubsubTopic, message, peer=peerOpt.get())
-  if publishRes.isOk():
-    return
-
-  error "failed to publish message", error=publishRes.error
+  
+  if publishRes.isErr():
+    error "failed to publish message", error=publishRes.error
+  
+  return publishRes
 
 
 ## Waku RLN Relay
