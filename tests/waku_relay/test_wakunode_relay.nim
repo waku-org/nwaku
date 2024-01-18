@@ -95,7 +95,8 @@ suite "WakuNode - Relay":
     node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node1.publish(some(pubSubTopic), message)
+    var res = await node1.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
 
     ## Then
     check:
@@ -176,11 +177,15 @@ suite "WakuNode - Relay":
     node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node1.publish(some(pubSubTopic), message1)
+    var res = await node1.publish(some(pubSubTopic), message1)
+    assert res.isOk(), $res.error
+    
     await sleepAsync(500.millis)
 
     # message2 never gets relayed because of the validator
-    await node1.publish(some(pubSubTopic), message2)
+    res = await node1.publish(some(pubSubTopic), message2)
+    assert res.isOk(), $res.error
+    
     await sleepAsync(500.millis)
 
     check:
@@ -257,7 +262,9 @@ suite "WakuNode - Relay":
     node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+    
     await sleepAsync(500.millis)
 
 
@@ -298,7 +305,9 @@ suite "WakuNode - Relay":
     node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+
     await sleepAsync(500.millis)
 
 
@@ -343,7 +352,9 @@ suite "WakuNode - Relay":
     node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+
     await sleepAsync(500.millis)
 
     check:
@@ -383,7 +394,9 @@ suite "WakuNode - Relay":
     node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+
     await sleepAsync(500.millis)
 
     check:
@@ -423,7 +436,9 @@ suite "WakuNode - Relay":
     node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+    
     await sleepAsync(500.millis)
 
 
