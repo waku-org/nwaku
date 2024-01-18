@@ -55,7 +55,8 @@ suite "WakuNode - Lightpush":
     await sleepAsync(100.millis)
 
     ## When
-    await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    assert res.isOk(), $res.error
 
     ## Then
     check await completionFutRelay.withTimeout(5.seconds)
