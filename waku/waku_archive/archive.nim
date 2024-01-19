@@ -5,7 +5,7 @@ else:
 
 import
   std/[tables, times, sequtils, options, algorithm, strutils],
-  stew/results,
+  stew/[results, byteutils],
   chronicles,
   chronos,
   regex,
@@ -111,7 +111,7 @@ proc handleMessage*(w: WakuArchive,
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
-    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigest, messageHash=msgHash
+    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=toHex(msgDigest.data), messageHash=toHex(msgHash)
 
     let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
