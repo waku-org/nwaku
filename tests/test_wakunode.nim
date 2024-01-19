@@ -70,7 +70,9 @@ suite "WakuNode":
     node2.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
     await sleepAsync(2000.millis)
 
-    await node1.publish(some(pubSubTopic), message)
+    var res = await node1.publish(some(pubSubTopic), message)
+    assert res.isOk(), $res.error
+
     await sleepAsync(2000.millis)
 
     check:

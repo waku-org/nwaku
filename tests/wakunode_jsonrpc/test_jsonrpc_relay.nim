@@ -198,7 +198,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     for msg in messages:
-      await srcNode.publish(some(pubSubTopic), msg)
+      discard await srcNode.publish(some(pubSubTopic), msg)
 
     await sleepAsync(200.millis)
 
@@ -261,7 +261,7 @@ suite "Waku v2 JSON-RPC API - Relay":
 
     ## When
     for msg in messages:
-      await srcNode.publish(none(PubsubTopic), msg)
+      discard await srcNode.publish(none(PubsubTopic), msg)
 
     await sleepAsync(200.millis)
 
