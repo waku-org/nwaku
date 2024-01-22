@@ -21,12 +21,15 @@ template retryWrapper*(res: auto,
                        body: untyped): auto =
   var retryCount = retryStrategy.retryCount
   var shouldRetry = retryStrategy.shouldRetry
+  var exceptionMessage = ""
+
   while shouldRetry and retryCount > 0:
     try:
       res = body
       shouldRetry = false
     except:
       retryCount -= 1
+      exceptionMessage = getCurrentExceptionMsg()
       await sleepAsync(retryStrategy.retryDelay)
   if shouldRetry:
-    raise newException(CatchableError, errStr & ": " & $getCurrentExceptionMsg())
+    raise newException(CatchableError, errStr & ": " & exceptionMessage)

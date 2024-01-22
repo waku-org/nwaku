@@ -74,13 +74,17 @@ type
     # in event of a reorg. we store 5 in the buffer. Maybe need to revisit this,
     # because the average reorg depth is 1 to 2 blocks.
     validRootBuffer*: Deque[MerkleNode]
+    # interval loop to shut down gracefully
+    blockFetchingActive*: bool
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
+const DefaultBlockPollRate* = 1.seconds
+
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
-    raise newException(ValueError, "OnchainGroupManager is not initialized")
+    raise newException(CatchableError, "OnchainGroupManager is not initialized")
 
 
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
@@ -316,12 +320,15 @@ proc handleRemovedEvents(g: OnchainGroupManager, blockTable: BlockTable):
 
 proc getAndHandleEvents(g: OnchainGroupManager,
                         fromBlock: BlockNumber,
-                        toBlock: BlockNumber): Future[void] {.async: (raises: [Exception]).} =
+                        toBlock: BlockNumber): Future[bool] {.async: (raises: [Exception]).} =
   initializedGuard(g)
-
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
-  await g.handleEvents(blockTable)
-  await g.handleRemovedEvents(blockTable)
+  try:
+    await g.handleEvents(blockTable)
+    await g.handleRemovedEvents(blockTable)
+  except CatchableError:
+    error "failed to handle events", error=getCurrentExceptionMsg()
+    raise newException(ValueError, "failed to handle events")
 
   g.latestProcessedBlock = toBlock
   let metadataSetRes = g.setMetadata()
@@ -330,32 +337,49 @@ proc getAndHandleEvents(g: OnchainGroupManager,
     warn "failed to persist rln metadata", error=metadataSetRes.error()
   else:
     trace "rln metadata persisted", blockNumber = g.latestProcessedBlock
+  
+  return true
 
-proc getNewHeadCallback(g: OnchainGroupManager): BlockHeaderHandler =
-  proc newHeadCallback(blockheader: BlockHeader) {.gcsafe.} =
-      let latestBlock = BlockNumber(blockheader.number)
-      trace "block received", blockNumber = latestBlock
-      # get logs from the last block
-      try:
-        # inc by 1 to prevent double processing
-        let fromBlock = g.latestProcessedBlock + 1
-        asyncSpawn g.getAndHandleEvents(fromBlock, latestBlock)
-      except CatchableError:
-        warn "failed to handle log: ", error=getCurrentExceptionMsg()
-  return newHeadCallback
+proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration): void =
+  g.blockFetchingActive = false
 
-proc newHeadErrCallback(error: CatchableError) =
-  warn "failed to get new head", error=error.msg
+  proc runIntervalLoop() {.async, gcsafe.} =
+    g.blockFetchingActive = true
+
+    while g.blockFetchingActive:
+      var retCb: bool
+      retryWrapper(retCb, RetryStrategy.new(), "Failed to run the interval loop"):
+        await cb()
+      await sleepAsync(interval)
+
+  asyncSpawn runIntervalLoop()
+  
+
+proc getNewBlockCallback(g: OnchainGroupManager): proc =
+  let ethRpc = g.ethRpc.get()
+  proc wrappedCb(): Future[bool] {.async, gcsafe.} =
+    var latestBlock: BlockNumber
+    retryWrapper(latestBlock, RetryStrategy.new(), "Failed to get the latest block number"):
+      cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+    
+    if latestBlock <= g.latestProcessedBlock:
+      return
+    # get logs from the last block
+    # inc by 1 to prevent double processing
+    let fromBlock = g.latestProcessedBlock + 1
+    var handleBlockRes: bool
+    retryWrapper(handleBlockRes, RetryStrategy.new(), "Failed to handle new block"):
+      await g.getAndHandleEvents(fromBlock, latestBlock)
+    return true
+  return wrappedCb
 
 proc startListeningToEvents(g: OnchainGroupManager):
                             Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
-  let newHeadCallback = g.getNewHeadCallback()
-  var blockHeaderSub: Subscription
-  retryWrapper(blockHeaderSub, RetryStrategy.new(), "Failed to subscribe to block headers"):
-    await ethRpc.subscribeForBlockHeaders(newHeadCallback, newHeadErrCallback)
+  let newBlockCallback = g.getNewBlockCallback()
+  g.runInInterval(newBlockCallback, DefaultBlockPollRate)
 
 proc startOnchainSync(g: OnchainGroupManager):
                       Future[void] {.async: (raises: [Exception]).} =
@@ -385,7 +409,9 @@ proc startOnchainSync(g: OnchainGroupManager):
 
       let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
-      await g.getAndHandleEvents(fromBlock, toBlock)
+      var handleBlockRes: bool
+      retryWrapper(handleBlockRes, RetryStrategy.new(), "Failed to handle old blocks"): 
+        await g.getAndHandleEvents(fromBlock, toBlock)
       fromBlock = toBlock + 1
 
   except CatchableError:
@@ -523,13 +549,15 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       error "failed to restart group sync", error = getCurrentExceptionMsg()
 
   ethRpc.ondisconnect = proc() =
-    asyncCheck onDisconnect()
+    asyncSpawn onDisconnect()
     
 
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
 
-method stop*(g: OnchainGroupManager): Future[void] {.async.} =
+method stop*(g: OnchainGroupManager): Future[void] {.async,gcsafe.} =
+  g.blockFetchingActive = false
+  
   if g.ethRpc.isSome():
     g.ethRpc.get().ondisconnect = nil
     await g.ethRpc.get().close()
