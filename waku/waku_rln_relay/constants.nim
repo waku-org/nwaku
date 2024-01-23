@@ -18,7 +18,7 @@ const
   MembershipFee* = 1000000000000000.u256
   #  the current implementation of the rln lib supports a circuit for Merkle tree with depth 20
   MerkleTreeDepth* = 20
-  EthClient* = "ws://127.0.0.1:8540"
+  EthClient* = "http://127.0.0.1:8540"
 
 const
   # the size of poseidon hash output in bits
