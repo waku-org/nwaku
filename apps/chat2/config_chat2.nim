@@ -252,8 +252,8 @@ type
       name: "rln-relay-id-commitment-key" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
-      defaultValue: "ws://localhost:8540/"
+      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      defaultValue: "http://localhost:8540/"
       name: "rln-relay-eth-client-address" }: string
 
     rlnRelayEthContractAddress* {.
