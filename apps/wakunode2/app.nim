@@ -129,19 +129,11 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     else: recordRes.get()
 
   # Check the ENR sharding info for matching config cluster id
-  if conf.clusterId != 0:
-    let res = record.toTyped()
-    if res.isErr():
-      error "ENR setup failed", error = $res.get()
-      quit(QuitFailure)
-
-    let relayShard = res.get().relaySharding().valueOr:
-      error "no sharding info"
-      quit(QuitFailure)
-
-    if conf.clusterId != relayShard.clusterId:
-      error "cluster id mismatch"
-      quit(QuitFailure)
+  if (let typedRecord = record.toTyped(); typedRecord.isOk):
+    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome):
+      if relayShard.get().clusterId != conf.clusterId:
+        error "cluster id mismatch configured shards"
+        quit(QuitFailure)
 
   App(
     version: git_version,
@@ -368,15 +360,10 @@ proc updateEnr(app: var App): AppResult[void] =
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
     return err("ENR setup failed: " & error)
 
-  if app.conf.clusterId != 0:
-    let tRecord = record.toTyped().valueOr:
-      return err("ENR setup failed: " & $error)
-
-    let relayShard = tRecord.relaySharding().valueOr:
-      return err("ENR setup failed: no sharding info")
-
-    if app.conf.clusterId != relayShard.clusterId:
-      return err("ENR setup failed: cluster id mismatch")
+  if (let typedRecord = record.toTyped(); typedRecord.isOk):
+    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome):
+      if relayShard.get().clusterId != app.conf.clusterId:
+        return err("cluster id mismatch configured shards")
 
   app.record = record
   app.node.enr = record
