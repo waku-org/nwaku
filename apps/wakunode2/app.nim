@@ -305,7 +305,9 @@ proc initNode(conf: WakuNodeConf,
       agentString = some(conf.agentString)
   )
   builder.withColocationLimit(conf.colocationLimit)
-  builder.withPeerManagerConfig(maxRelayPeers = conf.maxRelayPeers)
+  builder.withPeerManagerConfig(
+    maxRelayPeers = conf.maxRelayPeers,
+    shardAware = conf.relayShardedPeerManagement,)
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 

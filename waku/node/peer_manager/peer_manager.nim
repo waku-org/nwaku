@@ -83,6 +83,7 @@ type
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
     started: bool
+    shardedPeerManagement: bool # temp feature flag
 
 proc protocolMatcher*(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
@@ -420,7 +421,8 @@ proc new*(T: type PeerManager,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
           maxFailedAttempts = MaxFailedAttempts,
-          colocationLimit = DefaultColocationLimit,): PeerManager =
+          colocationLimit = DefaultColocationLimit,
+          shardedPeerManagement = false): PeerManager =
 
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -466,7 +468,8 @@ proc new*(T: type PeerManager,
                        inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
                        maxRelayPeers: maxRelayPeersValue,
                        maxFailedAttempts: maxFailedAttempts,
-                       colocationLimit: colocationLimit)
+                       colocationLimit: colocationLimit,
+                       shardedPeerManagement: shardedPeerManagement,)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
@@ -653,6 +656,25 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
   for p in inRelayPeers[0..<connsToPrune]:
     trace "Pruning Peer", Peer = $p
     asyncSpawn(pm.switch.disconnect(p))
+
+proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  let maxConnections = pm.switch.connManager.inSema.size
+  let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
+
+  # TODO: Temporally disabled. Might be causing connection issues
+  #if inRelayPeers.len > pm.inRelayPeersTarget:
+  #  await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
+
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
+    return
+
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+  let numPeersToConnect = min(outsideBackoffPeers.len, MaxParallelDials)
+
+  await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect])
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
@@ -847,7 +869,9 @@ proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
   trace "Starting relay connectivity loop"
   while pm.started:
-    await pm.manageRelayPeers()
+    if pm.shardedPeerManagement:
+      await pm.manageRelayPeers()
+    else: await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
 proc logAndMetrics(pm: PeerManager) {.async.} =

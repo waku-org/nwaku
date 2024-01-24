@@ -283,6 +283,78 @@ procSuite "Peer Manager":
 
     await node3.mountRelay()
 
+    await node3.peerManager.connectToRelayPeers()
+
+    await sleepAsync(chronos.milliseconds(500))
+
+    check:
+      # Reconnected to node2 after "restart"
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
+
+    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+
+  asyncTest "Sharded peer manager can use persistent storage and survive restarts":
+    let
+      database = SqliteDatabase.new(":memory:")[]
+      storage = WakuPeerStorage.new(database)[]
+      node1 = newTestWakuNode(
+        generateSecp256k1Key(),
+        ValidIpAddress.init("127.0.0.1"),
+        Port(44048),
+        peerStorage = storage
+        )
+      node2 = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(34023))
+      
+    node1.mountMetadata(0).expect("Mounted Waku Metadata")
+    node2.mountMetadata(0).expect("Mounted Waku Metadata")
+
+    await node1.start()
+    await node2.start()
+
+    await node1.mountRelay()
+    await node2.mountRelay()
+    
+    let peerInfo2 = node2.switch.peerInfo
+    var remotePeerInfo2 = peerInfo2.toRemotePeerInfo()
+    remotePeerInfo2.enr = some(node2.enr)
+
+    let is12Connected = await node1.peerManager.connectRelay(remotePeerInfo2)
+    assert is12Connected == true, "Node 1 and 2 not connected"
+
+    check:
+      node1.peerManager.peerStore[AddressBook][remotePeerInfo2.peerId] == remotePeerInfo2.addrs
+
+    # wait for the peer store update
+    await sleepAsync(chronos.milliseconds(500))
+
+    check:
+      # Currently connected to node2
+      node1.peerManager.peerStore.peers().len == 1
+      node1.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node1.peerManager.peerStore.connectedness(peerInfo2.peerId) == Connected
+
+    # Simulate restart by initialising a new node using the same storage
+    let node3 = newTestWakuNode(
+      generateSecp256k1Key(),
+      ValidIpAddress.init("127.0.0.1"),
+      Port(56037),
+      peerStorage = storage
+      )
+
+    node3.mountMetadata(0).expect("Mounted Waku Metadata")
+
+    await node3.start()
+
+    check:
+      # Node2 has been loaded after "restart", but we have not yet reconnected
+      node3.peerManager.peerStore.peers().len == 1
+      node3.peerManager.peerStore.peers().anyIt(it.peerId == peerInfo2.peerId)
+      node3.peerManager.peerStore.connectedness(peerInfo2.peerId) == NotConnected
+
+    await node3.mountRelay()
+
     await node3.peerManager.manageRelayPeers()
 
     await sleepAsync(chronos.milliseconds(500))
@@ -403,6 +475,60 @@ procSuite "Peer Manager":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Peer manager connects to all peers supporting a given protocol":
+    # Create 4 nodes
+    let nodes =
+      toSeq(0..<4)
+        .mapIt(
+          newTestWakuNode(
+            nodeKey = generateSecp256k1Key(),
+            bindIp = ValidIpAddress.init("0.0.0.0"),
+            bindPort = Port(0),
+            wakuFlags = some(CapabilitiesBitfield.init(@[Relay]))
+          )
+        )
+
+    # Start them
+    discard nodes.mapIt(it.mountMetadata(0))
+    await allFutures(nodes.mapIt(it.mountRelay()))
+    await allFutures(nodes.mapIt(it.start()))
+
+    # Get all peer infos
+    let peerInfos = collect:
+      for i in 0..nodes.high:
+        let peerInfo = nodes[i].switch.peerInfo.toRemotePeerInfo()
+        peerInfo.enr = some(nodes[i].enr)
+        peerInfo
+
+    # Add all peers (but self) to node 0
+    nodes[0].peerManager.addPeer(peerInfos[1])
+    nodes[0].peerManager.addPeer(peerInfos[2])
+    nodes[0].peerManager.addPeer(peerInfos[3])
+
+    # Connect to relay peers
+    await nodes[0].peerManager.connectToRelayPeers()
+
+    check:
+      # Peerstore track all three peers
+      nodes[0].peerManager.peerStore.peers().len == 3
+
+      # All peer ids are correct
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[1].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[2].switch.peerInfo.peerId)
+      nodes[0].peerManager.peerStore.peers().anyIt(it.peerId == nodes[3].switch.peerInfo.peerId)
+
+      # All peers support the relay protocol
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[1].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[2].switch.peerInfo.peerId].contains(WakuRelayCodec)
+      nodes[0].peerManager.peerStore[ProtoBook][nodes[3].switch.peerInfo.peerId].contains(WakuRelayCodec)
+
+      # All peers are connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[1].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[2].switch.peerInfo.peerId] == Connected
+      nodes[0].peerManager.peerStore[ConnectionBook][nodes[3].switch.peerInfo.peerId] == Connected
+
+    await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Sharded peer manager connects to all peers supporting a given protocol":
     # Create 4 nodes
     let nodes =
       toSeq(0..<4)
