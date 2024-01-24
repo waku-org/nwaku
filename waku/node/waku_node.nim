@@ -984,7 +984,7 @@ proc mountRlnRelay*(node: WakuNode,
     raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
   let validator = generateRlnValidator(rlnRelay, spamHandler)
-  
+
   # register rln validator as default validator
   debug "Registering RLN validator"
   node.wakuRelay.addDefaultValidator(validator)
