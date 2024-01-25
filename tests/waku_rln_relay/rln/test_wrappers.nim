@@ -1,12 +1,6 @@
-import testutils/unittests
-
 import
-  ../../../waku/[waku_rln_relay, waku_rln_relay/rln, waku_rln_relay/rln/wrappers],
-  ./waku_rln_relay_utils,
-  ../../testlib/[simple_mock]
-
-import std/[options]
-import
+  std/options,
+  testutils/unittests,
   chronicles,
   chronos,
   stew/shims/net as stewNet,
@@ -16,7 +10,13 @@ import
   metrics,
   metrics/chronos_httpserver
 
+import
+  ../../../waku/[waku_rln_relay, waku_rln_relay/rln, waku_rln_relay/rln/wrappers],
+  ./waku_rln_relay_utils,
+  ../../testlib/[simple_mock]
+
 const Empty32Array = default(array[32, byte])
+
 proc valid(x: seq[byte]): bool =
   if x.len != 32:
     error "Length should be 32", length = x.len
