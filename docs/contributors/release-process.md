@@ -78,7 +78,7 @@ Ensure all items in this list are ticked:
   > - `IMAGE_NAME`: `wakuorg/nwaku`
   > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none -d:postgres`
   > - `GIT_REF` the release tag (e.g. `v0.16.0`)
-3. Update the nwaku image in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/master/docker-compose.yml)
+3. Update the default nwaku image in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/master/docker-compose.yml)
 4. Deploy the release to appropriate fleets:
    - Inform clients
    > **NOTE:** known clients are currently using some version of js-waku, go-waku, nwaku or waku-rs.
