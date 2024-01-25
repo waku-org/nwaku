@@ -108,10 +108,12 @@ proc handleMessage*(w: WakuArchive,
     let
       msgDigest = computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
+      msgDigestHex = toHex(msgDigest.data)
+      msgHashHex = toHex(msgHash)
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
-    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=toHex(msgDigest.data), messageHash=toHex(msgHash)
+    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigestHex, messageHash=msgHashHex
 
     let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
