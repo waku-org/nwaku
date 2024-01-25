@@ -55,17 +55,13 @@ proc verifyRlnMessageArrives(
       completionFut.complete(true)
 
   server.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
-  await sleepAsync(5.seconds)
+  await sleepAsync(FUTURE_TIMEOUT)
 
   var message = WakuMessage(payload: "Hello".toBytes(), contentTopic: contentTopic)
   doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()))
 
-  let publishResponse = await client.publish(some(pubsubTopic), message)
-  await sleepAsync(5.seconds)
-
-  let val = await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
-  echo "RES: ", val
-  return val
+  discard await client.publish(some(pubsubTopic), message)
+  return await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
 
 suite "Waku RlnRelay - End to End":
   var
