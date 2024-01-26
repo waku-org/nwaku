@@ -156,19 +156,6 @@ proc new*(T: type WakuNode,
 
   return node
 
-#[ proc generateMessageSizeValidator(): WakuValidatorHandler =
-  
-  proc validator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
-    trace "message size validator is called"
-
-    let messageSizeBytes = uint64(message.encode().buffer.len)
-
-    if(messageSizeBytes > MaxWakuMessageSize):
-        trace fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
-        return pubsub.ValidationResult.Reject
-  
-  return validator ]#
-
 proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo
 
