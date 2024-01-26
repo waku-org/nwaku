@@ -229,6 +229,21 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     return ValidationResult.Accept
   return wrappedValidator
 
+proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
+  Future[Result[void, string]] {.async.} =
+    
+    for validator in w.wakuDefaultValidators:
+        let validatorRes = await validator(pubsubTopic, msg)
+        if validatorRes != ValidationResult.Accept:
+          return err("Default validator failed")
+
+    if w.wakuValidators.hasKey(pubsubTopic):
+      for validator in w.wakuValidators[pubsubTopic]:
+        let validatorRes = await validator(pubsubTopic, msg)
+        if validatorRes != ValidationResult.Accept:
+          return err("Custom validator failed")
+    return ok()
+  
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 

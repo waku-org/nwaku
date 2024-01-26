@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os],
+  std/[hashes, options, sugar, tables, strformat, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/results,
   stew/byteutils,
@@ -155,6 +155,19 @@ proc new*(T: type WakuNode,
   )
 
   return node
+
+#[ proc generateMessageSizeValidator(): WakuValidatorHandler =
+  
+  proc validator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
+    trace "message size validator is called"
+
+    let messageSizeBytes = uint64(message.encode().buffer.len)
+
+    if(messageSizeBytes > MaxWakuMessageSize):
+        trace fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+        return pubsub.ValidationResult.Reject
+  
+  return validator ]#
 
 proc peerInfo*(node: WakuNode): PeerInfo =
   node.switch.peerInfo
@@ -345,6 +358,17 @@ proc publish*(
   
   return ok()
 
+proc messageSizeValidator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
+  trace "message size validator is called"
+
+  let messageSizeBytes = uint64(message.encode().buffer.len)
+
+  if(messageSizeBytes > MaxWakuMessageSize):
+      trace fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      return pubsub.ValidationResult.Reject
+    
+  return pubsub.ValidationResult.Accept
+
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
   info "starting relay protocol"
@@ -398,6 +422,9 @@ proc mountRelay*(node: WakuNode,
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
+  #let messageSizeValidator = generateMessageSizeValidator()
+  node.wakuRelay.addDefaultValidator(messageSizeValidator)
+  
   info "relay mounted successfully"
 
   # Subscribe to topics

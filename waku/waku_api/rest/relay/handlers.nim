@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/sequtils,
+  std/[sequtils, strformat],
   stew/[byteutils, results],
   chronicles,
   json_serialization,
@@ -126,7 +126,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
 
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest($error)
-
+ 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
@@ -135,8 +135,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       if not success:
         return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
 
+      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+        return RestApiResponse.badRequest("Failed to publish: " & error)
+      
       # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
+      #[ let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
       if result == MessageValidationResult.Invalid:
         return RestApiResponse.internalServerError("Failed to publish: invalid RLN proof")
       elif result == MessageValidationResult.Spam:
@@ -144,8 +147,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       elif result == MessageValidationResult.Valid:
         debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
       else:
-        return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
-
+        return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result") ]#
+      
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", pubSubTopic=pubSubTopic, rln=not node.wakuRlnRelay.isNil()
     if not (waitFor node.publish(some(pubSubTopic), message).withTimeout(futTimeout)):
