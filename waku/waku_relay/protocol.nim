@@ -259,7 +259,7 @@ proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
       for validator in w.wakuValidators[pubsubTopic]:
         let validatorRes = await validator(pubsubTopic, msg)
         if validatorRes != ValidationResult.Accept:
-          return err("Custom validator failed")
+          return err("Custom validator failed for pubsubTopic " & pubsubTopic)
     return ok()
   
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =

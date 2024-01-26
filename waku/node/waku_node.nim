@@ -1001,7 +1001,7 @@ proc mountRlnRelay*(node: WakuNode,
 
   # register rln validator as default validator
   debug "Registering RLN validator"
-  node.wakuRelay.addDefaultValidator(validator)
+  node.wakuRelay.addDefaultValidator(validator, "RLN validation failed")
   
   node.wakuRlnRelay = rlnRelay
 
