@@ -409,7 +409,6 @@ proc mountRelay*(node: WakuNode,
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  #let messageSizeValidator = generateMessageSizeValidator()
   node.wakuRelay.addDefaultValidator(messageSizeValidator)
   node.wakuRelay.addValidatorErrorMessage(messageSizeValidator, 
     fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}")

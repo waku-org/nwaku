@@ -132,6 +132,7 @@ type
     validatorInserted: Table[PubsubTopic, bool]
     # seq of validators that are called for every pubsub topic
     wakuDefaultValidators: seq[WakuValidatorHandler]
+    # a map of validators to error messages to return when validation fails
     wakuValidatorsErrors: Table[WakuValidatorHandler, string]
 
 proc initProtocolHandler(w: WakuRelay) =
