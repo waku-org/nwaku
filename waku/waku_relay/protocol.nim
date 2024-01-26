@@ -132,6 +132,7 @@ type
     validatorInserted: Table[PubsubTopic, bool]
     # seq of validators that are called for every pubsub topic
     wakuDefaultValidators: seq[WakuValidatorHandler]
+    wakuValidatorsErrors: Table[WakuValidatorHandler, string]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -189,6 +190,11 @@ proc addDefaultValidator*(w: WakuRelay,
                    handler: WakuValidatorHandler) {.gcsafe.} =
   w.wakuDefaultValidators.add(handler)
 
+proc addValidatorErrorMessage*(w: WakuRelay,
+                   handler: WakuValidatorHandler,
+                   msg: string) {.gcsafe.} =
+  w.wakuValidatorsErrors[handler] = msg
+
 method start*(w: WakuRelay) {.async.} =
   debug "start"
   await procCall GossipSub(w).start()
@@ -235,7 +241,10 @@ proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
     for validator in w.wakuDefaultValidators:
         let validatorRes = await validator(pubsubTopic, msg)
         if validatorRes != ValidationResult.Accept:
-          return err("Default validator failed")
+          if w.wakuValidatorsErrors.hasKey(validator):
+            return err(w.wakuValidatorsErrors[validator])
+          else:
+            return err("Default validator failed")
 
     if w.wakuValidators.hasKey(pubsubTopic):
       for validator in w.wakuValidators[pubsubTopic]:
