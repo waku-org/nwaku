@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils,tempfiles],
+  std/[sequtils, strformat, tempfiles],
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
@@ -515,18 +515,16 @@ suite "Waku v2 Rest API - Relay":
 
     # When
     let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
-      payload: base64.encode(getByteSequence(MaxWakuMessageSize*3)), # Message will be bigger than the max size
+      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
       contentTopic: some(DefaultContentTopic),
       timestamp: some(int64(2022))
     ))
-
-    echo "-------- response: ", response
     
     # Then
     check:
-      #response.status == 400
+      response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      #response.data == fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
 
     await restServer.stop()
     await restServer.closeWait()
