@@ -1,12 +1,20 @@
 {.used.}
 
 import
-  std/[options, tempfiles],
+  std/[sequtils, tempfiles],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
+  chronicles,
   chronos,
-  results
+  libp2p/switch,
+  libp2p/protocols/pubsub/pubsub
+import
+  ../../../waku/waku_core,
+  ../../../waku/waku_node,
+  ../../../waku/waku_rln_relay,
+  ../testlib/wakucore,
+  ../testlib/wakunode
 
 from std/times import epochTime
 
@@ -40,13 +48,7 @@ proc setupRelayWithRln(
   await node.mountRelay(pubsubTopics)
   await setupRln(node, identifier)
 
-proc verifyRlnMessageArrives(
-    client: WakuNode,
-    server: WakuNode,
-    pubsubTopic: string,
-    contentTopic: string,
-    payload: seq[byte] = "Hello".toBytes(),
-): Future[bool] {.async.} =
+proc subscribeCompletionHandler(node: WakuNode, pubsubTopic: string): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
       topic: PubsubTopic, msg: WakuMessage
@@ -54,14 +56,44 @@ proc verifyRlnMessageArrives(
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  server.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
-  await sleepAsync(FUTURE_TIMEOUT)
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+  return completionFut
 
-  var message = WakuMessage(payload: "Hello".toBytes(), contentTopic: contentTopic)
+proc sendRlnMessage(
+    client: WakuNode,
+    pubsubTopic: string,
+    contentTopic: string,
+    completionFuture: Future[bool],
+    payload: seq[byte] = "Hello".toBytes(),
+): Future[bool] {.async.} =
+  var message = WakuMessage(payload: payload, contentTopic: contentTopic)
   doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()))
+  discard await client.publish(some(pubsubTopic), message)
+  let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
+  return isCompleted
+
+proc sendRlnMessageWithInvalidProof(
+    client: WakuNode,
+    pubsubTopic: string,
+    contentTopic: string,
+    completionFuture: Future[bool],
+    payload: seq[byte] = "Hello".toBytes(),
+): Future[bool] {.async.} =
+  let
+    extraBytes: seq[byte] = @[byte(1), 2, 3]
+    rateLimitProofRes =
+      client.wakuRlnRelay.groupManager.generateProof(
+        concat(payload, extraBytes),
+          # we add extra bytes to invalidate proof verification against original payload
+        getCurrentEpoch()
+      )
+    rateLimitProof = rateLimitProofRes.get().encode().buffer
+    message =
+      WakuMessage(payload: @payload, contentTopic: contentTopic, proof: rateLimitProof)
 
   discard await client.publish(some(pubsubTopic), message)
-  return await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
+  let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
+  return isCompleted
 
 suite "Waku RlnRelay - End to End":
   var
@@ -119,19 +151,39 @@ suite "Waku RlnRelay - End to End":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
       await client.setupRelayWithRln(2.uint, @[pubsubTopic])
-
-      # And the nodes are connected
-      await client.connectToNodes(@[serverRemotePeerInfo])
-
-      # When the node subscribes to a pubsub topic before mounting RlnRelay
       check:
         server.wakuRelay != nil
         server.wakuRlnRelay != nil
         client.wakuRelay != nil
         client.wakuRlnRelay != nil
 
-      # Then RLN messages are relayed
-      check await verifyRlnMessageArrives(client, server, pubsubTopic, contentTopic)
+      # And the nodes are connected
+      await client.connectToNodes(@[serverRemotePeerInfo])
+
+      # And the node registers the completion handler
+      var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
+
+      # When the client sends a valid RLN message
+      let
+        isCompleted1 =
+          await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+
+      # Then the valid RLN message is relayed
+      check:
+        isCompleted1
+        completionFuture.read()
+
+      # When the client sends an invalid RLN message
+      completionFuture = newBoolFuture()
+      let
+        isCompleted2 =
+          await sendRlnMessageWithInvalidProof(
+            client, pubsubTopic, contentTopic, completionFuture
+          )
+
+      # Then the invalid RLN message is not relayed
+      check:
+        not isCompleted2
 
     asyncTest "Pubsub topics subscribed after mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln without subscribing to a pubsub topic
@@ -141,12 +193,30 @@ suite "Waku RlnRelay - End to End":
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
 
-      # When the server subscribes to a pubsub topic after mounting RlnRelay
-      let subscriptionEvent = (SubscriptionKind.PubsubSub, pubsubTopic)
-      server.subscribe(subscriptionEvent)
+      # And the node registers the completion handler
+      var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
-      # Then RLN messages are relayed
-      check await verifyRlnMessageArrives(client, server, pubsubTopic, contentTopic)
+      # When the client sends a valid RLN message
+      let
+        isCompleted1 =
+          await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+
+      # Then the valid RLN message is relayed
+      check:
+        isCompleted1
+        completionFuture.read()
+
+      # When the client sends an invalid RLN message
+      completionFuture = newBoolFuture()
+      let
+        isCompleted2 =
+          await sendRlnMessageWithInvalidProof(
+            client, pubsubTopic, contentTopic, completionFuture
+          )
+
+      # Then the invalid RLN message is not relayed
+      check:
+        not isCompleted2
 
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
