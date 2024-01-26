@@ -66,4 +66,4 @@ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome
 
-  w.addValidator(topic, validator)
+  w.addValidator(topic, validator, "signed topic validation failed for topic=" & topic)

@@ -181,20 +181,28 @@ proc new*(T: type WakuRelay,
 
   return ok(w)
 
-proc addValidator*(w: WakuRelay,
-                   topic: varargs[string],
-                   handler: WakuValidatorHandler) {.gcsafe.} =
-  for t in topic:
-    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
-
-proc addDefaultValidator*(w: WakuRelay,
-                   handler: WakuValidatorHandler) {.gcsafe.} =
-  w.wakuDefaultValidators.add(handler)
-
 proc addValidatorErrorMessage*(w: WakuRelay,
                    handler: WakuValidatorHandler,
                    msg: string) {.gcsafe.} =
   w.wakuValidatorsErrors[handler] = msg
+
+proc addValidator*(w: WakuRelay,
+                   topic: varargs[string],
+                   handler: WakuValidatorHandler,
+                   errorMessage: string = "") {.gcsafe.} =
+  for t in topic:
+    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
+  
+  if errorMessage.len > 0:
+    w.addValidatorErrorMessage(handler, errorMessage)
+
+proc addDefaultValidator*(w: WakuRelay,
+                   handler: WakuValidatorHandler,
+                   errorMessage: string = "") {.gcsafe.} =
+  w.wakuDefaultValidators.add(handler)
+  
+  if errorMessage.len > 0:
+    w.addValidatorErrorMessage(handler, errorMessage)
 
 method start*(w: WakuRelay) {.async.} =
   debug "start"
