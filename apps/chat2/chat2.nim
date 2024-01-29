@@ -192,7 +192,10 @@ proc publish(c: Chat, line: string) =
       debug "could not append rate limit proof to the message", success=success
     else:
       debug "rate limit proof is appended to the message", success=success
-      let decodeRes = RateLimitProof.init(message.proof)
+      when defined(rln_v2):
+        let decodeRes = ExtendedRateLimitProof.init(message.proof)
+      else:
+        let decodeRes = RateLimitProof.init(message.proof)
       if decodeRes.isErr():
         error "could not decode the RLN proof"
 

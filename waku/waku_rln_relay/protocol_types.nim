@@ -31,16 +31,20 @@ type
   RlnIdentifier* = array[32, byte]
   ZKSNARK* = array[128, byte]
 
+when defined(rln_v2):
+  type
+    UserMessageLimit* = uint64
+    MessageId* = uint64
+    ExternalNullifier* = array[32, byte]
+
 # Custom data types defined for waku rln relay -------------------------
-type RateLimitProof* = object
+type RateLimitProof* = object of RootObj
   ## RateLimitProof holds the public inputs to rln circuit as
   ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
   ## the `proof` field carries the actual zkSNARK proof
   proof*: ZKSNARK
   ## the root of Merkle tree used for the generation of the `proof`
   merkleRoot*: MerkleNode
-  ## the epoch used for the generation of the `proof`
-  epoch*: Epoch
   ## shareX and shareY are shares of user's identity key
   ## these shares are created using Shamir secret sharing scheme
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
@@ -49,8 +53,21 @@ type RateLimitProof* = object
   ## nullifier enables linking two messages published during the same epoch
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
-  ## Application specific RLN Identifier
-  rlnIdentifier*: RlnIdentifier
+  when defined(rln_v2):
+    ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
+    externalNullifier*: ExternalNullifier
+  else:
+    ## the epoch used for the generation of the `proof`
+    epoch*: Epoch
+    ## Application specific RLN Identifier
+    rlnIdentifier*: RlnIdentifier
+
+when defined(rln_v2):
+  type ExtendedRateLimitProof* = ref object of RateLimitProof
+    ## epoch is the epoch for which the proof is generated
+    epoch*: Epoch
+    ## rlnIdentifier is the identifier of the RLN application
+    rlnIdentifier*: RlnIdentifier
 
 type ProofMetadata* = object
   nullifier*: Nullifier
@@ -67,54 +84,105 @@ type
   RateLimitProofResult* = RlnRelayResult[RateLimitProof]
 
 # Protobufs enc and init
-proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
-  var nsp: RateLimitProof
-  let pb = initProtoBuffer(buffer)
+when defined(rln_v2):
+  proc init*(T: type ExtendedRateLimitProof, buffer: seq[byte]): ProtoResult[T] =
+    var nsp: ExtendedRateLimitProof
 
-  var proof: seq[byte]
-  discard ? pb.getField(1, proof)
-  discard nsp.proof.copyFrom(proof)
+    let pb = initProtoBuffer(buffer)
 
-  var merkleRoot: seq[byte]
-  discard ? pb.getField(2, merkleRoot)
-  discard nsp.merkleRoot.copyFrom(merkleRoot)
+    var proof: seq[byte]
+    discard ? pb.getField(1, proof)
+    discard nsp.proof.copyFrom(proof)
 
-  var epoch: seq[byte]
-  discard ? pb.getField(3, epoch)
-  discard nsp.epoch.copyFrom(epoch)
+    var merkleRoot: seq[byte]
+    discard ? pb.getField(2, merkleRoot)
+    discard nsp.merkleRoot.copyFrom(merkleRoot)
 
-  var shareX: seq[byte]
-  discard ? pb.getField(4, shareX)
-  discard nsp.shareX.copyFrom(shareX)
+    var epoch: seq[byte]
+    discard ? pb.getField(3, epoch)
+    discard nsp.epoch.copyFrom(epoch)
 
-  var shareY: seq[byte]
-  discard ? pb.getField(5, shareY)
-  discard nsp.shareY.copyFrom(shareY)
+    var shareX: seq[byte]
+    discard ? pb.getField(4, shareX)
+    discard nsp.shareX.copyFrom(shareX)
 
-  var nullifier: seq[byte]
-  discard ? pb.getField(6, nullifier)
-  discard nsp.nullifier.copyFrom(nullifier)
+    var shareY: seq[byte]
+    discard ? pb.getField(5, shareY)
+    discard nsp.shareY.copyFrom(shareY)
 
-  var rlnIdentifier: seq[byte]
-  discard ? pb.getField(7, rlnIdentifier)
-  discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+    var nullifier: seq[byte]
+    discard ? pb.getField(6, nullifier)
+    discard nsp.nullifier.copyFrom(nullifier)
 
-  return ok(nsp)
+    var rlnIdentifier: seq[byte]
+    discard ? pb.getField(7, rlnIdentifier)
+    discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
 
-proc encode*(nsp: RateLimitProof): ProtoBuffer =
-  var output = initProtoBuffer()
+    return ok(nsp)
+else:
+  proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
+    var nsp: RateLimitProof
 
-  output.write3(1, nsp.proof)
-  output.write3(2, nsp.merkleRoot)
-  output.write3(3, nsp.epoch)
-  output.write3(4, nsp.shareX)
-  output.write3(5, nsp.shareY)
-  output.write3(6, nsp.nullifier)
-  output.write3(7, nsp.rlnIdentifier)
+    let pb = initProtoBuffer(buffer)
 
-  output.finish3()
+    var proof: seq[byte]
+    discard ? pb.getField(1, proof)
+    discard nsp.proof.copyFrom(proof)
 
-  return output
+    var merkleRoot: seq[byte]
+    discard ? pb.getField(2, merkleRoot)
+    discard nsp.merkleRoot.copyFrom(merkleRoot)
+
+    var epoch: seq[byte]
+    discard ? pb.getField(3, epoch)
+    discard nsp.epoch.copyFrom(epoch)
+
+    var shareX: seq[byte]
+    discard ? pb.getField(4, shareX)
+    discard nsp.shareX.copyFrom(shareX)
+
+    var shareY: seq[byte]
+    discard ? pb.getField(5, shareY)
+    discard nsp.shareY.copyFrom(shareY)
+
+    var nullifier: seq[byte]
+    discard ? pb.getField(6, nullifier)
+    discard nsp.nullifier.copyFrom(nullifier)
+
+    var rlnIdentifier: seq[byte]
+    discard ? pb.getField(7, rlnIdentifier)
+    discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
+
+    return ok(nsp)
+
+when defined(rln_v2):
+  proc encode*(nsp: ExtendedRateLimitProof): ProtoBuffer =
+    var output = initProtoBuffer()
+
+    output.write3(1, nsp.proof)
+    output.write3(2, nsp.merkleRoot)
+    output.write3(3, nsp.epoch)
+    output.write3(4, nsp.shareX)
+    output.write3(5, nsp.shareY)
+    output.write3(6, nsp.nullifier)
+    output.write3(7, nsp.rlnIdentifier)
+
+    output.finish3()
+    return output
+else:
+  proc encode*(nsp: RateLimitProof): ProtoBuffer =
+    var output = initProtoBuffer()
+
+    output.write3(1, nsp.proof)
+    output.write3(2, nsp.merkleRoot)
+    output.write3(3, nsp.epoch)
+    output.write3(4, nsp.shareX)
+    output.write3(5, nsp.shareY)
+    output.write3(6, nsp.nullifier)
+    output.write3(7, nsp.rlnIdentifier)
+
+    output.finish3()
+    return output
 
 type
   SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}

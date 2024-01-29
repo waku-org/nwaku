@@ -159,79 +159,161 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
 
   return ok(output)
 
-# TODO: collocate this proc with the definition of the RateLimitProof
-# and the ProofMetadata types
-proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
-  let externalNullifierRes = poseidon(@[@(proof.epoch),
-                                        @(proof.rlnIdentifier)])
-  if externalNullifierRes.isErr():
-    return err("could not construct the external nullifier")
-  return ok(ProofMetadata(
-    nullifier: proof.nullifier,
-    shareX: proof.shareX,
-    shareY: proof.shareY,
-    externalNullifier: externalNullifierRes.get()
-  ))
+when defined(rln_v2):
+  # TODO: collocate this proc with the definition of the RateLimitProof
+  # and the ProofMetadata types
+  proc extractMetadata*(proof: ExtendedRateLimitProof): RlnRelayResult[ProofMetadata] =
+    let externalNullifierRes = poseidon(@[@(proof.epoch),
+                                          @(proof.rlnIdentifier)])
+    if externalNullifierRes.isErr():
+      return err("could not construct the external nullifier")
+    return ok(ProofMetadata(
+      nullifier: proof.nullifier,
+      shareX: proof.shareX,
+      shareY: proof.shareY,
+      externalNullifier: externalNullifierRes.get()
+    ))
+else:
+  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
+    let externalNullifierRes = poseidon(@[@(proof.epoch),
+                                          @(proof.rlnIdentifier)])
+    if externalNullifierRes.isErr():
+      return err("could not construct the external nullifier")
+    return ok(ProofMetadata(
+      nullifier: proof.nullifier,
+      shareX: proof.shareX,
+      shareY: proof.shareY,
+      externalNullifier: externalNullifierRes.get()
+    ))
 
-proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
+when defined(rln_v2):
+  proc proofGen*(rlnInstance: ptr RLN, 
+                data: openArray[byte],
+                membership: IdentityCredential,
+                userMessageLimit: UserMessageLimit,
+                messageId: MessageId,
+                index: MembershipIndex,
+                epoch: Epoch): RateLimitProofResult =
+
+    # obtain the external nullifier
+    let externalNullifierRes = poseidon(@[@(epoch),
+                                          @(DefaultRlnIdentifier)])
+
+    if externalNullifierRes.isErr():
+      return err("could not construct the external nullifier")
+
+    # serialize inputs
+    let serializedInputs = serialize(idSecretHash = membership.idSecretHash,
+                                    memIndex = index,
+                                    userMessageLimit = userMessageLimit,
+                                    messageId = messageId,
+                                    externalNullifier = externalNullifierRes.get(),
+                                    msg = data)
+    var inputBuffer = toBuffer(serializedInputs)
+
+    debug "input buffer ", inputBuffer= repr(inputBuffer)
+
+    # generate the proof
+    var proof: Buffer
+    let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
+    # check whether the generate_proof call is done successfully
+    if not proofIsSuccessful:
+      return err("could not generate the proof")
+
+    var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
+    let proofBytes: array[320, byte] = proofValue[]
+    debug "proof content", proofHex = proofValue[].toHex
+
+    ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+
+    let
+      proofOffset = 128
+      rootOffset = proofOffset + 32
+      externalNullifierOffset = rootOffset + 32
+      shareXOffset = externalNullifierOffset + 32
+      shareYOffset = shareXOffset + 32
+      nullifierOffset = shareYOffset + 32
+
+    var
+      zkproof: ZKSNARK
+      proofRoot, shareX, shareY: MerkleNode
+      externalNullifier: ExternalNullifier
+      nullifier: Nullifier
+
+    discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
+    discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
+    discard externalNullifier.copyFrom(proofBytes[rootOffset..externalNullifierOffset-1])
+    discard shareX.copyFrom(proofBytes[externalNullifierOffset..shareXOffset-1])
+    discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+    discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+
+    let output = RateLimitProof(proof: zkproof,
+                                merkleRoot: proofRoot,
+                                externalNullifier: externalNullifier,
+                                shareX: shareX,
+                                shareY: shareY,
+                                nullifier: nullifier)
+    return ok(output)
+else:
+  proc proofGen*(rlnInstance: ptr RLN, data: openArray[byte],
     memKeys: IdentityCredential, memIndex: MembershipIndex,
     epoch: Epoch): RateLimitProofResult =
 
-  # serialize inputs
-  let serializedInputs = serialize(idSecretHash = memKeys.idSecretHash,
-                                  memIndex = memIndex,
-                                  epoch = epoch,
-                                  msg = data)
-  var inputBuffer = toBuffer(serializedInputs)
+    # serialize inputs
+    let serializedInputs = serialize(idSecretHash = memKeys.idSecretHash,
+                                    memIndex = memIndex,
+                                    epoch = epoch,
+                                    msg = data)
+    var inputBuffer = toBuffer(serializedInputs)
 
-  debug "input buffer ", inputBuffer= repr(inputBuffer)
+    debug "input buffer ", inputBuffer= repr(inputBuffer)
 
-  # generate the proof
-  var proof: Buffer
-  let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
-  # check whether the generate_proof call is done successfully
-  if not proofIsSuccessful:
-    return err("could not generate the proof")
+    # generate the proof
+    var proof: Buffer
+    let proofIsSuccessful = generate_proof(rlnInstance, addr inputBuffer, addr proof)
+    # check whether the generate_proof call is done successfully
+    if not proofIsSuccessful:
+      return err("could not generate the proof")
 
-  var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
-  let proofBytes: array[320, byte] = proofValue[]
-  debug "proof content", proofHex = proofValue[].toHex
+    var proofValue = cast[ptr array[320, byte]] (proof.`ptr`)
+    let proofBytes: array[320, byte] = proofValue[]
+    debug "proof content", proofHex = proofValue[].toHex
 
-  ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+    ## parse the proof as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
 
-  let
-    proofOffset = 128
-    rootOffset = proofOffset + 32
-    epochOffset = rootOffset + 32
-    shareXOffset = epochOffset + 32
-    shareYOffset = shareXOffset + 32
-    nullifierOffset = shareYOffset + 32
-    rlnIdentifierOffset = nullifierOffset + 32
+    let
+      proofOffset = 128
+      rootOffset = proofOffset + 32
+      epochOffset = rootOffset + 32
+      shareXOffset = epochOffset + 32
+      shareYOffset = shareXOffset + 32
+      nullifierOffset = shareYOffset + 32
+      rlnIdentifierOffset = nullifierOffset + 32
 
-  var
-    zkproof: ZKSNARK
-    proofRoot, shareX, shareY: MerkleNode
-    epoch: Epoch
-    nullifier: Nullifier
-    rlnIdentifier: RlnIdentifier
+    var
+      zkproof: ZKSNARK
+      proofRoot, shareX, shareY: MerkleNode
+      epoch: Epoch
+      nullifier: Nullifier
+      rlnIdentifier: RlnIdentifier
 
-  discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
-  discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
-  discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
-  discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
-  discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
-  discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
-  discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
+    discard zkproof.copyFrom(proofBytes[0..proofOffset-1])
+    discard proofRoot.copyFrom(proofBytes[proofOffset..rootOffset-1])
+    discard epoch.copyFrom(proofBytes[rootOffset..epochOffset-1])
+    discard shareX.copyFrom(proofBytes[epochOffset..shareXOffset-1])
+    discard shareY.copyFrom(proofBytes[shareXOffset..shareYOffset-1])
+    discard nullifier.copyFrom(proofBytes[shareYOffset..nullifierOffset-1])
+    discard rlnIdentifier.copyFrom(proofBytes[nullifierOffset..rlnIdentifierOffset-1])
 
-  let output = RateLimitProof(proof: zkproof,
-                              merkleRoot: proofRoot,
-                              epoch: epoch,
-                              shareX: shareX,
-                              shareY: shareY,
-                              nullifier: nullifier,
-                              rlnIdentifier: rlnIdentifier)
+    let output = RateLimitProof(proof: zkproof,
+                                merkleRoot: proofRoot,
+                                epoch: epoch,
+                                shareX: shareX,
+                                shareY: shareY,
+                                nullifier: nullifier,
+                                rlnIdentifier: rlnIdentifier)
 
-  return ok(output)
+    return ok(output)
 
 # validRoots should contain a sequence of roots in the acceptable windows.
 # As default, it is set to an empty sequence of roots. This implies that the validity check for the proof's root is skipped

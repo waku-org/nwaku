@@ -170,7 +170,10 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
-  let decodeRes = RateLimitProof.init(msg.proof)
+  when defined(rln_v2):
+    let decodeRes = ExtendedRateLimitProof.init(msg.proof)
+  else:
+    let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
 
@@ -256,7 +259,10 @@ proc validateMessageAndUpdateLog*(
 
   let result = rlnPeer.validateMessage(msg, timeOption)
 
-  let decodeRes = RateLimitProof.init(msg.proof)
+  when defined(rln_v2):
+    let decodeRes = ExtendedRateLimitProof.init(msg.proof)
+  else:
+    let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
 
