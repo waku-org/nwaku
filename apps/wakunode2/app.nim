@@ -49,7 +49,7 @@ import
   ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
-  ../../waku/waku_enr,
+  ../../waku/waku_enr/sharding,
   ../../waku/waku_discv5,
   ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
@@ -128,12 +128,9 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: recordRes.get()
 
-  # Check the ENR sharding info for matching config cluster id
-  if (let typedRecord = record.toTyped(); typedRecord.isOk):
-    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome):
-      if relayShard.get().clusterId != conf.clusterId:
-        error "cluster id mismatch configured shards"
-        quit(QuitFailure)
+  if isClusterMismatched(record, conf.clusterId):
+    error "cluster id mismatch configured shards"
+    quit(QuitFailure)
 
   App(
     version: git_version,
@@ -360,10 +357,8 @@ proc updateEnr(app: var App): AppResult[void] =
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
     return err("ENR setup failed: " & error)
 
-  if (let typedRecord = record.toTyped(); typedRecord.isOk):
-    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome):
-      if relayShard.get().clusterId != app.conf.clusterId:
-        return err("cluster id mismatch configured shards")
+  if isClusterMismatched(record, app.conf.clusterId):
+    return err("cluster id mismatch configured shards")
 
   app.record = record
   app.node.enr = record
