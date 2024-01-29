@@ -42,7 +42,7 @@ type
     version*: Option[uint32]
     timestamp*: Option[Timestamp]
     ephemeral*: Option[bool]
-    meta*: Option[seq[byte]]
+    meta*: Option[Base64String]
 
   StoreResponseRest* = object
     # inspired by https://rfc.vac.dev/spec/16/#storeresponse
@@ -99,7 +99,7 @@ proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
       version: message.version.get(),
       timestamp: message.timestamp.get(),
       ephemeral: message.ephemeral.get(),
-      meta: message.meta.get()
+      meta: base64.decode(message.meta.get()).get()
     )
 
 # Converts a 'HistoryResponse' object to an 'StoreResponseRest'
