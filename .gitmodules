@@ -113,9 +113,9 @@
 	branch = master
 [submodule "vendor/nim-websock"]
 	path = vendor/nim-websock
-	url = https://github.com/status-im/nim-websock.git
+	url = https://github.com/gabrielmer/nim-websock.git
 	ignore = untracked
-	branch = main
+	branch = adding-ws-connection-debug-logs
 [submodule "vendor/nim-zlib"]
 	path = vendor/nim-zlib
 	url = https://github.com/status-im/nim-zlib.git
