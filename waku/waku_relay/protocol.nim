@@ -130,6 +130,8 @@ type
     # a map that stores whether the ordered validator has been inserted
     # for a given PubsubTopic
     validatorInserted: Table[PubsubTopic, bool]
+    # seq of validators that are called for every pubsub topic
+    wakuDefaultValidators: seq[WakuValidatorHandler]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -183,6 +185,10 @@ proc addValidator*(w: WakuRelay,
   for t in topic:
     w.wakuValidators.mgetOrPut(t, @[]).add(handler)
 
+proc addDefaultValidator*(w: WakuRelay,
+                   handler: WakuValidatorHandler) {.gcsafe.} =
+  w.wakuDefaultValidators.add(handler)
+
 method start*(w: WakuRelay) {.async.} =
   debug "start"
   await procCall GossipSub(w).start()
@@ -210,6 +216,11 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     let msg = msgRes.get()
 
     # now sequentially validate the message
+    for validator in w.wakuDefaultValidators:
+      let validatorRes = await validator(pubsubTopic, msg)
+      if validatorRes != ValidationResult.Accept:
+        return validatorRes
+
     if w.wakuValidators.hasKey(pubsubTopic):
       for validator in w.wakuValidators[pubsubTopic]:
         let validatorRes = await validator(pubsubTopic, msg)
