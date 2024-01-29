@@ -206,12 +206,16 @@ networkmonitor: | build deps librln
 ###################
 ## Documentation ##
 ###################
-.PHONY: docs
+.PHONY: docs coverage
 
 # TODO: Remove unused target
 docs: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim doc --run --index:on --project --out:.gh-pages waku/waku.nim waku.nims
+
+coverage:
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) ./scripts/run_cov.sh -y
 
 
 #####################
