@@ -22,8 +22,7 @@ type RelayWakuMessage* = object
       contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
-      meta*: Option[seq[byte]]
-
+      meta*: Option[Base64String]
 
 type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]
@@ -37,7 +36,7 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: some(msg.meta)
+    meta: some(base64.encode(msg.meta))
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -45,7 +44,7 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
     payload = ?msg.payload.decode()
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
-    meta = msg.meta.get(@[])
+    meta = ?msg.meta.get(Base64String("")).decode()
 
   var timestamp = msg.timestamp.get(0)
 
@@ -76,7 +75,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     contentTopic = none(ContentTopic)
     version = none(Natural)
     timestamp = none(int64)
-    meta = none(seq[byte])
+    meta = none(Base64String)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -96,7 +95,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     of "timestamp":
       timestamp = some(reader.readValue(int64))
     of "meta":
-      meta = some(reader.readValue(seq[byte]))
+      meta = some(reader.readValue(Base64String))
     else:
       unrecognizedFieldWarning()
 
