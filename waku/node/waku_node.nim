@@ -984,10 +984,10 @@ proc mountRlnRelay*(node: WakuNode,
   let rlnRelay = rlnRelayRes.get()
   let validator = generateRlnValidator(rlnRelay, spamHandler)
 
-  # register rln validator for all subscribed relay pubsub topics
-  for pubsubTopic in node.wakuRelay.subscribedTopics:
-    debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
-    node.wakuRelay.addValidator(pubsubTopic, validator)
+  # register rln validator as default validator
+  debug "Registering RLN validator"
+  node.wakuRelay.addDefaultValidator(validator)
+  
   node.wakuRlnRelay = rlnRelay
 
 ## Waku peer-exchange
