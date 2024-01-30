@@ -107,15 +107,6 @@ suite "Waku v2 Rest API - Admin":
       pubsubTopicNode2 = DefaultPubsubTopic
       pubsubTopicNode3 = PubsubTopic("/waku/2/custom-waku/proto")
 
-      expectedFilterData2 = fmt"(peerId: ""{$peerInfo2}"", filterCriteria:" &
-        fmt" @[(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[0]}""), " &
-        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[1]}""), " &
-        fmt"(pubsubTopic: ""{pubsubTopicNode2}"", contentTopic: ""{contentFiltersNode2[2]}"")]"
-
-      expectedFilterData3 = fmt"(peerId: ""{$peerInfo3}"", filterCriteria:" &
-        fmt" @[(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[0]}""), " &
-        fmt"(pubsubTopic: ""{pubsubTopicNode3}"", contentTopic: ""{contentFiltersNode3[1]}"")]"
-
     let
       subscribeResponse2 = await node2.wakuFilterClient.subscribe(
         peerInfo1, pubsubTopicNode2, contentFiltersNode2
@@ -133,8 +124,16 @@ suite "Waku v2 Rest API - Admin":
       getRes.status == 200
       $getRes.contentType == $MIMETYPE_JSON
       getRes.data.len() == 2
-      ($getRes.data).contains(expectedFilterData2)
-      ($getRes.data).contains(expectedFilterData3)
+
+    let
+      peers = @[getRes.data[0].peerId, getRes.data[1].peerId]
+      numCriteria = @[getRes.data[0].filterCriteria.len, getRes.data[1].filterCriteria.len]
+
+    check:
+      $peerInfo2 in peers
+      $peerInfo3 in peers
+      2 in numCriteria
+      3 in numCriteria
 
   asyncTest "Get filter data - no filter subscribers":
     await node1.mountFilter()

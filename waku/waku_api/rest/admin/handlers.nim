@@ -16,7 +16,7 @@ import
   ../../../waku_store,
   ../../../waku_filter,
   ../../../waku_filter_v2,
-  ../../../waku_lightpush,
+  ../../../waku_lightpush/common,
   ../../../waku_relay,
   ../../../waku_node,
   ../../../node/peer_manager,
@@ -121,9 +121,10 @@ proc installAdminV1GetFilterSubsHandler(router: var RestRouter, node: WakuNode) 
       subscriptions: seq[FilterSubscription] = @[]
       filterCriteria: seq[FilterTopic]
 
-    for (peerId, criteria) in node.wakuFilter.subscriptions.pairs():
-      filterCriteria = criteria.toSeq().mapIt(FilterTopic(pubsubTopic: it[0],
-        contentTopic: it[1]))
+    for peerId in node.wakuFilter.subscriptions.peersSubscribed.keys:
+      filterCriteria = node.wakuFilter.subscriptions.getPeerSubscriptions(peerId)
+                                                    .mapIt(FilterTopic(pubsubTopic: it[0],
+                                                                       contentTopic: it[1]))
 
       subscriptions.add(FilterSubscription(peerId: $peerId, filterCriteria: filterCriteria))
 

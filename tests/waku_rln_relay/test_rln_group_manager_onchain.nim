@@ -232,9 +232,9 @@ suite "Onchain group manager":
 
     try:
       await manager.startGroupSync()
-    except ValueError:
+    except CatchableError:
       assert true
-    except Exception, CatchableError:
+    except Exception:
       assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
     await manager.stop()
@@ -330,9 +330,9 @@ suite "Onchain group manager":
 
     try:
       await manager.register(dummyCommitment)
-    except ValueError:
+    except CatchableError:
       assert true
-    except Exception, CatchableError:
+    except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await manager.stop()
@@ -399,9 +399,9 @@ suite "Onchain group manager":
 
     try:
       await manager.withdraw(idSecretHash)
-    except ValueError:
+    except CatchableError:
       assert true
-    except Exception, CatchableError:
+    except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await manager.stop()
@@ -627,7 +627,7 @@ suite "Onchain group manager":
     await manager.stop()
 
   asyncTest "isReady should return false if ethRpc is none":
-    var manager = await setup()
+    let manager = await setup()
     await manager.init()
 
     manager.ethRpc = none(Web3)
@@ -644,7 +644,7 @@ suite "Onchain group manager":
     await manager.stop()
 
   asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
-    var manager = await setup()
+    let manager = await setup()
     await manager.init()
 
     var isReady = true
@@ -659,14 +659,13 @@ suite "Onchain group manager":
     await manager.stop()
 
   asyncTest "isReady should return true if ethRpc is ready":
-    var manager = await setup()
+    let manager = await setup()
     await manager.init()
     # node can only be ready after group sync is done
     try:
       await manager.startGroupSync()
     except Exception, CatchableError:
       assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
-    
     var isReady = false
     try:
       isReady = await manager.isReady()

@@ -1,17 +1,21 @@
 import
   std/[
-    options, 
+    options,
     tables,
-    sets
+    sets,
+    sequtils,
+    algorithm
   ],
   chronos,
-  chronicles
+  chronicles,
+  os
 
 import
   ../../../waku/[
     node/peer_manager,
     waku_filter_v2,
     waku_filter_v2/client,
+    waku_filter_v2/subscriptions,
     waku_core
   ],
   ../testlib/[
@@ -20,10 +24,14 @@ import
   ]
 
 
-proc newTestWakuFilter*(switch: Switch): Future[WakuFilter] {.async.} =
+proc newTestWakuFilter*(switch: Switch,
+                        subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
+                        maxFilterPeers: uint32 = MaxFilterPeers,
+                        maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer):
+                    Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilter.new(peerManager)
+    proto = WakuFilter.new(peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer)
 
   await proto.start()
   switch.mount(proto)
@@ -41,8 +49,21 @@ proc newTestWakuFilterClient*(switch: Switch): Future[WakuFilterClient] {.async.
   return proto
 
 proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
-  var contentTopics: seq[ContentTopic]
-  for filterCriterion in wakuFilter.subscriptions[peerId]:
-    contentTopics.add(filterCriterion[1])
+  var contentTopics: seq[ContentTopic] = @[]
+  let peersCriteria = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
+
+  for filterCriterion in peersCriteria:
+    contentTopics.add(filterCriterion.contentTopic)
 
   return contentTopics
+
+proc unorderedCompare*[T](a, b: seq[T]): bool =
+  if a == b:
+    return true
+
+  var aSorted = a
+  var bSorted = b
+  aSorted.sort()
+  bSorted.sort()
+
+  return aSorted == bSorted

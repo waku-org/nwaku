@@ -96,7 +96,8 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)
+  (await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)).isOkOr:
+    error "failed to publish message", error = error
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
@@ -288,6 +289,7 @@ when isMainModule:
 
   if conf.filter:
     waitFor mountFilter(bridge.nodev2)
+    waitFor mountLegacyFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)

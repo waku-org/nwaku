@@ -35,9 +35,11 @@ import
   ../waku_filter/client as legacy_filter_client, #TODO: support for legacy filter protocol will be removed
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
-  ../waku_lightpush,
+  ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
   ../waku_lightpush/client as lightpush_client,
+  ../waku_lightpush/common,
+  ../waku_lightpush/protocol,
   ../waku_enr,
   ../waku_dnsdisc,
   ../waku_peer_exchange,
@@ -66,9 +68,6 @@ const git_version* {.strdefine.} = "n/a"
 
 # Default clientId
 const clientId* = "Nimbus Waku v2 node"
-
-# Default Waku Filter Timeout
-const WakuFilterTimeout: Duration = 1.days
 
 const WakuNodeVersionString* = "version / git commit hash: " & git_version
 
@@ -188,7 +187,7 @@ proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], s
 proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
   if not node.wakuMetadata.isNil():
     return err("Waku metadata already mounted, skipping")
-  
+
   let metadata = WakuMetadata.new(clusterId, node.enr, node.topicSubscriptionQueue)
 
   node.wakuMetadata = metadata
@@ -318,20 +317,22 @@ proc publish*(
   node: WakuNode,
   pubsubTopicOp: Option[PubsubTopic],
   message: WakuMessage
-  ) {.async, gcsafe.} =
+  ) : Future[Result[void, string]] {.async, gcsafe.} =
   ## Publish a `WakuMessage`. Pubsub topic contains; none, a named or static shard.
   ## `WakuMessage` should contain a `contentTopic` field for light node functionality.
   ## It is also used to determine the shard.
 
   if node.wakuRelay.isNil():
-    error "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
+    let msg = "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
+    error "publish error", msg=msg
     # TODO: Improve error handling
-    return
+    return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
     getShard(message.contentTopic).valueOr:
-      error "Autosharding error", error=error
-      return
+      let msg = "Autosharding error: " & error
+      error "publish error", msg=msg
+      return err(msg)
 
   #TODO instead of discard return error when 0 peers received the message
   discard await node.wakuRelay.publish(pubsubTopic, message)
@@ -341,6 +342,8 @@ proc publish*(
     pubsubTopic=pubsubTopic,
     hash=pubsubTopic.computeMessageHash(message).to0xHex(),
     publishTime=getNowInNanosecondTime()
+  
+  return ok()
 
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
@@ -403,18 +406,36 @@ proc mountRelay*(node: WakuNode,
 
 ## Waku filter
 
-proc mountFilter*(node: WakuNode, filterTimeout: Duration = WakuFilterTimeout)
+proc mountLegacyFilter*(node: WakuNode, filterTimeout: Duration = WakuLegacyFilterTimeout)
                  {.async, raises: [Defect, LPError]} =
+  ## Mounting legacy filter protocol with separation from new v2 filter protocol for easier removal later
+  ## TODO: remove legacy filter protocol
+
+  info "mounting legacy filter protocol"
+  node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout)
+
+  if node.started:
+    await node.wakuFilterLegacy.start() #TODO: remove legacy
+
+  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuLegacyFilterCodec))
+
+proc mountFilter*(node: WakuNode,
+                  subscriptionTimeout: Duration = filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
+                  maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
+                  maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer)
+                 {.async, raises: [Defect, LPError]} =
+  ## Mounting filter v2 protocol
+
   info "mounting filter protocol"
-  node.wakuFilter = WakuFilter.new(node.peerManager)
-  node.wakuFilterLegacy = WakuFilterLegacy.new(node.peerManager, node.rng, filterTimeout) #TODO: remove legacy
+  node.wakuFilter = WakuFilter.new(node.peerManager,
+                                   subscriptionTimeout,
+                                   maxFilterPeers,
+                                   maxFilterCriteriaPerPeer)
 
   if node.started:
     await node.wakuFilter.start()
-    await node.wakuFilterLegacy.start() #TODO: remove legacy
 
   node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
-  node.switch.mount(node.wakuFilterLegacy, protocolMatcher(WakuLegacyFilterCodec)) #TODO: remove legacy
 
 proc filterHandleMessage*(node: WakuNode,
                           pubsubTopic: PubsubTopic,
@@ -926,22 +947,25 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[void] {.async, gcsafe,
+proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message: WakuMessage): Future[WakuLightPushResult[void]] {.async, gcsafe,
   deprecated: "Use 'node.lightpushPublish()' instead".} =
   if node.wakuLightpushClient.isNil():
-    error "failed to publish message", error="waku lightpush client is nil"
-    return
+    let msg = "waku lightpush client is nil"
+    error "failed to publish message", msg=msg
+    return err(msg)
 
   let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
   if peerOpt.isNone():
-    error "failed to publish message", error="no suitable remote peers"
-    return
+    let msg = "no suitable remote peers"
+    error "failed to publish message", msg=msg
+    return err(msg)
 
   let publishRes = await node.lightpushPublish(pubsubTopic, message, peer=peerOpt.get())
-  if publishRes.isOk():
-    return
-
-  error "failed to publish message", error=publishRes.error
+  
+  if publishRes.isErr():
+    error "failed to publish message", error=publishRes.error
+  
+  return publishRes
 
 
 ## Waku RLN Relay
@@ -961,10 +985,10 @@ proc mountRlnRelay*(node: WakuNode,
   let rlnRelay = rlnRelayRes.get()
   let validator = generateRlnValidator(rlnRelay, spamHandler)
 
-  # register rln validator for all subscribed relay pubsub topics
-  for pubsubTopic in node.wakuRelay.subscribedTopics:
-    debug "Registering RLN validator for topic", pubsubTopic=pubsubTopic
-    node.wakuRelay.addValidator(pubsubTopic, validator)
+  # register rln validator as default validator
+  debug "Registering RLN validator"
+  node.wakuRelay.addDefaultValidator(validator)
+  
   node.wakuRlnRelay = rlnRelay
 
 ## Waku peer-exchange

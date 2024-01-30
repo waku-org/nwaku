@@ -9,10 +9,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[strformat, strutils, times, json, options, random]
+import std/[strformat, strutils, times, options, random]
 import confutils, chronicles, chronos, stew/shims/net as stewNet,
        eth/keys, bearssl, stew/[byteutils, results],
-       nimcrypto/pbkdf2,
        metrics,
        metrics/chronos_httpserver
 import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
@@ -22,11 +21,10 @@ import libp2p/[switch,                   # manage transports, a single entry poi
                peerinfo,                 # manage the information of a peer, such as peer ID and public / private key
                peerid,                   # Implement how peers interact
                protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
-               protocols/secure/secio,   # define the protocol of secure input / output, allows encrypted communication that uses public keys to validate signed messages instead of a certificate authority like in TLS
                nameresolving/dnsresolver]# define DNS resolution
 import
   ../../waku/waku_core,
-  ../../waku/waku_lightpush,
+  ../../waku/waku_lightpush/common,
   ../../waku/waku_lightpush/rpc,
   ../../waku/waku_filter,
   ../../waku/waku_enr,
@@ -208,11 +206,16 @@ proc publish(c: Chat, line: string) =
       # update the last epoch
       c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
-    if not c.node.wakuLightPush.isNil():
-      # Attempt lightpush
-      asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
-    else:
-      asyncSpawn c.node.publish(some(DefaultPubsubTopic), message)
+    try:
+      if not c.node.wakuLightPush.isNil():
+        # Attempt lightpush
+        (waitFor c.node.lightpushPublish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish lightpush message", error = error
+      else:
+        (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish message", error = error
+    except CatchableError:
+        error "caught error publishing message: ", error = getCurrentExceptionMsg()      
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -468,6 +471,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let peerInfo = parsePeerInfo(conf.filternode)
     if peerInfo.isOk():
       await node.mountFilter()
+      await node.mountLegacyFilter()
       await node.mountFilterClient()
       node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
@@ -507,7 +511,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           echo "A spam message is found and discarded"
         chat.prompt = false
         showChatPrompt(chat)
-    
+
       echo "rln-relay preparation is in progress..."
 
       let rlnConf = WakuRlnConfig(

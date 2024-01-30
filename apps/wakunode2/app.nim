@@ -49,12 +49,12 @@ import
   ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
-  ../../waku/waku_enr,
+  ../../waku/waku_enr/sharding,
   ../../waku/waku_discv5,
   ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
-  ../../waku/waku_lightpush,
+  ../../waku/waku_lightpush/common,
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ./wakunode2_validator_signed,
@@ -128,20 +128,9 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
       quit(QuitFailure)
     else: recordRes.get()
 
-  # Check the ENR sharding info for matching config cluster id
-  if conf.clusterId != 0:
-    let res = record.toTyped()
-    if res.isErr():
-      error "ENR setup failed", error = $res.get()
-      quit(QuitFailure)
-
-    let relayShard = res.get().relaySharding().valueOr:
-      error "no sharding info"
-      quit(QuitFailure)
-
-    if conf.clusterId != relayShard.clusterId:
-      error "cluster id mismatch"
-      quit(QuitFailure)
+  if isClusterMismatched(record, conf.clusterId):
+    error "cluster id mismatch configured shards"
+    quit(QuitFailure)
 
   App(
     version: git_version,
@@ -254,7 +243,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
   )
 
   WakuDiscoveryV5.new(
-    app.rng, 
+    app.rng,
     discv5Conf,
     some(app.record),
     some(app.node.peerManager),
@@ -305,7 +294,9 @@ proc initNode(conf: WakuNodeConf,
       agentString = some(conf.agentString)
   )
   builder.withColocationLimit(conf.colocationLimit)
-  builder.withPeerManagerConfig(maxRelayPeers = conf.maxRelayPeers)
+  builder.withPeerManagerConfig(
+    maxRelayPeers = conf.maxRelayPeers,
+    shardAware = conf.relayShardedPeerManagement,)
 
   node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
 
@@ -326,7 +317,7 @@ proc setupWakuApp*(app: var App): AppResult[void] =
   ok()
 
 proc getPorts(listenAddrs: seq[MultiAddress]):
-              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] = 
+              AppResult[tuple[tcpPort, websocketPort: Option[Port]]] =
 
   var tcpPort, websocketPort = none(Port)
 
@@ -368,15 +359,8 @@ proc updateEnr(app: var App): AppResult[void] =
   let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
     return err("ENR setup failed: " & error)
 
-  if app.conf.clusterId != 0:
-    let tRecord = record.toTyped().valueOr:
-      return err("ENR setup failed: " & $error)
-
-    let relayShard = tRecord.relaySharding().valueOr:
-      return err("ENR setup failed: no sharding info")
-
-    if app.conf.clusterId != relayShard.clusterId:
-      return err("ENR setup failed: cluster id mismatch")
+  if isClusterMismatched(record, app.conf.clusterId):
+    return err("cluster id mismatch configured shards")
 
   app.record = record
   app.node.enr = record
@@ -548,7 +532,15 @@ proc setupProtocols(node: WakuNode,
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
-      await mountFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+      await mountLegacyFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
+    except CatchableError:
+      return err("failed to mount waku legacy filter protocol: " & getCurrentExceptionMsg())
+
+    try:
+      await mountFilter(node,
+                        subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
+                        maxFilterPeers = conf.filterMaxPeersToServe,
+                        maxFilterCriteriaPerPeer = conf.filterMaxCriteria)
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
@@ -724,7 +716,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
 
     let filterCache = MessageCache.init()
 
-    let filterDiscoHandler = 
+    let filterDiscoHandler =
       if app.wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
       else: none(DiscoveryHandler)
@@ -739,7 +731,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
     notInstalledTab["filter"] = "/filter endpoints are not available. Please check your configuration: --filternode"
 
   ## Store REST API
-  let storeDiscoHandler = 
+  let storeDiscoHandler =
     if app.wakuDiscv5.isSome():
       some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
     else: none(DiscoveryHandler)
@@ -749,7 +741,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
   ## Light push API
   if conf.lightpushnode  != "" and
      app.node.wakuLightpushClient != nil:
-    let lightDiscoHandler = 
+    let lightDiscoHandler =
       if app.wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
       else: none(DiscoveryHandler)

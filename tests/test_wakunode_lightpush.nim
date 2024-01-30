@@ -4,16 +4,12 @@ import
   std/options,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto,
-  libp2p/switch
+  chronos
 import
   ../../waku/waku_core,
-  ../../waku/waku_lightpush,
+  ../../waku/waku_lightpush/common,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
-  ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode
 
@@ -55,7 +51,8 @@ suite "WakuNode - Lightpush":
     await sleepAsync(100.millis)
 
     ## When
-    await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    assert res.isOk(), $res.error
 
     ## Then
     check await completionFutRelay.withTimeout(5.seconds)

@@ -61,8 +61,8 @@ type
       name: "rln-relay-cred-path" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., ws://localhost:8540/",
-      defaultValue: "ws://localhost:8540/",
+      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      defaultValue: "http://localhost:8540/",
       name: "rln-relay-eth-client-address" }: string
 
     rlnRelayEthContractAddress* {.
@@ -94,6 +94,7 @@ type
         desc: "Runs the registration function on-chain. By default, a dry-run will occur",
         defaultValue: false,
         name: "execute" .}: bool
+
 
     of noCommand:
       ##  Application-level configuration
@@ -198,6 +199,11 @@ type
         defaultValue: false
         name: "relay-peer-exchange" }: bool
 
+      relayShardedPeerManagement* {.
+        desc: "Enable experimental shard aware peer manager for relay protocol: true|false",
+          defaultValue: false
+          name: "relay-shard-manager" }: bool
+
       rlnRelay* {.
         desc: "Enable spam protection through rln-relay: true|false",
         defaultValue: false
@@ -221,7 +227,7 @@ type
         desc: "Rln relay identity commitment key as a Hex string",
         defaultValue: ""
         name: "rln-relay-id-commitment-key" }: string
-      
+
       rlnRelayTreePath* {.
         desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
         defaultValue: ""
@@ -304,9 +310,24 @@ type
         name: "filternode" }: string
 
       filterTimeout* {.
-        desc: "Timeout for filter node in seconds.",
+        desc: "Filter clients will be wiped out if not able to receive push messages within this timeout. In seconds.",
         defaultValue: 14400 # 4 hours
         name: "filter-timeout" }: int64
+
+      filterSubscriptionTimeout* {.
+        desc: "Timeout for filter subscription without ping or refresh it, in seconds. Only for v2 filter protocol.",
+        defaultValue: 300 # 5 minutes
+        name: "filter-subscription-timeout" }: int64
+
+      filterMaxPeersToServe* {.
+        desc: "Maximum number of peers to serve at a time. Only for v2 filter protocol.",
+        defaultValue: 1000
+        name: "filter-max-peers-to-serve" }: uint32
+
+      filterMaxCriteria* {.
+        desc: "Maximum number of pubsub- and content topic combination per peers at a time. Only for v2 filter protocol.",
+        defaultValue: 1000
+        name: "filter-max-criteria" }: uint32
 
       ## Lightpush config
 
