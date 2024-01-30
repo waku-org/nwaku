@@ -12,26 +12,17 @@ import
   metrics,
   bearssl/rand
 import
-  ../node/peer_manager,
+  ../node/peer_manager/peer_manager,
   ../waku_core,
+  ./common,
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics
-
-
+  
 logScope:
   topics = "waku lightpush"
 
-
-const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
-
-
-type
-  WakuLightPushResult*[T] = Result[T, string]
-
-  PushMessageHandler* = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async, closure.}
-
-  WakuLightPush* = ref object of LPProtocol
+type WakuLightPush* = ref object of LPProtocol
     rng*: ref rand.HmacDrbgContext
     peerManager*: PeerManager
     pushHandler*: PushMessageHandler

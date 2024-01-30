@@ -22,7 +22,7 @@ SCRIPT_PATH=$(dirname "$(realpath -s "$0")")
 REPO_ROOT=$(dirname $SCRIPT_PATH)
 generated_not_to_break_here="$REPO_ROOT/generated_not_to_break_here"
 
-if [ -f $generated_not_to_break_here ]
+if [ "$1" != "-y" ] && [ -f "$generated_not_to_break_here" ]
 then
     echo "The file '$generated_not_to_break_here' already exists. Do you want to continue? (y/n)"
     read -r response

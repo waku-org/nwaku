@@ -112,7 +112,7 @@ proc new*(T: type WakuMetadata,
 
   wm.initProtocolHandler()
 
-  info "Created WakuMetadata protocol", clusterId=cluster
+  info "Created WakuMetadata protocol", clusterId=wm.clusterId, shards=wm.shards
 
   return wm
 

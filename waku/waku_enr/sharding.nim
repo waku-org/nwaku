@@ -254,3 +254,11 @@ proc containsShard*(r: Record, topic: PubsubTopic|string): bool =
     return false
 
   containsShard(r, parseRes.value)
+
+proc isClusterMismatched*(record: Record, clusterId: uint32): bool =
+  ## Check the ENR sharding info for matching cluster id
+  if (let typedRecord = record.toTyped(); typedRecord.isOk()):
+    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome()):
+      return relayShard.get().clusterId != clusterId
+  
+  return false

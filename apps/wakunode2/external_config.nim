@@ -199,6 +199,11 @@ type
         defaultValue: false
         name: "relay-peer-exchange" }: bool
 
+      relayShardedPeerManagement* {.
+        desc: "Enable experimental shard aware peer manager for relay protocol: true|false",
+          defaultValue: false
+          name: "relay-shard-manager" }: bool
+
       rlnRelay* {.
         desc: "Enable spam protection through rln-relay: true|false",
         defaultValue: false
