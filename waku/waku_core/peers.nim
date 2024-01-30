@@ -84,7 +84,6 @@ proc init*(T: typedesc[RemotePeerInfo],
   let peerId = PeerID.init(peerId).tryGet()
   RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols)
 
-
 ## Parse
 
 proc validWireAddr*(ma: MultiAddress): bool =
@@ -217,11 +216,15 @@ converter toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
 converter toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
   ## Converts the local peerInfo to dialable RemotePeerInfo
   ## Useful for testing or internal connections
-  RemotePeerInfo.init(
-    peerInfo.peerId,
-    peerInfo.listenAddrs,
-    none(enr.Record),
-    peerInfo.protocols
+  RemotePeerInfo(
+    peerId: peerInfo.peerId,
+    addrs: peerInfo.listenAddrs,
+    enr: none(Record),
+    protocols: peerInfo.protocols,
+    
+    agent: peerInfo.agentVersion,
+    protoVersion: peerInfo.protoVersion,
+    publicKey: peerInfo.publicKey,
   )
 
 proc hasProtocol*(ma: MultiAddress, proto: string): bool =
