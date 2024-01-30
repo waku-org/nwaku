@@ -21,7 +21,6 @@ import
   libp2p/multiaddress,
   libp2p/peerid,
   dnsdisc/client
-
 import
   ./waku_core
 
