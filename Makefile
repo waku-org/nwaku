@@ -119,7 +119,11 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+ifeq ($(RLN_V2),true)
+LIBRLN_VERSION := v0.4.1
+else
 LIBRLN_VERSION := v0.3.4
+endif
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -134,6 +138,10 @@ $(LIBRLN_FILE):
 
 librln: | $(LIBRLN_FILE)
 	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
+ifeq ($(RLN_V2),true)
+	$(eval NIM_PARAMS += -d:rln_v2)
+endif
+
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml

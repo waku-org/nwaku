@@ -40,6 +40,7 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
 #  a util function used for testing purposes
 #  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
 #  must be edited if used for a different contract than membership contract
+# <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
 proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let web3 = await newWeb3(ethClientAddress)
   debug "web3 connected to", ethClientAddress
@@ -53,27 +54,33 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
   debug "Initial account balance: ", balance
 
-  # deploy the poseidon hash contract and gets its address
-  let
-    hasherReceipt = await web3.deployContract(PoseidonHasherCode)
-    hasherAddress = hasherReceipt.contractAddress.get
-  debug "hasher address: ", hasherAddress
+  when defined(rln_v2):
+    # deploy registry contract with its constructor inputs
+    let receipt = await web3.deployContract(RegistryContractCode)
+  else:
+    # deploy the poseidon hash contract and gets its address
+    let
+      hasherReceipt = await web3.deployContract(PoseidonHasherCode)
+      hasherAddress = hasherReceipt.contractAddress.get
+    debug "hasher address: ", hasherAddress
 
 
-  # encode registry contract inputs to 32 bytes zero-padded
-  let
-    hasherAddressEncoded = encode(hasherAddress).data
-    # this is the contract constructor input
-    contractInput = hasherAddressEncoded
+    # encode registry contract inputs to 32 bytes zero-padded
+    let
+      hasherAddressEncoded = encode(hasherAddress).data
+      # this is the contract constructor input
+      contractInput = hasherAddressEncoded
 
 
-  debug "encoded hasher address: ", hasherAddressEncoded
-  debug "encoded contract input:", contractInput
+    debug "encoded hasher address: ", hasherAddressEncoded
+    debug "encoded contract input:", contractInput
 
-  # deploy registry contract with its constructor inputs
-  let receipt = await web3.deployContract(RegistryContractCode,
-                                          contractInput = contractInput)
+    # deploy registry contract with its constructor inputs
+    let receipt = await web3.deployContract(RegistryContractCode,
+                                            contractInput = contractInput)
+  
   let contractAddress = receipt.contractAddress.get()
+
   debug "Address of the deployed registry contract: ", contractAddress
 
   let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
@@ -87,7 +94,6 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "disconnected from ", ethClientAddress
 
   return contractAddress
-
 
 proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
   let web3 = await newWeb3(EthClient)
