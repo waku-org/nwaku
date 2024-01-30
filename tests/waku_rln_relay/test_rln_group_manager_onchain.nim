@@ -37,57 +37,27 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
     credentials.add(generateCredentials(rlnInstance))
   return credentials
 
-when defined(rln_v2):
-  #  a util function used for testing purposes
-  #  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
-  #  must be edited if used for a different contract than membership contract
-  # <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
-  proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
-    let web3 = await newWeb3(ethClientAddress)
-    debug "web3 connected to", ethClientAddress
+#  a util function used for testing purposes
+#  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
+#  must be edited if used for a different contract than membership contract
+# <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
+proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
+  let web3 = await newWeb3(ethClientAddress)
+  debug "web3 connected to", ethClientAddress
 
-    # fetch the list of registered accounts
-    let accounts = await web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[1]
-    let add = web3.defaultAccount
-    debug "contract deployer account address ", add
+  # fetch the list of registered accounts
+  let accounts = await web3.provider.eth_accounts()
+  web3.defaultAccount = accounts[1]
+  let add = web3.defaultAccount
+  debug "contract deployer account address ", add
 
-    let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-    debug "Initial account balance: ", balance
+  let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  debug "Initial account balance: ", balance
 
+  when defined(rln_v2):
     # deploy registry contract with its constructor inputs
     let receipt = await web3.deployContract(RegistryContractCode)
-    let contractAddress = receipt.contractAddress.get()
-    debug "Address of the deployed registry contract: ", contractAddress
-
-    let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
-    let newStorageReceipt = await registryContract.newStorage().send()
-
-    debug "Receipt of the newStorage transaction: ", newStorageReceipt
-    let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-    debug "Account balance after the contract deployment: ", newBalance
-
-    await web3.close()
-    debug "disconnected from ", ethClientAddress
-
-    return contractAddress
-else:
-  #  a util function used for testing purposes
-  #  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
-  #  must be edited if used for a different contract than membership contract
-  proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
-    let web3 = await newWeb3(ethClientAddress)
-    debug "web3 connected to", ethClientAddress
-
-    # fetch the list of registered accounts
-    let accounts = await web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[1]
-    let add = web3.defaultAccount
-    debug "contract deployer account address ", add
-
-    let balance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-    debug "Initial account balance: ", balance
-
+  else:
     # deploy the poseidon hash contract and gets its address
     let
       hasherReceipt = await web3.deployContract(PoseidonHasherCode)
@@ -108,21 +78,22 @@ else:
     # deploy registry contract with its constructor inputs
     let receipt = await web3.deployContract(RegistryContractCode,
                                             contractInput = contractInput)
-    let contractAddress = receipt.contractAddress.get()
-    debug "Address of the deployed registry contract: ", contractAddress
+  
+  let contractAddress = receipt.contractAddress.get()
 
-    let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
-    let newStorageReceipt = await registryContract.newStorage().send()
+  debug "Address of the deployed registry contract: ", contractAddress
 
-    debug "Receipt of the newStorage transaction: ", newStorageReceipt
-    let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
-    debug "Account balance after the contract deployment: ", newBalance
+  let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
+  let newStorageReceipt = await registryContract.newStorage().send()
 
-    await web3.close()
-    debug "disconnected from ", ethClientAddress
+  debug "Receipt of the newStorage transaction: ", newStorageReceipt
+  let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
+  debug "Account balance after the contract deployment: ", newBalance
 
-    return contractAddress
+  await web3.close()
+  debug "disconnected from ", ethClientAddress
 
+  return contractAddress
 
 proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
   let web3 = await newWeb3(EthClient)
