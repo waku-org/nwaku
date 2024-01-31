@@ -45,7 +45,7 @@ suite "WakuNode2 - Validators":
     for node in nodes:
       var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        signedTopics.add(ProtectedTopic(topic, publicKey))
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
       node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
@@ -119,7 +119,7 @@ suite "WakuNode2 - Validators":
     for node in nodes:
       var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        signedTopics.add(ProtectedTopic(topic, publicKey))
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
       node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
@@ -239,7 +239,7 @@ suite "WakuNode2 - Validators":
     for node in nodes:
       var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        signedTopics.add(ProtectedTopic(topic, publicKey))
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
       node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # nodes[0] is connected only to nodes[1]
