@@ -20,7 +20,8 @@ const MessageWindowInSec = 5*60 # +- 5 minutes
 
 import
   ../../waku/waku_relay/protocol,
-  ../../waku/waku_core
+  ../../waku/waku_core,
+  ./external_config
 
 declarePublicCounter waku_msg_validator_signed_outcome, "number of messages for each validation outcome", ["result"]
 
@@ -49,7 +50,7 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
     return true
   return false
 
-proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
+#[ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: SkPublicKey) =
   debug "adding validator to signed topic", topic=topic, publicTopicKey=publicTopicKey
 
   proc validator(topic: string, msg: WakuMessage): Future[errors.ValidationResult] {.async.} =
@@ -66,4 +67,30 @@ proc addSignedTopicValidator*(w: WakuRelay, topic: PubsubTopic, publicTopicKey: 
     waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
     return outcome
 
-  w.addValidator(topic, validator, "signed topic validation failed for topic=" & topic)
+  w.addValidator(topic, validator, "signed topic validation failed for topic=" & topic) ]#
+
+proc addSignedTopicsValidator*(w: WakuRelay, protectedTopics: seq[ProtectedTopic]) =
+  debug "adding validator to signed topics"
+
+  proc validator(topic: string, msg: WakuMessage): Future[errors.ValidationResult] {.async.} =
+    var outcome = errors.ValidationResult.Reject
+        
+    for protectedTopic in protectedTopics:
+
+      if(protectedTopic.topic == topic):        
+        if msg.timestamp != 0:
+          if msg.withinTimeWindow():
+            let msgHash = SkMessage(topic.msgHash(msg))
+            let recoveredSignature = SkSignature.fromRaw(msg.meta)
+            if recoveredSignature.isOk():
+              if recoveredSignature.get.verify(msgHash, protectedTopic.key):
+                outcome = errors.ValidationResult.Accept
+
+        if outcome != errors.ValidationResult.Accept:
+          debug "signed topic validation failed", topic=topic, publicTopicKey=protectedTopic.key
+        waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
+        return outcome
+
+    return errors.ValidationResult.Accept
+
+  w.addDefaultValidator(validator, "signed topic validation failed")

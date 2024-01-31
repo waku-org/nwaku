@@ -124,12 +124,6 @@ type
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-    # a map of PubsubTopic's => seq[WakuValidatorHandler] that are
-    # called in order every time a message is received on a given pubsub topic
-    wakuValidators: Table[PubsubTopic, seq[WakuValidatorHandler]]
-    # a map that stores whether the ordered validator has been inserted
-    # for a given PubsubTopic
-    validatorInserted: Table[PubsubTopic, bool]
     # seq of validators that are called for every pubsub topic
     wakuDefaultValidators: seq[WakuValidatorHandler]
     # a map of validators to error messages to return when validation fails
@@ -186,16 +180,6 @@ proc addValidatorErrorMessage*(w: WakuRelay,
                    msg: string) {.gcsafe.} =
   w.wakuValidatorsErrors[handler] = msg
 
-proc addValidator*(w: WakuRelay,
-                   topic: varargs[string],
-                   handler: WakuValidatorHandler,
-                   errorMessage: string = "") {.gcsafe.} =
-  for t in topic:
-    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
-  
-  if errorMessage.len > 0:
-    w.addValidatorErrorMessage(handler, errorMessage)
-
 proc addDefaultValidator*(w: WakuRelay,
                    handler: WakuValidatorHandler,
                    errorMessage: string = "") {.gcsafe.} =
@@ -235,12 +219,6 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
       let validatorRes = await validator(pubsubTopic, msg)
       if validatorRes != ValidationResult.Accept:
         return validatorRes
-
-    if w.wakuValidators.hasKey(pubsubTopic):
-      for validator in w.wakuValidators[pubsubTopic]:
-        let validatorRes = await validator(pubsubTopic, msg)
-        if validatorRes != ValidationResult.Accept:
-          return validatorRes
     return ValidationResult.Accept
   return wrappedValidator
 
@@ -254,12 +232,6 @@ proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
             return err(w.wakuValidatorsErrors[validator])
           else:
             return err("Default validator failed")
-
-    if w.wakuValidators.hasKey(pubsubTopic):
-      for validator in w.wakuValidators[pubsubTopic]:
-        let validatorRes = await validator(pubsubTopic, msg)
-        if validatorRes != ValidationResult.Accept:
-          return err("Custom validator failed for pubsubTopic " & pubsubTopic)
     return ok()
   
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
@@ -278,13 +250,6 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       else:
         return handler(pubsubTopic, decMsg.get())
 
-  # Add the ordered validator to the topic
-  # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
-  # Otherwise this might lead to unintended behaviour.
-  if not w.validatorInserted.hasKey(pubSubTopic):
-    procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
-    w.validatorInserted[pubSubTopic] = true
-
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
 
@@ -299,7 +264,6 @@ proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   debug "unsubscribe all", pubsubTopic=pubsubTopic
 
   procCall GossipSub(w).unsubscribeAll(pubsubTopic)
-  w.validatorInserted.del(pubsubTopic)
 
 proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler) =
   ## Unsubscribe this handler on this pubsub topic
