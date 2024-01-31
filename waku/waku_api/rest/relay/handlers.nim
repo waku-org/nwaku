@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strformat],
+  std/sequtils,
   stew/[byteutils, results],
   chronicles,
   json_serialization,

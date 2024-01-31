@@ -397,7 +397,7 @@ proc mountRelay*(node: WakuNode,
     await node.startRelay()
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
-  
+
   info "relay mounted successfully"
 
   # Subscribe to topics
