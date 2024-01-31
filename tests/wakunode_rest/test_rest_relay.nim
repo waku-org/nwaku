@@ -486,7 +486,6 @@ suite "Waku v2 Rest API - Relay":
     await node.stop()
 
   asyncTest "Post a message larger than maximum size - POST /relay/v1/messages/{topic}":
-    ## "Relay API: publish and subscribe/unsubscribe":
     # Given
     let node = testWakuNode()
     await node.start()

@@ -135,8 +135,8 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       if not success:
         return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
 
-      (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
-        return RestApiResponse.badRequest("Failed to publish: " & error)
+    (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", pubSubTopic=pubSubTopic, rln=not node.wakuRlnRelay.isNil()
