@@ -351,7 +351,7 @@ proc messageSizeValidator(topic: string, message: WakuMessage): Future[pubsub.Va
   let messageSizeBytes = uint64(message.encode().buffer.len)
 
   if(messageSizeBytes > MaxWakuMessageSize):
-      trace fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      debug fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
       return pubsub.ValidationResult.Reject
     
   return pubsub.ValidationResult.Accept
