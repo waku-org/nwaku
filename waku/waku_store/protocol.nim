@@ -40,7 +40,7 @@ type
   WakuStore* = ref object of LPProtocol
     peerManager: PeerManager
     rng: ref rand.HmacDrbgContext
-    queryHandler: HistoryQueryHandler
+    queryHandler*: HistoryQueryHandler
 
 ## Protocol
 
