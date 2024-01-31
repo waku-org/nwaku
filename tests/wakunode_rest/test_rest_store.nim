@@ -534,3 +534,67 @@ procSuite "Waku v2 Rest API - Store":
     await restServer.stop()
     await restServer.closeWait()
     await node.stop()
+
+
+  asyncTest "retrieve historical messages from a self-store-node":
+    ## This test aims to validate the correct message retrieval for a store-node which exposes
+    ## a REST server.
+
+    # Given
+    let node = testWakuNode()
+    await node.start()
+
+    let restPort = Port(58014)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    installStoreApiHandlers(restServer.router, node)
+    restServer.start()
+
+    # WakuStore setup
+    let driver: ArchiveDriver = QueueDriver.new()
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    await node.mountStore()
+
+    # Now prime it with some history before tests
+    let msgList = @[
+      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0),
+      fakeWakuMessage(@[byte 1], ts=1),
+      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
+    ]
+    for msg in msgList:
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    # Filtering by a known pubsub topic.
+    var response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl(DefaultPubsubTopic))
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 3
+
+    # Get all the messages by specifying an empty pubsub topic
+    response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl(""))
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 3
+
+    # Receiving no messages by filtering with a random pubsub topic
+    response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl("random pubsub topic"))
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 0
