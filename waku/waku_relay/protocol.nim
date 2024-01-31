@@ -8,6 +8,7 @@ else:
   {.push raises: [].}
 
 import
+  std/strformat,
   stew/results,
   sequtils,
   chronos,
@@ -215,9 +216,22 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     return ValidationResult.Accept
   return wrappedValidator
 
+proc isValidSize(message: WakuMessage): Future[Result[void, string]] {.async.} =
+  let messageSizeBytes = uint64(message.encode().buffer.len)
+
+  if(messageSizeBytes > MaxWakuMessageSize):
+      let message = fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      debug "Invalid Waku Message", error=message
+      return err(message)
+    
+  return ok()
+
 proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
   Future[Result[void, string]] {.async.} =
-    
+
+    (await msg.isValidSize()).isOkOr:
+      return err(error)
+
     for (validator, message) in w.wakuValidators:
         let validatorRes = await validator(pubsubTopic, msg)
         if validatorRes != ValidationResult.Accept:

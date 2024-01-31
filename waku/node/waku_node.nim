@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strformat, strutils, sequtils, os],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
   stew/results,
   stew/byteutils,
@@ -345,17 +345,6 @@ proc publish*(
   
   return ok()
 
-proc messageSizeValidator(topic: string, message: WakuMessage): Future[pubsub.ValidationResult] {.async.} =
-  trace "message size validator is called"
-
-  let messageSizeBytes = uint64(message.encode().buffer.len)
-
-  if(messageSizeBytes > MaxWakuMessageSize):
-      debug fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
-      return pubsub.ValidationResult.Reject
-    
-  return pubsub.ValidationResult.Accept
-
 proc startRelay*(node: WakuNode) {.async.} =
   ## Setup and start relay protocol
   info "starting relay protocol"
@@ -408,9 +397,6 @@ proc mountRelay*(node: WakuNode,
     await node.startRelay()
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
-
-  node.wakuRelay.addValidator(messageSizeValidator,
-    fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}")
   
   info "relay mounted successfully"
 
