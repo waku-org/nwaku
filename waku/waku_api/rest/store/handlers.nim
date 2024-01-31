@@ -13,6 +13,7 @@ import
 import
   ../../../waku_core,
   ../../../waku_store/common,
+  ../../../waku_store/self_req_handler,
   ../../../waku_node,
   ../../../node/peer_manager,
   ../../../common/paging,
@@ -187,6 +188,24 @@ proc toOpt(self: Option[Result[string, cstring]]): Option[string] =
   if self.isSome() and self.get().value != "":
     return some(self.get().value)
 
+proc retrieveMsgsFromSelfNode(self: WakuNode, histQuery: HistoryQuery):
+                              Future[RestApiResponse] {.async.} =
+  ## Performs a "store" request to the local node (self node.)
+  ## Notice that this doesn't follow the regular store libp2p channel because a node
+  ## it is not allowed to libp2p-dial a node to itself, by default.
+  ##
+
+  let selfResp = (await self.wakuStore.handleSelfStoreRequest(histQuery)).valueOr:
+    return RestApiResponse.internalServerError($error)
+
+  let storeResp = selfResp.toStoreResponseRest()
+  let resp = RestApiResponse.jsonResponse(storeResp, status=Http200).valueOr:
+    const msg = "Error building the json respose"
+    error msg, error=error
+    return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
+
+  return resp
+
 # Subscribes the rest handler to attend "/store/v1/messages" requests
 proc installStoreApiHandlers*(
   router: var RestRouter,
@@ -215,22 +234,6 @@ proc installStoreApiHandlers*(
     # Example:
     # /store/v1/messages?peerAddr=%2Fip4%2F127.0.0.1%2Ftcp%2F60001%2Fp2p%2F16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN\&pubsubTopic=my-waku-topic
 
-    # Parse the peer address parameter
-    let parsedPeerAddr = parseUrlPeerAddr(peerAddr.toOpt()).valueOr:
-      return RestApiResponse.badRequest(error)
-
-    let peerAddr = parsedPeerAddr.valueOr:
-      node.peerManager.selectPeer(WakuStoreCodec).valueOr:
-        let handler = discHandler.valueOr:
-          return NoPeerNoDiscError
-
-        let peerOp = (await handler()).valueOr:
-          return RestApiResponse.internalServerError($error)
-
-        peerOp.valueOr:
-          return RestApiResponse.preconditionFailed(
-            "No suitable service peer & none discovered")
-
     # Parse the rest of the parameters and create a HistoryQuery
     let histQuery = createHistoryQuery(
                         pubsubTopic.toOpt(),
@@ -246,5 +249,27 @@ proc installStoreApiHandlers*(
 
     if not histQuery.isOk():
       return RestApiResponse.badRequest(histQuery.error)
+
+    if peerAddr.isNone() and not node.wakuStore.isNil():
+      ## The user didn't specify a peer address and self-node is configured as a store node.
+      ## In this case we assume that the user is willing to retrieve the messages stored by
+      ## the local/self store node.
+      return await node.retrieveMsgsFromSelfNode(histQuery.get())
+
+    # Parse the peer address parameter
+    let parsedPeerAddr = parseUrlPeerAddr(peerAddr.toOpt()).valueOr:
+      return RestApiResponse.badRequest(error)
+
+    let peerAddr = parsedPeerAddr.valueOr:
+      node.peerManager.selectPeer(WakuStoreCodec).valueOr:
+        let handler = discHandler.valueOr:
+          return NoPeerNoDiscError
+
+        let peerOp = (await handler()).valueOr:
+          return RestApiResponse.internalServerError($error)
+
+        peerOp.valueOr:
+          return RestApiResponse.preconditionFailed(
+            "No suitable service peer & none discovered")
 
     return await node.performHistoryQuery(histQuery.value, peerAddr)

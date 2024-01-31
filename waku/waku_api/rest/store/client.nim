@@ -70,3 +70,26 @@ proc getStoreMessagesV1*(
               {.rest,
                 endpoint: "/store/v1/messages",
                 meth: HttpMethod.MethodGet.}
+
+proc getStoreMessagesV1*(
+                         # URL-encoded reference to the store-node
+                         peerAddr: Option[string],
+                         pubsubTopic: string = "",
+                         # URL-encoded comma-separated list of content topics
+                         contentTopics: string = "",
+                         startTime: string = "",
+                         endTime: string = "",
+
+                         # Optional cursor fields
+                         senderTime: string = "",
+                         storeTime: string = "",
+                         digest: string = "", # base64-encoded digest
+
+                         pageSize: string = "",
+                         ascending: string = ""
+                         ):
+      RestResponse[StoreResponseRest]
+
+              {.rest,
+                endpoint: "/store/v1/messages",
+                meth: HttpMethod.MethodGet.}
