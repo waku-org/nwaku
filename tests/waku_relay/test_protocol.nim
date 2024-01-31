@@ -297,14 +297,14 @@ suite "Waku Relay":
       proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
-      otherNode.addDefaultValidator(len4Validator)
+      otherNode.addValidator(len4Validator)
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
       await sleepAsync(500.millis)
       check:
         otherNode.isSubscribed(pubsubTopic)
 
       # Given a subscribed node with a validator
-      node.addDefaultValidator(len4Validator)
+      node.addValidator(len4Validator)
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       await sleepAsync(500.millis)
       check:

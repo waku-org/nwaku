@@ -125,7 +125,7 @@ type
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
     # seq of validators that are called for every pubsub topic
-    wakuDefaultValidators: seq[WakuValidatorHandler]
+    wakuValidators: seq[WakuValidatorHandler]
     # a map of validators to error messages to return when validation fails
     wakuValidatorsErrors: Table[WakuValidatorHandler, string]
     # a map that stores whether the ordered validator has been inserted
@@ -183,10 +183,10 @@ proc addValidatorErrorMessage*(w: WakuRelay,
                    msg: string) {.gcsafe.} =
   w.wakuValidatorsErrors[handler] = msg
 
-proc addDefaultValidator*(w: WakuRelay,
+proc addValidator*(w: WakuRelay,
                    handler: WakuValidatorHandler,
                    errorMessage: string = "") {.gcsafe.} =
-  w.wakuDefaultValidators.add(handler)
+  w.wakuValidators.add(handler)
   
   if errorMessage.len > 0:
     w.addValidatorErrorMessage(handler, errorMessage)
@@ -218,7 +218,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     let msg = msgRes.get()
 
     # now sequentially validate the message
-    for validator in w.wakuDefaultValidators:
+    for validator in w.wakuValidators:
       let validatorRes = await validator(pubsubTopic, msg)
       if validatorRes != ValidationResult.Accept:
         return validatorRes
@@ -228,7 +228,7 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
 proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
   Future[Result[void, string]] {.async.} =
     
-    for validator in w.wakuDefaultValidators:
+    for validator in w.wakuValidators:
         let validatorRes = await validator(pubsubTopic, msg)
         if validatorRes != ValidationResult.Accept:
           if w.wakuValidatorsErrors.hasKey(validator):
@@ -253,13 +253,13 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
       else:
         return handler(pubsubTopic, decMsg.get())
 
-   # Add the ordered validator to the topic
+  # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
   # Otherwise this might lead to unintended behaviour.
   if not w.validatorInserted.hasKey(pubSubTopic):
     procCall GossipSub(w).addValidator(pubSubTopic, w.generateOrderedValidator())
     w.validatorInserted[pubSubTopic] = true
-  
+
   # set this topic parameters for scoring
   w.topicParams[pubsubTopic] = TopicParameters
 

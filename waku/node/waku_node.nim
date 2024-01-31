@@ -409,7 +409,7 @@ proc mountRelay*(node: WakuNode,
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  node.wakuRelay.addDefaultValidator(messageSizeValidator,
+  node.wakuRelay.addValidator(messageSizeValidator,
     fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}")
   
   info "relay mounted successfully"
@@ -1001,7 +1001,7 @@ proc mountRlnRelay*(node: WakuNode,
 
   # register rln validator as default validator
   debug "Registering RLN validator"
-  node.wakuRelay.addDefaultValidator(validator, "RLN validation failed")
+  node.wakuRelay.addValidator(validator, "RLN validation failed")
   
   node.wakuRlnRelay = rlnRelay
 
