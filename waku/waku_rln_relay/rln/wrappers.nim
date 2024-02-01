@@ -162,11 +162,7 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
 when defined(rln_v2):
   # TODO: collocate this proc with the definition of the RateLimitProof
   # and the ProofMetadata types
-  proc extractMetadata*(proof: ExtendedRateLimitProof): RlnRelayResult[ProofMetadata] =
-    let externalNullifierRes = poseidon(@[@(proof.epoch),
-                                          @(proof.rlnIdentifier)])
-    if externalNullifierRes.isErr():
-      return err("could not construct the external nullifier")
+  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
     return ok(ProofMetadata(
       nullifier: proof.nullifier,
       shareX: proof.shareX,
@@ -188,12 +184,12 @@ else:
 
 when defined(rln_v2):
   proc proofGen*(rlnInstance: ptr RLN, 
-                data: openArray[byte],
-                membership: IdentityCredential,
-                userMessageLimit: UserMessageLimit,
-                messageId: MessageId,
-                index: MembershipIndex,
-                epoch: Epoch): RateLimitProofResult =
+                 data: openArray[byte],
+                 membership: IdentityCredential,
+                 userMessageLimit: UserMessageLimit,
+                 messageId: MessageId,
+                 index: MembershipIndex,
+                 epoch: Epoch): RateLimitProofResult =
 
     # obtain the external nullifier
     let externalNullifierRes = poseidon(@[@(epoch),

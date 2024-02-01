@@ -138,9 +138,9 @@ template slideRootQueue*(g: GroupManager): untyped =
 when defined(rln_v2):
   method verifyProof*(g: GroupManager,
                       input: openArray[byte],
-                      proof: ExtendedRateLimitProof): GroupManagerResult[bool] {.base,gcsafe,raises:[].} =
+                      proof: RateLimitProof): GroupManagerResult[bool] {.base,gcsafe,raises:[].} =
     ## verifies the proof against the input and the current merkle root
-    ## TODO: verify the external nullifier with provided ExtendedRateLimitProof
+    ## TODO: verify the external nullifier with provided RateLimitProof
     let proofVerifyRes = g.rlnInstance.proofVerify(input, RateLimitProof(proof), g.validRoots.items().toSeq())
     if proofVerifyRes.isErr():
       return err("proof verification failed: " & $proofVerifyRes.error())
