@@ -13,6 +13,7 @@ import
   libp2p/multihash,
   secp256k1
 import
+  ../../apps/wakunode2/external_config,
   ../../apps/wakunode2/wakunode2_validator_signed,
   ../../waku/waku_core,
   ../../waku/node/peer_manager,
@@ -42,8 +43,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
     for i in 0..<5:
@@ -114,8 +117,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
     for i in 0..<5:
@@ -232,8 +237,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # nodes[0] is connected only to nodes[1]
     let connOk1 = await nodes[0].peerManager.connectRelay(nodes[1].switch.peerInfo.toRemotePeerInfo())

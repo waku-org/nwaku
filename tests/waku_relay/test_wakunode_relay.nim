@@ -163,7 +163,7 @@ suite "WakuNode - Relay":
       completionFutValidatorAcc.complete(true)
       return ValidationResult.Accept
 
-    node2.wakuRelay.addValidator(pubSubTopic, validator)
+    node2.wakuRelay.addValidator(validator)
 
     var completionFut = newFuture[bool]()
     proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =

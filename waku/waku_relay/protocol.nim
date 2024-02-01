@@ -8,6 +8,7 @@ else:
   {.push raises: [].}
 
 import
+  std/strformat,
   stew/results,
   sequtils,
   chronos,
@@ -124,14 +125,11 @@ type
   WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
-    # a map of PubsubTopic's => seq[WakuValidatorHandler] that are
-    # called in order every time a message is received on a given pubsub topic
-    wakuValidators: Table[PubsubTopic, seq[WakuValidatorHandler]]
-    # a map that stores whether the ordered validator has been inserted
-    # for a given PubsubTopic
+    # seq of tuples: the first entry in the tuple contains the validators are called for every topic
+    # the second entry contains the error messages to be returned when the validator fails
+    wakuValidators: seq[tuple[handler: WakuValidatorHandler, errorMessage: string]]
+    # a map of validators to error messages to return when validation fails
     validatorInserted: Table[PubsubTopic, bool]
-    # seq of validators that are called for every pubsub topic
-    wakuDefaultValidators: seq[WakuValidatorHandler]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -180,14 +178,9 @@ proc new*(T: type WakuRelay,
   return ok(w)
 
 proc addValidator*(w: WakuRelay,
-                   topic: varargs[string],
-                   handler: WakuValidatorHandler) {.gcsafe.} =
-  for t in topic:
-    w.wakuValidators.mgetOrPut(t, @[]).add(handler)
-
-proc addDefaultValidator*(w: WakuRelay,
-                   handler: WakuValidatorHandler) {.gcsafe.} =
-  w.wakuDefaultValidators.add(handler)
+                   handler: WakuValidatorHandler,
+                   errorMessage: string = "") {.gcsafe.} =
+  w.wakuValidators.add((handler, errorMessage))
 
 method start*(w: WakuRelay) {.async.} =
   debug "start"
@@ -216,19 +209,38 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     let msg = msgRes.get()
 
     # now sequentially validate the message
-    for validator in w.wakuDefaultValidators:
+    for (validator, _) in w.wakuValidators:
       let validatorRes = await validator(pubsubTopic, msg)
       if validatorRes != ValidationResult.Accept:
         return validatorRes
-
-    if w.wakuValidators.hasKey(pubsubTopic):
-      for validator in w.wakuValidators[pubsubTopic]:
-        let validatorRes = await validator(pubsubTopic, msg)
-        if validatorRes != ValidationResult.Accept:
-          return validatorRes
     return ValidationResult.Accept
   return wrappedValidator
 
+proc isValidSize(message: WakuMessage): Future[Result[void, string]] {.async.} =
+  let messageSizeBytes = uint64(message.encode().buffer.len)
+
+  if(messageSizeBytes > MaxWakuMessageSize):
+      let message = fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      debug "Invalid Waku Message", error=message
+      return err(message)
+    
+  return ok()
+
+proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
+  Future[Result[void, string]] {.async.} =
+
+    (await msg.isValidSize()).isOkOr:
+      return err(error)
+
+    for (validator, message) in w.wakuValidators:
+        let validatorRes = await validator(pubsubTopic, msg)
+        if validatorRes != ValidationResult.Accept:
+            if message.len > 0:
+              return err(message)
+            else:
+              return err("Validator failed")
+    return ok()
+  
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 
