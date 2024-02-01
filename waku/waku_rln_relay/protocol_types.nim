@@ -38,7 +38,7 @@ when defined(rln_v2):
     ExternalNullifier* = array[32, byte]
 
 # Custom data types defined for waku rln relay -------------------------
-type RateLimitProof* = 
+type RateLimitProof* = object
   ## RateLimitProof holds the public inputs to rln circuit as
   ## defined in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Public-Inputs
   ## the `proof` field carries the actual zkSNARK proof
