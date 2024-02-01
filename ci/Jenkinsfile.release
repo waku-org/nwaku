@@ -44,7 +44,6 @@ pipeline {
         '-d:disableMarchNative',
         '-d:chronicles_colors:none',
         '-d:insecure',
-        '-d:postgres',
       ].join(' ')
     )
     choice(
@@ -66,7 +65,7 @@ pipeline {
           "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
           "--label=commit='${env.GIT_COMMIT.take(8)}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
-          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
+          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' -d:postgres " +
           "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
           "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
