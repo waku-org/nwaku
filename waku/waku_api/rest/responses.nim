@@ -33,6 +33,9 @@ proc preconditionFailed*(
 ): RestApiResponse =
   RestApiResponse.error(Http412, msg, $MIMETYPE_TEXT)
 
+proc tooManyRequests*(t: typedesc[RestApiResponse], msg: string = ""): RestApiResponse =
+  RestApiResponse.error(Http429, msg, $MIMETYPE_TEXT)
+
 proc jsonResponse*(
     t: typedesc[RestApiResponse], data: auto, status: HttpCode = Http200
 ): SerdesResult[RestApiResponse] =
