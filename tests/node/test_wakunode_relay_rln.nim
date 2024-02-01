@@ -5,16 +5,9 @@ import
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
-import
-  ../../../waku/waku_core,
-  ../../../waku/waku_node,
-  ../../../waku/waku_rln_relay,
-  ../testlib/wakucore,
-  ../testlib/wakunode
 
 from std/times import epochTime
 
@@ -23,14 +16,12 @@ import
     node/waku_node,
     node/peer_manager,
     waku_core,
-    waku_store,
-    waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite
+    waku_node,
+    waku_rln_relay,
   ],
-  ../../../waku/waku_rln_relay,
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, testutils, futures],
+  ../testlib/[wakucore, wakunode, testasync, futures],
   ../resources/payloads
 
 proc setupRln(node: WakuNode, identifier: uint) {.async.} =
@@ -193,9 +184,11 @@ suite "Waku RlnRelay - End to End":
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
 
+      # await sleepAsync(FUTURE_TIMEOUT)
       # And the node registers the completion handler
       var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
+      await sleepAsync(FUTURE_TIMEOUT)
       # When the client sends a valid RLN message
       let
         isCompleted1 =
