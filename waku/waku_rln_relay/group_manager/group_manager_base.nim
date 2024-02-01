@@ -135,14 +135,26 @@ template slideRootQueue*(g: GroupManager): untyped =
       discard rootBuffer.slideRootQueue(root)
   rootBuffer
 
-method verifyProof*(g: GroupManager,
+when defined(rln_v2):
+  method verifyProof*(g: GroupManager,
+                      input: openArray[byte],
+                      proof: RateLimitProof): GroupManagerResult[bool] {.base,gcsafe,raises:[].} =
+    ## verifies the proof against the input and the current merkle root
+    ## TODO: verify the external nullifier with provided RateLimitProof
+    let proofVerifyRes = g.rlnInstance.proofVerify(input, RateLimitProof(proof), g.validRoots.items().toSeq())
+    if proofVerifyRes.isErr():
+      return err("proof verification failed: " & $proofVerifyRes.error())
+    return ok(proofVerifyRes.value())
+else:
+  method verifyProof*(g: GroupManager,
                     input: openArray[byte],
                     proof: RateLimitProof): GroupManagerResult[bool] {.base,gcsafe,raises:[].} =
-  ## verifies the proof against the input and the current merkle root
-  let proofVerifyRes = g.rlnInstance.proofVerify(input, proof, g.validRoots.items().toSeq())
-  if proofVerifyRes.isErr():
-    return err("proof verification failed: " & $proofVerifyRes.error())
-  return ok(proofVerifyRes.value())
+    ## verifies the proof against the input and the current merkle root
+    let proofVerifyRes = g.rlnInstance.proofVerify(input, proof, g.validRoots.items().toSeq())
+    if proofVerifyRes.isErr():
+      return err("proof verification failed: " & $proofVerifyRes.error())
+    return ok(proofVerifyRes.value())
+
 
 method generateProof*(g: GroupManager,
                       data: openArray[byte],
