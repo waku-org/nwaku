@@ -214,7 +214,7 @@ suite "Waku Lightpush Client":
       # And the message is received with the correct topic and payload
       check (pubsubTopic, message9) == handlerFuture.read()
 
-    xasyncTest "Valid Paylod Sizes":
+    asyncTest "Valid Payload Sizes":
       # Given some valid payloads
       let
         message1 =
