@@ -160,6 +160,12 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   return ok(output)
 
 when defined(rln_v2):
+  func toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[MerkleNode] {.inline.} =
+    let idCommitment = rateCommitment.idCommitment
+    let userMessageLimit = rateCommitment.userMessageLimit
+    let leafRes = poseidon(@[@idCommitment, cast[seq[byte]](userMessageLimit)])
+    return leafRes
+
   # TODO: collocate this proc with the definition of the RateLimitProof
   # and the ProofMetadata types
   proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
@@ -167,7 +173,7 @@ when defined(rln_v2):
       nullifier: proof.nullifier,
       shareX: proof.shareX,
       shareY: proof.shareY,
-      externalNullifier: externalNullifierRes.get()
+      externalNullifier: proof.externalNullifier
     ))
 else:
   proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
@@ -189,22 +195,23 @@ when defined(rln_v2):
                  userMessageLimit: UserMessageLimit,
                  messageId: MessageId,
                  index: MembershipIndex,
-                 epoch: Epoch): RateLimitProofResult =
+                 epoch: Epoch,
+                 rlnIdentifier = DefaultRlnIdentifier): RateLimitProofResult =
 
     # obtain the external nullifier
     let externalNullifierRes = poseidon(@[@(epoch),
-                                          @(DefaultRlnIdentifier)])
+                                          @(rlnIdentifier)])
 
     if externalNullifierRes.isErr():
       return err("could not construct the external nullifier")
 
     # serialize inputs
     let serializedInputs = serialize(idSecretHash = membership.idSecretHash,
-                                    memIndex = index,
-                                    userMessageLimit = userMessageLimit,
-                                    messageId = messageId,
-                                    externalNullifier = externalNullifierRes.get(),
-                                    msg = data)
+                                     memIndex = index,
+                                     userMessageLimit = userMessageLimit,
+                                     messageId = messageId,
+                                     externalNullifier = externalNullifierRes.get(),
+                                     msg = data)
     var inputBuffer = toBuffer(serializedInputs)
 
     debug "input buffer ", inputBuffer= repr(inputBuffer)
