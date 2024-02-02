@@ -13,8 +13,10 @@ import
     waku_core,
     waku_lightpush,
     waku_lightpush/client,
+    waku_lightpush/common,
     waku_lightpush/protocol_metrics,
-    waku_lightpush/rpc
+    waku_lightpush/rpc,
+    waku_lightpush/rpc_codec
   ],
   ../testlib/[wakucore, testasync, futures, testutils],
   ./lightpush_utils,
@@ -217,6 +219,7 @@ suite "Waku Lightpush Client":
     asyncTest "Valid Payload Sizes":
       # Given some valid payloads
       let
+        overheadBytes: uint64 = 112
         message1 =
           fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(1024))
           # 1KiB
@@ -231,13 +234,13 @@ suite "Waku Lightpush Client":
         message4 =
           fakeWakuMessage(
             contentTopic = contentTopic,
-            payload = getByteSequence(1 * 1024 * 1024 + 63 * 1024 + 911),
-          ) # 1113999B -> Max Size (Inclusive Limit)
+            payload = getByteSequence(MaxRpcSize - overheadBytes - 1),
+          ) # Inclusive Limit
         message5 =
           fakeWakuMessage(
             contentTopic = contentTopic,
-            payload = getByteSequence(1 * 1024 * 1024 + 63 * 1024 + 912),
-          ) # 1114000B -> Max Size (Exclusive Limit)
+            payload = getByteSequence(MaxRpcSize - overheadBytes),
+          ) # Exclusive Limit
 
       # When publishing the 1KiB payload
       let
