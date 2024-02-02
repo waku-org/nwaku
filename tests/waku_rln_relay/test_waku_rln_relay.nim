@@ -16,10 +16,8 @@ import
   ../../../waku/waku_rln_relay/rln,
   ../../../waku/waku_rln_relay/protocol_metrics,
   ../../../waku/waku_keystore,
-  ../testlib/common
-
-proc createRLNInstanceWrapper(): RLNResult =
-  return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
+  ../testlib/common,
+  ./rln/waku_rln_relay_utils
 
 suite "Waku rln relay":
 
