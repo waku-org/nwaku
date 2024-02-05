@@ -1,20 +1,13 @@
-{.used.}  
+{.used.}
 
 import
-  std/[
-    options, 
-    tables, 
-    sequtils
-  ],
+  std/[options, tables, sequtils],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,
   os,
-  libp2p/[
-    peerstore, 
-    crypto/crypto
-  ]
+  libp2p/[peerstore, crypto/crypto]
 
 import
   ../../../waku/[
@@ -30,14 +23,7 @@ import
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc
   ],
-  ../testlib/[
-    common,
-    wakucore,
-    wakunode,
-    testasync,
-    futures,
-    testutils
-  ]
+  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
 
 suite "Waku Lightpush - End To End":
   var
@@ -51,17 +37,20 @@ suite "Waku Lightpush - End To End":
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
-    
+
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
-    handler = proc(peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage): Future[WakuLightPushResult[void]] {.async.} =
-      handlerFuture.complete((pubsubTopic, message))
-      return ok()
+    handler =
+      proc(
+        peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+      ): Future[WakuLightPushResult[void]] {.async.} =
+          handlerFuture.complete((pubsubTopic, message))
+          return ok()
 
     let
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
-  
+
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
@@ -83,15 +72,22 @@ suite "Waku Lightpush - End To End":
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
       # Given a light lightpush client
-      let lightpushClient = newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      let
+        lightpushClient =
+          newTestWakuNode(
+            generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)
+          )
       lightpushClient.mountLightpushClient()
 
       # When the client publishes a message
-      let publishResponse = await lightpushClient.lightpushPublish(some(pubsubTopic), message, serverRemotePeerInfo)
+      let
+        publishResponse =
+          await lightpushClient.lightpushPublish(
+            some(pubsubTopic), message, serverRemotePeerInfo
+          )
 
       if not publishResponse.isOk():
         echo "Publish failed: ", publishResponse.error()
 
       # Then the message is relayed to the server
-      check:
-        publishResponse.isOk()
+      assertResultOk publishResponse

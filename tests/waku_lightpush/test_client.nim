@@ -18,7 +18,7 @@ import
     waku_lightpush/rpc,
     waku_lightpush/rpc_codec
   ],
-  ../testlib/[wakucore, testasync, futures, testutils],
+  ../testlib/[assertions, wakucore, testasync, futures, testutils],
   ./lightpush_utils,
   ../resources/[pubsub_topics, content_topics, payloads]
 
@@ -83,9 +83,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsubTopic, message) == handlerFuture.read()
@@ -98,9 +97,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse2.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse2
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.CURRENT, message2) == handlerFuture.read()
@@ -115,9 +113,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse3.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse3
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.CURRENT_NESTED, message3) == handlerFuture.read()
@@ -130,9 +127,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse4.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse4
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.SHARDING, message4) == handlerFuture.read()
@@ -145,9 +141,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse5.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse5
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.PLAIN, message5) == handlerFuture.read()
@@ -160,9 +155,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse6.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse6
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY, message6) == handlerFuture.read()
@@ -177,9 +171,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse7.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse7
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY_NESTED, message7) == handlerFuture.read()
@@ -194,9 +187,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse8.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse8
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsub_topics.LEGACY_ENCODING, message8) == handlerFuture.read()
@@ -209,9 +201,8 @@ suite "Waku Lightpush Client":
 
       # Then the message is received by the server
       discard await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-      check:
-        publishResponse9.isOk()
-        handlerFuture.finished()
+      assertResultOk publishResponse9
+      check handlerFuture.finished()
 
       # And the message is received with the correct topic and payload
       check (pubsubTopic, message9) == handlerFuture.read()
@@ -248,9 +239,8 @@ suite "Waku Lightpush Client":
           await client.publish(pubsubTopic, message1, serverRemotePeerInfo)
 
       # Then the message is received by the server
-      check:
-        publishResponse1.isOk()
-        (pubsubTopic, message1) == (await handlerFuture.waitForResult()).value()
+      assertResultOk publishResponse1
+      check (pubsubTopic, message1) == (await handlerFuture.waitForResult()).value()
 
       # When publishing the 10KiB payload
       handlerFuture = newPushHandlerFuture()
@@ -259,9 +249,8 @@ suite "Waku Lightpush Client":
           await client.publish(pubsubTopic, message2, serverRemotePeerInfo)
 
       # Then the message is received by the server
-      check:
-        publishResponse2.isOk()
-        (pubsubTopic, message2) == (await handlerFuture.waitForResult()).value()
+      assertResultOk publishResponse2
+      check (pubsubTopic, message2) == (await handlerFuture.waitForResult()).value()
 
       # When publishing the 100KiB payload
       handlerFuture = newPushHandlerFuture()
@@ -270,9 +259,8 @@ suite "Waku Lightpush Client":
           await client.publish(pubsubTopic, message3, serverRemotePeerInfo)
 
       # Then the message is received by the server
-      check:
-        publishResponse3.isOk()
-        (pubsubTopic, message3) == (await handlerFuture.waitForResult()).value()
+      assertResultOk publishResponse3
+      check (pubsubTopic, message3) == (await handlerFuture.waitForResult()).value()
 
       # When publishing the 1MiB + 63KiB + 911B payload (1113999B)
       handlerFuture = newPushHandlerFuture()
@@ -281,9 +269,8 @@ suite "Waku Lightpush Client":
           await client.publish(pubsubTopic, message4, serverRemotePeerInfo)
 
       # Then the message is received by the server
-      check:
-        publishResponse4.isOk()
-        (pubsubTopic, message4) == (await handlerFuture.waitForResult()).value()
+      assertResultOk publishResponse4
+      check (pubsubTopic, message4) == (await handlerFuture.waitForResult()).value()
 
       # When publishing the 1MiB + 63KiB + 912B payload (1114000B)
       handlerFuture = newPushHandlerFuture()
@@ -341,7 +328,7 @@ suite "Waku Lightpush Client":
 
       # Then the response is negative
       check:
-        handlerError == publishResponse.error()
+        publishResponse.error() == handlerError
         (await handlerFuture2.waitForResult()).isOk()
 
       # Cleanup
@@ -355,7 +342,7 @@ suite "Waku Lightpush Client":
           await client.publish(pubsubTopic, message, serverRemotePeerInfo)
 
       # Then the response is positive
-      check publishResponse.isOk()
+      assertResultOk publishResponse
 
     # TODO: Improve: Add more negative responses variations
     asyncTest "Negative Responses":

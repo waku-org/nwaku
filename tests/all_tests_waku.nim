@@ -8,7 +8,6 @@ import
   ./waku_core/test_peers,
   ./waku_core/test_published_address
 
-
 # Waku archive test suite
 import
   ./waku_archive/test_driver_queue_index,
@@ -22,12 +21,11 @@ import
 
 const os* {.strdefine.} = ""
 when os == "Linux" and
-  # GitHub only supports container actions on Linux
-  # and we need to start a postgress database in a docker container
-  defined(postgres):
+# GitHub only supports container actions on Linux
+# and we need to start a postgress database in a docker container
+defined(postgres):
   import
-    ./waku_archive/test_driver_postgres_query,
-    ./waku_archive/test_driver_postgres
+    ./waku_archive/test_driver_postgres_query, ./waku_archive/test_driver_postgres
 
 # Waku store test suite
 import
@@ -40,12 +38,7 @@ when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)
   import ./waku_store/test_resume
 
-
-import 
-  ./waku_relay/test_all,
-  ./waku_filter_v2/test_all,
-  ./waku_lightpush/test_all
-
+import ./waku_relay/test_all, ./waku_filter_v2/test_all, ./waku_lightpush/test_all
 
 import
   # Waku v2 tests
@@ -71,9 +64,7 @@ import
   ./test_waku_rendezvous
 
 # Waku Keystore test suite
-import
-  ./test_waku_keystore_keyfile,
-  ./test_waku_keystore
+import ./test_waku_keystore_keyfile, ./test_waku_keystore
 
 ## Wakunode JSON-RPC API test suite
 import
