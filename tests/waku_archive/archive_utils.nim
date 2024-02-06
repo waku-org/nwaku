@@ -40,7 +40,8 @@ proc put*(
     let
       msgDigest = waku_archive.computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
-    discard waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+      _ = waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+          # discard crashes
   return driver
 
 proc newArchiveDriverWithMessages*(
