@@ -37,6 +37,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_sync,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -97,6 +98,7 @@ type
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
+    wakuSync*: WakuSync
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -181,6 +183,22 @@ proc connectToNodes*(node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], s
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source=source)
+
+## Waku Sync
+
+proc mountWakuSync*(node: WakuNode): Result[void, string] =
+  if not node.wakuSync.isNil():
+    return err("Waku sync already mounted, skipping")
+
+  let sync = WakuSync.new()
+
+  node.wakuSync = sync
+
+  let catchRes = catch: node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))
+  if catchRes.isErr():
+    return err(catchRes.error.msg)
+
+  return ok()
 
 ## Waku Metadata
 
