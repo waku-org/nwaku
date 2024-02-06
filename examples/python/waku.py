@@ -19,8 +19,8 @@ contains the 'libwaku.so' library.
 """)
     exit(-1)
 
-def handle_event(event):
-    print("Event received: {}".format(event))
+def handle_event(ret, msg, user_data):
+    print("Event received: %s" % msg)
 
 def call_waku(func):
     ret = func()
@@ -55,57 +55,93 @@ json_config = "{ \
                   args.key,
                   "true" if args.relay else "false")
 
-callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p, ctypes.c_size_t)
+callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t)
+
+# Node creation
+libwaku.waku_new.restype = ctypes.c_void_p
+libwaku.waku_new.argtypes = [ctypes.c_char_p,
+                             callback_type,
+                             ctypes.c_void_p]
+
+ctx = libwaku.waku_new(bytes(json_config, 'utf-8'),
+                       callback_type(
+                           #onErrCb
+                           lambda ret, msg, len:
+                             print("Error calling waku_new: %s",
+                                   msg.decode('utf-8'))
+                           ),
+                           ctypes.c_void_p(0))
 
 # Retrieve the current version of the library
-libwaku.waku_version(callback_type(lambda msg, len:
+libwaku.waku_version.argtypes = [ctypes.c_void_p,
+                                 callback_type,
+                                 ctypes.c_void_p]
+libwaku.waku_version(ctx,
+                     callback_type(lambda ret, msg, len:
                                   print("Git Version: %s" %
-                                        msg.decode('utf-8'))))
+                                        msg.decode('utf-8'))),
+                     ctypes.c_void_p(0))
+
 # Retrieve the default pubsub topic
 default_pubsub_topic = ""
-libwaku.waku_default_pubsub_topic(callback_type(
-    lambda msg, len: (
-        globals().update(default_pubsub_topic = msg.decode('utf-8')),
-        print("Default pubsub topic: %s" % msg.decode('utf-8')))
-))
+libwaku.waku_default_pubsub_topic.argtypes = [ctypes.c_void_p,
+                                 callback_type,
+                                 ctypes.c_void_p]
+libwaku.waku_default_pubsub_topic(ctx,
+                                  callback_type(
+                                        lambda ret, msg, len: (
+                                            globals().update(default_pubsub_topic = msg.decode('utf-8')),
+                                            print("Default pubsub topic: %s" % msg.decode('utf-8')))
+                                  ),
+                                  ctypes.c_void_p(0))
 
 print("Bind addr: {}:{}".format(args.host, args.port))
 print("Waku Relay enabled: {}".format(args.relay))
 
-# Node creation
-libwaku.waku_new.argtypes = [ctypes.c_char_p,
-                             callback_type]
-
-libwaku.waku_new(bytes(json_config, 'utf-8'),
-                       callback_type(
-                           #onErrCb
-                           lambda msg, len:
-                           print("Error calling waku_new: %s",
-                                 msg.decode('utf-8'))
-                           ))
-# Start the node
-libwaku.waku_start()
-
 # Set the event callback
-callback_type = ctypes.CFUNCTYPE(None, ctypes.c_char_p)
-callback = callback_type(handle_event)
-libwaku.waku_set_event_callback(callback)
+callback = callback_type(handle_event) # This line is important so that the callback is not gc'ed
+
+libwaku.waku_set_event_callback.argtypes = [callback_type, ctypes.c_void_p]
+libwaku.waku_set_event_callback(callback, ctypes.c_void_p(0))
+
+# Start the node
+libwaku.waku_start.argtypes = [ctypes.c_void_p,
+                               callback_type,
+                               ctypes.c_void_p]
+libwaku.waku_start(ctx,
+                   callback_type(lambda ret, msg, len:
+                                  print("Error in waku_start: %s" %
+                                        msg.decode('utf-8'))),
+                   ctypes.c_void_p(0))
 
 # Subscribe to the default pubsub topic
-libwaku.waku_relay_subscribe(default_pubsub_topic.encode('utf-8'),
-                                    callback_type(
-                                        #onErrCb
-                                        lambda msg, len:
-                                        print("Error calling waku_new: %s",
+libwaku.waku_relay_subscribe.argtypes = [ctypes.c_void_p,
+                                         ctypes.c_char_p,
+                                         callback_type,
+                                         ctypes.c_void_p]
+libwaku.waku_relay_subscribe(ctx,
+                             default_pubsub_topic.encode('utf-8'),
+                             callback_type(
+                                    #onErrCb
+                                    lambda ret, msg, len:
+                                        print("Error calling waku_relay_subscribe: %s" %
                                                 msg.decode('utf-8'))
-                                        ))
+                             ),
+                             ctypes.c_void_p(0))
 
-libwaku.waku_connect(args.peer.encode('utf-8'),
+libwaku.waku_connect.argtypes = [ctypes.c_void_p,
+                                 ctypes.c_char_p,
+                                 ctypes.c_int,
+                                 callback_type,
+                                 ctypes.c_void_p]
+libwaku.waku_connect(ctx,
+                     args.peer.encode('utf-8'),
                      10000,
-                     callback_type(
                      # onErrCb
-                     lambda msg, len:
-                     print("Error calling waku_new: %s", msg.decode('utf-8'))))
+                     callback_type(
+                         lambda ret, msg, len:
+                           print("Error calling waku_connect: %s" % msg.decode('utf-8'))),
+                     ctypes.c_void_p(0))
 
 # app = Flask(__name__)
 # @app.route("/")
