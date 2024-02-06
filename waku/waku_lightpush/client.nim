@@ -45,7 +45,12 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
   let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: some(req))
   await connection.writeLP(rpc.encode().buffer)
 
-  var buffer = await connection.readLp(MaxRpcSize.int)
+  var buffer: seq[byte]
+  try:
+    buffer = await connection.readLp(MaxRpcSize.int)
+  except LPStreamRemoteClosedError:
+    return err("Exception reading: " & getCurrentExceptionMsg())
+
   let decodeRespRes = PushRPC.decode(buffer)
   if decodeRespRes.isErr():
     error "failed to decode response"
