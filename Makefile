@@ -37,10 +37,10 @@ endif
 ##########
 ## Main ##
 ##########
-.PHONY: all test update clean
+.PHONY: all test update clean negentropy
 
 # default target, because it's the first one that doesn't start with '.'
-all: | wakunode2 example2 chat2 chat2bridge libwaku
+all: | negentropy wakunode2 example2 chat2 chat2bridge libwaku
 
 test: | testcommon testwaku
 
@@ -51,7 +51,7 @@ update: | update-common
 	rm -rf waku.nims && \
 		$(MAKE) waku.nims $(HANDLE_OUTPUT)
 
-clean:
+clean: | negentropy-clean
 	rm -rf build
 
 # must be included after the default target
@@ -83,6 +83,9 @@ endif
 
 endif
 ## end of Heaptracker options
+
+## Pass libnegentropy to linker.
+NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
 
 ##################
 ## Dependencies ##
@@ -182,11 +185,11 @@ testcommon: | build deps
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
 # install anvil only for the testwaku target
-testwaku: | build deps anvil librln
+testwaku: | build deps anvil librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
-wakunode2: | build deps librln
+wakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
@@ -194,7 +197,7 @@ benchmarks: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim benchmarks $(NIM_PARAMS) waku.nims
 
-testwakunode2: | build deps librln
+testwakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) waku.nims
 
@@ -411,3 +414,9 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+negentropy:
+	$(MAKE) -C vendor/negentropy/cpp && \
+		cp vendor/negentropy/cpp/libnegentropy.so ./
+negentropy-clean:
+	$(MAKE) -C vendor/negentropy/cpp clean && \
+		rm libnegentropy.so
