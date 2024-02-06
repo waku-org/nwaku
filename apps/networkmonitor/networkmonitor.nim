@@ -27,6 +27,7 @@ import
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ../../waku/waku_dnsdisc,
+  ../../waku/waku_rln_relay,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
@@ -519,8 +520,31 @@ when isMainModule:
   waitFor node.mountRelay()
   waitFor node.mountLibp2pPing()
 
-  # Subscribe the node to the default pubsubtopic, to count messages
-  subscribeAndHandleMessages(node, DefaultPubsubTopic, msgPerContentTopic)
+  if conf.rlnRelayEthContractAddress != "":
+
+    let rlnConf = WakuRlnConfig(
+      rlnRelayDynamic: conf.rlnRelayDynamic,
+      rlnRelayCredIndex: conf.rlnRelayCredIndex,
+      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayCredPath: "",
+      rlnRelayCredPassword: "",
+      rlnRelayTreePath: conf.rlnRelayTreePath,
+    )
+
+    try:
+      waitFor node.mountRlnRelay(rlnConf)
+    except CatchableError:
+      error "failed to setup RLN", err=getCurrentExceptionMsg()
+      quit 1
+
+  node.mountMetadata(1).isOkOr:
+    error "failed to mount waku metadata protocol: ", err=error
+    quit 1
+
+  for pubsubTopic in conf.pubsubTopics:
+    # Subscribe the node to the default pubsubtopic, to count messages
+    subscribeAndHandleMessages(node, pubsubTopic, msgPerContentTopic)
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
