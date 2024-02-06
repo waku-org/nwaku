@@ -41,6 +41,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_sync,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -103,6 +104,7 @@ type
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
     wakuSharding*: Sharding
+    wakuSync*: WakuSync
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -193,6 +195,23 @@ proc connectToNodes*(
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
+## Waku Sync
+
+proc mountWakuSync*(node: WakuNode): Result[void, string] =
+  if not node.wakuSync.isNil():
+    return err("Waku sync already mounted, skipping")
+
+  let sync = WakuSync.new(node.peerManager) #TODO add the callback and the options
+
+  node.wakuSync = sync
+
+  let catchRes = catch:
+    node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))
+  if catchRes.isErr():
+    return err(catchRes.error.msg)
+
+  return ok()
+
 ## Waku Metadata
 
 proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
@@ -250,12 +269,19 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuArchive.handleMessage(topic, msg)
 
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) =
+    if node.wakuSync.isNil():
+      return
+
+    node.wakuSync.ingessMessage(topic, msg)
+
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
+    syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
