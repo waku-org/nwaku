@@ -1,8 +1,63 @@
+## v0.25.0 (2024-02-06)
+
+> **Note:**
+>  Waku Filter v2 now has three additional configuration option
+> `--filter-max-peers-to-serve=1000` drives how many peers can subscribe at once and
+> `--filter-max-criteria=1000` defines what is the maximum criterion stored per each peers
+>
+> This release introduce a major change in Filter v2 protool subscription management.
+> From now each subscriber peer is needed to refresh its living subscriptions by sending a SUBSCRIBER_PING message every 5 minutes by default, unless peer's subscription will be removed.
+> `--filter-subscription-timeout=300` defines configurable timeout for the subscriptions (*in seconds*).
+
+
+### Features
+
+- running validators in /relay/v1/auto/messages/{topic} ([#2394](https://github.com/waku-org/nwaku/issues/2394)) ([e4e147bc](https://github.com/waku-org/nwaku/commit/e4e147bc))
+- **rln-relay-v2:** update C FFI api's and serde ([#2385](https://github.com/waku-org/nwaku/issues/2385)) ([b88facd0](https://github.com/waku-org/nwaku/commit/b88facd0))
+- running validators in /relay/v1/messages/{pubsubTopic} ([#2373](https://github.com/waku-org/nwaku/issues/2373)) ([59d8b620](https://github.com/waku-org/nwaku/commit/59d8b620))
+- shard aware relay peer management ([#2332](https://github.com/waku-org/nwaku/issues/2332)) ([edca1df1](https://github.com/waku-org/nwaku/commit/edca1df1))
+
+### Bug Fixes
+
+- bug fix in ci/Jenkinsfile.release: make -d:postgres part of NIMFLAGS ([#2395](https://github.com/waku-org/nwaku/issues/2395)) ([55d1b078](https://github.com/waku-org/nwaku/commit/55d1b078))
+- adding rln validator as default ([#2367](https://github.com/waku-org/nwaku/issues/2367)) ([bb58a63a](https://github.com/waku-org/nwaku/commit/bb58a63a))
+- Fix test for filter client receiving messages after restart ([#2360](https://github.com/waku-org/nwaku/issues/2360)) ([7de91d92](https://github.com/waku-org/nwaku/commit/7de91d92))
+- making filter admin data test order independent ([#2355](https://github.com/waku-org/nwaku/issues/2355)) ([8a9fad29](https://github.com/waku-org/nwaku/commit/8a9fad29))
+
+### Changes
+
+- **rln-relay-v2:** use rln-v2 contract code ([#2381](https://github.com/waku-org/nwaku/issues/2381)) ([c55ca067](https://github.com/waku-org/nwaku/commit/c55ca067))
+- v0.25 vendor bump and associated fixes ([#2352](https://github.com/waku-org/nwaku/issues/2352)) ([761ce7b1](https://github.com/waku-org/nwaku/commit/761ce7b1))
+- handle errors w.r.t. configured cluster-id and pubsub topics ([#2368](https://github.com/waku-org/nwaku/issues/2368)) ([e04e35e2](https://github.com/waku-org/nwaku/commit/e04e35e2))
+- add coverage target to Makefile ([#2382](https://github.com/waku-org/nwaku/issues/2382)) ([57378873](https://github.com/waku-org/nwaku/commit/57378873))
+- Add check spell allowed words ([#2383](https://github.com/waku-org/nwaku/issues/2383)) ([c1121dd1](https://github.com/waku-org/nwaku/commit/c1121dd1))
+- adding nwaku compose image update to release process ([#2370](https://github.com/waku-org/nwaku/issues/2370)) ([4f06dcff](https://github.com/waku-org/nwaku/commit/4f06dcff))
+- changing digest and hash log format from bytes to hex ([#2363](https://github.com/waku-org/nwaku/issues/2363)) ([025c6ec9](https://github.com/waku-org/nwaku/commit/025c6ec9))
+- log messageHash for lightpush request that helps in debugging ([#2366](https://github.com/waku-org/nwaku/issues/2366)) ([42204115](https://github.com/waku-org/nwaku/commit/42204115))
+- **rln-relay:** remove websocket from OnchainGroupManager ([#2364](https://github.com/waku-org/nwaku/issues/2364)) ([efdc5244](https://github.com/waku-org/nwaku/commit/efdc5244))
+- improve POST /relay/v1/auto/messages/{topic} error handling ([#2339](https://github.com/waku-org/nwaku/issues/2339)) ([f841454e](https://github.com/waku-org/nwaku/commit/f841454e))
+- Refactor of FilterV2 subscription management with Time-to-live maintenance ([#2341](https://github.com/waku-org/nwaku/issues/2341)) ([c3358409](https://github.com/waku-org/nwaku/commit/c3358409))
+- Bump `nim-dnsdisc` ([#2354](https://github.com/waku-org/nwaku/issues/2354)) ([3d816c08](https://github.com/waku-org/nwaku/commit/3d816c08))
+- postgres-adoption.md add metadata title, description, and better first-readable-title ([#2346](https://github.com/waku-org/nwaku/issues/2346)) ([2f8e8bcb](https://github.com/waku-org/nwaku/commit/2f8e8bcb))
+- update CHANGELOG.md for v0.24.0 ([#2347](https://github.com/waku-org/nwaku/issues/2347)) ([988580e0](https://github.com/waku-org/nwaku/commit/988580e0))
+- fix typo ([#2348](https://github.com/waku-org/nwaku/issues/2348)) ([a4a8dee3](https://github.com/waku-org/nwaku/commit/a4a8dee3))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 ## v0.24.0 (2024-01-10)
 
 > Note: The Waku message size limit (150 KiB) is now enforced according to the specifications. To change this limit please use `--max-msg-size="1MiB"`
 
-> Note: `--ip-colocation-limit=2` is the new parameter for limiting connections from the same IP 
+> Note: `--ip-colocation-limit=2` is the new parameter for limiting connections from the same IP
 
 ## What's Changed
 
@@ -257,7 +312,7 @@ The Waku v1 implementation has been removed from this repository and can be foun
 
 This patch release addresses the following issues:
 - WSS connections being suddenly terminated under rare conditions
-- Ability for the user to control announced multiaddresses 
+- Ability for the user to control announced multiaddresses
 
 ### Changes
 
