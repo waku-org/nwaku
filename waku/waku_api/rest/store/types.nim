@@ -159,6 +159,7 @@ proc readValue*(reader: var JsonReader,
     version = none(uint32)
     timestamp = none(Timestamp)
     ephemeral = none(bool)
+    meta = none(Base64String)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -179,6 +180,8 @@ proc readValue*(reader: var JsonReader,
       timestamp = some(reader.readValue(Timestamp))
     of "ephemeral":
       ephemeral = some(reader.readValue(bool))
+    of "meta":
+      meta = some(reader.readValue(Base64String))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 

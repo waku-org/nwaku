@@ -59,7 +59,8 @@ proc toFilterWakuMessage*(msg: WakuMessage): FilterWakuMessage =
     payload: base64.encode(msg.payload),
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
-    timestamp: some(msg.timestamp)
+    timestamp: some(msg.timestamp),
+    meta: some(base64.encode(msg.meta)),
   )
 
 proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -138,6 +139,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
     contentTopic = none(ContentTopic)
     version = none(Natural)
     timestamp = none(int64)
+    meta = none(Base64String)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -156,6 +158,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
       version = some(reader.readValue(Natural))
     of "timestamp":
       timestamp = some(reader.readValue(int64))
+    of "meta":
+      meta = some(reader.readValue(Base64String))
     else:
       unrecognizedFieldWarning()
 
