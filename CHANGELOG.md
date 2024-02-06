@@ -1,7 +1,7 @@
 ## v0.25.0 (2024-02-06)
 
 > **Note:**
->  Waku Filter v2 now has three additional configuration option
+>  Waku Filter v2 now has three additional configuration options
 > `--filter-max-peers-to-serve=1000` drives how many peers can subscribe at once and
 > `--filter-max-criteria=1000` defines what is the maximum criterion stored per each peers
 >
