@@ -22,6 +22,7 @@ type FilterWakuMessage* = object
       contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
+      meta*: Option[Base64String]
 
 type FilterGetMessagesResponse* = seq[FilterWakuMessage]
 
@@ -67,8 +68,9 @@ proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, st
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
     timestamp = msg.timestamp.get(0)
+    meta = ?msg.meta.get(Base64String("")).decode()
 
-  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
+  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp, meta: meta))
 
 #### Serialization and deserialization
 

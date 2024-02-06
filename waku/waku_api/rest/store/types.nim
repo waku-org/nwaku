@@ -99,7 +99,7 @@ proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
       version: message.version.get(),
       timestamp: message.timestamp.get(),
       ephemeral: message.ephemeral.get(),
-      meta: base64.decode(message.meta.get()).get()
+      meta: message.meta.get(Base64String("")).decode().get()
     )
 
 # Converts a 'HistoryResponse' object to an 'StoreResponseRest'
