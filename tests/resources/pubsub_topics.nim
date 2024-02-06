@@ -1,5 +1,7 @@
+import std/strformat
+
 proc getPubsubTopic*(pubsubTopicName: string): string =
-  return "/waku/2/$pubsubTopicName"
+  return fmt"/waku/2/{pubsubTopicName}"
 
 
 const
