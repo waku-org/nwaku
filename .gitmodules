@@ -169,3 +169,8 @@
 	url = https://github.com/nim-lang/db_connector.git
 	ignore = untracked
 	branch = master
+[submodule "vendor/negentropy"]
+	ignore = untracked
+	path = vendor/negentropy
+	url = https://github.com/waku-org/negentropy.git
+	branch = master
