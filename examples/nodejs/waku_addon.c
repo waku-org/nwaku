@@ -234,7 +234,7 @@ static napi_value WakuVersion(napi_env env, napi_callback_info info) {
 
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_version_callback));
 
-  WAKU_CALL( waku_version(&ctx, handle_waku_version, userData) );
+  WAKU_CALL( waku_version(ctx, handle_waku_version, userData) );
 
   return NULL;
 }
@@ -290,7 +290,7 @@ static napi_value WakuSetEventCallback(napi_env env, napi_callback_info info) {
 }
 
 static napi_value WakuStart(napi_env env, napi_callback_info info) {
-  waku_start(&ctx, event_handler, userData);
+  waku_start(ctx, event_handler, userData);
   return NULL;
 }
 
@@ -347,7 +347,7 @@ static napi_value WakuConnect(napi_env env, napi_callback_info info) {
   my_env = env;
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
-  WAKU_CALL(waku_connect(&ctx, peers, timeoutMs, handle_error, userData));
+  WAKU_CALL(waku_connect(ctx, peers, timeoutMs, handle_error, userData));
 
   // Free allocated memory
   free(peers);
@@ -418,7 +418,7 @@ static napi_value WakuRelayPublish(napi_env env, napi_callback_info info) {
   char *msgPayload = b64_encode((unsigned char*) msg, strlen(msg));
 
   // TODO: move all the 'waku_content_topic' logic inside the libwaku
-  WAKU_CALL( waku_content_topic(&ctx,
+  WAKU_CALL( waku_content_topic(ctx,
                                 "appName",
                                 1,
                                 content_topic_name,
@@ -457,7 +457,7 @@ static napi_value WakuRelayPublish(napi_env env, napi_callback_info info) {
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
   // Perform the actual 'publish'
-  WAKU_CALL( waku_relay_publish(&ctx,
+  WAKU_CALL( waku_relay_publish(ctx,
                                 pubsub_topic,
                                 jsonWakuMsg,
                                 timeoutMs,
@@ -496,7 +496,7 @@ static napi_value WakuDefaultPubsubTopic(napi_env env, napi_callback_info info) 
 
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_def_pubsub_topic_callback));
 
-  WAKU_CALL( waku_default_pubsub_topic(&ctx, handle_default_pubsub_topic, userData) );
+  WAKU_CALL( waku_default_pubsub_topic(ctx, handle_default_pubsub_topic, userData) );
 
   return NULL;
 }
@@ -543,7 +543,7 @@ static napi_value WakuRelaySubscribe(napi_env env, napi_callback_info info) {
   NAPI_CALL(napi_create_reference(env, cb, 1, &ref_on_error_callback));
 
   // Calling the actual 'subscribe' waku function
-  WAKU_CALL( waku_relay_subscribe(&ctx, pubsub_topic, handle_error, userData) );
+  WAKU_CALL( waku_relay_subscribe(ctx, pubsub_topic, handle_error, userData) );
 
   free(pubsub_topic);
 
