@@ -36,15 +36,23 @@ type
     syncInterval: Duration
     callback: Option[WakuSyncCallback]
 
+proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+  if msg.ephemeral:
+    return
+
+  let msgHash = computeMessageHash(pubsubTopic, msg)
+
+  #TODO call bindings to store the new msg hash
+
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Future[Result[seq[byte], string]] {.async.} =
-  #TODO compute the payload
+  #TODO call binding to compute the payload
 
   let payload: seq[byte] = @[0]
 
   ok(payload)
 
 proc clientReconciliation(self: WakuSync, message: seq[byte], hashes: var seq[WakuMessageHash]): Future[Result[Option[seq[byte]], string]] {.async.} =
-  #TODO compute the payload
+  #TODO call binding to compute the payload
 
   let payload: seq[byte] = @[0]
 
@@ -53,7 +61,7 @@ proc clientReconciliation(self: WakuSync, message: seq[byte], hashes: var seq[Wa
   ok(some(payload))
 
 proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  #TODO compute the payload
+  #TODO call binding to compute the payload
 
   let payload: seq[byte] = @[0]
 
@@ -159,4 +167,3 @@ proc start*(self: WakuSync) =
 
 proc stop*(self: WakuSync) =
   self.started = false
-

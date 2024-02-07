@@ -255,10 +255,17 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await node.wakuArchive.handleMessage(topic, msg)
 
 
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async gcsafe.} =
+    if node.wakuSync.isNil():
+      return
+
+    await node.wakuSync.ingessMessage(topic, msg)
+
   let defaultHandler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
+    await syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
