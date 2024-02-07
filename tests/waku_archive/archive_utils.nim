@@ -1,9 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  chronos,
-  libp2p/crypto/crypto
+import std/options, stew/results, chronos, libp2p/crypto/crypto
 
 import
   ../../../waku/[
@@ -14,43 +11,42 @@ import
     waku_archive/driver/sqlite_driver,
     common/databases/db_sqlite
   ],
-  ../testlib/[
-    wakucore
-  ]
-
+  ../testlib/[wakucore]
 
 proc newSqliteDatabase*(): SqliteDatabase =
   SqliteDatabase.new(":memory:").tryGet()
-
 
 proc newSqliteArchiveDriver*(): ArchiveDriver =
   let database = newSqliteDatabase()
   SqliteDriver.new(database).tryGet()
 
-
 proc newWakuArchive*(driver: ArchiveDriver): WakuArchive =
   WakuArchive.new(driver).get()
 
-
-proc computeArchiveCursor*(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
+proc computeArchiveCursor*(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+): ArchiveCursor =
   ArchiveCursor(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: waku_archive.computeDigest(message)
+    digest: waku_archive.computeDigest(message),
   )
 
-
-proc put*(driver: ArchiveDriver, pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]): ArchiveDriver =
+proc put*(
+    driver: ArchiveDriver, pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]
+): ArchiveDriver =
   for msg in msgList:
-    let 
+    let
       msgDigest = waku_archive.computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
-    discard waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+      _ = waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+          # discard crashes
   return driver
 
-
-proc newArchiveDriverWithMessages*(pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]): ArchiveDriver = 
+proc newArchiveDriverWithMessages*(
+    pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]
+): ArchiveDriver =
   var driver = newSqliteArchiveDriver()
   driver = driver.put(pubsubTopic, msgList)
   return driver
