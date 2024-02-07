@@ -34,6 +34,8 @@ type ProtectedTopic* = object
   topic*: string
   key*: secp256k1.SkPublicKey
 
+type ShardIdx = distinct uint16 
+
 type StartUpCommand* = enum
     noCommand # default, runs waku
     generateRlnKeystore # generates a new RLN keystore
@@ -255,6 +257,11 @@ type
       pubsubTopics* {.
         desc: "Default pubsub topic to subscribe to. Argument may be repeated."
         name: "pubsub-topic" .}: seq[string]
+
+      shards* {.
+        desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated."
+        defaultValue: @[]
+        name: "shard" .}: seq[ShardIdx]
 
       contentTopics* {.
         desc: "Default content topic to subscribe to. Argument may be repeated."
@@ -576,6 +583,15 @@ proc parseCmdArg*(T: type Option[int], p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid number")
 
+proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
+  return @[]
+
+proc parseCmdArg*(T: type ShardIdx, p: string): T =
+  try:
+    ShardIdx(parseInt(p))
+  except CatchableError:
+    raise newException(ValueError, "Invalid shard index")
+
 proc parseCmdArg*(T: type Option[uint], p: string): T =
   try:
     some(parseUint(p))
@@ -605,6 +621,18 @@ proc readValue*(r: var TomlReader, value: var ProtectedTopic) {.raises: [Seriali
 proc readValue*(r: var EnvvarReader, value: var ProtectedTopic) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(ProtectedTopic, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(r: var TomlReader, value: var ShardIdx) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(ShardIdx, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(r: var EnvvarReader, value: var ShardIdx) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(ShardIdx, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
