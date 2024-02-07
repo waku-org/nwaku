@@ -524,7 +524,7 @@ when isMainModule:
 
     let rlnConf = WakuRlnConfig(
       rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: conf.rlnRelayCredIndex,
+      rlnRelayCredIndex: some(uint(0)),
       rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
       rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
       rlnRelayCredPath: "",

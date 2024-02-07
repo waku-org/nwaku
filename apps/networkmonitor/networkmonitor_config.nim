@@ -47,11 +47,6 @@ type
         defaultValue: true
         name: "rln-relay" }: bool
 
-    rlnRelayCredIndex* {.
-      desc: "the index of the onchain commitment to use",
-      defaultValue: some(uint(0)),
-      name: "rln-relay-membership-index" }: Option[uint]
-
     rlnRelayDynamic* {.
       desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
       defaultValue: true
