@@ -14,6 +14,7 @@ import
     waku_core,
     waku_store,
     waku_store/client,
+    common/paging
   ],
   ../testlib/[
     common,
@@ -55,7 +56,7 @@ suite "Store Client":
     historyQuery = HistoryQuery(
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
-      ascending: true
+      direction: PagingDirection.FORWARD
     )
 
     serverSwitch = newTestSwitch()
@@ -93,12 +94,12 @@ suite "Store Client":
         invalidQuery1 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[],
-          ascending: true
+          direction: PagingDirection.FORWARD
         )
         invalidQuery2 = HistoryQuery(
           pubsubTopic: PubsubTopic.none(),
           contentTopics: @[DefaultContentTopic],
-          ascending: true
+          direction: PagingDirection.FORWARD
         )
         invalidQuery3 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),

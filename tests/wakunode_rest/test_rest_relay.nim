@@ -528,3 +528,47 @@ suite "Waku v2 Rest API - Relay":
     await restServer.stop()
     await restServer.closeWait()
     await node.stop()
+
+  asyncTest "Post a message larger than maximum size - POST /relay/v1/auto/messages/{topic}":
+    # Given
+    let node = testWakuNode()
+    await node.start()
+    await node.mountRelay()
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+
+    # RPC server setup
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.server.address.port # update with bound port for client use
+
+    let cache = MessageCache.init()
+
+    installRelayApiHandlers(restServer.router, node, cache)
+    restServer.start()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    require:
+      toSeq(node.wakuRelay.subscribedTopics).len == 1
+
+    # When
+    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
+      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
+      contentTopic: some(DefaultContentTopic),
+      timestamp: some(int64(2022))
+    ))
+    
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()

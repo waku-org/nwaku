@@ -34,10 +34,11 @@ proc membershipKeyGen*(ctxPtr: ptr RLN): RlnRelayResult[IdentityCredential] =
   if(done == false):
     return err("error in key generation")
 
+  if (keysBuffer.len != 4*32):
+    return err("keysBuffer is of invalid length")
+
   var generatedKeys = cast[ptr array[4*32, byte]](keysBufferPtr.`ptr`)[]
   # the public and secret keys together are 64 bytes
-  if (generatedKeys.len != 4*32):
-    return err("generated keys are of invalid length")
 
   # TODO define a separate proc to decode the generated keys to the secret and public components
   var
