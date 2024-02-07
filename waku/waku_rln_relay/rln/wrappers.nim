@@ -166,6 +166,15 @@ when defined(rln_v2):
     let leafRes = poseidon(@[@idCommitment, cast[seq[byte]](userMessageLimit)])
     return leafRes
 
+  func toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[MerkleNode]] {.inline.} =
+    var leaves = newSeq[MerkleNode](rateCommitments.len)
+    for rateCommitment in rateCommitments:
+      let leafRes = toLeaf(rateCommitment)
+      if leafRes.isErr():
+        return err("could not convert the rate commitment to a leaf: " & leafRes.error)
+      leaves.add(leafRes.get())
+    return ok(leaves)
+
   # TODO: collocate this proc with the definition of the RateLimitProof
   # and the ProofMetadata types
   proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =

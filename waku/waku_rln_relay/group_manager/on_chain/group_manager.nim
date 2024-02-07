@@ -137,18 +137,17 @@ when defined(rln_v2):
     initializedGuard(g)
 
     # convert the rateCommitment struct to a leaf value
-    var leaves: seq[seq[byte]]
-    try:
-      leaves = rateCommitments.mapIt(@(it.toLeaf().get()))
-    except CatchableError:
-      raise newException(CatchableError, "failed to convert rateCommitment to leaf: " & getCurrentExceptionMsg())
+    let leavesRes = rateCommitments.toLeaves()
+    if leavesRes.isErr():
+      raise newException(CatchableError, "failed to convert rateCommitments to leaves: " & leavesRes.error)
+    let leaves = cast[seq[seq[byte]]](leavesRes.get())
 
     waku_rln_membership_insertion_duration_seconds.nanosecondTime:
       let operationSuccess = g.rlnInstance.atomicWrite(some(start), 
                                                        leaves,
                                                        toRemoveIndices)
     if not operationSuccess:
-      raise newException(ValueError, "atomic batch operation failed")
+      raise newException(CatchableError, "atomic batch operation failed")
     # TODO: when slashing is enabled, we need to track slashed members
     waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
 
@@ -439,16 +438,17 @@ proc handleEvents(g: OnchainGroupManager,
                             rateCommitments = rateCommitments,
                             toRemoveIndices = removalIndices)
         g.latestIndex = startIndex + MembershipIndex(rateCommitments.len())
+        trace "new members added to the Merkle tree", commitments=rateCommitments
       else:
         let idCommitments = members.mapIt(it[0].idCommitment)
         await g.atomicBatch(start = startIndex,
                             idCommitments = idCommitments,
                             toRemoveIndices = removalIndices)
         g.latestIndex = startIndex + MembershipIndex(idCommitments.len())
+        trace "new members added to the Merkle tree", commitments=idCommitments
     except CatchableError:
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
-    trace "new members added to the Merkle tree", commitments=members.mapIt(it[0].rateCommitment)
 
   return
 
