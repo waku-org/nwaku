@@ -128,7 +128,12 @@ proc new*(T: type WakuSync,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
-  let sync = WakuSync(peerManager, maxFrameSize, syncInterval, callback)
+  let sync = WakuSync(
+    peerManager: peerManager,
+    maxFrameSize: maxFrameSize,
+    syncInterval: syncInterval,
+    callback: callback
+  )
 
   sync.initProtocolHandler()
 
