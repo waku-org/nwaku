@@ -36,12 +36,19 @@ type
       defaultValue: "",
       name: "rln-relay-tree-path" }: string
 
+    rlnRelayTreePathDiff* {.
+      desc: "The path to the rln-relay tree diff",
+      defaultValue: "",
+      name: "rln-relay-tree-path-diff" }: string
+
 
 proc loadConfig*(T: type RlnDbInspectorConf): Result[T, string] =
   try:
     let conf = RlnDbInspectorConf.load()
     if conf.rlnRelayTreePath == "":
       return err("--rln-relay-tree-path must be set")
+    if conf.rlnRelayTreePathDiff == "":
+      return err("--rln-relay-tree-path-diff must be set")
     ok(conf)
   except CatchableError, Exception:
     err(getCurrentExceptionMsg())
