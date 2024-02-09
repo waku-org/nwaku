@@ -9,6 +9,8 @@ import
 
 {.link: "../waku_sync/negentropy.so".} #TODO build the dyn lib
 
+### String ###
+
 type
   String {.header: "<string>", importcpp: "std::string".} = object
 
@@ -37,12 +39,35 @@ proc fromBytes(T: type String, bytes: seq[byte]): T =
 
   return cppString
 
+### Vector ###
+
+type
+  Vector[T] {.header: "<vector>", importcpp: "std::vector".} = object
+  VectorIter[T] {.header: "<vector>", importcpp: "std::vector<'0>::iterator".} = object
+
+proc initVector[T](): Vector[T] {.importcpp: "std::vector<'*0>()", constructor, header: "<vector>".}
+proc size(self: Vector): csize_t {.importcpp: "size", header: "<vector>".}
+proc begin[T](self: Vector[T]): VectorIter[T] {.importcpp: "begin", header: "<vector>".}
+proc `[]`[T](self: VectorIter[T]): T {.importcpp: "*#", header: "<vector>".}
+proc next*[T](self: VectorIter[T]; n = 1): VectorIter[T] {.importcpp: "next(@)", header: "<iterator>".}
+
+proc toSeq*[T](vec: Vector[T]): seq[T] =
+  result = newSeq[T](vec.size())
+
+  var itr = vec.begin()
+
+  for i in 0..<vec.size():
+    result[i] = itr[]
+    itr = itr.next()
+
 ### Storage ###
 
 type
   StorageObj {.header: "<negentropy/storage/BTreeMem.h>", importcpp: "negentropy::storage::BTreeMem"} = object
 
   Storage = ptr StorageObj
+
+#TODO if there's no constructor how do you instantiate this ???
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
 proc raw_insert(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::insert".}
@@ -70,17 +95,27 @@ proc raw_setInitiator(this: Negentropy) {.importcpp: "negentropy::setInitiator".
 proc raw_reconcile(this: Negentropy, query: String): String {.importcpp: "negentropy::reconcile".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(this: Negentropy, query: String, haveIds: var seq[String], needIds: var seq[String]): String {.importcpp: "negentropy::reconcile".}
+proc raw_reconcile(this: Negentropy, query: String, haveIds: var Vector[String], needIds: var Vector[String]): String {.importcpp: "negentropy::reconcile".}
 
-### Bindings ###
+### Wrappings ###
 
 #[ proc new*(T: type Negentropy, frameSizeLimit: uint64): T =
 
-  let storage = Storage() # if there's no constructor how do you instantiate this ???
+  let storage = Storage() 
 
   let negentropy = constructNegentropy(storage, frameSizeLimit)
   
   return negentropy ]#
+
+proc initiate*(self: Negentropy): seq[byte] =
+  let cppString = self.raw_initiate()
+
+  let payload  = cppString.toBytes()
+
+  return payload
+
+proc setInitiator*(self: Negentropy) =
+  self.raw_setInitiator()
 
 proc serverReconcile*(self: Negentropy, query: seq[byte]): seq[byte] =
   let cppQuery = String.fromBytes(query)
@@ -91,16 +126,17 @@ proc serverReconcile*(self: Negentropy, query: seq[byte]): seq[byte] =
 
   return payload
 
-#[ proc clientReconcile*(self: Negentropy, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
-  let cppQuery = fromBytes(query)
+proc clientReconcile*(self: Negentropy, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
+  let cppQuery = String.fromBytes(query)
   
-  # How to go from seq[WakuMessageHash] to std::vector<std::string> ???
   var 
-    haveIds: seq[WakuMessageHash]
-    needIds: seq[WakuMessageHash]
+    cppHaveIds = initVector[String]()
+    cppNeedIds = initVector[String]()
 
-  let cppString = self.raw_reconcile(cppQuery, var haveIds, var needIds)
+  let cppString = self.raw_reconcile(cppQuery, cppHaveIds, cppNeedIds)
+
+  #TODO update the haveIds and needIds
 
   let payload = cppString.toBytes()
 
-  return payload ]#
+  return payload
