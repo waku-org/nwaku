@@ -46,11 +46,11 @@ proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
     if not isNil(ctx[].eventCallback):
       try:
         let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)))
+        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), nil)
       except Exception,CatchableError:
         let msg = "Exception when calling 'eventCallBack': " &
                   getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), nil)
     else:
       error "eventCallback is nil"
 
@@ -73,7 +73,7 @@ proc waku_new(configJson: cstring,
   ## Create the Waku thread that will keep waiting for req from the main thread.
   var ctx = waku_thread.createWakuThread().valueOr:
     let msg = "Error in createWakuThread: " & $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
 
   ctx.userData = userData
@@ -86,7 +86,7 @@ proc waku_new(configJson: cstring,
                                               configJson))
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
 
   return ctx
@@ -101,7 +101,7 @@ proc waku_version(ctx: ptr Context,
     return RET_MISSING_CALLBACK
 
   callback(RET_OK, cast[ptr cchar](WakuNodeVersionString),
-           cast[csize_t](len(WakuNodeVersionString)))
+           cast[csize_t](len(WakuNodeVersionString)), userData)
 
   return RET_OK
 
@@ -128,7 +128,7 @@ proc waku_content_topic(ctx: ptr Context,
   let encodingStr = encoding.alloc()
 
   let contentTopic = fmt"/{$appStr}/{appVersion}/{$ctnStr}/{$encodingStr}"
-  callback(RET_OK, unsafeAddr contentTopic[0], cast[csize_t](len(contentTopic)))
+  callback(RET_OK, unsafeAddr contentTopic[0], cast[csize_t](len(contentTopic)), userData)
 
   deallocShared(appStr)
   deallocShared(ctnStr)
@@ -150,7 +150,7 @@ proc waku_pubsub_topic(ctx: ptr Context,
   let topicNameStr = topicName.alloc()
 
   let outPubsubTopic = fmt"/waku/2/{$topicNameStr}"
-  callback(RET_OK, unsafeAddr outPubsubTopic[0], cast[csize_t](len(outPubsubTopic)))
+  callback(RET_OK, unsafeAddr outPubsubTopic[0], cast[csize_t](len(outPubsubTopic)), userData)
 
   deallocShared(topicNameStr)
 
@@ -166,7 +166,7 @@ proc waku_default_pubsub_topic(ctx: ptr Context,
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
-  callback(RET_OK, cast[ptr cchar](DefaultPubsubTopic), cast[csize_t](len(DefaultPubsubTopic)))
+  callback(RET_OK, cast[ptr cchar](DefaultPubsubTopic), cast[csize_t](len(DefaultPubsubTopic)), userData)
 
   return RET_OK
 
@@ -192,7 +192,7 @@ proc waku_relay_publish(ctx: ptr Context,
   except JsonParsingError:
     deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   deallocShared(jwm)
@@ -213,7 +213,7 @@ proc waku_relay_publish(ctx: ptr Context,
     )
   except KeyError:
     let msg = fmt"Problem building the WakuMessage: {getCurrentExceptionMsg()}"
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   let pst = pubSubTopic.alloc()
@@ -234,7 +234,7 @@ proc waku_relay_publish(ctx: ptr Context,
 
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   return RET_OK
@@ -283,7 +283,7 @@ proc waku_relay_subscribe(
 
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   return RET_OK
@@ -309,7 +309,7 @@ proc waku_relay_unsubscribe(
 
   if sendReqRes.isErr():
     let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   return RET_OK
@@ -332,7 +332,7 @@ proc waku_connect(ctx: ptr Context,
                                             chronos.milliseconds(timeoutMs)))
   if connRes.isErr():
     let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
   return RET_OK

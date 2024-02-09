@@ -17,7 +17,7 @@
 extern "C" {
 #endif
 
-typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len);
+typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len, void* userData);
 
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
