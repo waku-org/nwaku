@@ -26,7 +26,7 @@ const ProtocolsTable = {
 }.toTable
 
 const WebSocketPortOffset = 1000
-const CertsDirectory = "./apps/wakucanary/certs"
+const CertsDirectory = "./certs"
 
 # cli flags
 type
