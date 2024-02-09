@@ -78,6 +78,7 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
+  nonce*: uint64
 
 method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
@@ -290,7 +291,11 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
   let input = msg.toRLNSignal()
   let epoch = calcEpoch(senderEpochTime)
 
-  let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch)
+  when defined(rln_v2):
+    # TODO: add support for incrementing nonce, will address in another PR
+    let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch, 1)
+  else:
+    let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch)
 
   if proofGenRes.isErr():
     return false
