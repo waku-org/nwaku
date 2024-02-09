@@ -18,7 +18,8 @@ import
   ../common/enr,
   ../waku_core,
   ../waku_enr,
-  ../node/peer_manager/peer_manager
+  ../node/peer_manager/peer_manager,
+  ./raw_bindings
 
 logScope:
   topics = "waku sync"
@@ -31,6 +32,7 @@ type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
 
   WakuSync* = ref object of LPProtocol
+    negentropy: Negentropy
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: Duration
@@ -45,9 +47,7 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   #TODO call bindings to store the new msg hash
 
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Future[Result[seq[byte], string]] {.async.} =
-  #TODO call binding to compute the payload
-
-  let payload: seq[byte] = @[0]
+  let payload = self.negentropy.serverReconcile(message)
 
   ok(payload)
 
@@ -102,6 +102,15 @@ proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async
   let peer = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
     return err("No suitable peer found for sync")
 
+  let conn = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+    return err("Cannot establish sync connection")
+
+  let hashes = (await self.request(conn)).valueOr:
+    return err("Sync request error: " & error)
+
+  ok(hashes)
+
+proc sync*(self: WakuSync, peer: RemotePeerInfo): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let conn = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
     return err("Cannot establish sync connection")
 
