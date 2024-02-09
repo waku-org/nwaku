@@ -153,7 +153,7 @@ when defined(rln_v2):
 
     if g.registerCb.isSome():
       var membersSeq = newSeq[Membership]()
-      for i in 0 ..< rateCommitments.len():
+      for i in 0 ..< rateCommitments.len:
         var index = start + MembershipIndex(i)
         trace "registering member", rateCommitment = rateCommitments[i], index = index
         let member = Membership(rateCommitment: rateCommitments[i], index: index)
@@ -181,7 +181,7 @@ else:
 
     if g.registerCb.isSome():
       var membersSeq = newSeq[Membership]()
-      for i in 0 ..< idCommitments.len():
+      for i in 0 ..< idCommitments.len:
         var index = start + MembershipIndex(i)
         trace "registering member", idCommitment = idCommitments[i], index = index
         let member = Membership(idCommitment: idCommitments[i], index: index)
@@ -213,14 +213,14 @@ when defined(rln_v2):
     initializedGuard(g)
 
     await g.atomicBatch(g.latestIndex, rateCommitments)
-    g.latestIndex += MembershipIndex(rateCommitments.len())
+    g.latestIndex += MembershipIndex(rateCommitments.len)
 else:
   method registerBatch*(g: OnchainGroupManager, 
                         idCommitments: seq[IDCommitment]): Future[void] {.async: (raises: [Exception]).} =
     initializedGuard(g)
 
     await g.atomicBatch(g.latestIndex, idCommitments)
-    g.latestIndex += MembershipIndex(idCommitments.len())
+    g.latestIndex += MembershipIndex(idCommitments.len)
 
 
 when defined(rln_v2):
@@ -437,14 +437,14 @@ proc handleEvents(g: OnchainGroupManager,
         await g.atomicBatch(start = startIndex,
                             rateCommitments = rateCommitments,
                             toRemoveIndices = removalIndices)
-        g.latestIndex = startIndex + MembershipIndex(rateCommitments.len())
+        g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
         trace "new members added to the Merkle tree", commitments=rateCommitments
       else:
         let idCommitments = members.mapIt(it[0].idCommitment)
         await g.atomicBatch(start = startIndex,
                             idCommitments = idCommitments,
                             toRemoveIndices = removalIndices)
-        g.latestIndex = startIndex + MembershipIndex(idCommitments.len())
+        g.latestIndex = startIndex + MembershipIndex(idCommitments.len)
         trace "new members added to the Merkle tree", commitments=idCommitments
     except CatchableError:
       error "failed to insert members into the tree", error=getCurrentExceptionMsg()

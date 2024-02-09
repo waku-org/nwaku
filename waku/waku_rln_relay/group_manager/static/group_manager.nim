@@ -34,7 +34,7 @@ method init*(g: StaticGroupManager): Future[void] {.async.} =
 
   discard g.slideRootQueue()
 
-  g.latestIndex += MembershipIndex(idCommitments.len() - 1)
+  g.latestIndex += MembershipIndex(idCommitments.len - 1)
 
   g.initialized = true
 
@@ -74,13 +74,13 @@ when defined(rln_v2):
 
     if g.registerCb.isSome():
       var memberSeq = newSeq[Membership]()
-      for i in 0..<rateCommitments.len():
+      for i in 0..<rateCommitments.len:
         memberSeq.add(Membership(rateCommitment: rateCommitments[i], index: g.latestIndex + MembershipIndex(i) + 1))
       await g.registerCb.get()(memberSeq)
 
     discard g.slideRootQueue()
 
-    g.latestIndex += MembershipIndex(rateCommitments.len())
+    g.latestIndex += MembershipIndex(rateCommitments.len)
 
     return
 else:
@@ -94,13 +94,13 @@ else:
 
     if g.registerCb.isSome():
       var memberSeq = newSeq[Membership]()
-      for i in 0..<idCommitments.len():
+      for i in 0..<idCommitments.len:
         memberSeq.add(Membership(idCommitment: idCommitments[i], index: g.latestIndex + MembershipIndex(i) + 1))
       await g.registerCb.get()(memberSeq)
 
     discard g.slideRootQueue()
 
-    g.latestIndex += MembershipIndex(idCommitments.len())
+    g.latestIndex += MembershipIndex(idCommitments.len)
 
     return
 
@@ -116,7 +116,7 @@ else:
 
     let groupKeys = g.groupKeys
 
-    for i in 0..<groupKeys.len():
+    for i in 0..<groupKeys.len:
       if groupKeys[i].idSecretHash == idSecretHash:
           let idCommitment = groupKeys[i].idCommitment
           let index = MembershipIndex(i)

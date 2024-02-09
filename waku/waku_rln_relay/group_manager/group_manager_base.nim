@@ -127,7 +127,7 @@ method onWithdraw*(g: GroupManager, cb: OnWithdrawCallback) {.base,gcsafe.} =
 
 proc slideRootQueue*(rootQueue: var Deque[MerkleNode], root: MerkleNode): seq[MerkleNode] =
   ## updates the root queue with the latest root and pops the oldest one when the capacity of `AcceptableRootWindowSize` is reached
-  let overflowCount = rootQueue.len() - AcceptableRootWindowSize + 1
+  let overflowCount = rootQueue.len - AcceptableRootWindowSize + 1
   var overflowedRoots = newSeq[MerkleNode]()
   if overflowCount > 0:
     # Delete the oldest `overflowCount` roots in the deque (index 0..`overflowCount`)
