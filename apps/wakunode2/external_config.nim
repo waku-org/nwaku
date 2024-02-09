@@ -81,7 +81,7 @@ type
       name: "rln-relay-eth-private-key" }: string
   
     rlnRelayUserMessageLimit* {.
-      desc: "Set a user message limit for the rln membership registration.",
+      desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
       defaultValue: 1,
       name: "rln-relay-user-message-limit" .}: uint64
 
