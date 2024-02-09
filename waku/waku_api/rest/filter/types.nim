@@ -60,7 +60,7 @@ proc toFilterWakuMessage*(msg: WakuMessage): FilterWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: some(base64.encode(msg.meta)),
+    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String)
   )
 
 proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -71,7 +71,8 @@ proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, st
     timestamp = msg.timestamp.get(0)
     meta = ?msg.meta.get(Base64String("")).decode()
 
-  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp, meta: meta))
+  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, 
+    timestamp: timestamp, meta: meta))
 
 #### Serialization and deserialization
 
@@ -85,6 +86,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: FilterWakuMessage)
     writer.writeField("version", value.version.get())
   if value.timestamp.isSome():
     writer.writeField("timestamp", value.timestamp.get())
+  if value.meta.isSome():
+    writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
 proc writeValue*(writer: var JsonWriter, value: FilterLegacySubscribeRequest)
@@ -170,7 +173,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
     payload: payload.get(),
     contentTopic: contentTopic,
     version: version,
-    timestamp: timestamp
+    timestamp: timestamp,
+    meta: meta
   )
 
 proc readValue*(reader: var JsonReader[RestJson], value: var FilterLegacySubscribeRequest)

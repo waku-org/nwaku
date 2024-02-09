@@ -112,7 +112,8 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
       contentTopic: some(message.contentTopic),
       version: some(message.version),
       timestamp: some(message.timestamp),
-      ephemeral: some(message.ephemeral)
+      ephemeral: some(message.ephemeral),
+      meta: if message.meta.len > 0: some(base64.encode(message.meta)) else: none(Base64String)
     )
 
   var storeWakuMsgs: seq[StoreWakuMessage]
@@ -148,6 +149,8 @@ proc writeValue*(writer: var JsonWriter,
     writer.writeField("timestamp", value.timestamp.get())
   if value.ephemeral.isSome():
     writer.writeField("ephemeral", value.ephemeral.get())
+  if value.meta.isSome():
+    writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader,
@@ -193,7 +196,8 @@ proc readValue*(reader: var JsonReader,
     contentTopic: contentTopic,
     version: version,
     timestamp: timestamp,
-    ephemeral: ephemeral
+    ephemeral: ephemeral,
+    meta: meta
   )
 
 ## End of StoreWakuMessage serde
