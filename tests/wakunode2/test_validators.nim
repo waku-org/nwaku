@@ -195,7 +195,7 @@ suite "WakuNode2 - Validators":
     var msgRejected = 0
     
     # Active wait for the messages to be delivered across the mesh
-    for i in 0..<10:
+    for i in 0..<100:
       msgRejected = 0
       for i in 0..<5:
         for k, v in nodes[i].wakuRelay.peerStats.mpairs:
@@ -204,7 +204,7 @@ suite "WakuNode2 - Validators":
       if msgReceived == 125 and msgRejected == 500:
         break
       else:
-        await sleepAsync(1.seconds)
+        await sleepAsync(100.milliseconds)
 
     check:
       msgReceived == 125
