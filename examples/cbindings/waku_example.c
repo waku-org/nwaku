@@ -288,24 +288,24 @@ int main(int argc, char** argv) {
 
     ctx = waku_new(jsonConfig, event_handler, userData);
 
-    WAKU_CALL( waku_default_pubsub_topic(&ctx, print_default_pubsub_topic, userData) );
-    WAKU_CALL( waku_version(&ctx, print_waku_version, userData) );
+    WAKU_CALL( waku_default_pubsub_topic(ctx, print_default_pubsub_topic, userData) );
+    WAKU_CALL( waku_version(ctx, print_waku_version, userData) );
 
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
     waku_set_event_callback(event_handler, userData);
-    waku_start(&ctx, event_handler, userData);
+    waku_start(ctx, event_handler, userData);
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
 
-    WAKU_CALL( waku_connect(&ctx,
+    WAKU_CALL( waku_connect(ctx,
                             cfgNode.peers,
                             10000 /* timeoutMs */,
                             event_handler,
                             userData) );
 
-    WAKU_CALL( waku_relay_subscribe(&ctx,
+    WAKU_CALL( waku_relay_subscribe(ctx,
                                     "/waku/2/default-waku/proto",
                                     event_handler,
                                     userData) );
