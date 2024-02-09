@@ -41,6 +41,10 @@ proc inHex*(value: IdentityTrapdoor or
     valueHex = "0" & valueHex
   return toLowerAscii(valueHex)
 
+when defined(rln_v2):
+  proc toUserMessageLimit*(v: UInt256): UserMessageLimit =
+    return cast[UserMessageLimit](v)
+
 proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
   ## returns length prefixed version of the input
   ## with the following format [len<8>|input<var>]
