@@ -190,7 +190,7 @@ proc mountWakuSync*(node: WakuNode): Result[void, string] =
   if not node.wakuSync.isNil():
     return err("Waku sync already mounted, skipping")
 
-  let sync = WakuSync.new(node.peerManager)
+  let sync = WakuSync.new(node.peerManager)#TODO add the callback and the options
 
   node.wakuSync = sync
 

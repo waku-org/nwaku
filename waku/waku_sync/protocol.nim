@@ -28,7 +28,7 @@ const DefaultFrameSize = 153600 # using a random number for now
 const DefaultSyncInterval = 60.minutes
 
 type
-  WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.closure, gcsafe, raises: [].}
+  WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
 
   WakuSync* = ref object of LPProtocol
     peerManager: PeerManager
@@ -158,7 +158,7 @@ proc periodicSync(self: WakuSync) {.async.} =
 
     let callback = self.callback.get()
 
-    callback(hashes)
+    await callback(hashes)
 
 proc start*(self: WakuSync) =
   self.started = true
