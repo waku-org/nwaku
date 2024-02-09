@@ -154,16 +154,19 @@ suite "Waku v2 Rest API - Relay":
     let pubSubTopic = "/waku/2/default-waku/proto"
     
     var messages = @[
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+        meta = toBytes("test-meta") )
     ]
 
     # Prevent duplicate messages
     for i in 0..<2:
-      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+        meta = toBytes("test-meta"))
 
       while msg == messages[i]:
-        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
-      
+        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+          meta = toBytes("test-meta"))
+
       messages.add(msg)
     
     let cache = MessageCache.init()
@@ -188,8 +191,8 @@ suite "Waku v2 Rest API - Relay":
         msg.payload == base64.encode("TEST-1") and
         msg.contentTopic.get() == "content-topic-x" and
         msg.version.get() == 2 and
-        msg.timestamp.get() != Timestamp(0)
-
+        msg.timestamp.get() != Timestamp(0) and
+        msg.meta.get() == base64.encode("test-meta")
 
     check:
       cache.isPubsubSubscribed(pubSubTopic)

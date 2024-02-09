@@ -36,7 +36,7 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: some(base64.encode(msg.meta))
+    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String)
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -66,6 +66,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
     writer.writeField("version", value.version.get())
   if value.timestamp.isSome():
     writer.writeField("timestamp", value.timestamp.get())
+  if value.meta.isSome():
+    writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
@@ -109,5 +111,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     payload: payload.get(),
     contentTopic: contentTopic,
     version: version,
-    timestamp: timestamp
+    timestamp: timestamp,
+    meta: meta
   )
