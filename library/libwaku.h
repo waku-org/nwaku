@@ -39,7 +39,8 @@ int waku_version(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
-void waku_set_event_callback(WakuCallBack callback,
+void waku_set_event_callback(void* ctx,
+                             WakuCallBack callback,
                              void* userData);
 
 int waku_content_topic(void* ctx,

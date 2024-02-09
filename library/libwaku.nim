@@ -40,22 +40,19 @@ const RET_MISSING_CALLBACK: cint = 2
 ################################################################################
 ### Not-exported components
 
-# May keep a reference to a callback defined externally
-var extEventCallback*: WakuCallBack = nil
-
-proc relayEventCallback(pubsubTopic: PubsubTopic,
-                        msg: WakuMessage): Future[void] {.async.} =
-  # Callback that hadles the Waku Relay events. i.e. messages or errors.
-  if not isNil(extEventCallback):
-    try:
-      let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      extEventCallback(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)))
-    except Exception,CatchableError:
-      let msg = "Exception when calling 'eventCallBack': " &
-                getCurrentExceptionMsg()
-      extEventCallback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
-  else:
-    error "extEventCallback is nil"
+proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
+  return proc (pubsubTopic: PubsubTopic, msg: WakuMessage): Future[system.void]{.async.} =
+    # Callback that hadles the Waku Relay events. i.e. messages or errors.
+    if not isNil(ctx[].eventCallback):
+      try:
+        let event = $JsonMessageEvent.new(pubsubTopic, msg)
+        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)))
+      except Exception,CatchableError:
+        let msg = "Exception when calling 'eventCallBack': " &
+                  getCurrentExceptionMsg()
+        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)))
+    else:
+      error "eventCallback is nil"
 
 ### End of not-exported components
 ################################################################################
@@ -108,8 +105,9 @@ proc waku_version(ctx: ptr Context,
 
   return RET_OK
 
-proc waku_set_event_callback(callback: WakuCallBack) {.dynlib, exportc.} =
-  extEventCallback = callback
+proc waku_set_event_callback(ctx: ptr Context,
+                             callback: WakuCallBack) {.dynlib, exportc.} =
+  ctx[].eventCallback = cast[pointer](callback)
 
 proc waku_content_topic(ctx: ptr Context,
                         appName: cstring,
@@ -230,7 +228,7 @@ proc waku_relay_publish(ctx: ptr Context,
                           RequestType.RELAY,
                           RelayRequest.createShared(RelayMsgType.PUBLISH,
                                           PubsubTopic($pst),
-                                          WakuRelayHandler(relayEventCallback),
+                                          WakuRelayHandler(relayEventCallback(ctx)),
                                           wakuMessage))
   deallocShared(pst)
 
@@ -274,13 +272,13 @@ proc waku_relay_subscribe(
   ctx[].userData = userData
 
   let pst = pubSubTopic.alloc()
-
+  var cb = relayEventCallback(ctx)
   let sendReqRes = waku_thread.sendRequestToWakuThread(
                               ctx,
                               RequestType.RELAY,
                               RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
                                     PubsubTopic($pst),
-                                    WakuRelayHandler(relayEventCallback)))
+                                    WakuRelayHandler(cb)))
   deallocShared(pst)
 
   if sendReqRes.isErr():
@@ -306,7 +304,7 @@ proc waku_relay_unsubscribe(
                               RequestType.RELAY,
                               RelayRequest.createShared(RelayMsgType.SUBSCRIBE,
                                     PubsubTopic($pst),
-                                    WakuRelayHandler(relayEventCallback)))
+                                    WakuRelayHandler(relayEventCallback(ctx))))
   deallocShared(pst)
 
   if sendReqRes.isErr():
