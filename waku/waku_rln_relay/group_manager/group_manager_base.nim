@@ -187,16 +187,13 @@ when defined(rln_v2):
     if g.userMessageLimit.isNone():
       return err("user message limit is not set")
     waku_rln_proof_generation_duration_seconds.nanosecondTime:
-      let proofGenRes = proofGen(rlnInstance = g.rlnInstance,
-                                 data = data,
-                                 membership = g.idCredentials.get(),
-                                 userMessageLimit = g.userMessageLimit.get(),
-                                 messageId = messageId,
-                                 index = g.membershipIndex.get(),
-                                 epoch = epoch)
-    if proofGenRes.isErr():
-      return err("proof generation failed: " & $proofGenRes.error())
-    return ok(proofGenRes.value())
+      let proof = proofGen(rlnInstance = g.rlnInstance,
+                                data = data,
+                                memKeys = g.idCredentials.get(),
+                                memIndex = g.membershipIndex.get(),
+                                epoch = epoch).valueOr:
+        return err("proof generation failed: " & $error)
+    return ok(proof)
 else:
   method generateProof*(g: GroupManager,
                         data: openArray[byte],
@@ -208,14 +205,13 @@ else:
     if g.membershipIndex.isNone():
       return err("membership index is not set")
     waku_rln_proof_generation_duration_seconds.nanosecondTime:
-      let proofGenRes = proofGen(rlnInstance = g.rlnInstance,
+      let proof = proofGen(rlnInstance = g.rlnInstance,
                                 data = data,
                                 memKeys = g.idCredentials.get(),
                                 memIndex = g.membershipIndex.get(),
-                                epoch = epoch)
-    if proofGenRes.isErr():
-      return err("proof generation failed: " & $proofGenRes.error())
-    return ok(proofGenRes.value())
+                                epoch = epoch).valueOr:
+        return err("proof generation failed: " & $error)
+    return ok(proof)
 
 method isReady*(g: GroupManager): Future[bool] {.base,async.} =
   raise newException(CatchableError, "isReady proc for " & $g.type & " is not implemented yet")
