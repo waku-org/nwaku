@@ -42,6 +42,11 @@ type
       name: "refresh-interval",
       abbr: "r" }: int
 
+    clusterId* {.
+      desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
+      defaultValue: 1
+      name: "cluster-id" }: uint32
+
     rlnRelay* {.
         desc: "Enable spam protection through rln-relay: true|false",
         defaultValue: true
