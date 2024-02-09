@@ -81,6 +81,11 @@ type
       desc: "Private key for broadcasting transactions",
       defaultValue: "",
       name: "rln-relay-eth-private-key" }: string
+  
+    rlnRelayUserMessageLimit* {.
+      desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      defaultValue: 1,
+      name: "rln-relay-user-message-limit" .}: uint64
 
     maxMessageSize* {.
       desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
