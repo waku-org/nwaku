@@ -188,7 +188,7 @@ suite "WakuNode2 - Validators":
         discard await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
 
     # Wait for gossip
-    await sleepAsync(4.seconds)
+    await sleepAsync(6.seconds)
 
     # Since we have a full mesh with 5 nodes and each one publishes 25+25+25+25+25 msgs
     # there are 625 messages being sent.
