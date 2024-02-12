@@ -27,6 +27,8 @@ import
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ../../waku/waku_dnsdisc,
+  ../../waku/waku_rln_relay,
+  ../wakunode2/networks_config,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
@@ -375,6 +377,10 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
       udpPort = some(nodeUdpPort),
   )
   builder.withWakuCapabilities(flags)
+  let addShardedTopics = builder.withShardedTopics(conf.pubsubTopics)
+  if addShardedTopics.isErr():
+    error "failed to add sharded topics to ENR", error=addShardedTopics.error
+    return err($addShardedTopics.error)
 
   let recordRes = builder.build()
   let record =
@@ -386,6 +392,9 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
+  nodeBuilder.withPeerManagerConfig(
+    maxRelayPeers = none(int),
+    shardAware = true)
   let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
   if res.isErr():
     return err("node building error" & $res.error)
@@ -475,8 +484,16 @@ when isMainModule:
     error "could not load cli variables", err=confRes.error
     quit(1)
 
-  let conf = confRes.get()
+  var conf = confRes.get()
   info "cli flags", conf=conf
+
+  if conf.clusterId == 1:
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+
+    conf.bootstrapNodes = twnClusterConf.discv5BootstrapNodes
+    conf.pubsubTopics = twnClusterConf.pubsubTopics
+    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -519,8 +536,31 @@ when isMainModule:
   waitFor node.mountRelay()
   waitFor node.mountLibp2pPing()
 
-  # Subscribe the node to the default pubsubtopic, to count messages
-  subscribeAndHandleMessages(node, DefaultPubsubTopic, msgPerContentTopic)
+  if conf.rlnRelayEthContractAddress != "":
+
+    let rlnConf = WakuRlnConfig(
+      rlnRelayDynamic: conf.rlnRelayDynamic,
+      rlnRelayCredIndex: some(uint(0)),
+      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayCredPath: "",
+      rlnRelayCredPassword: "",
+      rlnRelayTreePath: conf.rlnRelayTreePath,
+    )
+
+    try:
+      waitFor node.mountRlnRelay(rlnConf)
+    except CatchableError:
+      error "failed to setup RLN", err=getCurrentExceptionMsg()
+      quit 1
+
+  node.mountMetadata(conf.clusterId).isOkOr:
+    error "failed to mount waku metadata protocol: ", err=error
+    quit 1
+
+  for pubsubTopic in conf.pubsubTopics:
+    # Subscribe the node to the default pubsubtopic, to count messages
+    subscribeAndHandleMessages(node, pubsubTopic, msgPerContentTopic)
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
