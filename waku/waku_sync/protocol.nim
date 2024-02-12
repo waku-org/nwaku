@@ -32,38 +32,37 @@ type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
 
   WakuSync* = ref object of LPProtocol
+    storage: Storage
     negentropy: Negentropy
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: Duration
     callback: Option[WakuSyncCallback]
 
-proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     return
 
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
-  #TODO call bindings to store the new msg hash
+  self.storage.insert(msg.timestamp, msgHash)
 
-proc serverReconciliation(self: WakuSync, message: seq[byte]): Future[Result[seq[byte], string]] {.async.} =
+proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte], string] =
   let payload = self.negentropy.serverReconcile(message)
 
   ok(payload)
 
-proc clientReconciliation(self: WakuSync, message: seq[byte], hashes: var seq[WakuMessageHash]): Future[Result[Option[seq[byte]], string]] {.async.} =
-  #TODO call binding to compute the payload
-
-  let payload: seq[byte] = @[0]
-
-  # TODO update the hashes
+proc clientReconciliation(
+  self: WakuSync, message: seq[byte],
+  haveHashes: var seq[WakuMessageHash],
+  needHashes: var seq[WakuMessageHash],
+  ): Result[Option[seq[byte]], string] =
+  let payload = self.negentropy.clientReconcile(message, haveHashes, needHashes)
 
   ok(some(payload))
 
 proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  #TODO call binding to compute the payload
-
-  let payload: seq[byte] = @[0]
+  let payload = self.negentropy.initiate()
 
   ok(payload)
 
@@ -75,14 +74,16 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
   if writeRes.isErr():
     return err(writeRes.error.msg)
 
-  var hashes: seq[WakuMessageHash]
+  var
+    haveHashes: seq[WakuMessageHash] # What to do with haves ???
+    needHashes: seq[WakuMessageHash]
 
   while true:
     let readRes = catch: await conn.readLp(self.maxFrameSize)
     let buffer = readRes.valueOr:
       return err(error.msg)
   
-    let responseOpt = (await self.clientReconciliation(buffer, hashes)).valueOr:
+    let responseOpt = self.clientReconciliation(buffer, haveHashes, needHashes).valueOr:
       return err(error)
 
     let response =
@@ -96,7 +97,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     if writeRes.isErr():
       return err(writeRes.error.msg)
 
-  return ok(hashes)
+  return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let peer = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
@@ -127,7 +128,7 @@ proc initProtocolHandler(self: WakuSync) =
         error "Connection reading error", error=error.msg
         return
     
-      let response = (await self.serverReconciliation(buffer)).valueOr:
+      let response = self.serverReconciliation(buffer).valueOr:
         error "Reconciliation error", error=error
         return
 
@@ -145,7 +146,13 @@ proc new*(T: type WakuSync,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
+  let storage = Storage.new()
+
+  let negentropy = Negentropy.new(storage, maxFrameSize)
+
   let sync = WakuSync(
+    storage: storage,
+    negentropy: negentropy,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
