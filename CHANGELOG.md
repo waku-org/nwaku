@@ -38,7 +38,6 @@
 - Refactor of FilterV2 subscription management with Time-to-live maintenance ([#2341](https://github.com/waku-org/nwaku/issues/2341)) ([c3358409](https://github.com/waku-org/nwaku/commit/c3358409))
 - Bump `nim-dnsdisc` ([#2354](https://github.com/waku-org/nwaku/issues/2354)) ([3d816c08](https://github.com/waku-org/nwaku/commit/3d816c08))
 - postgres-adoption.md add metadata title, description, and better first-readable-title ([#2346](https://github.com/waku-org/nwaku/issues/2346)) ([2f8e8bcb](https://github.com/waku-org/nwaku/commit/2f8e8bcb))
-- update CHANGELOG.md for v0.24.0 ([#2347](https://github.com/waku-org/nwaku/issues/2347)) ([988580e0](https://github.com/waku-org/nwaku/commit/988580e0))
 - fix typo ([#2348](https://github.com/waku-org/nwaku/issues/2348)) ([a4a8dee3](https://github.com/waku-org/nwaku/commit/a4a8dee3))
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
