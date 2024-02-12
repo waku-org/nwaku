@@ -19,7 +19,6 @@
 
 ### Bug Fixes
 
-- bug fix in ci/Jenkinsfile.release: make -d:postgres part of NIMFLAGS ([#2395](https://github.com/waku-org/nwaku/issues/2395)) ([55d1b078](https://github.com/waku-org/nwaku/commit/55d1b078))
 - adding rln validator as default ([#2367](https://github.com/waku-org/nwaku/issues/2367)) ([bb58a63a](https://github.com/waku-org/nwaku/commit/bb58a63a))
 - Fix test for filter client receiving messages after restart ([#2360](https://github.com/waku-org/nwaku/issues/2360)) ([7de91d92](https://github.com/waku-org/nwaku/commit/7de91d92))
 - making filter admin data test order independent ([#2355](https://github.com/waku-org/nwaku/issues/2355)) ([8a9fad29](https://github.com/waku-org/nwaku/commit/8a9fad29))
