@@ -148,7 +148,7 @@ proc new*(T: type WakuSync,
 ): T =
   let storage = Storage.new()
 
-  let negentropy = Negentropy.new(storage, maxFrameSize)
+  let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
 
   let sync = WakuSync(
     storage: storage,

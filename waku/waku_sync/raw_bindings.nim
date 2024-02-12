@@ -3,24 +3,29 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+from os import DirSep
+
 import
-  std/sequtils
+  std/[strutils, sequtils]
 
 import
    ../waku_core/message
 
-
 {.link: "../waku_sync/negentropy.so".} #TODO build the dyn lib
+
+const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0]
+
+const NEGENTROPY_HEADER = negentropyPath & DirSep & "headers" & DirSep & "negentropy.h"
 
 ### String ###
 
 type
-  String {.header: "<string>", importcpp: "std::string".} = object
+  String {.importcpp: "std::string", header: "<string>", byref.} = object
 
-proc size(self: String): csize_t {.header: "<string>", importcpp: "size".}
-proc resize(self: String, len: csize_t) {.header: "<string>", importcpp: "resize".}
-proc cStr(self: String): pointer {.header: "<string>", importcpp: "c_str".}
-proc initString(): String {.header: "<string>", constructor, importcpp: "std::string()"}
+proc size(self: String): csize_t {.importcpp: "size", header: "<string>".}
+proc resize(self: String, len: csize_t) {.importcpp: "resize", header: "<string>".}
+proc cStr(self: String): pointer {.importcpp: "c_str", header: "<string>".}
+proc initString(): String {.importcpp: "std::string()", constructor, header: "<string>"}
 
 proc toBytes(self: String): seq[byte] =
   let size = self.size()
@@ -63,8 +68,8 @@ proc fromBytes(T: type String, bytes: seq[byte]): T =
 ### Vector ###
 
 type
-  Vector[T] {.header: "<vector>", importcpp: "std::vector".} = object
-  VectorIter[T] {.header: "<vector>", importcpp: "std::vector<'0>::iterator".} = object
+  Vector[T] {.importcpp: "std::vector", header: "<vector>", byref.} = object
+  VectorIter[T] {.importcpp: "std::vector<'0>::iterator", header: "<vector>", byref.} = object
 
 proc initVector[T](): Vector[T] {.importcpp: "std::vector<'*0>()", constructor, header: "<vector>".}
 proc size(self: Vector): csize_t {.importcpp: "size", header: "<vector>".}
@@ -84,9 +89,7 @@ proc toSeq*[T](vec: Vector[T]): seq[T] =
 ### Storage ###
 
 type
-  Storage* {.header: "<negentropy/storage/BTreeMem.h>", importcpp: "negentropy::storage::BTreeMem"} = object
-
-#TODO if there's no constructor how do you instantiate this ???
+  Storage* {.importcpp: "negentropy::storage::BTreeMem", header: NEGENTROPY_HEADER, byref.} = object
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
 proc raw_insert(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::insert".}
@@ -97,7 +100,7 @@ proc raw_erase(this: Storage, timestamp: clong, id: String) {.importcpp: "negent
 ### Negentropy ###
 
 type
-  Negentropy* {.header: "<negentropy/negentropy.h>", importCpp: "negentropy::Negentropy".} = object
+  Negentropy* {.importCpp: "negentropy::Negentropy", header: NEGENTROPY_HEADER, byref.} = object
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L42
 proc constructNegentropy(storage: Storage, frameSizeLimit: culong): Negentropy {.importcpp: "negentropy::Negentropy(@)", constructor.}
@@ -132,7 +135,7 @@ proc insert*(self: Storage, id: int64, hash: WakuMessageHash) =
   self.raw_insert(clong(id), cppString)
 
 proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
-  let negentropy = constructNegentropy(storage, frameSizeLimit)
+  let negentropy = constructNegentropy(storage, culong(frameSizeLimit))
   
   return negentropy
 
