@@ -576,7 +576,6 @@ procSuite "Waku v2 Rest API - Store":
                         none[string](),
                         encodeUrl(DefaultPubsubTopic))
 
-    echo "------------- response.data.messages: ", response.data.messages
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
