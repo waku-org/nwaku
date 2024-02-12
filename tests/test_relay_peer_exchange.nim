@@ -9,36 +9,37 @@ import
   libp2p/peerid,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub
+
 import
   ../../waku/waku_core,
   ../../waku/waku_node,
   ./testlib/wakucore,
   ./testlib/wakunode
 
-procSuite "Peer Exchange":
-  asyncTest "GossipSub (relay) peer exchange":
-    ## Tests peer exchange
-
+procSuite "Relay (GossipSub) Peer Exchange":
+  asyncTest "Mount relay with peer exchange handler":
+    ## Given three nodes
     # Create nodes and ENR. These will be added to the discoverable list
     let
       bindIp = parseIpAddress("0.0.0.0")
+      port = Port(0)
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, bindIp, Port(0))
+      node1 = newTestWakuNode(nodeKey1, bindIp, port)
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, bindIp, Port(0), sendSignedPeerRecord = true)
+      node2 = newTestWakuNode(nodeKey2, bindIp, port, sendSignedPeerRecord = true)
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, bindIp, Port(0), sendSignedPeerRecord = true)
+      node3 = newTestWakuNode(nodeKey3, bindIp, port, sendSignedPeerRecord = true)
 
-    var
-      peerExchangeHandler, emptyHandler: RoutingRecordsHandler
-      completionFut = newFuture[bool]()
-
-    proc ignorePeerExchange(peer: PeerId, topic: string,
-                            peers: seq[RoutingRecordsPair]) {.gcsafe.} =
+    # Given some peer exchange handlers
+    proc emptyPeerExchangeHandler(
+        peer: PeerId, topic: string, peers: seq[RoutingRecordsPair]
+    ) {.gcsafe.} =
       discard
 
-    proc handlePeerExchange(peer: PeerId, topic: string,
-                            peers: seq[RoutingRecordsPair]) {.gcsafe.} =
+    var completionFut = newFuture[bool]()
+    proc peerExchangeHandler(
+        peer: PeerId, topic: string, peers: seq[RoutingRecordsPair]
+    ) {.gcsafe.} =
       ## Handle peers received via gossipsub peer exchange
       let peerRecords = peers.mapIt(it.record.get())
 
@@ -51,23 +52,27 @@ procSuite "Peer Exchange":
       if (not completionFut.completed()):
         completionFut.complete(true)
 
-    peerExchangeHandler = handlePeerExchange
-    emptyHandler = ignorePeerExchange
+    let
+      emptyPeerExchangeHandle: RoutingRecordsHandler = emptyPeerExchangeHandler
+      peerExchangeHandle: RoutingRecordsHandler = peerExchangeHandler
 
-    await node1.mountRelay(@[DefaultPubsubTopic], some(emptyHandler))
-    await node2.mountRelay(@[DefaultPubsubTopic], some(emptyHandler))
-    await node3.mountRelay(@[DefaultPubsubTopic], some(peerExchangeHandler))
+    # Givem the nodes mount relay with a peer exchange handler
+    await node1.mountRelay(@[DefaultPubsubTopic], some(emptyPeerExchangeHandle))
+    await node2.mountRelay(@[DefaultPubsubTopic], some(emptyPeerExchangeHandle))
+    await node3.mountRelay(@[DefaultPubsubTopic], some(peerExchangeHandle))
 
     # Ensure that node1 prunes all peers after the first connection
     node1.wakuRelay.parameters.dHigh = 1
 
     await allFutures([node1.start(), node2.start(), node3.start()])
 
+    # When nodes are connected
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-
     await node3.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
 
+    # Verify that the handlePeerExchange was called (node3)
     check:
       (await completionFut.withTimeout(5.seconds)) == true
 
+    # Clean up
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
