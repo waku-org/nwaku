@@ -6,7 +6,7 @@
 > `--filter-max-criteria=1000` defines what is the maximum criterion stored per each peers
 >
 > This release introduces a major change in Filter v2 protocol subscription management.
-> From now each subscriber peer needs to refresh its living subscriptions by sending a SUBSCRIBER_PING message every 5 minutes by default, otherwise the peer's subscription will be removed.
+> From now each subscribed peer needs to refresh its living subscriptions by sending a SUBSCRIBER_PING message every 5 minutes by default, otherwise the peer's subscription will be removed.
 > `--filter-subscription-timeout=300` defines configurable timeout for the subscriptions (*in seconds*).
 
 
