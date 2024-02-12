@@ -8,6 +8,10 @@
 > This release introduces a major change in Filter v2 protocol subscription management.
 > From now each subscribed peer needs to refresh its living subscriptions by sending a SUBSCRIBER_PING message every 5 minutes by default, otherwise the peer's subscription will be removed.
 > `--filter-subscription-timeout=300` defines configurable timeout for the subscriptions (*in seconds*).
+>
+> New experimental feature, shard aware peer manager for relay protocol can be activated by the flag:
+> `--relay-shard-manager=true|false`
+> It is disabled by default.
 
 
 ### Features
