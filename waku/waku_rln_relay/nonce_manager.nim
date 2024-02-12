@@ -56,9 +56,7 @@ proc get*(n: NonceManager): NonceManagerResult[Nonce] =
   let now = getTime().toUnixFloat()
   var retNonce = n.nextNonce
 
-  if now - n.lastNonceTime < n.epoch: retNonce = n.nextNonce
-  else:                               retNonce = 0
-
+  if now - n.lastNonceTime >= n.epoch: retNonce = 0
   n.nextNonce = retNonce + 1
   n.lastNonceTime = now
 
