@@ -66,25 +66,6 @@ when isMainModule:
 
   var conf = confRes.get()
 
-  # The Waku Network config (cluster-id=1)
-  if conf.clusterId == 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(conf.shards) != 0:
-      conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-    # Override configuration
-    conf.maxMessageSize = twnClusterConf.maxMessageSize
-    conf.clusterId = twnClusterConf.clusterId
-    conf.rlnRelay = twnClusterConf.rlnRelay
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    conf.discv5Discovery = twnClusterConf.discv5Discovery
-    conf.discv5BootstrapNodes =
-      conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-
   ## Logging setup
 
   # Adhere to NO_COLOR initiative: https://no-color.org/
@@ -97,14 +78,34 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-  info "Running nwaku node", version = app.git_version
-  logConfig(conf)
-
   case conf.cmd
   of generateRlnKeystore:
     doRlnKeystoreGenerator(conf)
   of noCommand:
+    # The Waku Network config (cluster-id=1)
+    if conf.clusterId == 1:
+      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+      if len(conf.shards) != 0:
+        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+      else:
+        conf.pubsubTopics = twnClusterConf.pubsubTopics
+
+      # Override configuration
+      conf.maxMessageSize = twnClusterConf.maxMessageSize
+      conf.clusterId = twnClusterConf.clusterId
+      conf.rlnRelay = twnClusterConf.rlnRelay
+      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+      conf.discv5Discovery = twnClusterConf.discv5Discovery
+      conf.discv5BootstrapNodes =
+        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+
     var wakunode2 = App.init(rng, conf)
+
+    info "Running nwaku node", version = app.git_version
+    logConfig(conf)
+
 
     ##############
     # Node setup #
