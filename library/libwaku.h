@@ -6,6 +6,8 @@
 #ifndef __libwaku__
 #define __libwaku__
 
+#include <stddef.h>
+
 // The possible returned values for the functions that return int
 #define RET_OK                0
 #define RET_ERR               1
