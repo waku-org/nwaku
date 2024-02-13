@@ -69,8 +69,8 @@ when defined(rln_v2):
     ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
     ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
-    let userMessageLimitBytes = toBytes(uint64(userMessageLimit), Endianness.littleEndian)
-    let messageIdBytes = toBytes(uint64(messageId), Endianness.littleEndian)
+    let userMessageLimitBytes = cast[array[32, byte]](toBytes(uint64(userMessageLimit), Endianness.littleEndian))
+    let messageIdBytes = cast[array[32, byte]](toBytes(uint64(messageId), Endianness.littleEndian))
     let lenPrefMsg = encodeLengthPrefix(msg)
     let output = concat(@idSecretHash, @memIndexBytes, @userMessageLimitBytes, @messageIdBytes, @externalNullifier, lenPrefMsg)
     return output
