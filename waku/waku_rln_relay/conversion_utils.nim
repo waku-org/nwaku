@@ -57,6 +57,17 @@ proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
     output = concat(@len, @input)
   return output
 
+proc serialize*(v: uint64): array[32, byte] =
+  ## a private proc to convert uint64 to a byte seq
+  ## this conversion is used in the proofGen proc
+  
+  ## converts `v` to a byte seq in little-endian order
+  let bytes = toBytes(v, Endianness.littleEndian)
+  var output: array[32, byte]
+  discard output.copyFrom(bytes)
+  return output
+
+
 when defined(rln_v2):
   proc serialize*(idSecretHash: IdentitySecretHash, 
                   memIndex: MembershipIndex, 
@@ -69,8 +80,8 @@ when defined(rln_v2):
     ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
     ## [ id_key<32> | id_index<8> | epoch<32> | signal_len<8> | signal<var> ]
     let memIndexBytes = toBytes(uint64(memIndex), Endianness.littleEndian)
-    let userMessageLimitBytes = cast[array[32, byte]](toBytes(uint64(userMessageLimit), Endianness.littleEndian))
-    let messageIdBytes = cast[array[32, byte]](toBytes(uint64(messageId), Endianness.littleEndian))
+    let userMessageLimitBytes = userMessageLimit.serialize()
+    let messageIdBytes = messageId.serialize()
     let lenPrefMsg = encodeLengthPrefix(msg)
     let output = concat(@idSecretHash, @memIndexBytes, @userMessageLimitBytes, @messageIdBytes, @externalNullifier, lenPrefMsg)
     return output
