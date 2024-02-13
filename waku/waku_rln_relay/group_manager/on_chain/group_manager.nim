@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  os,
   web3,
   web3/ethtypes,
   eth/keys as keys,
@@ -622,7 +623,11 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.rlnContract = some(rlnContract)
   g.registryContract = some(registryContract)
 
-  if g.keystorePath.isSome() and g.keystorePassword.isSome():
+  # debug
+  if g.keystorePath.isSome():
+    echo "------------------- g.keystorePath.get(): ", g.keystorePath.get()
+  #
+  if g.keystorePath.isSome() and existsFile(g.keystorePath.get()) g.keystorePassword.isSome():
     var keystoreQuery = KeystoreMembership(
       membershipContract: MembershipContract(
         chainId: $g.chainId.get(),
