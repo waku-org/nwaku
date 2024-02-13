@@ -3,13 +3,15 @@ import
   confutils,
   chronos,
   stew/shims/net,
-  chronicles/topics_registry
+  chronicles/topics_registry,
+  os
 import
   libp2p/protocols/ping,
   libp2p/crypto/[crypto, secp],
   libp2p/nameresolving/dnsresolver,
   libp2p/multicodec
 import
+  ./certsgenerator,
   ../../waku/waku_enr,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
@@ -24,6 +26,7 @@ const ProtocolsTable = {
 }.toTable
 
 const WebSocketPortOffset = 1000
+const CertsDirectory = "./certs"
 
 # cli flags
 type
@@ -154,6 +157,14 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     nodeTcpPort = Port(conf.nodePort)
     isWs = peer.addrs[0].contains(multiCodec("ws")).get()
     isWss = peer.addrs[0].contains(multiCodec("wss")).get()
+    keyPath = if conf.websocketSecureKeyPath.len > 0:
+                conf.websocketSecureKeyPath
+              else:
+                CertsDirectory & "/key.pem"
+    certPath = if conf.websocketSecureCertPath.len > 0:
+                conf.websocketSecureCertPath
+              else:
+                CertsDirectory & "/cert.pem"
 
   var builder = WakuNodeBuilder.init()
   builder.withNodeKey(nodeKey)
@@ -177,14 +188,18 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   if isWss and (conf.websocketSecureKeyPath.len == 0 or
       conf.websocketSecureCertPath.len == 0):
-    error "WebSocket Secure requires key and certificate, see --help"
-    return 1
+    info "WebSocket Secure requires key and certificate. Generating them"
+    if not dirExists(CertsDirectory):
+      createDir(CertsDirectory)
+    if generateSelfSignedCertificate(certPath, keyPath) != 0:
+      error "Error generating key and certificate"
+      return 1
 
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig.tryGet())
   builder.withSwitchConfiguration(
-    secureKey = some(conf.websocketSecureKeyPath),
-    secureCert = some(conf.websocketSecureCertPath),
+    secureKey = some(keyPath),
+    secureCert = some(certPath),
     nameResolver = resolver,
   )
 

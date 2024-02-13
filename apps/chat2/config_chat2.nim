@@ -266,6 +266,11 @@ type
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
 
+    rlnRelayUserMessageLimit* {.
+      desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      defaultValue: 1,
+      name: "rln-relay-user-message-limit" .}: uint64
+
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:

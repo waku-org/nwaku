@@ -32,11 +32,45 @@ type
       defaultValue: ""
       name: "dns-discovery-url" }: string
 
+    pubsubTopics* {.
+      desc: "Default pubsub topic to subscribe to. Argument may be repeated."
+      name: "pubsub-topic" .}: seq[string]
+
     refreshInterval* {.
       desc: "How often new peers are discovered and connected to (in seconds)",
       defaultValue: 5,
       name: "refresh-interval",
       abbr: "r" }: int
+
+    clusterId* {.
+      desc: "Cluster id that the node is running in. Node in a different cluster id is disconnected."
+      defaultValue: 1
+      name: "cluster-id" }: uint32
+
+    rlnRelay* {.
+        desc: "Enable spam protection through rln-relay: true|false",
+        defaultValue: true
+        name: "rln-relay" }: bool
+
+    rlnRelayDynamic* {.
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      defaultValue: true
+      name: "rln-relay-dynamic" }: bool
+
+    rlnRelayTreePath* {.
+      desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+      defaultValue: ""
+      name: "rln-relay-tree-path" }: string
+
+    rlnRelayEthClientAddress* {.
+      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      defaultValue: "http://localhost:8540/",
+      name: "rln-relay-eth-client-address" }: string
+
+    rlnRelayEthContractAddress* {.
+      desc: "Address of membership contract on an Ethereum testnet",
+      defaultValue: "",
+      name: "rln-relay-eth-contract-address" }: string
 
     ## Prometheus metrics config
     metricsServer* {.
