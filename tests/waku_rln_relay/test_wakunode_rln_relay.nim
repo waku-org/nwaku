@@ -85,7 +85,7 @@ procSuite "WakuNode - RLN relay":
 
     # prepare the epoch
     var message = WakuMessage(payload: @payload, contentTopic: contentTopic)
-    doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()))
+    doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
 
 
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
@@ -155,12 +155,12 @@ procSuite "WakuNode - RLN relay":
 
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
-      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime))
+      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime).isOk())
       messages1.add(message)
 
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
-      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime))
+      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime).isOk())
       messages2.add(message)
 
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
@@ -346,9 +346,9 @@ procSuite "WakuNode - RLN relay":
 
     #  check proofs are added correctly
     check:
-      proofAdded1
-      proofAdded2
-      proofAdded3
+      proofAdded1.isOk()
+      proofAdded2.isOk()
+      proofAdded3.isOk()
 
     #  relay handler for node3
     var completionFut1 = newFuture[bool]()
@@ -452,9 +452,9 @@ procSuite "WakuNode - RLN relay":
 
     #  check proofs are added correctly
     check:
-      proofAdded1
-      proofAdded2
-      proofAdded3
+      proofAdded1.isOk()
+      proofAdded2.isOk()
+      proofAdded3.isOk()
 
     #  relay handler for node2
     var completionFut1 = newFuture[bool]()
