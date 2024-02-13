@@ -627,7 +627,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   if g.keystorePath.isSome():
     echo "------------------- g.keystorePath.get(): ", g.keystorePath.get()
   #
-  if g.keystorePath.isSome() and existsFile(g.keystorePath.get()) g.keystorePassword.isSome():
+  if g.keystorePath.isSome() and existsFile(g.keystorePath.get()) and g.keystorePassword.isSome():
     var keystoreQuery = KeystoreMembership(
       membershipContract: MembershipContract(
         chainId: $g.chainId.get(),
