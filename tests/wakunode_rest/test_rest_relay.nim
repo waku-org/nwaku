@@ -523,7 +523,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      response.data == fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -567,7 +567,7 @@ suite "Waku v2 Rest API - Relay":
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      response.data == fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSizeStr}"
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()
