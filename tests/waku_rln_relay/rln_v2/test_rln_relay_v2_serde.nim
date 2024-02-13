@@ -47,7 +47,7 @@ suite "RLN Relay v2: serde":
     let rateCommitment = defaultRateCommitment()
 
     let leafRes = toLeaf(rateCommitment)
-    assert leafRes.isOk, $leafRes.error
+    assert leafRes.isOk(), $leafRes.error
 
     let expectedLeaf = "09beac7784abfadc9958b3176b352389d0b969ccc7f8bccf3e968ed632e26eca"
     check expectedLeaf == leafRes.value.inHex()
