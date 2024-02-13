@@ -187,11 +187,11 @@ proc publish(c: Chat, line: string) =
   if not isNil(c.node.wakuRlnRelay):
     # for future version when we support more than one rln protected content topic,
     # we should check the message content topic as well
-    let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-    if not success:
-      debug "could not append rate limit proof to the message", success=success
+    let appendRes = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+    if appendRes.isErr():
+      debug "could not append rate limit proof to the message"
     else:
-      debug "rate limit proof is appended to the message", success=success
+      debug "rate limit proof is appended to the message"
       let decodeRes = RateLimitProof.init(message.proof)
       if decodeRes.isErr():
         error "could not decode the RLN proof"
@@ -514,14 +514,25 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
       echo "rln-relay preparation is in progress..."
 
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword
-      )
+      when defined(rln_v2):
+        let rlnConf = WakuRlnConfig(
+          rlnRelayDynamic: conf.rlnRelayDynamic,
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+          rlnRelayCredPath: conf.rlnRelayCredPath,
+          rlnRelayCredPassword: conf.rlnRelayCredPassword,
+          rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+        )
+      else:
+        let rlnConf = WakuRlnConfig(
+          rlnRelayDynamic: conf.rlnRelayDynamic,
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+          rlnRelayCredPath: conf.rlnRelayCredPath,
+          rlnRelayCredPassword: conf.rlnRelayCredPassword,
+        )
 
       waitFor node.mountRlnRelay(rlnConf,
                                 spamHandler=some(spamHandler))
