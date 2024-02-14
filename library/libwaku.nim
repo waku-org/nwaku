@@ -9,10 +9,12 @@ import
   chronicles,
   chronos
 import
+  ../../waku/common/base64,
   ../../waku/waku_core/message/message,
   ../../waku/node/waku_node,
   ../../waku/waku_core/topics/pubsub_topic,
   ../../../waku/waku_relay/protocol,
+  ./events/json_base_event,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
@@ -203,10 +205,11 @@ proc waku_relay_publish(ctx: ptr Context,
     if jsonContent.hasKey("version"):
       version = (uint32) jsonContent["version"].getInt()
 
+    # TODO: json to JSONMessage
     wakuMessage = WakuMessage(
         # Visit https://rfc.vac.dev/spec/14/ for further details
         payload: jsonContent["payload"].getStr().toSeq().mapIt(byte (it)),
-        contentTopic: $jsonContent["content_topic"].getStr(),
+        contentTopic: $jsonContent["contentTopic"].getStr(),
         version: version,
         timestamp: getTime().toUnix(),
         ephemeral: false
