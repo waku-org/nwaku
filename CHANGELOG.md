@@ -13,6 +13,12 @@
 > `--relay-shard-manager=true|false`
 > It is disabled by default.
 
+> **Announcement:**
+>
+> Please notice that from the next release (0.26.0) we will depricate features.
+>
+> - JSON-RPC API will be removed completely. Instead we recommend you to utilize REST API endpoints that have same and extended functionality.
+> - We will retire websockets support for RLN on-chain group management. You are expected to use HTTP version of ETH_CLIENT_ADDRESS
 
 ### Features
 
