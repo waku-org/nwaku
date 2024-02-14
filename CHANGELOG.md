@@ -43,7 +43,7 @@
 - adding nwaku compose image update to release process ([#2370](https://github.com/waku-org/nwaku/issues/2370)) ([4f06dcff](https://github.com/waku-org/nwaku/commit/4f06dcff))
 - changing digest and hash log format from bytes to hex ([#2363](https://github.com/waku-org/nwaku/issues/2363)) ([025c6ec9](https://github.com/waku-org/nwaku/commit/025c6ec9))
 - log messageHash for lightpush request that helps in debugging ([#2366](https://github.com/waku-org/nwaku/issues/2366)) ([42204115](https://github.com/waku-org/nwaku/commit/42204115))
-- **rln-relay:** remove websocket from OnchainGroupManager ([#2364](https://github.com/waku-org/nwaku/issues/2364)) ([efdc5244](https://github.com/waku-org/nwaku/commit/efdc5244))
+- **rln-relay:** enabled http based polling in OnchainGroupManager  ([#2364](https://github.com/waku-org/nwaku/issues/2364)) ([efdc5244](https://github.com/waku-org/nwaku/commit/efdc5244))
 - improve POST /relay/v1/auto/messages/{topic} error handling ([#2339](https://github.com/waku-org/nwaku/issues/2339)) ([f841454e](https://github.com/waku-org/nwaku/commit/f841454e))
 - Refactor of FilterV2 subscription management with Time-to-live maintenance ([#2341](https://github.com/waku-org/nwaku/issues/2341)) ([c3358409](https://github.com/waku-org/nwaku/commit/c3358409))
 - Bump `nim-dnsdisc` ([#2354](https://github.com/waku-org/nwaku/issues/2354)) ([3d816c08](https://github.com/waku-org/nwaku/commit/3d816c08))
