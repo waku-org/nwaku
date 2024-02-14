@@ -163,8 +163,8 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
 when defined(rln_v2):
   func toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[MerkleNode] {.inline.} =
     let idCommitment = rateCommitment.idCommitment
-    let userMessageLimit = rateCommitment.userMessageLimit
-    let leafRes = poseidon(@[@idCommitment, cast[seq[byte]](userMessageLimit)])
+    let userMessageLimit =  cast[array[32, byte]](rateCommitment.userMessageLimit)
+    let leafRes = poseidon(@[@idCommitment, @userMessageLimit])
     return leafRes
 
   func toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[MerkleNode]] {.inline.} =

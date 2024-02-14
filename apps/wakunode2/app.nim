@@ -462,15 +462,27 @@ proc setupProtocols(node: WakuNode,
 
   if conf.rlnRelay:
 
-    let rlnConf = WakuRlnConfig(
-      rlnRelayDynamic: conf.rlnRelayDynamic,
-      rlnRelayCredIndex: conf.rlnRelayCredIndex,
-      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-      rlnRelayCredPath: conf.rlnRelayCredPath,
-      rlnRelayCredPassword: conf.rlnRelayCredPassword,
-      rlnRelayTreePath: conf.rlnRelayTreePath,
-    )
+    when defined(rln_v2):
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayCredIndex: conf.rlnRelayCredIndex,
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredPassword: conf.rlnRelayCredPassword,
+        rlnRelayTreePath: conf.rlnRelayTreePath,
+        rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+      )
+    else:
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayCredIndex: conf.rlnRelayCredIndex,
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredPassword: conf.rlnRelayCredPassword,
+        rlnRelayTreePath: conf.rlnRelayTreePath,
+      )
 
     try:
       waitFor node.mountRlnRelay(rlnConf)

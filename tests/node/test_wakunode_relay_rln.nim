@@ -58,7 +58,7 @@ proc sendRlnMessage(
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
   var message = WakuMessage(payload: payload, contentTopic: contentTopic)
-  doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()))
+  doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
   discard await client.publish(some(pubsubTopic), message)
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
@@ -249,18 +249,18 @@ suite "Waku RlnRelay - End to End":
           WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message1b, epoch + EpochUnitSeconds * 0)
+        client.wakuRlnRelay.appendRLNProof(message1b, epoch + EpochUnitSeconds * 0).isOk()
       )
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message1kib, epoch + EpochUnitSeconds * 1)
+        client.wakuRlnRelay.appendRLNProof(message1kib, epoch + EpochUnitSeconds * 1).isOk()
       )
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message150kib, epoch + EpochUnitSeconds * 2)
+        client.wakuRlnRelay.appendRLNProof(message150kib, epoch + EpochUnitSeconds * 2).isOk()
       )
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
           message151kibPlus, epoch + EpochUnitSeconds * 3
-        )
+        ).isOk()
       )
 
       # When sending the 1B message

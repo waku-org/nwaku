@@ -294,7 +294,7 @@ int main(int argc, char** argv) {
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    waku_set_event_callback(event_handler, userData);
+    waku_set_event_callback(ctx, event_handler, userData);
     waku_start(ctx, event_handler, userData);
 
     printf("Establishing connection with: %s\n", cfgNode.peers);

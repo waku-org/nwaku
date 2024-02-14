@@ -102,9 +102,8 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
-      let success = node.wakuRlnRelay.appendRLNProof(message,
-                                                    float64(getTime().toUnix()))
-      if not success:
+      node.wakuRlnRelay.appendRLNProof(message,
+                                       float64(getTime().toUnix())).isOkOr:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
       let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
@@ -201,9 +200,8 @@ proc installRelayApiHandlers*(node: WakuNode, server: RpcServer, cache: MessageC
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
-      let success = node.wakuRlnRelay.appendRLNProof(message,
-                                                    float64(getTime().toUnix()))
-      if not success:
+      node.wakuRlnRelay.appendRLNProof(message,
+                                       float64(getTime().toUnix())).isOkOr:
         raise newException(ValueError, "Failed to publish: error appending RLN proof to message")
       # validate the message before sending it
       let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
