@@ -638,9 +638,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
       let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
-                                                    password = g.keystorePassword.get(),
-                                                    query = keystoreQuery,
-                                                    appInfo = RLNAppInfo)
+                                                     password = g.keystorePassword.get(),
+                                                     query = keystoreQuery,
+                                                     appInfo = RLNAppInfo)
     if keystoreCredRes.isErr():
       raise newException(CatchableError, "could not parse the keystore: " & $keystoreCredRes.error)
     let keystoreCred = keystoreCredRes.get()
@@ -656,8 +656,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
         raise newException(CatchableError, "the provided commitment does not have a membership")
     except CatchableError:
       raise newException(CatchableError, "could not check if the commitment exists on the contract: " &
-                                        getCurrentExceptionMsg())
-                                        
+                                        getCurrentExceptionMsg())                          
     g.idCredentials = some(keystoreCred.identityCredential)
 
   let metadataGetRes = g.rlnInstance.getMetadata()
