@@ -624,41 +624,41 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if existsFile(g.keystorePath.get()):
-      var keystoreQuery = KeystoreMembership(
-        membershipContract: MembershipContract(
-          chainId: $g.chainId.get(),
-          address: g.ethContractAddress
-        )
-      )
-      if g.membershipIndex.isSome():
-        keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
-      waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-        let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
-                                                      password = g.keystorePassword.get(),
-                                                      query = keystoreQuery,
-                                                      appInfo = RLNAppInfo)
-      if keystoreCredRes.isErr():
-        raise newException(CatchableError, "could not parse the keystore: " & $keystoreCredRes.error)
-      let keystoreCred = keystoreCredRes.get()
-      g.membershipIndex = some(keystoreCred.treeIndex)
-      when defined(rln_v2):
-        g.userMessageLimit = some(keystoreCred.userMessageLimit)
-      # now we check on the contract if the commitment actually has a membership
-      try:
-        let membershipExists = await rlnContract.memberExists(keystoreCred
-                                                              .identityCredential
-                                                              .idCommitment.toUInt256()).call()
-        if membershipExists == 0:
-          raise newException(CatchableError, "the provided commitment does not have a membership")
-      except CatchableError:
-        raise newException(CatchableError, "could not check if the commitment exists on the contract: " &
-                                          getCurrentExceptionMsg())
-
-      g.idCredentials = some(keystoreCred.identityCredential)
-    else:
+    if not existsFile(g.keystorePath.get()):
       error "File provided as keystore path does not exist", path=g.keystorePath.get() 
       raise newException(CatchableError, "missing keystore")
+    
+    var keystoreQuery = KeystoreMembership(
+      membershipContract: MembershipContract(
+        chainId: $g.chainId.get(),
+        address: g.ethContractAddress
+      )
+    )
+    if g.membershipIndex.isSome():
+      keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
+    waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
+      let keystoreCredRes = getMembershipCredentials(path = g.keystorePath.get(),
+                                                    password = g.keystorePassword.get(),
+                                                    query = keystoreQuery,
+                                                    appInfo = RLNAppInfo)
+    if keystoreCredRes.isErr():
+      raise newException(CatchableError, "could not parse the keystore: " & $keystoreCredRes.error)
+    let keystoreCred = keystoreCredRes.get()
+    g.membershipIndex = some(keystoreCred.treeIndex)
+    when defined(rln_v2):
+      g.userMessageLimit = some(keystoreCred.userMessageLimit)
+    # now we check on the contract if the commitment actually has a membership
+    try:
+      let membershipExists = await rlnContract.memberExists(keystoreCred
+                                                            .identityCredential
+                                                            .idCommitment.toUInt256()).call()
+      if membershipExists == 0:
+        raise newException(CatchableError, "the provided commitment does not have a membership")
+    except CatchableError:
+      raise newException(CatchableError, "could not check if the commitment exists on the contract: " &
+                                        getCurrentExceptionMsg())
+                                        
+    g.idCredentials = some(keystoreCred.identityCredential)
 
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
