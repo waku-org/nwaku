@@ -50,7 +50,7 @@ import
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size, "message size histogram in kB",
-  buckets = [0.0, 5.0, 15.0, 50.0, 100.0, 300.0, 700.0, 1000.0, Inf]
+  buckets = [0.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 300.0, 700.0, 1000.0, Inf]
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
