@@ -20,6 +20,10 @@ import
   ./constants,
   ./protocol_types,
   ./protocol_metrics
+
+when defined(rln_v2):
+  import ./nonce_manager
+
 import
   ../waku_relay, # for WakuRelayHandler
   ../waku_core,
@@ -37,6 +41,8 @@ type WakuRlnConfig* = object
   rlnRelayCredPath*: string
   rlnRelayCredPassword*: string
   rlnRelayTreePath*: string
+  when defined(rln_v2):
+    rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -78,7 +84,8 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
-  nonce*: uint64
+  when defined(rln_v2):
+    nonceManager: NonceManager
 
 method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
@@ -282,7 +289,7 @@ proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
 
 proc appendRLNProof*(rlnPeer: WakuRLNRelay,
                      msg: var WakuMessage,
-                     senderEpochTime: float64): bool =
+                     senderEpochTime: float64): RlnRelayResult[void] =
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
   ## returns false otherwise
   ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
@@ -292,16 +299,16 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
   let epoch = calcEpoch(senderEpochTime)
 
   when defined(rln_v2):
-    # TODO: add support for incrementing nonce, will address in another PR
-    let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch, 1)
+    let nonce = rlnPeer.nonceManager.get().valueOr:
+      return err("could not get new message id to generate an rln proof: " & $error)
+    let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
+      return err("could not generate rln-v2 proof: " & $error)
   else:
-    let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch)
+    let proof = rlnPeer.groupManager.generateProof(input, epoch).valueOr:
+      return err("could not generate rln proof: " & $error)
 
-  if proofGenRes.isErr():
-    return false
-
-  msg.proof = proofGenRes.get().encode().buffer
-  return true
+  msg.proof = proof.encode().buffer
+  return ok()
 
 proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
@@ -397,7 +404,11 @@ proc mount(conf: WakuRlnConfig,
   # Start the group sync
   await groupManager.startGroupSync()
 
-  return WakuRLNRelay(groupManager: groupManager)
+  when defined(rln_v2): 
+    return WakuRLNRelay(groupManager: groupManager, 
+                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit))
+  else:
+    return WakuRLNRelay(groupManager: groupManager)
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages

@@ -26,6 +26,7 @@ type
     respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
     respSignal: ThreadSignalPtr
     userData*: pointer
+    eventCallback*: pointer
 
 # To control when the thread is running
 var running: Atomic[bool]

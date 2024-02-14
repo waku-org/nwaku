@@ -687,9 +687,9 @@ suite "Waku rln relay":
 
     # ensure proofs are added
     require:
-      proofAdded1
-      proofAdded2
-      proofAdded3
+      proofAdded1.isOk()
+      proofAdded2.isOk()
+      proofAdded3.isOk()
 
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
