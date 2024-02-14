@@ -657,7 +657,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
 
       g.idCredentials = some(keystoreCred.identityCredential)
     else:
-      warn "File provided as keystore path does not exist", path=g.keystorePath.get() 
+      error "File provided as keystore path does not exist", path=g.keystorePath.get() 
+      raise newException(CatchableError, "missing keystore")
 
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
