@@ -6,30 +6,32 @@ import
   chronos,
   chronicles,
   stew/shims/net,
-  libp2p/switch,
-  libp2p/peerId,
-  libp2p/crypto/crypto,
-  libp2p/multistream,
-  libp2p/muxers/muxer,
-  eth/keys,
-  eth/p2p/discoveryv5/enr
+  libp2p/[switch, peerId, crypto/crypto, multistream, muxers/muxer],
+  eth/[keys, p2p/discoveryv5/enr]
 
 import
-  ../../waku/waku_node,
-  ../../waku/node/peer_manager,
-  ../../waku/waku_discv5,
-  ../../waku/waku_peer_exchange,
-  ../../waku/waku_peer_exchange/rpc,
-  ../../waku/waku_peer_exchange/rpc_codec,
-  ../../waku/waku_peer_exchange/protocol,
-  ./testlib/wakucore,
-  ./testlib/wakunode
+  ../../../waku/[
+    waku_node,
+    node/peer_manager,
+    waku_discv5,
+    waku_peer_exchange,
+    waku_peer_exchange/rpc,
+    waku_peer_exchange/rpc_codec,
+    waku_peer_exchange/protocol,
+    node/peer_manager,
+    waku_relay/protocol,
+    waku_relay,
+    waku_core,
+    waku_core/message/codec
+  ],
+  ../testlib/[wakucore, wakunode, simple_mock, assertions]
 
 suite "Waku Peer Exchange":
-  # Some of this tests were moved, and they used node.wakuPeerExchange instead of just a PeerExchange.
-  # TODO: In true unit test fashion they should be unlinked from node.
+  # Some of this tests use node.wakuPeerExchange instead of just a standalone PeerExchange.
+  # This is because attempts to connect the switches for two standalones PeerExchanges failed.
+  # TODO: Try to make the tests work with standalone PeerExchanges
 
-  suite "request"
+  suite "request":
     asyncTest "Retrieve and provide peer exchange peers from discv5":
       ## Given (copied from test_waku_discv5.nim)
       let
@@ -94,7 +96,9 @@ suite "Waku Peer Exchange":
 
       let
         disc1 =
-          WakuDiscoveryV5.new(node1.rng, conf1, some(node1.enr), some(node1.peerManager))
+          WakuDiscoveryV5.new(
+            node1.rng, conf1, some(node1.enr), some(node1.peerManager)
+          )
 
       let
         conf2 =
@@ -109,7 +113,9 @@ suite "Waku Peer Exchange":
 
       let
         disc2 =
-          WakuDiscoveryV5.new(node2.rng, conf2, some(node2.enr), some(node2.peerManager))
+          WakuDiscoveryV5.new(
+            node2.rng, conf2, some(node2.enr), some(node2.peerManager)
+          )
 
       await allFutures(node1.start(), node2.start(), node3.start())
       let resultDisc1StartRes = await disc1.start()
@@ -216,7 +222,7 @@ suite "Waku Peer Exchange":
           response2.get().peerInfos.anyIt(it.enr == enr2.raw)
         response3.get().peerInfos.anyIt(it.enr == enr1.raw) or
           response3.get().peerInfos.anyIt(it.enr == enr2.raw)
-  
+
     asyncTest "Request fails gracefully":
       let
         node1 =
@@ -245,6 +251,84 @@ suite "Waku Peer Exchange":
       # Check that it failed gracefully
       check:
         response.isErr
+
+    asyncTest "Request 0 peers, with 0 peers in PeerExchange":
+      # Given a disconnected PeerExchange
+      let
+        switch = newTestSwitch()
+        peerManager = PeerManager.new(switch)
+        peerExchange = WakuPeerExchange.new(peerManager)
+
+      # When requesting 0 peers
+      let response = await peerExchange.request(0)
+
+      # Then the response should be an error
+      check:
+        response.isErr
+        response.error == "peer_not_found_failure"
+
+    asyncTest "Request 0 peers, with 1 peer in PeerExchange":
+      # Given two valid nodes with PeerExchange
+      let
+        node1 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+        node2 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+
+      # Start and mount peer exchange
+      await allFutures([node1.start(), node2.start()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+      # Connect the nodes
+      let
+        dialResponse =
+          await node2.peerManager.dialPeer(
+            node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+          )
+      assert dialResponse.isSome
+
+      # Mock that we have discovered one enr
+      var record = enr.Record()
+      check record.fromUri(
+        "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
+      )
+      node1.wakuPeerExchange.enrCache.add(record)
+
+      # When requesting 0 peers
+      let response = await node1.wakuPeerExchange.request(0)
+
+      # Then the response should be empty
+      assertResultOk(response)
+      check response.get().peerInfos.len == 0
+
+    asyncTest "Request with invalid peer info":
+      # Given two valid nodes with PeerExchange
+      let
+        node1 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+        node2 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+
+      # Start and mount peer exchange
+      await allFutures([node1.start(), node2.start()])
+      await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
+
+      # Mock that we have discovered one enr
+      var record = enr.Record()
+      check record.fromUri(
+        "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
+      )
+      node1.wakuPeerExchange.enrCache.add(record)
+
+      # When making any request with an invalid peer info
+      var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
+      remotePeerInfo2.peerId.data.add(255.byte)
+      let response = await node1.wakuPeerExchange.request(1, remotePeerInfo2)
+
+      # Then the response should be an error
+      check:
+        response.isErr
+        response.error == "dial_failure"
 
     asyncTest "Connections are closed after response is sent":
       # Create 3 nodes
