@@ -656,8 +656,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
         raise newException(CatchableError, "the provided commitment does not have a membership")
     except CatchableError:
       raise newException(CatchableError, "could not check if the commitment exists on the contract: " &
-                                        getCurrentExceptionMsg())
-                          
+                                         getCurrentExceptionMsg())
+
     g.idCredentials = some(keystoreCred.identityCredential)
 
   let metadataGetRes = g.rlnInstance.getMetadata()
