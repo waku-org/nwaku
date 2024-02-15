@@ -12,6 +12,7 @@ import
   ../driver,
   ../../common/databases/dburl,
   ../../common/databases/db_sqlite,
+  ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
   ./queue_driver
@@ -29,13 +30,13 @@ proc new*(T: type ArchiveDriver,
           vacuum: bool,
           migrate: bool,
           maxNumConn: int,
-          onErrAction: OnErrHandler):
+          onFatalErrorAction: OnFatalErrorHandler):
           Result[T, string] =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
   ## migrate - if true, the database schema will be updated
   ## maxNumConn - defines the maximum number of connections to handle simultaneously (Postgres)
-  ## onErrAction - called if, e.g., the connection with db got lost
+  ## onFatalErrorAction - called if, e.g., the connection with db got lost
 
   let dbUrlValidationRes = dburl.validateDbUrl(url)
   if dbUrlValidationRes.isErr():
@@ -85,7 +86,7 @@ proc new*(T: type ArchiveDriver,
     when defined(postgres):
       let res = PostgresDriver.new(dbUrl = url,
                                    maxConnections = maxNumConn,
-                                   onErrAction = onErrAction)
+                                   onFatalErrorAction = onFatalErrorAction)
       if res.isErr():
         return err("failed to init postgres archive driver: " & res.error)
 

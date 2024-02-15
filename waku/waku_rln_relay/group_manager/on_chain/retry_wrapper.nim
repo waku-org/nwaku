@@ -1,6 +1,7 @@
 import 
+  ../../../common/error_handling
+import 
   chronos
-    
 
 type RetryStrategy* = object
   shouldRetry*: bool
@@ -18,6 +19,7 @@ proc new*(T: type RetryStrategy): RetryStrategy =
 template retryWrapper*(res: auto,
                        retryStrategy: RetryStrategy,
                        errStr: string,
+                       errCallback: OnFatalErrorHandler = nil,
                        body: untyped): auto =
   var retryCount = retryStrategy.retryCount
   var shouldRetry = retryStrategy.shouldRetry
@@ -32,4 +34,8 @@ template retryWrapper*(res: auto,
       exceptionMessage = getCurrentExceptionMsg()
       await sleepAsync(retryStrategy.retryDelay)
   if shouldRetry:
-    raise newException(CatchableError, errStr & ": " & exceptionMessage)
+    if errCallback == nil:
+      raise newException(CatchableError, errStr & " errCallback == nil: " & exceptionMessage)
+    else:
+      errCallback(errStr & ": " & exceptionMessage)
+      return

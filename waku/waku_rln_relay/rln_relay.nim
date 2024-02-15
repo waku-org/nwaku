@@ -25,6 +25,7 @@ when defined(rln_v2):
   import ./nonce_manager
 
 import
+  ../common/error_handling,
   ../waku_relay, # for WakuRelayHandler
   ../waku_core,
   ../waku_keystore,
@@ -33,16 +34,18 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type WakuRlnConfig* = object
-  rlnRelayDynamic*: bool
-  rlnRelayCredIndex*: Option[uint]
-  rlnRelayEthContractAddress*: string
-  rlnRelayEthClientAddress*: string
-  rlnRelayCredPath*: string
-  rlnRelayCredPassword*: string
-  rlnRelayTreePath*: string
-  when defined(rln_v2):
-    rlnRelayUserMessageLimit*: uint64
+type 
+  WakuRlnConfig* = object
+    rlnRelayDynamic*: bool
+    rlnRelayCredIndex*: Option[uint]
+    rlnRelayEthContractAddress*: string
+    rlnRelayEthClientAddress*: string
+    rlnRelayCredPath*: string
+    rlnRelayCredPassword*: string
+    rlnRelayTreePath*: string
+    onFatalErrorAction*: OnFatalErrorHandler
+    when defined(rln_v2):
+      rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -84,10 +87,11 @@ type WakuRLNRelay* = ref object of RootObj
   nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   groupManager*: GroupManager
+  onFatalErrorAction*: OnFatalErrorHandler
   when defined(rln_v2):
     nonceManager: NonceManager
 
-method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
+proc stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
   ## Throws an error if it cannot stop the rln-relay protocol
 
@@ -370,6 +374,7 @@ proc mount(conf: WakuRlnConfig,
           ): Future[WakuRlnRelay] {.async: (raises: [Exception]).} =
   var
     groupManager: GroupManager
+    wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
   let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
   if rlnInstanceRes.isErr():
@@ -383,7 +388,8 @@ proc mount(conf: WakuRlnConfig,
     groupManager = StaticGroupManager(groupSize: StaticGroupSize,
                                       groupKeys: parsedGroupKeysRes.get(),
                                       membershipIndex: conf.rlnRelayCredIndex,
-                                      rlnInstance: rlnInstance)
+                                      rlnInstance: rlnInstance,
+                                      onFatalErrorAction: conf.onFatalErrorAction)
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
     # dynamic setup
@@ -398,7 +404,9 @@ proc mount(conf: WakuRlnConfig,
                                        registrationHandler: registrationHandler,
                                        keystorePath: rlnRelayCredPath,
                                        keystorePassword: rlnRelayCredPassword,
-                                       membershipIndex: conf.rlnRelayCredIndex)
+                                       membershipIndex: conf.rlnRelayCredIndex,
+                                       onFatalErrorAction: conf.onFatalErrorAction)
+
   # Initialize the groupManager
   await groupManager.init()
   # Start the group sync
@@ -406,9 +414,12 @@ proc mount(conf: WakuRlnConfig,
 
   when defined(rln_v2): 
     return WakuRLNRelay(groupManager: groupManager, 
-                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit))
+                                nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit),
+                                onFatalErrorAction: conf.onFatalErrorAction)
   else:
-    return WakuRLNRelay(groupManager: groupManager)
+    return WakuRLNRelay(groupManager: groupManager,
+                                onFatalErrorAction: conf.onFatalErrorAction)
+
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages
