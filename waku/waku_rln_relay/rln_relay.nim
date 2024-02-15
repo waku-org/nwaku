@@ -43,7 +43,6 @@ type
     rlnRelayCredPath*: string
     rlnRelayCredPassword*: string
     rlnRelayTreePath*: string
-    # defined in waku_archive, but do not want to import it here
     onFatalErrorAction*: OnFatalErrorHandler
     when defined(rln_v2):
       rlnRelayUserMessageLimit*: uint64
