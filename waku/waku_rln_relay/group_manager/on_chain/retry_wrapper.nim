@@ -35,7 +35,7 @@ template retryWrapper*(res: auto,
       await sleepAsync(retryStrategy.retryDelay)
   if shouldRetry:
     if errCallback == nil:
-      raise newException(CatchableError, errStr & ": " & exceptionMessage)
+      raise newException(CatchableError, errStr & " errCallback == nil: " & exceptionMessage)
     else:
       errCallback(errStr & ": " & exceptionMessage)
       return
