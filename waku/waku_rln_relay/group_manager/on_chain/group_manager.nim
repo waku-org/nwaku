@@ -238,19 +238,19 @@ when defined(rln_v2):
     let membershipFee = g.membershipFee.get()
 
     var gasPrice: int
-    g.retryWrapper(gasPrice, RetryStrategy.new(), "Failed to get gas price"):
+    g.retryWrapper(gasPrice, "Failed to get gas price"):
       int(await ethRpc.provider.eth_gasPrice()) * 2
     let idCommitment = identityCredential.idCommitment.toUInt256()
 
     var txHash: TxHash
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member", idCommitment = idCommitment, storageIndex = storageIndex, userMessageLimit = userMessageLimit
-    g.retryWrapper(txHash, RetryStrategy.new(), "Failed to register the member"):
+    g.retryWrapper(txHash, "Failed to register the member"):
       await registryContract.register(storageIndex, idCommitment, u256(userMessageLimit)).send(gasPrice = gasPrice)
 
     # wait for the transaction to be mined
     var tsReceipt: ReceiptObject
-    g.retryWrapper(tsReceipt, RetryStrategy.new(), "Failed to get the transaction receipt"):
+    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
       await ethRpc.getMinedTransactionReceipt(txHash)
     debug "registration transaction mined", txHash = txHash
     g.registrationTxHash = some(txHash)
