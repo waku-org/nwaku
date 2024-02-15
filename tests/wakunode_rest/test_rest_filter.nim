@@ -261,7 +261,8 @@ suite "Waku v2 Rest API - Filter V2":
     let testMessage = WakuMessage(
                                         payload: "TEST-PAYLOAD-MUST-RECEIVE".toBytes(),
                                         contentTopic: "1",
-                                        timestamp: int64(2022)
+                                        timestamp: int64(2022),
+                                        meta: "test-meta".toBytes()
                                       )
 
     let postMsgResponse = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(

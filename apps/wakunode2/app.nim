@@ -460,8 +460,13 @@ proc setupProtocols(node: WakuNode,
   except CatchableError:
     return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
-  if conf.rlnRelay:
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+    ## Action to be taken when an internal error occurs during the node run.
+    ## e.g. the connection with the database is lost and not recovered.
+    error "Unrecoverable error occurred", error = msg
+    quit(QuitFailure)
 
+  if conf.rlnRelay:
     when defined(rln_v2):
       let rlnConf = WakuRlnConfig(
         rlnRelayDynamic: conf.rlnRelayDynamic,
@@ -472,6 +477,7 @@ proc setupProtocols(node: WakuNode,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
         rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+        onFatalErrorAction: onFatalErrorAction,
       )
     else:
       let rlnConf = WakuRlnConfig(
@@ -482,6 +488,7 @@ proc setupProtocols(node: WakuNode,
         rlnRelayCredPath: conf.rlnRelayCredPath,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
+        onFatalErrorAction: onFatalErrorAction,
       )
 
     try:
@@ -490,18 +497,12 @@ proc setupProtocols(node: WakuNode,
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
   if conf.store:
-    var onErrAction = proc(msg: string) {.gcsafe, closure.} =
-      ## Action to be taken when an internal error occurs during the node run.
-      ## e.g. the connection with the database is lost and not recovered.
-      error "Unrecoverable error occurred", error = msg
-      quit(QuitFailure)
-
     # Archive setup
     let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
                                              conf.storeMessageDbVacuum,
                                              conf.storeMessageDbMigration,
                                              conf.storeMaxNumDbConnections,
-                                             onErrAction)
+                                             onFatalErrorAction)
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)
 

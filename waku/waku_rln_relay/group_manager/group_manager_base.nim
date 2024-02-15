@@ -1,4 +1,5 @@
 import
+  ../../common/error_handling,
   ../protocol_types,
   ../protocol_metrics,
   ../constants,
@@ -44,6 +45,7 @@ type
     initialized*: bool
     latestIndex*: MembershipIndex
     validRoots*: Deque[MerkleNode]
+    onFatalErrorAction*: OnFatalErrorHandler
     when defined(rln_v2):
       userMessageLimit*: Option[UserMessageLimit]
 

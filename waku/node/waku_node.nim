@@ -979,7 +979,7 @@ proc mountRlnRelay*(node: WakuNode,
     raise newException(CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay")
 
   let rlnRelayRes = waitFor WakuRlnRelay.new(rlnConf,
-                                            registrationHandler)
+                                             registrationHandler)
   if rlnRelayRes.isErr():
     raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
