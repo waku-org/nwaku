@@ -62,7 +62,7 @@ proc configureStore(node: WakuNode,
                     Future[Result[void, string]] {.async.} =
   ## This snippet is extracted/duplicated from the app.nim file
 
-  var onErrAction = proc(msg: string) {.gcsafe, closure.} =
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
     ## Action to be taken when an internal error occurs during the node run.
     ## e.g. the connection with the database is lost and not recovered.
     # error "Unrecoverable error occurred", error = msg
@@ -74,7 +74,7 @@ proc configureStore(node: WakuNode,
                                            storeVacuum,
                                            storeDbMigration,
                                            storeMaxNumDbConnections,
-                                           onErrAction)
+                                           onFatalErrorAction)
   if archiveDriverRes.isErr():
     return err("failed to setup archive driver: " & archiveDriverRes.error)
 
