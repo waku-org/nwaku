@@ -11,6 +11,7 @@ import
   chronos,
   chronicles
 import
+  ../../../common/error_handling,
   ../../../waku_core,
   ../../common,
   ../../driver,
@@ -89,7 +90,7 @@ const DefaultMaxNumConns = 50
 proc new*(T: type PostgresDriver,
           dbUrl: string,
           maxConnections = DefaultMaxNumConns,
-          onErrAction: OnErrHandler = nil):
+          onFatalErrorAction: OnFatalErrorHandler = nil):
           ArchiveDriverResult[T] =
 
   ## Very simplistic split of max connections
@@ -101,11 +102,11 @@ proc new*(T: type PostgresDriver,
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(readConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(writeConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
   return ok(PostgresDriver(writeConnPool: writeConnPool,
                            readConnPool: readConnPool))
