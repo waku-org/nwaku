@@ -223,6 +223,13 @@ suite "Onchain group manager":
                                        rlnInstance: manager.rlnInstance)
     expect(ValueError): await manager2.init()
 
+  asyncTest "should error when keystore path and password are provided but file doesn't exist":
+    let manager = await setup()
+    manager.keystorePath = some("/inexistent/file")
+    manager.keystorePassword = some("password")
+
+    expect(CatchableError): await manager.init()
+
   asyncTest "startGroupSync: should start group sync":
     let manager = await setup()
 

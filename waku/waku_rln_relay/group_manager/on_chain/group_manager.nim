@@ -4,6 +4,7 @@ else:
   {.push raises: [].}
 
 import
+  os,
   web3,
   web3/ethtypes,
   eth/keys as keys,
@@ -630,6 +631,10 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
+    if not existsFile(g.keystorePath.get()):
+      error "File provided as keystore path does not exist", path=g.keystorePath.get() 
+      raise newException(CatchableError, "missing keystore")
+    
     var keystoreQuery = KeystoreMembership(
       membershipContract: MembershipContract(
         chainId: $g.chainId.get(),
