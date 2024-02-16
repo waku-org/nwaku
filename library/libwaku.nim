@@ -45,14 +45,14 @@ const RET_MISSING_CALLBACK: cint = 2
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc (pubsubTopic: PubsubTopic, msg: WakuMessage): Future[system.void]{.async.} =
     # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if not isNil(ctx[].eventCallback):
+    if not isNil(ctx[].eventCallback) and not isNil(ctx[].eventUserData):
       try:
         let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), nil)
+        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData)
       except Exception,CatchableError:
         let msg = "Exception when calling 'eventCallBack': " &
                   getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), nil)
+        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData)
     else:
       error "eventCallback is nil"
 
@@ -108,8 +108,10 @@ proc waku_version(ctx: ptr Context,
   return RET_OK
 
 proc waku_set_event_callback(ctx: ptr Context,
-                             callback: WakuCallBack) {.dynlib, exportc.} =
+                             callback: WakuCallBack,
+                             userData: pointer) {.dynlib, exportc.} =
   ctx[].eventCallback = cast[pointer](callback)
+  ctx[].eventUserData = userData
 
 proc waku_content_topic(ctx: ptr Context,
                         appName: cstring,
