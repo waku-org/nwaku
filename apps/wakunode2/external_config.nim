@@ -36,6 +36,8 @@ type ProtectedTopic* = object
 
 type ShardIdx = distinct uint16 
 
+type EthRpcUrl = distinct string
+
 type StartUpCommand* = enum
     noCommand # default, runs waku
     generateRlnKeystore # generates a new RLN keystore
@@ -63,9 +65,9 @@ type
       name: "rln-relay-cred-path" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
       defaultValue: "http://localhost:8540/",
-      name: "rln-relay-eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: EthRpcUrl
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",
@@ -603,6 +605,28 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
 
+proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
+  ## allowed patterns:
+  ## http://url:port
+  ## https://url:port
+  ## http://url:port/path
+  ## https://url:port/path
+  ## http://url/with/path
+  ## http://url:port/path?query
+  ## https://url:port/path?query
+  ## disallowed patterns:
+  ## any valid/invalid ws or wss url
+  var httpPattern = re2"^(https?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  var wsPattern =   re2"^(wss?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  if regex.match(s, wsPattern):
+    raise newException(ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL")
+  if not regex.match(s, httpPattern):
+    raise newException(ValueError, "Invalid HTTP RPC URL")
+  return EthRpcUrl(s)
+
 ## Load
 
 proc readValue*(r: var TomlReader, value: var crypto.PrivateKey) {.raises: [SerializationError].} =
@@ -638,6 +662,18 @@ proc readValue*(r: var TomlReader, value: var ShardIdx) {.raises: [Serialization
 proc readValue*(r: var EnvvarReader, value: var ShardIdx) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(ShardIdx, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(r: var TomlReader, value: var EthRpcUrl) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(EthRpcUrl, r.readValue(string))
+  except CatchableError:
+    raise newException(SerializationError, getCurrentExceptionMsg())
+
+proc readValue*(r: var EnvvarReader, value: var EthRpcUrl) {.raises: [SerializationError].} =
+  try:
+    value = parseCmdArg(EthRpcUrl, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
