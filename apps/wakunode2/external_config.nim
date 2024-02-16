@@ -619,8 +619,8 @@ proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
   ## https://url:port/path?query
   ## disallowed patterns:
   ## any valid/invalid ws or wss url
-  var httpPattern = re2"^(http|https):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])"
-  var wsPattern =   re2"^(ws|wss):\/\/([\w_-]+(?:(?:\.[\w_-]+)+))([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])"
+  var httpPattern = re2"^(https?):\/\/((localhost)|([\w_-]+(?:(?:\.[\w_-]+)+)))(:[0-9]{1,5})?([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])*"
+  var wsPattern =   re2"^(wss?):\/\/((localhost)|([\w_-]+(?:(?:\.[\w_-]+)+)))(:[0-9]{1,5})?([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])*"
   if regex.match(s, wsPattern):
     raise newException(ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL")
   if not regex.match(s, httpPattern):
