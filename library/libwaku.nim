@@ -190,32 +190,21 @@ proc waku_relay_publish(ctx: ptr Context,
     return RET_MISSING_CALLBACK
 
   let jwm = jsonWakuMessage.alloc()
-  var jsonContent:JsonNode
+  var jsonMessage:JsonMessage
   try:
-    jsonContent = parseJson($jwm)
+    let jsonContent = parseJson($jwm)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
   except JsonParsingError:
     deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
-
-  deallocShared(jwm)
+  finally:
+    deallocShared(jwm)
 
   var wakuMessage: WakuMessage
   try:
-    var version = 0'u32
-    if jsonContent.hasKey("version"):
-      version = (uint32) jsonContent["version"].getInt()
-
-    # TODO: json to JSONMessage
-    wakuMessage = WakuMessage(
-        # Visit https://rfc.vac.dev/spec/14/ for further details
-        payload: jsonContent["payload"].getStr().toSeq().mapIt(byte (it)),
-        contentTopic: $jsonContent["contentTopic"].getStr(),
-        version: version,
-        timestamp: getTime().toUnix(),
-        ephemeral: false
-    )
+    wakuMessage = jsonMessage.toWakuMessage()
   except KeyError:
     let msg = fmt"Problem building the WakuMessage: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
