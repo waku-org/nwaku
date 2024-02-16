@@ -1,11 +1,12 @@
 
 import
     system,
-    std/json
+    std/[json,sequtils]
 import
-    stew/results
+    stew/[byteutils,results]
 import
     ../../waku/common/base64,
+    ../../waku/waku_core/message,
     ../../waku/waku_core/message/message,
     ./json_base_event
 
@@ -30,8 +31,8 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
 
 proc toWakuMessage*(self: JsonMessage): WakuMessage =
   let payloadRes = base64.decode(self.payload)
-  if not payloadRes.isErr():
-      raise newException(ValueError, "invalid payload format: " & payloadRes.error)
+  if payloadRes.isErr():
+    raise newException(ValueError, "invalid payload format: " & payloadRes.error)
 
   WakuMessage(
     payload: payloadRes.value,
@@ -43,6 +44,9 @@ proc toWakuMessage*(self: JsonMessage): WakuMessage =
 
 proc `%`*(value: Base64String): JsonNode =
   %(value.string)
+
+proc `%`*(value: WakuMessageHash): JsonNode =
+  %(to0xHex(value))
 
 type JsonMessageEvent* = ref object of JsonEvent
     pubsubTopic*: string
@@ -58,10 +62,13 @@ proc new*(T: type JsonMessageEvent,
   var payload = newSeq[byte](len(msg.payload))
   copyMem(addr payload[0], unsafeAddr msg.payload[0], len(msg.payload))
 
+  let msgHash = computeMessageHash(pubSubTopic, msg)
+  let msgHashHex = to0xHex(msgHash)
+
   return JsonMessageEvent(
     eventType: "message",
     pubSubTopic: pubSubTopic,
-    messageId: "TODO",
+    messageId: msgHashHex,
     wakuMessage: JsonMessage(
         payload: base64.encode(payload),
         contentTopic: msg.contentTopic,
