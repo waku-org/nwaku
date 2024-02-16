@@ -27,6 +27,7 @@ type
     respSignal: ThreadSignalPtr
     userData*: pointer
     eventCallback*: pointer
+    eventUserdata*: pointer
 
 # To control when the thread is running
 var running: Atomic[bool]
