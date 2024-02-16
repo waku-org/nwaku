@@ -542,7 +542,7 @@ when isMainModule:
       rlnRelayDynamic: conf.rlnRelayDynamic,
       rlnRelayCredIndex: some(uint(0)),
       rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
       rlnRelayCredPath: "",
       rlnRelayCredPassword: "",
       rlnRelayTreePath: conf.rlnRelayTreePath,

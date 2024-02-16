@@ -166,7 +166,7 @@ You can check this fact by looking at `Bob`'s console, where `message3` is missi
 
 **Alice**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-password:password --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=1 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=1 
 ```
 
 ```
@@ -209,7 +209,7 @@ your rln identity commitment key is: bd093cbf14fb933d53f596c33f98b3df83b7e9f7a19
 
 **Bob**
 ```bash
-./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-index:1 --rln-relay-cred-password:password --rln-relay-eth-client-address:wss://sepolia.infura.io/ws/v3/12345678901234567890123456789012 --ports-shift=2 
+./build/chat2 --fleet:test --content-topic:/toy-chat/3/mingde/proto --rln-relay:true --rln-relay-dynamic:true --rln-relay-eth-contract-address:0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4 --rln-relay-cred-path:rlnKeystore.json --rln-relay-cred-index:1 --rln-relay-cred-password:password --rln-relay-eth-client-address:https://sepolia.infura.io/v3/12345678901234567890123456789012 --ports-shift=2 
 ```
 
 ```

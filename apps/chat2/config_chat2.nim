@@ -1,11 +1,12 @@
 import
-  std/strutils,
-  confutils, confutils/defs, confutils/std/net,
   chronicles, chronos,
+  confutils, confutils/defs, confutils/std/net,
+  eth/keys,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  eth/keys
+  std/strutils,
+  regex
 import
   ../../../waku/waku_core
 
@@ -14,7 +15,7 @@ type
     none
     prod
     test
-
+  EthRpcUrl = distinct string
   Chat2Conf* = object
     ## General node config
 
@@ -252,9 +253,9 @@ type
       name: "rln-relay-id-commitment-key" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
       defaultValue: "http://localhost:8540/"
-      name: "rln-relay-eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: EthRpcUrl
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",
@@ -306,6 +307,28 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
     some(parseUint(p))
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
+
+proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
+  ## allowed patterns:
+  ## http://url:port
+  ## https://url:port
+  ## http://url:port/path
+  ## https://url:port/path
+  ## http://url/with/path
+  ## http://url:port/path?query
+  ## https://url:port/path?query
+  ## disallowed patterns:
+  ## any valid/invalid ws or wss url
+  var httpPattern = re2"^(https?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  var wsPattern =   re2"^(wss?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  if regex.match(s, wsPattern):
+    raise newException(ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL")
+  if not regex.match(s, httpPattern):
+    raise newException(ValueError, "Invalid HTTP RPC URL")
+  return EthRpcUrl(s)
 
 func defaultListenAddress*(conf: Chat2Conf): IpAddress =
   # TODO: How should we select between IPv4 and IPv6

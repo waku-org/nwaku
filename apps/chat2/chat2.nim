@@ -519,7 +519,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayCredIndex: conf.rlnRelayCredIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
           rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
@@ -529,7 +529,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayDynamic: conf.rlnRelayDynamic,
           rlnRelayCredIndex: conf.rlnRelayCredIndex,
           rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-          rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
         )

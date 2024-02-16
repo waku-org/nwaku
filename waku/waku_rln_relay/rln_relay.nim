@@ -398,7 +398,7 @@ proc mount(conf: WakuRlnConfig,
     let
       rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
       rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
-    groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
+    groupManager = OnchainGroupManager(ethClientUrl: string(conf.rlnRelayethClientAddress),
                                        ethContractAddress: $conf.rlnRelayEthContractAddress,
                                        rlnInstance: rlnInstance,
                                        registrationHandler: registrationHandler,
