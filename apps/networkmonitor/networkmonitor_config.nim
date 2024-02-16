@@ -1,11 +1,14 @@
 import
-  std/strutils,
   chronicles,
   chronicles/topics_registry,
-  chronos,
   confutils,
+  chronos,
+  std/strutils,
   stew/results,
-  stew/shims/net
+  stew/shims/net,
+  regex
+
+type EthRpcUrl = distinct string
 
 type
   NetworkMonitorConf* = object
@@ -63,9 +66,9 @@ type
       name: "rln-relay-tree-path" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
       defaultValue: "http://localhost:8540/",
-      name: "rln-relay-eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: EthRpcUrl
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",
@@ -115,6 +118,19 @@ proc parseCmdArg*(T: type chronos.Duration, p: string): T =
 
 proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
   return @[]
+
+proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
+  var httpPattern = re2"^(https?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  var wsPattern =   re2"^(wss?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
+  if regex.match(s, wsPattern):
+    echo "here"
+    raise newException(ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL")
+  if not regex.match(s, httpPattern):
+    raise newException(ValueError, "Invalid HTTP RPC URL")
+  return EthRpcUrl(s)
 
 proc loadConfig*(T: type NetworkMonitorConf): Result[T, string] =
   try:
