@@ -51,7 +51,9 @@ func toTyped*(record: Record): EnrResult[TypedRecord] =
   if idOpt.isNone():
     return err("missing id scheme field")
 
-  discard ? toRecordId(idOpt.get())
+  let toRecIdRes = toRecordId(idOpt.get())
+  if toRecIdRes.isErr():
+    return err("toRecIdRes is not ok")
 
   ok(tr)
 

@@ -257,8 +257,19 @@ proc containsShard*(r: Record, topic: PubsubTopic|string): bool =
 
 proc isClusterMismatched*(record: Record, clusterId: uint32): bool =
   ## Check the ENR sharding info for matching cluster id
-  if (let typedRecord = record.toTyped(); typedRecord.isOk()):
-    if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome()):
-      return relayShard.get().clusterId != clusterId
-  
+  let typedRecord = record.toTyped().valueOr:
+    error "isClusterMismatched typedRecord is not ok: ", error = error
+    return true
+
+  let relayShard = typedRecord.relaySharding()
+  if relayShard.isNone():
+    error "isClusterMismatched relayShard is none"
+    return true
+
+  if relayShard.get().clusterId != clusterId:
+    error "isClusterMismatched mismatch",
+      relayShardClusterId = relayShard.get().clusterId,
+      clusterId = clusterId
+    return true
+
   return false
