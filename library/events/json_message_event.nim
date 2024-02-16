@@ -18,6 +18,7 @@ type
     version*: uint
     timestamp*: int64
     ephemeral*: bool
+    meta*: Base64String
 
 func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
   # Visit https://rfc.vac.dev/spec/14/ for further details
@@ -26,7 +27,8 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
     contentTopic: jsonContent["contentTopic"].getStr(),
     version: uint32(jsonContent["version"].getInt()),
     timestamp: int64(jsonContent["timestamp"].getBiggestInt()),
-    ephemeral: jsonContent["ephemeral"].getBool()
+    ephemeral: jsonContent["ephemeral"].getBool(),
+    meta: Base64String(jsonContent["meta"].getStr()),
   )
 
 proc toWakuMessage*(self: JsonMessage): WakuMessage =
@@ -34,8 +36,13 @@ proc toWakuMessage*(self: JsonMessage): WakuMessage =
   if payloadRes.isErr():
     raise newException(ValueError, "invalid payload format: " & payloadRes.error)
 
+  let metaRes = base64.decode(self.meta)
+  if metaRes.isErr():
+    raise newException(ValueError, "invalid meta format: " & metaRes.error)
+
   WakuMessage(
     payload: payloadRes.value,
+    meta: metaRes.value,
     contentTopic: self.contentTopic,
     version: uint32(self.version),
     timestamp: self.timestamp,
@@ -60,7 +67,12 @@ proc new*(T: type JsonMessageEvent,
   # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
 
   var payload = newSeq[byte](len(msg.payload))
-  copyMem(addr payload[0], unsafeAddr msg.payload[0], len(msg.payload))
+  if len(msg.payload) != 0:
+    copyMem(addr payload[0], unsafeAddr msg.payload[0], len(msg.payload))
+
+  var meta = newSeq[byte](len(msg.meta))
+  if len(msg.meta) != 0:
+    copyMem(addr meta[0], unsafeAddr msg.meta[0], len(msg.meta))
 
   let msgHash = computeMessageHash(pubSubTopic, msg)
   let msgHashHex = to0xHex(msgHash)
@@ -73,7 +85,9 @@ proc new*(T: type JsonMessageEvent,
         payload: base64.encode(payload),
         contentTopic: msg.contentTopic,
         version: msg.version,
-        timestamp: int64(msg.timestamp)
+        timestamp: int64(msg.timestamp),
+        ephemeral: msg.ephemeral,
+        meta: base64.encode(meta),
     )
   )
 
