@@ -123,6 +123,16 @@ proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]
 
 proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
+  ## allowed patterns:
+  ## http://url:port
+  ## https://url:port
+  ## http://url:port/path
+  ## https://url:port/path
+  ## http://url/with/path
+  ## http://url:port/path?query
+  ## https://url:port/path?query
+  ## disallowed patterns:
+  ## any valid/invalid ws or wss url
   var httpPattern = re2"^(https?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
   var wsPattern =   re2"^(wss?:\/\/)(?:w{1,3}\.)?[^\s.]+(?:\.[a-z]+)*(?::\d+)?(?![^<]*(?:<\/\w+>|\/?>))"
   if regex.match(s, wsPattern):
