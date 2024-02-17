@@ -257,6 +257,11 @@ proc containsShard*(r: Record, topic: PubsubTopic|string): bool =
 
 proc isClusterMismatched*(record: Record, clusterId: uint32): bool =
   ## Check the ENR sharding info for matching cluster id
+
+  if clusterId == 0:
+    trace "isClusterMismatched skipping validation because clusterId == 0 "
+    return false
+
   let typedRecord = record.toTyped().valueOr:
     error "isClusterMismatched typedRecord is not ok: ", error = error
     return true
