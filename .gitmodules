@@ -164,3 +164,6 @@
 	branch = master
 	path = vendor/nim-results
 	url = https://github.com/arnetheduck/nim-results.git
+[submodule "vendor/negentropy"]
+	path = vendor/negentropy
+	url = git@github.com:waku-org/negentropy.git
