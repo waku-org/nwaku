@@ -16,14 +16,16 @@ import
   ../../common,
   ../../driver,
   ../../../common/databases/db_postgres as waku_postgres,
-  ./postgres_healthcheck
-
-export postgres_driver
+  ./postgres_healthcheck,
+  ./partitions_manager
 
 type PostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
   writeConnPool: PgAsyncPool
   readConnPool: PgAsyncPool
+
+  ## Partition container
+  partitionMngr*: PartitionManager
 
 proc dropTableQuery(): string =
   "DROP TABLE messages"
@@ -41,8 +43,8 @@ proc createTableQuery(): string =
   " id VARCHAR NOT NULL," &
   " messageHash VARCHAR NOT NULL," &
   " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
-  ");"
+  " CONSTRAINT messageIndex PRIMARY KEY (messageHash, storedAt)" &
+  ") PARTITION BY RANGE (storedAt);"
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
@@ -112,7 +114,8 @@ proc new*(T: type PostgresDriver,
     asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
   return ok(PostgresDriver(writeConnPool: writeConnPool,
-                           readConnPool: readConnPool))
+                           readConnPool: readConnPool,
+                           partitionMngr: PartitionManager.new()))
 
 proc performWriteQuery*(s: PostgresDriver,
                         query: string): Future[ArchiveDriverResult[void]] {.async.}  =
@@ -218,6 +221,8 @@ method put*(s: PostgresDriver,
   let payload = toHex(message.payload)
   let version = $message.version
   let timestamp = $message.timestamp
+
+  debug "put PostgresDriver", timestamp = timestamp
 
   return await s.writeConnPool.runStmt(InsertRowStmtName,
                                        InsertRowStmtDefinition,
@@ -628,3 +633,104 @@ proc getCurrentVersion*(s: PostgresDriver):
     return err("error in getMessagesCount: " & $error)
 
   return ok(res)
+
+proc performWriteQuery*(s: PostgresDriver, query: string):
+                        Future[ArchiveDriverResult[void]] {.async.} =
+  ## Performs a query that somehow changes the state of the database
+
+  (await s.writeConnPool.pgQuery(query)).isOkOr:
+    return err("error in performWriteQuery: " & $error)
+
+  return ok()
+
+proc removeOldestPartition*(self: PostgresDriver,
+                            forceRemoval: bool = false, ## To allow cleanup in tests
+                            ):
+                            Future[ArchiveDriverResult[void]] {.async.}  =
+
+  let oldestPartitionName = self.partitionMngr.getOldestPartitionName()
+
+  if not forceRemoval:
+    let currentPartName = self.partitionMngr.getPartitionNameFromDateTime(times.now()).valueOr:
+      return err("error in removeOldestPartition: " & $error)
+
+    if currentPartName == oldestPartitionName:
+      debug "Skipping to remove the current partition"
+      return ok()
+
+  ## Detach and remove the partition concurrently to not block the parent table (messages)
+  let detachPartitionQuery =
+    "ALTER TABLE messages DETACH PARTITION " & oldestPartitionName & " CONCURRENTLY;"
+  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
+    return err(fmt"error in {detachPartitionQuery}: " & $error)
+
+  ## Clear all data from the partition and retrieve back space to the operating system
+  let truncateQuery = "TRUNCATE TABLE " & oldestPartitionName
+  (await self.performWriteQuery(truncateQuery)).isOkOr:
+    return err(fmt"error in {truncateQuery}: " & $error)
+
+  ## Drop the partition
+  let dropPartitionQuery = "DROP TABLE " & oldestPartitionName
+  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
+    return err(fmt"error in {dropPartitionQuery}: " & $error)
+
+  self.partitionMngr.removeOldestPartitionName()
+
+  return ok()
+
+const DefaultDatabasePartitionCheckTimeInterval = chronos.seconds(10)
+# const PartitionsRangeInterval = chronos.minutes(1)
+# const MaxDatabaseSizeInBytes =  1 * 1024
+
+proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
+  ## Loop proc that continuously checks whether we need to create a new partition.
+  ## Notice that the deletion of partitions is handled by the retention policy modules.
+  while true:
+    debug "partition manager check"
+    let currentDbSizeRes = await self.getDatabaseSize()
+    if not currentDbSizeRes.isOk():
+      error "could not get database size", error = currentDbSizeRes.error
+
+    let partNameIsRecentRes = self.partitionMngr.getPartitionNameFromDateTime(now())
+    if not partNameIsRecentRes.isOk():
+      error "error when calling getPartitionNameFromDateTime", error = partNameIsRecentRes.error
+
+    let partNameIsRecent = partNameIsRecentRes.get()
+
+
+    # let currentDbSize = currentDbSizeRes.get()
+    # if currentDbSize > MaxDatabaseSizeInBytes:
+    #   debug fmt"removing last partition because {currentDbSize} > {MaxDatabaseSizeInBytes}"
+    #   await self.removeOldestPartition()
+
+    await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
+
+proc addPartition*(self: PostgresDriver,
+                   startTime: DateTime,
+                   duration: TimeInterval):
+                   Future[ArchiveDriverResult[void]] {.async.}  =
+  ## Creates a partition table that will store the messages that fall in the range
+  ## `startTime` <= storedAt < `startTime + duration`.
+
+  let beginning = startTime.toTime().toUnix()
+  let `end` = (startTime + duration).toTime().toUnix()
+
+  let fromInSec: string = $beginning
+  let untilInSec: string = $`end`
+
+  let fromInNanoSec: string = fromInSec & "000000000"
+  let untilInNanoSec: string = untilInSec & "000000000"
+
+  let partitionName = "messages_" & fromInSec & "_" & untilInSec
+
+  let createPartitionQuery = "CREATE TABLE " & partitionName & " PARTITION OF " &
+        "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
+
+  (await self.performWriteQuery(createPartitionQuery)).isOkOr:
+    return err(fmt"error adding partition [{partitionName}]: " & $error)
+
+  debug "New partition added", query = createPartitionQuery
+
+  self.partitionMngr.addPartition(partitionName, Timestamp(beginning), Timestamp(`end`))
+  return ok()
+
