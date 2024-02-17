@@ -326,6 +326,11 @@ method decreaseDatabaseSize*(driver: QueueDriver,
                              Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
+method decreaseDatabaseSize*(driver: ArchiveDriver,
+                             targetSizeInBytes: int64):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+  return err("interface method not implemented")
+
 method close*(driver: QueueDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
