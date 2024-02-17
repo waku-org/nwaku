@@ -57,7 +57,7 @@ proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.Pri
       return err($recordRes.error)
     else: recordRes.get()
 
-  debug "enrConfiguration result", record = $record
+  trace "enrConfiguration result", record = $record
 
   return ok(record)
 
