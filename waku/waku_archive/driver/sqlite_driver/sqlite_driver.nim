@@ -146,6 +146,39 @@ method deleteOldestMessagesNotWithinLimit*(s: SqliteDriver,
                                            Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.deleteOldestMessagesNotWithinLimit(limit)
 
+method decreaseDatabaseSize*(driver: ArchiveDriver,
+                             targetSizeInBytes: int64):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+  ## To remove 20% of the outdated data from database
+  const DeleteLimit = 0.80
+
+  ## when db size overshoots the database limit, shread 20% of outdated messages
+  ## get size of database
+  let dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("failed to get database size: " & $error)
+
+  ## database size in bytes
+  let totalSizeOfDB: int64 = int64(dbSize)
+
+  if totalSizeOfDB < targetSizeInBytes:
+    return ok()
+
+  ## to shread/delete messsges, get the total row/message count
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
+
+  ## NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+  ## if vacumming is done automatically then we aim to check DB size periodially for efficient
+  ## retention policy implementation.
+
+  ## 80% of the total messages are to be kept, delete others
+  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
+
+  return ok()
+
 method close*(s: SqliteDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
