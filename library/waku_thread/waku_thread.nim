@@ -14,7 +14,7 @@ import
   stew/shims/net
 import
   ../../../waku/node/waku_node,
-  ../events/[json_error_event,json_message_event,json_base_event],
+  ../events/[json_message_event,json_base_event],
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
 

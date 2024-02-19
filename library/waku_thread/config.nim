@@ -10,18 +10,18 @@ import
   ../../waku/common/utils/nat,
   ../../waku/node/waku_node,
   ../../waku/node/config,
-  ../events/[json_error_event,json_base_event]
+  ../events/json_base_event
 
 proc parsePrivateKey(jsonNode: JsonNode,
                      privateKey: var PrivateKey,
-                     jsonResp: var JsonEvent): bool =
+                     errorResp: var string): bool =
 
   if not jsonNode.contains("key"):
-    jsonResp = JsonErrorEvent.new("The node key is missing.");
+    errorResp = "The node key is missing."
     return false
 
   if jsonNode["key"].kind != JsonNodeKind.JString:
-    jsonResp = JsonErrorEvent.new("The node key should be a string.");
+    errorResp = "The node key should be a string."
     return false
 
   let key = jsonNode["key"].getStr()
@@ -31,21 +31,21 @@ proc parsePrivateKey(jsonNode: JsonNode,
     privateKey = crypto.PrivateKey(scheme: Secp256k1, skkey: skPrivKey)
   except CatchableError:
     let msg = "Invalid node key: " & getCurrentExceptionMsg()
-    jsonResp = JsonErrorEvent.new(msg)
+    errorResp = msg
     return false
 
   return true
 
 proc parseListenAddr(jsonNode: JsonNode,
                      listenAddr: var IpAddress,
-                     jsonResp: var JsonEvent): bool =
+                     errorResp: var string): bool =
 
   if not jsonNode.contains("host"):
-    jsonResp = JsonErrorEvent.new("host attribute is required")
+    errorResp = "host attribute is required"
     return false
 
   if jsonNode["host"].kind != JsonNodeKind.JString:
-    jsonResp = JsonErrorEvent.new("The node host should be a string.");
+    errorResp = "The node host should be a string."
     return false
 
   let host = jsonNode["host"].getStr()
@@ -54,21 +54,21 @@ proc parseListenAddr(jsonNode: JsonNode,
     listenAddr = parseIpAddress(host)
   except CatchableError:
     let msg = "Invalid host IP address: " & getCurrentExceptionMsg()
-    jsonResp = JsonErrorEvent.new(msg)
+    errorResp = msg
     return false
 
   return true
 
 proc parsePort(jsonNode: JsonNode,
                port: var int,
-               jsonResp: var JsonEvent): bool =
+               errorResp: var string): bool =
 
   if not jsonNode.contains("port"):
-    jsonResp = JsonErrorEvent.new("port attribute is required")
+    errorResp = "port attribute is required"
     return false
 
   if jsonNode["port"].kind != JsonNodeKind.JInt:
-    jsonResp = JsonErrorEvent.new("The node port should be an integer.");
+    errorResp = "The node port should be an integer."
     return false
 
   port = jsonNode["port"].getInt()
@@ -77,14 +77,14 @@ proc parsePort(jsonNode: JsonNode,
 
 proc parseRelay(jsonNode: JsonNode,
                 relay: var bool,
-                jsonResp: var JsonEvent): bool =
+                errorResp: var string): bool =
 
   if not jsonNode.contains("relay"):
-    jsonResp = JsonErrorEvent.new("relay attribute is required")
+    errorResp = "relay attribute is required"
     return false
 
   if jsonNode["relay"].kind != JsonNodeKind.JBool:
-    jsonResp = JsonErrorEvent.new("The relay config param should be a boolean");
+    errorResp = "The relay config param should be a boolean"
     return false
 
   relay = jsonNode["relay"].getBool()
@@ -99,7 +99,7 @@ proc parseStore(jsonNode: JsonNode,
                 storeVacuum: var bool,
                 storeDbMigration: var bool,
                 storeMaxNumDbConnections: var int,
-                jsonResp: var JsonEvent): bool =
+                errorResp: var string): bool =
 
   if not jsonNode.contains("store"):
     ## the store parameter is not required. By default is is disabled
@@ -107,49 +107,49 @@ proc parseStore(jsonNode: JsonNode,
     return true
 
   if jsonNode["store"].kind != JsonNodeKind.JBool:
-    jsonResp = JsonErrorEvent.new("The store config param should be a boolean");
+    errorResp = "The store config param should be a boolean"
     return false
 
   store = jsonNode["store"].getBool()
 
   if jsonNode.contains("storeNode"):
     if jsonNode["storeNode"].kind != JsonNodeKind.JString:
-      jsonResp = JsonErrorEvent.new("The storeNode config param should be a string");
+      errorResp = "The storeNode config param should be a string"
       return false
 
     storeNode = jsonNode["storeNode"].getStr()
 
   if jsonNode.contains("storeRetentionPolicy"):
     if jsonNode["storeRetentionPolicy"].kind != JsonNodeKind.JString:
-      jsonResp = JsonErrorEvent.new("The storeRetentionPolicy config param should be a string");
+      errorResp = "The storeRetentionPolicy config param should be a string"
       return false
 
     storeRetentionPolicy = jsonNode["storeRetentionPolicy"].getStr()
 
   if jsonNode.contains("storeDbUrl"):
     if jsonNode["storeDbUrl"].kind != JsonNodeKind.JString:
-      jsonResp = JsonErrorEvent.new("The storeDbUrl config param should be a string");
+      errorResp = "The storeDbUrl config param should be a string"
       return false
 
     storeDbUrl = jsonNode["storeDbUrl"].getStr()
 
   if jsonNode.contains("storeVacuum"):
     if jsonNode["storeVacuum"].kind != JsonNodeKind.JBool:
-      jsonResp = JsonErrorEvent.new("The storeVacuum config param should be a bool");
+      errorResp = "The storeVacuum config param should be a bool"
       return false
 
     storeVacuum = jsonNode["storeVacuum"].getBool()
 
   if jsonNode.contains("storeDbMigration"):
     if jsonNode["storeDbMigration"].kind != JsonNodeKind.JBool:
-      jsonResp = JsonErrorEvent.new("The storeDbMigration config param should be a bool");
+      errorResp = "The storeDbMigration config param should be a bool"
       return false
 
     storeDbMigration = jsonNode["storeDbMigration"].getBool()
 
   if jsonNode.contains("storeMaxNumDbConnections"):
     if jsonNode["storeMaxNumDbConnections"].kind != JsonNodeKind.JInt:
-      jsonResp = JsonErrorEvent.new("The storeMaxNumDbConnections config param should be an int");
+      errorResp = "The storeMaxNumDbConnections config param should be an int"
       return false
 
     storeMaxNumDbConnections = jsonNode["storeMaxNumDbConnections"].getInt()
@@ -175,51 +175,51 @@ proc parseConfig*(configNodeJson: string,
                   storeVacuum: var bool,
                   storeDbMigration: var bool,
                   storeMaxNumDbConnections: var int,
-                  jsonResp: var JsonEvent): bool {.raises: [].} =
+                  errorResp: var string): bool {.raises: [].} =
 
   if configNodeJson.len == 0:
-    jsonResp = JsonErrorEvent.new("The configNodeJson is empty")
+    errorResp = "The configNodeJson is empty"
     return false
 
   var jsonNode: JsonNode
   try:
     jsonNode = parseJson(configNodeJson)
   except Exception, IOError, JsonParsingError:
-    jsonResp = JsonErrorEvent.new("Exception: " & getCurrentExceptionMsg())
+    errorResp = "Exception: " & getCurrentExceptionMsg()
     return false
 
   # key
   try:
-    if not parsePrivateKey(jsonNode, privateKey, jsonResp):
+    if not parsePrivateKey(jsonNode, privateKey, errorResp):
       return false
   except Exception, KeyError:
-    jsonResp = JsonErrorEvent.new("Exception calling parsePrivateKey: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parsePrivateKey: " & getCurrentExceptionMsg()
     return false
 
   # listenAddr
   var listenAddr: IpAddress
   try:
     listenAddr = parseIpAddress("127.0.0.1")
-    if not parseListenAddr(jsonNode, listenAddr, jsonResp):
+    if not parseListenAddr(jsonNode, listenAddr, errorResp):
       return false
   except Exception, ValueError:
-    jsonResp = JsonErrorEvent.new("Exception calling parseIpAddress: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parseIpAddress: " & getCurrentExceptionMsg()
     return false
 
   # port
   var port = 0
   try:
-    if not parsePort(jsonNode, port, jsonResp):
+    if not parsePort(jsonNode, port, errorResp):
       return false
   except Exception, ValueError:
-    jsonResp = JsonErrorEvent.new("Exception calling parsePort: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parsePort: " & getCurrentExceptionMsg()
     return false
 
   let natRes = setupNat("any", clientId,
                         Port(uint16(port)),
                         Port(uint16(port)))
   if natRes.isErr():
-    jsonResp = JsonErrorEvent.new("failed to setup NAT: " & $natRes.error)
+    errorResp = "failed to setup NAT: " & $natRes.error
     return false
 
   let (extIp, extTcpPort, _) = natRes.get()
@@ -231,26 +231,26 @@ proc parseConfig*(configNodeJson: string,
 
   # relay
   try:
-    if not parseRelay(jsonNode, relay, jsonResp):
+    if not parseRelay(jsonNode, relay, errorResp):
       return false
   except Exception, KeyError:
-    jsonResp = JsonErrorEvent.new("Exception calling parseRelay: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parseRelay: " & getCurrentExceptionMsg()
     return false
 
   # topics
   try:
     parseTopics(jsonNode, topics)
   except Exception, KeyError:
-    jsonResp = JsonErrorEvent.new("Exception calling parseTopics: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parseTopics: " & getCurrentExceptionMsg()
     return false
 
   # store
   try:
     if not parseStore(jsonNode, store, storeNode, storeRetentionPolicy, storeDbUrl,
-                      storeVacuum, storeDbMigration, storeMaxNumDbConnections, jsonResp):
+                      storeVacuum, storeDbMigration, storeMaxNumDbConnections, errorResp):
       return false
   except Exception, KeyError:
-    jsonResp = JsonErrorEvent.new("Exception calling parseStore: " & getCurrentExceptionMsg())
+    errorResp = "Exception calling parseStore: " & getCurrentExceptionMsg()
     return false
 
   let wakuFlags = CapabilitiesBitfield.init(
@@ -268,8 +268,7 @@ proc parseConfig*(configNodeJson: string,
       wakuFlags = some(wakuFlags))
 
   if netConfigRes.isErr():
-    let msg = "Error creating NetConfig: " & $netConfigRes.error
-    jsonResp = JsonErrorEvent.new(msg)
+    errorResp = "Error creating NetConfig: " & $netConfigRes.error
     return false
 
   netConfig = netConfigRes.value

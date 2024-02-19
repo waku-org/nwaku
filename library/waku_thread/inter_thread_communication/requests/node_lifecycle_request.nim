@@ -24,7 +24,7 @@ import
   ../../../../waku/waku_archive/retention_policy,
   ../../../../waku/waku_relay/protocol,
   ../../../../waku/waku_store,
-  ../../../events/[json_error_event,json_message_event,json_base_event],
+  ../../../events/[json_message_event,json_base_event],
   ../../../alloc,
   ../../config
 
@@ -122,7 +122,7 @@ proc createNode(configJson: cstring):
   var storeDbMigration: bool
   var storeMaxNumDbConnections: int
 
-  var jsonResp: JsonEvent
+  var errorResp: string
 
   try:
     if not parseConfig($configJson,
@@ -137,8 +137,8 @@ proc createNode(configJson: cstring):
                       storeVacuum,
                       storeDbMigration,
                       storeMaxNumDbConnections,
-                      jsonResp):
-      return err($jsonResp)
+                      errorResp):
+      return err(errorResp)
   except Exception:
     return err("exception calling parseConfig: " & getCurrentExceptionMsg())
 
@@ -158,13 +158,13 @@ proc createNode(configJson: cstring):
   let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
     let msg = "Error setting shared topics: " & $addShardedTopics.error
-    return err($JsonErrorEvent.new(msg))
+    return err(msg)
 
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
       let msg = "Error building enr record: " & $recordRes.error
-      return err($JsonErrorEvent.new(msg))
+      return err(msg)
 
     else: recordRes.get()
 
@@ -183,7 +183,7 @@ proc createNode(configJson: cstring):
   let wakuNodeRes = builder.build()
   if wakuNodeRes.isErr():
     let errorMsg = "failed to create waku node instance: " & wakuNodeRes.error
-    return err($JsonErrorEvent.new(errorMsg))
+    return err(errorMsg)
 
   var newNode = wakuNodeRes.get()
 
