@@ -27,7 +27,7 @@ pipeline {
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'waku-org/nwaku',
+      defaultValue: params.IMAGE_NAME ?: 'harbor.status.im/wakuorg/nwaku',
     )
     string(
       name: 'DOCKER_CRED',
