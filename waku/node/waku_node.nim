@@ -784,7 +784,8 @@ proc mountArchive*(node: WakuNode,
     return err("error in mountArchive: " & wakuArchiveRes.error)
 
   node.wakuArchive = wakuArchiveRes.get()
-  asyncSpawn node.wakuArchive.start()
+  node.wakuArchive.start()
+
   return ok()
 
 ## Waku store
@@ -1194,7 +1195,7 @@ proc stop*(node: WakuNode) {.async.} =
       error "exception stopping the node", error=getCurrentExceptionMsg()
 
   if not node.wakuArchive.isNil():
-    await node.wakuArchive.stop()
+    await node.wakuArchive.stopWait()
 
   node.started = false
 

@@ -85,11 +85,12 @@ method getAllMessages*(s: SqliteDriver):
   return s.db.selectAllMessages()
 
 method getMessages*(s: SqliteDriver,
-                    contentTopic: seq[ContentTopic] = @[],
+                    contentTopic = newSeq[ContentTopic](0),
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
+                    hashes = newSeq[WakuMessageHash](0),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
@@ -102,6 +103,7 @@ method getMessages*(s: SqliteDriver,
     cursor,
     startTime,
     endTime,
+    hashes,
     limit=maxPageSize,
     ascending=ascendingOrder
   )

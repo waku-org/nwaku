@@ -10,34 +10,36 @@ import
   ../../../waku_core,
   ../../common
 
-
 type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   pubsubTopic*: string
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
   digest*: MessageDigest # calculated over payload and content topic
+  hash*: WakuMessageHash
 
 proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic): T =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
     digest = computeDigest(msg)
     senderTime = msg.timestamp
+    hash = computeMessageHash(pubsubTopic, msg)
 
   Index(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
     receiverTime: receivedTime,
-    digest: digest
+    digest: digest,
+    hash: hash,
   )
-
 
 proc tohistoryCursor*(index: Index): ArchiveCursor =
   ArchiveCursor(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     storeTime: index.receiverTime,
-    digest: index.digest
+    digest: index.digest,
+    hash: index.hash,
   )
 
 proc toIndex*(index: ArchiveCursor): Index =
@@ -45,9 +47,9 @@ proc toIndex*(index: ArchiveCursor): Index =
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     receiverTime: index.storeTime,
-    digest: index.digest
+    digest: index.digest,
+    hash: index.hash,
   )
-
 
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index equality

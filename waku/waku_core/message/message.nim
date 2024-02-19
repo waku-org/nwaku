@@ -11,8 +11,7 @@ else:
 
 import
   ../topics,
-  ../time,
-  ./default_values
+  ../time
 
 const
   MaxMetaAttrLength* = 64 # 64 bytes

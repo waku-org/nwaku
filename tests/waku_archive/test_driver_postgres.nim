@@ -20,7 +20,8 @@ proc computeTestCursor(pubsubTopic: PubsubTopic,
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message)
+    digest: computeDigest(message),
+    hash: computeMessageHash(pubsubTopic, message),
   )
 
 suite "Postgres driver":
@@ -62,19 +63,21 @@ suite "Postgres driver":
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     let computedDigest = computeDigest(msg)
+    let computedHash = computeMessageHash(DefaultPubsubTopic, msg)
 
-    let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
+    let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, computedHash, msg.timestamp)
     assert putRes.isOk(), putRes.error
 
     let storedMsg = (await driver.getAllMessages()).tryGet()
 
     assert storedMsg.len == 1
 
-    let (pubsubTopic, actualMsg, digest, storeTimestamp) = storedMsg[0]
+    let (pubsubTopic, actualMsg, digest, _, hash) = storedMsg[0]
     assert actualMsg.contentTopic == contentTopic
     assert pubsubTopic == DefaultPubsubTopic
     assert toHex(computedDigest.data) == toHex(digest)
     assert toHex(actualMsg.payload) == toHex(msg.payload)
+    assert toHex(computedHash) == toHex(hash)
 
   asyncTest "Insert and query message":
     const contentTopic1 = "test-content-topic-1"
