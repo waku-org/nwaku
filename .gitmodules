@@ -168,4 +168,4 @@
 	ignore = untracked
 	branch = feat/c-wrapper
 	path = vendor/negentropy
-	url = git@github.com:waku-org/negentropy.git
+	url = https://github.com/waku-org/negentropy.git
