@@ -5,28 +5,20 @@ else:
 
 from os import DirSep
 
-import
+#[ import
   std/[strutils, sequtils]
 
 import
-   ../waku_core/message
+   ../waku_core/message ]#
 
-{.link: "../waku_sync/negentropy.so".} #TODO build the dyn lib
+{.link: "../../vendor/negentropy/cpp/libnegentropy.so".} 
 
-const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0]
+const negentropyPath = "../../vendor/negentropy/"
 
-const NEGENTROPY_HEADER = negentropyPath & DirSep & "headers" & DirSep & "negentropy.h"
+const NEGENTROPY_HEADER = negentropyPath & DirSep & "cpp" & DirSep & "negentropy_wrapper.h"
 
 ### String ###
-
-type
-  String {.importcpp: "std::string", header: "<string>", byref.} = object
-
-proc size(self: String): csize_t {.importcpp: "size", header: "<string>".}
-proc resize(self: String, len: csize_t) {.importcpp: "resize", header: "<string>".}
-proc cStr(self: String): pointer {.importcpp: "c_str", header: "<string>".}
-proc initString(): String {.importcpp: "std::string()", constructor, header: "<string>"}
-
+#[ 
 proc toBytes(self: String): seq[byte] =
   let size = self.size()
 
@@ -63,67 +55,42 @@ proc fromBytes(T: type String, bytes: seq[byte]): T =
 
   copyMem(cppString.cStr(), bytes[0].unsafeAddr, size)
 
-  return cppString
-
-### Vector ###
-
-type
-  Vector[T] {.importcpp: "std::vector", header: "<vector>", byref.} = object
-  VectorIter[T] {.importcpp: "std::vector<'0>::iterator", header: "<vector>", byref.} = object
-
-proc initVector[T](): Vector[T] {.importcpp: "std::vector<'*0>()", constructor, header: "<vector>".}
-proc size(self: Vector): csize_t {.importcpp: "size", header: "<vector>".}
-proc begin[T](self: Vector[T]): VectorIter[T] {.importcpp: "begin", header: "<vector>".}
-proc `[]`[T](self: VectorIter[T]): T {.importcpp: "*#", header: "<vector>".}
-proc next*[T](self: VectorIter[T]; n = 1): VectorIter[T] {.importcpp: "next(@)", header: "<iterator>".}
-
-proc toSeq*[T](vec: Vector[T]): seq[T] =
-  result = newSeq[T](vec.size())
-
-  var itr = vec.begin()
-
-  for i in 0..<vec.size():
-    result[i] = itr[]
-    itr = itr.next()
+  return cppString ]#
 
 ### Storage ###
 
-type
-  Storage* {.importcpp: "negentropy::storage::BTreeMem", header: NEGENTROPY_HEADER, byref.} = object
+proc Storage(db_path:cstring, name: cstring) :pointer{. header: NEGENTROPY_HEADER, importc: "storage_new".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
-proc raw_insert(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::insert".}
+#[ # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
+proc raw_insert(this: Storage, timestamp: clong, id: String) {.importc: "negentropy::storage::btree::insert".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
-proc raw_erase(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::erase".}
-
+proc raw_erase(this: Storage, timestamp: clong, id: String) {.importc: "negentropy::storage::btree::erase".}
+ ]#
 ### Negentropy ###
 
-type
-  Negentropy* {.importCpp: "negentropy::Negentropy", header: NEGENTROPY_HEADER, byref.} = object
-
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L42
-proc constructNegentropy(storage: Storage, frameSizeLimit: culong): Negentropy {.importcpp: "negentropy::Negentropy(@)", constructor.}
+proc constructNegentropy(storage: pointer, frameSizeLimit: BiggestUInt): pointer {.importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(this: Negentropy): String {.importcpp: "negentropy::initiate".}
-
+proc raw_initiate(negentropy: pointer): cstring {.importc: "negentropy_initiate".}
+#[ 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
-proc raw_setInitiator(this: Negentropy) {.importcpp: "negentropy::setInitiator".}
+proc raw_setInitiator(this: Negentropy) {.importc: "negentropy::setInitiator".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(this: Negentropy, query: String): String {.importcpp: "negentropy::reconcile".}
+proc raw_reconcile(this: Negentropy, query: String): String {.importc: "negentropy::reconcile".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(this: Negentropy, query: String, haveIds: var Vector[String], needIds: var Vector[String]): String {.importcpp: "negentropy::reconcile".}
-
+proc raw_reconcile(this: Negentropy, query: String, haveIds: var Vector[String], needIds: var Vector[String]): String {.importc: "negentropy::reconcile".}
+ ]#
 ### Wrappings ###
 
-proc new*(T: type Storage): T =
-  let storage = Storage()
+proc new_storage*(): pointer =
+  let storage = Storage("", "")
 
   return storage
-
+#[ 
 proc erase*(self: Storage, id: int64, hash: WakuMessageHash) =
   let cppString = String.fromWakuMessageHash(hash)
   
@@ -132,20 +99,20 @@ proc erase*(self: Storage, id: int64, hash: WakuMessageHash) =
 proc insert*(self: Storage, id: int64, hash: WakuMessageHash) =
   let cppString = String.fromWakuMessageHash(hash)
   
-  self.raw_insert(clong(id), cppString)
+  self.raw_insert(clong(id), cppString) ]#
 
-proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
+proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   let negentropy = constructNegentropy(storage, culong(frameSizeLimit))
   
   return negentropy
 
-proc initiate*(self: Negentropy): seq[byte] =
-  let cppString = self.raw_initiate()
+proc initiate*(negentropy: pointer): cstring =
+  let cString = raw_initiate(negentropy)
 
-  let payload  = cppString.toBytes()
+  #let payload  = cString.toBytes()
 
-  return payload
-
+  return cString
+#[ 
 proc setInitiator*(self: Negentropy) =
   self.raw_setInitiator()
 
@@ -175,4 +142,4 @@ proc clientReconcile*(self: Negentropy, query: seq[byte], haveIds: var seq[WakuM
 
   let payload = cppString.toBytes()
 
-  return payload
+  return payload ]#

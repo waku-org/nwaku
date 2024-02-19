@@ -32,8 +32,8 @@ type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
 
   WakuSync* = ref object of LPProtocol
-    storage: Storage
-    negentropy: Negentropy
+    storage: pointer
+    negentropy: pointer
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: Duration
@@ -45,31 +45,34 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
-  self.storage.insert(msg.timestamp, msgHash)
+  #self.storage.insert(msg.timestamp, msgHash)
 
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte], string] =
-  let payload = self.negentropy.serverReconcile(message)
-
-  ok(payload)
+  #let payload = self.serverReconcile(message)
+  let payload = "TODO"
+  #ok(payload)
+  discard
 
 proc clientReconciliation(
   self: WakuSync, message: seq[byte],
   haveHashes: var seq[WakuMessageHash],
   needHashes: var seq[WakuMessageHash],
   ): Result[Option[seq[byte]], string] =
-  let payload = self.negentropy.clientReconcile(message, haveHashes, needHashes)
-
-  ok(some(payload))
+  #let payload = self.clientReconcile(message, haveHashes, needHashes)
+  let payload = "TODO"
+  #ok(some(payload))
+  discard
 
 proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  let payload = self.negentropy.initiate()
+  let payload = initiate(self.negentropy)
+  info "initialized negentropy ", value=payload
 
-  ok(payload)
+  #ok(payload)
+  discard
 
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let request = (await self.intitialization()).valueOr:
     return err(error)
-
   let writeRes = catch: await conn.writeLP(request)
   if writeRes.isErr():
     return err(writeRes.error.msg)
@@ -127,10 +130,10 @@ proc initProtocolHandler(self: WakuSync) =
       let buffer = requestRes.valueOr:
         error "Connection reading error", error=error.msg
         return
-    
-      let response = self.serverReconciliation(buffer).valueOr:
+      let response = "TODO"
+#[       let response = self.serverReconciliation(buffer).valueOr:
         error "Reconciliation error", error=error
-        return
+        return ]#
 
       let writeRes = catch: await conn.writeLP(response)
       if writeRes.isErr():
@@ -146,9 +149,9 @@ proc new*(T: type WakuSync,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
-  let storage = Storage.new()
+  let storage = new_storage()
 
-  let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
+  let negentropy = new_negentropy(storage, uint64(maxFrameSize))
 
   let sync = WakuSync(
     storage: storage,
@@ -179,7 +182,7 @@ proc periodicSync(self: WakuSync) {.async.} =
 proc start*(self: WakuSync) =
   self.started = true
 
-  asyncSpawn self.periodicSync()
+  #asyncSpawn self.periodicSync()
 
 proc stop*(self: WakuSync) =
   self.started = false
