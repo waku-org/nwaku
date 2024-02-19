@@ -16,7 +16,7 @@ import
   ./peer_manager,
   ./waku_node
 
-const LogInterval = 30.seconds
+const LogInterval = 10.minutes
 
 logScope:
   topics = "waku node metrics"
