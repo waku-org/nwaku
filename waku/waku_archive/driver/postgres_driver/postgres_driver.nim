@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,times,strformat],
+  std/[nre,options,sequtils,strutils,strformat],
   stew/[results,byteutils],
   db_postgres,
   postgres,
@@ -29,9 +29,6 @@ type PostgresDriver* = ref object of ArchiveDriver
 
 proc dropTableQuery(): string =
   "DROP TABLE messages"
-
-proc dropVersionTableQuery(): string =
-  "DROP TABLE version"
 
 proc createTableQuery(): string =
   "CREATE TABLE IF NOT EXISTS messages (" &
@@ -113,18 +110,13 @@ proc new*(T: type PostgresDriver,
   if not isNil(onFatalErrorAction):
     asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
-  return ok(PostgresDriver(writeConnPool: writeConnPool,
-                           readConnPool: readConnPool,
-                           partitionMngr: PartitionManager.new()))
+  let driver = PostgresDriver(writeConnPool: writeConnPool,
+                              readConnPool: readConnPool,
+                              partitionMngr: PartitionManager.new())
 
-proc performWriteQuery*(s: PostgresDriver,
-                        query: string): Future[ArchiveDriverResult[void]] {.async.}  =
-  ## Executes a query that changes the database state
-  ## TODO: we can reduce the code a little with this proc
-  (await s.writeConnPool.pgQuery(query)).isOkOr:
-    return err(fmt"error in {query}: {error}")
+  asyncSpawn driver.loopPartitionFactory()
 
-  return ok()
+  return ok(driver)
 
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
@@ -135,7 +127,7 @@ proc createMessageTable*(s: PostgresDriver):
 
   return ok()
 
-proc deleteMessageTable(s: PostgresDriver):
+proc deleteMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
   let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
@@ -144,22 +136,18 @@ proc deleteMessageTable(s: PostgresDriver):
 
   return ok()
 
-proc deleteVersionTable(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.} =
+proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
 
-  let execRes = await s.writeConnPool.pgQuery(dropVersionTableQuery())
-  if execRes.isErr():
-    return err("error in deleteVersionTable: " & execRes.error)
+  let createMsgRes = await s.createMessageTable()
+  if createMsgRes.isErr():
+    return err("createMsgRes.isErr in init: " & createMsgRes.error)
 
   return ok()
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-  ## This is only used for testing purposes, to set a fresh database at the beginning of each test
-  (await s.deleteMessageTable()).isOkOr:
-    return err("error deleting message table: " & $error)
-  (await s.deleteVersionTable()).isOkOr:
-    return err("error deleting version table: " & $error)
-  return ok()
+
+  let ret = await s.deleteMessageTable()
+  return ret
 
 proc rowCallbackImpl(pqResult: ptr PGresult,
                      outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]) =
@@ -523,40 +511,6 @@ method deleteOldestMessagesNotWithinLimit*(
 
   return ok()
 
-method decreaseDatabaseSize*(driver: PostgresDriver,
-                             targetSizeInBytes: int64):
-                             Future[ArchiveDriverResult[void]] {.async.} =
-  ## TODO: refactor this implementation and use partition management instead
-  ## To remove 20% of the outdated data from database
-  const DeleteLimit = 0.80
-
-  ## when db size overshoots the database limit, shread 20% of outdated messages
-  ## get size of database
-  let dbSize = (await driver.getDatabaseSize()).valueOr:
-    return err("failed to get database size: " & $error)
-
-  ## database size in bytes
-  let totalSizeOfDB: int64 = int64(dbSize)
-
-  if totalSizeOfDB < targetSizeInBytes:
-    return ok()
-
-  ## to shread/delete messsges, get the total row/message count
-  let numMessages = (await driver.getMessagesCount()).valueOr:
-    return err("failed to get messages count: " & error)
-
-  ## NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
-  ## if vacumming is done automatically then we aim to check DB size periodially for efficient
-  ## retention policy implementation.
-
-  ## 80% of the total messages are to be kept, delete others
-  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
-
-  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
-    return err("deleting oldest messages failed: " & error)
-
-  return ok()
-
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
@@ -592,48 +546,6 @@ proc sleep*(s: PostgresDriver, seconds: int):
 
   return ok()
 
-method existsTable*(s: PostgresDriver, tableName: string):
-                    Future[ArchiveDriverResult[bool]] {.async.} =
-  let query: string = fmt"""
-  SELECT EXISTS (
-    SELECT FROM
-        pg_tables
-    WHERE
-        tablename  = '{tableName}'
-    );
-    """
-
-  var exists: string
-  proc rowCallback(pqResult: ptr PGresult) =
-    if pqResult.pqnfields() != 1:
-      error "Wrong number of fields in existsTable"
-      return
-
-    if pqResult.pqNtuples() != 1:
-      error "Wrong number of rows in existsTable"
-      return
-
-    exists = $(pqgetvalue(pqResult, 0, 0))
-
-  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
-    return err("existsTable failed in getRow: " & $error)
-
-  return ok(exists == "t")
-
-proc getCurrentVersion*(s: PostgresDriver):
-                        Future[ArchiveDriverResult[int64]] {.async.} =
-
-  let existsVersionTable = (await s.existsTable("version")).valueOr:
-    return err("error in getCurrentVersion-existsTable: " & $error)
-
-  if not existsVersionTable:
-    return ok(0)
-
-  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
-    return err("error in getMessagesCount: " & $error)
-
-  return ok(res)
-
 proc performWriteQuery*(s: PostgresDriver, query: string):
                         Future[ArchiveDriverResult[void]] {.async.} =
   ## Performs a query that somehow changes the state of the database
@@ -643,77 +555,15 @@ proc performWriteQuery*(s: PostgresDriver, query: string):
 
   return ok()
 
-proc removeOldestPartition*(self: PostgresDriver,
-                            forceRemoval: bool = false, ## To allow cleanup in tests
-                            ):
-                            Future[ArchiveDriverResult[void]] {.async.}  =
-
-  let oldestPartitionName = self.partitionMngr.getOldestPartitionName()
-
-  if not forceRemoval:
-    let currentPartName = self.partitionMngr.getPartitionNameFromDateTime(times.now()).valueOr:
-      return err("error in removeOldestPartition: " & $error)
-
-    if currentPartName == oldestPartitionName:
-      debug "Skipping to remove the current partition"
-      return ok()
-
-  ## Detach and remove the partition concurrently to not block the parent table (messages)
-  let detachPartitionQuery =
-    "ALTER TABLE messages DETACH PARTITION " & oldestPartitionName & " CONCURRENTLY;"
-  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    return err(fmt"error in {detachPartitionQuery}: " & $error)
-
-  ## Clear all data from the partition and retrieve back space to the operating system
-  let truncateQuery = "TRUNCATE TABLE " & oldestPartitionName
-  (await self.performWriteQuery(truncateQuery)).isOkOr:
-    return err(fmt"error in {truncateQuery}: " & $error)
-
-  ## Drop the partition
-  let dropPartitionQuery = "DROP TABLE " & oldestPartitionName
-  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
-    return err(fmt"error in {dropPartitionQuery}: " & $error)
-
-  self.partitionMngr.removeOldestPartitionName()
-
-  return ok()
-
-const DefaultDatabasePartitionCheckTimeInterval = chronos.seconds(10)
-# const PartitionsRangeInterval = chronos.minutes(1)
-# const MaxDatabaseSizeInBytes =  1 * 1024
-
-proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
-  ## Loop proc that continuously checks whether we need to create a new partition.
-  ## Notice that the deletion of partitions is handled by the retention policy modules.
-  while true:
-    debug "partition manager check"
-    let currentDbSizeRes = await self.getDatabaseSize()
-    if not currentDbSizeRes.isOk():
-      error "could not get database size", error = currentDbSizeRes.error
-
-    let partNameIsRecentRes = self.partitionMngr.getPartitionNameFromDateTime(now())
-    if not partNameIsRecentRes.isOk():
-      error "error when calling getPartitionNameFromDateTime", error = partNameIsRecentRes.error
-
-    let partNameIsRecent = partNameIsRecentRes.get()
-
-
-    # let currentDbSize = currentDbSizeRes.get()
-    # if currentDbSize > MaxDatabaseSizeInBytes:
-    #   debug fmt"removing last partition because {currentDbSize} > {MaxDatabaseSizeInBytes}"
-    #   await self.removeOldestPartition()
-
-    await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
-
-proc addPartition*(self: PostgresDriver,
-                   startTime: DateTime,
-                   duration: TimeInterval):
-                   Future[ArchiveDriverResult[void]] {.async.}  =
+proc addPartition(self: PostgresDriver,
+                  startTime: Moment,
+                  duration: Duration):
+                  Future[ArchiveDriverResult[void]] {.async.}  =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
 
-  let beginning = startTime.toTime().toUnix()
-  let `end` = (startTime + duration).toTime().toUnix()
+  let beginning = startTime.epochSeconds()
+  let `end` = (startTime + duration).epochSeconds()
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -731,6 +581,102 @@ proc addPartition*(self: PostgresDriver,
 
   debug "New partition added", query = createPartitionQuery
 
-  self.partitionMngr.addPartition(partitionName, Timestamp(beginning), Timestamp(`end`))
+  self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+  return ok()
+
+const DefaultDatabasePartitionCheckTimeInterval = 10.minutes
+const PartitionsRangeInterval = 1.minutes ## Time range covered by each parition
+
+proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
+  ## Loop proc that continuously checks whether we need to create a new partition.
+  ## Notice that the deletion of partitions is handled by the retention policy modules.
+  while true:
+    trace "Check if we need to create a new partition"
+
+    let now = Moment.now()
+
+    if self.partitionMngr.isEmpty():
+      (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+        error "error when creating a new partition from empty state", error = error
+    else:
+      let newestPartitionRes = self.partitionMngr.getNewestPartition()
+      if newestPartitionRes.isErr():
+        error "could not get newest partition", error = newestPartitionRes.error
+
+      let newestPartition = newestPartitionRes.get()
+      if newestPartition.containsMoment(now):
+        ## That means that the current used partition is the last one that was created.
+        ## Thus, let's create another partition for the future.
+        (await self.addPartition(newestPartition.getLastMoment(), PartitionsRangeInterval)).isOkOr:
+          error "could not add the next partition", error = error
+
+    await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
+
+proc removeOldestPartition(self: PostgresDriver,
+                           forceRemoval: bool = false, ## To allow cleanup in tests
+                           ):
+                           Future[ArchiveDriverResult[void]] {.async.}  =
+  ## Indirectly called from the retention policy
+
+  let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    return err("could not remove oldest partition: " & $error)
+
+  if not forceRemoval:
+    let currentPartition = self.partitionMngr.getPartitionFromDateTime(Moment.now()).valueOr:
+      return err("error in removeOldestPartition: " & $error)
+
+    if currentPartition == oldestPartition:
+      debug "Skipping to remove the current partition"
+      return ok()
+
+  ## Detach and remove the partition concurrently to not block the parent table (messages)
+  let detachPartitionQuery =
+    "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() & " CONCURRENTLY;"
+  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
+    return err(fmt"error in {detachPartitionQuery}: " & $error)
+
+  ## Clear all data from the partition and retrieve back space to the operating system
+  let truncateQuery = "TRUNCATE TABLE " & oldestPartition.getName()
+  (await self.performWriteQuery(truncateQuery)).isOkOr:
+    return err(fmt"error in {truncateQuery}: " & $error)
+
+  ## Drop the partition
+  let dropPartitionQuery = "DROP TABLE " & oldestPartition.getName()
+  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
+    return err(fmt"error in {dropPartitionQuery}: " & $error)
+
+  self.partitionMngr.removeOldestPartitionName()
+
+  return ok()
+
+method decreaseDatabaseSize*(driver: PostgresDriver,
+                             targetSizeInBytes: int64):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+  var dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("decreaseDatabaseSize failed to get database size: " & $error)
+
+  ## database size in bytes
+  var totalSizeOfDB: int64 = int64(dbSize)
+
+  debug "Reduce database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+
+  if totalSizeOfDB <= targetSizeInBytes:
+    return ok()
+
+  while totalSizeOfDB > targetSizeInBytes:
+    (await driver.removeOldestPartition()).isOkOr:
+      return err("decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error)
+
+    dbSize = (await driver.getDatabaseSize()).valueOr:
+      return err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
+
+    let newCurrentSize = int64(dbSize)
+    if newCurrentSize == totalSizeOfDB:
+      return err("the previous partition removal didn't clear database size")
+
+    totalSizeOfDB = newCurrentSize
+
+    debug "Reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+
   return ok()
 
