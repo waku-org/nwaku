@@ -91,7 +91,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
-void event_handler(int callerRet, const char* msg, size_t len) {
+void event_handler(int callerRet, const char* msg, size_t len, void* userData) {
     if (callerRet == RET_ERR) {
         printf("Error: %s\n", msg);
         exit(1);
@@ -102,7 +102,7 @@ void event_handler(int callerRet, const char* msg, size_t len) {
 }
 
 char* contentTopic = NULL;
-void handle_content_topic(int callerRet, const char* msg, size_t len) {
+void handle_content_topic(int callerRet, const char* msg, size_t len, void* userData) {
     if (contentTopic != NULL) {
         free(contentTopic);
     }
@@ -112,7 +112,7 @@ void handle_content_topic(int callerRet, const char* msg, size_t len) {
 }
 
 char* publishResponse = NULL;
-void handle_publish_ok(int callerRet, const char* msg, size_t len) {
+void handle_publish_ok(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Publish Ok: %s %lu\n", msg, len);
 
     if (publishResponse != NULL) {
@@ -159,11 +159,11 @@ void show_help_and_exit() {
     exit(1);
 }
 
-void print_default_pubsub_topic(int callerRet, const char* msg, size_t len) {
+void print_default_pubsub_topic(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Default pubsub topic: %s\n", msg);
 }
 
-void print_waku_version(int callerRet, const char* msg, size_t len) {
+void print_waku_version(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Git Version: %s\n", msg);
 }
 
