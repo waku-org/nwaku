@@ -17,8 +17,8 @@ proc parsePrivateKey(jsonNode: JsonNode,
                      jsonResp: var JsonEvent): bool =
 
   if not jsonNode.contains("key"):
-    jsonResp = JsonErrorEvent.new("The node key is missing.");
-    return false
+    privateKey = PrivateKey.random(Secp256k1, newRng()[]).tryGet()
+    return true
 
   if jsonNode["key"].kind != JsonNodeKind.JString:
     jsonResp = JsonErrorEvent.new("The node key should be a string.");
