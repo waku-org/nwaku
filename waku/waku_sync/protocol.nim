@@ -43,35 +43,32 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   if msg.ephemeral:
     return
 
-  let msgHash = computeMessageHash(pubsubTopic, msg)
+  let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
 
-  #self.storage.insert(msg.timestamp, msgHash)
+  let result: bool = insert(self.storage, msg.timestamp, msgHash)
+  if not result :
+    debug "failed to insert message ", hash=msgHash
 
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte], string] =
-  #let payload = self.serverReconcile(message)
-  let payload = "TODO"
-  #ok(payload)
-  discard
+  let payload: seq[byte] = serverReconcile(self.negentropy, message)
+  ok(payload)
 
 proc clientReconciliation(
   self: WakuSync, message: seq[byte],
   haveHashes: var seq[WakuMessageHash],
   needHashes: var seq[WakuMessageHash],
   ): Result[Option[seq[byte]], string] =
-  #let payload = self.clientReconcile(message, haveHashes, needHashes)
-  let payload = "TODO"
-  #ok(some(payload))
-  discard
+  let payload: seq[byte] = clientReconcile(self.negentropy, message, haveHashes, needHashes)
+  ok(some(payload))
 
 proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  let payload = initiate(self.negentropy)
+  let payload: seq[byte] = initiate(self.negentropy)
   info "initialized negentropy ", value=payload
 
-  #ok(payload)
-  discard
+  ok(payload)
 
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let request = (await self.intitialization()).valueOr:
+  let request: seq[byte] = (await self.intitialization()).valueOr:
     return err(error)
   let writeRes = catch: await conn.writeLP(request)
   if writeRes.isErr():
@@ -83,13 +80,13 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
   while true:
     let readRes = catch: await conn.readLp(self.maxFrameSize)
-    let buffer = readRes.valueOr:
+    let buffer: seq[byte] = readRes.valueOr:
       return err(error.msg)
   
-    let responseOpt = self.clientReconciliation(buffer, haveHashes, needHashes).valueOr:
+    let responseOpt: Option[seq[byte]] = self.clientReconciliation(buffer, haveHashes, needHashes).valueOr:
       return err(error)
 
-    let response =
+    let response: seq[byte] =
       if responseOpt.isNone():
         await conn.close()
         break
@@ -103,22 +100,22 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let peer = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
+  let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
     return err("No suitable peer found for sync")
 
-  let conn = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
     return err("Cannot establish sync connection")
 
-  let hashes = (await self.request(conn)).valueOr:
+  let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     return err("Sync request error: " & error)
 
   ok(hashes)
 
 proc sync*(self: WakuSync, peer: RemotePeerInfo): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let conn = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
     return err("Cannot establish sync connection")
 
-  let hashes = (await self.request(conn)).valueOr:
+  let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     return err("Sync request error: " & error)
 
   ok(hashes)
@@ -127,15 +124,14 @@ proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     while not conn.isClosed: # Not sure if this works as I think it does...
       let requestRes = catch: await conn.readLp(self.maxFrameSize)
-      let buffer = requestRes.valueOr:
+      let buffer: seq[byte] = requestRes.valueOr:
         error "Connection reading error", error=error.msg
         return
-      let response = "TODO"
-#[       let response = self.serverReconciliation(buffer).valueOr:
+      let response: seq[byte] = self.serverReconciliation(buffer).valueOr:
         error "Reconciliation error", error=error
-        return ]#
+        return
 
-      let writeRes = catch: await conn.writeLP(response)
+      let writeRes= catch: await conn.writeLP(response)
       if writeRes.isErr():
         error "Connection write error", error=writeRes.error.msg
         return
