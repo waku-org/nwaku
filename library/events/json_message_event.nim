@@ -19,6 +19,7 @@ type
     timestamp*: int64
     ephemeral*: bool
     meta*: Base64String
+    proof*: Base64String
 
 func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
   # Visit https://rfc.vac.dev/spec/14/ for further details
@@ -29,25 +30,28 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
     timestamp: int64(jsonContent["timestamp"].getBiggestInt()),
     ephemeral: jsonContent["ephemeral"].getBool(),
     meta: Base64String(jsonContent["meta"].getStr()),
+    proof: Base64String(jsonContent["proof"].getStr())
   )
 
-proc toWakuMessage*(self: JsonMessage): WakuMessage =
-  let payloadRes = base64.decode(self.payload)
-  if payloadRes.isErr():
-    raise newException(ValueError, "invalid payload format: " & payloadRes.error)
+proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =
+  let payload = base64.decode(self.payload).valueOr:
+    return err("invalid payload format: " & error)
 
-  let metaRes = base64.decode(self.meta)
-  if metaRes.isErr():
-    raise newException(ValueError, "invalid meta format: " & metaRes.error)
+  let meta = base64.decode(self.meta).valueOr:
+    return err("invalid meta format: " & error)
 
-  WakuMessage(
-    payload: payloadRes.value,
-    meta: metaRes.value,
+  let proof = base64.decode(self.proof).valueOr:
+    return err("invalid proof format: " & error)
+
+  ok(WakuMessage(
+    payload: payload,
+    meta: meta,
     contentTopic: self.contentTopic,
     version: uint32(self.version),
     timestamp: self.timestamp,
-    ephemeral: self.ephemeral
-  )
+    ephemeral: self.ephemeral,
+    proof: proof,
+  ))
 
 proc `%`*(value: Base64String): JsonNode =
   %(value.string)
@@ -74,6 +78,10 @@ proc new*(T: type JsonMessageEvent,
   if len(msg.meta) != 0:
     copyMem(addr meta[0], unsafeAddr msg.meta[0], len(msg.meta))
 
+  var proof = newSeq[byte](len(msg.proof))
+  if len(msg.proof) != 0:
+    copyMem(addr proof[0], unsafeAddr msg.proof[0], len(msg.proof))
+
   let msgHash = computeMessageHash(pubSubTopic, msg)
   let msgHashHex = to0xHex(msgHash)
 
@@ -88,6 +96,7 @@ proc new*(T: type JsonMessageEvent,
         timestamp: int64(msg.timestamp),
         ephemeral: msg.ephemeral,
         meta: base64.encode(meta),
+        proof: base64.encode(proof),
     )
   )
 

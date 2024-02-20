@@ -45,16 +45,22 @@ const RET_MISSING_CALLBACK: cint = 2
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc (pubsubTopic: PubsubTopic, msg: WakuMessage): Future[system.void]{.async.} =
     # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if not isNil(ctx[].eventCallback) and not isNil(ctx[].eventUserData):
-      try:
-        let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData)
-      except Exception,CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " &
-                  getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData)
-    else:
+    if isNil(ctx[].eventCallback):
       error "eventCallback is nil"
+      return
+
+    if isNil(ctx[].eventUserData):
+      error "eventUserData is nil"
+      return
+
+    try:
+      let event = $JsonMessageEvent.new(pubsubTopic, msg)
+      cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData)
+    except Exception,CatchableError:
+      let msg = "Exception when calling 'eventCallBack': " &
+                getCurrentExceptionMsg()
+      cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData)
+
 
 ### End of not-exported components
 ################################################################################
@@ -202,11 +208,8 @@ proc waku_relay_publish(ctx: ptr Context,
   finally:
     deallocShared(jwm)
 
-  var wakuMessage: WakuMessage
-  try:
-    wakuMessage = jsonMessage.toWakuMessage()
-  except KeyError:
-    let msg = fmt"Problem building the WakuMessage: {getCurrentExceptionMsg()}"
+  let wakuMessage = jsonMessage.toWakuMessage().valueOr:
+    let msg = fmt"Problem building the WakuMessage: {error}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
