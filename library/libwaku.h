@@ -83,6 +83,10 @@ int waku_connect(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_listen_addresses(void* ctx,
+                          WakuCallBack callback,
+                          void* userData);
+
 #ifdef __cplusplus
 }
 #endif
