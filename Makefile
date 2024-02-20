@@ -83,6 +83,20 @@ endif
 ##################
 .PHONY: deps libbacktrace
 
+rustup:
+ifeq (, $(shell which cargo))
+# Install Rustup if it's not installed
+# -y: Assume "yes" for all prompts
+# --default-toolchain stable: Install the stable toolchain
+	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+endif
+
+anvil: rustup
+ifeq (, $(shell which anvil))
+# Install Anvil if it's not installed
+	./scripts/install_anvil.sh
+endif
+
 deps: | deps-common nat-libs waku.nims
 
 
@@ -166,7 +180,8 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
-testwaku: | build deps librln
+# install anvil only for the testwaku target
+testwaku: | build deps anvil librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 

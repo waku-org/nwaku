@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, sequtils, deques, streams, strutils, tempfiles],
+  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -117,6 +117,15 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
+proc getAnvilPath(): string =
+  var anvilPath = ""
+  if existsEnv("XDG_CONFIG_HOME"):
+    anvilPath = joinPath(anvilPath, os.getEnv("XDG_CONFIG_HOME", ""))
+  else:
+    anvilPath = joinPath(anvilPath, os.getEnv("HOME", ""))
+  anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
+  return $anvilPath
+
 # Runs Anvil daemon
 proc runAnvil(): Process =
   # Passed options are
@@ -126,13 +135,9 @@ proc runAnvil(): Process =
   # --chain-id                        Chain ID of the network.
   # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
-    let installAnvil = startProcess("cargo", args = ["install", "--git", "https://github.com/foundry-rs/foundry", "--profile", "local", "--locked", "anvil"], options = {poUsePath})
-    let anvilExitCode = waitForExit(installAnvil)
-    if anvilExitCode != 0:
-      error "Anvil installation failed", anvilExitCode
-      raise newException(CatchableError, "Anvil installation failed: " & $anvilExitCode)
-
-    let runAnvil = startProcess("anvil", args = ["--port", "8540", "--gas-limit", "300000000000000", "--balance", "10000", "--chain-id", "1337"], options = {poUsePath})
+    let anvilPath = getAnvilPath()
+    debug "Anvil path", anvilPath
+    let runAnvil = startProcess(anvilPath, args = ["--port", "8540", "--gas-limit", "300000000000000", "--balance", "10000", "--chain-id", "1337"], options = {poUsePath})
     let anvilPID = runAnvil.processID
 
     # We read stdout from Anvil to see when daemon is ready
