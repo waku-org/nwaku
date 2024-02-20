@@ -1035,14 +1035,14 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
     for pi in peers:
       var record: enr.Record
       if enr.fromBytes(record, pi.enr):
-        node.peerManager.addPeer(record.toRemotePeerInfo().get, PeerExcahnge)
+        node.peerManager.addPeer(record.toRemotePeerInfo().get, PeerExchange)
         validPeers += 1
     info "Retrieved peer info via peer exchange protocol", validPeers = validPeers, totalPeers = peers.len
   else:
     warn "Failed to retrieve peer info via peer exchange protocol", error = pxPeersRes.error
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) =
+proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo | MultiAddress | string) =
   if node.wakuPeerExchange.isNil():
     error "could not set peer, waku peer-exchange is nil"
     return
@@ -1054,7 +1054,7 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) =
     error "could not parse peer info", error = remotePeerRes.error
     return
 
-  node.peerManager.addPeer(remotePeerRes.value, WakuPeerExchangeCodec)
+  node.peerManager.addPeer(remotePeerRes.value, PeerExchange)
   waku_px_peers.inc()
 
 

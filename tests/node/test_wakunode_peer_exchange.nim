@@ -25,20 +25,16 @@ import
   ../testlib/[wakucore, wakunode, testasync]
 
 suite "Waku Peer Exchange":
-  var
-    bindIp {.threadvar.}: IPAddress
-    bindPort {.threadvar.}: Port
-    node {.threadvar.}: WakuNode
+  let
+    bindIp: IPAddress = parseIpAddress("0.0.0.0")
+    bindPort: Port = Port(0)
 
-  asyncSetup:
-    bindIp = parseIpAddress("0.0.0.0")
-    bindPort = Port(0)
-    node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
-
-  asyncTeardown:
-    discard
+  var node {.threadvar.}: WakuNode
 
   suite "mountPeerExchange":
+    asyncSetup:
+      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
+
     asyncTest "Started node mounts peer exchange":
       # Given a started node without peer exchange mounted
       await node.start()
@@ -73,6 +69,7 @@ suite "Waku Peer Exchange":
     var node2 {.threadvar.}: WakuNode
 
     asyncSetup:
+      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
       await allFutures(node.start(), node2.start())
@@ -127,6 +124,7 @@ suite "Waku Peer Exchange":
     var node2 {.threadvar.}: WakuNode
 
     asyncSetup:
+      node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
       await allFutures(node.start(), node2.start())
@@ -155,10 +153,10 @@ suite "Waku Peer Exchange":
       let initialPeers = node.peerManager.peerStore.peers.len
 
       # And a valid peer info
-      let invalidMultiaddr = Multiaddr.fromString("/ip4/")
+      let invalidMultiAddress = MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
 
       # When making any request with a valid peer info
-      node.setPeerExchangePeer(invalidMultiaddr)
+      node.setPeerExchangePeer(invalidMultiAddress)
 
       # Then no peer is added to the peer store
       check:
@@ -173,8 +171,8 @@ suite "Waku Peer Exchange":
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
 
-      # When making any request with an invalid peer info
-      node.setPeerExchangePeer(remotePeerInfo2)
+      # When making any request with an inva  lid peer info
+      node.setPeerExchangePeer("invalidpeerinfo")
 
       # Then no peer is added to the peer store
       check:
