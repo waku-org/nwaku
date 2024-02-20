@@ -297,6 +297,8 @@ int main(int argc, char** argv) {
     waku_set_event_callback(ctx, event_handler, userData);
     waku_start(ctx, event_handler, userData);
 
+    waku_listen_addresses(ctx, event_handler, userData);
+
     printf("Establishing connection with: %s\n", cfgNode.peers);
 
     WAKU_CALL( waku_connect(ctx,
