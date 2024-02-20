@@ -9,10 +9,12 @@ import
   chronicles,
   chronos
 import
+  ../../waku/common/base64,
   ../../waku/waku_core/message/message,
   ../../waku/node/waku_node,
   ../../waku/waku_core/topics/pubsub_topic,
   ../../../waku/waku_relay/protocol,
+  ./events/json_base_event,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
@@ -43,16 +45,22 @@ const RET_MISSING_CALLBACK: cint = 2
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc (pubsubTopic: PubsubTopic, msg: WakuMessage): Future[system.void]{.async.} =
     # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if not isNil(ctx[].eventCallback):
-      try:
-        let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), nil)
-      except Exception,CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " &
-                  getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), nil)
-    else:
+    if isNil(ctx[].eventCallback):
       error "eventCallback is nil"
+      return
+
+    if isNil(ctx[].eventUserData):
+      error "eventUserData is nil"
+      return
+
+    try:
+      let event = $JsonMessageEvent.new(pubsubTopic, msg)
+      cast[WakuCallBack](ctx[].eventCallback)(RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData)
+    except Exception,CatchableError:
+      let msg = "Exception when calling 'eventCallBack': " &
+                getCurrentExceptionMsg()
+      cast[WakuCallBack](ctx[].eventCallback)(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData)
+
 
 ### End of not-exported components
 ################################################################################
@@ -106,8 +114,10 @@ proc waku_version(ctx: ptr Context,
   return RET_OK
 
 proc waku_set_event_callback(ctx: ptr Context,
-                             callback: WakuCallBack) {.dynlib, exportc.} =
+                             callback: WakuCallBack,
+                             userData: pointer) {.dynlib, exportc.} =
   ctx[].eventCallback = cast[pointer](callback)
+  ctx[].eventUserData = userData
 
 proc waku_content_topic(ctx: ptr Context,
                         appName: cstring,
@@ -186,33 +196,20 @@ proc waku_relay_publish(ctx: ptr Context,
     return RET_MISSING_CALLBACK
 
   let jwm = jsonWakuMessage.alloc()
-  var jsonContent:JsonNode
+  var jsonMessage:JsonMessage
   try:
-    jsonContent = parseJson($jwm)
+    let jsonContent = parseJson($jwm)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
   except JsonParsingError:
     deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
+  finally:
+    deallocShared(jwm)
 
-  deallocShared(jwm)
-
-  var wakuMessage: WakuMessage
-  try:
-    var version = 0'u32
-    if jsonContent.hasKey("version"):
-      version = (uint32) jsonContent["version"].getInt()
-
-    wakuMessage = WakuMessage(
-        # Visit https://rfc.vac.dev/spec/14/ for further details
-        payload: jsonContent["payload"].getStr().toSeq().mapIt(byte (it)),
-        contentTopic: $jsonContent["content_topic"].getStr(),
-        version: version,
-        timestamp: getTime().toUnix(),
-        ephemeral: false
-    )
-  except KeyError:
-    let msg = fmt"Problem building the WakuMessage: {getCurrentExceptionMsg()}"
+  let wakuMessage = jsonMessage.toWakuMessage().valueOr:
+    let msg = fmt"Problem building the WakuMessage: {error}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
