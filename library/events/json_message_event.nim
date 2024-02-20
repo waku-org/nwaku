@@ -26,11 +26,11 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
   JsonMessage(
     payload: Base64String(jsonContent["payload"].getStr()),
     contentTopic: jsonContent["contentTopic"].getStr(),
-    version: uint32(jsonContent["version"].getInt()),
-    timestamp: int64(jsonContent["timestamp"].getBiggestInt()),
-    ephemeral: jsonContent["ephemeral"].getBool(),
-    meta: Base64String(jsonContent["meta"].getStr()),
-    proof: Base64String(jsonContent["proof"].getStr())
+    version: uint32(jsonContent{"version"}.getInt()),
+    timestamp: int64(jsonContent{"timestamp"}.getBiggestInt()),
+    ephemeral: jsonContent{"ephemeral"}.getBool(),
+    meta: Base64String(jsonContent{"meta"}.getStr()),
+    proof: Base64String(jsonContent{"proof"}.getStr())
   )
 
 proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =

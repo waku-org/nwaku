@@ -16,7 +16,7 @@ proc parsePrivateKey(jsonNode: JsonNode,
                      privateKey: var PrivateKey,
                      errorResp: var string): bool =
 
-  if not jsonNode.contains("key"):
+  if not jsonNode.contains("key") or jsonNode["key"].kind == JsonNodeKind.JNull:
     privateKey = PrivateKey.random(Secp256k1, newRng()[]).tryGet()
     return true
 
