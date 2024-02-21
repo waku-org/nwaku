@@ -26,7 +26,7 @@ logScope:
 
 const WakuSyncCodec* = "/vac/waku/sync/1.0.0"
 const DefaultFrameSize = 153600 # using a random number for now
-const DefaultSyncInterval = 60.minutes
+const DefaultSyncInterval = 5.seconds
 
 type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
@@ -44,10 +44,10 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
     return
 
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
-
+  debug "inserting message into storage ", hash=msgHash 
   let result: bool = insert(self.storage, msg.timestamp, msgHash)
   if not result :
-    debug "failed to insert message ", hash=msgHash
+    debug "failed to insert message ", hash=msgHash.toHex()
 
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte], string] =
   let payload: seq[byte] = serverReconcile(self.negentropy, message)
@@ -178,7 +178,7 @@ proc periodicSync(self: WakuSync) {.async.} =
 proc start*(self: WakuSync) =
   self.started = true
 
-  #asyncSpawn self.periodicSync()
+  asyncSpawn self.periodicSync()
 
 proc stop*(self: WakuSync) =
   self.started = false

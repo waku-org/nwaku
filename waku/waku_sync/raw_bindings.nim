@@ -6,9 +6,6 @@ else:
 from os import DirSep
 
 import
-  std/[strutils, sequtils]
-
-import
    ../waku_core/message
 
 {.link: "../../vendor/negentropy/cpp/libnegentropy.so".} 
@@ -32,27 +29,28 @@ proc toWakuMessageHash(data: string): WakuMessageHash =
 
   return hash
 
-proc WakuMessageHashToCString(hash: WakuMessageHash): cstring  =
-  var cString = newString(32)
+type Buffer* = object
+  len*: uint
+  `ptr`*: ptr uint8
 
-  copyMem(cString[0].addr, hash[0].unsafeAddr, 32)
 
-  return cString
-
-proc StringfromBytes(bytes: seq[byte]): cstring =
-  let cString: string = bytes.mapIt(char(it)).join()
-
-  return cString
+proc toBuffer*(x: openArray[byte]): Buffer =
+  ## converts the input to a Buffer object
+  ## the Buffer object is used to communicate data with the rln lib
+  var temp = @x
+  let baseAddr = cast[pointer](x)
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
+  return output
 
 ### Storage ###
 
 proc storage_init(db_path:cstring, name: cstring): pointer{. header: NEGENTROPY_HEADER, importc: "storage_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
-proc raw_insert(storage: pointer, timestamp: uint64, id: cstring): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
+proc raw_insert(storage: pointer, timestamp: uint64, id:  ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
-proc raw_erase(storage: pointer, timestamp: uint64, id: cstring): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
+proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
 ### Negentropy ###
 
@@ -66,10 +64,10 @@ proc raw_initiate(negentropy: pointer): cstring {.header: NEGENTROPY_HEADER, imp
 proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(negentropy: pointer, query: cstring, querylen: uint): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(negentropy: pointer, query: cstring, querylen: uint, haveIds: cstringArray, haveIdsCount: pointer, needIds: cstringArray, needIdsCount: pointer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, haveIds: cstringArray, haveIdsCount: pointer, needIds: cstringArray, needIdsCount: pointer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
 
 ### Wrappings ###
 
@@ -80,14 +78,14 @@ proc new_storage*(): pointer =
   return storage
 
 proc erase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
-  let cString = WakuMessageHashToCString(hash)
+  let cString = toBuffer(hash)
   
-  return raw_erase(storage, uint64(id), cString)
+  return raw_erase(storage, uint64(id), cString.unsafeAddr)
 
 proc insert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
-  let cString = WakuMessageHashToCString(hash)
+  let cString = toBuffer(hash)
   
-  return raw_insert(storage, uint64(id), cString)
+  return raw_insert(storage, uint64(id), cString.unsafeAddr)
 
 proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   let negentropy = constructNegentropy(storage, frameSizeLimit)
@@ -104,14 +102,14 @@ proc setInitiator*(negentropy: pointer) =
   raw_setInitiator(negentropy)
 
 proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
-  let cQuery: cstring = StringfromBytes(query)
+  let cQuery = toBuffer(query)
 
-  let cppString:cstring = raw_reconcile(negentropy, cQuery, uint(query.len))
+  let cppString:cstring = raw_reconcile(negentropy, cQuery.unsafeAddr)
 
   return StringtoBytes(cppString)
 
 proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
-  let cppQuery: cstring = StringfromBytes(query)
+  let cQuery = toBuffer(query)
   
   var 
     cppHaveIds: cstringArray = allocCStringArray([])
@@ -119,7 +117,7 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
     haveIdsLen: uint
     needIdsLen: uint
 
-  let cppString: cstring = raw_reconcile(negentropy, cppQuery, uint(query.len), cppHaveIds, haveIdsLen.addr , cppNeedIds , needIdsLen.addr)
+  let cppString: cstring = raw_reconcile(negentropy, cQuery.unsafeAddr, cppHaveIds, haveIdsLen.addr , cppNeedIds , needIdsLen.addr)
 
   for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
     haveIds.add(toWakuMessageHash(ele))
