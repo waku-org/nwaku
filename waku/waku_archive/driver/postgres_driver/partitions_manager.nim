@@ -81,17 +81,18 @@ proc removeOldestPartitionName*(self: PartitionManager) =
 proc isEmpty*(self: PartitionManager): bool =
   return self.partitions.len == 0
 
-proc getLastMoment*(partition: Partition): Moment =
+proc getLastMoment*(partition: Partition): int64 =
   ## Considering the time range covered by the partition, this
-  ## returns the `end` 'Moment' of such range.
+  ## returns the `end` time (number of seconds since epoch) of such range.
   let lastTimeInSec = partition.timeRange.`end`
-  return Moment.init(lastTimeInSec, Second)
+  return lastTimeInSec
 
-proc containsMoment*(partition: Partition, moment: Moment): bool =
+proc containsMoment*(partition: Partition, time: int64): bool =
   ## Returns true if the given moment is contained within the partition window,
   ## 'false' otherwise.
-  if partition.timeRange.beginning <= moment.epochSeconds() and
-     moment.epochSeconds() < partition.timeRange.`end`:
+  ## time - number of seconds since epoch
+  if partition.timeRange.beginning <= time and
+     time < partition.timeRange.`end`:
     return true
 
   return false

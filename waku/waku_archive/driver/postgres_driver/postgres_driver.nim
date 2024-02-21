@@ -556,14 +556,15 @@ proc performWriteQuery*(s: PostgresDriver, query: string):
   return ok()
 
 proc addPartition(self: PostgresDriver,
-                  startTime: Moment,
-                  duration: Duration):
-                  Future[ArchiveDriverResult[void]] {.async.}  =
+                  startTime: Timestamp,
+                  duration: timer.Duration):
+                  Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
+  ## `startTime` is measured in seconds since epoch
 
-  let beginning = startTime.epochSeconds()
-  let `end` = (startTime + duration).epochSeconds()
+  let beginning = startTime
+  let `end` = (startTime + duration.seconds)
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -586,6 +587,8 @@ proc addPartition(self: PostgresDriver,
 
 const DefaultDatabasePartitionCheckTimeInterval = 10.minutes
 const PartitionsRangeInterval = 1.minutes ## Time range covered by each parition
+const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(10)
+const PartitionsRangeInterval = timer.minutes(1) ## Time range covered by each parition
 
 proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
@@ -593,7 +596,7 @@ proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
   while true:
     trace "Check if we need to create a new partition"
 
-    let now = Moment.now()
+    let now = times.now().toTime().toUnix()
 
     if self.partitionMngr.isEmpty():
       (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
