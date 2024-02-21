@@ -511,11 +511,10 @@ method deleteOldestMessagesNotWithinLimit*(
 
   return ok()
 
-method decreaseDatabaseSize*(driver: ArchiveDriver,
+method decreaseDatabaseSize*(driver: PostgresDriver,
                              targetSizeInBytes: int64):
                              Future[ArchiveDriverResult[void]] {.async.} =
   ## TODO: refactor this implementation and use partition management instead
-
   ## To remove 20% of the outdated data from database
   const DeleteLimit = 0.80
 
