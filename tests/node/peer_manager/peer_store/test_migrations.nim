@@ -1,13 +1,17 @@
-import std/[options], stew/results, testutils/unittests
+import
+  std/[options, tables, strutils, os],
+  stew/results,
+  chronicles,
+  testutils/unittests
 
 import
-  ../../../../waku/[node/peer_manager/peer_store/migrations],
-  ../../waku_archive/archive_utils,
-  ../../testlib/[simple_mock]
-
-import std/[tables, strutils, os], stew/results, chronicles
-
-import ../../../../waku/[common/databases/db_sqlite, common/databases/common]
+  ../../../../waku/[
+    node/peer_manager/peer_store/migrations,
+    common/databases/db_sqlite,
+    common/databases/common
+  ],
+  ../../../waku_archive/archive_utils,
+  ../../../testlib/[simple_mock]
 
 suite "Migrations":
   test "migrate ok":

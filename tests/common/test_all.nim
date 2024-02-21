@@ -3,6 +3,6 @@ import
   ./test_confutils_envvar,
   ./test_enr_builder,
   ./test_envvar_serialization,
+  ./test_parse_size,
   ./test_protobuf_validation,
-  ./test_sqlite_migrations,
-  ./test_parse_size
+  ./test_sqlite_migrations
