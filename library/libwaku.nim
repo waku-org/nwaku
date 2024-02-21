@@ -21,6 +21,7 @@ import
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
   ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
   ./waku_thread/inter_thread_communication/requests/protocols/store_request,
+  ./waku_thread/inter_thread_communication/requests/debug_node_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
   ./callback
@@ -352,6 +353,27 @@ proc waku_store_query(ctx: ptr Context,
   #   return RET_ERR
 
   return RET_OK
+
+proc waku_listen_addresses(ctx: ptr Context,
+                           callback: WakuCallBack,
+                           userData: pointer): cint
+                           {.dynlib, exportc.} =
+
+  ctx[].userData = userData
+
+  let connRes = waku_thread.sendRequestToWakuThread(
+                                   ctx,
+                                   RequestType.DEBUG,
+                                   DebugNodeRequest.createShared(
+                                            DebugNodeMsgType.RETRIEVE_LISTENING_ADDRESSES))
+  if connRes.isErr():
+    let msg = $connRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+  else:
+    let msg = $connRes.value
+    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_OK
 
 ### End of exported procs
 ################################################################################
