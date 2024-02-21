@@ -19,6 +19,7 @@ import
   ../../../waku_lightpush/common,
   ../../../waku_relay,
   ../../../waku_node,
+  ../../../waku_sync,
   ../../../node/peer_manager,
   ../responses,
   ../serdes,
@@ -88,6 +89,15 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
                                    protocol: WakuLightPushCodec,
                                    connected: it.connectedness == Connectedness.Connected))
       tuplesToWakuPeers(peers, lightpushPeers)
+
+    if not node.wakuSync.isNil():
+      # Map WakuStore peers to WakuPeers and add to return list
+      let syncPeers = node.peerManager.peerStore
+                           .peers(WakuSyncCodec)
+                           .mapIt((multiaddr: constructMultiaddrStr(it),
+                                   protocol: WakuSyncCodec,
+                                   connected: it.connectedness == Connectedness.Connected))
+      tuplesToWakuPeers(peers, syncPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status=Http200)
     if resp.isErr():
