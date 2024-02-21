@@ -32,7 +32,7 @@ type
   SizeRetentionPolicy* = ref object of RetentionPolicy
       sizeLimit: int64
 
-proc init*(T: type SizeRetentionPolicy, size=DefaultRetentionSize): T =
+proc new*(T: type SizeRetentionPolicy, size=DefaultRetentionSize): T =
   SizeRetentionPolicy(
     sizeLimit: size
   )

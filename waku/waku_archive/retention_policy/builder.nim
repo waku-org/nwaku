@@ -39,7 +39,7 @@ proc new*(T: type RetentionPolicy,
     except ValueError:
       return err("invalid time retention policy argument")
 
-    let retPolicy: RetentionPolicy = TimeRetentionPolicy.init(retentionTimeSeconds)
+    let retPolicy: RetentionPolicy = TimeRetentionPolicy.new(retentionTimeSeconds)
     return ok(some(retPolicy))
 
   elif policy == "capacity":
@@ -49,7 +49,7 @@ proc new*(T: type RetentionPolicy,
     except ValueError:
       return err("invalid capacity retention policy argument")
 
-    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.init(retentionCapacity)
+    let retPolicy: RetentionPolicy = CapacityRetentionPolicy.new(retentionCapacity)
     return ok(some(retPolicy))
 
   elif policy == "size":
@@ -85,7 +85,7 @@ proc new*(T: type RetentionPolicy,
     if sizeQuantity <= 0:
           return err("invalid size retention policy argument: a non-zero value is required")
 
-    let retPolicy: RetentionPolicy = SizeRetentionPolicy.init(sizeQuantity)
+    let retPolicy: RetentionPolicy = SizeRetentionPolicy.new(sizeQuantity)
     return ok(some(retPolicy))
 
   else:

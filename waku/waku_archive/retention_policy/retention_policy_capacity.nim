@@ -47,7 +47,7 @@ proc calculateOverflowWindow(capacity: int, overflow: float): int =
 proc calculateDeleteWindow(capacity: int, overflow: float): int =
   calculateOverflowWindow(capacity, overflow) div 2
 
-proc init*(T: type CapacityRetentionPolicy, capacity=DefaultCapacity): T =
+proc new*(T: type CapacityRetentionPolicy, capacity=DefaultCapacity): T =
   let
     totalCapacity = calculateTotalCapacity(capacity, MaxOverflow)
     deleteWindow = calculateDeleteWindow(capacity, MaxOverflow)
