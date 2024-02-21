@@ -36,7 +36,7 @@ To join the network, you need to know the address of at least one bootstrap node
 Please refer to the [Waku README](https://github.com/waku-org/nwaku/blob/master/waku/README.md) for more information.
 
 For more on how to run `wakunode2`, refer to:
-- [Run using binaries](https://docs.waku.org/guides/run-nwaku-node#download-the-binary)
+- [Run using binaries](https://docs.waku.org/guides/nwaku/build-source)
 - [Run using docker](https://docs.waku.org/guides/nwaku/run-docker)
 - [Run using docker-compose](https://docs.waku.org/guides/nwaku/run-docker-compose)
 

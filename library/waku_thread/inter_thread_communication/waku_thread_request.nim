@@ -13,7 +13,8 @@ import
   ./requests/node_lifecycle_request,
   ./requests/peer_manager_request,
   ./requests/protocols/relay_request,
-  ./requests/protocols/store_request
+  ./requests/protocols/store_request,
+  ./requests/debug_node_request
 
 type
   RequestType* {.pure.} = enum
@@ -21,6 +22,7 @@ type
     PEER_MANAGER,
     RELAY,
     STORE,
+    DEBUG,
 
 type
   InterThreadRequest* = object
@@ -54,6 +56,8 @@ proc process*(T: type InterThreadRequest,
         cast[ptr RelayRequest](request[].reqContent).process(node)
       of STORE:
         cast[ptr StoreRequest](request[].reqContent).process(node)
+      of DEBUG:
+        cast[ptr DebugNodeRequest](request[].reqContent).process(node[])
 
   return await retFut
 
