@@ -47,10 +47,11 @@ suite "membershipKeyGen":
       identityCredentials.idSecretHash.valid()
       identityCredentials.idCommitment.valid()
 
+  # FIXME: fails on macos
   test "done is false":
     # Given the key_gen function fails
-    let backup = key_gen
-    mock(key_gen):
+    let backup = rln_interface.key_gen
+    mock(rln_interface.key_gen):
       proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
         return false
 
@@ -64,13 +65,14 @@ suite "membershipKeyGen":
       identityCredentialsRes.error() == "error in key generation"
 
     # Cleanup
-    mock(key_gen):
+    mock(rln_interface.key_gen):
       backup
 
+  # FIXME: fails on macos
   test "generatedKeys length is not 128":
     # Given the key_gen function succeeds with wrong values
-    let backup = key_gen
-    mock(key_gen):
+    let backup = rln_interface.key_gen
+    mock(rln_interface.key_gen):
       proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
         echo "# RUNNING MOCK"
         output_buffer.len = 0
@@ -87,7 +89,7 @@ suite "membershipKeyGen":
       identityCredentialsRes.error() == "keysBuffer is of invalid length"
 
     # Cleanup
-    mock(key_gen):
+    mock(rln_interface.key_gen):
       backup
 
 suite "RlnConfig":
@@ -108,10 +110,11 @@ suite "RlnConfig":
       check:
         rlnRes.isOk()
 
+    # FIXME: fails on macos
     test "new_circuit fails":
       # Given the new_circuit function fails
-      let backup = new_circuit
-      mock(new_circuit):
+      let backup = rln_interface.new_circuit
+      mock(rln_interface.new_circuit):
         proc newCircuitMock(
             tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
         ): bool =
@@ -127,5 +130,5 @@ suite "RlnConfig":
         rlnRes.error() == "error in parameters generation"
 
       # Cleanup
-      mock(new_circuit):
+      mock(rln_interface.new_circuit):
         backup
