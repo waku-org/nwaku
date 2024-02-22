@@ -56,6 +56,7 @@ suite "Waku Filter - End to End":
     await allFutures(server.start(), client.start())
 
     await server.mountFilter()
+    await server.mountLegacyFilter()
     await client.mountFilterClient()
 
     client.wakuFilterClient.registerPushHandler(messagePushHandler)
