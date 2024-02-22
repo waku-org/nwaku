@@ -443,7 +443,7 @@ proc filterHandleMessage*(node: WakuNode,
                           {.async.}=
 
   if node.wakuFilter.isNil() or node.wakuFilterLegacy.isNil():
-    error "cannot handle filter message", error="waku filter is nil"
+    error "cannot handle filter message", error = "waku filter and waku filter legacy are both required"
     return
 
   await allFutures(node.wakuFilter.handleMessage(pubsubTopic, message),
