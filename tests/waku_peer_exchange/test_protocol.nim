@@ -24,7 +24,8 @@ import
     waku_core,
     waku_core/message/codec
   ],
-  ../testlib/[wakucore, wakunode, simple_mock, assertions]
+  ../testlib/[wakucore, wakunode, simple_mock, assertions],
+  ./utils.nim
 
 suite "Waku Peer Exchange":
   # Some of this tests use node.wakuPeerExchange instead of just a standalone PeerExchange.
@@ -139,21 +140,10 @@ suite "Waku Peer Exchange":
       await node1.mountPeerExchange()
       await node3.mountPeerExchange()
 
-      var peerInfosLen = 0
-      var response: WakuPeerExchangeResult[PeerExchangeResponse]
-      attempts = 10
-      while peerInfosLen == 0 and attempts > 0:
-        var
-          connOpt =
-            await node3.peerManager.dialPeer(
-              node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
-            )
-        require connOpt.isSome
-        response = await node3.wakuPeerExchange.request(1, connOpt.get())
-        require response.isOk
-        peerInfosLen = response.get().peerInfos.len
-        await sleepAsync(1.seconds)
-        attempts -= 1
+      let
+        dialResponse =
+          await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())
+      let response = dialResponse.get()
 
       ## Then
       check:

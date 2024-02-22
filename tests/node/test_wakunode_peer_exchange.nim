@@ -132,7 +132,7 @@ suite "Waku Peer Exchange":
     asyncTeardown:
       await allFutures(node.stop(), node2.stop())
 
-    asyncTest "ok":
+    asyncTest "peer set successfully":
       # Given a node with peer exchange mounted
       await node.mountPeerExchange()
       let initialPeers = node.peerManager.peerStore.peers.len
@@ -171,7 +171,7 @@ suite "Waku Peer Exchange":
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
       remotePeerInfo2.peerId.data.add(255.byte)
 
-      # When making any request with an inva  lid peer info
+      # When making any request with an invalid peer info
       node.setPeerExchangePeer("invalidpeerinfo")
 
       # Then no peer is added to the peer store
