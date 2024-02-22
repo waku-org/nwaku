@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, sequtils, deques, streams, strutils, tempfiles],
+  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -38,7 +38,7 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
   return credentials
 
 #  a util function used for testing purposes
-#  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
+#  it deploys membership contract on Anvil (or any Eth client available on EthClient address)
 #  must be edited if used for a different contract than membership contract
 # <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
 proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
@@ -117,47 +117,57 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
-# Runs Ganache daemon
-proc runGanache(): Process =
-  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process.
-  # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
+proc getAnvilPath(): string =
+  var anvilPath = ""
+  if existsEnv("XDG_CONFIG_HOME"):
+    anvilPath = joinPath(anvilPath, os.getEnv("XDG_CONFIG_HOME", ""))
+  else:
+    anvilPath = joinPath(anvilPath, os.getEnv("HOME", ""))
+  anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
+  return $anvilPath
+
+# Runs Anvil daemon
+proc runAnvil(): Process =
   # Passed options are
   # --port                            Port to listen on.
-  # --miner.blockGasLimit             Sets the block gas limit in WEI.
-  # --wallet.defaultBalance           The default account balance, specified in ether.
-  # See ganache documentation https://www.npmjs.com/package/ganache for more details
+  # --gas-limit                       Sets the block gas limit in WEI.
+  # --balance                         The default account balance, specified in ether.
+  # --chain-id                        Chain ID of the network.
+  # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
-    let runGanache = startProcess("npx", args = ["--yes", "ganache@7.9.0", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
-    let ganachePID = runGanache.processID
+    let anvilPath = getAnvilPath()
+    debug "Anvil path", anvilPath
+    let runAnvil = startProcess(anvilPath, args = ["--port", "8540", "--gas-limit", "300000000000000", "--balance", "10000", "--chain-id", "1337"], options = {poUsePath})
+    let anvilPID = runAnvil.processID
 
-    # We read stdout from Ganache to see when daemon is ready
-    var ganacheStartLog: string
+    # We read stdout from Anvil to see when daemon is ready
+    var anvilStartLog: string
     var cmdline: string
     while true:
       try:
-        if runGanache.outputstream.readLine(cmdline):
-          ganacheStartLog.add(cmdline)
+        if runAnvil.outputstream.readLine(cmdline):
+          anvilStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:8540"):
             break
       except Exception, CatchableError:
         break
-    debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
-    return runGanache
+    debug "Anvil daemon is running and ready", pid=anvilPID, startLog=anvilStartLog
+    return runAnvil
   except:  # TODO: Fix "BareExcept" warning
-    error "Ganache daemon run failed", err = getCurrentExceptionMsg()
+    error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
 
-# Stops Ganache daemon
-proc stopGanache(runGanache: Process) {.used.} =
+# Stops Anvil daemon
+proc stopAnvil(runAnvil: Process) {.used.} =
 
-  let ganachePID = runGanache.processID
+  let anvilPID = runAnvil.processID
   # We wait the daemon to exit
   try:
-    # We terminate Ganache daemon by sending a SIGTERM signal to the runGanache PID to trigger RPC server termination and clean-up
-    discard startProcess("pkill", args = ["-f", "ganache"], options = {poUsePath})
-    debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
+    # We terminate Anvil daemon by sending a SIGTERM signal to the runAnvil PID to trigger RPC server termination and clean-up
+    kill(runAnvil)
+    debug "Sent SIGTERM to Anvil", anvilPID=anvilPID
   except:
-    error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
+    error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setup(): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
@@ -185,8 +195,8 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
   return manager
 
 suite "Onchain group manager":
-  # We run Ganache
-  let runGanache {.used.} = runGanache()
+  # We run Anvil
+  let runAnvil {.used.} = runAnvil()
 
   asyncTest "should initialize successfully":
     let manager = await setup()
@@ -692,8 +702,8 @@ suite "Onchain group manager":
 
 
   ################################
-  ## Terminating/removing Ganache
+  ## Terminating/removing Anvil
   ################################
 
-  # We stop Ganache daemon
-  stopGanache(runGanache)
+  # We stop Anvil daemon
+  stopAnvil(runAnvil)
