@@ -29,25 +29,25 @@ proc new*(T: type PartitionManager): T =
   return PartitionManager()
 
 proc getPartitionFromDateTime*(self: PartitionManager,
-                               targetMoment: Moment):
+                               targetMoment: int64):
                                Result[Partition, string] =
   ## Returns the partition name that might store a message containing the passed timestamp.
   ## In order words, it simply returns the partition name which contains the given timestamp.
+  ## targetMoment - represents the time of interest, measured in seconds since epoch.
 
   if self.partitions.len == 0:
     return err("There are no partitions")
 
-  let targetMomentSec = targetMoment.epochSeconds()
   for partition in self.partitions:
     let timeRange = partition.timeRange
 
     let beginning = timeRange.beginning
     let `end` = timeRange.`end`
 
-    if beginning <= targetMomentSec and targetMomentSec < `end`:
+    if beginning <= targetMoment and targetMoment < `end`:
       return ok(partition)
 
-  return err("Could'nt find a partition table for given time: " & $targetMomentSec)
+  return err("Could'nt find a partition table for given time: " & $targetMoment)
 
 proc getNewestPartition*(self: PartitionManager): Result[Partition, string] =
   if self.partitions.len == 0:
@@ -69,9 +69,9 @@ proc addPartitionInfo*(self: PartitionManager,
                        `end`: int64) =
   ## The given partition range has seconds resolution.
   ## We just store information of the new added partition merely to keep track of it.
-  self.partitions.addLast(Partition(
-                                name: partitionName,
-                                timeRange: (beginning, `end`)))
+  let partitionInfo = Partition(name: partitionName, timeRange: (beginning, `end`))
+  trace "Adding partition info"
+  self.partitions.addLast(partitionInfo)
 
 proc removeOldestPartitionName*(self: PartitionManager) =
   ## Simply removed the partition from the tracked/known partitions queue.

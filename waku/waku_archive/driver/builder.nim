@@ -107,6 +107,9 @@ proc new*(T: type ArchiveDriver,
         if migrateRes.isErr():
           return err("ArchiveDriver build failed in migration: " & $migrateRes.error)
 
+      ## This should be started once we make sure the 'messages' table exists
+      asyncSpawn driver.loopPartitionFactory(onFatalErrorAction)
+
       return ok(driver)
 
     else:

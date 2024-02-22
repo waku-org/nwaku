@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,strformat],
+  std/[nre,options,sequtils,strutils,strformat,times],
   stew/[results,byteutils],
   db_postgres,
   postgres,
@@ -113,9 +113,6 @@ proc new*(T: type PostgresDriver,
   let driver = PostgresDriver(writeConnPool: writeConnPool,
                               readConnPool: readConnPool,
                               partitionMngr: PartitionManager.new())
-
-  asyncSpawn driver.loopPartitionFactory()
-
   return ok(driver)
 
 proc createMessageTable*(s: PostgresDriver):
@@ -250,6 +247,33 @@ method getAllMessages*(s: PostgresDriver):
     return err("failed in query: " & $error)
 
   return ok(rows)
+
+proc getPartitionsList(s: PostgresDriver): Future[ArchiveDriverResult[seq[string]]] {.async.} =
+  ## Retrieves the seq of partition table names.
+  ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
+
+  var partitions: seq[string]
+  proc rowCallback(pqResult: ptr PGresult) =
+    for iRow in 0..<pqResult.pqNtuples():
+      let partitionName = $(pqgetvalue(pqResult, iRow, 0))
+      partitions.add(partitionName)
+
+  (await s.readConnPool.pgQuery("""
+                      SELECT child.relname       AS partition_name
+                          FROM pg_inherits
+                          JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                          JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                          JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                          JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                          WHERE parent.relname='messages'
+                          """,
+                          newSeq[string](0),
+                          rowCallback
+                              )).isOkOr:
+
+    return err("getPartitionsList failed in query: " & $error)
+
+  return ok(partitions)
 
 proc getMessagesArbitraryQuery(s: PostgresDriver,
                     contentTopic: seq[ContentTopic] = @[],
@@ -511,40 +535,6 @@ method deleteOldestMessagesNotWithinLimit*(
 
   return ok()
 
-method decreaseDatabaseSize*(driver: PostgresDriver,
-                             targetSizeInBytes: int64):
-                             Future[ArchiveDriverResult[void]] {.async.} =
-  ## TODO: refactor this implementation and use partition management instead
-  ## To remove 20% of the outdated data from database
-  const DeleteLimit = 0.80
-
-  ## when db size overshoots the database limit, shread 20% of outdated messages
-  ## get size of database
-  let dbSize = (await driver.getDatabaseSize()).valueOr:
-    return err("failed to get database size: " & $error)
-
-  ## database size in bytes
-  let totalSizeOfDB: int64 = int64(dbSize)
-
-  if totalSizeOfDB < targetSizeInBytes:
-    return ok()
-
-  ## to shread/delete messsges, get the total row/message count
-  let numMessages = (await driver.getMessagesCount()).valueOr:
-    return err("failed to get messages count: " & error)
-
-  ## NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
-  ## if vacumming is done automatically then we aim to check DB size periodially for efficient
-  ## retention policy implementation.
-
-  ## 80% of the total messages are to be kept, delete others
-  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
-
-  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
-    return err("deleting oldest messages failed: " & error)
-
-  return ok()
-
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
@@ -619,14 +609,47 @@ proc addPartition(self: PostgresDriver,
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
 
-const DefaultDatabasePartitionCheckTimeInterval = 10.minutes
-const PartitionsRangeInterval = 1.minutes ## Time range covered by each parition
-const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(10)
-const PartitionsRangeInterval = timer.minutes(1) ## Time range covered by each parition
+proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+  let partitionNamesRes = await self.getPartitionsList()
+  if not partitionNamesRes.isOk():
+    return err("Could not retrieve partitions list: " & $partitionNamesRes.error)
+  else:
+    let partitionNames = partitionNamesRes.get()
+    for partitionName in partitionNames:
+      ## partitionName contains something like 'messages_1708449815_1708449875'
+      let bothTimes = partitionName.replace("messages_", "")
+      let times = bothTimes.split("_")
+      if times.len != 2:
+        return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
 
-proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
+      var beginning: int64
+      try:
+        beginning = parseInt(times[0])
+      except ValueError:
+        return err("Could not parse beginning time: " & getCurrentExceptionMsg())
+
+      var `end`: int64
+      try:
+        `end` = parseInt(times[1])
+      except ValueError:
+        return err("Could not parse end time: " & getCurrentExceptionMsg())
+
+      self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+
+    return ok()
+
+const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(2)
+const PartitionsRangeInterval = timer.seconds(2) ## Time range covered by each parition
+
+proc loopPartitionFactory*(self: PostgresDriver,
+                           onFatalError: OnFatalErrorHandler) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
+
+  ## First of all, let's make the 'partition_manager' aware of the current partitions
+  (await self.initializePartitionsInfo()).isOkOr:
+    onFatalError("issue in loopPartitionFactory: " & $error)
+
   while true:
     trace "Check if we need to create a new partition"
 
@@ -634,18 +657,24 @@ proc loopPartitionFactory*(self: PostgresDriver) {.async.} =
 
     if self.partitionMngr.isEmpty():
       (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
-        error "error when creating a new partition from empty state", error = error
+        onFatalError("error when creating a new partition from empty state: " & $error)
     else:
       let newestPartitionRes = self.partitionMngr.getNewestPartition()
       if newestPartitionRes.isErr():
-        error "could not get newest partition", error = newestPartitionRes.error
+        onFatalError("could not get newest partition: " & $newestPartitionRes.error)
 
       let newestPartition = newestPartitionRes.get()
       if newestPartition.containsMoment(now):
-        ## That means that the current used partition is the last one that was created.
+        ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
         (await self.addPartition(newestPartition.getLastMoment(), PartitionsRangeInterval)).isOkOr:
-          error "could not add the next partition", error = error
+          onFatalError("could not add the next partition for 'now': " & $error)
+      elif now >= newestPartition.getLastMoment():
+        ## There is no partition to contain the current time.
+        ## This happens if the node has been stopped for quite a long time.
+        ## Then, let's create the needed partition to contain 'now'.
+        (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+          onFatalError("could not add the next partition: " & $error)
 
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
 
@@ -659,13 +688,16 @@ proc removeOldestPartition(self: PostgresDriver,
     return err("could not remove oldest partition: " & $error)
 
   if not forceRemoval:
-    let currentPartition = self.partitionMngr.getPartitionFromDateTime(Moment.now()).valueOr:
-      return err("error in removeOldestPartition: " & $error)
+    let now = times.now().toTime().toUnix()
+    let currentPartitionRes = self.partitionMngr.getPartitionFromDateTime(now)
+    if currentPartitionRes.isOk():
+      ## The database contains a partition that would store current messages.
 
-    if currentPartition == oldestPartition:
-      debug "Skipping to remove the current partition"
-      return ok()
+      if currentPartitionRes.get() == oldestPartition:
+        debug "Skipping to remove the current partition"
+        return ok()
 
+  ## In the following lines is where the partition removal happens.
   ## Detach and remove the partition concurrently to not block the parent table (messages)
   let detachPartitionQuery =
     "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() & " CONCURRENTLY;"
