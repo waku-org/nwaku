@@ -67,7 +67,7 @@ proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.head
 proc constructNegentropy(storage: pointer, frameSizeLimit: uint64): pointer {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(negentropy: pointer,callback: proc (buf:ptr cchar,len: csize_t){.closure, cdecl, raises: [].}): void {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+proc raw_initiate(negentropy: pointer): ptr Buffer {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
 proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
@@ -102,15 +102,9 @@ proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   return negentropy
 
 proc initiate*(negentropy: pointer): seq[byte] =
-  var output = newSeq[byte]()
-  var temp: cstring
-  proc initiate_callback(buf:ptr cchar,len: csize_t){.closure, cdecl, raises: [].} =
-    temp = cast[cstring](allocShared(len))    
-    copyMem(temp, buf, len)
-  
-  raw_initiate(negentropy, initiate_callback)
-  copyMem(output[0].addr, temp.unsafeAddr, temp.len)
-  return output
+  let cString = raw_initiate(negentropy)
+
+  return BufferToBytes(cString)
 
 
 proc setInitiator*(negentropy: pointer) =
