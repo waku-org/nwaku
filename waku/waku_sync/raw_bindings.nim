@@ -6,11 +6,15 @@ else:
 from os import DirSep
 
 import
-   ../waku_core/message
+   std/[strutils],
+   ../waku_core/message,
+   chronicles
 
-{.link: "../../vendor/negentropy/cpp/libnegentropy.so".} 
+const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep & "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
-const NEGENTROPY_HEADER = "../../vendor/negentropy/" & DirSep & "cpp" & DirSep & "negentropy_wrapper.h"
+{.link: negentropyPath & "libnegentropy.so".} 
+
+const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
 proc StringtoBytes(data: cstring): seq[byte] =
   let size = data.len()
@@ -30,7 +34,7 @@ proc toWakuMessageHash(data: string): WakuMessageHash =
   return hash
 
 type Buffer* = object
-  len*: uint
+  len*: uint64
   `ptr`*: ptr uint8
 
 
@@ -39,8 +43,13 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   ## the Buffer object is used to communicate data with the rln lib
   var temp = @x
   let baseAddr = cast[pointer](x)
-  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint(temp.len))
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint64(temp.len))
   return output
+
+proc BufferToBytes(buffer: ptr Buffer):seq[byte] =
+  let bytes = newSeq[byte](buffer.len)
+  copyMem(bytes[0].unsafeAddr, buffer.ptr, buffer.len)
+  return bytes
 
 ### Storage ###
 
@@ -58,7 +67,7 @@ proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.head
 proc constructNegentropy(storage: pointer, frameSizeLimit: uint64): pointer {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(negentropy: pointer): cstring {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+proc raw_initiate(negentropy: pointer,callback: proc (buf:ptr cchar,len: csize_t){.closure, cdecl, raises: [].}): void {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
 proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
@@ -84,7 +93,7 @@ proc erase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
 
 proc insert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   let cString = toBuffer(hash)
-  
+  debug "converted cstring ", len=cString.len
   return raw_insert(storage, uint64(id), cString.unsafeAddr)
 
 proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
@@ -93,9 +102,15 @@ proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   return negentropy
 
 proc initiate*(negentropy: pointer): seq[byte] =
-  let cString: cstring = raw_initiate(negentropy)
-
-  return StringtoBytes(cString)
+  var output = newSeq[byte]()
+  var temp: cstring
+  proc initiate_callback(buf:ptr cchar,len: csize_t){.closure, cdecl, raises: [].} =
+    temp = cast[cstring](allocShared(len))    
+    copyMem(temp, buf, len)
+  
+  raw_initiate(negentropy, initiate_callback)
+  copyMem(output[0].addr, temp.unsafeAddr, temp.len)
+  return output
 
 
 proc setInitiator*(negentropy: pointer) =
@@ -118,6 +133,8 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
     needIdsLen: uint
 
   let cppString: cstring = raw_reconcile(negentropy, cQuery.unsafeAddr, cppHaveIds, haveIdsLen.addr , cppNeedIds , needIdsLen.addr)
+  
+  debug "haveIdsLen", len=haveIdsLen
 
   for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
     haveIds.add(toWakuMessageHash(ele))
@@ -127,7 +144,7 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
 
   deallocCStringArray(cppHaveIds)
   deallocCStringArray(cppNeedIds)
-
+  debug "return " , output=cppString
   let payload: seq[byte] = StringtoBytes(cppString)
 
   return payload

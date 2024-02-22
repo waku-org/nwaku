@@ -26,7 +26,7 @@ logScope:
 
 const WakuSyncCodec* = "/vac/waku/sync/1.0.0"
 const DefaultFrameSize = 153600 # using a random number for now
-const DefaultSyncInterval = 5.seconds
+const DefaultSyncInterval = 60.minutes
 
 type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
@@ -70,6 +70,7 @@ proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let request: seq[byte] = (await self.intitialization()).valueOr:
     return err(error)
+  debug "sending request to server", req=request
   let writeRes = catch: await conn.writeLP(request)
   if writeRes.isErr():
     return err(writeRes.error.msg)
@@ -82,21 +83,22 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let readRes = catch: await conn.readLp(self.maxFrameSize)
     let buffer: seq[byte] = readRes.valueOr:
       return err(error.msg)
-  
+    debug "Received Sync request from peer", request=buffer
     let responseOpt: Option[seq[byte]] = self.clientReconciliation(buffer, haveHashes, needHashes).valueOr:
       return err(error)
 
     let response: seq[byte] =
       if responseOpt.isNone():
+        debug "Closing connection as sync response is none"
         await conn.close()
         break
       else:
         responseOpt.get()
-
+    debug "Sending Sync response to peer", response=response
     let writeRes = catch: await conn.writeLP(response)
     if writeRes.isErr():
       return err(writeRes.error.msg)
-
+  #Need to handle empty needhashes return
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
