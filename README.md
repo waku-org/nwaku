@@ -26,7 +26,7 @@ The standard developer tools, including a C compiler, GNU Make, Bash, and Git. M
 # You'll run `make update` after each `git pull` in the future to keep those submodules updated.
 make wakunode2
 
-# Build with custom compilation flags
+# Build with custom compilation flags. Do not use NIM_PARAMS unless you know what you are doing.
 make wakunode2 NIMFLAGS="<your-nim-flags>"
 
 # Run with DNS bootstrapping

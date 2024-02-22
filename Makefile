@@ -57,6 +57,7 @@ TARGET ?= prod
 
 ## Git version
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
+## Compilation parameters. If defined in the CLI the assignments won't be executed
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 
 ## Heaptracker options
