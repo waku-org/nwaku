@@ -24,7 +24,7 @@ type TimeRetentionPolicy* = ref object of RetentionPolicy
       retentionTime: chronos.Duration
 
 
-proc init*(T: type TimeRetentionPolicy, retentionTime=DefaultRetentionTime): T =
+proc new*(T: type TimeRetentionPolicy, retentionTime=DefaultRetentionTime): T =
   TimeRetentionPolicy(
     retentionTime: retentionTime.seconds
   )
