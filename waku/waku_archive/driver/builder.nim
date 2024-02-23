@@ -15,6 +15,7 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ./postgres_driver/migrations as archive_postgres_driver_migrations,
   ./queue_driver
 
 export
@@ -91,6 +92,10 @@ proc new*(T: type ArchiveDriver,
         return err("failed to init postgres archive driver: " & res.error)
 
       let driver = res.get()
+
+      # Database migration
+      if migrate:
+        ? archive_postgres_driver_migrations.migrate(db)
 
       try:
         # The table should exist beforehand.

@@ -26,7 +26,7 @@ common.randomize()
 
 const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
 
-proc newTestPostgresDriver(): ArchiveDriver =
+proc newTestPostgresDriver(): PostgresDriver =
   let driver = PostgresDriver.new(dbUrl = storeMessageDbUrl).tryGet()
   discard waitFor driver.reset()
 
@@ -1414,3 +1414,22 @@ suite "Postgres driver - retention policy":
 
     ## Cleanup
     (await driver.close()).expect("driver to close")
+
+  asyncTest "Version table":
+
+    let driver = newTestPostgresDriver()
+
+    var existsRes = await driver.existsTable("version")
+    assert existsRes.isOk(), existsRes.error
+    check existsRes.get() == false
+
+    let createTableRes = await driver.createVersionTable()
+    assert createTableRes.isOk(), createTableRes.error
+
+    existsRes = await driver.existsTable("version")
+    assert existsRes.isOk(), existsRes.error
+    check existsRes.get() == true
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
+

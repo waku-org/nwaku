@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,times],
+  std/[nre,options,sequtils,strutils,times,strformat],
   stew/[results,byteutils],
   db_postgres,
   postgres,
@@ -28,6 +28,9 @@ type PostgresDriver* = ref object of ArchiveDriver
 proc dropTableQuery(): string =
   "DROP TABLE messages"
 
+proc dropVersionTableQuery(): string =
+  "DROP TABLE version"
+
 proc createTableQuery(): string =
   "CREATE TABLE IF NOT EXISTS messages (" &
   " pubsubTopic VARCHAR NOT NULL," &
@@ -40,6 +43,15 @@ proc createTableQuery(): string =
   " storedAt BIGINT NOT NULL," &
   " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ");"
+
+proc createVersionTableQuery(): string {.gcsafe, raises: [].} =
+  let query =
+    fmt"""
+      CREATE TABLE iF NOT EXISTS version (
+        version INTEGER NOT NULL
+      );
+    """
+  return query
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
@@ -111,6 +123,15 @@ proc new*(T: type PostgresDriver,
   return ok(PostgresDriver(writeConnPool: writeConnPool,
                            readConnPool: readConnPool))
 
+proc performWriteQuery*(s: PostgresDriver,
+                        query: string): Future[ArchiveDriverResult[void]] {.async.}  =
+  ## Executes a query that changes the database state
+  ## TODO: we can reduce the code a little with this proc
+  (await s.writeConnPool.pgQuery(query)).isOkOr:
+    return err(fmt"error in {query}: {error}")
+
+  return ok()
+
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
 
@@ -129,6 +150,15 @@ proc deleteMessageTable*(s: PostgresDriver):
 
   return ok()
 
+proc deleteVersionTable*(s: PostgresDriver):
+                         Future[ArchiveDriverResult[void]] {.async.} =
+
+  let execRes = await s.writeConnPool.pgQuery(dropVersionTableQuery())
+  if execRes.isErr():
+    return err("error in deleteVersionTable: " & execRes.error)
+
+  return ok()
+
 proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
 
   let createMsgRes = await s.createMessageTable()
@@ -138,9 +168,12 @@ proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let ret = await s.deleteMessageTable()
-  return ret
+  ## This is only used for testing purposes, to set a fresh database at the beginning of each test
+  (await s.deleteMessageTable()).isOkOr:
+    return err("error deleting message table: " & $error)
+  (await s.deleteVersionTable()).isOkOr:
+    return err("error deleting version table: " & $error)
+  return ok()
 
 proc rowCallbackImpl(pqResult: ptr PGresult,
                      outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]) =
@@ -570,3 +603,54 @@ proc sleep*(s: PostgresDriver, seconds: int):
     return err("exception sleeping: " & getCurrentExceptionMsg())
 
   return ok()
+
+proc existsTable*(s: PostgresDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string = fmt"""
+  SELECT EXISTS (
+    SELECT FROM
+        pg_tables
+    WHERE
+        tablename  = '{tableName}'
+    );
+    """
+
+  var exists: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in existsTable"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in existsTable"
+      return
+
+    exists = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("existsTable failed in getRow: " & $error)
+
+  return ok(exists == "t")
+
+proc createVersionTable*(s: PostgresDriver):
+                         Future[ArchiveDriverResult[void]] {.async.}  =
+
+  let execRes = await s.writeConnPool.pgQuery(createVersionTableQuery())
+  if execRes.isErr():
+    return err("error in createVersionTable: " & execRes.error)
+
+  return ok()
+
+proc getCurrentVersion*(s: PostgresDriver):
+                        Future[ArchiveDriverResult[int64]] {.async.} =
+
+  let existsVersionTable = (await s.existsTable("version")).valueOr:
+    return err("error in getCurrentVersion-existsTable: " & $error)
+
+  if not existsVersionTable:
+    return ok(0)
+
+  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
+    return err("error in getMessagesCount: " & $error)
+
+  return ok(res)
