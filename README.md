@@ -27,7 +27,8 @@ The standard developer tools, including a C compiler, GNU Make, Bash, and Git. M
 make wakunode2
 
 # Build with custom compilation flags. Do not use NIM_PARAMS unless you know what you are doing.
-make wakunode2 NIMFLAGS="<your-nim-flags>"
+# Replace with your own flags
+make wakunode2 NIMFLAGS="-d:chronicles_colors:none -d:disableMarchNative"
 
 # Run with DNS bootstrapping
 ./build/wakunode2 --dns-discovery --dns-discovery-url=DNS_BOOTSTRAP_NODE_URL
