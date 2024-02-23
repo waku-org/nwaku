@@ -547,7 +547,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58014)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -609,9 +609,9 @@ procSuite "Waku v2 Rest API - Store":
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
-    restPort = restServer.server.address.port # update with bound port for client use
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
