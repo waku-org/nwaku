@@ -240,6 +240,10 @@ method getAllMessages*(driver: QueueDriver):
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
+method existsTable*(driver: QueueDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  return err("interface method not implemented")
+
 method getMessages*(driver: QueueDriver,
                     contentTopic: seq[ContentTopic] = @[],
                     pubsubTopic = none(PubsubTopic),

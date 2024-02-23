@@ -44,15 +44,6 @@ proc createTableQuery(): string =
   " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
   ");"
 
-proc createVersionTableQuery(): string {.gcsafe, raises: [].} =
-  let query =
-    fmt"""
-      CREATE TABLE iF NOT EXISTS version (
-        version INTEGER NOT NULL
-      );
-    """
-  return query
-
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   # TODO: get the sql queries from a file
@@ -141,7 +132,7 @@ proc createMessageTable*(s: PostgresDriver):
 
   return ok()
 
-proc deleteMessageTable*(s: PostgresDriver):
+proc deleteMessageTable(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
   let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
@@ -150,20 +141,12 @@ proc deleteMessageTable*(s: PostgresDriver):
 
   return ok()
 
-proc deleteVersionTable*(s: PostgresDriver):
+proc deleteVersionTable(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
   let execRes = await s.writeConnPool.pgQuery(dropVersionTableQuery())
   if execRes.isErr():
     return err("error in deleteVersionTable: " & execRes.error)
-
-  return ok()
-
-proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let createMsgRes = await s.createMessageTable()
-  if createMsgRes.isErr():
-    return err("createMsgRes.isErr in init: " & createMsgRes.error)
 
   return ok()
 
@@ -604,7 +587,7 @@ proc sleep*(s: PostgresDriver, seconds: int):
 
   return ok()
 
-proc existsTable*(s: PostgresDriver, tableName: string):
+method existsTable*(s: PostgresDriver, tableName: string):
                     Future[ArchiveDriverResult[bool]] {.async.} =
   let query: string = fmt"""
   SELECT EXISTS (
@@ -631,15 +614,6 @@ proc existsTable*(s: PostgresDriver, tableName: string):
     return err("existsTable failed in getRow: " & $error)
 
   return ok(exists == "t")
-
-proc createVersionTable*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.}  =
-
-  let execRes = await s.writeConnPool.pgQuery(createVersionTableQuery())
-  if execRes.isErr():
-    return err("error in createVersionTable: " & execRes.error)
-
-  return ok()
 
 proc getCurrentVersion*(s: PostgresDriver):
                         Future[ArchiveDriverResult[int64]] {.async.} =

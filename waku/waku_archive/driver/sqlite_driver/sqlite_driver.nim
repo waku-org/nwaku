@@ -189,3 +189,7 @@ method close*(s: SqliteDriver):
   s.db.close()
   return ok()
 
+method existsTable*(s: SqliteDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  return err("existsTable method not implemented in sqlite_driver")
+
