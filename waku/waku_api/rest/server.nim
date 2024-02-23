@@ -23,8 +23,6 @@ type
   WakuRestServer* = object of RootObj
     router*: RestRouter
     httpServer*: HttpServerRef
-    # restMiddleware*: HttpServerMiddlewareRef
-    # originHandlerMiddleware*: OriginHandlerMiddlewareRef
 
   WakuRestServerRef* = ref WakuRestServer
 
