@@ -7,45 +7,39 @@ use std::ffi::CString;
 
 pub type WakuCallback =
     unsafe extern "C" fn(
+        c_int,
         *const c_char,
         usize,
         *const c_void,
     );
 
 extern "C" {
-    pub fn waku_init(
+    pub fn waku_new(
+        config_json: *const u8,
         cb: WakuCallback,
         user_data: *const c_void,
     ) -> *mut c_void;
 
-    pub fn waku_new(
-        ctx: *mut *mut c_void,
-        config_json: *const u8,
-        cb: WakuCallback,
-    ) -> c_int;
-
     pub fn waku_version(
-        ctx: *mut *mut c_void,
+        ctx: *const c_void,
         cb: WakuCallback,
+        user_data: *const c_void,
     ) -> c_int;
 
     pub fn waku_default_pubsub_topic(
-        ctx: *mut *mut c_void,
+        ctx: *mut c_void,
         cb: WakuCallback,
-    ) -> *mut c_void;
-
-    pub fn waku_set_user_data(
-        ctx: *mut *mut c_void,
         user_data: *const c_void,
-    );
+    ) -> *mut c_void;
 }
 
 pub unsafe extern "C" fn trampoline<C>(
+    return_val: c_int,
     buffer: *const c_char,
     buffer_len: usize,
     data: *const c_void,
 ) where
-    C: FnMut(&str),
+    C: FnMut(i32, &str),
 {
     let closure = &mut *(data as *mut C);
     
@@ -54,12 +48,12 @@ pub unsafe extern "C" fn trampoline<C>(
                     .to_vec())
                     .expect("valid utf8");
 
-    closure(&buffer_utf8);
+    closure(return_val, &buffer_utf8);
 }
 
 pub fn get_trampoline<C>(_closure: &C) -> WakuCallback
 where
-    C: FnMut(&str),
+    C: FnMut(i32, &str),
 {
     trampoline::<C>
 }
@@ -74,52 +68,45 @@ fn main() {
     }";
 
     unsafe {
-        // Initialize the waku library
-        let closure = |data: &str| {
-            println!("Error initializing the waku library: {data} \n\n");
-        };
-        let cb = get_trampoline(&closure);
-        let mut ctx = waku_init(cb, &closure as *const _ as *const c_void);
-
         // Create the waku node
-        let closure = |data: &str| {
-            println!("Error creating waku node {data} \n\n");
+        let closure = |ret: i32, data: &str| {
+            println!("Ret {ret}. Error creating waku node {data}");
         };
         let cb = get_trampoline(&closure);
         let config_json_str = CString::new(config_json).unwrap();
-        waku_set_user_data(&mut ctx, &closure as *const _ as *const c_void);
-        let _ret = waku_new(
-            &mut ctx,
+        let ctx = waku_new(
             config_json_str.as_ptr() as *const u8,
             cb,
+            &closure as *const _ as *const c_void,
         );
 
         // Extracting the current waku version
         let version: Arc<RefCell<String>> = Arc::new(RefCell::new(String::from("")));
-        let closure = |data: &str| {
+        let closure = |ret: i32, data: &str| {
+            println!("version_closure. Ret: {ret}. Data: {data}");
             *version.borrow_mut() = data.to_string();
         };
         let cb = get_trampoline(&closure);
-        waku_set_user_data(&mut ctx, &closure as *const _ as *const c_void);
         let _ret = waku_version(
-            &mut ctx,
+            &ctx as *const _ as *const c_void,
             cb,
+            &closure as *const _ as *const c_void,
         );
 
         // Extracting the default pubsub topic
         let default_pubsub_topic: Arc<RefCell<String>> = Arc::new(RefCell::new(String::from("")));
-        let closure = |data: &str| {
+        let closure = |_ret: i32, data: &str| {
             *default_pubsub_topic.borrow_mut() = data.to_string();
         };
         let cb = get_trampoline(&closure);
-        waku_set_user_data(&mut ctx, &closure as *const _ as *const c_void);
         let _ret = waku_default_pubsub_topic(
-            &mut ctx,
+            ctx,
             cb,
+            &closure as *const _ as *const c_void,
         );
 
-        println!("Version {}", version.borrow());
-        println!("Default pubsubTopic {}", default_pubsub_topic.borrow());
+        println!("Version: {}", version.borrow());
+        println!("Default pubsubTopic: {}", default_pubsub_topic.borrow());
     }
 
     loop {
