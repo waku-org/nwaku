@@ -373,17 +373,17 @@ proc migrate*(db: SqliteDatabase,
   ## `user_version` to the `tragetVersion`.
   ##
   ## NOTE: Down migration it is not currently supported
-  let currentVersion = ?db.getCurrentVersion()
+  let userVersion = ?db.getUserVersion()
 
-  if currentVersion == targetVersion:
-    debug "database schema is up to date", currentVersion=currentVersion, targetVersion=targetVersion
+  if userVersion == targetVersion:
+    debug "database schema is up to date", userVersion=userVersion, targetVersion=targetVersion
     return ok()
 
-  info "database schema is outdated", currentVersion=currentVersion, targetVersion=targetVersion
+  info "database schema is outdated", userVersion=userVersion, targetVersion=targetVersion
 
   # Load migration scripts
   let scripts = ? migration_utils.loadMigrationScripts(migrationsScriptsDir,
-                                                       currentVersion,
+                                                       userVersion,
                                                        targetVersion)
   # Run the migration scripts
   for script in scripts:
