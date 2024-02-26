@@ -329,7 +329,7 @@ proc vacuum*(db: SqliteDatabase): DatabaseResult[void] =
 
 ## Database scheme versioning
 
-proc getCurrentVersion*(database: SqliteDatabase): DatabaseResult[int64] =
+proc getUserVersion*(database: SqliteDatabase): DatabaseResult[int64] =
   ## Get the value of the user-version integer.
   ##
   ## The user-version is an integer that is available to applications to use however they want.

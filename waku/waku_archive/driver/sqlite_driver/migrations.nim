@@ -62,7 +62,7 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## NOTE: Down migration it is not currently supported
   debug "starting message store's sqlite database migration"
 
-  let userVersion = ? db.getCurrentVersion()
+  let userVersion = ? db.getUserVersion()
   let isSchemaVersion7 = ? db.isSchemaVersion7()
 
   if userVersion == 0'i64 and isSchemaVersion7:
