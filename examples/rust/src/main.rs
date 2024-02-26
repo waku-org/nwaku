@@ -1,8 +1,7 @@
 
 use std::os::raw::{c_char, c_int, c_void};
 use std::{slice, thread, time};
-use std::sync::Arc;
-use std::cell::RefCell;
+use std::cell::OnceCell;
 use std::ffi::CString;
 
 pub type WakuCallback =
@@ -81,10 +80,10 @@ fn main() {
         );
 
         // Extracting the current waku version
-        let version: Arc<RefCell<String>> = Arc::new(RefCell::new(String::from("")));
+        let version: OnceCell<String> = OnceCell::new();
         let closure = |ret: i32, data: &str| {
             println!("version_closure. Ret: {ret}. Data: {data}");
-            *version.borrow_mut() = data.to_string();
+            let _ = version.set(data.to_string());
         };
         let cb = get_trampoline(&closure);
         let _ret = waku_version(
@@ -94,9 +93,9 @@ fn main() {
         );
 
         // Extracting the default pubsub topic
-        let default_pubsub_topic: Arc<RefCell<String>> = Arc::new(RefCell::new(String::from("")));
+        let default_pubsub_topic: OnceCell<String> = OnceCell::new();
         let closure = |_ret: i32, data: &str| {
-            *default_pubsub_topic.borrow_mut() = data.to_string();
+            let _ = default_pubsub_topic.set(data.to_string());
         };
         let cb = get_trampoline(&closure);
         let _ret = waku_default_pubsub_topic(
@@ -105,8 +104,8 @@ fn main() {
             &closure as *const _ as *const c_void,
         );
 
-        println!("Version: {}", version.borrow());
-        println!("Default pubsubTopic: {}", default_pubsub_topic.borrow());
+        println!("Version: {}", version.get_or_init(|| unreachable!()));
+        println!("Default pubsubTopic: {}", default_pubsub_topic.get_or_init(|| unreachable!()));
     }
 
     loop {
