@@ -8,6 +8,7 @@ import
 import
   ../../../common/databases/common,
   ../../../../migrations/migration_utils,
+  ../../../../migrations/message_store_postgres/pg_migration_manager,
   ../postgres_driver
 
 logScope:
@@ -35,10 +36,7 @@ proc migrate*(driver: PostgresDriver,
   info "database schema is outdated", currentVersion=currentVersion, targetVersion=targetVersion
 
   # Load migration scripts
-  let scripts = migration_utils.loadMigrationScripts(migrationsScriptsDir=StoreMigrationPath,
-                                                     currentVersion,
-                                                     targetVersion).valueOr:
-                return err("postgres could not load migration scripts: " & $error)
+  let scripts = pg_migration_manager.getMigrationScripts(currentVersion, targetVersion)
 
   # Run the migration scripts
   for script in scripts:
