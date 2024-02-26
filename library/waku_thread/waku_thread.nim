@@ -21,7 +21,6 @@ import
 type
   Context* = object
     thread: Thread[(ptr Context)]
-    userData*: pointer
     reqChannel: ChannelSPSCSingle[ptr InterThreadRequest]
     reqSignal: ThreadSignalPtr
     respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
