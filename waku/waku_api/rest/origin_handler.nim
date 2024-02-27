@@ -21,7 +21,7 @@ proc isEveryOriginAllowed(maybeAllowedOrigin: Option[string]): bool =
   return maybeAllowedOrigin.isSome() and maybeAllowedOrigin.get() == "*"
 
 proc compileOriginMatcher(maybeAllowedOrigin: Option[string]): Option[Regex] =
-  if maybeAllowedOrigin.isNone:
+  if maybeAllowedOrigin.isNone():
     return none(Regex)
 
   let allowedOrigin = maybeAllowedOrigin.get()
