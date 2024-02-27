@@ -11,7 +11,6 @@ import
   ./waku_node,
   ./config,
   ./builder,
-  ./external_config,
   ./internal_config,
   ./validator_signed,
   ./peer_manager,
@@ -29,7 +28,8 @@ import
   ../waku_lightpush/common,
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
-  ../common/utils/parse_size_units
+  ../common/utils/parse_size_units,
+  ../../apps/wakunode2/external_config
 
 ## Peer persistence
 

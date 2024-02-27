@@ -15,7 +15,7 @@ import
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../waku/common/logging,
-  ../../waku/node/external_config,
+  ./external_config,
   ./networks_config,
   ./app
 

@@ -13,7 +13,7 @@ import
   ../waku_enr/capabilities,
   ../waku_enr,
   ../waku_core,
-  ./external_config
+  ../../apps/wakunode2/external_config
 
 proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey):
                       Result[enr.Record, string] =
