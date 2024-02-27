@@ -523,6 +523,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
           rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+          rlnEpochSizeSec: conf.rlnEpochSizeSec
         )
       else:
         let rlnConf = WakuRlnConfig(
@@ -532,6 +533,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
+          rlnEpochSizeSec: conf.rlnEpochSizeSec
         )
 
       waitFor node.mountRlnRelay(rlnConf,

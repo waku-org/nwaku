@@ -100,6 +100,8 @@ when isMainModule:
       conf.discv5Discovery = twnClusterConf.discv5Discovery
       conf.discv5BootstrapNodes =
         conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
     var wakunode2 = App.init(rng, conf)
 

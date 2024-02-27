@@ -30,7 +30,7 @@ proc main(): Future[string] {.async, gcsafe.} =
   var proofVerTimes: seq[times.Duration] = @[]
   for i in 0 .. 50:
     var time = getTime()
-    let proof = manager.generateProof(data, getCurrentEpoch()).get()
+    let proof = manager.generateProof(data, default(Epoch)).get()
     proofGenTimes.add(getTime() - time)
 
     time = getTime()

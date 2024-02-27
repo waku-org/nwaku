@@ -210,6 +210,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
@@ -412,6 +413,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
@@ -456,6 +458,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
@@ -495,6 +498,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
@@ -539,6 +543,7 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
