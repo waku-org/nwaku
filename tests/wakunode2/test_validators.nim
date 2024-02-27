@@ -13,7 +13,6 @@ import
   libp2p/multihash,
   secp256k1
 import
-  ../../apps/wakunode2/external_config,
   ../../waku/waku_core,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
