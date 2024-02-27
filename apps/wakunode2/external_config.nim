@@ -419,7 +419,7 @@ type
               "Argument may be repeated." &
               "Wildcards: * or ? allowed." &
               "Ex.: \"localhost:*\" or \"127.0.0.1:8080\"",
-        defaultValue: @[""]
+        defaultValue: newSeq[string]()
         name: "rest-allow-origin" }: seq[string]
 
       ## Metrics config
