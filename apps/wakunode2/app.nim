@@ -135,21 +135,6 @@ proc init*(T: type App, rng: ref HmacDrbgContext, conf: WakuNodeConf): T =
     node: nil
   )
 
-
-## Peer persistence
-
-const PeerPersistenceDbUrl = "peers.db"
-proc setupPeerStorage(): AppResult[Option[WakuPeerStorage]] =
-  let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
-
-  ? peer_store_sqlite_migrations.migrate(db)
-
-  let res = WakuPeerStorage.new(db)
-  if res.isErr():
-    return err("failed to init peer store" & res.error)
-
-  ok(some(res.value))
-
 proc setupPeerPersistence*(app: var App): AppResult[void] =
   if not app.conf.peerPersistence:
     return ok()
@@ -161,38 +146,6 @@ proc setupPeerPersistence*(app: var App): AppResult[void] =
   app.peerStore = peerStoreRes.get()
 
   ok()
-
-## Retrieve dynamic bootstrap nodes (DNS discovery)
-
-proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool,
-                                    dnsDiscoveryUrl: string,
-                                    dnsDiscoveryNameServers: seq[IpAddress]):
-                                    AppResult[seq[RemotePeerInfo]] =
-
-  if dnsDiscovery and dnsDiscoveryUrl != "":
-    # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
-
-    var nameServers: seq[TransportAddress]
-    for ip in dnsDiscoveryNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    let dnsResolver = DnsResolver.new(nameServers)
-
-    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain=domain
-      let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
-
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers()
-        .mapErr(proc (e: cstring): string = $e)
-    else:
-      warn "Failed to init Waku DNS discovery"
-
-  debug "No method for retrieving dynamic bootstrap nodes specified."
-  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
 proc setupDyamicBootstrapNodes*(app: var App): AppResult[void] =
   let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(app.conf.dnsDiscovery,
@@ -242,58 +195,6 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
     some(app.node.peerManager),
     app.node.topicSubscriptionQueue,
   )
-
-## Init waku node instance
-
-proc initNode(conf: WakuNodeConf,
-              netConfig: NetConfig,
-              rng: ref HmacDrbgContext,
-              nodeKey: crypto.PrivateKey,
-              record: enr.Record,
-              peerStore: Option[WakuPeerStorage],
-              dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[]): AppResult[WakuNode] =
-
-  ## Setup a basic Waku v2 node based on a supplied configuration
-  ## file. Optionally include persistent peer storage.
-  ## No protocols are mounted yet.
-
-  var dnsResolver: DnsResolver
-  if conf.dnsAddrs:
-    # Support for DNS multiaddrs
-    var nameServers: seq[TransportAddress]
-    for ip in conf.dnsAddrsNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    dnsResolver = DnsResolver.new(nameServers)
-
-  var node: WakuNode
-
-  let pStorage = if peerStore.isNone(): nil
-                 else: peerStore.get()
-
-  # Build waku node instance
-  var builder = WakuNodeBuilder.init()
-  builder.withRng(rng)
-  builder.withNodeKey(nodekey)
-  builder.withRecord(record)
-  builder.withNetworkConfiguration(netConfig)
-  builder.withPeerStorage(pStorage, capacity = conf.peerStoreCapacity)
-  builder.withSwitchConfiguration(
-      maxConnections = some(conf.maxConnections.int),
-      secureKey = some(conf.websocketSecureKeyPath),
-      secureCert = some(conf.websocketSecureCertPath),
-      nameResolver = dnsResolver,
-      sendSignedPeerRecord = conf.relayPeerExchange, # We send our own signed peer record when peer exchange enabled
-      agentString = some(conf.agentString)
-  )
-  builder.withColocationLimit(conf.colocationLimit)
-  builder.withPeerManagerConfig(
-    maxRelayPeers = conf.maxRelayPeers,
-    shardAware = conf.relayShardedPeerManagement,)
-
-  node = ? builder.build().mapErr(proc (err: string): string = "failed to create waku node instance: " & err)
-
-  ok(node)
 
 proc setupWakuApp*(app: var App): AppResult[void] =
   ## Waku node
