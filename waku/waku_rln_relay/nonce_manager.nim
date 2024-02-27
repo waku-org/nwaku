@@ -52,7 +52,7 @@ proc init*(T: type NonceManager, nonceLimit: Nonce, epoch = EpochUnitSeconds): T
   )
 
 
-proc get*(n: NonceManager): NonceManagerResult[Nonce] =
+proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
   let now = getTime().toUnixFloat()
   var retNonce = n.nextNonce
 

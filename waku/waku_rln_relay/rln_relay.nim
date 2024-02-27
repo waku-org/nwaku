@@ -89,7 +89,7 @@ type WakuRLNRelay* = ref object of RootObj
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
   when defined(rln_v2):
-    nonceManager: NonceManager
+    nonceManager*: NonceManager
 
 proc stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
@@ -303,7 +303,7 @@ proc appendRLNProof*(rlnPeer: WakuRLNRelay,
   let epoch = calcEpoch(senderEpochTime)
 
   when defined(rln_v2):
-    let nonce = rlnPeer.nonceManager.get().valueOr:
+    let nonce = rlnPeer.nonceManager.getNonce().valueOr:
       return err("could not get new message id to generate an rln proof: " & $error)
     let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
       return err("could not generate rln-v2 proof: " & $error)
