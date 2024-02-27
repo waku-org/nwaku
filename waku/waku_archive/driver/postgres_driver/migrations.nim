@@ -16,9 +16,6 @@ logScope:
 
 const SchemaVersion* = 1 # increase this when there is an update in the database schema
 
-template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".."
-const StoreMigrationPath: string = projectRoot / "migrations" / "message_store_postgres"
-
 proc migrate*(driver: PostgresDriver,
               targetVersion = SchemaVersion):
               Future[DatabaseResult[void]] {.async.} =
