@@ -27,9 +27,9 @@ import
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
   ../common/utils/parse_size_units,
-  ../../apps/wakunode2/external_config, # should we move the wakunode configs out of apps directory?
-  ../../apps/wakunode2/internal_config, # same
-  ../../apps/wakunode2/wakunode2_validator_signed # same
+  ../../apps/wakunode2/external_config,
+  ../../apps/wakunode2/internal_config,
+  ../../apps/wakunode2/wakunode2_validator_signed
 
 ## Peer persistence
 
