@@ -220,6 +220,7 @@ proc setupProtocols*(node: WakuNode,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
         rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
         onFatalErrorAction: onFatalErrorAction,
       )
     else:
@@ -231,6 +232,7 @@ proc setupProtocols*(node: WakuNode,
         rlnRelayCredPath: conf.rlnRelayCredPath,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
         onFatalErrorAction: onFatalErrorAction,
       )
 
@@ -241,7 +243,7 @@ proc setupProtocols*(node: WakuNode,
 
   if conf.store:
     # Archive setup
-    let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
+    let archiveDriverRes = waitFor ArchiveDriver.new(conf.storeMessageDbUrl,
                                              conf.storeMessageDbVacuum,
                                              conf.storeMessageDbMigration,
                                              conf.storeMaxNumDbConnections,
