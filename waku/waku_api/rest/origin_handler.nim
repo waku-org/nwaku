@@ -88,7 +88,7 @@ proc originMiddlewareProc(
   var reqHeaders = request.headers
   var response = request.getResponse()
 
-  if self.allowedOriginMatcher.isSome:
+  if self.allowedOriginMatcher.isSome():
     let origin = reqHeaders.getList("Origin")
     try:
       if origin.len == 1:
