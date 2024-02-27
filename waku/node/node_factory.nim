@@ -11,6 +11,9 @@ import
   ./waku_node,
   ./config,
   ./builder,
+  ./external_config,
+  ./internal_config,
+  ./wakunode2_validator_signed,
   ./peer_manager,
   ./peer_manager/peer_store/waku_peer_storage,
   ./peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
@@ -26,10 +29,7 @@ import
   ../waku_lightpush/common,
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
-  ../common/utils/parse_size_units,
-  ../../apps/wakunode2/external_config,
-  ../../apps/wakunode2/internal_config,
-  ../../apps/wakunode2/wakunode2_validator_signed
+  ../common/utils/parse_size_units
 
 ## Peer persistence
 

@@ -50,10 +50,7 @@ import
   ../../waku/waku_store,
   ../../waku/waku_lightpush/common,
   ../../waku/waku_filter,
-  ../../waku/waku_filter_v2,
-  ./wakunode2_validator_signed,
-  ./internal_config,
-  ./external_config
+  ../../waku/waku_filter_v2
 
 logScope:
   topics = "wakunode app"

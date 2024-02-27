@@ -13,7 +13,7 @@ import
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
   ../../waku/waku_rln_relay/group_manager/on_chain,
-  ../../apps/wakunode2/external_config
+  ../../waku/node/external_config
 
 logScope:
   topics = "rln_keystore_generator"
