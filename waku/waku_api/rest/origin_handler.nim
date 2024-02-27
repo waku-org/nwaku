@@ -18,7 +18,7 @@ type
 
 
 proc isEveryOriginAllowed(maybeAllowedOrigin: Option[string]): bool =
-  return maybeAllowedOrigin.isSome and maybeAllowedOrigin.get() == "*"
+  return maybeAllowedOrigin.isSome() and maybeAllowedOrigin.get() == "*"
 
 proc compileOriginMatcher(maybeAllowedOrigin: Option[string]): Option[Regex] =
   if maybeAllowedOrigin.isNone:
