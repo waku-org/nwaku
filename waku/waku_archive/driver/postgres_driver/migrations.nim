@@ -7,7 +7,6 @@ import
   chronos
 import
   ../../../common/databases/common,
-  ../../../../migrations/migration_utils,
   ../../../../migrations/message_store_postgres/pg_migration_manager,
   ../postgres_driver
 
