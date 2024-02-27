@@ -13,7 +13,7 @@ import
   ./builder,
   ./external_config,
   ./internal_config,
-  ./wakunode2_validator_signed,
+  ./validator_signed,
   ./peer_manager,
   ./peer_manager/peer_store/waku_peer_storage,
   ./peer_manager/peer_store/migrations as peer_store_sqlite_migrations,

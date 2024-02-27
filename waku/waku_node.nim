@@ -4,7 +4,7 @@ import
   ./node/node_factory,
   ./node/external_config,
   ./node/internal_config,
-  ./node/wakunode2_validator_signed,
+  ./node/validator_signed,
   ./node/waku_switch as switch,
   ./node/waku_node as node
 
@@ -14,6 +14,6 @@ export
   node_factory,
   external_config,
   internal_config,
-  wakunode2_validator_signed,
+  validator_signed,
   switch,
   node

@@ -14,7 +14,6 @@ import
   secp256k1
 import
   ../../apps/wakunode2/external_config,
-  ../../apps/wakunode2/wakunode2_validator_signed,
   ../../waku/waku_core,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
