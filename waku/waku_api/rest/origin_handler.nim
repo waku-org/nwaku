@@ -13,8 +13,8 @@ import
 
 type
   OriginHandlerMiddlewareRef* = ref object of HttpServerMiddlewareRef
-    allowedOriginMatcher*: Option[Regex]
-    everyOriginAllowed*: bool
+    allowedOriginMatcher: Option[Regex]
+    everyOriginAllowed: bool
 
 
 proc isEveryOriginAllowed(maybeAllowedOrigin: Option[string]): bool =
