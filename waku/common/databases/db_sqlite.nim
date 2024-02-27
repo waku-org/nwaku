@@ -10,8 +10,7 @@ import
   chronicles,
   sqlite3_abi
 import
-  ./common,
-  ../../../migrations/migration_utils
+  ./common
 
 logScope:
   topics = "sqlite"
@@ -407,7 +406,7 @@ proc filterMigrationScripts(paths: seq[string],
       let scriptVersionRes = getMigrationScriptVersion(script)
       if scriptVersionRes.isErr():
         return false
-
+      
       let scriptVersion = scriptVersionRes.value
       return lowVersion < scriptVersion and scriptVersion <= highVersion
 
@@ -428,6 +427,18 @@ proc loadMigrationScripts(paths: seq[string]): DatabaseResult[seq[string]] =
 
   ok(loadedScripts)
 
+proc breakIntoStatements(script: string): seq[string] =
+  var statements = newSeq[string]()
+
+  for chunk in script.split(';'):
+    if chunk.strip().isEmptyOrWhitespace(): 
+      continue
+
+    let statement = chunk.strip() & ";"
+    statements.add(statement)
+
+  statements
+
 proc migrate*(db: SqliteDatabase,
               targetVersion: int64,
               migrationsScriptsDir: string):
@@ -443,14 +454,14 @@ proc migrate*(db: SqliteDatabase,
   if userVersion == targetVersion:
     debug "database schema is up to date", userVersion=userVersion, targetVersion=targetVersion
     return ok()
-
+  
   info "database schema is outdated", userVersion=userVersion, targetVersion=targetVersion
 
   # Load migration scripts
   var migrationScriptsPaths = ?listSqlScripts(migrationsScriptsDir)
   migrationScriptsPaths = filterMigrationScripts(migrationScriptsPaths, lowVersion=userVersion, highVersion=targetVersion, direction="up")
   migrationScriptsPaths = sortMigrationScripts(migrationScriptsPaths)
-
+  
   if migrationScriptsPaths.len <= 0:
     debug "no scripts to be run"
     return ok()
