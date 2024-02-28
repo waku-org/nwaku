@@ -76,7 +76,7 @@ type
       name: "rln-relay-eth-contract-address" }: string
 
     rlnEpochSizeSec* {.
-      desc: "Epoch size in second used to rate limit RLN memberships. Default is 1 second.",
+      desc: "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
       defaultValue: 1
       name: "rln-relay-epoch-sec" .}: uint64
 
