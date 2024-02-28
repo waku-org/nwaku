@@ -13,7 +13,7 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/waku_discv5,
-  ../../apps/wakunode2/external_config,
+  ../../../waku/factory/external_config,
   ./common
 
 

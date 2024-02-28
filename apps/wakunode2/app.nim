@@ -29,7 +29,6 @@ import
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
-  ../../waku/node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../../waku/waku_api/message_cache,
   ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
@@ -51,7 +50,9 @@ import
   ../../waku/waku_lightpush/common,
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
-  ./external_config
+  ../../waku/factory/node_factory,
+  ../../waku/factory/internal_config,
+  ../../waku/factory/external_config
 
 logScope:
   topics = "wakunode app"

@@ -8,12 +8,12 @@ import
   stew/results,
   stew/shims/net
 import
+  ./external_config,
   ../common/utils/nat,
   ../node/config,
   ../waku_enr/capabilities,
   ../waku_enr,
-  ../waku_core,
-  ../../apps/wakunode2/external_config
+  ../waku_core
 
 proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey):
                       Result[enr.Record, string] =

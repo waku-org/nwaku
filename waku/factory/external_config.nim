@@ -14,14 +14,15 @@ import
   nimcrypto/utils,
   secp256k1
 import
-  ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
-  ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
-  ../../waku/common/logging,
-  ../../waku/waku_enr,
-  ../../waku/node/peer_manager
+  ../common/confutils/envvar/defs as confEnvvarDefs,
+  ../common/confutils/envvar/std/net as confEnvvarNet,
+  ../common/logging,
+  ../waku_enr,
+  ../waku_relay/types,
+  ../node/peer_manager
 
 include
-  ../../waku/waku_core/message/default_values
+  ../waku_core/message/default_values
 
 export
   confTomlDefs,
@@ -30,9 +31,6 @@ export
   confEnvvarNet
 
 type ConfResult*[T] = Result[T, string]
-type ProtectedTopic* = object
-  topic*: string
-  key*: secp256k1.SkPublicKey
 
 type ShardIdx = distinct uint16
 

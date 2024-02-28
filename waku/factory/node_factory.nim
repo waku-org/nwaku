@@ -8,15 +8,10 @@ import
   libp2p/crypto/crypto
 
 import
-  ./waku_node,
-  ./config,
-  ./builder,
   ./internal_config,
-  ./validator_signed,
-  ./peer_manager,
-  ./peer_manager/peer_store/waku_peer_storage,
-  ./peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
+  ./external_config,
   ../waku_enr/sharding,
+  ../waku_node,
   ../waku_core,
   ../waku_rln_relay,
   ../waku_dnsdisc,
@@ -25,11 +20,15 @@ import
   ../waku_filter,
   ../waku_filter_v2,
   ../waku_peer_exchange,
+  ../node/peer_manager,
+  ../node/peer_manager/peer_store/waku_peer_storage,
+  ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush/common,
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
-  ../common/utils/parse_size_units,
-  ../../apps/wakunode2/external_config
+  ../waku_relay/types,
+  ../waku_relay/validator_signed,
+  ../common/utils/parse_size_units
 
 ## Peer persistence
 
