@@ -33,8 +33,10 @@ proc logConfig(conf: WakuNodeConf) =
 
   info "Configuration. Network",
     cluster = conf.clusterId,
-    pubsubTopics = conf.pubsubTopics,
     maxPeers = conf.maxRelayPeers
+
+  for shard in conf.pubsubTopics:
+    info "Configuration. Shards", shard=shard
 
   for i in conf.discv5BootstrapNodes:
     info "Configuration. Bootstrap nodes", node = i
@@ -43,7 +45,10 @@ proc logConfig(conf: WakuNodeConf) =
     info "Configuration. Validation",
       mechanism = "onchain rln",
       contract = conf.rlnRelayEthContractAddress,
-      maxMessageSize = conf.maxMessageSize
+      maxMessageSize = conf.maxMessageSize,
+      rlnEpochSizeSec = conf.rlnEpochSizeSec,
+      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
+      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
