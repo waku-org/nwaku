@@ -272,6 +272,11 @@ type
       defaultValue: 1,
       name: "rln-relay-user-message-limit" .}: uint64
 
+    rlnEpochSizeSec* {.
+      desc: "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      defaultValue: 1
+      name: "rln-relay-epoch-sec" .}: uint64
+
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   try:

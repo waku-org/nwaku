@@ -34,7 +34,7 @@ type ProtectedTopic* = object
   topic*: string
   key*: secp256k1.SkPublicKey
 
-type ShardIdx = distinct uint16 
+type ShardIdx = distinct uint16
 
 type EthRpcUrl = distinct string
 
@@ -83,11 +83,16 @@ type
       desc: "Private key for broadcasting transactions",
       defaultValue: "",
       name: "rln-relay-eth-private-key" }: string
-  
+
     rlnRelayUserMessageLimit* {.
       desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
       defaultValue: 1,
       name: "rln-relay-user-message-limit" .}: uint64
+
+    rlnEpochSizeSec* {.
+      desc: "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      defaultValue: 1
+      name: "rln-relay-epoch-sec" .}: uint64
 
     maxMessageSize* {.
       desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."

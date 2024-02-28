@@ -30,6 +30,7 @@ proc setupRln(node: WakuNode, identifier: uint) {.async.} =
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(identifier),
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $identifier),
+      rlnEpochSizeSec: 1
     )
   )
 
@@ -76,7 +77,7 @@ proc sendRlnMessageWithInvalidProof(
       client.wakuRlnRelay.groupManager.generateProof(
         concat(payload, extraBytes),
           # we add extra bytes to invalidate proof verification against original payload
-        getCurrentEpoch()
+        client.wakuRlnRelay.getCurrentEpoch()
       )
     rateLimitProof = rateLimitProofRes.get().encode().buffer
     message =
@@ -249,17 +250,17 @@ suite "Waku RlnRelay - End to End":
           WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message1b, epoch + EpochUnitSeconds * 0).isOk()
+        client.wakuRlnRelay.appendRLNProof(message1b, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 0).isOk()
       )
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message1kib, epoch + EpochUnitSeconds * 1).isOk()
+        client.wakuRlnRelay.appendRLNProof(message1kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 1).isOk()
       )
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(message150kib, epoch + EpochUnitSeconds * 2).isOk()
+        client.wakuRlnRelay.appendRLNProof(message150kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 2).isOk()
       )
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + EpochUnitSeconds * 3
+          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
         ).isOk()
       )
 
@@ -324,7 +325,7 @@ suite "Waku RlnRelay - End to End":
 
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + EpochUnitSeconds * 3
+          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
         )
       )
 

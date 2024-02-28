@@ -590,7 +590,7 @@ suite "Waku rln relay":
   test "updateLog and hasDuplicate tests":
     let
       wakurlnrelay = WakuRLNRelay()
-      epoch = getCurrentEpoch()
+      epoch = wakurlnrelay.getCurrentEpoch()
 
     #  create some dummy nullifiers and secret shares
     var nullifier1: Nullifier
@@ -662,6 +662,7 @@ suite "Waku rln relay":
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
                                 rlnRelayCredIndex: some(index),
+                                rlnEpochSizeSec: 1,
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
     require:
@@ -683,7 +684,7 @@ suite "Waku rln relay":
     let
       proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+float64(wakuRlnRelay.rlnEpochSizeSec))
 
     # ensure proofs are added
     require:
