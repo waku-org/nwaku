@@ -20,6 +20,9 @@ type
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDCommitment* = seq[byte] #array[32, byte]
 
+when defined(rln_v2):
+  type UserMessageLimit* = uint64
+
 type IdentityCredential* = object
   idTrapdoor*: IdentityTrapdoor
   idNullifier*: IdentityNullifier
@@ -44,7 +47,7 @@ type MembershipIndex* = uint
 proc toMembershipIndex*(v: UInt256): MembershipIndex =
   return cast[MembershipIndex](v)
 
-# Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash and commitment) to an IndentityCredential
+# Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash, commitment) to an IdentityCredential
 type RawMembershipCredentials* = (string, string, string, string)
 proc toIdentityCredentials*(groupKeys: seq[RawMembershipCredentials]): Result[seq[
     IdentityCredential], string] =
@@ -93,7 +96,7 @@ type KeystoreMembership* = ref object of RootObj
   treeIndex*: MembershipIndex
   identityCredential*: IdentityCredential
   when defined(rln_v2):
-    userMessageLimit*: uint64
+    userMessageLimit*: UserMessageLimit
 
 when defined(rln_v2):
   proc `$`*(m: KeystoreMembership): string =
