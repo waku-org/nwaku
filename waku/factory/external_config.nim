@@ -30,14 +30,13 @@ export
   confEnvvarNet
 
 type ConfResult*[T] = Result[T, string]
+type ProtectedTopic* = object
+    topic*: string
+    key*: secp256k1.SkPublicKey
 
 type ShardIdx = distinct uint16
 
 type EthRpcUrl = distinct string
-
-type ProtectedTopic* = object
-    topic*: string
-    key*: secp256k1.SkPublicKey
 
 type StartUpCommand* = enum
     noCommand # default, runs waku
