@@ -495,7 +495,7 @@ when isMainModule:
     conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
     conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
     conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    conf.rlnRelayUserMessageLimit: twnClusterConf.rlnRelayUserMessageLimit
+    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)

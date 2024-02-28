@@ -75,6 +75,16 @@ type
       defaultValue: "",
       name: "rln-relay-eth-contract-address" }: string
 
+    rlnEpochSizeSec* {.
+      desc: "Epoch size in second used to rate limit RLN memberships. Default is 1 second.",
+      defaultValue: 1
+      name: "rln-relay-epoch-sec" .}: uint64
+
+    rlnRelayUserMessageLimit* {.
+      desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      defaultValue: 1,
+      name: "rln-relay-user-message-limit" .}: uint64
+
     ## Prometheus metrics config
     metricsServer* {.
       desc: "Enable the metrics server: true|false"
