@@ -28,9 +28,12 @@ type MessageIdProvider* = pubsub.MsgIdProvider
 # Waku Relay (Gossipsub) protocol's message cache and the gossiping process, and
 # as a consequence the network.
 
+proc calcMessageId*(data: seq[byte]): seq[byte] =
+  let hash = sha256.digest(data)
+  @(hash.data)
+
 proc defaultMessageIdProvider*(message: messages.Message): Result[MessageID, ValidationResult] =
-  let hash = sha256.digest(message.data)
-  ok(@(hash.data))
+  return ok(MessageId(calcMessageId(message.data)))
 
 
 ## Waku message Unique ID provider

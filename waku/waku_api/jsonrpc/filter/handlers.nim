@@ -36,7 +36,7 @@ proc installFilterApiHandlers*(node: WakuNode, server: RpcServer, cache: Message
 
     let contentTopics: seq[ContentTopic] = contentFilters.mapIt(it.contentTopic)
 
-    let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
+    let handler: FilterPushHandler = proc(pubsubTopic: PubsubTopic, msg: WakuMessage, msgId: seq[byte]) {.async, gcsafe, closure.} =
         cache.addMessage(pubsubTopic, msg)
 
     let subFut = node.legacyFilterSubscribe(pubsubTopic, contentTopics, handler, peerOpt.get())

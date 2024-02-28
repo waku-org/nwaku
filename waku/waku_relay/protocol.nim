@@ -122,7 +122,9 @@ const GossipsubParameters = GossipSubParams(
 
 type
   WakuRelayResult*[T] = Result[T, string]
-  WakuRelayHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.gcsafe, raises: [Defect].}
+  WakuRelayHandler* = proc(pubsubTopic: PubsubTopic,
+                           message: WakuMessage,
+                           msgId: seq[byte]): Future[void] {.gcsafe, raises: [Defect].}
   WakuValidatorHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[ValidationResult] {.gcsafe, raises: [Defect].}
   WakuRelay* = ref object of GossipSub
     # seq of tuples: the first entry in the tuple contains the validators are called for every topic
@@ -246,7 +248,8 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
 
   # We need to wrap the handler since gossipsub doesnt understand WakuMessage
   let wrappedHandler =
-    proc(pubsubTopic: string, data: seq[byte]): Future[void] {.gcsafe, raises: [].} =
+    proc(pubsubTopic: string, data: seq[byte],
+         msgId: seq[byte]): Future[void] {.gcsafe, raises: [].} =
       let decMsg = WakuMessage.decode(data)
       if decMsg.isErr():
         # fine if triggerSelf enabled, since validators are bypassed
@@ -255,7 +258,7 @@ proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandle
         fut.complete()
         return fut
       else:
-        return handler(pubsubTopic, decMsg.get())
+        return handler(pubsubTopic, decMsg.get(), msgId)
 
   # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.

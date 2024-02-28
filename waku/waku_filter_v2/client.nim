@@ -141,7 +141,8 @@ proc initProtocolHandler(wfc: WakuFilterClient) =
 
     for handler in wfc.pushHandlers:
       asyncSpawn handler(messagePush.pubsubTopic,
-                         messagePush.wakuMessage)
+                         messagePush.wakuMessage,
+                         newSeq[byte]())
 
     # Protocol specifies no response for now
     return

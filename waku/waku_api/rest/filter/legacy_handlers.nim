@@ -56,7 +56,8 @@ proc installFilterV1PostSubscriptionsV1Handler*(router: var RestRouter,
                                               cache: MessageCache) =
   let pushHandler: FilterPushHandler =
           proc(pubsubTopic: PubsubTopic,
-               msg: WakuMessage) {.async, gcsafe, closure.} =
+               msg: WakuMessage,
+               msgId: seq[byte]) {.async, gcsafe, closure.} =
             cache.addMessage(pubsubTopic, msg)
 
   router.api(MethodPost, ROUTE_FILTER_SUBSCRIPTIONSV1) do (contentBody: Option[ContentBody]) -> RestApiResponse:
