@@ -10,6 +10,7 @@ import
 import
   ./internal_config,
   ./external_config,
+  ./validator_signed,
   ../waku_enr/sharding,
   ../waku_node,
   ../waku_core,
@@ -26,8 +27,6 @@ import
   ../waku_lightpush/common,
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
-  ../waku_relay/types,
-  ../waku_relay/validator_signed,
   ../common/utils/parse_size_units
 
 ## Peer persistence
