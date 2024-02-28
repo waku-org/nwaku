@@ -79,17 +79,21 @@ suite "Waku Peer Exchange":
 
     asyncTest "Node fetches without mounting peer exchange":
       # When a node, without peer exchange mounted, fetches peers
-      await node.fetchPeerExchangePeers(1)
+      let res = await node.fetchPeerExchangePeers(1)
 
       # Then no peers are fetched
-      check node.peerManager.peerStore.peers.len == 0
+      check:
+        node.peerManager.peerStore.peers.len == 0
+        res.error == "PeerExchange is not mounted"
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
+      # await node2.stop()
       await node.mountPeerExchange()
 
       # When a node fetches peers
-      await node.fetchPeerExchangePeers(1)
+      let res = await node.fetchPeerExchangePeers(1)
+      check res.error == "Peer exchange failure: peer_not_found_failure"
 
       # Then no peers are fetched
       check node.peerManager.peerStore.peers.len == 0
@@ -112,7 +116,8 @@ suite "Waku Peer Exchange":
       )
 
       # Request 1 peer from peer exchange protocol
-      await node.fetchPeerExchangePeers(1)
+      let res = await node.fetchPeerExchangePeers(1)
+      check res.tryGet() == 1
 
       # Check that the peer ended up in the peerstore
       let rpInfo = enr.toRemotePeerInfo.get()
@@ -291,7 +296,8 @@ suite "Waku Peer Exchange with discv5":
     let
       requestPeers = 1
       currentPeers = node3.peerManager.peerStore.peers.len
-    await node3.fetchPeerExchangePeers(1)
+    let res = await node3.fetchPeerExchangePeers(1)
+    check res.tryGet() == 1
 
     # Then node3 has received 1 peer from node1
     check:
