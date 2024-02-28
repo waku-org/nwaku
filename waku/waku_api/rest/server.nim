@@ -83,6 +83,8 @@ proc new*(t: typedesc[WakuRestServerRef],
   let middlewares = [originHandlerMiddleware,
                      restMiddleware]
 
+  ## This must be empty and needed only to confirm original initialization requirements of
+  ## the RestHttpServer now combining old and new middleware approach.
   proc defaultProcessCallback(rf: RequestFence): Future[HttpResponseRef] {.
         async: (raises: [CancelledError]).} =
     discard

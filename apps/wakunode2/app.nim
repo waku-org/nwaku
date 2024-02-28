@@ -665,7 +665,11 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[WakuRestServerRef] =
+proc startRestServer(app: App,
+                    address: IpAddress,
+                    port: Port,
+                    conf: WakuNodeConf):
+                    AppResult[WakuRestServerRef] =
 
   # Used to register api endpoints that are not currently installed as keys,
   # values are holding error messages to be returned to the client
@@ -680,7 +684,11 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
       of RestRequestError.Invalid:
         return await request.respond(Http400, "Invalid request", HttpTable.init())
       of RestRequestError.NotFound:
-        let rootPath = request.rawPath.split("/")[1]
+        let paths = request.rawPath.split("/")
+        let rootPath = if len(paths) > 1:
+                         paths[1]
+                       else:
+                          ""
         notInstalledTab.withValue(rootPath, errMsg):
           return await request.respond(Http404, errMsg[], HttpTable.init())
         do:
@@ -692,6 +700,7 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
       of RestRequestError.Unexpected:
         return defaultResponse()
     except HttpWriteError:
+      error "Failed to write response to client", error = getCurrentExceptionMsg()
       discard
 
     return defaultResponse()

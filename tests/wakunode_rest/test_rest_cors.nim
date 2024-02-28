@@ -46,10 +46,10 @@ proc fetchWithHeader(request: HttpClientRequestRef): Future[TestResponseTuple]
     return (status, buffer.bytesToString(), headers)
   except HttpError as exc:
     if not(isNil(response)): await response.closeWait()
-    raise exc
+    assert false
   except CancelledError as exc:
     if not(isNil(response)): await response.closeWait()
-    raise exc
+    assert false
 
 proc issueRequest(
         address: HttpAddress,
