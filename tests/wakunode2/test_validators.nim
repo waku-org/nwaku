@@ -18,6 +18,7 @@ import
   ../../waku/waku_node,
   ../../waku/waku_relay,
   ../../waku/factory/external_config,
+  ../../waku/factory/validator_signed,
   ../testlib/wakucore,
   ../testlib/wakunode
 
