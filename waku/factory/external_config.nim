@@ -31,8 +31,8 @@ export
 
 type ConfResult*[T] = Result[T, string]
 type ProtectedTopic* = object
-    topic*: string
-    key*: secp256k1.SkPublicKey
+  topic*: string
+  key*: secp256k1.SkPublicKey
 
 type ShardIdx = distinct uint16
 
