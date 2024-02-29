@@ -38,17 +38,17 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
 
 suite "Postgres driver - queries":
   ## Unique driver instance
-  var driver {.threadvar.}: ArchiveDriver
+  var driver {.threadvar.}: PostgresDriver
 
   asyncSetup:
     let driverRes = await newTestPostgresDriver()
     if driverRes.isErr():
       assert false, driverRes.error
 
-    driver = driverRes.get()
+    driver = PostgresDriver(driverRes.get())
 
   asyncTeardown:
-    let resetRes = await cast[PostgresDriver](driver).reset()
+    let resetRes = await driver.reset()
     if resetRes.isErr():
       assert false, resetRes.error
 

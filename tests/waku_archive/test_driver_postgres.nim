@@ -27,17 +27,17 @@ proc computeTestCursor(pubsubTopic: PubsubTopic,
 
 suite "Postgres driver":
   ## Unique driver instance
-  var driver {.threadvar.}: ArchiveDriver
+  var driver {.threadvar.}: PostgresDriver
 
   asyncSetup:
     let driverRes = await newTestPostgresDriver()
     if driverRes.isErr():
       assert false, driverRes.error
 
-    driver = driverRes.get()
+    driver = PostgresDriver(driverRes.get())
 
   asyncTeardown:
-    let resetRes = await cast[PostgresDriver](driver).reset()
+    let resetRes = await driver.reset()
     if resetRes.isErr():
       assert false, resetRes.error
 
@@ -48,7 +48,7 @@ suite "Postgres driver":
 
     let beforeSleep = now()
     for _ in 1 .. 100:
-      futures.add(cast[PostgresDriver](driver).sleep(1))
+      futures.add(driver.sleep(1))
 
     await allFutures(futures)
 
