@@ -24,6 +24,7 @@ import
   ../../../../waku/waku_archive/retention_policy,
   ../../../../waku/waku_relay/protocol,
   ../../../../waku/waku_store,
+  ../../../../waku/factory/builder,
   ../../../events/[json_message_event,json_base_event],
   ../../../alloc,
   ../../config

@@ -15,6 +15,7 @@ import
   ../../../waku/waku_discv5,
   ../../../waku/factory/external_config,
   ../../../waku/factory/internal_config,
+  ../../../waku/factory/builder,
   ./common
 
 

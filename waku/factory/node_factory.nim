@@ -10,6 +10,7 @@ import
 import
   ./internal_config,
   ./external_config,
+  ./builder,
   ./validator_signed,
   ../waku_enr/sharding,
   ../waku_node,
