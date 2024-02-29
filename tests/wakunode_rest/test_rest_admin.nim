@@ -30,7 +30,7 @@ suite "Waku v2 Rest API - Admin":
   var peerInfo1 {.threadvar.}: RemotePeerInfo
   var peerInfo2 {.threadvar.}: RemotePeerInfo
   var peerInfo3 {.threadvar.}: RemotePeerInfo
-  var restServer {.threadvar.}: RestServerRef
+  var restServer {.threadvar.}: WakuRestServerRef
   var client{.threadvar.}: RestClientRef
 
   asyncSetup:
@@ -46,7 +46,7 @@ suite "Waku v2 Rest API - Admin":
 
     let restPort = Port(58011)
     let restAddress = parseIpAddress("127.0.0.1")
-    restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installAdminApiHandlers(restServer.router, node1)
 

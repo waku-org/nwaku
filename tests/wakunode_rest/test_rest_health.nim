@@ -44,7 +44,7 @@ suite "Waku v2 REST API - health":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installHealthApiHandler(restServer.router, node)
     restServer.start()
