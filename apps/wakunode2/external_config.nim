@@ -360,33 +360,6 @@ type
         defaultValue: ""
         name: "lightpushnode" }: string
 
-      ## JSON-RPC config
-
-      rpc* {.
-        desc: "Enable Waku JSON-RPC server: true|false",
-        defaultValue: true
-        name: "rpc" }: bool
-
-      rpcAddress* {.
-        desc: "Listening address of the JSON-RPC server.",
-        defaultValue: parseIpAddress("127.0.0.1")
-        name: "rpc-address" }: IpAddress
-
-      rpcPort* {.
-        desc: "Listening port of the JSON-RPC server.",
-        defaultValue: 8545
-        name: "rpc-port" }: uint16
-
-      rpcAdmin* {.
-        desc: "Enable access to JSON-RPC Admin API: true|false",
-        defaultValue: false
-        name: "rpc-admin" }: bool
-
-      rpcPrivate* {.
-        desc: "Enable access to JSON-RPC Private API: true|false",
-        defaultValue: false
-        name: "rpc-private" }: bool
-
       ## REST HTTP config
 
       rest* {.
