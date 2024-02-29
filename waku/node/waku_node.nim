@@ -571,6 +571,9 @@ proc filterSubscribe*(node: WakuNode,
     let subRes = await node.wakuFilterClient.subscribe(remotePeer, pubsubTopic.get(), contentTopics)
     if subRes.isOk():
       info "v2 subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic.get()))
     else:
       error "failed filter v2 subscription", error=subRes.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
@@ -604,6 +607,9 @@ proc filterSubscribe*(node: WakuNode,
 
     for pubsub, topics in topicMap.pairs:
       info "subscribed to topic", pubsubTopic=pubsub, contentTopics=topics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
 
     # return the last error or ok
     return subRes
@@ -689,6 +695,9 @@ proc filterUnsubscribe*(node: WakuNode,
     let unsubRes = await node.wakuFilterClient.unsubscribe(remotePeer, pubsubTopic.get(), contentTopics)
     if unsubRes.isOk():
       info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic.get()))
     else:
       error "failed filter unsubscription", error=unsubRes.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
@@ -723,6 +732,9 @@ proc filterUnsubscribe*(node: WakuNode,
 
     for pubsub, topics in topicMap.pairs:
       info "unsubscribed from topic", pubsubTopic=pubsub, contentTopics=topics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
 
     # return the last error or ok
     return unsubRes
