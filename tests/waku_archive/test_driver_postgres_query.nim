@@ -36,7 +36,7 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     digest: computeDigest(message)
   )
 
-suite "Postgres driver - query by content topic":
+suite "Postgres driver - queries":
   ## Unique driver instance
   var driver {.threadvar.}: ArchiveDriver
 
