@@ -3,6 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+from std/times import getTime, toUnixFloat, `-`
+import std/[sysrand, os]
+
 import
   std/sequtils,
   stew/[byteutils, results],
@@ -108,6 +111,11 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     return resp.get()
 
   router.api(MethodPost, ROUTE_RELAY_MESSAGESV1) do (pubsubTopic: string, contentBody: Option[ContentBody]) -> RestApiResponse:
+    let msgSizeInKb = parseInt(getEnv("MSG_SIZE_KB"))
+    echo "Hardcoding message size to: ", msgSizeInKb, " Kbytes"
+    let randomBytes = urandom(msgSizeInKb * 1000)
+
+    echo "nwaku api call: ", int64(getTime().toUnixFloat()*1_000_000_000)
     if pubsubTopic.isErr():
       return RestApiResponse.badRequest()
     let pubSubTopic = pubsubTopic.get()
@@ -127,22 +135,29 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     var message: WakuMessage = reqWakuMessage.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest($error)
 
+    message.payload = randomBytes
+
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
+      echo "nwaku api before proof: ", int64(getTime().toUnixFloat()*1_000_000_000)
       # append the proof to the message
       node.wakuRlnRelay.appendRLNProof(message,
                                        float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
-
+      echo "nwaku api after proof: ", int64(getTime().toUnixFloat()*1_000_000_000)
+    
+    echo "nwaku api before validate: ", int64(getTime().toUnixFloat()*1_000_000_000)
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
+    echo "nwaku api after validate: ", int64(getTime().toUnixFloat()*1_000_000_000)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", pubSubTopic=pubSubTopic, rln=not node.wakuRlnRelay.isNil()
+    echo "nwaku api before publish: ", int64(getTime().toUnixFloat()*1_000_000_000)
     if not (waitFor node.publish(some(pubSubTopic), message).withTimeout(futTimeout)):
       error "Failed to publish message to topic", pubSubTopic=pubSubTopic
       return RestApiResponse.internalServerError("Failed to publish: timedout")
-
+    echo "nwaku api after publish: ", int64(getTime().toUnixFloat()*1_000_000_000)
     return RestApiResponse.ok()
 
   # Autosharding API

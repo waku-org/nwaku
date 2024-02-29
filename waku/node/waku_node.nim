@@ -3,6 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+from std/times import getTime, toUnixFloat,  `-`
+
 import
   std/[hashes, options, sugar, tables, strutils, sequtils, os],
   chronos, chronicles, metrics,
@@ -46,7 +48,6 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager
-
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size, "message size histogram in kB",
@@ -214,6 +215,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
       payloadSizeBytes=msg.payload.len
 
     let msgSizeKB = msg.payload.len/1000
+    echo "nwaku msg received: ", int64(getTime().toUnixFloat()*1_000_000_000)
 
     waku_node_messages.inc(labelValues = ["relay"])
     waku_histogram_message_size.observe(msgSizeKB)
@@ -342,7 +344,7 @@ proc publish*(
     pubsubTopic=pubsubTopic,
     hash=pubsubTopic.computeMessageHash(message).to0xHex(),
     publishTime=getNowInNanosecondTime()
-  
+
   return ok()
 
 proc startRelay*(node: WakuNode) {.async.} =
@@ -961,10 +963,10 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     return err(msg)
 
   let publishRes = await node.lightpushPublish(pubsubTopic, message, peer=peerOpt.get())
-  
+
   if publishRes.isErr():
     error "failed to publish message", error=publishRes.error
-  
+
   return publishRes
 
 
@@ -988,7 +990,7 @@ proc mountRlnRelay*(node: WakuNode,
   # register rln validator as default validator
   debug "Registering RLN validator"
   node.wakuRelay.addValidator(validator, "RLN validation failed")
-  
+
   node.wakuRlnRelay = rlnRelay
 
 ## Waku peer-exchange

@@ -7,6 +7,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+from std/times import getTime, toUnixFloat,  `-`
+
 import
   std/strformat,
   stew/results,
@@ -209,10 +211,12 @@ proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
     let msg = msgRes.get()
 
     # now sequentially validate the message
+    echo "nwaku validators start: ", int64(getTime().toUnixFloat()*1_000_000_000)
     for (validator, _) in w.wakuValidators:
       let validatorRes = await validator(pubsubTopic, msg)
       if validatorRes != ValidationResult.Accept:
         return validatorRes
+    echo "nwaku validators end: ", int64(getTime().toUnixFloat()*1_000_000_000)
     return ValidationResult.Accept
   return wrappedValidator
 
@@ -234,7 +238,7 @@ proc validateMessage*(w: WakuRelay, pubsubTopic: string, msg: WakuMessage):
             else:
               return err("Validator failed")
     return ok()
-  
+
 proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler): TopicHandler =
   debug "subscribe", pubsubTopic=pubsubTopic
 
