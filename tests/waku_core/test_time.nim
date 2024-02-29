@@ -21,14 +21,10 @@ suite "Waku Core - Time":
 
     ## When
     let
-      timeInSecondsInt = secondsPart.int
       timeInSecondsInt64 = secondsPart.int64
-      timeInSecondsFloat = float(secondsFloat)
       timeInSecondsFloat64 = float64(secondsFloat)
 
     ## Then
     check:
-      getNanosecondTime(timeInSecondsInt) == lowResTimestamp
       getNanosecondTime(timeInSecondsInt64) == lowResTimestamp
-      getNanosecondTime(timeInSecondsFloat) == highResTimestamp
       getNanosecondTime(timeInSecondsFloat64) == highResTimestamp
