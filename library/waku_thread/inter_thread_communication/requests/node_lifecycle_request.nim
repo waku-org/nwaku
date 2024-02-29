@@ -16,7 +16,6 @@ import
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/waku_core,
   ../../../../waku/node/waku_node,
-  ../../../../waku/node/builder,
   ../../../../waku/node/config,
   ../../../../waku/waku_archive/driver/builder,
   ../../../../waku/waku_archive/driver,
