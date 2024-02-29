@@ -222,13 +222,13 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     if node.wakuFilter.isNil():
       return
 
-    await node.wakuFilter.handleMessage(topic, msg)
+    await node.wakuFilter.handleMessage(topic, msg, msgId)
 
     ##TODO: Support for legacy filter will be removed
     if node.wakuFilterLegacy.isNil():
       return
 
-    await node.wakuFilterLegacy.handleMessage(topic, msg)
+    await node.wakuFilterLegacy.handleMessage(topic, msg, msgId)
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage, msgId: seq[byte]) {.async, gcsafe.} =
     if node.wakuArchive.isNil():
@@ -907,7 +907,7 @@ proc mountLightPush*(node: WakuNode) {.async.} =
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        debug("Lightpush request has not been published to any peers")
+        info "Lightpush request has not been published to any peers"
 
       return ok()
 
@@ -935,7 +935,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     return err("waku lightpush client is nil")
 
   if pubsubTopic.isSome():
-    debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
+    info "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, target_peer_id=peer.peerId
     return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
   let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
@@ -946,7 +946,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     else: topicMapRes.get()
 
   for pubsub, _ in topicMap.pairs: # There's only one pair anyway
-    debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
+    info "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, target_peer_id=peer.peerId
     return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)

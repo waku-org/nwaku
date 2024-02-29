@@ -163,9 +163,10 @@ proc handleClientError(wf: WakuFilterLegacy, subs: seq[Subscription]) {.raises: 
       wf.subscriptions.delete(index)
 
 
-proc handleMessage*(wf: WakuFilterLegacy, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+proc handleMessage*(wf: WakuFilterLegacy, pubsubTopic: PubsubTopic, msg: WakuMessage,
+                    msgId: seq[byte]) {.async.} =
 
-  trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
+  info "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
 
   if wf.subscriptions.len <= 0:
     return
