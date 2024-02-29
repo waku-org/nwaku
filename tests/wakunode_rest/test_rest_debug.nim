@@ -40,7 +40,7 @@ suite "Waku v2 REST API - Debug":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -67,7 +67,7 @@ suite "Waku v2 REST API - Debug":
 
     let restPort = Port(58002)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
