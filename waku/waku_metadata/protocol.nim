@@ -68,7 +68,7 @@ proc request*(m: WakuMetadata, conn: Connection): Future[Result[WakuMetadataResp
 
   return ok(response)
 
-proc initProtocolHandler*(m: WakuMetadata) =
+proc initProtocolHandler(m: WakuMetadata) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     let res = catch: await conn.readLp(RpcResponseMaxBytes)
     let buffer = res.valueOr:
