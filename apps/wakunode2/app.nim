@@ -15,7 +15,6 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/peerid,
   eth/keys,
-  json_rpc/rpcserver,
   presto,
   metrics,
   metrics/chronos_httpserver
@@ -42,11 +41,6 @@ import
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
-  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
-  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
-  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
-  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
-  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr/sharding,
@@ -83,7 +77,6 @@ type
 
     node: WakuNode
 
-    rpcServer: Option[RpcHttpServer]
     restServer: Option[WakuRestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
 
@@ -793,46 +786,6 @@ proc startRestServer(app: App,
 
   ok(server)
 
-proc startRpcServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RpcHttpServer] =
-  let ta = initTAddress(address, port)
-
-  var server: RpcHttpServer
-  try:
-    server = newRpcHttpServer([ta])
-  except CatchableError:
-    return err("failed to init JSON-RPC server: " & getCurrentExceptionMsg())
-
-  installDebugApiHandlers(app.node, server)
-
-  if conf.relay:
-    let cache = MessageCache.init(capacity=50)
-
-    let handler = messageCacheHandler(cache)
-
-    for pubsubTopic in conf.pubsubTopics:
-      cache.pubsubSubscribe(pubsubTopic)
-      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
-
-    for contentTopic in conf.contentTopics:
-      cache.contentSubscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
-
-    installRelayApiHandlers(app.node, server, cache)
-
-  if conf.filternode != "":
-    let filterMessageCache = MessageCache.init(capacity=50)
-    installFilterApiHandlers(app.node, server, filterMessageCache)
-
-  installStoreApiHandlers(app.node, server)
-
-  if conf.rpcAdmin:
-    installAdminApiHandlers(app.node, server)
-
-  server.start()
-  info "RPC Server started", address=ta
-
-  ok(server)
-
 proc startMetricsServer(serverIp: IpAddress, serverPort: Port): AppResult[MetricsHttpServerRef] =
   info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
 
@@ -854,13 +807,6 @@ proc startMetricsLogging(): AppResult[void] =
   ok()
 
 proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
-  if app.conf.rpc:
-    let startRpcServerRes = startRpcServer(app, app.conf.rpcAddress, Port(app.conf.rpcPort + app.conf.portsShift), app.conf)
-    if startRpcServerRes.isErr():
-      error "6/7 Starting JSON-RPC server failed. Continuing in current state.", error=startRpcServerRes.error
-    else:
-      app.rpcServer = some(startRpcServerRes.value)
-
   if app.conf.rest:
     let startRestServerRes = startRestServer(app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf)
     if startRestServerRes.isErr():
@@ -889,9 +835,6 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
   if app.restServer.isSome():
     await app.restServer.get().stop()
-
-  if app.rpcServer.isSome():
-    await app.rpcServer.get().stop()
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()

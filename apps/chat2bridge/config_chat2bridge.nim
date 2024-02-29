@@ -35,21 +35,6 @@ type
             "Must be one of: any, none, upnp, pmp, extip:<IP>"
       defaultValue: "any" .}: string
 
-    rpc* {.
-      desc: "Enable Waku RPC server"
-      defaultValue: false
-      name: "rpc" .}: bool
-
-    rpcAddress* {.
-      desc: "Listening address of the RPC server",
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "rpc-address" }: IpAddress
-
-    rpcPort* {.
-      desc: "Listening port of the RPC server"
-      defaultValue: 8545
-      name: "rpc-port" .}: uint16
-
     metricsServer* {.
       desc: "Enable the metrics server"
       defaultValue: false

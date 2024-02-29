@@ -57,27 +57,10 @@ and websocket address
 ```
 
 You can also query a running node for its listening addresses
-using a [`get_waku_v2_debug_v1_info` JSON-RPC API](https://rfc.vac.dev/spec/16/#get_waku_v2_debug_v1_info) call.
+using the REST API.
 
-For example
-
-```sh
-curl -d '{"jsonrpc":"2.0","id":"id","method":"get_waku_v2_debug_v1_info", "params":[]}' --header "Content-Type: application/json" http://localhost:8545
-```
-
-returns a response similar to
-
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "id",
-  "result": {
-    "listenAddresses": [
-      "/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmLU5Nwng9dWFZwM2DgJ5QGcUuDnefJyHJiXUCVaprhgL4"
-    ],
-    "enrUri": "enr:-IO4QDxToTg86pPCK2KvMeVCXC2ADVZWrxXSvNZeaoa0JhShbM5qed69RQz1s1mWEEqJ3aoklo_7EU9iIBcPMVeKlCQBgmlkgnY0iXNlY3AyNTZrMaEDdBHK1Gx6y_zv5DVw5Qb3DtSOMmVHTZO1WSORrF2loL2DdWRwgiMohXdha3UyAw"
-  }
-}
+```bash
+curl http://localhost:8645/debug/v1/info -s | jq
 ```
 
 ## Finding your discoverable ENR address(es)
@@ -210,8 +193,4 @@ See our [store configuration tutorial](./configure-store.md) for more.
 
 ## Interact with a running nwaku node
 
-A running nwaku node can be interacted with using the [Waku v2 JSON RPC API](https://rfc.vac.dev/spec/16/).
-
-> **Note:** Private and Admin API functionality are disabled by default.
-To configure a nwaku node with these enabled,
-use the `--rpc-admin:true` and `--rpc-private:true` CLI options.
+A running nwaku node can be interacted with using the [REST API](https://github.com/waku-org/nwaku/blob/master/docs/api/rest-api.md).

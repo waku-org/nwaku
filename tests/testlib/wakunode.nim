@@ -26,7 +26,6 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     tcpPort: Port(60000),
     websocketPort: Port(8000),
     listenAddress: parseIpAddress("0.0.0.0"),
-    rpcAddress: parseIpAddress("127.0.0.1"),
     restAddress: parseIpAddress("127.0.0.1"),
     metricsServerAddress: parseIpAddress("127.0.0.1"),
     dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
