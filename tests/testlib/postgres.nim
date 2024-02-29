@@ -13,6 +13,7 @@ const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
 proc newTestPostgresDriver*(): Future[Result[ArchiveDriver, string]] {.async.} =
 
   proc onErr(errMsg: string) {.gcsafe, closure.} =
+    error(errMsg)
     quit(QuitFailure)
 
   let
