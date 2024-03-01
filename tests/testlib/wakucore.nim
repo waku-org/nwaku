@@ -20,7 +20,7 @@ proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
 proc ts*(offset=0, origin=now()): Timestamp =
-  origin + getNanosecondTime(offset)
+  origin + getNanosecondTime(int64(offset))
 
 
 # Switch
