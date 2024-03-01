@@ -493,7 +493,7 @@ proc setupProtocols(node: WakuNode,
 
   if conf.store:
     # Archive setup
-    let archiveDriverRes = ArchiveDriver.new(conf.storeMessageDbUrl,
+    let archiveDriverRes = waitFor ArchiveDriver.new(conf.storeMessageDbUrl,
                                              conf.storeMessageDbVacuum,
                                              conf.storeMessageDbMigration,
                                              conf.storeMaxNumDbConnections,

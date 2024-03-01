@@ -43,7 +43,7 @@ suite "Wakunode2 - App initialization":
     let res = wakunode2.setupPeerPersistence()
 
     ## Then
-    check res.isOk()
+    assert res.isOk(), $res.error
 
   test "node setup is successful with default configuration":
     ## Given

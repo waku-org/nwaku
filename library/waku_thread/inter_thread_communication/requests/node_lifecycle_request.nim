@@ -70,11 +70,11 @@ proc configureStore(node: WakuNode,
     discard
 
   # Archive setup
-  let archiveDriverRes = ArchiveDriver.new(storeDbUrl,
-                                           storeVacuum,
-                                           storeDbMigration,
-                                           storeMaxNumDbConnections,
-                                           onFatalErrorAction)
+  let archiveDriverRes = await ArchiveDriver.new(storeDbUrl,
+                                                 storeVacuum,
+                                                 storeDbMigration,
+                                                 storeMaxNumDbConnections,
+                                                 onFatalErrorAction)
   if archiveDriverRes.isErr():
     return err("failed to setup archive driver: " & archiveDriverRes.error)
 
