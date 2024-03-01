@@ -40,7 +40,9 @@ when defined(rln_v2):
     # this serves as an entrypoint into the rln storage contract
     proc register(storageIndex: Uint16, idCommitment: Uint256, userMessageLimit: Uint256)
     # this creates a new storage on the rln registry
-    proc newStorage()
+    proc newStorage(maxMessageLimit: Uint256)
+    # Initializes the implementation contract (only used in unit tests)
+    proc initialize()
 
   # membership contract interface
   contract(RlnStorage):
@@ -142,10 +144,8 @@ when defined(rln_v2):
     initializedGuard(g)
 
     # convert the rateCommitment struct to a leaf value
-    let leavesRes = rateCommitments.toLeaves()
-    if leavesRes.isErr():
-      raise newException(CatchableError, "failed to convert rateCommitments to leaves: " & leavesRes.error)
-    let leaves = cast[seq[seq[byte]]](leavesRes.get())
+    let leaves = rateCommitments.toLeaves().valueOr:
+      raise newException(ValueError, "failed to convert rateCommitments to leaves: " & $error)
 
     waku_rln_membership_insertion_duration_seconds.nanosecondTime:
       let operationSuccess = g.rlnInstance.atomicWrite(some(start), 
@@ -269,11 +269,10 @@ when defined(rln_v2):
     let
       argumentsBytes = arguments
       # In TX log data, uints are encoded in big endian
-      userMessageLimit = UInt256.fromBytesBE(argumentsBytes[32..64])
       membershipIndex =  UInt256.fromBytesBE(argumentsBytes[64..^1])
 
+    g.userMessageLimit = some(userMessageLimit)
     g.membershipIndex = some(membershipIndex.toMembershipIndex())
-    g.userMessageLimit = some(userMessageLimit.toUserMessageLimit())
 
     # don't handle member insertion into the tree here, it will be handled by the event listener
     return
@@ -354,11 +353,11 @@ proc parseEvent(event: type MemberRegistered,
   try:
     # Parse the idComm
     offset += decode(data, offset, idComm)
-    # Parse the index
-    offset += decode(data, offset, index)
     when defined(rln_v2):
       # Parse the userMessageLimit
       offset += decode(data, offset, userMessageLimit)
+    # Parse the index
+    offset += decode(data, offset, index)
     when defined(rln_v2):
       return ok(Membership(rateCommitment: RateCommitment(idCommitment: idComm.toIDCommitment(), 
                                                           userMessageLimit: userMessageLimit.toUserMessageLimit()), 

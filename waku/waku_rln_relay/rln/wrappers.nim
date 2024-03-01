@@ -161,19 +161,22 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   return ok(output)
 
 when defined(rln_v2):
-  func toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[MerkleNode] {.inline.} =
+  proc toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[seq[byte]] =
     let idCommitment = rateCommitment.idCommitment
     let userMessageLimit =  cast[array[32, byte]](rateCommitment.userMessageLimit)
-    let leafRes = poseidon(@[@idCommitment, @userMessageLimit])
-    return leafRes
+    let leaf = poseidon(@[@idCommitment, @userMessageLimit]).valueOr:
+      return err("could not convert the rate commitment to a leaf")
+    var retLeaf = newSeq[byte](leaf.len)
+    for i in 0..<leaf.len:
+      retLeaf[i] = leaf[i]
+    return ok(retLeaf)
 
-  func toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[MerkleNode]] {.inline.} =
-    var leaves = newSeq[MerkleNode](rateCommitments.len)
+  proc toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[seq[byte]]] =
+    var leaves = newSeq[seq[byte]]()
     for rateCommitment in rateCommitments:
-      let leafRes = toLeaf(rateCommitment)
-      if leafRes.isErr():
-        return err("could not convert the rate commitment to a leaf: " & leafRes.error)
-      leaves.add(leafRes.get())
+      let leaf = toLeaf(rateCommitment).valueOr:
+        return err("could not convert the rate commitment to a leaf: " & $error)
+      leaves.add(leaf)
     return ok(leaves)
 
   # TODO: collocate this proc with the definition of the RateLimitProof
