@@ -29,6 +29,7 @@ type
     request*: bool
     spendingPubKey*: Option[SerializedKey]
     viewingPubKey*: Option[SerializedKey]
+    ephemeralPubKey*: Option[SerializedKey]
     stealthCommitment*: Option[SerializedKey]
     viewTag*: Option[uint64]
 
@@ -61,11 +62,16 @@ proc decode*(T: type WakuStealthCommitmentMsg, buffer: seq[byte]): ProtoResult[T
   var stealthCommitment = newSeq[byte]()
   discard ? pb.getField(4, stealthCommitment)
   msg.stealthCommitment = if stealthCommitment.len > 0: some(stealthCommitment) else: none(SerializedKey)
+
+  var ephemeralPubKey = newSeq[byte]()
+  discard ? pb.getField(5, ephemeralPubKey)
+  msg.ephemeralPubKey = if ephemeralPubKey.len > 0: some(ephemeralPubKey) else: none(SerializedKey)
+
   var viewTag: uint64
-  discard ? pb.getField(5, viewTag)
+  discard ? pb.getField(6, viewTag)
   msg.viewTag = if viewTag != 0: some(viewTag) else: none(uint64)
 
-  if msg.stealthCommitment.isNone() and msg.viewTag.isNone():
+  if msg.stealthCommitment.isNone() and msg.viewTag.isNone() and msg.ephemeralPubKey.isNone():
     return err(ProtoError.RequiredFieldMissing)
 
   if msg.stealthCommitment.isSome() and msg.viewTag.isNone():
@@ -91,8 +97,10 @@ proc encode*(msg: WakuStealthCommitmentMsg): ProtoBuffer =
     serialised.write(3, msg.viewingPubKey.get())
   if msg.stealthCommitment.isSome():
     serialised.write(4, msg.stealthCommitment.get())
+  if msg.ephemeralPubKey.isSome():
+    serialised.write(5, msg.ephemeralPubKey.get())
   if msg.viewTag.isSome():
-    serialised.write(5, msg.viewTag.get())
+    serialised.write(6, msg.viewTag.get())
 
   return serialised
 
@@ -103,5 +111,5 @@ func toByteSeq*(str: string): seq[byte] {.inline.} =
 proc constructRequest*(spendingPubKey: SerializedKey, viewingPubKey: SerializedKey): WakuStealthCommitmentMsg =
   WakuStealthCommitmentMsg(request: true, spendingPubKey: some(spendingPubKey), viewingPubKey: some(viewingPubKey))
 
-proc constructResponse*(stealthCommitment: SerializedKey, viewTag: uint64): WakuStealthCommitmentMsg =
-  WakuStealthCommitmentMsg(request: false, stealthCommitment: some(stealthCommitment), viewTag: some(viewTag))
+proc constructResponse*(stealthCommitment: SerializedKey, ephemeralPubKey: SerializedKey, viewTag: uint64): WakuStealthCommitmentMsg =
+  WakuStealthCommitmentMsg(request: false, stealthCommitment: some(stealthCommitment), ephemeralPubKey: some(ephemeralPubKey), viewTag: some(viewTag))

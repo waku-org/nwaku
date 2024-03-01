@@ -104,7 +104,6 @@ proc generateStealthCommitment*(viewing_public_key: G1Projective,
 
   let res_ptr = (ffi_generate_stealth_commitment(viewing_public_key_ptr, spending_public_key_ptr, ephemeral_private_key_ptr))
   let res_value = res_ptr[]
-  echo res_value
   if res_value.err_code != 0:
     drop_ffi_generate_stealth_commitment(res_ptr)
     return err("Error generating stealth commitment: " & $res_value.err_code)
@@ -113,3 +112,24 @@ proc generateStealthCommitment*(viewing_public_key: G1Projective,
   drop_ffi_generate_stealth_commitment(res_ptr)
   return ok(ret)
 
+proc generateStealthPrivateKey*(ephemeral_public_key: G1Projective,
+                                spending_key: Fr,
+                                viewing_key: Fr,
+                                view_tag: uint64): FFIResult[Fr] =
+  let ephemeral_public_key = CG1Projective(x0: ephemeral_public_key)
+  let ephemeral_public_key_ptr = unsafeAddr(ephemeral_public_key)
+  let spending_key = CFr(x0: spending_key)
+  let spending_key_ptr = unsafeAddr(spending_key)
+  let viewing_key = CFr(x0: viewing_key)
+  let viewing_key_ptr = unsafeAddr(viewing_key)
+  let view_tag_ptr = unsafeAddr(view_tag)
+
+  let res_ptr = (ffi_generate_stealth_private_key(ephemeral_public_key_ptr, spending_key_ptr, viewing_key_ptr, view_tag_ptr))
+  let res_value = res_ptr[]
+  if res_value.err_code != 0:
+    drop_ffi_generate_stealth_private_key(res_ptr)
+    return err("Error generating stealth private key: " & $res_value.err_code)
+
+  let ret = res_value.value.x0
+  drop_ffi_generate_stealth_private_key(res_ptr)
+  return ok(ret)
