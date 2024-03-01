@@ -73,7 +73,7 @@ suite "RLN Relay v2: serde":
                                 userMessageLimit = rateCommitment.userMessageLimit,
                                 messageId = 0,
                                 index = 0,
-                                epoch = calcEpoch(epochTime()))
+                                epoch = rln.calcEpoch(epochTime()))
     
     assert proofRes.isOk, $proofRes.error
 

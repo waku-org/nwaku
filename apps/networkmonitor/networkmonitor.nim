@@ -494,6 +494,8 @@ when isMainModule:
     conf.pubsubTopics = twnClusterConf.pubsubTopics
     conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
     conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -546,6 +548,7 @@ when isMainModule:
       rlnRelayCredPath: "",
       rlnRelayCredPassword: "",
       rlnRelayTreePath: conf.rlnRelayTreePath,
+      rlnEpochSizeSec: conf.rlnEpochSizeSec
     )
 
     try:

@@ -38,7 +38,7 @@ proc testWakuNode(): WakuNode =
 type RestFilterTest = object
   filterNode: WakuNode
   clientNode: WakuNode
-  restServer: RestServerRef
+  restServer: WakuRestServerRef
   messageCache: MessageCache
   client: RestClientRef
 
@@ -58,7 +58,7 @@ proc setupRestFilter(): Future[RestFilterTest] {.async.} =
 
   let restPort = Port(58011)
   let restAddress = parseIpAddress("0.0.0.0")
-  result.restServer = RestServerRef.init(restAddress, restPort).tryGet()
+  result.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
   result.messageCache = MessageCache.init()
   installLegacyFilterRestApiHandlers(result.restServer.router

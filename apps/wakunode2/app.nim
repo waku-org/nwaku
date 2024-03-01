@@ -15,7 +15,6 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/peerid,
   eth/keys,
-  json_rpc/rpcserver,
   presto,
   metrics,
   metrics/chronos_httpserver
@@ -42,11 +41,6 @@ import
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
-  ../../waku/waku_api/jsonrpc/admin/handlers as rpc_admin_api,
-  ../../waku/waku_api/jsonrpc/debug/handlers as rpc_debug_api,
-  ../../waku/waku_api/jsonrpc/filter/handlers as rpc_filter_api,
-  ../../waku/waku_api/jsonrpc/relay/handlers as rpc_relay_api,
-  ../../waku/waku_api/jsonrpc/store/handlers as rpc_store_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr/sharding,
@@ -83,8 +77,7 @@ type
 
     node: WakuNode
 
-    rpcServer: Option[RpcHttpServer]
-    restServer: Option[RestServerRef]
+    restServer: Option[WakuRestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
 
   AppResult*[T] = Result[T, string]
@@ -477,6 +470,7 @@ proc setupProtocols(node: WakuNode,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
         rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
         onFatalErrorAction: onFatalErrorAction,
       )
     else:
@@ -488,6 +482,7 @@ proc setupProtocols(node: WakuNode,
         rlnRelayCredPath: conf.rlnRelayCredPath,
         rlnRelayCredPassword: conf.rlnRelayCredPassword,
         rlnRelayTreePath: conf.rlnRelayTreePath,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
         onFatalErrorAction: onFatalErrorAction,
       )
 
@@ -665,34 +660,55 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RestServerRef] =
+proc startRestServer(app: App,
+                    address: IpAddress,
+                    port: Port,
+                    conf: WakuNodeConf):
+                    AppResult[WakuRestServerRef] =
 
   # Used to register api endpoints that are not currently installed as keys,
   # values are holding error messages to be returned to the client
   var notInstalledTab: Table[string, string] = initTable[string, string]()
 
-  proc requestErrorHandler(error: RestRequestError,
-                                request: HttpRequestRef):
-                                Future[HttpResponseRef] {.async.} =
-    case error
-    of RestRequestError.Invalid:
-      return await request.respond(Http400, "Invalid request", HttpTable.init())
-    of RestRequestError.NotFound:
-      let rootPath = request.rawPath.split("/")[1]
-      if notInstalledTab.hasKey(rootPath):
-        return await request.respond(Http404, notInstalledTab[rootPath], HttpTable.init())
-      else:
-        return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
-    of RestRequestError.InvalidContentBody:
-      return await request.respond(Http400, "Invalid content body", HttpTable.init())
-    of RestRequestError.InvalidContentType:
-      return await request.respond(Http400, "Invalid content type", HttpTable.init())
-    of RestRequestError.Unexpected:
-      return defaultResponse()
+  let requestErrorHandler : RestRequestErrorHandler = proc (error: RestRequestError,
+                           request: HttpRequestRef):
+                                Future[HttpResponseRef]
+                                {.async: (raises: [CancelledError]).} =
+    try:
+      case error
+      of RestRequestError.Invalid:
+        return await request.respond(Http400, "Invalid request", HttpTable.init())
+      of RestRequestError.NotFound:
+        let paths = request.rawPath.split("/")
+        let rootPath = if len(paths) > 1:
+                         paths[1]
+                       else:
+                          ""
+        notInstalledTab.withValue(rootPath, errMsg):
+          return await request.respond(Http404, errMsg[], HttpTable.init())
+        do:
+          return await request.respond(Http400, "Bad request initiated. Invalid path or method used.", HttpTable.init())
+      of RestRequestError.InvalidContentBody:
+        return await request.respond(Http400, "Invalid content body", HttpTable.init())
+      of RestRequestError.InvalidContentType:
+        return await request.respond(Http400, "Invalid content type", HttpTable.init())
+      of RestRequestError.Unexpected:
+        return defaultResponse()
+    except HttpWriteError:
+      error "Failed to write response to client", error = getCurrentExceptionMsg()
+      discard
 
     return defaultResponse()
 
-  let server = ? newRestHttpServer(address, port, requestErrorHandler = requestErrorHandler)
+  let allowedOrigin = if len(conf.restAllowOrigin) > 0 :
+                        some(conf.restAllowOrigin.join(","))
+                      else:
+                        none(string)
+
+  let server = ? newRestHttpServer(address, port,
+                                   allowedOrigin = allowedOrigin,
+                                   requestErrorHandler = requestErrorHandler)
+
   ## Admin REST API
   if conf.restAdmin:
     installAdminApiHandlers(server.router, app.node)
@@ -770,46 +786,6 @@ proc startRestServer(app: App, address: IpAddress, port: Port, conf: WakuNodeCon
 
   ok(server)
 
-proc startRpcServer(app: App, address: IpAddress, port: Port, conf: WakuNodeConf): AppResult[RpcHttpServer] =
-  let ta = initTAddress(address, port)
-
-  var server: RpcHttpServer
-  try:
-    server = newRpcHttpServer([ta])
-  except CatchableError:
-    return err("failed to init JSON-RPC server: " & getCurrentExceptionMsg())
-
-  installDebugApiHandlers(app.node, server)
-
-  if conf.relay:
-    let cache = MessageCache.init(capacity=50)
-
-    let handler = messageCacheHandler(cache)
-
-    for pubsubTopic in conf.pubsubTopics:
-      cache.pubsubSubscribe(pubsubTopic)
-      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
-
-    for contentTopic in conf.contentTopics:
-      cache.contentSubscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
-
-    installRelayApiHandlers(app.node, server, cache)
-
-  if conf.filternode != "":
-    let filterMessageCache = MessageCache.init(capacity=50)
-    installFilterApiHandlers(app.node, server, filterMessageCache)
-
-  installStoreApiHandlers(app.node, server)
-
-  if conf.rpcAdmin:
-    installAdminApiHandlers(app.node, server)
-
-  server.start()
-  info "RPC Server started", address=ta
-
-  ok(server)
-
 proc startMetricsServer(serverIp: IpAddress, serverPort: Port): AppResult[MetricsHttpServerRef] =
   info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
 
@@ -831,13 +807,6 @@ proc startMetricsLogging(): AppResult[void] =
   ok()
 
 proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
-  if app.conf.rpc:
-    let startRpcServerRes = startRpcServer(app, app.conf.rpcAddress, Port(app.conf.rpcPort + app.conf.portsShift), app.conf)
-    if startRpcServerRes.isErr():
-      error "6/7 Starting JSON-RPC server failed. Continuing in current state.", error=startRpcServerRes.error
-    else:
-      app.rpcServer = some(startRpcServerRes.value)
-
   if app.conf.rest:
     let startRestServerRes = startRestServer(app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf)
     if startRestServerRes.isErr():
@@ -866,9 +835,6 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
   if app.restServer.isSome():
     await app.restServer.get().stop()
-
-  if app.rpcServer.isSome():
-    await app.rpcServer.get().stop()
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()

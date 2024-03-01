@@ -44,7 +44,7 @@ suite "Waku v2 REST API - health":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installHealthApiHandler(restServer.router, node)
     restServer.start()
@@ -62,6 +62,7 @@ suite "Waku v2 REST API - health":
     # now kick in rln (currently the only check for health)
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
       rlnRelayCredIndex: some(1.uint),
+      rlnEpochSizeSec: 1,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
     ))
 

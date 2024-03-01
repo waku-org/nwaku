@@ -264,7 +264,8 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
-		--label="commit=$(GIT_VERSION)" \
+		--label="commit=$(shell git rev-parse HEAD)" \
+		--label="version=$(GIT_VERSION)" \
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 

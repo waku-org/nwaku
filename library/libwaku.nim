@@ -235,6 +235,8 @@ proc waku_relay_publish(ctx: ptr Context,
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
+  let msgHash = $sendReqRes.value
+  callback(RET_OK, unsafeAddr msgHash[0], cast[csize_t](len(msgHash)), userData)
   return RET_OK
 
 proc waku_start(ctx: ptr Context,

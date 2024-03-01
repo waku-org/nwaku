@@ -34,7 +34,7 @@ type ProtectedTopic* = object
   topic*: string
   key*: secp256k1.SkPublicKey
 
-type ShardIdx = distinct uint16 
+type ShardIdx = distinct uint16
 
 type EthRpcUrl = distinct string
 
@@ -83,11 +83,16 @@ type
       desc: "Private key for broadcasting transactions",
       defaultValue: "",
       name: "rln-relay-eth-private-key" }: string
-  
+
     rlnRelayUserMessageLimit* {.
       desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
       defaultValue: 1,
       name: "rln-relay-user-message-limit" .}: uint64
+
+    rlnEpochSizeSec* {.
+      desc: "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      defaultValue: 1
+      name: "rln-relay-epoch-sec" .}: uint64
 
     maxMessageSize* {.
       desc: "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc."
@@ -355,33 +360,6 @@ type
         defaultValue: ""
         name: "lightpushnode" }: string
 
-      ## JSON-RPC config
-
-      rpc* {.
-        desc: "Enable Waku JSON-RPC server: true|false",
-        defaultValue: true
-        name: "rpc" }: bool
-
-      rpcAddress* {.
-        desc: "Listening address of the JSON-RPC server.",
-        defaultValue: parseIpAddress("127.0.0.1")
-        name: "rpc-address" }: IpAddress
-
-      rpcPort* {.
-        desc: "Listening port of the JSON-RPC server.",
-        defaultValue: 8545
-        name: "rpc-port" }: uint16
-
-      rpcAdmin* {.
-        desc: "Enable access to JSON-RPC Admin API: true|false",
-        defaultValue: false
-        name: "rpc-admin" }: bool
-
-      rpcPrivate* {.
-        desc: "Enable access to JSON-RPC Private API: true|false",
-        defaultValue: false
-        name: "rpc-private" }: bool
-
       ## REST HTTP config
 
       rest* {.
@@ -413,6 +391,14 @@ type
         desc: "Enable access to REST HTTP Private API: true|false",
         defaultValue: false
         name: "rest-private" }: bool
+
+      restAllowOrigin* {.
+        desc: "Allow cross-origin requests from the specified origin." &
+              "Argument may be repeated." &
+              "Wildcards: * or ? allowed." &
+              "Ex.: \"localhost:*\" or \"127.0.0.1:8080\"",
+        defaultValue: newSeq[string]()
+        name: "rest-allow-origin" }: seq[string]
 
       ## Metrics config
 

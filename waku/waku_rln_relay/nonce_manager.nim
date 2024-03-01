@@ -43,9 +43,9 @@ proc `$`*(ne: NonceManagerError): string =
   of NonceLimitReached:
     return "NonceLimitReached: " & ne.error
 
-proc init*(T: type NonceManager, nonceLimit: Nonce, epoch = EpochUnitSeconds): T =
+proc init*(T: type NonceManager, nonceLimit: Nonce): T =
   return NonceManager(
-    epoch: epoch,
+    epoch: 0,
     nextNonce: 0,
     lastNonceTime: 0,
     nonceLimit: nonceLimit
