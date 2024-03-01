@@ -61,7 +61,7 @@ proc `%`*(value: WakuMessageHash): JsonNode =
 
 type JsonMessageEvent* = ref object of JsonEvent
     pubsubTopic*: string
-    messageId*: string
+    messageHash*: WakuMessageHash
     wakuMessage*: JsonMessage
 
 proc new*(T: type JsonMessageEvent,
@@ -83,12 +83,11 @@ proc new*(T: type JsonMessageEvent,
     copyMem(addr proof[0], unsafeAddr msg.proof[0], len(msg.proof))
 
   let msgHash = computeMessageHash(pubSubTopic, msg)
-  let msgHashHex = to0xHex(msgHash)
 
   return JsonMessageEvent(
     eventType: "message",
     pubSubTopic: pubSubTopic,
-    messageId: msgHashHex,
+    messageHash: msgHash,
     wakuMessage: JsonMessage(
         payload: base64.encode(payload),
         contentTopic: msg.contentTopic,
