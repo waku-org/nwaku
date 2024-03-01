@@ -30,7 +30,7 @@ type
     spendingPubKey*: Option[SerializedKey]
     viewingPubKey*: Option[SerializedKey]
     stealthCommitment*: Option[SerializedKey]
-    viewTag*: Option[SerializedKey]
+    viewTag*: Option[uint64]
 
 proc decode*(T: type WakuStealthCommitmentMsg, buffer: seq[byte]): ProtoResult[T] =
   var msg = WakuStealthCommitmentMsg()
@@ -48,7 +48,7 @@ proc decode*(T: type WakuStealthCommitmentMsg, buffer: seq[byte]): ProtoResult[T
   
   if msg.spendingPubKey.isSome() and msg.viewingPubKey.isSome():
     msg.stealthCommitment = none(SerializedKey)
-    msg.viewTag = none(SerializedKey)
+    msg.viewTag = none(uint64)
     return ok(msg)
   if msg.spendingPubKey.isSome() and msg.viewingPubKey.isNone():
     return err(ProtoError.RequiredFieldMissing)
@@ -61,9 +61,9 @@ proc decode*(T: type WakuStealthCommitmentMsg, buffer: seq[byte]): ProtoResult[T
   var stealthCommitment = newSeq[byte]()
   discard ? pb.getField(4, stealthCommitment)
   msg.stealthCommitment = if stealthCommitment.len > 0: some(stealthCommitment) else: none(SerializedKey)
-  var viewTag = newSeq[byte]()
+  var viewTag: uint64
   discard ? pb.getField(5, viewTag)
-  msg.viewTag = if viewTag.len > 0: some(viewTag) else: none(SerializedKey)
+  msg.viewTag = if viewTag != 0: some(viewTag) else: none(uint64)
 
   if msg.stealthCommitment.isNone() and msg.viewTag.isNone():
     return err(ProtoError.RequiredFieldMissing)
@@ -103,5 +103,5 @@ func toByteSeq*(str: string): seq[byte] {.inline.} =
 proc constructRequest*(spendingPubKey: SerializedKey, viewingPubKey: SerializedKey): WakuStealthCommitmentMsg =
   WakuStealthCommitmentMsg(request: true, spendingPubKey: some(spendingPubKey), viewingPubKey: some(viewingPubKey))
 
-proc constructResponse*(stealthCommitment: SerializedKey, viewTag: SerializedKey): WakuStealthCommitmentMsg =
+proc constructResponse*(stealthCommitment: SerializedKey, viewTag: uint64): WakuStealthCommitmentMsg =
   WakuStealthCommitmentMsg(request: false, stealthCommitment: some(stealthCommitment), viewTag: some(viewTag))

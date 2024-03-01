@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import ../wakunode2/[networks_config, app, external_config]
-import  ../../waku/common/logging
+import ../../waku/common/logging
 import
   std/[options, strutils, os, sequtils],
   stew/shims/net as stewNet,
@@ -93,6 +93,9 @@ proc setup*(): App =
     quit(QuitFailure)
 
   debug "5/5 Starting node and mounted protocols"
+
+  # set triggerSelf to false, we don't want to process our own stealthCommitments
+  wakunode2.node.wakuRelay.triggerSelf = false
 
   let res6 = wakunode2.startApp()
   if res6.isErr():
