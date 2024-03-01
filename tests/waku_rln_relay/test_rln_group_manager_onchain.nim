@@ -436,6 +436,7 @@ suite "Onchain group manager":
       
       when defined(rln_v2):
         require:
+          registrations.len == 1
           registrations[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1))
       else:
         require:
