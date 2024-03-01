@@ -258,8 +258,15 @@ procSuite "WakuNode - RLN relay":
       contentTopicBytes = contentTopic.toBytes
       input = concat(payload, contentTopicBytes)
       extraBytes: seq[byte] = @[byte(1),2,3]
-      rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
-                                                                        epoch)
+
+    when defined(rln_v2):
+      let nonceManager = node1.wakuRlnRelay.nonceManager
+      let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(input, 
+                                                                            epoch,
+                                                                            MessageId(0))
+    else:
+      let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
+                                                                            epoch)
     require:
       rateLimitProofRes.isOk()
     let rateLimitProof = rateLimitProofRes.get().encode().buffer
