@@ -21,6 +21,7 @@ import
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ../../waku/waku_store,
+  ../../waku/factory/builder,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config

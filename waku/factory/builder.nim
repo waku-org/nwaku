@@ -15,11 +15,8 @@ import
 import
   ../waku_enr,
   ../waku_discv5,
-  ./config,
-  ./peer_manager,
-  ./waku_node,
-  ./waku_switch
-
+  ../waku_node,
+  ../node/peer_manager
 
 type
   WakuNodeBuilder* = object

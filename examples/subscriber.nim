@@ -15,7 +15,8 @@ import
   ../../../waku/waku_core,
   ../../../waku/waku_node,
   ../../../waku/waku_enr,
-  ../../../waku/waku_discv5
+  ../../../waku/waku_discv5,
+  ../../../waku/factory/builder
 
 # An accesible bootstrap node. See wakuv2.prod fleets.status.im
 const bootstrapNode = "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9DOGnZl" &
