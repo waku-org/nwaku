@@ -34,7 +34,7 @@ method init*(g: StaticGroupManager): Future[void] {.async.} =
     let rateCommitments = groupKeys.mapIt(RateCommitment(idCommitment: it.idCommitment, 
                                                          userMessageLimit: g.userMessageLimit.get()))
     let leaves = rateCommitments.toLeaves().valueOr:
-      raise newException(ValueError, "Failed to convert rate commitments to leaves")
+      raise newException(ValueError, "Failed to convert rate commitments to leaves: " & $error)
     let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, leaves)
   else:
     let idCommitments = groupKeys.mapIt(it.idCommitment)
