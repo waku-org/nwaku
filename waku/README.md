@@ -197,7 +197,7 @@ Current URLs for the published fleet lists:
 - production fleet: `enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im`
 - test fleet: `enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im`
 
-See the [separate tutorial](../../docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
+See the [separate tutorial](../../..//docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
 
 ## Enabling Websocket
 
