@@ -35,6 +35,11 @@ int waku_stop(void* ctx,
               WakuCallBack callback,
               void* userData);
 
+// Destroys an instance of a waku node created with waku_new
+int waku_destroy(void* ctx,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_version(void* ctx,
                  WakuCallBack callback,
                  void* userData);

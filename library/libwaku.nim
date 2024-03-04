@@ -100,6 +100,21 @@ proc waku_new(configJson: cstring,
 
   return ctx
 
+proc waku_destroy(ctx: ptr Context,
+               callback: WakuCallBack,
+               userData: pointer): cint {.dynlib, exportc.} =
+
+  if isNil(callback):
+    return RET_MISSING_CALLBACK
+
+  let stopNodeRes = waku_thread.stopWakuNodeThread(ctx)
+  if stopNodeRes.isErr():
+    let msg = $stopNodeRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  return RET_OK
+
 proc waku_version(ctx: ptr Context,
                   callback: WakuCallBack,
                   userData: pointer): cint {.dynlib, exportc.} =

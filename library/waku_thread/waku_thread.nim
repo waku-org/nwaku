@@ -95,12 +95,16 @@ proc createWakuThread*(): Result[ptr Context, string] =
 
   return ok(ctx)
 
-proc stopWakuNodeThread*(ctx: ptr Context) =
+proc stopWakuNodeThread*(ctx: ptr Context): Result[void, string] =
   running.store(false)
+  let fireRes = ctx.reqSignal.fireSync()
+  if fireRes.isErr():
+    return err(fireRes.error)
   joinThread(ctx.thread)
   discard ctx.reqSignal.close()
   discard ctx.respSignal.close()
   freeShared(ctx)
+  ok()
 
 proc sendRequestToWakuThread*(ctx: ptr Context,
                               reqType: RequestType,
