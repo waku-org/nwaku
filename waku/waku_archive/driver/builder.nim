@@ -15,6 +15,7 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
+  ./postgres_driver/migrations as archive_postgres_driver_migrations,
   ./queue_driver
 
 export
@@ -31,7 +32,7 @@ proc new*(T: type ArchiveDriver,
           migrate: bool,
           maxNumConn: int,
           onFatalErrorAction: OnFatalErrorHandler):
-          Result[T, string] =
+          Future[Result[T, string]] {.async.} =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
   ## migrate - if true, the database schema will be updated
@@ -63,17 +64,25 @@ proc new*(T: type ArchiveDriver,
     let db = dbRes.get()
 
     # SQLite vacuum
-    let (pageSize, pageCount, freelistCount) = ? db.gatherSqlitePageStats()
+    let sqliteStatsRes = db.gatherSqlitePageStats()
+    if sqliteStatsRes.isErr():
+      return err("error while gathering sqlite stats: " & $sqliteStatsRes.error)
+
+    let (pageSize, pageCount, freelistCount) = sqliteStatsRes.get()
     debug "sqlite database page stats", pageSize = pageSize,
                                         pages = pageCount,
                                         freePages = freelistCount
 
     if vacuum and (pageCount > 0 and freelistCount > 0):
-      ? db.performSqliteVacuum()
+      let vacuumRes = db.performSqliteVacuum()
+      if vacuumRes.isErr():
+        return err("error in vacuum sqlite: " & $vacuumRes.error)
 
     # Database migration
     if migrate:
-      ? archive_driver_sqlite_migrations.migrate(db)
+      let migrateRes = archive_driver_sqlite_migrations.migrate(db)
+      if migrateRes.isErr():
+        return err("error in migrate sqlite: " & $migrateRes.error)
 
     debug "setting up sqlite waku archive driver"
     let res = SqliteDriver.new(db)
@@ -92,13 +101,11 @@ proc new*(T: type ArchiveDriver,
 
       let driver = res.get()
 
-      try:
-        # The table should exist beforehand.
-        let newTableRes = waitFor driver.createMessageTable()
-        if newTableRes.isErr():
-          return err("error creating table: " & newTableRes.error)
-      except CatchableError:
-        return err("exception creating table: " & getCurrentExceptionMsg())
+      # Database migration
+      if migrate:
+        let migrateRes = await archive_postgres_driver_migrations.migrate(driver)
+        if migrateRes.isErr():
+          return err("ArchiveDriver build failed in migration: " & $migrateRes.error)
 
       return ok(driver)
 

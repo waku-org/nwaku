@@ -15,7 +15,8 @@ import
   ../../../waku/waku_core,
   ../../../waku/waku_node,
   ../../../waku/waku_enr,
-  ../../../waku/waku_discv5
+  ../../../waku/waku_discv5,
+  ../../../waku/factory/builder
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())

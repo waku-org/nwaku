@@ -16,7 +16,6 @@ import
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/waku_core,
   ../../../../waku/node/waku_node,
-  ../../../../waku/node/builder,
   ../../../../waku/node/config,
   ../../../../waku/waku_archive/driver/builder,
   ../../../../waku/waku_archive/driver,
@@ -24,6 +23,7 @@ import
   ../../../../waku/waku_archive/retention_policy,
   ../../../../waku/waku_relay/protocol,
   ../../../../waku/waku_store,
+  ../../../../waku/factory/builder,
   ../../../events/[json_message_event,json_base_event],
   ../../../alloc,
   ../../config
@@ -70,11 +70,11 @@ proc configureStore(node: WakuNode,
     discard
 
   # Archive setup
-  let archiveDriverRes = ArchiveDriver.new(storeDbUrl,
-                                           storeVacuum,
-                                           storeDbMigration,
-                                           storeMaxNumDbConnections,
-                                           onFatalErrorAction)
+  let archiveDriverRes = await ArchiveDriver.new(storeDbUrl,
+                                                 storeVacuum,
+                                                 storeDbMigration,
+                                                 storeMaxNumDbConnections,
+                                                 onFatalErrorAction)
   if archiveDriverRes.isErr():
     return err("failed to setup archive driver: " & archiveDriverRes.error)
 

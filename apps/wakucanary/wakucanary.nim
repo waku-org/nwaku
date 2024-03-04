@@ -15,7 +15,8 @@ import
   ../../waku/waku_enr,
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
-  ../../waku/waku_node
+  ../../waku/waku_node,
+  ../../waku/factory/builder
 
 # protocols and their tag
 const ProtocolsTable = {

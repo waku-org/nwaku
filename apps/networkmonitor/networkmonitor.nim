@@ -28,6 +28,7 @@ import
   ../../waku/waku_discv5,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_rln_relay,
+  ../../waku/factory/builder,
   ../wakunode2/networks_config,
   ./networkmonitor_metrics,
   ./networkmonitor_config,

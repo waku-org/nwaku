@@ -79,3 +79,6 @@ method decreaseDatabaseSize*(driver: ArchiveDriver,
 method close*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
+method existsTable*(driver: ArchiveDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.base, async.} = discard
+

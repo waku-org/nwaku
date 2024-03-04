@@ -9,7 +9,9 @@ import
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../testlib/wakucore
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/postgres
 
 proc now():int64 = getTime().toUnix()
 
@@ -24,18 +26,24 @@ proc computeTestCursor(pubsubTopic: PubsubTopic,
   )
 
 suite "Postgres driver":
+  ## Unique driver instance
+  var driver {.threadvar.}: PostgresDriver
 
-  const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
+  asyncSetup:
+    let driverRes = await newTestPostgresDriver()
+    if driverRes.isErr():
+      assert false, driverRes.error
+
+    driver = PostgresDriver(driverRes.get())
+
+  asyncTeardown:
+    let resetRes = await driver.reset()
+    if resetRes.isErr():
+      assert false, resetRes.error
+
+    (await driver.close()).expect("driver to close")
 
   asyncTest "Asynchronous queries":
-    let driverRes = PostgresDriver.new(dbUrl = storeMessageDbUrl,
-                                       maxConnections = 100)
-
-    assert driverRes.isOk(), driverRes.error
-
-    let driver = driverRes.value
-    discard await driver.reset()
-
     var futures = newSeq[Future[ArchiveDriverResult[void]]](0)
 
     let beforeSleep = now()
@@ -50,32 +58,8 @@ suite "Postgres driver":
     # connections and we spawn 100 tasks that spend ~1s each.
     require diff < 20
 
-    (await driver.close()).expect("driver to close")
-
-  asyncTest "Init database":
-    let driverRes = PostgresDriver.new(storeMessageDbUrl)
-    assert driverRes.isOk(), driverRes.error
-
-    let driver = driverRes.value
-    discard await driver.reset()
-
-    let initRes = await driver.init()
-    assert initRes.isOk(), initRes.error
-
-    (await driver.close()).expect("driver to close")
-
   asyncTest "Insert a message":
     const contentTopic = "test-content-topic"
-
-    let driverRes = PostgresDriver.new(storeMessageDbUrl)
-    assert driverRes.isOk(), driverRes.error
-
-    let driver = driverRes.get()
-
-    discard await driver.reset()
-
-    let initRes = await driver.init()
-    assert initRes.isOk(), initRes.error
 
     let msg = fakeWakuMessage(contentTopic=contentTopic)
 
@@ -94,23 +78,11 @@ suite "Postgres driver":
         toHex(computedDigest.data) == toHex(digest) and
         toHex(actualMsg.payload) == toHex(msg.payload)
 
-    (await driver.close()).expect("driver to close")
-
   asyncTest "Insert and query message":
     const contentTopic1 = "test-content-topic-1"
     const contentTopic2 = "test-content-topic-2"
     const pubsubTopic1 = "pubsubtopic-1"
     const pubsubTopic2 = "pubsubtopic-2"
-
-    let driverRes = PostgresDriver.new(storeMessageDbUrl)
-    assert driverRes.isOk(), driverRes.error
-
-    let driver = driverRes.value
-
-    discard await driver.reset()
-
-    let initRes = await driver.init()
-    assert initRes.isOk(), initRes.error
 
     let msg1 = fakeWakuMessage(contentTopic=contentTopic1)
 
@@ -178,19 +150,8 @@ suite "Postgres driver":
     assert messagesRes.isOk(), messagesRes.error
     require messagesRes.get().len == 1
 
-    (await driver.close()).expect("driver to close")
-
   asyncTest "Insert true duplicated messages":
     # Validates that two completely equal messages can not be stored.
-    let driverRes = PostgresDriver.new(storeMessageDbUrl)
-    assert driverRes.isOk(), driverRes.error
-
-    let driver = driverRes.value
-
-    discard await driver.reset()
-
-    let initRes = await driver.init()
-    assert initRes.isOk(), initRes.error
 
     let now = now()
 
@@ -205,4 +166,3 @@ suite "Postgres driver":
                               msg2, computeDigest(msg2), computeMessageHash(DefaultPubsubTopic, msg2), msg2.timestamp)
     require not putRes.isOk()
 
-    (await driver.close()).expect("driver to close")
