@@ -22,7 +22,8 @@ import
   libp2p/switch
 import
   ../waku_core,
-  ./message_id
+  ./message_id,
+  ./message_hash
 
 
 logScope:
@@ -168,7 +169,8 @@ proc new*(T: type WakuRelay,
       triggerSelf = true,
       msgIdProvider = defaultMessageIdProvider,
       maxMessageSize = maxMessageSize,
-      parameters = GossipsubParameters
+      parameters = GossipsubParameters,
+      msgHashProvider = messageHashProvider
     )
 
     procCall GossipSub(w).initPubSub()

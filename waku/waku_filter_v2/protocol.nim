@@ -206,7 +206,7 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
       info "timed out pushing message to peers",
                             pubsubTopic=pubsubTopic,
                             contentTopic=message.contentTopic,
-                            hash=pubsubTopic.computeMessageHash(message).to0xHex(),
+                            msg_hash=pubsubTopic.computeMessageHash(message).to0xHex(),
                             numPeers = subscribedPeers.len,
                             subscribedPeers = toSeq(subscribedPeers.mapIt(shortLog(it)))
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
@@ -214,7 +214,7 @@ proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessa
       info "pushed message succesfully to all subscribers",
               pubsubTopic=pubsubTopic,
               contentTopic=message.contentTopic,
-              hash=pubsubTopic.computeMessageHash(message).to0xHex(),
+              msg_hash=pubsubTopic.computeMessageHash(message).to0xHex(),
               numPeers = subscribedPeers.len,
               subscribedPeers = toSeq(subscribedPeers.mapIt(shortLog(it)))
 

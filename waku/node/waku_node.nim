@@ -209,7 +209,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash=topic.computeMessageHash(msg).to0xHex(),
+      msg_hash=topic.computeMessageHash(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime(),
       payloadSizeBytes=msg.payload.len
 

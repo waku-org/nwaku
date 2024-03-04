@@ -53,7 +53,7 @@ proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Futur
                   lightpush_client_peer_id = shortLog(peerId),
                   requestId = requestId,
                   pubsubTopic = pubsubTopic,
-                  hash = pubsubTopic.computeMessageHash(message).to0xHex()
+                  msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
     
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
     isSuccess = handleRes.isOk()
