@@ -34,14 +34,13 @@ proc registerSubscription*(m: SubscriptionManager, pubsubTopic: PubsubTopic, con
 proc removeSubscription*(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic) =
   m.subscriptions.del((pubsubTopic, contentTopic))
 
-proc notifySubscriptionHandler*(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, message: WakuMessage,
-                                msgId: seq[byte]) =
+proc notifySubscriptionHandler*(m: SubscriptionManager, pubsubTopic: PubsubTopic, contentTopic: ContentTopic, message: WakuMessage) =
   if not m.subscriptions.hasKey((pubsubTopic, contentTopic)):
     return
 
   try:
     let handler = m.subscriptions[(pubsubTopic, contentTopic)]
-    asyncSpawn handler(pubsubTopic, message, msgId)
+    asyncSpawn handler(pubsubTopic, message)
   except CatchableError:
     discard
 

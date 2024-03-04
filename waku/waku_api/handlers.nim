@@ -41,6 +41,5 @@ proc defaultDiscoveryHandler*(discv5: WakuDiscoveryV5, cap: Capabilities): Disco
 ### Message Cache
 
 proc messageCacheHandler*(cache: MessageCache): WakuRelayHandler =
-  return proc(pubsubTopic: string, msg: WakuMessage,
-              msgId: seq[byte]): Future[void] {.async, closure.} =
+  return proc(pubsubTopic: string, msg: WakuMessage): Future[void] {.async, closure.} =
     cache.addMessage(pubsubTopic, msg)

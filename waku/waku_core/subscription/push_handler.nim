@@ -11,5 +11,4 @@ import
   ../message
 
 type FilterPushHandler* = proc(pubsubTopic: PubsubTopic,
-                               message: WakuMessage,
-                               msgId: seq[byte]) {.async, gcsafe, closure.}
+                               message: WakuMessage) {.async, gcsafe, closure.}

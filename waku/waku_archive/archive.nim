@@ -93,8 +93,7 @@ proc new*(T: type WakuArchive,
 
 proc handleMessage*(w: WakuArchive,
                     pubsubTopic: PubsubTopic,
-                    msg: WakuMessage,
-                    msgId: seq[byte]) {.async.} =
+                    msg: WakuMessage) {.async.} =
   if msg.ephemeral:
     # Ephemeral message, do not store
     return
@@ -116,8 +115,6 @@ proc handleMessage*(w: WakuArchive,
       msgReceivedTime = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
-    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigestHex, messageHash=msgHashHex
-
     let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
     if putRes.isErr():
       if "duplicate key value violates unique constraint" in putRes.error:
@@ -126,7 +123,12 @@ proc handleMessage*(w: WakuArchive,
         debug "failed to insert message", err=putRes.error
       waku_archive_errors.inc(labelValues = [insertFailure])
 
-    info "message archived", msg_hash = msgHashHex, msg_id = shortLog(msgId)
+    info "message archived", msg_hash = msgHashHex,
+                             pubsubTopic = pubsubTopic,
+                             contentTopic = msg.contentTopic,
+                             timestamp = msg.timestamp,
+                             digest = msgDigestHex,
+                             messageHash = msgHashHex
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)

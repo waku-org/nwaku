@@ -331,8 +331,7 @@ proc installFilterGetMessagesHandler(router: var RestRouter,
 
 
   let pushHandler : FilterPushHandler = proc (pubsubTopic: PubsubTopic,
-                                              msg: WakuMessage,
-                                              msgId: seq[byte])
+                                              msg: WakuMessage)
                                               {.async, gcsafe, closure.} =
     cache.addMessage(pubsubTopic, msg)
 

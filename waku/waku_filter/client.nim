@@ -33,14 +33,13 @@ type WakuFilterClientLegacy* = ref object of LPProtocol
     subManager: SubscriptionManager
 
 
-proc handleMessagePush(wf: WakuFilterClientLegacy, peerId: PeerId, requestId: string, rpc: MessagePush,
-                       msgId: seq[byte]) =
+proc handleMessagePush(wf: WakuFilterClientLegacy, peerId: PeerId, requestId: string, rpc: MessagePush) =
   for msg in rpc.messages:
     let
       pubsubTopic = Defaultstring # TODO: Extend the filter push rpc to provide the pubsub topic. This is a limitation
       contentTopic = msg.contentTopic
 
-    wf.subManager.notifySubscriptionHandler(pubsubTopic, contentTopic, msg, msgId)
+    wf.subManager.notifySubscriptionHandler(pubsubTopic, contentTopic, msg)
 
 
 proc initProtocolHandler(wf: WakuFilterClientLegacy) =
@@ -68,7 +67,7 @@ proc initProtocolHandler(wf: WakuFilterClientLegacy) =
       push = rpc.push.get()
 
     info "received filter message push", peerId=conn.peerId, requestId=requestId
-    wf.handleMessagePush(peerId, requestId, push, newSeq[byte]())
+    wf.handleMessagePush(peerId, requestId, push)
 
   wf.handler = handle
   wf.codec = WakuLegacyFilterCodec

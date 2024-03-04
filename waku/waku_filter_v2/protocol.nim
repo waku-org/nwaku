@@ -185,8 +185,7 @@ proc maintainSubscriptions*(wf: WakuFilter) =
   waku_filter_subscriptions.set(wf.subscriptions.peersSubscribed.len.float64)
 
 const MessagePushTimeout = 20.seconds
-proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage,
-                    msgId: seq[byte]) {.async.} =
+proc handleMessage*(wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
   info "handling message", pubsubTopic=pubsubTopic, message=message
 
   let handleMessageStartTime = Moment.now()

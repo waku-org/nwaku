@@ -205,7 +205,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
-  proc traceHandler(topic: PubsubTopic, msg: WakuMessage, msgId: seq[byte]) {.async, gcsafe.} =
+  proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
@@ -218,31 +218,30 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     waku_node_messages.inc(labelValues = ["relay"])
     waku_histogram_message_size.observe(msgSizeKB)
 
-  proc filterHandler(topic: PubsubTopic, msg: WakuMessage, msgId: seq[byte]) {.async, gcsafe.} =
+  proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
       return
 
-    await node.wakuFilter.handleMessage(topic, msg, msgId)
+    await node.wakuFilter.handleMessage(topic, msg)
 
     ##TODO: Support for legacy filter will be removed
     if node.wakuFilterLegacy.isNil():
       return
 
-    await node.wakuFilterLegacy.handleMessage(topic, msg, msgId)
+    await node.wakuFilterLegacy.handleMessage(topic, msg)
 
-  proc archiveHandler(topic: PubsubTopic, msg: WakuMessage, msgId: seq[byte]) {.async, gcsafe.} =
+  proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuArchive.isNil():
       return
 
-    await node.wakuArchive.handleMessage(topic, msg, msgId)
+    await node.wakuArchive.handleMessage(topic, msg)
 
 
   let defaultHandler = proc(topic: PubsubTopic,
-                            msg: WakuMessage,
-                            msgId: seq[byte]): Future[void] {.async, gcsafe.} =
-    await traceHandler(topic, msg, msgId)
-    await filterHandler(topic, msg, msgId)
-    await archiveHandler(topic, msg, msgId)
+                            msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    await traceHandler(topic, msg)
+    await filterHandler(topic, msg)
+    await archiveHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -492,10 +491,9 @@ proc legacyFilterSubscribe*(node: WakuNode,
   # FIXME: This part needs refactoring. It seems possible that in special cases archiver will store same message multiple times.
   let handlerWrapper: FilterPushHandler =
         if node.wakuRelay.isNil() and not node.wakuStore.isNil():
-          proc(pubsubTopic: string, message: WakuMessage,
-               msgId: seq[byte]) {.async, gcsafe, closure.} =
-            await allFutures(node.wakuArchive.handleMessage(pubSubTopic, message, msgId),
-                             handler(pubsubTopic, message, msgId))
+          proc(pubsubTopic: string, message: WakuMessage) {.async, gcsafe, closure.} =
+            await allFutures(node.wakuArchive.handleMessage(pubSubTopic, message),
+                             handler(pubsubTopic, message))
         else:
           handler
 
