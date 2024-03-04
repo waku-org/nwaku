@@ -213,16 +213,15 @@ suite "Static group manager":
     let fut = newFuture[void]()
 
     proc callback(withdrawals: seq[Membership]): Future[void] {.async.} =
+      require:
+        withdrawals.len == 1
+        withdrawals[0].index == 0
       when defined(rln_v2):
         require:
-          withdrawals.len == 1
           withdrawals[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit)
-          withdrawals[0].index == 0
       else:
         require:
-          withdrawals.len == 1
           withdrawals[0].idCommitment == idCommitment
-          withdrawals[0].index == 0
       callbackCalled = true
       fut.complete()
 
