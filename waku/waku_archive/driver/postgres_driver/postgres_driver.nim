@@ -638,13 +638,16 @@ proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[
 
     return ok()
 
-const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(2)
-const PartitionsRangeInterval = timer.seconds(2) ## Time range covered by each parition
+const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
+const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
 proc loopPartitionFactory*(self: PostgresDriver,
                            onFatalError: OnFatalErrorHandler) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
+
+  if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
+    onFatalError("partition factory partition range interval should be bigger than check interval")
 
   ## First of all, let's make the 'partition_manager' aware of the current partitions
   (await self.initializePartitionsInfo()).isOkOr:
@@ -701,16 +704,19 @@ proc removeOldestPartition(self: PostgresDriver,
   ## Detach and remove the partition concurrently to not block the parent table (messages)
   let detachPartitionQuery =
     "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() & " CONCURRENTLY;"
+  debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
     return err(fmt"error in {detachPartitionQuery}: " & $error)
 
   ## Clear all data from the partition and retrieve back space to the operating system
   let truncateQuery = "TRUNCATE TABLE " & oldestPartition.getName()
+  debug "removeOldestPartition truncate", query = truncateQuery
   (await self.performWriteQuery(truncateQuery)).isOkOr:
     return err(fmt"error in {truncateQuery}: " & $error)
 
   ## Drop the partition
   let dropPartitionQuery = "DROP TABLE " & oldestPartition.getName()
+  debug "removeOldestPartition drop partition", query = dropPartitionQuery
   (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
     return err(fmt"error in {dropPartitionQuery}: " & $error)
 
@@ -748,4 +754,46 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
     debug "Reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
 
   return ok()
+
+method existsTable*(s: PostgresDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string = fmt"""
+  SELECT EXISTS (
+    SELECT FROM
+        pg_tables
+    WHERE
+        tablename  = '{tableName}'
+    );
+    """
+
+  var exists: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in existsTable"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in existsTable"
+      return
+
+    exists = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("existsTable failed in getRow: " & $error)
+
+  return ok(exists == "t")
+
+proc getCurrentVersion*(s: PostgresDriver):
+                        Future[ArchiveDriverResult[int64]] {.async.} =
+
+  let existsVersionTable = (await s.existsTable("version")).valueOr:
+    return err("error in getCurrentVersion-existsTable: " & $error)
+
+  if not existsVersionTable:
+    return ok(0)
+
+  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
+    return err("error in getMessagesCount: " & $error)
+
+  return ok(res)
 
