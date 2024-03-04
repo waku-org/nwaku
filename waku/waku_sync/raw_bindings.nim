@@ -8,13 +8,15 @@ from os import DirSep
 import
    std/[strutils],
    ../waku_core/message,
-   chronicles
+   chronicles,
+   std/options
 
 const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep & "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
 {.link: negentropyPath & "libnegentropy.so".} 
 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
+
 
 proc StringtoBytes(data: cstring): seq[byte] =
   let size = data.len()
@@ -46,10 +48,15 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint64(temp.len))
   return output
 
-proc BufferToBytes(buffer: ptr Buffer):seq[byte] =
-  debug "length of buffer is",len=buffer.len
-  let bytes = newSeq[byte](buffer.len)
-  copyMem(bytes[0].unsafeAddr, buffer.ptr, buffer.len)
+proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[byte] =
+  var bufLen: uint64
+  if isNone(len):
+    bufLen = buffer.len
+  else:
+    bufLen = len.get()
+  debug "length of buffer is",len=bufLen
+  let bytes = newSeq[byte](bufLen)
+  copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
   return bytes
 
 ### Storage ###
@@ -57,7 +64,7 @@ proc BufferToBytes(buffer: ptr Buffer):seq[byte] =
 proc storage_init(db_path:cstring, name: cstring): pointer{. header: NEGENTROPY_HEADER, importc: "storage_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
-proc raw_insert(storage: pointer, timestamp: uint64, id:  ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
+proc raw_insert(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
 proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
@@ -68,13 +75,13 @@ proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.head
 proc constructNegentropy(storage: pointer, frameSizeLimit: uint64): pointer {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(negentropy: pointer): cstring  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+proc raw_initiate(negentropy: pointer, output: ptr Buffer): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
 proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(negentropy: pointer, query: ptr Buffer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
 proc raw_reconcile(negentropy: pointer, query: ptr Buffer, haveIds: cstringArray, haveIdsCount: pointer, needIds: cstringArray, needIdsCount: pointer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
@@ -82,6 +89,7 @@ proc raw_reconcile(negentropy: pointer, query: ptr Buffer, haveIds: cstringArray
 ### Wrappings ###
 
 #TODO: Change all these methods to private as we don't want them to be exposed outside Sync package
+#TODO: Wrap storage and negentropy with objects rather than using void pointers
 proc new_storage*(): pointer =
   let storage = storage_init("", "")
 
@@ -93,9 +101,9 @@ proc erase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   return raw_erase(storage, uint64(id), cString.unsafeAddr)
 
 proc insert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
-  let cString = toBuffer(hash)
-  debug "converted cstring ", len=cString.len
-  return raw_insert(storage, uint64(id), cString.unsafeAddr)
+  var buffer = toBuffer(hash)
+  var bufPtr = addr(buffer)
+  return raw_insert(storage, uint64(id), bufPtr)
 
 proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   let negentropy = constructNegentropy(storage, frameSizeLimit)
@@ -103,21 +111,28 @@ proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
   return negentropy
 
 proc initiate*(negentropy: pointer): seq[byte] =
-  let cString: cstring = raw_initiate(negentropy)
-  let bytes = StringtoBytes(cString)
-  debug "received return from initiate", len=bytes.len
+  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
+  var outBuffer: Buffer = toBuffer(output)
+  let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
+  let bytes:seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  debug "received return from initiate", len=outLen
   return bytes
-
 
 proc setInitiator*(negentropy: pointer) =
   raw_setInitiator(negentropy)
 
 proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
-  let cQuery = toBuffer(query)
+  let queryBuf = toBuffer(query)
+  var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
+  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
+  var outBuffer: Buffer = toBuffer(output)
 
-  let cppString:cstring = raw_reconcile(negentropy, cQuery.unsafeAddr)
+  let outLen: int = raw_reconcile(negentropy, queryBufPtr, outBuffer.unsafeAddr)
+  debug "received return from raw_reconcile", len=outLen
 
-  return StringtoBytes(cppString)
+  let bytes = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+
+  return bytes
 
 proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
   let cQuery = toBuffer(query)

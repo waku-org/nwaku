@@ -5,7 +5,8 @@ import
   testutils/unittests,
   chronos,
   chronicles,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  stew/byteutils
 
 
 import
@@ -13,7 +14,9 @@ import
     common/paging,
     node/peer_manager,
     waku_core,
+    waku_core/message/digest,
     waku_sync,
+    waku_sync/raw_bindings,
   ],
   ../testlib/[
     common,
@@ -23,6 +26,23 @@ import
 
 
 suite "Waku Sync - Protocol Tests":
+
+    asyncTest "test c integration":
+        let 
+            s1 = new_storage()
+            #s2 = new_storage()
+            ng1 = new_negentropy(s1,10000)
+
+        let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg1)
+        var ret = insert(s1, msg1.timestamp, msgHash)
+        if ret:
+            debug "inserted msg successfully to storage", hash=msgHash.to0xHex()
+        let output = initiate(ng1)
+        debug "initialized negentropy and output is ", output=output
+        ret = erase(s1, msg1.timestamp, msgHash)
+        if ret:
+            debug "removed msg successfully from storage", hash=msgHash.to0xHex()
 
     asyncTest "sync between 2 nodes":
         ## Setup
@@ -39,7 +59,7 @@ suite "Waku Sync - Protocol Tests":
         let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
             debug "Received needHashes from client:", len = hashes.len
             for hash in hashes:
-                debug "Hash received from Client:", hash=hash.toHex()
+                debug "Hash received from Client:", hash=hash.to0xHex()
 
         let
             server = await newTestWakuSync(serverSwitch, handler=protoHandler)
