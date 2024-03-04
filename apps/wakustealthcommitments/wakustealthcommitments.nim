@@ -41,8 +41,3 @@ when isMainModule:
     error "Could not send stealth commitment request", error = getCurrentExceptionMsg()
 
   runForever()
-
-
-
-
-
