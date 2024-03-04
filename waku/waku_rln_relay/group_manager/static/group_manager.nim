@@ -132,7 +132,8 @@ when defined(rln_v2):
             raise newException(ValueError, "Failed to remove member from the merkle tree")
 
           if g.withdrawCb.isSome():
-            await g.withdrawCb.get()(@[Membership(rateCommitment: rateCommitment, index: index)])
+            let withdrawCb = g.withdrawCb.get()
+            await withdrawCb(@[Membership(rateCommitment: rateCommitment, index: index)])
 
           return
 else:
@@ -151,7 +152,8 @@ else:
             raise newException(ValueError, "Failed to remove member from the merkle tree")
 
           if g.withdrawCb.isSome():
-            await g.withdrawCb.get()(@[Membership(idCommitment: idCommitment, index: index)])
+            let withdrawCb = await g.withdrawCb.get()
+            await withdrawCb((@[Membership(idCommitment: idCommitment, index: index)]))
 
           return
 
