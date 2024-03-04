@@ -209,7 +209,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     trace "waku.relay received",
       peerId=node.peerId,
       pubsubTopic=topic,
-      hash=topic.computeMessageHash(msg).to0xHex(),
+      msg_hash=topic.computeMessageHash(msg).to0xHex(),
       receivedTime=getNowInNanosecondTime(),
       payloadSizeBytes=msg.payload.len
 
@@ -237,7 +237,8 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await node.wakuArchive.handleMessage(topic, msg)
 
 
-  let defaultHandler = proc(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+  let defaultHandler = proc(topic: PubsubTopic,
+                            msg: WakuMessage): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
@@ -904,7 +905,7 @@ proc mountLightPush*(node: WakuNode) {.async.} =
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        debug("Lightpush request has not been published to any peers")
+        info "Lightpush request has not been published to any peers"
 
       return ok()
 
@@ -932,7 +933,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     return err("waku lightpush client is nil")
 
   if pubsubTopic.isSome():
-    debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
+    info "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, target_peer_id=peer.peerId
     return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
   let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
@@ -943,7 +944,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     else: topicMapRes.get()
 
   for pubsub, _ in topicMap.pairs: # There's only one pair anyway
-    debug "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, peer=peer.peerId
+    info "publishing message with lightpush", pubsubTopic=pubsub, contentTopic=message.contentTopic, target_peer_id=peer.peerId
     return await node.wakuLightpushClient.publish($pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)

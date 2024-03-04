@@ -132,12 +132,12 @@ proc initProtocolHandler(wfc: WakuFilterClient) =
 
     let decodeRes = MessagePush.decode(buf)
     if decodeRes.isErr():
-      error "Failed to decode message push", peerId=conn.peerId
+      error "Failed to decode message push", peer_id = conn.peerId
       waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
     let messagePush = decodeRes.value #TODO: toAPI() split here
-    trace "Received message push", peerId=conn.peerId, messagePush
+    info "received message push", peer_id = conn.peerId, messagePush
 
     for handler in wfc.pushHandlers:
       asyncSpawn handler(messagePush.pubsubTopic,

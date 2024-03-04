@@ -165,7 +165,7 @@ proc handleClientError(wf: WakuFilterLegacy, subs: seq[Subscription]) {.raises: 
 
 proc handleMessage*(wf: WakuFilterLegacy, pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
 
-  trace "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
+  info "handling message", pubsubTopic, contentTopic=msg.contentTopic, subscriptions=wf.subscriptions.len
 
   if wf.subscriptions.len <= 0:
     return

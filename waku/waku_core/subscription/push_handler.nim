@@ -10,4 +10,5 @@ import
   ../topics,
   ../message
 
-type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.}
+type FilterPushHandler* = proc(pubsubTopic: PubsubTopic,
+                               message: WakuMessage) {.async, gcsafe, closure.}

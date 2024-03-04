@@ -8,10 +8,13 @@ import
   std/sequtils,
   stew/byteutils,
   stew/endians2,
-  nimcrypto/sha2
+  nimcrypto/sha2,
+  chronicles
 import
   ../topics,
-  ./message
+  ./message,
+  ./codec,
+  ../../common/protobuf
 
 
 ## 14/WAKU2-MESSAGE: Deterministic message hashing
@@ -38,3 +41,4 @@ proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessag
   ctx.update(toBytesBE(uint64(msg.timestamp)))
 
   return ctx.finish()  # Computes the hash
+
