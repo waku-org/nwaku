@@ -62,7 +62,7 @@ proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Futur
   let rpc = PushRPC(requestId: requestId, response: some(response))
   return rpc
 
-proc initProtocolHandler*(wl: WakuLightPush) =
+proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
     let rpc = await handleRequest(wl, conn.peerId, buffer)

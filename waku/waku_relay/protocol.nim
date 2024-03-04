@@ -196,7 +196,7 @@ proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
 proc subscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
   return toSeq(GossipSub(w).topics.keys())
 
-proc generateOrderedValidator*(w: WakuRelay): auto {.gcsafe.} =
+proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
   # rejects messages that are not WakuMessage
   let wrappedValidator = proc(pubsubTopic: string,
                               message: messages.Message): Future[ValidationResult] {.async.} =
