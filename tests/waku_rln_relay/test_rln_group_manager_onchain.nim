@@ -433,17 +433,16 @@ suite "Onchain group manager":
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      
+      require:
+        registrations.len == 1
       when defined(rln_v2):
         require:
-          registrations.len == 1
           registrations[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1))
       else:
         require:
           registrations[0].idCommitment == idCommitment
       require:
         registrations[0].index == 0
-        registrations.len == 1
       fut.complete()
 
     manager.onRegister(callback)
