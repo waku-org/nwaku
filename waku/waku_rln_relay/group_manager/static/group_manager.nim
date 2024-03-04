@@ -152,7 +152,7 @@ else:
             raise newException(ValueError, "Failed to remove member from the merkle tree")
 
           if g.withdrawCb.isSome():
-            let withdrawCb = await g.withdrawCb.get()
+            let withdrawCb = g.withdrawCb.get()
             await withdrawCb((@[Membership(idCommitment: idCommitment, index: index)]))
 
           return
