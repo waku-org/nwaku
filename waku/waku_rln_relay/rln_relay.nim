@@ -408,7 +408,7 @@ proc mount(conf: WakuRlnConfig,
 
   when defined(rln_v2): 
     return WakuRLNRelay(groupManager: groupManager, 
-                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit),
+                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
                         rlnEpochSizeSec: conf.rlnEpochSizeSec,
                         rlnMaxEpochGap: uint64(MaxClockGapSeconds/float64(conf.rlnEpochSizeSec)),
                         onFatalErrorAction: conf.onFatalErrorAction)

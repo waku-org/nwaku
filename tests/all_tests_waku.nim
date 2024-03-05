@@ -80,9 +80,4 @@ import
   ./wakunode_rest/test_rest_admin,
   ./wakunode_rest/test_rest_cors
 
-import
-  ./waku_rln_relay/test_waku_rln_relay,
-  ./waku_rln_relay/test_wakunode_rln_relay,
-  ./waku_rln_relay/test_rln_group_manager_onchain,
-  ./waku_rln_relay/test_rln_group_manager_static,
-  ./wakunode_rest/test_rest_health
+import ./waku_rln_relay/test_all
