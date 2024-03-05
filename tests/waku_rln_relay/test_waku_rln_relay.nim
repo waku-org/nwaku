@@ -632,30 +632,25 @@ suite "Waku rln relay":
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for proof1 should be found, since the log is empty
-    let result1 = wakurlnrelay.hasDuplicate(proof1.extractMetadata().tryGet())
-    require:
-      result1.isOk()
-      # no duplicate is found
-      result1.value == false
+    let result1 = wakurlnrelay.hasDuplicate(epoch, proof1.extractMetadata().tryGet())
+    assert result1.isOk(), $result1.error
+    assert result1.value == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof1.extractMetadata().tryGet())
+    discard wakurlnrelay.updateLog(epoch, proof1.extractMetadata().tryGet())
 
-    # # no duplicate for proof2 should be found, its nullifier differs from proof1
-    let result2 = wakurlnrelay.hasDuplicate(proof2.extractMetadata().tryGet())
-    require:
-      result2.isOk()
-      # no duplicate is found
-      result2.value == false
+    # no duplicate for proof2 should be found, its nullifier differs from proof1
+    let result2 = wakurlnrelay.hasDuplicate(epoch, proof2.extractMetadata().tryGet())
+    assert result2.isOk(), $result2.error
+    # no duplicate is found
+    assert result2.value == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof2.extractMetadata().tryGet())
+    discard wakurlnrelay.updateLog(epoch, proof2.extractMetadata().tryGet())
 
     #  proof3 has the same nullifier as proof1 but different secret shares, it should be detected as duplicate
-    let result3 = wakurlnrelay.hasDuplicate(proof3.extractMetadata().tryGet())
-    require:
-      result3.isOk()
-    check:
-      # it is a duplicate
-      result3.value == true
+    let result3 = wakurlnrelay.hasDuplicate(epoch, proof3.extractMetadata().tryGet())
+    assert result3.isOk(), $result3.error
+    # it is a duplicate
+    assert result3.value, "duplicate should be found"
 
   asyncTest "validateMessageAndUpdateLog test":
     let index = MembershipIndex(5)
