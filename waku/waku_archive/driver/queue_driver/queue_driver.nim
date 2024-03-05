@@ -322,7 +322,8 @@ method deleteOldestMessagesNotWithinLimit*(driver: QueueDriver,
   return err("interface method not implemented")
 
 method decreaseDatabaseSize*(driver: QueueDriver,
-                             targetSizeInBytes: int64):
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
                              Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 

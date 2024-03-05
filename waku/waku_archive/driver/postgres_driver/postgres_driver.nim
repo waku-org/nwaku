@@ -142,8 +142,9 @@ proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let ret = await s.deleteMessageTable()
+  let targetSize = 0
+  let forceRemoval = true
+  let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
   return ret
 
 proc rowCallbackImpl(pqResult: ptr PGresult,
@@ -725,7 +726,8 @@ proc removeOldestPartition(self: PostgresDriver,
   return ok()
 
 method decreaseDatabaseSize*(driver: PostgresDriver,
-                             targetSizeInBytes: int64):
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
                              Future[ArchiveDriverResult[void]] {.async.} =
   var dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("decreaseDatabaseSize failed to get database size: " & $error)
@@ -738,8 +740,8 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
   if totalSizeOfDB <= targetSizeInBytes:
     return ok()
 
-  while totalSizeOfDB > targetSizeInBytes:
-    (await driver.removeOldestPartition()).isOkOr:
+  while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
+    (await driver.removeOldestPartition(forceRemoval)).isOkOr:
       return err("decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error)
 
     dbSize = (await driver.getDatabaseSize()).valueOr:
@@ -796,4 +798,5 @@ proc getCurrentVersion*(s: PostgresDriver):
     return err("error in getMessagesCount: " & $error)
 
   return ok(res)
+
 
