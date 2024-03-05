@@ -161,7 +161,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
     app.node.topicSubscriptionQueue,
   )
 
-#[ proc getPorts(listenAddrs: seq[MultiAddress]):
+proc getPorts(listenAddrs: seq[MultiAddress]):
               AppResult[tuple[tcpPort, websocketPort: Option[Port]]] =
 
   var tcpPort, websocketPort = none(Port)
@@ -179,7 +179,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
 
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
-proc updateNetConfig(app: var App): AppResult[void] =
+proc getRunningNetConfig(app: App): AppResult[NetConfig] =
 
   var conf = app.conf
   let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
@@ -195,23 +195,17 @@ proc updateNetConfig(app: var App): AppResult[void] =
   let netConf = networkConfiguration(conf, clientId).valueOr:
     return err("Could not update NetConfig: " & error)
 
-  app.netConf = netConf
+  return ok(netConf)
 
-  return ok()
+proc updateEnr(app: var App, netConf: NetConfig): AppResult[void] =
 
-proc updateEnr(app: var App): AppResult[void] =
-
-  let record = enrConfiguration(app.conf, app.netConf, app.key).valueOr:
+  let record = enrConfiguration(app.conf, netConf, app.key).valueOr:
     return err("ENR setup failed: " & error)
 
   if isClusterMismatched(record, app.conf.clusterId):
     return err("cluster id mismatch configured shards")
 
-  app.record = record
   app.node.enr = record
-
-  if app.conf.discv5Discovery:
-    app.wakuDiscV5 = some(app.setupDiscoveryV5())
 
   return ok()
 
@@ -219,17 +213,17 @@ proc updateApp(app: var App): AppResult[void] =
 
   if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
 
-    updateNetConfig(app).isOkOr:
+    let netConf = getRunningNetConfig(app).valueOr:
       return err("error calling updateNetConfig: " & $error)
 
-    updateEnr(app).isOkOr:
+    updateEnr(app, netConf).isOkOr:
       return err("error calling updateEnr: " & $error)
 
-    app.node.announcedAddresses = app.netConf.announcedAddresses
+    app.node.announcedAddresses = netConf.announcedAddresses
 
     printNodeNetworkInfo(app.node)
 
-  return ok() ]#
+  return ok()
 
 proc startApp*(app: var App): AppResult[void] =
 
@@ -241,8 +235,8 @@ proc startApp*(app: var App): AppResult[void] =
     return err("exception starting node: " & error)
 
   # Update app data that is set dynamically on node start
-  #[ app.updateApp().isOkOr:
-    return err("Error in updateApp: " & $error) ]#
+  app.updateApp().isOkOr:
+    return err("Error in updateApp: " & $error)
 
   ## Discv5
   if app.conf.discv5Discovery:
