@@ -39,8 +39,6 @@ suite "Waku Sync - Protocol Tests":
         var ret = insert(s1, msg1.timestamp, msgHash)
         if ret:
             debug "inserted msg successfully to storage s1", hash=msgHash.to0xHex()
-        let output = initiate(ng1)
-        debug "initialized negentropy and output is ", output=output
         ret = insert(s2, msg1.timestamp, msgHash)
         if ret:
             debug "inserted msg successfully to storage s2", hash=msgHash.to0xHex()
@@ -49,6 +47,14 @@ suite "Waku Sync - Protocol Tests":
         ret = insert(s2, msg2.timestamp, msgHash2)
         if ret:
             debug "inserted msg successfully to storage s2", hash=msgHash.to0xHex()
+        let ng1_q1 = initiate(ng1)
+        debug "initialized negentropy and output is ", output=ng1_q1
+
+        let ng2_q1 = serverReconcile(ng2, ng1_q1)
+        var
+          haveHashes: seq[WakuMessageHash]
+          needHashes: seq[WakuMessageHash]
+        let ng1_q2 = clientReconcile(ng1, ng2_q1, haveHashes, needHashes)
 
         ret = erase(s1, msg1.timestamp, msgHash)
         if ret:

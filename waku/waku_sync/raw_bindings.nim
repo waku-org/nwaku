@@ -39,6 +39,9 @@ type Buffer* = object
   len*: uint64
   `ptr`*: ptr uint8
 
+type ReconcileOutput* = object
+  
+  `output`*: ptr uint8
 
 proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
@@ -84,11 +87,11 @@ proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc:
 proc raw_reconcile(negentropy: pointer, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
 type
-  ReconcileCallback* = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer) {.cdecl, closure, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
+  ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
 
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
 
 ### Wrappings ###
 
@@ -146,13 +149,17 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
     cppNeedIds: cstringArray = allocCStringArray([])
     haveIdsLen: uint
     needIdsLen: uint ]#
-    output: seq[byte]
+    output: seq[byte] = newSeq[byte](1) #TODO: fix this hack.
 
-  let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, outBuffer: ptr Buffer) {.raises: [], gcsafe.} = 
-      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len
-      output = BufferToBytes(outBuffer)
+  let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
+                                        need_ids_len:uint64, outBuffer: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.} = 
+      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len  , outBufLen=outBuffer.len    
+      if outBuffer.len > 0:
+        let ret = BufferToBytes(outBuffer)
+        outptr = cast[ptr cchar](ret[0].unsafeAddr)
+      
   try:
-    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler)
+    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler, cast[ptr cchar](output[0].unsafeAddr))
     if ret != 0:
       error "failed to reconcile"
       return 
