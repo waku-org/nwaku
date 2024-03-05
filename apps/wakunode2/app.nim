@@ -87,35 +87,36 @@ func version*(app: App): string =
 
 ## Initialisation
 
-proc init*(T: type App, conf: var WakuNodeConf): Result[App, string] =
+proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
 
+  var confCopy = conf
   let rng = crypto.newRng()
 
-  if not conf.nodekey.isSome():
+  if not confCopy.nodekey.isSome():
     let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
     if keyRes.isErr():  
       error "Failed to generate key", error = $keyRes.error
       return err("Failed to generate key: " & $keyRes.error)
-    conf.nodekey = some(keyRes.get())
+    confCopy.nodekey = some(keyRes.get())
 
   debug "Retrieve dynamic bootstrap nodes"
-  let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(conf.dnsDiscovery,
-                                                              conf.dnsDiscoveryUrl,
-                                                              conf.dnsDiscoveryNameServers)
+  let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(confCopy.dnsDiscovery,
+                                                              confCopy.dnsDiscoveryUrl,
+                                                              confCopy.dnsDiscoveryNameServers)
   if dynamicBootstrapNodesRes.isErr():
     error "Retrieving dynamic bootstrap nodes failed", error = dynamicBootstrapNodesRes.error
     return err("Retrieving dynamic bootstrap nodes failed: " & dynamicBootstrapNodesRes.error)
 
-  let nodeRes = setupNode(conf, some(rng))
+  let nodeRes = setupNode(confCopy, some(rng))
   if nodeRes.isErr():    
     error "Failed setting up node", error=nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
   var app = App(
            version: git_version,
-           conf: conf,
+           conf: confCopy,
            rng: rng,
-           key: conf.nodekey.get(),
+           key: confCopy.nodekey.get(),
            node: nodeRes.get(),
            dynamicBootstrapNodes: dynamicBootstrapNodesRes.get()
           )
