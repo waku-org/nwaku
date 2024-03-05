@@ -67,7 +67,6 @@ type
     conf: WakuNodeConf
     rng: ref HmacDrbgContext
     key: crypto.PrivateKey
-    #record: Record
 
     wakuDiscv5: Option[WakuDiscoveryV5]
     dynamicBootstrapNodes: seq[RemotePeerInfo]
@@ -146,7 +145,7 @@ proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
 
   let discv5Conf = WakuDiscoveryV5Config(
     discv5Config: some(discv5Config),
-    address: app.conf.listenAddress, # TO DO: take this from the node instead of app.conf
+    address: app.node.switch.peerInfo.listenAddrs,
     port: discv5UdpPort,
     privateKey: keys.PrivateKey(app.key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,
