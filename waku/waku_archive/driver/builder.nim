@@ -15,7 +15,6 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./postgres_driver/migrations as archive_postgres_driver_migrations,
   ./queue_driver
 
 export
@@ -23,7 +22,9 @@ export
   queue_driver
 
 when defined(postgres):
-  import ./postgres_driver ## This import adds dependency with an external libpq library
+  import ## These imports add dependency with an external libpq library
+    ./postgres_driver/migrations as archive_postgres_driver_migrations,  
+    ./postgres_driver 
   export postgres_driver
 
 proc new*(T: type ArchiveDriver,
