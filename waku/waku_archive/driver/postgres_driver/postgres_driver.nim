@@ -25,10 +25,10 @@ type PostgresDriver* = ref object of ArchiveDriver
   readConnPool: PgAsyncPool
 
   ## Partition container
-  partitionMngr*: PartitionManager
-
 proc dropTableQuery(): string =
   "DROP TABLE messages"
+  partitionMngr: PartitionManager
+  futLoopPartitionFactory: Future[void]
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
@@ -499,6 +499,9 @@ method deleteOldestMessagesNotWithinLimit*(
 
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
+  ## Cancel the partition factory loop
+  s.futLoopPartitionFactory.cancel()
+
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
   let readCloseRes = await s.readConnPool.close()
@@ -603,8 +606,8 @@ proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
 const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
-proc loopPartitionFactory*(self: PostgresDriver,
-                           onFatalError: OnFatalErrorHandler) {.async.} =
+proc loopPartitionFactory(self: PostgresDriver,
+                          onFatalError: OnFatalErrorHandler) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
 
@@ -647,6 +650,12 @@ proc loopPartitionFactory*(self: PostgresDriver,
           onFatalError("could not add the next partition: " & $error)
 
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
+
+proc startPartitionFactory*(self: PostgresDriver,
+                            onFatalError: OnFatalErrorHandler) {.async.} =
+
+  self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
+
 
 proc removeOldestPartition(self: PostgresDriver,
                            forceRemoval: bool = false, ## To allow cleanup in tests
