@@ -22,7 +22,7 @@ cp ./target/release/liberc_5564_bn254.a <path-to-nwaku>
 ```sh
 cd <path-to-nwaku>
 source env.sh
-nim c --out:build/wakustealthcommitments  --verbosity:0 --hints:off -d:chronicles_log_level=INFO -d:git_version="v0.24.0-rc.0-62-g7da25c" -d:release --passL:-lm --passL:liberc_5564_bn254.a --debugger:native apps/wakustealthcommitments/wakustealthcommitments.nim
+nim c --out:build/wakustealthcommitments  --verbosity:0 --hints:off -d:chronicles_log_level=INFO -d:git_version="v0.24.0-rc.0-62-g7da25c" -d:release --passL:-lm --passL:liberc_5564_bn254.a --debugger:native examples/wakustealthcommitments/wakustealthcommitments.nim
 ```
 
 3. 

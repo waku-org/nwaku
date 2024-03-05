@@ -98,10 +98,6 @@ task chat2, "Build example Waku chat usage":
   let name = "chat2"
   buildBinary name, "apps/chat2/", "-d:chronicles_sinks=textlines[file] -d:ssl"
 
-task wakustealthcommitments, "Build waku stealth commitment protocol":
-  let name = "wakustealthcommitments"
-  buildBinary name, "apps/wakustealthcommitments/"
-
 task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
   buildBinary name, "apps/chat2bridge/"

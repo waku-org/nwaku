@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import ../wakunode2/[networks_config, app, external_config]
+import ../../apps/wakunode2/[networks_config, app, external_config]
 import ../../waku/common/logging
 import
   std/[options, strutils, os, sequtils],
