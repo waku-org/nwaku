@@ -30,19 +30,6 @@ type PostgresDriver* = ref object of ArchiveDriver
 proc dropTableQuery(): string =
   "DROP TABLE messages"
 
-proc createTableQuery(): string =
-  "CREATE TABLE IF NOT EXISTS messages (" &
-  " pubsubTopic VARCHAR NOT NULL," &
-  " contentTopic VARCHAR NOT NULL," &
-  " payload VARCHAR," &
-  " version INTEGER NOT NULL," &
-  " timestamp BIGINT NOT NULL," &
-  " id VARCHAR NOT NULL," &
-  " messageHash VARCHAR NOT NULL," &
-  " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (messageHash, storedAt)" &
-  ") PARTITION BY RANGE (storedAt);"
-
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   # TODO: get the sql queries from a file
@@ -114,32 +101,6 @@ proc new*(T: type PostgresDriver,
                               readConnPool: readConnPool,
                               partitionMngr: PartitionManager.new())
   return ok(driver)
-
-proc createMessageTable*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.}  =
-
-  let execRes = await s.writeConnPool.pgQuery(createTableQuery())
-  if execRes.isErr():
-    return err("error in createMessageTable: " & execRes.error)
-
-  return ok()
-
-proc deleteMessageTable*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.} =
-
-  let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
-  if execRes.isErr():
-    return err("error in deleteMessageTable: " & execRes.error)
-
-  return ok()
-
-proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let createMsgRes = await s.createMessageTable()
-  if createMsgRes.isErr():
-    return err("createMsgRes.isErr in init: " & createMsgRes.error)
-
-  return ok()
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   let targetSize = 0
