@@ -25,8 +25,6 @@ type PostgresDriver* = ref object of ArchiveDriver
   readConnPool: PgAsyncPool
 
   ## Partition container
-proc dropTableQuery(): string =
-  "DROP TABLE messages"
   partitionMngr: PartitionManager
   futLoopPartitionFactory: Future[void]
 
@@ -103,6 +101,7 @@ proc new*(T: type PostgresDriver,
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Clear the database partitions
   let targetSize = 0
   let forceRemoval = true
   let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
@@ -731,7 +730,7 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
 
     totalSizeOfDB = newCurrentSize
 
-    debug "Reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+    debug "reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
 
   return ok()
 
