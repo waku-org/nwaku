@@ -621,6 +621,7 @@ proc loopPartitionFactory*(self: PostgresDriver,
     let now = times.now().toTime().toUnix()
 
     if self.partitionMngr.isEmpty():
+      debug "adding partition because now there aren't more partitions"
       (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
         onFatalError("error when creating a new partition from empty state: " & $error)
     else:
@@ -630,11 +631,13 @@ proc loopPartitionFactory*(self: PostgresDriver,
 
       let newestPartition = newestPartitionRes.get()
       if newestPartition.containsMoment(now):
+        debug "creating a new partition for the future"
         ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
         (await self.addPartition(newestPartition.getLastMoment(), PartitionsRangeInterval)).isOkOr:
           onFatalError("could not add the next partition for 'now': " & $error)
       elif now >= newestPartition.getLastMoment():
+        debug "creating a new partition to contain current messages"
         ## There is no partition to contain the current time.
         ## This happens if the node has been stopped for quite a long time.
         ## Then, let's create the needed partition to contain 'now'.
