@@ -725,6 +725,9 @@ proc removeOldestPartition(self: PostgresDriver,
 
   return ok()
 
+proc containsAnyPartition*(self: PostgresDriver): bool =
+  return not self.partitionMngr.isEmpty()
+
 method decreaseDatabaseSize*(driver: PostgresDriver,
                              targetSizeInBytes: int64,
                              forceRemoval: bool = false):

@@ -110,6 +110,15 @@ proc new*(T: type ArchiveDriver,
       ## This should be started once we make sure the 'messages' table exists
       asyncSpawn driver.loopPartitionFactory(onFatalErrorAction)
 
+      info "waiting for a partition to be created"
+      for i in 0..<100:
+        if driver.containsAnyPartition():
+          break
+        await sleepAsync(chronos.milliseconds(100))
+
+      if not driver.containsAnyPartition():
+        return err("a partition could not be created")
+
       return ok(driver)
 
     else:
