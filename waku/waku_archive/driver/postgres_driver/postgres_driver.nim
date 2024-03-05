@@ -560,7 +560,7 @@ proc addPartition(self: PostgresDriver,
 
   let partitionName = "messages_" & fromInSec & "_" & untilInSec
 
-  let createPartitionQuery = "CREATE TABLE " & partitionName & " PARTITION OF " &
+  let createPartitionQuery = "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
         "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
 
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
