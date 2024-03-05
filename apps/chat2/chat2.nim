@@ -26,7 +26,6 @@ import
   ../../waku/waku_core,
   ../../waku/waku_lightpush/common,
   ../../waku/waku_lightpush/rpc,
-  ../../waku/waku_filter,
   ../../waku/waku_enr,
   ../../waku/waku_store,
   ../../waku/waku_dnsdisc,
@@ -266,13 +265,6 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo "You are now known as " & c.nick
 
     elif line.startsWith("/exit"):
-      if not c.node.wakuFilterLegacy.isNil():
-        echo "unsubscribing from content filters..."
-
-        let peerOpt = c.node.peerManager.selectPeer(WakuLegacyFilterCodec)
-        if peerOpt.isSome():
-          await c.node.legacyFilterUnsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic, peer=peerOpt.get())
-
       echo "quitting..."
 
       try:
@@ -472,20 +464,13 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let peerInfo = parsePeerInfo(conf.filternode)
     if peerInfo.isOk():
       await node.mountFilter()
-      await node.mountLegacyFilter()
       await node.mountFilterClient()
-      node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
       proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
         trace "Hit filter handler", contentTopic=msg.contentTopic
         chat.printReceivedMessage(msg)
 
-      await node.legacyFilterSubscribe(pubsubTopic=some(DefaultPubsubTopic),
-                                       contentTopics=chat.contentTopic,
-                                       filterHandler,
-                                       peerInfo.value)
-      # TODO: Here to support FilterV2 relevant subscription, but still
-      # Legacy Filter is concurrent to V2 untill legacy filter will be removed
+      # TODO: Here to support FilterV2 relevant subscription.
     else:
       error "Filter not mounted. Couldn't parse conf.filternode",
                 error = peerInfo.error

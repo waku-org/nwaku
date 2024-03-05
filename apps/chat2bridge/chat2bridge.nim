@@ -18,7 +18,6 @@ import
   ../../../waku/waku_core,
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
-  ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ../../waku/waku_store,
   ../../waku/factory/builder,
@@ -268,7 +267,6 @@ when isMainModule:
 
   if conf.filter:
     waitFor mountFilter(bridge.nodev2)
-    waitFor mountLegacyFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
@@ -283,7 +281,6 @@ when isMainModule:
   if conf.filternode != "":
     let filterPeer = parsePeerInfo(conf.filternode)
     if filterPeer.isOk():
-      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuLegacyFilterCodec)
       bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
     else:
       error "Error parsing conf.filternode", error = filterPeer.error

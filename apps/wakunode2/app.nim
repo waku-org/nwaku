@@ -34,7 +34,6 @@ import
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
   ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
-  ../../waku/waku_api/rest/filter/legacy_handlers as rest_legacy_filter_api,
   ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
   ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
@@ -48,7 +47,6 @@ import
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
   ../../waku/waku_lightpush/common,
-  ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ../../waku/factory/node_factory,
   ../../waku/factory/internal_config,
@@ -393,11 +391,7 @@ proc startRestServer(app: App,
 
   ## Filter REST API
   if conf.filternode  != "" and
-     app.node.wakuFilterClient != nil and
-     app.node.wakuFilterClientLegacy != nil:
-
-    let legacyFilterCache = MessageCache.init()
-    rest_legacy_filter_api.installLegacyFilterRestApiHandlers(server.router, app.node, legacyFilterCache)
+     app.node.wakuFilterClient != nil:
 
     let filterCache = MessageCache.init()
 
