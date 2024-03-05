@@ -18,7 +18,7 @@ const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
 
-proc StringtoBytes(data: cstring): seq[byte] =
+#[ proc StringtoBytes(data: cstring): seq[byte] =
   let size = data.len()
 
   var bytes = newSeq[byte](size)
@@ -33,7 +33,7 @@ proc toWakuMessageHash(data: string): WakuMessageHash =
 
   copyMem(hash[0].addr, data.unsafeAddr, 32)
 
-  return hash
+  return hash ]#
 
 type Buffer* = object
   len*: uint64
@@ -83,8 +83,12 @@ proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc:
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
 proc raw_reconcile(negentropy: pointer, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
+type
+  ReconcileCallback* = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer) {.cdecl, closure, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
+
+
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(negentropy: pointer, query: ptr Buffer, haveIds: cstringArray, haveIdsCount: pointer, needIds: cstringArray, needIdsCount: pointer): cstring {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
 
 ### Wrappings ###
 
@@ -138,14 +142,25 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
   let cQuery = toBuffer(query)
   
   var 
-    cppHaveIds: cstringArray = allocCStringArray([])
+#[     cppHaveIds: cstringArray = allocCStringArray([])
     cppNeedIds: cstringArray = allocCStringArray([])
     haveIdsLen: uint
-    needIdsLen: uint
+    needIdsLen: uint ]#
+    output: seq[byte]
 
-  let cppString: cstring = raw_reconcile(negentropy, cQuery.unsafeAddr, cppHaveIds, haveIdsLen.addr , cppNeedIds , needIdsLen.addr)
+  let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, outBuffer: ptr Buffer) {.raises: [], gcsafe.} = 
+      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len
+      output = BufferToBytes(outBuffer)
+  try:
+    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler)
+    if ret != 0:
+      error "failed to reconcile"
+      return 
+  except Exception as e:
+    error "exception raised from raw_reconcile", error=e.msg
+
   
-  debug "haveIdsLen", len=haveIdsLen
+#[   debug "haveIdsLen", len=haveIdsLen
 
   for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
     haveIds.add(toWakuMessageHash(ele))
@@ -154,8 +169,7 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
     needIds.add(toWakuMessageHash(ele))
 
   deallocCStringArray(cppHaveIds)
-  deallocCStringArray(cppNeedIds)
-  debug "return " , output=cppString
-  let payload: seq[byte] = StringtoBytes(cppString)
+  deallocCStringArray(cppNeedIds) ]#
+  debug "return " , output=output
 
-  return payload
+  return output
