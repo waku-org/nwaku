@@ -566,7 +566,7 @@ proc addPartition(self: PostgresDriver,
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
     return err(fmt"error adding partition [{partitionName}]: " & $error)
 
-  debug "New partition added", query = createPartitionQuery
+  debug "new partition added", query = createPartitionQuery
 
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
@@ -607,6 +607,8 @@ proc loopPartitionFactory*(self: PostgresDriver,
                            onFatalError: OnFatalErrorHandler) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
+
+  debug "starting loopPartitionFactory"
 
   if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
     onFatalError("partition factory partition range interval should be bigger than check interval")
@@ -702,7 +704,7 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
   ## database size in bytes
   var totalSizeOfDB: int64 = int64(dbSize)
 
-  debug "Reduce database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+  debug "reduce database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
 
   if totalSizeOfDB <= targetSizeInBytes:
     return ok()
