@@ -47,7 +47,7 @@ proc getPartitionFromDateTime*(self: PartitionManager,
     if beginning <= targetMoment and targetMoment < `end`:
       return ok(partition)
 
-  return err("Could'nt find a partition table for given time: " & $targetMoment)
+  return err("Couldn't find a partition table for given time: " & $targetMoment)
 
 proc getNewestPartition*(self: PartitionManager): Result[Partition, string] =
   if self.partitions.len == 0:
