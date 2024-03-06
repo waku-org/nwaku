@@ -683,12 +683,6 @@ proc removeOldestPartition(self: PostgresDriver,
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
     return err(fmt"error in {detachPartitionQuery}: " & $error)
 
-  ## Clear all data from the partition and retrieve back space to the operating system
-  let truncateQuery = "TRUNCATE TABLE " & oldestPartition.getName()
-  debug "removeOldestPartition truncate", query = truncateQuery
-  (await self.performWriteQuery(truncateQuery)).isOkOr:
-    return err(fmt"error in {truncateQuery}: " & $error)
-
   ## Drop the partition
   let dropPartitionQuery = "DROP TABLE " & oldestPartition.getName()
   debug "removeOldestPartition drop partition", query = dropPartitionQuery
