@@ -133,21 +133,16 @@ proc updateLog*(rlnPeer: WakuRLNRelay,
   ## Returns an error if it cannot update the log
 
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(epoch):
-    rlnPeer.nullifierLog[epoch] = initTable[Nullifier, ProofMetadata]()
-    try: 
-      rlnPeer.nullifierLog[epoch][proofMetadata.nullifier] = proofMetadata
-    except KeyError:
-      return err("the epoch was not found") # should never happen
+  if not rlnPeer.nullifierLog.hasKeyOrPut(epoch, { proofMetadata.nullifier: proofMetadata }.toTable()):
     return ok()
 
   try:
     # check if an identical record exists
-    if rlnPeer.nullifierLog[epoch].hasKey(proofMetadata.nullifier):
+    if rlnPeer.nullifierLog[epoch].hasKeyOrPut(proofMetadata.nullifier, proofMetadata):
+      # the above condition could be `discarded` but it is kept for clarity, that slashing will 
+      # be implemented here
       # TODO: slashing logic
       return ok()
-    # add proofMetadata to the log
-    rlnPeer.nullifierLog[epoch][proofMetadata.nullifier] = proofMetadata
     return ok()
   except KeyError:
     return err("the epoch was not found") # should never happen

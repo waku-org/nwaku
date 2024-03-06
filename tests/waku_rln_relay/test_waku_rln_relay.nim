@@ -705,6 +705,55 @@ suite "Waku rln relay":
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
 
+  asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
+    let index1 = MembershipIndex(5)
+    let index2 = MembershipIndex(6)
+
+    let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                 rlnRelayCredIndex: some(index1),
+                                 rlnEpochSizeSec: 1,
+                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
+    let wakuRlnRelay1Res = await WakuRlnRelay.new(rlnConf1)
+    if wakuRlnRelay1Res.isErr(): assert false, "failed to create waku rln relay: " & $wakuRlnRelay1Res.error
+    let wakuRlnRelay1 = wakuRlnRelay1Res.get()
+
+    let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                 rlnRelayCredIndex: some(index2),
+                                 rlnEpochSizeSec: 1,
+                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+    let wakuRlnRelay2Res = await WakuRlnRelay.new(rlnConf2)
+    if wakuRlnRelay2Res.isErr():
+      assert false, "failed to create waku rln relay: " & $wakuRlnRelay2Res.error
+    let wakuRlnRelay2 = wakuRlnRelay2Res.get()
+    # get the current epoch time
+    let time = epochTime()
+
+    #  create messages from different peers and append rln proofs to them
+    var
+      wm1 = WakuMessage(payload: "Valid message from sender 1".toBytes())
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(payload: "Valid message from sender 2".toBytes())
+
+
+    let
+      proofAdded1 = wakuRlnRelay1.appendRLNProof(wm1, time)
+      proofAdded2 = wakuRlnRelay2.appendRLNProof(wm2, time)
+
+    # ensure proofs are added
+    assert proofAdded1.isOk(), "failed to append rln proof: " & $proofAdded1.error
+    assert proofAdded2.isOk(), "failed to append rln proof: " & $proofAdded2.error
+
+    # validate messages
+    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
+    let
+      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1, some(time))
+      # since this message is from a different sender, it should be validated successfully
+      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2, some(time))
+
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Valid
+
   test "toIDCommitment and toUInt256":
     # create an instance of rln
     let rlnInstance = createRLNInstanceWrapper()
