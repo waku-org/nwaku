@@ -108,6 +108,19 @@ proc new*(T: type ArchiveDriver,
         if migrateRes.isErr():
           return err("ArchiveDriver build failed in migration: " & $migrateRes.error)
 
+      ## This should be started once we make sure the 'messages' table exists
+      ## Hence, this should be run after the migration is completed.
+      asyncSpawn driver.startPartitionFactory(onFatalErrorAction)
+
+      info "waiting for a partition to be created"
+      for i in 0..<100:
+        if driver.containsAnyPartition():
+          break
+        await sleepAsync(chronos.milliseconds(100))
+
+      if not driver.containsAnyPartition():
+        onFatalErrorAction("a partition could not be created")
+
       return ok(driver)
 
     else:
