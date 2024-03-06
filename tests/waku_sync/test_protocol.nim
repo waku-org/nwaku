@@ -46,7 +46,7 @@ suite "Waku Sync - Protocol Tests":
         let msgHash2: WakuMessageHash = computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg2)
         ret = insert(s2, msg2.timestamp, msgHash2)
         if ret:
-            debug "inserted msg successfully to storage s2", hash=msgHash.to0xHex()
+            debug "inserted msg successfully to storage s2", hash=msgHash2.to0xHex()
         let ng1_q1 = initiate(ng1)
         debug "initialized negentropy and output is ", output=ng1_q1
 

@@ -9,7 +9,8 @@ import
    std/[strutils],
    ../waku_core/message,
    chronicles,
-   std/options
+   std/options,
+   stew/byteutils
 
 const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep & "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
@@ -24,24 +25,27 @@ const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
   var bytes = newSeq[byte](size)
   copyMem(bytes[0].addr, data[0].unsafeAddr, size)
 
-  return bytes
-
-proc toWakuMessageHash(data: string): WakuMessageHash =
-  assert data.len() == 32
-
-  var hash: WakuMessageHash
-
-  copyMem(hash[0].addr, data.unsafeAddr, 32)
-
-  return hash ]#
+  return bytes ]#
 
 type Buffer* = object
   len*: uint64
   `ptr`*: ptr uint8
 
-type ReconcileOutput* = object
-  
-  `output`*: ptr uint8
+type BindingResult* = object
+  output: Buffer
+  have_ids_len: uint
+  need_ids_len: uint
+  have_ids: ptr Buffer
+  need_ids: ptr Buffer
+
+proc toWakuMessageHash(buffer: Buffer): WakuMessageHash =
+  assert buffer.len == 32
+
+  var hash: WakuMessageHash
+
+  copyMem(hash[0].addr, buffer.ptr, 32)
+
+  return hash
 
 proc toBuffer*(x: openArray[byte]): Buffer =
   ## converts the input to a Buffer object
@@ -61,6 +65,13 @@ proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[b
   let bytes = newSeq[byte](bufLen)
   copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
   return bytes
+
+proc toBufferSeq(buffLen: uint, buffPtr: ptr Buffer): seq[Buffer] =
+    var uncheckedArr = cast[ptr UncheckedArray[Buffer]](buffPtr)
+    var mySequence = newSeq[Buffer](buffLen)
+    for i in 0..buffLen-1:
+        mySequence[i] = uncheckedArr[i]
+    return mySequence
 
 ### Storage ###
 
@@ -85,13 +96,17 @@ proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc:
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
 proc raw_reconcile(negentropy: pointer, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
-
+#[ 
 type
   ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
-
+ ]#
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+#proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
+
+proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
 
 ### Wrappings ###
 
@@ -144,14 +159,53 @@ proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
 proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
   let cQuery = toBuffer(query)
   
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  myResult.have_ids_len = 0
+  myResult.need_ids_len = 0
+  var myResultPtr = addr myResult
+
+  raw_reconcile(negentropy, cQuery.unsafeAddr, myResultPtr)
+
+  var output: seq[byte]
+  if myResultPtr == nil:
+    error "ERROR from raw_reconcile!"
+    return output
+
+  if myResult.output.len > 0:
+    output = BufferToBytes(addr myResult.output)
+
   var 
-#[     cppHaveIds: cstringArray = allocCStringArray([])
+    have_hashes: seq[Buffer]  
+    need_hashes: seq[Buffer] 
+
+  if myResult.have_ids_len > 0:
+    have_hashes = toBufferSeq(myResult.have_ids_len, myResult.have_ids)
+  if myResult.need_ids_len > 0:
+    need_hashes = toBufferSeq(myResult.need_ids_len, myResult.need_ids)
+
+  debug "have and need hashes ",have_count=have_hashes.len, need_count=need_hashes.len
+
+  for i in 0..have_hashes.len - 1:
+    var hash = toWakuMessageHash(have_hashes[i])
+    debug "have hashes ", index=i, hash=hash.to0xHex()
+    haveIds.add(hash)
+
+  for i in 0..need_hashes.len - 1:
+    var hash = toWakuMessageHash(need_hashes[i])
+    debug "need hashes ", index=i, hash=hash.to0xHex()
+    needIds.add(hash)
+
+
+#[  Callback Approach, to be uncommented later during optimization phase    
+  var 
+    cppHaveIds: cstringArray = allocCStringArray([])
     cppNeedIds: cstringArray = allocCStringArray([])
     haveIdsLen: uint
-    needIdsLen: uint ]#
+    needIdsLen: uint
     output: seq[byte] = newSeq[byte](1) #TODO: fix this hack.
 
-  let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
+  
+    let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
                                         need_ids_len:uint64, outBuffer: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.} = 
       debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len  , outBufLen=outBuffer.len    
       if outBuffer.len > 0:
@@ -164,7 +218,7 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
       error "failed to reconcile"
       return 
   except Exception as e:
-    error "exception raised from raw_reconcile", error=e.msg
+    error "exception raised from raw_reconcile", error=e.msg ]#
 
   
 #[   debug "haveIdsLen", len=haveIdsLen
@@ -177,6 +231,8 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
 
   deallocCStringArray(cppHaveIds)
   deallocCStringArray(cppNeedIds) ]#
+  free_result(myResultPtr)
+
   debug "return " , output=output
 
   return output
