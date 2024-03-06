@@ -58,7 +58,7 @@ proc run(ctx: ptr Context) {.thread.} =
     var request: ptr InterThreadRequest
     waitFor ctx.reqSignal.wait()
     let recvOk = ctx.reqChannel.tryRecv(request)
-    if recvOk == true:
+    if running.load and recvOk == true:
       let resultResponse =
         waitFor InterThreadRequest.process(request, addr node)
 
