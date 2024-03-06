@@ -6,173 +6,234 @@ else:
 from os import DirSep
 
 import
-  std/[strutils, sequtils]
+   std/[strutils],
+   ../waku_core/message,
+   chronicles,
+   std/options,
+   stew/byteutils
 
-import
-   ../waku_core/message
+const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep & "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
-{.link: "../waku_sync/negentropy.so".} #TODO build the dyn lib
+{.link: negentropyPath & "libnegentropy.so".} 
 
-const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0]
+const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
-const NEGENTROPY_HEADER = negentropyPath & DirSep & "headers" & DirSep & "negentropy.h"
 
-### String ###
-
-type
-  String {.importcpp: "std::string", header: "<string>", byref.} = object
-
-proc size(self: String): csize_t {.importcpp: "size", header: "<string>".}
-proc resize(self: String, len: csize_t) {.importcpp: "resize", header: "<string>".}
-proc cStr(self: String): pointer {.importcpp: "c_str", header: "<string>".}
-proc initString(): String {.importcpp: "std::string()", constructor, header: "<string>"}
-
-proc toBytes(self: String): seq[byte] =
-  let size = self.size()
+#[ proc StringtoBytes(data: cstring): seq[byte] =
+  let size = data.len()
 
   var bytes = newSeq[byte](size)
+  copyMem(bytes[0].addr, data[0].unsafeAddr, size)
 
-  copyMem(bytes[0].addr, self.cStr(), size)
+  return bytes ]#
 
-  return bytes
+type Buffer* = object
+  len*: uint64
+  `ptr`*: ptr uint8
 
-proc toWakuMessageHash(self: String): WakuMessageHash =
-  assert self.size == 32
+type BindingResult* = object
+  output: Buffer
+  have_ids_len: uint
+  need_ids_len: uint
+  have_ids: ptr Buffer
+  need_ids: ptr Buffer
+
+proc toWakuMessageHash(buffer: Buffer): WakuMessageHash =
+  assert buffer.len == 32
 
   var hash: WakuMessageHash
 
-  copyMem(hash[0].addr, self.cStr(), 32)
+  copyMem(hash[0].addr, buffer.ptr, 32)
 
   return hash
 
-proc fromWakuMessageHash(T: type String, hash: WakuMessageHash): T  =
-  let cppString = initString()
+proc toBuffer*(x: openArray[byte]): Buffer =
+  ## converts the input to a Buffer object
+  ## the Buffer object is used to communicate data with the rln lib
+  var temp = @x
+  let baseAddr = cast[pointer](x)
+  let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint64(temp.len))
+  return output
 
-  cppString.resize(csize_t(32)) # add the null terminator at the end???
+proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[byte] =
+  var bufLen: uint64
+  if isNone(len):
+    bufLen = buffer.len
+  else:
+    bufLen = len.get()
+  if bufLen == 0:
+    return @[]
+  debug "length of buffer is",len=bufLen
+  let bytes = newSeq[byte](bufLen)
+  copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
+  return bytes
 
-  copyMem(cppString.cStr(), hash[0].unsafeAddr, 32)
-
-  return cppString
-
-proc fromBytes(T: type String, bytes: seq[byte]): T =
-  let size = bytes.len
-
-  let cppString = initString()
-
-  cppString.resize(csize_t(size)) # add the null terminator at the end???
-
-  copyMem(cppString.cStr(), bytes[0].unsafeAddr, size)
-
-  return cppString
-
-### Vector ###
-
-type
-  Vector[T] {.importcpp: "std::vector", header: "<vector>", byref.} = object
-  VectorIter[T] {.importcpp: "std::vector<'0>::iterator", header: "<vector>", byref.} = object
-
-proc initVector[T](): Vector[T] {.importcpp: "std::vector<'*0>()", constructor, header: "<vector>".}
-proc size(self: Vector): csize_t {.importcpp: "size", header: "<vector>".}
-proc begin[T](self: Vector[T]): VectorIter[T] {.importcpp: "begin", header: "<vector>".}
-proc `[]`[T](self: VectorIter[T]): T {.importcpp: "*#", header: "<vector>".}
-proc next*[T](self: VectorIter[T]; n = 1): VectorIter[T] {.importcpp: "next(@)", header: "<iterator>".}
-
-proc toSeq*[T](vec: Vector[T]): seq[T] =
-  result = newSeq[T](vec.size())
-
-  var itr = vec.begin()
-
-  for i in 0..<vec.size():
-    result[i] = itr[]
-    itr = itr.next()
+proc toBufferSeq(buffLen: uint, buffPtr: ptr Buffer): seq[Buffer] =
+    var uncheckedArr = cast[ptr UncheckedArray[Buffer]](buffPtr)
+    var mySequence = newSeq[Buffer](buffLen)
+    for i in 0..buffLen-1:
+        mySequence[i] = uncheckedArr[i]
+    return mySequence
 
 ### Storage ###
 
-type
-  Storage* {.importcpp: "negentropy::storage::BTreeMem", header: NEGENTROPY_HEADER, byref.} = object
+proc storage_init(db_path:cstring, name: cstring): pointer{. header: NEGENTROPY_HEADER, importc: "storage_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
-proc raw_insert(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::insert".}
+proc raw_insert(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
-proc raw_erase(this: Storage, timestamp: clong, id: String) {.importcpp: "negentropy::storage::btree::erase".}
+proc raw_erase(storage: pointer, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
 ### Negentropy ###
 
-type
-  Negentropy* {.importCpp: "negentropy::Negentropy", header: NEGENTROPY_HEADER, byref.} = object
-
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L42
-proc constructNegentropy(storage: Storage, frameSizeLimit: culong): Negentropy {.importcpp: "negentropy::Negentropy(@)", constructor.}
+proc constructNegentropy(storage: pointer, frameSizeLimit: uint64): pointer {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(this: Negentropy): String {.importcpp: "negentropy::initiate".}
+proc raw_initiate(negentropy: pointer, output: ptr Buffer): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
-proc raw_setInitiator(this: Negentropy) {.importcpp: "negentropy::setInitiator".}
+proc raw_setInitiator(negentropy: pointer) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(this: Negentropy, query: String): String {.importcpp: "negentropy::reconcile".}
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
+#[ 
+type
+  ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
+ ]#
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-proc raw_reconcile(this: Negentropy, query: String, haveIds: var Vector[String], needIds: var Vector[String]): String {.importcpp: "negentropy::reconcile".}
+#proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+
+proc raw_reconcile(negentropy: pointer, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
+
+proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
 
 ### Wrappings ###
 
-proc new*(T: type Storage): T =
-  let storage = Storage()
+#TODO: Change all these methods to private as we don't want them to be exposed outside Sync package
+#TODO: Wrap storage and negentropy with objects rather than using void pointers
+proc negentropyNewStorage*(): pointer =
+  let storage = storage_init("", "")
 
   return storage
 
-proc erase*(self: Storage, id: int64, hash: WakuMessageHash) =
-  let cppString = String.fromWakuMessageHash(hash)
+proc negentropyStorageErase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+  let cString = toBuffer(hash)
   
-  self.raw_erase(clong(id), cppString)
+  return raw_erase(storage, uint64(id), cString.unsafeAddr)
 
-proc insert*(self: Storage, id: int64, hash: WakuMessageHash) =
-  let cppString = String.fromWakuMessageHash(hash)
-  
-  self.raw_insert(clong(id), cppString)
+proc negentropyStorageInsert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+  var buffer = toBuffer(hash)
+  var bufPtr = addr(buffer)
+  return raw_insert(storage, uint64(id), bufPtr)
 
-proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
-  let negentropy = constructNegentropy(storage, culong(frameSizeLimit))
+proc negentropyNew*(storage: pointer, frameSizeLimit: uint64): pointer =
+  let negentropy = constructNegentropy(storage, frameSizeLimit)
   
   return negentropy
 
-proc initiate*(self: Negentropy): seq[byte] =
-  let cppString = self.raw_initiate()
+proc negentropyInitiate*(negentropy: pointer): seq[byte] =
+  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
+  var outBuffer: Buffer = toBuffer(output)
+  let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
+  let bytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
 
-  let payload  = cppString.toBytes()
+  debug "received return from initiate", len=outLen
+  return bytes
 
-  return payload
+proc negentropySetInitiator*(negentropy: pointer) =
+  raw_setInitiator(negentropy)
 
-proc setInitiator*(self: Negentropy) =
-  self.raw_setInitiator()
+proc negentropyServerReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
+  let queryBuf = toBuffer(query)
+  var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
+  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
+  var outBuffer: Buffer = toBuffer(output)
 
-proc serverReconcile*(self: Negentropy, query: seq[byte]): seq[byte] =
-  let cppQuery = String.fromBytes(query)
+  let outLen: int = raw_reconcile(negentropy, queryBufPtr, outBuffer.unsafeAddr)
+  debug "received return from raw_reconcile", len=outLen
+
+  let outputBytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  debug "outputBytes len", len=outputBytes.len
+  return outputBytes
+
+proc negentropyClientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
+  let cQuery = toBuffer(query)
   
-  let cppString = self.raw_reconcile(cppQuery)
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  myResult.have_ids_len = 0
+  myResult.need_ids_len = 0
+  var myResultPtr = addr myResult
 
-  let payload = cppString.toBytes()
+  raw_reconcile(negentropy, cQuery.unsafeAddr, myResultPtr)
 
-  return payload
+  if myResultPtr == nil:
+    error "ERROR from raw_reconcile!"
+    return @[]
 
-proc clientReconcile*(self: Negentropy, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
-  let cppQuery = String.fromBytes(query)
-  
+  let output = BufferToBytes(addr myResult.output)
+
   var 
-    cppHaveIds = initVector[String]()
-    cppNeedIds = initVector[String]()
+    have_hashes: seq[Buffer]  
+    need_hashes: seq[Buffer] 
 
-  let cppString = self.raw_reconcile(cppQuery, cppHaveIds, cppNeedIds)
+  if myResult.have_ids_len > 0:
+    have_hashes = toBufferSeq(myResult.have_ids_len, myResult.have_ids)
+  if myResult.need_ids_len > 0:
+    need_hashes = toBufferSeq(myResult.need_ids_len, myResult.need_ids)
 
-  let haveHashes = cppHaveIds.toSeq().mapIt(it.toWakuMessageHash())
-  let needHashes = cppNeedIds.toSeq().mapIt(it.toWakuMessageHash())
+  debug "have and need hashes ",have_count=have_hashes.len, need_count=need_hashes.len
 
-  haveIds.add(haveHashes)
-  needIds.add(needHashes)
+  for i in 0..have_hashes.len - 1:
+    var hash = toWakuMessageHash(have_hashes[i])
+    debug "have hashes ", index=i, hash=hash.to0xHex()
+    haveIds.add(hash)
 
-  let payload = cppString.toBytes()
+  for i in 0..need_hashes.len - 1:
+    var hash = toWakuMessageHash(need_hashes[i])
+    debug "need hashes ", index=i, hash=hash.to0xHex()
+    needIds.add(hash)
 
-  return payload
+
+#[  Callback Approach, to be uncommented later during optimization phase    
+  var 
+    cppHaveIds: cstringArray = allocCStringArray([])
+    cppNeedIds: cstringArray = allocCStringArray([])
+    haveIdsLen: uint
+    needIdsLen: uint
+    output: seq[byte] = newSeq[byte](1) #TODO: fix this hack.
+
+  
+    let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
+                                        need_ids_len:uint64, outBuffer: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.} = 
+      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len  , outBufLen=outBuffer.len    
+      if outBuffer.len > 0:
+        let ret = BufferToBytes(outBuffer)
+        outptr = cast[ptr cchar](ret[0].unsafeAddr)
+      
+  try:
+    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler, cast[ptr cchar](output[0].unsafeAddr))
+    if ret != 0:
+      error "failed to reconcile"
+      return 
+  except Exception as e:
+    error "exception raised from raw_reconcile", error=e.msg ]#
+
+  
+#[   debug "haveIdsLen", len=haveIdsLen
+
+  for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
+    haveIds.add(toWakuMessageHash(ele))
+
+  for ele in cstringArrayToSeq(cppNeedIds, needIdsLen):
+    needIds.add(toWakuMessageHash(ele))
+
+  deallocCStringArray(cppHaveIds)
+  deallocCStringArray(cppNeedIds) ]#
+  free_result(myResultPtr)
+
+  debug "return " , output=output
+
+  return output

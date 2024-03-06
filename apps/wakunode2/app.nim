@@ -508,6 +508,11 @@ proc setupProtocols(node: WakuNode,
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
+    # Waku Sync setup
+    node.mountWakuSync().isOkOr:
+      return err("failed to mount waku sync protocol: " & error)
+
+
   mountStoreClient(node)
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
