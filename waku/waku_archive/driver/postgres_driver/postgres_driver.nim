@@ -706,10 +706,10 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
   ## database size in bytes
   var totalSizeOfDB: int64 = int64(dbSize)
 
-  debug "reduce database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
-
   if totalSizeOfDB <= targetSizeInBytes:
     return ok()
+
+  debug "start reducing database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
 
   while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
     (await driver.removeOldestPartition(forceRemoval)).isOkOr:
