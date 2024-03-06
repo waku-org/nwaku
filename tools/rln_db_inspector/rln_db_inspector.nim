@@ -27,13 +27,14 @@ proc doInspectRlnDb*(conf: WakuNodeConf) =
     quit(1)
 
   # 3. get metadata
-  let metadata = rlnInstance.getMetadata().valueOr:
+  let metadataOpt = rlnInstance.getMetadata().valueOr:
     error "failure while getting RLN metadata", error
     quit(1)
   
-  if metadata.isNone():
+  if metadataOpt.isNone():
     error "RLN metadata does not exist"
     quit(1)
+  let metadata = metadataOpt.get()
 
   info "RLN metadata", lastProcessedBlock = metadata.lastProcessedBlock, 
                        chainId = metadata.chainId,

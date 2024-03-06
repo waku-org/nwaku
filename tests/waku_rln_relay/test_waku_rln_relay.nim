@@ -260,14 +260,15 @@ suite "Waku rln relay":
                                   chainId: 1155511,
                                   contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
 
-    let metadata = rln.getMetadata().valueOr:
+    let metadataOpt = rln.getMetadata().valueOr:
       raiseAssert $error
 
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
     check:
-      metadata.isSome()
-      metadata.get().lastProcessedBlock == 128
-      metadata.get().chainId == 1155511
-      metadata.get().contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
+      metadata.lastProcessedBlock == 128
+      metadata.chainId == 1155511
+      metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
 
   test "getMetadata: empty rln metadata":
     # create an RLN instance which also includes an empty Merkle tree

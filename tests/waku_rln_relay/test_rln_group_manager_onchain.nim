@@ -226,12 +226,13 @@ suite "Onchain group manager":
 
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
-    let metadata = manager.rlnInstance.getMetadata().valueOr:
+    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
       raiseAssert $error
-    require:
-      metadata.isSome()
-      metadata.get().chainId == 1337
-      metadata.get().contractAddress == manager.ethContractAddress
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
+    
+    assert metadata.chainId == 1337, "chainId is not equal to 1337"
+    assert metadata.contractAddress == manager.ethContractAddress, "contractAddress is not equal to " & manager.ethContractAddress
     
     await manager.stop()
 
@@ -458,11 +459,11 @@ suite "Onchain group manager":
 
     await fut
 
-    let metadata = manager.rlnInstance.getMetadata().valueOr:
+    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
       raiseAssert $error
+    assert metadataOpt.isSome(), "metadata is not set"
     check:
-      metadata.isSome()
-      metadata.get().validRoots == manager.validRoots.toSeq()
+      metadataOpt.get().validRoots == manager.validRoots.toSeq()
     await manager.stop()
 
   asyncTest "withdraw: should guard against uninitialized state":
