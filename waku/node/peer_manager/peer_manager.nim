@@ -116,33 +116,42 @@ proc insertOrReplace(ps: PeerStorage, remotePeerInfo: RemotePeerInfo) =
 proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownOrigin) =
   ## Adds peer to manager for the specified protocol
 
+  echo "-------------- addPeer 1 ----------------"
+  
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
     # Do not attempt to manage our unmanageable self
+    echo "-------------- addPeer 2 ----------------"
     return
 
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
      pm.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
      pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
     # Peer already managed and ENR info is already saved
+    echo "-------------- addPeer 3 ----------------"
     return
 
   trace "Adding peer to manager", peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
     
+  echo "-------------- addPeer 4 ----------------"
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
   pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
   
   if remotePeerInfo.protocols.len > 0:
+    echo "-------------- addPeer 5 ----------------"
     pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
   
   if remotePeerInfo.enr.isSome():
+    echo "-------------- addPeer 6 ----------------"
     pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
     remotePeerInfo.connectedness = NotConnected
+    echo "-------------- addPeer 7 ----------------"
 
     pm.storage.insertOrReplace(remotePeerInfo)
+  echo "-------------- addPeer 8 ----------------"
 
 # Connects to a given node. Note that this function uses `connect` and
 # does not provide a protocol. Streams for relay (gossipsub) are created
