@@ -230,8 +230,8 @@ suite "Onchain group manager":
       raiseAssert $error
     require:
       metadata.isSome()
-      metadata.value.chainId == 1337
-      metadata.value.contractAddress == manager.ethContractAddress
+      metadata.get().chainId == 1337
+      metadata.get().contractAddress == manager.ethContractAddress
     
     await manager.stop()
 
@@ -461,7 +461,8 @@ suite "Onchain group manager":
     let metadata = manager.rlnInstance.getMetadata().valueOr:
       raiseAssert $error
     check:
-      metadata.value.validRoots == manager.validRoots.toSeq()
+      metadata.isSome()
+      metadata.get().validRoots == manager.validRoots.toSeq()
     await manager.stop()
 
   asyncTest "withdraw: should guard against uninitialized state":

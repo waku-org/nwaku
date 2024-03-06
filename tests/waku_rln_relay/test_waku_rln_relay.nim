@@ -265,17 +265,14 @@ suite "Waku rln relay":
 
     check:
       metadata.isSome()
-      metadata.value.lastProcessedBlock == 128
-      metadata.value.chainId == 1155511
-      metadata.value.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
+      metadata.get().lastProcessedBlock == 128
+      metadata.get().chainId == 1155511
+      metadata.get().contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
 
   test "getMetadata: empty rln metadata":
     # create an RLN instance which also includes an empty Merkle tree
-    let rlnInstance = createRLNInstanceWrapper()
-    require:
-      rlnInstance.isOk()
-    let rln = rlnInstance.get()
-
+    let rln = createRLNInstanceWrapper().valueOr:
+      raiseAssert $error
     let metadata = rln.getMetadata().valueOr:
       raiseAssert $error
 
