@@ -119,12 +119,12 @@ proc negentropyNewStorage*(): pointer =
 
   return storage
 
-proc negentropyErase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+proc negentropyStorageErase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   let cString = toBuffer(hash)
   
   return raw_erase(storage, uint64(id), cString.unsafeAddr)
 
-proc negentropyInsert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+proc negentropyStorageInsert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   var buffer = toBuffer(hash)
   var bufPtr = addr(buffer)
   return raw_insert(storage, uint64(id), bufPtr)

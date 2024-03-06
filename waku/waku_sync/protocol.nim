@@ -45,12 +45,12 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
   debug "inserting message into storage ", hash=msgHash 
-  let result: bool = insert(self.storage, msg.timestamp, msgHash)
+  let result: bool = negentropyStorageInsert(self.storage, msg.timestamp, msgHash)
   if not result :
     debug "failed to insert message ", hash=msgHash.toHex()
 
 proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte], string] =
-  let payload: seq[byte] = serverReconcile(self.negentropy, message)
+  let payload: seq[byte] = negentropyServerReconcile(self.negentropy, message)
   ok(payload)
 
 proc clientReconciliation(
@@ -58,11 +58,11 @@ proc clientReconciliation(
   haveHashes: var seq[WakuMessageHash],
   needHashes: var seq[WakuMessageHash],
   ): Result[Option[seq[byte]], string] =
-  let payload: seq[byte] = clientReconcile(self.negentropy, message, haveHashes, needHashes)
+  let payload: seq[byte] = negentropyClientReconcile(self.negentropy, message, haveHashes, needHashes)
   ok(some(payload))
 
 proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  let payload: seq[byte] = initiate(self.negentropy)
+  let payload: seq[byte] = negentropyInitiate(self.negentropy)
   info "initialized negentropy ", value=payload
 
   ok(payload)
@@ -147,9 +147,9 @@ proc new*(T: type WakuSync,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
-  let storage = new_storage()
+  let storage = negentropyNewStorage()
 
-  let negentropy = new_negentropy(storage, uint64(maxFrameSize))
+  let negentropy = negentropyNew(storage, uint64(maxFrameSize))
 
   let sync = WakuSync(
     storage: storage,
