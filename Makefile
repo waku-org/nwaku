@@ -166,7 +166,7 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
-testwaku: | build deps librln
+testwaku: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
@@ -174,7 +174,7 @@ wakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
-testwakunode2: | build deps librln
+testwakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) waku.nims
 
