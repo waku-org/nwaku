@@ -114,27 +114,27 @@ proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "fre
 
 #TODO: Change all these methods to private as we don't want them to be exposed outside Sync package
 #TODO: Wrap storage and negentropy with objects rather than using void pointers
-proc new_storage*(): pointer =
+proc negentropyNewStorage*(): pointer =
   let storage = storage_init("", "")
 
   return storage
 
-proc erase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+proc negentropyErase*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   let cString = toBuffer(hash)
   
   return raw_erase(storage, uint64(id), cString.unsafeAddr)
 
-proc insert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
+proc negentropyInsert*(storage: pointer, id: int64, hash: WakuMessageHash): bool =
   var buffer = toBuffer(hash)
   var bufPtr = addr(buffer)
   return raw_insert(storage, uint64(id), bufPtr)
 
-proc new_negentropy*(storage: pointer, frameSizeLimit: uint64): pointer =
+proc negentropyNew*(storage: pointer, frameSizeLimit: uint64): pointer =
   let negentropy = constructNegentropy(storage, frameSizeLimit)
   
   return negentropy
 
-proc initiate*(negentropy: pointer): seq[byte] =
+proc negentropyInitiate*(negentropy: pointer): seq[byte] =
   var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
   var outBuffer: Buffer = toBuffer(output)
   let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
@@ -143,10 +143,10 @@ proc initiate*(negentropy: pointer): seq[byte] =
   debug "received return from initiate", len=outLen
   return bytes
 
-proc setInitiator*(negentropy: pointer) =
+proc negentropySetInitiator*(negentropy: pointer) =
   raw_setInitiator(negentropy)
 
-proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
+proc negentropyServerReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
   let queryBuf = toBuffer(query)
   var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
   var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
@@ -159,7 +159,7 @@ proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
   debug "outputBytes len", len=outputBytes.len
   return outputBytes
 
-proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
+proc negentropyClientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
   let cQuery = toBuffer(query)
   
   var myResult {.noinit.}: BindingResult = BindingResult()

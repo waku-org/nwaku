@@ -135,7 +135,7 @@ suite "Waku Sync - Protocol Tests":
         server.ingessMessage(DefaultPubsubTopic, msg2)
         client.ingessMessage(DefaultPubsubTopic, msg2)
 
-        var hashes = await client.sync(serverPeerInfo)
-        require (hashes.isOk())
+        let hashes = await client.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
         check:
           hashes.value.len == 0
