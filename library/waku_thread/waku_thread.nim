@@ -58,7 +58,7 @@ proc run(ctx: ptr Context) {.thread.} =
     var request: ptr InterThreadRequest
     waitFor ctx.reqSignal.wait()
     let recvOk = ctx.reqChannel.tryRecv(request)
-    if running.load and recvOk == true:
+    if recvOk == true:
       let resultResponse =
         waitFor InterThreadRequest.process(request, addr node)
 
@@ -95,16 +95,16 @@ proc createWakuThread*(): Result[ptr Context, string] =
 
   return ok(ctx)
 
-proc stopWakuNodeThread*(ctx: ptr Context): Result[void, string] =
+proc stopWakuThread*(ctx: ptr Context): Result[void, string] =
   running.store(false)
   let fireRes = ctx.reqSignal.fireSync()
   if fireRes.isErr():
-    return err(fireRes.error)
+    return err("error in stopWakuThread: " & $fireRes.error)
   joinThread(ctx.thread)
   discard ctx.reqSignal.close()
   discard ctx.respSignal.close()
   freeShared(ctx)
-  ok()
+  return ok()
 
 proc sendRequestToWakuThread*(ctx: ptr Context,
                               reqType: RequestType,

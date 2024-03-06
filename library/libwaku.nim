@@ -107,9 +107,8 @@ proc waku_destroy(ctx: ptr Context,
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
-  let stopNodeRes = waku_thread.stopWakuNodeThread(ctx)
-  if stopNodeRes.isErr():
-    let msg = $stopNodeRes.error
+  waku_thread.stopWakuThread(ctx).isOkOr:
+    let msg = $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
