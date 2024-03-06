@@ -713,18 +713,15 @@ suite "Waku rln relay":
                                  rlnRelayCredIndex: some(index1),
                                  rlnEpochSizeSec: 1,
                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
-    let wakuRlnRelay1Res = await WakuRlnRelay.new(rlnConf1)
-    if wakuRlnRelay1Res.isErr(): assert false, "failed to create waku rln relay: " & $wakuRlnRelay1Res.error
-    let wakuRlnRelay1 = wakuRlnRelay1Res.get()
+    let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
 
     let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
                                  rlnRelayCredIndex: some(index2),
                                  rlnEpochSizeSec: 1,
                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
-    let wakuRlnRelay2Res = await WakuRlnRelay.new(rlnConf2)
-    if wakuRlnRelay2Res.isErr():
-      assert false, "failed to create waku rln relay: " & $wakuRlnRelay2Res.error
-    let wakuRlnRelay2 = wakuRlnRelay2Res.get()
+    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
     # get the current epoch time
     let time = epochTime()
 

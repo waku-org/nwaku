@@ -123,7 +123,7 @@ proc hasDuplicate*(rlnPeer: WakuRLNRelay,
     return ok(false)
 
   except KeyError:
-    return err("the epoch was not found")
+    return err("the epoch was not found: " & getCurrentExceptionMsg())
 
 proc updateLog*(rlnPeer: WakuRLNRelay,
                 epoch: Epoch,
@@ -145,7 +145,7 @@ proc updateLog*(rlnPeer: WakuRLNRelay,
       return ok()
     return ok()
   except KeyError:
-    return err("the epoch was not found") # should never happen
+    return err("the epoch was not found: " & getCurrentExceptionMsg()) # should never happen
 
 proc getCurrentEpoch*(rlnPeer: WakuRLNRelay): Epoch =
   ## gets the current rln Epoch time
