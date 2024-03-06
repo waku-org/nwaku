@@ -669,8 +669,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let metadataGetRes = g.rlnInstance.getMetadata()
   if metadataGetRes.isErr():
     warn "could not initialize with persisted rln metadata"
-  else:
-    let metadata = metadataGetRes.get()
+  elif metadataGetRes.get().isSome():
+    let metadata = metadataGetRes.get().value
     if metadata.chainId != uint64(g.chainId.get()):
       raise newException(ValueError, "persisted data: chain id mismatch")
 
