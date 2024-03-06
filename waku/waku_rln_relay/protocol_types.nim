@@ -31,6 +31,15 @@ type
   RlnIdentifier* = array[32, byte]
   ZKSNARK* = array[128, byte]
 
+when defined(rln_v2):
+  type
+    MessageId* = uint64
+    ExternalNullifier* = array[32, byte]
+
+  type RateCommitment* = object
+    idCommitment*: IDCommitment
+    userMessageLimit*: UserMessageLimit
+    
 # Custom data types defined for waku rln relay -------------------------
 type RateLimitProof* = object
   ## RateLimitProof holds the public inputs to rln circuit as
@@ -39,8 +48,6 @@ type RateLimitProof* = object
   proof*: ZKSNARK
   ## the root of Merkle tree used for the generation of the `proof`
   merkleRoot*: MerkleNode
-  ## the epoch used for the generation of the `proof`
-  epoch*: Epoch
   ## shareX and shareY are shares of user's identity key
   ## these shares are created using Shamir secret sharing scheme
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Linear-Equation-amp-SSS
@@ -49,8 +56,13 @@ type RateLimitProof* = object
   ## nullifier enables linking two messages published during the same epoch
   ## see details in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Nullifiers
   nullifier*: Nullifier
+  ## the epoch used for the generation of the `proof`
+  epoch*: Epoch
   ## Application specific RLN Identifier
   rlnIdentifier*: RlnIdentifier
+  when defined(rln_v2):
+    ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
+    externalNullifier*: ExternalNullifier
 
 type ProofMetadata* = object
   nullifier*: Nullifier
@@ -69,6 +81,7 @@ type
 # Protobufs enc and init
 proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   var nsp: RateLimitProof
+
   let pb = initProtoBuffer(buffer)
 
   var proof: seq[byte]
@@ -101,6 +114,7 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
 
   return ok(nsp)
 
+
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
   var output = initProtoBuffer()
 
@@ -113,7 +127,6 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   output.write3(7, nsp.rlnIdentifier)
 
   output.finish3()
-
   return output
 
 type

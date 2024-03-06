@@ -25,6 +25,16 @@ type
 
 type WakuPeers* = seq[WakuPeer]
 
+type
+  FilterTopic* = object
+    pubsubTopic*: string
+    contentTopic*: string 
+
+type
+  FilterSubscription* = object
+    peerId*: string
+    filterCriteria*: seq[FilterTopic]
+
 #### Serialization and deserialization
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: ProtocolState)
@@ -39,6 +49,20 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: WakuPeer)
   writer.beginRecord()
   writer.writeField("multiaddr", value.multiaddr)
   writer.writeField("protocols", value.protocols)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterTopic)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("pubsubTopic", value.pubsubTopic)
+  writer.writeField("contentTopic", value.contentTopic)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscription)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("peerId", value.peerId)
+  writer.writeField("filterCriteria", value.filterCriteria)
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var ProtocolState)
@@ -99,6 +123,66 @@ proc readValue*(reader: var JsonReader[RestJson], value: var WakuPeer)
   value = WakuPeer(
       multiaddr: multiaddr.get(),
       protocols: protocols.get()
+    )
+
+proc readValue*(reader: var JsonReader[RestJson], value: var FilterTopic)
+  {.gcsafe, raises: [SerializationError, IOError].} =
+  var
+    pubsubTopic: Option[string]
+    contentTopic: Option[string]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "pubsubTopic":
+      if pubsubTopic.isSome():
+        reader.raiseUnexpectedField("Multiple `pubsubTopic` fields found", "FilterTopic")
+      pubsubTopic = some(reader.readValue(string))
+    of "contentTopic":
+      if contentTopic.isSome():
+        reader.raiseUnexpectedField("Multiple `contentTopic` fields found", "FilterTopic")
+      contentTopic = some(reader.readValue(string))
+    else:
+      unrecognizedFieldWarning()
+
+  if pubsubTopic.isNone():
+    reader.raiseUnexpectedValue("Field `pubsubTopic` is missing")
+
+  if contentTopic.isNone():
+    reader.raiseUnexpectedValue("Field `contentTopic` are missing")
+
+  value = FilterTopic(
+      pubsubTopic: pubsubTopic.get(),
+      contentTopic: contentTopic.get()
+    )
+
+proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscription)
+  {.gcsafe, raises: [SerializationError, IOError].} =
+  var
+    peerId: Option[string]
+    filterCriteria: Option[seq[FilterTopic]]
+
+  for fieldName in readObjectFields(reader):
+    case fieldName
+    of "peerId":
+      if peerId.isSome():
+        reader.raiseUnexpectedField("Multiple `peerId` fields found", "FilterSubscription")
+      peerId = some(reader.readValue(string))
+    of "filterCriteria":
+      if filterCriteria.isSome():
+        reader.raiseUnexpectedField("Multiple `filterCriteria` fields found", "FilterSubscription")
+      filterCriteria = some(reader.readValue(seq[FilterTopic]))
+    else:
+      unrecognizedFieldWarning()
+
+  if peerId.isNone():
+    reader.raiseUnexpectedValue("Field `peerId` is missing")
+
+  if filterCriteria.isNone():
+    reader.raiseUnexpectedValue("Field `filterCriteria` are missing")
+
+  value = FilterSubscription(
+      peerId: peerId.get(),
+      filterCriteria: filterCriteria.get()
     )
 
 ## Utility for populating WakuPeers and ProtocolState

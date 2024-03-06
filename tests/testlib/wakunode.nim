@@ -13,8 +13,9 @@ import
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/waku_discv5,
-  ../../apps/wakunode2/external_config,
-  ../../apps/wakunode2/internal_config,
+  ../../../waku/factory/external_config,
+  ../../../waku/factory/internal_config,
+  ../../../waku/factory/builder,
   ./common
 
 
@@ -26,12 +27,12 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     tcpPort: Port(60000),
     websocketPort: Port(8000),
     listenAddress: parseIpAddress("0.0.0.0"),
-    rpcAddress: parseIpAddress("127.0.0.1"),
     restAddress: parseIpAddress("127.0.0.1"),
     metricsServerAddress: parseIpAddress("127.0.0.1"),
     dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
+    maxMessageSize: "1024 KiB",
     clusterId: 1.uint32,
     topics: @["/waku/2/rs/1/0"],
     relay: true

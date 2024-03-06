@@ -24,6 +24,7 @@ import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/queue_driver,
   ../../../waku/waku_store as waku_store,
+  ../../../waku/common/base64,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
@@ -82,7 +83,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58011)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -152,7 +153,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58012)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -250,7 +251,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58013)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -324,7 +325,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58014)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -415,7 +416,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58015)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -472,7 +473,7 @@ procSuite "Waku v2 Rest API - Store":
 
     let restPort = Port(58016)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
     installStoreApiHandlers(restServer.router, node)
     restServer.start()
@@ -481,7 +482,7 @@ procSuite "Waku v2 Rest API - Store":
     let driver: ArchiveDriver = QueueDriver.new()
     let mountArchiveRes = node.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
-    
+
     await node.mountStore()
     node.mountStoreClient()
 
@@ -534,3 +535,124 @@ procSuite "Waku v2 Rest API - Store":
     await restServer.stop()
     await restServer.closeWait()
     await node.stop()
+
+
+  asyncTest "retrieve historical messages from a self-store-node":
+    ## This test aims to validate the correct message retrieval for a store-node which exposes
+    ## a REST server.
+
+    # Given
+    let node = testWakuNode()
+    await node.start()
+
+    let restPort = Port(58014)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    installStoreApiHandlers(restServer.router, node)
+    restServer.start()
+
+    # WakuStore setup
+    let driver: ArchiveDriver = QueueDriver.new()
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    await node.mountStore()
+
+    # Now prime it with some history before tests
+    let msgList = @[
+      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0, meta=(@[byte 8])),
+      fakeWakuMessage(@[byte 1], ts=1),
+      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
+    ]
+    for msg in msgList:
+      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    # Filtering by a known pubsub topic.
+    var response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl(DefaultPubsubTopic))
+
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 3
+
+    # Get all the messages by specifying an empty pubsub topic
+    response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl(""))
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 3
+
+    # Receiving no messages by filtering with a random pubsub topic
+    response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl("random pubsub topic"))
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 0
+
+  asyncTest "correct message fields are returned":
+
+    # Given
+    let node = testWakuNode()
+    await node.start()
+
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
+
+    installStoreApiHandlers(restServer.router, node)
+    restServer.start()
+
+    # WakuStore setup
+    let driver: ArchiveDriver = QueueDriver.new()
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    await node.mountStore()
+
+    # Now prime it with some history before tests
+    let msg = fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0, meta=(@[byte 8]))
+    require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    # Filtering by a known pubsub topic.
+    var response =
+          await client.getStoreMessagesV1(
+                        none[string](),
+                        encodeUrl(DefaultPubsubTopic))
+
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 1
+
+    let storeMessage = response.data.messages[0]
+
+    check:
+      storeMessage.contentTopic.isSome()
+      storeMessage.version.isSome()
+      storeMessage.timestamp.isSome()
+      storeMessage.ephemeral.isSome()
+      storeMessage.meta.isSome()
+
+    check:
+      storeMessage.payload == base64.encode(msg.payload)
+      storeMessage.contentTopic.get() == msg.contentTopic
+      storeMessage.version.get() == msg.version
+      storeMessage.timestamp.get() == msg.timestamp
+      storeMessage.ephemeral.get() == msg.ephemeral
+      storeMessage.meta.get() == base64.encode(msg.meta)

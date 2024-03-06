@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils,tempfiles],
+  std/[sequtils, strformat, tempfiles],
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
@@ -21,7 +21,8 @@ import
   ../../waku/waku_relay,
   ../../../waku/waku_rln_relay,
   ../testlib/wakucore,
-  ../testlib/wakunode
+  ../testlib/wakunode,
+  ../resources/payloads
 
 proc testWakuNode(): WakuNode =
   let
@@ -40,9 +41,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -88,9 +91,11 @@ suite "Waku v2 Rest API - Relay":
       "pubsub-topic-x",
       ])
 
-    let restPort = Port(58012)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
     cache.pubsubSubscribe("pubsub-topic-1")
@@ -140,25 +145,30 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58013)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let pubSubTopic = "/waku/2/default-waku/proto"
-    
+
     var messages = @[
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+        meta = toBytes("test-meta") )
     ]
 
     # Prevent duplicate messages
     for i in 0..<2:
-      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
+      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+        meta = toBytes("test-meta"))
 
       while msg == messages[i]:
-        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"))
-      
+        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
+          meta = toBytes("test-meta"))
+
       messages.add(msg)
-    
+
     let cache = MessageCache.init()
 
     cache.pubsubSubscribe(pubSubTopic)
@@ -181,8 +191,8 @@ suite "Waku v2 Rest API - Relay":
         msg.payload == base64.encode("TEST-1") and
         msg.contentTopic.get() == "content-topic-x" and
         msg.version.get() == 2 and
-        msg.timestamp.get() != Timestamp(0)
-
+        msg.timestamp.get() != Timestamp(0) and
+        msg.meta.get() == base64.encode("test-meta")
 
     check:
       cache.isPubsubSubscribed(pubSubTopic)
@@ -200,12 +210,15 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
-    let restPort = Port(58014)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -243,9 +256,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58011)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
 
@@ -289,9 +304,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58012)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let contentTopics = @[
       ContentTopic("/waku/2/default-content1/proto"),
@@ -335,9 +352,11 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58013)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let contentTopic = DefaultContentTopic
 
@@ -351,9 +370,9 @@ suite "Waku v2 Rest API - Relay":
 
       while msg == messages[i]:
         msg = fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
-      
+
       messages.add(msg)
-    
+
     let cache = MessageCache.init()
 
     cache.contentSubscribe(contentTopic)
@@ -394,12 +413,15 @@ suite "Waku v2 Rest API - Relay":
     await node.mountRelay()
     await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
 
     # RPC server setup
-    let restPort = Port(58014)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = RestServerRef.init(restAddress, restPort).tryGet()
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
     installRelayApiHandlers(restServer.router, node, cache)
@@ -423,6 +445,137 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_TEXT
       response.data == "OK"
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()
+
+  asyncTest "Post a message to an invalid content topic - POST /relay/v1/auto/messages/{topic}":
+    ## "Relay API: publish and subscribe/unsubscribe":
+    # Given
+    let node = testWakuNode()
+    await node.start()
+    await node.mountRelay()
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+
+    # RPC server setup
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
+
+    let cache = MessageCache.init()
+    installRelayApiHandlers(restServer.router, node, cache)
+    restServer.start()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    # When
+    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
+      payload: base64.encode("TEST-PAYLOAD"),
+      contentTopic: some("invalidContentTopic"),
+      timestamp: some(int64(2022))
+    ))
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+      response.data == "Failed to publish. Autosharding error: invalid format: topic must start with slash"
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()
+
+  asyncTest "Post a message larger than maximum size - POST /relay/v1/messages/{topic}":
+    # Given
+    let node = testWakuNode()
+    await node.start()
+    await node.mountRelay()
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+
+    # RPC server setup
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
+
+    let cache = MessageCache.init()
+
+    installRelayApiHandlers(restServer.router, node, cache)
+    restServer.start()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    require:
+      toSeq(node.wakuRelay.subscribedTopics).len == 1
+
+    # When
+    let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
+      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
+      contentTopic: some(DefaultContentTopic),
+      timestamp: some(int64(2022))
+    ))
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()
+
+  asyncTest "Post a message larger than maximum size - POST /relay/v1/auto/messages/{topic}":
+    # Given
+    let node = testWakuNode()
+    await node.start()
+    await node.mountRelay()
+    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+
+    # RPC server setup
+    var restPort = Port(0)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    restPort = restServer.httpServer.address.port # update with bound port for client use
+
+    let cache = MessageCache.init()
+
+    installRelayApiHandlers(restServer.router, node, cache)
+    restServer.start()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    require:
+      toSeq(node.wakuRelay.subscribedTopics).len == 1
+
+    # When
+    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
+      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
+      contentTopic: some(DefaultContentTopic),
+      timestamp: some(int64(2022))
+    ))
+
+    # Then
+    check:
+      response.status == 400
+      $response.contentType == $MIMETYPE_TEXT
+      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()

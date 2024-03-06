@@ -90,6 +90,7 @@ proc newWakuSwitch*(
       .withMaxIn(maxIn)
       .withMaxOut(maxOut)
       .withMaxConnsPerPeer(maxConnsPerPeer)
+      .withYamux()
       .withMplex(inTimeout, outTimeout)
       .withNoise()
       .withTcpTransport(transportFlags)

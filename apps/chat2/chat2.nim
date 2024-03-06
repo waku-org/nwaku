@@ -33,6 +33,7 @@ import
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
+  ../../waku/factory/builder,
   ../../waku/common/utils/nat,
   ./config_chat2
 
@@ -187,11 +188,11 @@ proc publish(c: Chat, line: string) =
   if not isNil(c.node.wakuRlnRelay):
     # for future version when we support more than one rln protected content topic,
     # we should check the message content topic as well
-    let success = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
-    if not success:
-      debug "could not append rate limit proof to the message", success=success
+    let appendRes = c.node.wakuRlnRelay.appendRLNProof(message, float64(time))
+    if appendRes.isErr():
+      debug "could not append rate limit proof to the message"
     else:
-      debug "rate limit proof is appended to the message", success=success
+      debug "rate limit proof is appended to the message"
       let decodeRes = RateLimitProof.init(message.proof)
       if decodeRes.isErr():
         error "could not decode the RLN proof"
@@ -206,11 +207,16 @@ proc publish(c: Chat, line: string) =
       # update the last epoch
       c.node.wakuRlnRelay.lastEpoch = proof.epoch
 
-    if not c.node.wakuLightPush.isNil():
-      # Attempt lightpush
-      asyncSpawn c.node.lightpushPublish(some(DefaultPubsubTopic), message)
-    else:
-      asyncSpawn c.node.publish(some(DefaultPubsubTopic), message)
+    try:
+      if not c.node.wakuLightPush.isNil():
+        # Attempt lightpush
+        (waitFor c.node.lightpushPublish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish lightpush message", error = error
+      else:
+        (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
+          error "failed to publish message", error = error
+    except CatchableError:
+        error "caught error publishing message: ", error = getCurrentExceptionMsg()      
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
@@ -466,6 +472,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let peerInfo = parsePeerInfo(conf.filternode)
     if peerInfo.isOk():
       await node.mountFilter()
+      await node.mountLegacyFilter()
       await node.mountFilterClient()
       node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
@@ -505,17 +512,30 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           echo "A spam message is found and discarded"
         chat.prompt = false
         showChatPrompt(chat)
-    
+
       echo "rln-relay preparation is in progress..."
 
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword
-      )
+      when defined(rln_v2):
+        let rlnConf = WakuRlnConfig(
+          rlnRelayDynamic: conf.rlnRelayDynamic,
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
+          rlnRelayCredPath: conf.rlnRelayCredPath,
+          rlnRelayCredPassword: conf.rlnRelayCredPassword,
+          rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+          rlnEpochSizeSec: conf.rlnEpochSizeSec
+        )
+      else:
+        let rlnConf = WakuRlnConfig(
+          rlnRelayDynamic: conf.rlnRelayDynamic,
+          rlnRelayCredIndex: conf.rlnRelayCredIndex,
+          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
+          rlnRelayCredPath: conf.rlnRelayCredPath,
+          rlnRelayCredPassword: conf.rlnRelayCredPassword,
+          rlnEpochSizeSec: conf.rlnEpochSizeSec
+        )
 
       waitFor node.mountRlnRelay(rlnConf,
                                 spamHandler=some(spamHandler))

@@ -57,6 +57,7 @@ TARGET ?= prod
 
 ## Git version
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
+## Compilation parameters. If defined in the CLI the assignments won't be executed
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 
 ## Heaptracker options
@@ -82,6 +83,20 @@ endif
 ## Dependencies ##
 ##################
 .PHONY: deps libbacktrace
+
+rustup:
+ifeq (, $(shell which cargo))
+# Install Rustup if it's not installed
+# -y: Assume "yes" for all prompts
+# --default-toolchain stable: Install the stable toolchain
+	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+endif
+
+anvil: rustup
+ifeq (, $(shell which anvil))
+# Install Anvil if it's not installed
+	./scripts/install_anvil.sh
+endif
 
 deps: | deps-common nat-libs waku.nims
 
@@ -119,7 +134,11 @@ clean: | clean-libbacktrace
 .PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
+ifeq ($(RLN_V2),true)
+LIBRLN_VERSION := v0.4.1
+else
 LIBRLN_VERSION := v0.3.4
+endif
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -134,6 +153,10 @@ $(LIBRLN_FILE):
 
 librln: | $(LIBRLN_FILE)
 	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
+ifeq ($(RLN_V2),true)
+	$(eval NIM_PARAMS += -d:rln_v2)
+endif
+
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -158,13 +181,18 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
-testwaku: | build deps librln
+# install anvil only for the testwaku target
+testwaku: | build deps anvil librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
+
+benchmarks: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim benchmarks $(NIM_PARAMS) waku.nims
 
 testwakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -206,12 +234,16 @@ networkmonitor: | build deps librln
 ###################
 ## Documentation ##
 ###################
-.PHONY: docs
+.PHONY: docs coverage
 
 # TODO: Remove unused target
 docs: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim doc --run --index:on --project --out:.gh-pages waku/waku.nim waku.nims
+
+coverage:
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) ./scripts/run_cov.sh -y
 
 
 #####################
@@ -232,7 +264,8 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
-		--label="commit=$(GIT_VERSION)" \
+		--label="commit=$(shell git rev-parse HEAD)" \
+		--label="version=$(GIT_VERSION)" \
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 

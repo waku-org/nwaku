@@ -11,8 +11,7 @@ import
 import
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
-  ../../apps/wakunode2/external_config
-
+  ../../waku/factory/external_config
 
 logScope:
   topics = "rln_db_inspector"

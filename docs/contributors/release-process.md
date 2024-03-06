@@ -4,7 +4,7 @@ How to do releases.
 
 For more context, see https://trunkbaseddevelopment.com/branch-for-release/
 
-## How to to do releases
+## How to do releases
 
 ### Before release
 
@@ -78,12 +78,14 @@ Ensure all items in this list are ticked:
   > - `IMAGE_NAME`: `wakuorg/nwaku`
   > - `NIMFLAGS`: `--colors:off -d:disableMarchNative -d:chronicles_colors:none -d:postgres`
   > - `GIT_REF` the release tag (e.g. `v0.16.0`)
-3. Deploy the release to appropriate fleets:
+3. Update the default nwaku image in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/master/docker-compose.yml)
+4. Deploy the release to appropriate fleets:
    - Inform clients
    > **NOTE:** known clients are currently using some version of js-waku, go-waku, nwaku or waku-rs.
    > Clients are reachable via the corresponding channels on the Vac Discord server.
    > It should be enough to inform clients on the `#nwaku` and `#announce` channels on Discord.
    > Informal conversations with specific repo maintainers are often part of this process.
+   - Check if nwaku configuration parameters changed. If so [update fleet configuration](https://www.notion.so/Fleet-Ownership-7532aad8896d46599abac3c274189741?pvs=4#d2d2f0fe4b3c429fbd860a1d64f89a64) in [infra-nim-waku](https://github.com/status-im/infra-nim-waku)
    - Deploy release to the `wakuv2.prod` fleet from [Jenkins](https://ci.infra.status.im/job/nim-waku/job/deploy-wakuv2-prod/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.

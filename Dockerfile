@@ -34,6 +34,7 @@ LABEL maintainer="jakub@status.im"
 LABEL source="https://github.com/waku-org/nwaku"
 LABEL description="Wakunode: Waku client"
 LABEL commit="unknown"
+LABEL version="unknown"
 
 # DevP2P, LibP2P, and JSON RPC ports
 EXPOSE 30303 60000 8545

@@ -6,14 +6,15 @@ else:
 import
   metrics
 
-proc parseCollectorIntoF64(collector: Collector): float64 {.gcsafe, raises: [Defect] } = 
+proc parseCollectorIntoF64(collector: SimpleCollector): float64 {.gcsafe, raises: [Defect] } = 
   {.gcsafe.}:
     var total = 0.float64
-    for key in collector.metrics.keys():
-      try:
-        total = total + collector.value(key)
-      except KeyError:
-        discard
+    for metrics in collector.metrics:
+      for metric in metrics:
+        try:
+          total = total + metric.value
+        except KeyError:
+          discard
     return total
 
 template parseAndAccumulate*(collector: Collector, cumulativeValue: float64): float64 =

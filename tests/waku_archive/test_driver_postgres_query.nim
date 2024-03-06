@@ -7,11 +7,15 @@ import
   chronicles
 import
   ../../../waku/waku_archive,
+  ../../../waku/waku_archive/driver as driver_module,
+  ../../../waku/waku_archive/driver/builder,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../testlib/common,
-  ../testlib/wakucore
+  ../testlib/wakucore,
+  ../testlib/testasync,
+  ../testlib/postgres
 
 
 logScope:
@@ -24,17 +28,6 @@ logScope:
 # Initialize the random number generator
 common.randomize()
 
-const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
-
-proc newTestPostgresDriver(): ArchiveDriver =
-  let driver = PostgresDriver.new(dbUrl = storeMessageDbUrl).tryGet()
-  discard waitFor driver.reset()
-
-  let initRes = waitFor driver.init()
-  assert initRes.isOk(), initRes.error
-
-  return driver
-
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
   ArchiveCursor(
     pubsubTopic: pubsubTopic,
@@ -43,13 +36,27 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     digest: computeDigest(message)
   )
 
-suite "Postgres driver - query by content topic":
+suite "Postgres driver - queries":
+  ## Unique driver instance
+  var driver {.threadvar.}: PostgresDriver
+
+  asyncSetup:
+    let driverRes = await newTestPostgresDriver()
+    if driverRes.isErr():
+      assert false, driverRes.error
+
+    driver = PostgresDriver(driverRes.get())
+
+  asyncTeardown:
+    let resetRes = await driver.reset()
+    if resetRes.isErr():
+      assert false, resetRes.error
+
+    (await driver.close()).expect("driver to close")
 
   asyncTest "no content topic":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
@@ -83,14 +90,9 @@ suite "Postgres driver - query by content topic":
     check:
       filteredMessages == expected[0..4]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "single content topic":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -126,14 +128,9 @@ suite "Postgres driver - query by content topic":
     check:
       filteredMessages == expected[2..3]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "single content topic - descending order":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -169,16 +166,11 @@ suite "Postgres driver - query by content topic":
     check:
       filteredMessages == expected[6..7].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "multiple content topic":
     ## Given
     const contentTopic1 = "test-content-topic-1"
     const contentTopic2 = "test-content-topic-2"
     const contentTopic3 = "test-content-topic-3"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -201,27 +193,40 @@ suite "Postgres driver - query by content topic":
       require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    var res = await driver.getMessages(
       contentTopic= @[contentTopic1, contentTopic2],
+      pubsubTopic=some(DefaultPubsubTopic),
       maxPageSize=2,
-      ascendingOrder=true
+      ascendingOrder=true,
+      startTime=some(ts(00)),
+      endTime=some(ts(40))
     )
 
     ## Then
     assert res.isOk(), res.error
+    var filteredMessages = res.tryGet().mapIt(it[1])
+    check filteredMessages == expected[2..3]
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
-    check:
-      filteredMessages == expected[2..3]
+    ## When
+    ## This is very similar to the previous one but we enforce to use the prepared
+    ## statement by querying one single content topic
+    res = await driver.getMessages(
+      contentTopic= @[contentTopic1],
+      pubsubTopic=some(DefaultPubsubTopic),
+      maxPageSize=2,
+      ascendingOrder=true,
+      startTime=some(ts(00)),
+      endTime=some(ts(40))
+    )
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
+    ## Then
+    assert res.isOk(), res.error
+    filteredMessages = res.tryGet().mapIt(it[1])
+    check filteredMessages == @[expected[2]]
 
   asyncTest "single content topic - no results":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], contentTopic=DefaultContentTopic, ts=ts(00)),
@@ -252,14 +257,9 @@ suite "Postgres driver - query by content topic":
     check:
       filteredMessages.len == 0
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "content topic and max page size - not enough messages stored":
     ## Given
     const pageSize: uint = 50
-
-    let driver = newTestPostgresDriver()
 
     for t in 0..<40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts=ts(t))
@@ -279,17 +279,10 @@ suite "Postgres driver - query by content topic":
     check:
       filteredMessages.len == 40
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
-suite "Postgres driver - query by pubsub topic":
-
   asyncTest "pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -326,15 +319,10 @@ suite "Postgres driver - query by pubsub topic":
     check:
       filteredMessages == expectedMessages[4..5]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "no pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -370,15 +358,10 @@ suite "Postgres driver - query by pubsub topic":
     check:
       filteredMessages == expectedMessages[0..1]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "content topic and pubsub topic":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       (DefaultPubsubTopic, fakeWakuMessage(@[byte 0], ts=ts(00))),
@@ -417,16 +400,9 @@ suite "Postgres driver - query by pubsub topic":
     check:
       filteredMessages == expectedMessages[4..5]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
-suite "Postgres driver - query by cursor":
-
   asyncTest "only cursor":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -464,14 +440,9 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expected[5..6]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "only cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -509,14 +480,9 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expected[2..3].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "content topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -553,14 +519,9 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expected[5..6]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "content topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let expected = @[
       fakeWakuMessage(@[byte 0], ts=ts(00)),
@@ -597,15 +558,10 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expected[2..5].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "pubsub topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -649,15 +605,10 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expectedMessages[6..7]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "pubsub topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -701,16 +652,9 @@ suite "Postgres driver - query by cursor":
     check:
       filteredMessages == expectedMessages[4..5].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
-suite "Postgres driver - query by time range":
-
   asyncTest "start time only":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -745,14 +689,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[2..6]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "end time only":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -787,15 +726,10 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[0..4]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "start time and end time":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -837,14 +771,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expectedMessages[2..4]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "invalid time range - no results":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -881,14 +810,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages.len == 0
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range start and content topic":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -923,14 +847,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[2..6]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range start and content topic - descending order":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -968,14 +887,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[2..6].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range start, single content topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1016,14 +930,9 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[4..9]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range start, single content topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1064,15 +973,10 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expected[3..4].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range, content topic, pubsub topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1118,15 +1022,10 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expectedMessages[3..4]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range, content topic, pubsub topic and cursor - descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1172,15 +1071,10 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expectedMessages[4..5].reversed()
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1227,15 +1121,10 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages == expectedMessages[4..5]
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "time range, content topic, pubsub topic and cursor - cursor timestamp out of time range, descending order":
     ## Given
     const contentTopic = "test-content-topic"
     const pubsubTopic = "test-pubsub-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1281,15 +1170,8 @@ suite "Postgres driver - query by time range":
     check:
       filteredMessages.len == 0
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
-suite "Postgres driver - retention policy":
-
   asyncTest "Get oldest and newest message timestamp":
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let oldestTime = ts(00, timeOrigin)
@@ -1319,13 +1201,8 @@ suite "Postgres driver - retention policy":
     assert res.isOk(), res.error
     assert res.get() == newestTime, "Failed to retrieve the newest timestamp"
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "Delete messages older than certain timestamp":
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let targetTime = ts(40, timeOrigin)
@@ -1357,13 +1234,8 @@ suite "Postgres driver - retention policy":
     assert res.isOk(), res.error
     assert res.get() == 3, "Failed to retrieve the # of messages after deletion"
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
-
   asyncTest "Keep last n messages":
     const contentTopic = "test-content-topic"
-
-    let driver = newTestPostgresDriver()
 
     let timeOrigin = now()
     let expected = @[
@@ -1394,5 +1266,9 @@ suite "Postgres driver - retention policy":
     assert res.isOk(), res.error
     assert res.get() == 2, "Failed to retrieve the # of messages after deletion"
 
-    ## Cleanup
-    (await driver.close()).expect("driver to close")
+  asyncTest "Exists table":
+
+    var existsRes = await driver.existsTable("version")
+    assert existsRes.isOk(), existsRes.error
+    check existsRes.get() == true
+

@@ -6,6 +6,7 @@ else:
 import
   std/options,
   stew/results,
+  stew/byteutils,
   chronicles,
   chronos,
   metrics,
@@ -22,9 +23,9 @@ logScope:
   topics = "waku lightpush"
 
 type WakuLightPush* = ref object of LPProtocol
-  rng*: ref rand.HmacDrbgContext
-  peerManager*: PeerManager
-  pushHandler*: PushMessageHandler
+    rng*: ref rand.HmacDrbgContext
+    peerManager*: PeerManager
+    pushHandler*: PushMessageHandler
 
 proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Future[PushRPC] {.async.} = 
   let reqDecodeRes = PushRPC.decode(buffer)
@@ -48,7 +49,7 @@ proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Futur
       pubSubTopic = request.get().pubSubTopic
       message = request.get().message
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
-    debug "push request", peerId=peerId, requestId=requestId, pubsubTopic=pubsubTopic
+    debug "push request", peerId=peerId, requestId=requestId, pubsubTopic=pubsubTopic, hash=pubsubTopic.computeMessageHash(message).to0xHex()
     
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
     isSuccess = handleRes.isOk()
@@ -61,7 +62,7 @@ proc handleRequest*(wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]): Futur
   let rpc = PushRPC(requestId: requestId, response: some(response))
   return rpc
 
-proc initProtocolHandler*(wl: WakuLightPush) =
+proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
     let buffer = await conn.readLp(MaxRpcSize.int)
     let rpc = await handleRequest(wl, conn.peerId, buffer)

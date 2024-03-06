@@ -240,6 +240,10 @@ method getAllMessages*(driver: QueueDriver):
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
+method existsTable*(driver: QueueDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  return err("interface method not implemented")
+
 method getMessages*(driver: QueueDriver,
                     contentTopic: seq[ContentTopic] = @[],
                     pubsubTopic = none(PubsubTopic),
@@ -315,6 +319,11 @@ method deleteOldestMessagesNotWithinLimit*(driver: QueueDriver,
                                            limit: int):
                                            Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
+  return err("interface method not implemented")
+
+method decreaseDatabaseSize*(driver: QueueDriver,
+                             targetSizeInBytes: int64):
+                             Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
 method close*(driver: QueueDriver):

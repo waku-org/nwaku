@@ -22,7 +22,7 @@ logScope:
 const
   WakuLegacyFilterCodec* = "/vac/waku/filter/2.0.0-beta1"
 
-  WakuFilterTimeout: Duration = 2.hours
+  WakuLegacyFilterTimeout*: Duration = 2.hours
 
 
 type WakuFilterResult*[T] = Result[T, string]
@@ -113,20 +113,12 @@ proc initProtocolHandler(wf: WakuFilterLegacy) =
 proc new*(T: type WakuFilterLegacy,
            peerManager: PeerManager,
            rng: ref rand.HmacDrbgContext,
-           timeout: Duration = WakuFilterTimeout): T =
+           timeout: Duration = WakuLegacyFilterTimeout): T =
   let wf = WakuFilterLegacy(rng: rng,
                       peerManager: peerManager,
                       timeout: timeout)
   wf.initProtocolHandler()
   return wf
-
-proc init*(T: type WakuFilterLegacy,
-           peerManager: PeerManager,
-           rng: ref rand.HmacDrbgContext,
-           timeout: Duration = WakuFilterTimeout): T {.
-  deprecated: "WakuFilterLegacy.new()' instead".} =
-  WakuFilterLegacy.new(peerManager, rng, timeout)
-
 
 proc sendFilterRpc(wf: WakuFilterLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
   let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)

@@ -5,7 +5,7 @@ else:
 
 
 import
-  std/[options, sets, tables, sequtils, times, strutils, math],
+  std/[options, sets, sequtils, times, strutils, math, random],
   chronos,
   chronicles,
   metrics,
@@ -37,6 +37,8 @@ declarePublicGauge waku_service_peers, "Service peer protocol and multiaddress "
 logScope:
   topics = "waku node peer_manager"
 
+randomize()
+
 const
   # TODO: Make configurable
   DefaultDialTimeout = chronos.seconds(10)
@@ -63,7 +65,7 @@ const
   LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
-  ColocationLimit = 5
+  DefaultColocationLimit* = 5
 
 type
   PeerManager* = ref object of RootObj
@@ -81,6 +83,7 @@ type
     ipTable*: Table[string, seq[PeerId]]
     colocationLimit*: int
     started: bool
+    shardedPeerManagement: bool # temp feature flag
 
 proc protocolMatcher*(codec: string): Matcher =
   ## Returns a protocol matcher function for the provided codec
@@ -159,8 +162,7 @@ proc connectRelay*(pm: PeerManager,
     pm.addPeer(peer)
 
   let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
-  trace "Connecting to relay peer",
-    wireAddr=peer.addrs, peerId=peerId, failedAttempts=failedAttempts
+  trace "Connecting to relay peer", wireAddr=peer.addrs, peerId=peerId, failedAttempts=failedAttempts
 
   var deadline = sleepAsync(dialTimeout)
   let workfut = pm.switch.connect(peerId, peer.addrs)
@@ -384,11 +386,12 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         # in theory this should always be one, but just in case
         let peersBehindIp = pm.ipTable[ip.get]
         
-        let idx = max((peersBehindIp.len - pm.colocationLimit), 0)
-        for peerId in peersBehindIp[0..<idx]:
-          debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
-          asyncSpawn(pm.switch.disconnect(peerId))
-          pm.peerStore.delete(peerId)
+        # pm.colocationLimit == 0 disables the ip colocation limit
+        if pm.colocationLimit != 0 and peersBehindIp.len > pm.colocationLimit:
+          for peerId in peersBehindIp[0..<(peersBehindIp.len - pm.colocationLimit)]:
+            debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
+            asyncSpawn(pm.switch.disconnect(peerId))
+            pm.peerStore.delete(peerId)
     of Left:
       direction = UnknownDirection
       connectedness = CanConnect
@@ -418,7 +421,8 @@ proc new*(T: type PeerManager,
           initialBackoffInSec = InitialBackoffInSec,
           backoffFactor = BackoffFactor,
           maxFailedAttempts = MaxFailedAttempts,
-          colocationLimit = ColocationLimit,): PeerManager =
+          colocationLimit = DefaultColocationLimit,
+          shardedPeerManagement = false): PeerManager =
 
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -464,7 +468,8 @@ proc new*(T: type PeerManager,
                        inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
                        maxRelayPeers: maxRelayPeersValue,
                        maxFailedAttempts: maxFailedAttempts,
-                       colocationLimit: colocationLimit)
+                       colocationLimit: colocationLimit,
+                       shardedPeerManagement: shardedPeerManagement,)
 
   proc connHook(peerId: PeerID, event: ConnEvent): Future[void] {.gcsafe.} =
     onConnEvent(pm, peerId, event)
@@ -652,6 +657,25 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     trace "Pruning Peer", Peer = $p
     asyncSpawn(pm.switch.disconnect(p))
 
+proc connectToRelayPeers*(pm: PeerManager) {.async.} =
+  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  let maxConnections = pm.switch.connManager.inSema.size
+  let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
+  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
+
+  # TODO: Temporally disabled. Might be causing connection issues
+  #if inRelayPeers.len > pm.inRelayPeersTarget:
+  #  await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
+
+  if outRelayPeers.len >= pm.outRelayPeersTarget:
+    return
+
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+  let numPeersToConnect = min(outsideBackoffPeers.len, MaxParallelDials)
+
+  await pm.connectToNodes(outsideBackoffPeers[0..<numPeersToConnect])
+
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
     return
@@ -700,13 +724,16 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     let relayCount = connectablePeers.len
 
-    trace "Sharded Peer Management",
+    debug "Sharded Peer Management",
       shard = shard,
       connectable = $connectableCount & "/" & $shardCount,
       relayConnectable = $relayCount & "/" & $shardCount,
       relayInboundTarget = $connectedInPeers.len & "/" & $inTarget,
       relayOutboundTarget = $connectedOutPeers.len & "/" & $outTarget
       
+    # Always pick random connectable relay peers
+    shuffle(connectablePeers)
+
     let length = min(outPeerDiff, connectablePeers.len)
     for peer in connectablePeers[0..<length]:
       trace "Peer To Connect To", peerId = $peer.peerId
@@ -745,7 +772,10 @@ proc prunePeerStore*(pm: PeerManager) =
 
     peersToPrune.incl(peerId)
   
-  let notConnected = pm.peerStore.getNotConnectedPeers().mapIt(it.peerId)
+  var notConnected = pm.peerStore.getNotConnectedPeers().mapIt(it.peerId)
+
+  # Always pick random non-connected peers
+  shuffle(notConnected)
 
   var shardlessPeers: seq[PeerId]
   var peersByShard = initTable[uint16, seq[PeerId]]()
@@ -839,7 +869,9 @@ proc prunePeerStoreLoop(pm: PeerManager) {.async.}  =
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
   trace "Starting relay connectivity loop"
   while pm.started:
-    await pm.manageRelayPeers()
+    if pm.shardedPeerManagement:
+      await pm.manageRelayPeers()
+    else: await pm.connectToRelayPeers()
     await sleepAsync(ConnectivityLoopInterval)
 
 proc logAndMetrics(pm: PeerManager) {.async.} =

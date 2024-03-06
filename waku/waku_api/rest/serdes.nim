@@ -14,12 +14,16 @@ import
   json_serialization/std/net,
   json_serialization/std/sets,
   presto/common
-
+import
+  ../../common/base64
 
 logScope:
   topics = "waku node rest"
 
-Json.createFlavor RestJson
+createJsonFlavor RestJson
+
+Json.setWriter JsonWriter,
+               PreferredOutput = string
 
 template unrecognizedFieldWarning* =
   # TODO: There should be a different notification mechanism for informing the
@@ -30,6 +34,14 @@ template unrecognizedFieldWarning* =
 
 
 type SerdesResult*[T] = Result[T, cstring]
+
+proc writeValue*(writer: var JsonWriter, value: Base64String)
+  {.gcsafe, raises: [IOError].} =
+  writer.writeValue(string(value))
+
+proc readValue*(reader: var JsonReader, value: var Base64String)
+  {.gcsafe, raises: [SerializationError, IOError].} =
+  value = Base64String(reader.readValue(string))
 
 proc decodeFromJsonString*[T](t: typedesc[T],
                           data: JsonString,

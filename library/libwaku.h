@@ -6,6 +6,8 @@
 #ifndef __libwaku__
 #define __libwaku__
 
+#include <stddef.h>
+
 // The possible returned values for the functions that return int
 #define RET_OK                0
 #define RET_ERR               1
@@ -15,15 +17,12 @@
 extern "C" {
 #endif
 
-typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len);
-
-// Initializes the waku library and returns a pointer to the Context.
-void* waku_init(WakuCallBack callback,
-                void* userData);
+typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len, void* userData);
 
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
-int waku_new(void* ctx,
+// Returns a pointer to the Context needed by the rest of the API functions.
+void* waku_new(
              const char* configJson,
              WakuCallBack callback,
              void* userData);
@@ -40,7 +39,8 @@ int waku_version(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
-void waku_set_event_callback(WakuCallBack callback,
+void waku_set_event_callback(void* ctx,
+                             WakuCallBack callback,
                              void* userData);
 
 int waku_content_topic(void* ctx,
@@ -82,6 +82,10 @@ int waku_connect(void* ctx,
                  unsigned int timeoutMs,
                  WakuCallBack callback,
                  void* userData);
+
+int waku_listen_addresses(void* ctx,
+                          WakuCallBack callback,
+                          void* userData);
 
 #ifdef __cplusplus
 }

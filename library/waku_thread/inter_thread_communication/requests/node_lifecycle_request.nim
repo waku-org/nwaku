@@ -16,7 +16,6 @@ import
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/waku_core,
   ../../../../waku/node/waku_node,
-  ../../../../waku/node/builder,
   ../../../../waku/node/config,
   ../../../../waku/waku_archive/driver/builder,
   ../../../../waku/waku_archive/driver,
@@ -24,7 +23,8 @@ import
   ../../../../waku/waku_archive/retention_policy,
   ../../../../waku/waku_relay/protocol,
   ../../../../waku/waku_store,
-  ../../../events/[json_error_event,json_message_event,json_base_event],
+  ../../../../waku/factory/builder,
+  ../../../events/[json_message_event,json_base_event],
   ../../../alloc,
   ../../config
 
@@ -62,7 +62,7 @@ proc configureStore(node: WakuNode,
                     Future[Result[void, string]] {.async.} =
   ## This snippet is extracted/duplicated from the app.nim file
 
-  var onErrAction = proc(msg: string) {.gcsafe, closure.} =
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
     ## Action to be taken when an internal error occurs during the node run.
     ## e.g. the connection with the database is lost and not recovered.
     # error "Unrecoverable error occurred", error = msg
@@ -70,11 +70,11 @@ proc configureStore(node: WakuNode,
     discard
 
   # Archive setup
-  let archiveDriverRes = ArchiveDriver.new(storeDbUrl,
-                                           storeVacuum,
-                                           storeDbMigration,
-                                           storeMaxNumDbConnections,
-                                           onErrAction)
+  let archiveDriverRes = await ArchiveDriver.new(storeDbUrl,
+                                                 storeVacuum,
+                                                 storeDbMigration,
+                                                 storeMaxNumDbConnections,
+                                                 onFatalErrorAction)
   if archiveDriverRes.isErr():
     return err("failed to setup archive driver: " & archiveDriverRes.error)
 
@@ -122,7 +122,7 @@ proc createNode(configJson: cstring):
   var storeDbMigration: bool
   var storeMaxNumDbConnections: int
 
-  var jsonResp: JsonEvent
+  var errorResp: string
 
   try:
     if not parseConfig($configJson,
@@ -137,8 +137,8 @@ proc createNode(configJson: cstring):
                       storeVacuum,
                       storeDbMigration,
                       storeMaxNumDbConnections,
-                      jsonResp):
-      return err($jsonResp)
+                      errorResp):
+      return err(errorResp)
   except Exception:
     return err("exception calling parseConfig: " & getCurrentExceptionMsg())
 
@@ -158,13 +158,13 @@ proc createNode(configJson: cstring):
   let addShardedTopics = enrBuilder.withShardedTopics(topics)
   if addShardedTopics.isErr():
     let msg = "Error setting shared topics: " & $addShardedTopics.error
-    return err($JsonErrorEvent.new(msg))
+    return err(msg)
 
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
       let msg = "Error building enr record: " & $recordRes.error
-      return err($JsonErrorEvent.new(msg))
+      return err(msg)
 
     else: recordRes.get()
 
@@ -183,7 +183,7 @@ proc createNode(configJson: cstring):
   let wakuNodeRes = builder.build()
   if wakuNodeRes.isErr():
     let errorMsg = "failed to create waku node instance: " & wakuNodeRes.error
-    return err($JsonErrorEvent.new(errorMsg))
+    return err(errorMsg)
 
   var newNode = wakuNodeRes.get()
 

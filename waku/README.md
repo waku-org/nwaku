@@ -166,14 +166,14 @@ It is possible to configure an IPv4 DNS domain name that resolves to the node's 
 wakunode2 --dns4-domain-name=mynode.example.com
 ```
 
-This allows for the node's publically announced `multiaddrs` to use the `/dns4` scheme.
+This allows for the node's publicly announced `multiaddrs` to use the `/dns4` scheme.
 In addition, nodes with domain name and [secure websocket configured](#enabling-websocket),
 will generate a discoverable ENR containing the `/wss` multiaddr with `/dns4` domain name.
 This is necessary to verify domain certificates when connecting to this node over secure websocket.
 
 ## Using DNS discovery to connect to existing nodes
 
-A node can discover other nodes to connect to using [DNS-based discovery](../../docs/tutorial/dns-disc.md).
+A node can discover other nodes to connect to using [DNS-based discovery](../docs/tutorial/dns-disc.md).
 The following command line options are available:
 
 ```
@@ -197,7 +197,7 @@ Current URLs for the published fleet lists:
 - production fleet: `enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im`
 - test fleet: `enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im`
 
-See the [separate tutorial](../../docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
+See the [separate tutorial](../docs/tutorial/dns-disc.md) for a complete guide to DNS discovery.
 
 ## Enabling Websocket
 

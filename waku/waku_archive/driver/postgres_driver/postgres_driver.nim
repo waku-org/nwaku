@@ -4,13 +4,14 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,times],
+  std/[nre,options,sequtils,strutils,times,strformat],
   stew/[results,byteutils],
   db_postgres,
   postgres,
   chronos,
   chronicles
 import
+  ../../../common/error_handling,
   ../../../waku_core,
   ../../common,
   ../../driver,
@@ -26,6 +27,9 @@ type PostgresDriver* = ref object of ArchiveDriver
 
 proc dropTableQuery(): string =
   "DROP TABLE messages"
+
+proc dropVersionTableQuery(): string =
+  "DROP TABLE version"
 
 proc createTableQuery(): string =
   "CREATE TABLE IF NOT EXISTS messages (" &
@@ -89,7 +93,7 @@ const DefaultMaxNumConns = 50
 proc new*(T: type PostgresDriver,
           dbUrl: string,
           maxConnections = DefaultMaxNumConns,
-          onErrAction: OnErrHandler = nil):
+          onFatalErrorAction: OnFatalErrorHandler = nil):
           ArchiveDriverResult[T] =
 
   ## Very simplistic split of max connections
@@ -101,14 +105,23 @@ proc new*(T: type PostgresDriver,
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(readConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(writeConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
   return ok(PostgresDriver(writeConnPool: writeConnPool,
                            readConnPool: readConnPool))
+
+proc performWriteQuery*(s: PostgresDriver,
+                        query: string): Future[ArchiveDriverResult[void]] {.async.}  =
+  ## Executes a query that changes the database state
+  ## TODO: we can reduce the code a little with this proc
+  (await s.writeConnPool.pgQuery(query)).isOkOr:
+    return err(fmt"error in {query}: {error}")
+
+  return ok()
 
 proc createMessageTable*(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.}  =
@@ -119,7 +132,7 @@ proc createMessageTable*(s: PostgresDriver):
 
   return ok()
 
-proc deleteMessageTable*(s: PostgresDriver):
+proc deleteMessageTable(s: PostgresDriver):
                          Future[ArchiveDriverResult[void]] {.async.} =
 
   let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
@@ -128,18 +141,22 @@ proc deleteMessageTable*(s: PostgresDriver):
 
   return ok()
 
-proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+proc deleteVersionTable(s: PostgresDriver):
+                         Future[ArchiveDriverResult[void]] {.async.} =
 
-  let createMsgRes = await s.createMessageTable()
-  if createMsgRes.isErr():
-    return err("createMsgRes.isErr in init: " & createMsgRes.error)
+  let execRes = await s.writeConnPool.pgQuery(dropVersionTableQuery())
+  if execRes.isErr():
+    return err("error in deleteVersionTable: " & execRes.error)
 
   return ok()
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let ret = await s.deleteMessageTable()
-  return ret
+  ## This is only used for testing purposes, to set a fresh database at the beginning of each test
+  (await s.deleteMessageTable()).isOkOr:
+    return err("error deleting message table: " & $error)
+  (await s.deleteVersionTable()).isOkOr:
+    return err("error deleting version table: " & $error)
+  return ok()
 
 proc rowCallbackImpl(pqResult: ptr PGresult,
                      outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]) =
@@ -388,7 +405,7 @@ method getMessages*(s: PostgresDriver,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
 
-  if contentTopicSeq.len > 0 and
+  if contentTopicSeq.len == 1 and
     pubsubTopic.isSome() and
     startTime.isSome() and
     endTime.isSome():
@@ -501,6 +518,40 @@ method deleteOldestMessagesNotWithinLimit*(
 
   return ok()
 
+method decreaseDatabaseSize*(driver: PostgresDriver,
+                             targetSizeInBytes: int64):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+  ## TODO: refactor this implementation and use partition management instead
+  ## To remove 20% of the outdated data from database
+  const DeleteLimit = 0.80
+
+  ## when db size overshoots the database limit, shread 20% of outdated messages
+  ## get size of database
+  let dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("failed to get database size: " & $error)
+
+  ## database size in bytes
+  let totalSizeOfDB: int64 = int64(dbSize)
+
+  if totalSizeOfDB < targetSizeInBytes:
+    return ok()
+
+  ## to shread/delete messsges, get the total row/message count
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
+
+  ## NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+  ## if vacumming is done automatically then we aim to check DB size periodially for efficient
+  ## retention policy implementation.
+
+  ## 80% of the total messages are to be kept, delete others
+  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
+
+  return ok()
+
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
@@ -535,3 +586,45 @@ proc sleep*(s: PostgresDriver, seconds: int):
     return err("exception sleeping: " & getCurrentExceptionMsg())
 
   return ok()
+
+method existsTable*(s: PostgresDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string = fmt"""
+  SELECT EXISTS (
+    SELECT FROM
+        pg_tables
+    WHERE
+        tablename  = '{tableName}'
+    );
+    """
+
+  var exists: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in existsTable"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in existsTable"
+      return
+
+    exists = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("existsTable failed in getRow: " & $error)
+
+  return ok(exists == "t")
+
+proc getCurrentVersion*(s: PostgresDriver):
+                        Future[ArchiveDriverResult[int64]] {.async.} =
+
+  let existsVersionTable = (await s.existsTable("version")).valueOr:
+    return err("error in getCurrentVersion-existsTable: " & $error)
+
+  if not existsVersionTable:
+    return ok(0)
+
+  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
+    return err("error in getMessagesCount: " & $error)
+
+  return ok(res)

@@ -16,10 +16,8 @@ import
   ../../../waku/waku_rln_relay/rln,
   ../../../waku/waku_rln_relay/protocol_metrics,
   ../../../waku/waku_keystore,
-  ../testlib/common
-
-proc createRLNInstanceWrapper(): RLNResult =
-  return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
+  ../testlib/common,
+  ./rln/waku_rln_relay_utils
 
 suite "Waku rln relay":
 
@@ -592,7 +590,7 @@ suite "Waku rln relay":
   test "updateLog and hasDuplicate tests":
     let
       wakurlnrelay = WakuRLNRelay()
-      epoch = getCurrentEpoch()
+      epoch = wakurlnrelay.getCurrentEpoch()
 
     #  create some dummy nullifiers and secret shares
     var nullifier1: Nullifier
@@ -664,6 +662,7 @@ suite "Waku rln relay":
 
     let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
                                 rlnRelayCredIndex: some(index),
+                                rlnEpochSizeSec: 1,
                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
     let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
     require:
@@ -685,13 +684,13 @@ suite "Waku rln relay":
     let
       proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
       proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
+      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+float64(wakuRlnRelay.rlnEpochSizeSec))
 
     # ensure proofs are added
     require:
-      proofAdded1
-      proofAdded2
-      proofAdded3
+      proofAdded1.isOk()
+      proofAdded2.isOk()
+      proofAdded3.isOk()
 
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)

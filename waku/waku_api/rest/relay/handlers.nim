@@ -130,21 +130,12 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
-      let success = node.wakuRlnRelay.appendRLNProof(message,
-                                                    float64(getTime().toUnix()))
-      if not success:
+      node.wakuRlnRelay.appendRLNProof(message,
+                                       float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
 
-      # validate the message before sending it
-      let result = node.wakuRlnRelay.validateMessageAndUpdateLog(message)
-      if result == MessageValidationResult.Invalid:
-        return RestApiResponse.internalServerError("Failed to publish: invalid RLN proof")
-      elif result == MessageValidationResult.Spam:
-        return RestApiResponse.badRequest("Failed to publish: limit exceeded, try again later")
-      elif result == MessageValidationResult.Valid:
-        debug "RLN proof validated successfully", pubSubTopic=pubSubTopic
-      else:
-        return RestApiResponse.internalServerError("Failed to publish: unknown RLN proof validation result")
+    (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", pubSubTopic=pubSubTopic, rln=not node.wakuRlnRelay.isNil()
@@ -220,25 +211,30 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     var message: WakuMessage = req.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
 
+    let pubsubTopic = getShard(message.contentTopic).valueOr:
+      let msg = "Autosharding error: " & error
+      error "publish error", msg=msg
+      return RestApiResponse.badRequest("Failed to publish. " & msg)
+    
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
-      if not node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())):
+      node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError(
           "Failed to publish: error appending RLN proof to message")
 
-      case node.wakuRlnRelay.validateMessage(message):
-        of MessageValidationResult.Invalid:
-          return RestApiResponse.internalServerError("Failed to publish: invalid RLN proof")
-        of MessageValidationResult.Spam:
-          return RestApiResponse.badRequest("Failed to publish: limit exceeded, try again later")
-        of MessageValidationResult.Valid:
-          debug "RLN proof validated successfully", contentTopic=message.contentTopic
-
+    (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+      return RestApiResponse.badRequest("Failed to publish: " & error)
+    
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message", contentTopic=message.contentTopic, rln=not node.wakuRlnRelay.isNil()
-    
-    if not (waitFor node.publish(none(PubSubTopic), message).withTimeout(futTimeout)):
-      error "Failed to publish message to topic", contentTopic=message.contentTopic
-      return RestApiResponse.internalServerError("Failed to publish: timedout")
+
+    var publishFut = node.publish(some(pubsubTopic), message)
+    if not await publishFut.withTimeout(futTimeout):
+       return RestApiResponse.internalServerError("Failed to publish: timedout")    
+
+    var res = publishFut.read()
+
+    if res.isErr():
+      return RestApiResponse.badRequest("Failed to publish. " & res.error)
 
     return RestApiResponse.ok()

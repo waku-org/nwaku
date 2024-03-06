@@ -13,11 +13,12 @@ import
   libp2p/multihash,
   secp256k1
 import
-  ../../apps/wakunode2/wakunode2_validator_signed,
   ../../waku/waku_core,
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
   ../../waku/waku_relay,
+  ../../waku/factory/external_config,
+  ../../waku/factory/validator_signed,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -42,8 +43,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
     for i in 0..<5:
@@ -74,7 +77,7 @@ suite "WakuNode2 - Validators":
         # Include signature
         msg.meta = secretKey.sign(SkMessage(spamProtectedTopic.msgHash(msg))).toRaw()[0..63]
 
-        await nodes[i].publish(some(spamProtectedTopic), msg)
+        discard await nodes[i].publish(some(spamProtectedTopic), msg)
 
     # Wait for gossip
     await sleepAsync(2.seconds)
@@ -114,8 +117,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # Connect the nodes in a full mesh
     for i in 0..<5:
@@ -146,7 +151,7 @@ suite "WakuNode2 - Validators":
         # Sign the message with a wrong key
         msg.meta = wrongSecretKey.sign(SkMessage(spamProtectedTopic.msgHash(msg))).toRaw()[0..63]
 
-        await nodes[i].publish(some(spamProtectedTopic), msg)
+        discard await nodes[i].publish(some(spamProtectedTopic), msg)
 
     # Each node sends 5 messages that are not signed (total = 25)
     for i in 0..<5:
@@ -154,7 +159,7 @@ suite "WakuNode2 - Validators":
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: now(), ephemeral: true)
-        await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
+        discard await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
 
     # Each node sends 5 messages that dont contain timestamp (total = 25)
     for i in 0..<5:
@@ -162,7 +167,7 @@ suite "WakuNode2 - Validators":
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: 0, ephemeral: true)
-        await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
+        discard await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
 
     # Each node sends 5 messages way BEFORE than the current timestmap (total = 25)
     for i in 0..<5:
@@ -171,7 +176,7 @@ suite "WakuNode2 - Validators":
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: beforeTimestamp, ephemeral: true)
-        await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
+        discard await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
 
     # Each node sends 5 messages way LATER than the current timestmap (total = 25)
     for i in 0..<5:
@@ -180,25 +185,30 @@ suite "WakuNode2 - Validators":
         let unsignedMessage = WakuMessage(
           payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
           version: 2, timestamp: afterTimestamp, ephemeral: true)
-        await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
-
-    # Wait for gossip
-    await sleepAsync(4.seconds)
+        discard await nodes[i].publish(some(spamProtectedTopic), unsignedMessage)
 
     # Since we have a full mesh with 5 nodes and each one publishes 25+25+25+25+25 msgs
     # there are 625 messages being sent.
     # 125 are received ok in the handler (first hop)
     # 500 are are wrong so rejected (rejected not relayed)
+    
+    var msgRejected = 0
+    
+    # Active wait for the messages to be delivered across the mesh
+    for i in 0..<100:
+      msgRejected = 0
+      for i in 0..<5:
+        for k, v in nodes[i].wakuRelay.peerStats.mpairs:
+          msgRejected += v.topicInfos[spamProtectedTopic].invalidMessageDeliveries.int
+      
+      if msgReceived == 125 and msgRejected == 500:
+        break
+      else:
+        await sleepAsync(100.milliseconds)
+
     check:
       msgReceived == 125
-
-    var msgRejected = 0
-    for i in 0..<5:
-      for k, v in nodes[i].wakuRelay.peerStats.mpairs:
-        msgRejected += v.topicInfos[spamProtectedTopic].invalidMessageDeliveries.int
-
-    check:
-      msgRejected == 500
+      msgRejected == 500      
 
     await allFutures(nodes.mapIt(it.stop()))
 
@@ -232,8 +242,10 @@ suite "WakuNode2 - Validators":
 
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
+      var signedTopics : seq[ProtectedTopic]
       for topic, publicKey in topicsPublicKeys:
-        node.wakuRelay.addSignedTopicValidator(PubsubTopic(topic), publicKey)
+        signedTopics.add(ProtectedTopic(topic: topic, key: publicKey))
+      node.wakuRelay.addSignedTopicsValidator(signedTopics)
 
     # nodes[0] is connected only to nodes[1]
     let connOk1 = await nodes[0].peerManager.connectRelay(nodes[1].switch.peerInfo.toRemotePeerInfo())
@@ -255,7 +267,7 @@ suite "WakuNode2 - Validators":
       let unsignedMessage = WakuMessage(
         payload: urandom(1*(10^3)), contentTopic: spamProtectedTopic,
         version: 2, timestamp: now(), ephemeral: true)
-      await nodes[0].publish(some(spamProtectedTopic), unsignedMessage)
+      discard await nodes[0].publish(some(spamProtectedTopic), unsignedMessage)
 
     # nodes[0] spams 50 wrongly signed messages (nodes[0] just knows of nodes[1])
     for j in 0..<50:
@@ -264,7 +276,7 @@ suite "WakuNode2 - Validators":
         version: 2, timestamp: now(), ephemeral: true)
       # Sign the message with a wrong key
       msg.meta = wrongSecretKey.sign(SkMessage(spamProtectedTopic.msgHash(msg))).toRaw()[0..63]
-      await nodes[0].publish(some(spamProtectedTopic), msg)
+      discard await nodes[0].publish(some(spamProtectedTopic), msg)
 
     # Wait for gossip
     await sleepAsync(2.seconds)

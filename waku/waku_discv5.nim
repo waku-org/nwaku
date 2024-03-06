@@ -52,7 +52,7 @@ type WakuDiscoveryV5* = ref object
     peerManager: Option[PeerManager]
     topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
 
-proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
+proc shardingPredicate*(record: Record, bootnodes: seq[Record] = @[]): Option[WakuDiscv5Predicate] =
   ## Filter peers based on relay sharding information
   let typedRecord = record.toTyped().valueOr:
     debug "peer filtering failed", reason=error
@@ -65,8 +65,9 @@ proc shardingPredicate*(record: Record): Option[WakuDiscv5Predicate] =
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-      record.getCapabilities().len > 0 and #RFC 31 requirement
-      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it)) #RFC 64 guideline
+      bootnodes.contains(record) or # Temp. Bootnode exception
+      (record.getCapabilities().len > 0 and #RFC 31 requirement
+      nodeShard.shardIds.anyIt(record.containsShard(nodeShard.clusterId, it))) #RFC 64 guideline
 
   return some(predicate)
 
@@ -78,32 +79,23 @@ proc new*(
   peerManager: Option[PeerManager] = none(PeerManager),
   queue: AsyncEventQueue[SubscriptionEvent] = newAsyncEventQueue[SubscriptionEvent](30),
   ): T =
-  let shardPredOp =
-    if record.isSome(): shardingPredicate(record.get())
-    else: none(WakuDiscv5Predicate)
-  
-  var bootstrapRecords = conf.bootstrapRecords
-
-  # Remove bootstrap nodes with which we don't share shards.
-  if shardPredOp.isSome():
-    bootstrapRecords.keepIf(shardPredOp.get())
-  
-  if conf.bootstrapRecords.len > 0 and bootstrapRecords.len == 0:
-    warn "No discv5 bootstrap nodes share this node configured shards"
-
   let protocol = newProtocol(
     rng = rng,
     config = conf.discv5Config.get(protocol.defaultDiscoveryConfig),
     bindPort = conf.port,
     bindIp = conf.address,
     privKey = conf.privateKey,
-    bootstrapRecords = bootstrapRecords,
+    bootstrapRecords = conf.bootstrapRecords,
     enrAutoUpdate = conf.autoupdateRecord,
     previousRecord = record,
     enrIp = none(IpAddress),
     enrTcpPort = none(Port),
     enrUdpPort = none(Port),
   )
+
+  let shardPredOp =
+    if record.isSome(): shardingPredicate(record.get(), conf.bootstrapRecords)
+    else: none(WakuDiscv5Predicate)
 
   WakuDiscoveryV5(
     conf: conf,
@@ -239,7 +231,7 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
 
     debug "ENR updated successfully"
 
-    wd.predicate = shardingPredicate(wd.protocol.localNode.record)
+    wd.predicate = shardingPredicate(wd.protocol.localNode.record, wd.protocol.bootstrapRecords)
 
   wd.topicSubscriptionQueue.unregister(key)
 

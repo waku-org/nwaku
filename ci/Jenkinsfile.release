@@ -1,3 +1,6 @@
+#!/usr/bin/env groovy
+library 'status-jenkins-lib@v1.8.9'
+
 pipeline {
   agent { label 'linux' }
 
@@ -24,7 +27,7 @@ pipeline {
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'waku-org/nwaku',
+      defaultValue: params.IMAGE_NAME ?: 'harbor.status.im/wakuorg/nwaku',
     )
     string(
       name: 'DOCKER_CRED',
@@ -44,7 +47,6 @@ pipeline {
         '-d:disableMarchNative',
         '-d:chronicles_colors:none',
         '-d:insecure',
-        '-d:postgres',
       ].join(' ')
     )
     choice(
@@ -64,9 +66,11 @@ pipeline {
       steps { script {
         image = docker.build(
           "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
-          "--label=commit='${env.GIT_COMMIT.take(8)}' " +
+          "--label=build='${env.BUILD_URL}' " +
+          "--label=commit='${git.commit()}' " +
+          "--label=version='${git.describe()}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
-          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
+          "--build-arg=NIMFLAGS='${params.NIMFLAGS} -d:postgres ' " +
           "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
           "--target=${params.DEBUG ? "debug" : "prod"} ."
         )
@@ -99,10 +103,10 @@ pipeline {
 
   post {
     success { script {
-      def discord = load "${WORKSPACE}/ci/discord.groovy"
       discord.send(
-        header: 'Nim-Waku deployment successful!',
+        header: '**Nim-Waku deployment successful!**',
         cred: 'discord-waku-deployments-webhook',
+        descPrefix: "Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?name=${IMAGE_TAG})"
       )
     } }
     always { sh 'docker image prune -f' }

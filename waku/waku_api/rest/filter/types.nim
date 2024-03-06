@@ -22,6 +22,7 @@ type FilterWakuMessage* = object
       contentTopic*: Option[ContentTopic]
       version*: Option[Natural]
       timestamp*: Option[int64]
+      meta*: Option[Base64String]
 
 type FilterGetMessagesResponse* = seq[FilterWakuMessage]
 
@@ -58,7 +59,8 @@ proc toFilterWakuMessage*(msg: WakuMessage): FilterWakuMessage =
     payload: base64.encode(msg.payload),
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
-    timestamp: some(msg.timestamp)
+    timestamp: some(msg.timestamp),
+    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String)
   )
 
 proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -67,37 +69,71 @@ proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, st
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
     timestamp = msg.timestamp.get(0)
+    meta = ?msg.meta.get(Base64String("")).decode()
 
-  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, timestamp: timestamp))
+  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version, 
+    timestamp: timestamp, meta: meta))
 
 #### Serialization and deserialization
-
-proc writeValue*(writer: var JsonWriter[RestJson], value: Base64String)
-  {.raises: [IOError].} =
-  writer.writeValue(string(value))
 
 proc writeValue*(writer: var JsonWriter[RestJson], value: FilterWakuMessage)
   {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", value.payload)
-  if value.contentTopic.isSome:
-    writer.writeField("contentTopic", value.contentTopic)
-  if value.version.isSome:
-    writer.writeField("version", value.version)
-  if value.timestamp.isSome:
-    writer.writeField("timestamp", value.timestamp)
+  if value.contentTopic.isSome():
+    writer.writeField("contentTopic", value.contentTopic.get())
+  if value.version.isSome():
+    writer.writeField("version", value.version.get())
+  if value.timestamp.isSome():
+    writer.writeField("timestamp", value.timestamp.get())
+  if value.meta.isSome():
+    writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterLegacySubscribeRequest)
+proc writeValue*(writer: var JsonWriter, value: FilterLegacySubscribeRequest)
   {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("pubsubTopic", value.pubsubTopic)
   writer.writeField("contentFilters", value.contentFilters)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson], value: var Base64String)
-  {.raises: [SerializationError, IOError].} =
-  value = Base64String(reader.readValue(string))
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscriptionResponse)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  writer.writeField("statusCode", value.statusCode)
+  writer.writeField("statusDesc", value.statusDesc)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscribeRequest)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  if value.pubsubTopic.isSome():
+    writer.writeField("pubsubTopic", value.pubsubTopic.get())
+  writer.writeField("contentFilters", value.contentFilters)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscriberPing)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterUnsubscribeRequest)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  if value.pubsubTopic.isSome():
+    writer.writeField("pubsubTopic", value.pubsubTopic.get())
+  writer.writeField("contentFilters", value.contentFilters)
+  writer.endRecord()
+
+proc writeValue*(writer: var JsonWriter[RestJson], value: FilterUnsubscribeAllRequest)
+  {.raises: [IOError].} =
+  writer.beginRecord()
+  writer.writeField("requestId", value.requestId)
+  writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
   {.raises: [SerializationError, IOError].} =
@@ -106,6 +142,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
     contentTopic = none(ContentTopic)
     version = none(Natural)
     timestamp = none(int64)
+    meta = none(Base64String)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -124,6 +161,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
       version = some(reader.readValue(Natural))
     of "timestamp":
       timestamp = some(reader.readValue(int64))
+    of "meta":
+      meta = some(reader.readValue(Base64String))
     else:
       unrecognizedFieldWarning()
 
@@ -134,7 +173,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
     payload: payload.get(),
     contentTopic: contentTopic,
     version: version,
-    timestamp: timestamp
+    timestamp: timestamp,
+    meta: meta
   )
 
 proc readValue*(reader: var JsonReader[RestJson], value: var FilterLegacySubscribeRequest)

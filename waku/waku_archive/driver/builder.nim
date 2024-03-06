@@ -12,6 +12,7 @@ import
   ../driver,
   ../../common/databases/dburl,
   ../../common/databases/db_sqlite,
+  ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
   ./queue_driver
@@ -21,7 +22,9 @@ export
   queue_driver
 
 when defined(postgres):
-  import ./postgres_driver ## This import adds dependency with an external libpq library
+  import ## These imports add dependency with an external libpq library
+    ./postgres_driver/migrations as archive_postgres_driver_migrations,  
+    ./postgres_driver 
   export postgres_driver
 
 proc new*(T: type ArchiveDriver,
@@ -29,13 +32,13 @@ proc new*(T: type ArchiveDriver,
           vacuum: bool,
           migrate: bool,
           maxNumConn: int,
-          onErrAction: OnErrHandler):
-          Result[T, string] =
+          onFatalErrorAction: OnFatalErrorHandler):
+          Future[Result[T, string]] {.async.} =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
   ## migrate - if true, the database schema will be updated
   ## maxNumConn - defines the maximum number of connections to handle simultaneously (Postgres)
-  ## onErrAction - called if, e.g., the connection with db got lost
+  ## onFatalErrorAction - called if, e.g., the connection with db got lost
 
   let dbUrlValidationRes = dburl.validateDbUrl(url)
   if dbUrlValidationRes.isErr():
@@ -62,17 +65,25 @@ proc new*(T: type ArchiveDriver,
     let db = dbRes.get()
 
     # SQLite vacuum
-    let (pageSize, pageCount, freelistCount) = ? db.gatherSqlitePageStats()
+    let sqliteStatsRes = db.gatherSqlitePageStats()
+    if sqliteStatsRes.isErr():
+      return err("error while gathering sqlite stats: " & $sqliteStatsRes.error)
+
+    let (pageSize, pageCount, freelistCount) = sqliteStatsRes.get()
     debug "sqlite database page stats", pageSize = pageSize,
                                         pages = pageCount,
                                         freePages = freelistCount
 
     if vacuum and (pageCount > 0 and freelistCount > 0):
-      ? db.performSqliteVacuum()
+      let vacuumRes = db.performSqliteVacuum()
+      if vacuumRes.isErr():
+        return err("error in vacuum sqlite: " & $vacuumRes.error)
 
     # Database migration
     if migrate:
-      ? archive_driver_sqlite_migrations.migrate(db)
+      let migrateRes = archive_driver_sqlite_migrations.migrate(db)
+      if migrateRes.isErr():
+        return err("error in migrate sqlite: " & $migrateRes.error)
 
     debug "setting up sqlite waku archive driver"
     let res = SqliteDriver.new(db)
@@ -85,19 +96,17 @@ proc new*(T: type ArchiveDriver,
     when defined(postgres):
       let res = PostgresDriver.new(dbUrl = url,
                                    maxConnections = maxNumConn,
-                                   onErrAction = onErrAction)
+                                   onFatalErrorAction = onFatalErrorAction)
       if res.isErr():
         return err("failed to init postgres archive driver: " & res.error)
 
       let driver = res.get()
 
-      try:
-        # The table should exist beforehand.
-        let newTableRes = waitFor driver.createMessageTable()
-        if newTableRes.isErr():
-          return err("error creating table: " & newTableRes.error)
-      except CatchableError:
-        return err("exception creating table: " & getCurrentExceptionMsg())
+      # Database migration
+      if migrate:
+        let migrateRes = await archive_postgres_driver_migrations.migrate(driver)
+        if migrateRes.isErr():
+          return err("ArchiveDriver build failed in migration: " & $migrateRes.error)
 
       return ok(driver)
 

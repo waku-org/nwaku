@@ -29,18 +29,7 @@ or [configure](./how-to/configure.md) the node for more advanced use cases.
 
 ## 3. Interact
 
-A running nwaku node can be interacted with using the [Waku v2 JSON RPC API](https://rfc.vac.dev/spec/16/).
-
-> **Note:** Private and Admin API functionality are disabled by default.
-To configure a nwaku node with these enabled,
-use the `--rpc-admin:true` and `--rpc-private:true` CLI options.
-
-```bash
-curl -d '{"jsonrpc":"2.0","method":"get_waku_v2_debug_v1_info","params":[],"id":1}' -H 'Content-Type: application/json' localhost:8546 -s | jq
-```
-
-
-Or using the [Waku v2 HTTP REST API](../api/v2/rest-api.md):
+A running nwaku node can be interacted with using the [REST API](../api/v2/rest-api.md).
 
 > **Note:** REST API functionality is in ALPHA and therefore it is disabled by default. To configure a nwaku node with this enabled, use the `--rest:true` CLI option.
 

@@ -1,3 +1,215 @@
+## v0.25.0 (2024-02-06)
+
+> **Note:**
+>  Waku Filter v2 now has three additional configuration options
+> `--filter-max-peers-to-serve=1000` drives how many peers can subscribe at once and
+> `--filter-max-criteria=1000` defines what is the maximum criterion stored per each peers
+>
+> This release introduces a major change in Filter v2 protocol subscription management.
+> From now each subscribed peer needs to refresh its living subscriptions by sending a SUBSCRIBER_PING message every 5 minutes by default, otherwise the peer's subscription will be removed.
+> `--filter-subscription-timeout=300` defines configurable timeout for the subscriptions (*in seconds*).
+>
+> New experimental feature, shard aware peer manager for relay protocol can be activated by the flag:
+> `--relay-shard-manager=true|false`
+> It is disabled by default.
+
+> **Announcement:**
+>
+> Please notice that from the next release (0.26.0) we will deprecate features.
+>
+> - JSON-RPC API will be removed completely. Instead we recommend you to utilize REST API endpoints that have same and extended functionality.
+> - We will retire websockets support for RLN on-chain group management. You are expected to use HTTP version of ETH_CLIENT_ADDRESS
+
+### Features
+
+- running validators in /relay/v1/auto/messages/{topic} ([#2394](https://github.com/waku-org/nwaku/issues/2394)) ([e4e147bc](https://github.com/waku-org/nwaku/commit/e4e147bc))
+- **rln-relay-v2:** update C FFI api's and serde ([#2385](https://github.com/waku-org/nwaku/issues/2385)) ([b88facd0](https://github.com/waku-org/nwaku/commit/b88facd0))
+- running validators in /relay/v1/messages/{pubsubTopic} ([#2373](https://github.com/waku-org/nwaku/issues/2373)) ([59d8b620](https://github.com/waku-org/nwaku/commit/59d8b620))
+- shard aware relay peer management ([#2332](https://github.com/waku-org/nwaku/issues/2332)) ([edca1df1](https://github.com/waku-org/nwaku/commit/edca1df1))
+
+### Bug Fixes
+
+- adding rln validator as default ([#2367](https://github.com/waku-org/nwaku/issues/2367)) ([bb58a63a](https://github.com/waku-org/nwaku/commit/bb58a63a))
+- Fix test for filter client receiving messages after restart ([#2360](https://github.com/waku-org/nwaku/issues/2360)) ([7de91d92](https://github.com/waku-org/nwaku/commit/7de91d92))
+- making filter admin data test order independent ([#2355](https://github.com/waku-org/nwaku/issues/2355)) ([8a9fad29](https://github.com/waku-org/nwaku/commit/8a9fad29))
+
+### Changes
+
+- **rln-relay-v2:** use rln-v2 contract code ([#2381](https://github.com/waku-org/nwaku/issues/2381)) ([c55ca067](https://github.com/waku-org/nwaku/commit/c55ca067))
+- v0.25 vendor bump and associated fixes ([#2352](https://github.com/waku-org/nwaku/issues/2352)) ([761ce7b1](https://github.com/waku-org/nwaku/commit/761ce7b1))
+- handle errors w.r.t. configured cluster-id and pubsub topics ([#2368](https://github.com/waku-org/nwaku/issues/2368)) ([e04e35e2](https://github.com/waku-org/nwaku/commit/e04e35e2))
+- add coverage target to Makefile ([#2382](https://github.com/waku-org/nwaku/issues/2382)) ([57378873](https://github.com/waku-org/nwaku/commit/57378873))
+- Add check spell allowed words ([#2383](https://github.com/waku-org/nwaku/issues/2383)) ([c1121dd1](https://github.com/waku-org/nwaku/commit/c1121dd1))
+- adding nwaku compose image update to release process ([#2370](https://github.com/waku-org/nwaku/issues/2370)) ([4f06dcff](https://github.com/waku-org/nwaku/commit/4f06dcff))
+- changing digest and hash log format from bytes to hex ([#2363](https://github.com/waku-org/nwaku/issues/2363)) ([025c6ec9](https://github.com/waku-org/nwaku/commit/025c6ec9))
+- log messageHash for lightpush request that helps in debugging ([#2366](https://github.com/waku-org/nwaku/issues/2366)) ([42204115](https://github.com/waku-org/nwaku/commit/42204115))
+- **rln-relay:** enabled http based polling in OnchainGroupManager  ([#2364](https://github.com/waku-org/nwaku/issues/2364)) ([efdc5244](https://github.com/waku-org/nwaku/commit/efdc5244))
+- improve POST /relay/v1/auto/messages/{topic} error handling ([#2339](https://github.com/waku-org/nwaku/issues/2339)) ([f841454e](https://github.com/waku-org/nwaku/commit/f841454e))
+- Refactor of FilterV2 subscription management with Time-to-live maintenance ([#2341](https://github.com/waku-org/nwaku/issues/2341)) ([c3358409](https://github.com/waku-org/nwaku/commit/c3358409))
+- Bump `nim-dnsdisc` ([#2354](https://github.com/waku-org/nwaku/issues/2354)) ([3d816c08](https://github.com/waku-org/nwaku/commit/3d816c08))
+- postgres-adoption.md add metadata title, description, and better first-readable-title ([#2346](https://github.com/waku-org/nwaku/issues/2346)) ([2f8e8bcb](https://github.com/waku-org/nwaku/commit/2f8e8bcb))
+- fix typo ([#2348](https://github.com/waku-org/nwaku/issues/2348)) ([a4a8dee3](https://github.com/waku-org/nwaku/commit/a4a8dee3))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+## v0.24.0 (2024-01-10)
+
+> Note: The Waku message size limit (150 KiB) is now enforced according to the specifications. To change this limit please use `--max-msg-size="1MiB"`
+
+> Note: `--ip-colocation-limit=2` is the new parameter for limiting connections from the same IP
+
+## What's Changed
+
+Release highlights:
+* IP colocation filter can now be changed via a configuration parameter.
+* New filter admin endpoint can now be used to access subscription data.
+* Waku message size limit can now be changed via a configuration parameter.
+
+### Features
+
+- feat: adding filter data admin endpoint (REST) [#2314](https://github.com/waku-org/nwaku/pull/2314)
+- ip colocation is parameterizable. if set to 0, it is disabled [#2323](https://github.com/waku-org/nwaku/pull/2323)
+
+### Bug Fixes
+- fix: revert "feat: shard aware peer management [#2151](https://github.com/waku-org/nwaku/pull/2151)" [#2312](https://github.com/waku-org/nwaku/pull/2312)
+- fix: setting connectivity loop interval to 15 seconds [#2307](https://github.com/waku-org/nwaku/pull/2307)
+- fix: set record to the Waku node builder in the examples as it is required [#2328](https://github.com/waku-org/nwaku/pull/2328)
+- fix(discv5): add bootnode filter exception [#2267](https://github.com/waku-org/nwaku/pull/2267)
+
+
+### Changes
+- update CHANGELOG.md for 0.23.0 [#2309](https://github.com/waku-org/nwaku/pull/2309)
+- test(store): Implement store tests [#2235](https://github.com/waku-org/nwaku/pull/2235), [#2240](https://github.com/waku-org/nwaku/commit/86353e22a871820c132deee077f65e7af4356671)
+- refactor(store): HistoryQuery.direction [#2263](https://github.com/waku-org/nwaku/pull/2263)
+- test_driver_postgres: enhance test coverage, multiple and single topic [#2301](https://github.com/waku-org/nwaku/pull/2301)
+- chore: examples/nodejs - adapt code to latest callback and ctx/userData definitions [#2281](https://github.com/waku-org/nwaku/pull/2281)
+- chore: update `CHANGELOG.md` to reflect bug fix for issue [#2317](https://github.com/waku-org/nwaku/issues/2317) [#2340](https://github.com/waku-org/nwaku/pull/2340) in v0.23.1
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+- docs: update post-release steps [#2336](https://github.com/waku-org/nwaku/pull/2336)
+- docs: fix typos across various documentation files [#2310](https://github.com/waku-org/nwaku/pull/2310)
+- test(peer-connection-managenent): functional tests [#2321](https://github.com/waku-org/nwaku/pull/2321)
+- bump vendors for 0.24.0 [#2333](https://github.com/waku-org/nwaku/pull/2333)
+- test(autosharding): functional tests [#2318](https://github.com/waku-org/nwaku/pull/2318)
+- docs: add benchmark around postgres adoption [#2316](https://github.com/waku-org/nwaku/pull/2316)
+- chore: set max Waku message size to 150KiB according to spec [#2298](https://github.com/waku-org/nwaku/pull/2298)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+## v0.23.1 (2023-01-09)
+
+This patch release fixes the following bug:
+- Sort order ignored in store nodes.
+
+### Bug Fix
+
+- Bug definition: [#2317](https://github.com/waku-org/nwaku/issues/2317)
+- Commit that fixes the bug [fae20bff](https://github.com/waku-org/nwaku/commit/fae20bff)
+
+This is a patch release that is fully backwards-compatible with release `v0.23.0`.
+
+It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
+
+## v0.23.0 (2023-12-18)
+
+## What's Changed
+
+Release highlights:
+* Bug fix in Postgres when querying more than one content topic.
+* :warning: Add new DB column `messageHash`. This requires a manual database update in _Postgres_.
+* Updated deterministic message hash algorithm.
+* REST admin can inform whether a node supports lightpush and/or filter protocols.
+* Improvements to cluster id and shards setup.
+* Properly apply RLN when publishing from REST or jsonrpc API.
+* Remove trailing commas from the RLN keystore json generated during credentials registration.
+* General test cleanup, better relay tests and new filter unsubscribe tests.
+* Rewrite docs for clarity and update screenshots.
+
+### Features
+
+- setting image deployment to harbor registry ([93dd5ae5](https://github.com/waku-org/nwaku/commit/93dd5ae5))
+- Add new DB column `messageHash` ([#2202](https://github.com/waku-org/nwaku/issues/2202)) ([aeb77a3e](https://github.com/waku-org/nwaku/commit/aeb77a3e))
+
+### Bug Fixes
+
+- make rln rate limit spec compliant ([#2294](https://github.com/waku-org/nwaku/issues/2294)) ([5847f49d](https://github.com/waku-org/nwaku/commit/5847f49d))
+- update num-msgs archive metrics every minute and not only at the beginning ([#2287](https://github.com/waku-org/nwaku/issues/2287)) ([0fc617ff](https://github.com/waku-org/nwaku/commit/0fc617ff))
+- **rln-relay:** graceful retries on rpc calls ([#2250](https://github.com/waku-org/nwaku/issues/2250)) ([15c1f974](https://github.com/waku-org/nwaku/commit/15c1f974))
+- add protection in rest service to always publish with timestamp if user doesn't provide it ([#2261](https://github.com/waku-org/nwaku/issues/2261)) ([42f19579](https://github.com/waku-org/nwaku/commit/42f19579))
+- remove trailing commas from keystore json ([#2200](https://github.com/waku-org/nwaku/issues/2200)) ([103d3981](https://github.com/waku-org/nwaku/commit/103d3981))
+- **dockerfile:** update dockerignore and base image ([#2262](https://github.com/waku-org/nwaku/issues/2262)) ([c86dc442](https://github.com/waku-org/nwaku/commit/c86dc442))
+- waku_filter_v2/common: PEER_DIAL_FAILURE ret code change: 200 -> 504 ([#2236](https://github.com/waku-org/nwaku/issues/2236)) ([6301bec0](https://github.com/waku-org/nwaku/commit/6301bec0))
+- extended Postgres code to support retention policy + refactoring ([#2244](https://github.com/waku-org/nwaku/issues/2244)) ([a1ed517f](https://github.com/waku-org/nwaku/commit/a1ed517f))
+- admin REST API to be enabled only if config is set ([#2218](https://github.com/waku-org/nwaku/issues/2218)) ([110de90f](https://github.com/waku-org/nwaku/commit/110de90f))
+- **rln:** error in api when rate limit ([#2212](https://github.com/waku-org/nwaku/issues/2212)) ([51f36099](https://github.com/waku-org/nwaku/commit/51f36099))
+- **relay:** Failing protocol tests ([#2224](https://github.com/waku-org/nwaku/issues/2224)) ([c9e869fb](https://github.com/waku-org/nwaku/commit/c9e869fb))
+- **tests:** Compilation failure fix ([#2222](https://github.com/waku-org/nwaku/issues/2222)) ([a5da1fc4](https://github.com/waku-org/nwaku/commit/a5da1fc4))
+- **rest:** properly check if rln is used ([#2205](https://github.com/waku-org/nwaku/issues/2205)) ([2cb0989a](https://github.com/waku-org/nwaku/commit/2cb0989a))
+
+### Changes
+
+- archive - move error to trace level when insert row fails ([#2283](https://github.com/waku-org/nwaku/issues/2283)) ([574cdf55](https://github.com/waku-org/nwaku/commit/574cdf55))
+- including content topics on FilterSubscribeRequest logs ([#2295](https://github.com/waku-org/nwaku/issues/2295)) ([306c8a62](https://github.com/waku-org/nwaku/commit/306c8a62))
+- vendor bump for 0.23.0 ([#2274](https://github.com/waku-org/nwaku/issues/2274)) ([385daf16](https://github.com/waku-org/nwaku/commit/385daf16))
+- peer_manager.nim - reduce logs from debug to trace ([#2279](https://github.com/waku-org/nwaku/issues/2279)) ([0cc0c805](https://github.com/waku-org/nwaku/commit/0cc0c805))
+- Cbindings allow mounting the Store protocol from libwaku ([#2276](https://github.com/waku-org/nwaku/issues/2276)) ([28142f40](https://github.com/waku-org/nwaku/commit/28142f40))
+- Better feedback invalid content topic ([#2254](https://github.com/waku-org/nwaku/issues/2254)) ([72a1f8c7](https://github.com/waku-org/nwaku/commit/72a1f8c7))
+- fix typos ([#2239](https://github.com/waku-org/nwaku/issues/2239)) ([958b9bd7](https://github.com/waku-org/nwaku/commit/958b9bd7))
+- creating prepare_release template ([#2225](https://github.com/waku-org/nwaku/issues/2225)) ([5883dbeb](https://github.com/waku-org/nwaku/commit/5883dbeb))
+- **rest:** refactor message cache ([#2221](https://github.com/waku-org/nwaku/issues/2221)) ([bebaa59c](https://github.com/waku-org/nwaku/commit/bebaa59c))
+- updating nim-json-serialization dependency ([#2248](https://github.com/waku-org/nwaku/issues/2248)) ([9f4e6f45](https://github.com/waku-org/nwaku/commit/9f4e6f45))
+- **store-archive:** Remove duplicated code ([#2234](https://github.com/waku-org/nwaku/issues/2234)) ([38e100e9](https://github.com/waku-org/nwaku/commit/38e100e9))
+- refactoring peer storage ([#2243](https://github.com/waku-org/nwaku/issues/2243)) ([c301e880](https://github.com/waku-org/nwaku/commit/c301e880))
+- postres driver allow setting the max number of connection from a parameter ([#2246](https://github.com/waku-org/nwaku/issues/2246)) ([b31c1823](https://github.com/waku-org/nwaku/commit/b31c1823))
+- deterministic message hash algorithm updated ([#2233](https://github.com/waku-org/nwaku/issues/2233)) ([a22ee604](https://github.com/waku-org/nwaku/commit/a22ee604))
+- **REST:** returning lightpush support and updated filter protocol ([#2219](https://github.com/waku-org/nwaku/issues/2219)) ([59ee3c69](https://github.com/waku-org/nwaku/commit/59ee3c69))
+- mics. improvements to cluster id and shards setup ([#2187](https://github.com/waku-org/nwaku/issues/2187)) ([897f4879](https://github.com/waku-org/nwaku/commit/897f4879))
+- update docs for rln-keystore-generator ([#2210](https://github.com/waku-org/nwaku/issues/2210)) ([8c5666d2](https://github.com/waku-org/nwaku/commit/8c5666d2))
+- removing automatic vacuuming from retention policy code ([#2228](https://github.com/waku-org/nwaku/issues/2228)) ([9ff441ab](https://github.com/waku-org/nwaku/commit/9ff441ab))
+- decoupling announced and listen addresses ([#2203](https://github.com/waku-org/nwaku/issues/2203)) ([ef8ffbdb](https://github.com/waku-org/nwaku/commit/ef8ffbdb))
+- **release:** update changelog for v0.22.0 release ([#2216](https://github.com/waku-org/nwaku/issues/2216)) ([9c4fdac6](https://github.com/waku-org/nwaku/commit/9c4fdac6))
+- Allow text/plain content type descriptor for json formatted content body ([#2209](https://github.com/waku-org/nwaku/issues/2209)) ([6d81e384](https://github.com/waku-org/nwaku/commit/6d81e384))
+- rewrite for clarity, update screenshots ([#2206](https://github.com/waku-org/nwaku/issues/2206)) ([a0ef3c2f](https://github.com/waku-org/nwaku/commit/a0ef3c2f))
+- **release:** update changelog for v0.21.3 release ([#2208](https://github.com/waku-org/nwaku/issues/2208)) ([f74474b4](https://github.com/waku-org/nwaku/commit/f74474b4))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 ## v0.22.0 (2023-11-15)
 
 > Note: The `--topic` option is now deprecated in favor of a more specific options `--pubsub-topic` & `--content-topic`
@@ -108,7 +320,7 @@ The Waku v1 implementation has been removed from this repository and can be foun
 
 This patch release addresses the following issues:
 - WSS connections being suddenly terminated under rare conditions
-- Ability for the user to control announced multiaddresses 
+- Ability for the user to control announced multiaddresses
 
 ### Changes
 

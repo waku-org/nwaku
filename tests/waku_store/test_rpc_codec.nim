@@ -6,6 +6,7 @@ import
   chronos
 import
   ../../../waku/common/protobuf,
+  ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_store/rpc,
   ../../../waku/waku_store/rpc_codec,
@@ -53,7 +54,7 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let
       index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirectionRPC.FORWARD))
+      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.FORWARD))
 
     ## When
     let pb = pagingInfo.encode()
@@ -88,7 +89,7 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let
       index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirectionRPC.BACKWARD))
+      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.BACKWARD))
       query = HistoryQueryRPC(
         contentFilters: @[HistoryContentFilterRPC(contentTopic: DefaultContentTopic), HistoryContentFilterRPC(contentTopic: DefaultContentTopic)],
         pagingInfo: some(pagingInfo),
@@ -129,7 +130,7 @@ procSuite "Waku Store - RPC codec":
     let
       message = fakeWakuMessage()
       index = PagingIndexRPC.compute(message, receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirectionRPC.BACKWARD))
+      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.BACKWARD))
       res = HistoryResponseRPC(messages: @[message], pagingInfo: some(pagingInfo), error: HistoryResponseErrorRPC.INVALID_CURSOR)
 
     ## When

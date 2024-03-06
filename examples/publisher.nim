@@ -15,7 +15,8 @@ import
   ../../../waku/waku_core,
   ../../../waku/waku_node,
   ../../../waku/waku_enr,
-  ../../../waku/waku_discv5
+  ../../../waku/waku_discv5,
+  ../../../waku/factory/builder
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
@@ -43,8 +44,18 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
         ip = parseIpAddress("0.0.0.0")
         flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
 
+    var enrBuilder = EnrBuilder.init(nodeKey)
+
+    let recordRes = enrBuilder.build()
+    let record =
+      if recordRes.isErr():
+        error "failed to create enr record", error=recordRes.error
+        quit(QuitFailure)
+      else: recordRes.get()
+
     var builder = WakuNodeBuilder.init()
     builder.withNodeKey(nodeKey)
+    builder.withRecord(record)
     builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
     let node = builder.build().tryGet()
 
@@ -62,7 +73,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
 
     # assumes behind a firewall, so not care about being discoverable
     let wakuDiscv5 = WakuDiscoveryV5.new(
-      node.rng, 
+      node.rng,
       discv5Conf,
       some(node.enr),
       some(node.peerManager),
@@ -100,8 +111,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
                                 contentTopic: contentTopic,     # content topic to publish to
                                 ephemeral: true,                # tell store nodes to not store it
                                 timestamp: now())               # current timestamp
-      await node.publish(some(pubSubTopic), message)
-      notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
+      
+      let res = await node.publish(some(pubSubTopic), message)
+      
+      if res.isOk:
+        notice "published message", text = text, timestamp = message.timestamp, psTopic = pubSubTopic, contentTopic = contentTopic
+      else:
+        error "failed to publish message", error = res.error
+      
       await sleepAsync(5000)
 
 when isMainModule:

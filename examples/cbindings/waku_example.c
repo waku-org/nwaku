@@ -91,7 +91,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 
 static struct argp argp = { options, parse_opt, args_doc, doc, 0, 0, 0 };
 
-void event_handler(int callerRet, const char* msg, size_t len) {
+void event_handler(int callerRet, const char* msg, size_t len, void* userData) {
     if (callerRet == RET_ERR) {
         printf("Error: %s\n", msg);
         exit(1);
@@ -102,7 +102,7 @@ void event_handler(int callerRet, const char* msg, size_t len) {
 }
 
 char* contentTopic = NULL;
-void handle_content_topic(int callerRet, const char* msg, size_t len) {
+void handle_content_topic(int callerRet, const char* msg, size_t len, void* userData) {
     if (contentTopic != NULL) {
         free(contentTopic);
     }
@@ -112,7 +112,7 @@ void handle_content_topic(int callerRet, const char* msg, size_t len) {
 }
 
 char* publishResponse = NULL;
-void handle_publish_ok(int callerRet, const char* msg, size_t len) {
+void handle_publish_ok(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Publish Ok: %s %lu\n", msg, len);
 
     if (publishResponse != NULL) {
@@ -159,11 +159,11 @@ void show_help_and_exit() {
     exit(1);
 }
 
-void print_default_pubsub_topic(int callerRet, const char* msg, size_t len) {
+void print_default_pubsub_topic(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Default pubsub topic: %s\n", msg);
 }
 
-void print_waku_version(int callerRet, const char* msg, size_t len) {
+void print_waku_version(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Git Version: %s\n", msg);
 }
 
@@ -267,8 +267,6 @@ int main(int argc, char** argv) {
         show_help_and_exit();
     }
 
-    ctx = waku_init(event_handler, userData);
-
     char jsonConfig[2048];
     snprintf(jsonConfig, 2048, "{ \
                                     \"host\": \"%s\",    \
@@ -288,25 +286,28 @@ int main(int argc, char** argv) {
                                     cfgNode.storeRetentionPolicy,
                                     cfgNode.storeMaxNumDbConnections);
 
-    WAKU_CALL( waku_default_pubsub_topic(&ctx, print_default_pubsub_topic, userData) );
-    WAKU_CALL( waku_version(&ctx, print_waku_version, userData) );
+    ctx = waku_new(jsonConfig, event_handler, userData);
+
+    WAKU_CALL( waku_default_pubsub_topic(ctx, print_default_pubsub_topic, userData) );
+    WAKU_CALL( waku_version(ctx, print_waku_version, userData) );
 
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    WAKU_CALL( waku_new(&ctx, jsonConfig, event_handler, userData) );
-    waku_set_event_callback(event_handler, userData);
-    waku_start(&ctx, event_handler, userData);
+    waku_set_event_callback(ctx, event_handler, userData);
+    waku_start(ctx, event_handler, userData);
+
+    waku_listen_addresses(ctx, event_handler, userData);
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
 
-    WAKU_CALL( waku_connect(&ctx,
+    WAKU_CALL( waku_connect(ctx,
                             cfgNode.peers,
                             10000 /* timeoutMs */,
                             event_handler,
                             userData) );
 
-    WAKU_CALL( waku_relay_subscribe(&ctx,
+    WAKU_CALL( waku_relay_subscribe(ctx,
                                     "/waku/2/default-waku/proto",
                                     event_handler,
                                     userData) );

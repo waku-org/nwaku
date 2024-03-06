@@ -13,6 +13,7 @@ import
   json_serialization/std/options,
   presto/[route, client, common]
 import
+  ../../../common/base64,
   ../../../waku_core,
   ../serdes,
   ../responses,

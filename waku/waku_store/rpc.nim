@@ -8,10 +8,13 @@ import
   stew/results
 import
   ../waku_core,
+  ../common/paging,
   ./common
 
 
 ## Wire protocol
+
+const HistoryQueryDirectionDefaultValue = default(type HistoryQuery.direction)
 
 type PagingIndexRPC* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
@@ -41,16 +44,11 @@ proc compute*(T: type PagingIndexRPC, msg: WakuMessage, receivedTime: Timestamp,
 
 
 type
-  PagingDirectionRPC* {.pure.} = enum
-    ## PagingDirection determines the direction of pagination
-    BACKWARD = uint32(0)
-    FORWARD = uint32(1)
-
   PagingInfoRPC* = object
     ## This type holds the information needed for the pagination
     pageSize*: Option[uint64]
     cursor*: Option[PagingIndexRPC]
-    direction*: Option[PagingDirectionRPC]
+    direction*: Option[PagingDirection]
 
 
 type
@@ -120,14 +118,14 @@ proc toRPC*(query: HistoryQuery): HistoryQueryRPC =
   rpc.pagingInfo = block:
       if query.cursor.isNone() and
          query.pageSize == default(type query.pageSize) and
-         query.ascending == default(type query.ascending):
+         query.direction == HistoryQueryDirectionDefaultValue:
         none(PagingInfoRPC)
       else:
         let
           pageSize = some(query.pageSize)
           cursor = query.cursor.map(toRPC)
-          direction = if query.ascending: some(PagingDirectionRPC.FORWARD)
-                      else: some(PagingDirectionRPC.BACKWARD)
+          direction = some(query.direction)
+
         some(PagingInfoRPC(
           pageSize: pageSize,
           cursor: cursor,
@@ -156,8 +154,8 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
     pageSize = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().pageSize.isNone(): 0'u64
                else: rpc.pagingInfo.get().pageSize.get()
 
-    ascending = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): true
-                else: rpc.pagingInfo.get().direction.get() == PagingDirectionRPC.FORWARD
+    direction = if rpc.pagingInfo.isNone() or rpc.pagingInfo.get().direction.isNone(): HistoryQueryDirectionDefaultValue
+                else: rpc.pagingInfo.get().direction.get()
 
   HistoryQuery(
     pubsubTopic: pubsubTopic,
@@ -166,7 +164,7 @@ proc toAPI*(rpc: HistoryQueryRPC): HistoryQuery =
     startTime: startTime,
     endTime: endTime,
     pageSize: pageSize,
-    ascending: ascending
+    direction: direction
   )
 
 

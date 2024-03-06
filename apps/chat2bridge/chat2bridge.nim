@@ -21,6 +21,7 @@ import
   ../../waku/waku_filter,
   ../../waku/waku_filter_v2,
   ../../waku/waku_store,
+  ../../waku/factory/builder,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
@@ -96,7 +97,8 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
 
   chat2_mb_transfers.inc(labelValues = ["mb_to_chat2"])
 
-  await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)
+  (await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)).isOkOr:
+    error "failed to publish message", error = error
 
 proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
@@ -221,29 +223,7 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
 when isMainModule:
   import
     ../../../waku/common/utils/nat,
-    ../../waku/waku_api/message_cache,
-    ../../waku/waku_api/jsonrpc/debug/handlers as debug_api,
-    ../../waku/waku_api/jsonrpc/filter/handlers as filter_api,
-    ../../waku/waku_api/jsonrpc/relay/handlers as relay_api,
-    ../../waku/waku_api/jsonrpc/store/handlers as store_api
-
-
-  proc startV2Rpc(node: WakuNode, rpcServer: RpcHttpServer, conf: Chat2MatterbridgeConf) {.raises: [Exception].} =
-    installDebugApiHandlers(node, rpcServer)
-
-    # Install enabled API handlers:
-    if conf.relay:
-      let cache = MessageCache.init(capacity=30)
-      installRelayApiHandlers(node, rpcServer, cache)
-
-    if conf.filter:
-      let messageCache = MessageCache.init(capacity=30)
-      installFilterApiHandlers(node, rpcServer, messageCache)
-
-    if conf.store:
-      installStoreApiHandlers(node, rpcServer)
-
-    rpcServer.start()
+    ../../waku/waku_api/message_cache
 
   let
     rng = newRng()
@@ -288,6 +268,7 @@ when isMainModule:
 
   if conf.filter:
     waitFor mountFilter(bridge.nodev2)
+    waitFor mountLegacyFilter(bridge.nodev2)
 
   if conf.staticnodes.len > 0:
     waitFor connectToNodes(bridge.nodev2, conf.staticnodes)
@@ -306,15 +287,6 @@ when isMainModule:
       bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
     else:
       error "Error parsing conf.filternode", error = filterPeer.error
-
-  if conf.rpc:
-    let ta = initTAddress(conf.rpcAddress,
-      Port(conf.rpcPort + conf.portsShift))
-    var rpcServer = newRpcHttpServer([ta])
-    # Waku v2 rpc
-    startV2Rpc(bridge.nodev2, rpcServer, conf)
-
-    rpcServer.start()
 
   if conf.metricsServer:
     let
