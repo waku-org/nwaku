@@ -88,7 +88,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
       return err(error)
 
     let response: seq[byte] =
-      if responseOpt.isNone():
+      if responseOpt.isNone() or responseOpt.get().len == 0:
         debug "Closing connection as sync response is none"
         await conn.close()
         break

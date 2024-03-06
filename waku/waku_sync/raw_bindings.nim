@@ -61,6 +61,8 @@ proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[b
     bufLen = buffer.len
   else:
     bufLen = len.get()
+  if bufLen == 0:
+    return @[]
   debug "length of buffer is",len=bufLen
   let bytes = newSeq[byte](bufLen)
   copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
@@ -136,7 +138,8 @@ proc initiate*(negentropy: pointer): seq[byte] =
   var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
   var outBuffer: Buffer = toBuffer(output)
   let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
-  let bytes:seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  let bytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+
   debug "received return from initiate", len=outLen
   return bytes
 
@@ -152,9 +155,9 @@ proc serverReconcile*(negentropy: pointer, query: seq[byte]): seq[byte] =
   let outLen: int = raw_reconcile(negentropy, queryBufPtr, outBuffer.unsafeAddr)
   debug "received return from raw_reconcile", len=outLen
 
-  let bytes = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
-
-  return bytes
+  let outputBytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  debug "outputBytes len", len=outputBytes.len
+  return outputBytes
 
 proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[WakuMessageHash], needIds: var seq[WakuMessageHash]): seq[byte] =
   let cQuery = toBuffer(query)
@@ -166,13 +169,11 @@ proc clientReconcile*(negentropy: pointer, query: seq[byte], haveIds: var seq[Wa
 
   raw_reconcile(negentropy, cQuery.unsafeAddr, myResultPtr)
 
-  var output: seq[byte]
   if myResultPtr == nil:
     error "ERROR from raw_reconcile!"
-    return output
+    return @[]
 
-  if myResult.output.len > 0:
-    output = BufferToBytes(addr myResult.output)
+  let output = BufferToBytes(addr myResult.output)
 
   var 
     have_hashes: seq[Buffer]  
