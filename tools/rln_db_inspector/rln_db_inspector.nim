@@ -16,18 +16,13 @@ import
 logScope:
   topics = "rln_db_inspector"
 
-when isMainModule:
-  {.pop.}
+proc doInspectRlnDb*(conf: WakuNodeConf) =
   # 1. load configuration
-  let conf = RlnDbInspectorConf.loadConfig().valueOr:
-    error "failure while loading the configuration", error
-    quit(1)
-
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
   let rlnInstance = createRLNInstance(d=20,
-                                      tree_path = conf.rlnRelayTreePath).valueOr:
+                                      tree_path = conf.treePath).valueOr:
     error "failure while creating RLN instance", error
     quit(1)
 

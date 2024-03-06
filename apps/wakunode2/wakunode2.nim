@@ -14,6 +14,7 @@ import
   libp2p/crypto/crypto
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
   ../../waku/factory/external_config,
   ./networks_config,
@@ -86,6 +87,8 @@ when isMainModule:
   case conf.cmd
   of generateRlnKeystore:
     doRlnKeystoreGenerator(conf)
+  of inspectRlnDb:
+    doInspectRlnDb(conf)
   of noCommand:
     # The Waku Network config (cluster-id=1)
     if conf.clusterId == 1:
