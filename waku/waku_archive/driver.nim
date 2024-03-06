@@ -73,7 +73,8 @@ method deleteOldestMessagesNotWithinLimit*(driver: ArchiveDriver,
                                            Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method decreaseDatabaseSize*(driver: ArchiveDriver,
-                             targetSizeInBytes: int64):
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
                              Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
 method close*(driver: ArchiveDriver):

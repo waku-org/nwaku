@@ -147,7 +147,8 @@ method deleteOldestMessagesNotWithinLimit*(s: SqliteDriver,
   return s.db.deleteOldestMessagesNotWithinLimit(limit)
 
 method decreaseDatabaseSize*(driver: SqliteDriver,
-                             targetSizeInBytes: int64):
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
                              Future[ArchiveDriverResult[void]] {.async.} =
 
   ## To remove 20% of the outdated data from database
