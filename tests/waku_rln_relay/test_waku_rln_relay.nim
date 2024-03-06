@@ -632,30 +632,25 @@ suite "Waku rln relay":
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for proof1 should be found, since the log is empty
-    let result1 = wakurlnrelay.hasDuplicate(proof1.extractMetadata().tryGet())
-    require:
-      result1.isOk()
-      # no duplicate is found
-      result1.value == false
+    let result1 = wakurlnrelay.hasDuplicate(epoch, proof1.extractMetadata().tryGet())
+    assert result1.isOk(), $result1.error
+    assert result1.value == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof1.extractMetadata().tryGet())
+    discard wakurlnrelay.updateLog(epoch, proof1.extractMetadata().tryGet())
 
-    # # no duplicate for proof2 should be found, its nullifier differs from proof1
-    let result2 = wakurlnrelay.hasDuplicate(proof2.extractMetadata().tryGet())
-    require:
-      result2.isOk()
-      # no duplicate is found
-      result2.value == false
+    # no duplicate for proof2 should be found, its nullifier differs from proof1
+    let result2 = wakurlnrelay.hasDuplicate(epoch, proof2.extractMetadata().tryGet())
+    assert result2.isOk(), $result2.error
+    # no duplicate is found
+    assert result2.value == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof2.extractMetadata().tryGet())
+    discard wakurlnrelay.updateLog(epoch, proof2.extractMetadata().tryGet())
 
     #  proof3 has the same nullifier as proof1 but different secret shares, it should be detected as duplicate
-    let result3 = wakurlnrelay.hasDuplicate(proof3.extractMetadata().tryGet())
-    require:
-      result3.isOk()
-    check:
-      # it is a duplicate
-      result3.value == true
+    let result3 = wakurlnrelay.hasDuplicate(epoch, proof3.extractMetadata().tryGet())
+    assert result3.isOk(), $result3.error
+    # it is a duplicate
+    assert result3.value, "duplicate should be found"
 
   asyncTest "validateMessageAndUpdateLog test":
     let index = MembershipIndex(5)
@@ -709,6 +704,52 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+
+  asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
+    let index1 = MembershipIndex(5)
+    let index2 = MembershipIndex(6)
+
+    let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                 rlnRelayCredIndex: some(index1),
+                                 rlnEpochSizeSec: 1,
+                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
+    let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
+
+    let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                 rlnRelayCredIndex: some(index2),
+                                 rlnEpochSizeSec: 1,
+                                 rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
+    # get the current epoch time
+    let time = epochTime()
+
+    #  create messages from different peers and append rln proofs to them
+    var
+      wm1 = WakuMessage(payload: "Valid message from sender 1".toBytes())
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(payload: "Valid message from sender 2".toBytes())
+
+
+    let
+      proofAdded1 = wakuRlnRelay1.appendRLNProof(wm1, time)
+      proofAdded2 = wakuRlnRelay2.appendRLNProof(wm2, time)
+
+    # ensure proofs are added
+    assert proofAdded1.isOk(), "failed to append rln proof: " & $proofAdded1.error
+    assert proofAdded2.isOk(), "failed to append rln proof: " & $proofAdded2.error
+
+    # validate messages
+    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
+    let
+      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1, some(time))
+      # since this message is from a different sender, it should be validated successfully
+      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2, some(time))
+
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Valid
 
   test "toIDCommitment and toUInt256":
     # create an instance of rln
