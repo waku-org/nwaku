@@ -406,29 +406,41 @@ method getMessages*(s: PostgresDriver,
                                              maxPageSize,
                                              ascendingOrder)
 
+proc getStr(s: PostgresDriver,
+            query: string):
+            Future[ArchiveDriverResult[string]] {.async.} =
+  # Performs a query that is expected to return a single string
+
+  var ret: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in getStr"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in getStr"
+      return
+
+    ret = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("failed in getRow: " & $error)
+
+  return ok(ret)
+
 proc getInt(s: PostgresDriver,
             query: string):
             Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
   var retInt = 0'i64
-  proc rowCallback(pqResult: ptr PGresult) =
-    if pqResult.pqnfields() != 1:
-      error "Wrong number of fields in getInt"
-      return
+  let str = (await s.getStr(query)).valueOr:
+    return err("could not get str in getInt: " & $error)
 
-    if pqResult.pqNtuples() != 1:
-      error "Wrong number of rows in getInt"
-      return
-
-    try:
-      retInt = parseInt( $(pqgetvalue(pqResult, 0, 0)) )
-    except ValueError:
-      error "exception in getInt, parseInt", error = getCurrentExceptionMsg()
-      return
-
-  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
-    return err("failed in getRow: " & $error)
+  try:
+    retInt = parseInt( str )
+  except ValueError:
+    return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
 
   return ok(retInt)
 
@@ -655,6 +667,18 @@ proc startPartitionFactory*(self: PostgresDriver,
 
   self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
 
+proc getTableSize*(self: PostgresDriver,
+                   tableName: string): Future[ArchiveDriverResult[string]] {.async.} =
+  ## Returns a human-readable representation of the size for the requested table.
+  ## tableName - table of interest.
+
+  let tableSize = (await self.getStr(fmt"""
+                SELECT pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
+                FROM pg_class C
+                where relname = '{tableName}'""")).valueOr:
+    return err("error in getDatabaseSize: " & error)
+
+  return ok(tableSize)
 
 proc removeOldestPartition(self: PostgresDriver,
                            forceRemoval: bool = false, ## To allow cleanup in tests
@@ -675,6 +699,11 @@ proc removeOldestPartition(self: PostgresDriver,
         debug "Skipping to remove the current partition"
         return ok()
 
+  var partSize = ""
+  let partSizeRes = await self.getTableSize(oldestPartition.getName())
+  if partSizeRes.isOk():
+    partSize = partSizeRes.get()
+
   ## In the following lines is where the partition removal happens.
   ## Detach and remove the partition concurrently to not block the parent table (messages)
   let detachPartitionQuery =
@@ -689,6 +718,7 @@ proc removeOldestPartition(self: PostgresDriver,
   (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
     return err(fmt"error in {dropPartitionQuery}: " & $error)
 
+  debug "removed partition", partition_name = oldestPartition.getName(), partition_size = partSize
   self.partitionMngr.removeOldestPartitionName()
 
   return ok()
