@@ -3,12 +3,10 @@
 > **Note:**
 > - JSON-RPC API has been removed completely. Instead we recommend you to utilize REST API endpoints that have same and extended functionality.
 > Please have a look at Waku's REST-API reference: https://waku-org.github.io/waku-rest-api
-> <br>
 > - Support for Cross-Origin-Resource-Sharing (CORS headers) is added for our REST-API services. This allows you to access our REST-API from a different domain from a browser.
 > New repeatable CLI flag is added by this feature:
 > `--rest-allow-origin="example.com"` or `--rest-allow-origin="127.0.0.0:*"`
 > Flag allows using wildcards (`*` and `?`) in the origin string.
-><br>
 > - Store protocol now has a better support for controlling DB size of Postgres store. This feature needs no user action.
 
 > **Announcement:**
