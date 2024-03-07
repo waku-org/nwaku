@@ -142,7 +142,7 @@ suite "Waku Sync - Protocol Tests":
           hashes.value.len == 0
 
 
-#[     asyncTest "sync 3 nodes cyclic":
+    asyncTest "sync 3 nodes cyclic":
         #[Setup
         node1 (client) <--> node2(server)
         node2(client) <--> node3(server)
@@ -185,24 +185,28 @@ suite "Waku Sync - Protocol Tests":
         ## gather all futures in one
         proc waitAllFutures(f1, f2, f3: Future[Result[seq[WakuMessageHash], string]]) {.async.} =
 
-          proc synccallback(data: ptr) {.gcsafe, raises:[].}=
-            let f1Result = f1.internalValue.valueOr("error 1")
-            let f2Result = f2.internalValue.valueOr("error 2")
-            let f3Result = f3.internalValue.valueOr("error 3")
+          proc synccallback(data: pointer) =
+            let f1Result = f1.internalValue
+            assert f1Result.isOk(), f1Result.error
 
-            echo "inside callback result from f1: " & $f1Result
-            echo "inside callback result from f2: " & $f2Result
-            echo "inside callback result from f3: " & $f3Result
+            let f2Result = f2.internalValue
+            assert f2Result.isOk(), f2Result.error
 
-#[             let hashes = f1Res.read
-            assert hashes.isOk(), $hashes.error
+            let f3Result = f3.internalValue
+            assert f3Result.isOk(), f3Result.error
+
+            let hashes1 = f1Result.get()
+            let hashes2 = f2Result.get()
+            let hashes3 = f3Result.get()
+
             check:
-              hashes.value.len == 1 ]#
-
+              hashes1.len == 1
+              hashes2.len == 1
+              hashes3.len == 1
 
           let allFuts = allFutures(@[f1, f2, f3])
           allFuts.addCallback(synccallback)
           await allFuts
 
         waitFor waitAllFutures(f1, f2, f3)
- ]#
+
