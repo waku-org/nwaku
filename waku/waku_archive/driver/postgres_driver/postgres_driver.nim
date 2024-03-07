@@ -133,7 +133,8 @@ proc rowCallbackImpl(
     var digest: string
     var payload: string
     var hashHex: string
-
+    var msgHash: WakuMessageHash
+    
     try:
       storedAt = parseInt( $(pqgetvalue(pqResult, iRow, 0)) )
       contentTopic = $(pqgetvalue(pqResult, iRow, 1))
@@ -143,6 +144,7 @@ proc rowCallbackImpl(
       timestamp = parseInt( $(pqgetvalue(pqResult, iRow, 5)) )
       digest = parseHexStr( $(pqgetvalue(pqResult, iRow, 6)) )
       hashHex = parseHexStr( $(pqgetvalue(pqResult, iRow, 7)) )
+      msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
 
@@ -150,10 +152,6 @@ proc rowCallbackImpl(
     wakuMessage.version = uint32(version)
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
-
-    var msgHash: WakuMessageHash
-    let byteCount = copyFrom(msgHash, hashHex.toOpenArrayByte(0, 31))
-    assert byteCount == 32
 
     outRows.add((pubSubTopic,
                  wakuMessage,
@@ -392,12 +390,12 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   return ok(rows)
 
 method getMessages*(s: PostgresDriver,
-                    contentTopicSeq: seq[ContentTopic] = @[],
+                    contentTopicSeq = newSeq[ContentTopic](0),
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
-                    hashes: seq[WakuMessageHash] = @[],
+                    hashes = newSeq[WakuMessageHash](0),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =

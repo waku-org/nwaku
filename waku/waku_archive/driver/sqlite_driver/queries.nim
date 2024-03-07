@@ -62,11 +62,7 @@ proc queryRowWakuMessageHashCallback(s: ptr sqlite3_stmt, hashCol: cint): WakuMe
   let
     hashPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, hashCol))
     hashLength = sqlite3_column_bytes(s, hashCol)
-
-  var hash: WakuMessageHash
-
-  let copiedBytes = copyFrom(hash, toOpenArray(hashPointer, 0, hashLength-1))
-  assert copiedBytes == 32
+    hash = fromBytes(toOpenArray(hashPointer, 0, hashLength-1))
 
   hash
 

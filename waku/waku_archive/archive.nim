@@ -206,9 +206,9 @@ proc periodicMetricReport(self: WakuArchive) {.async.} =
 
 proc start*(self: WakuArchive) =
   if self.retentionPolicy.isSome():
-    self.retentionPolicyHandle = periodicRetentionPolicy(self)
+    self.retentionPolicyHandle = self.periodicRetentionPolicy()
 
-  self.metricsHandle = periodicMetricReport(self)
+  self.metricsHandle = self.periodicMetricReport()
 
 proc stopWait*(self: WakuArchive) {.async.} =
   var futures: seq[Future[void]]
