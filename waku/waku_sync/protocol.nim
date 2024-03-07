@@ -54,25 +54,32 @@ proc serverReconciliation(self: WakuSync, message: seq[byte]): Result[seq[byte],
   ok(payload)
 
 proc clientReconciliation(
-  self: WakuSync, message: seq[byte],
+  self: WakuSync, negentropy: pointer, message: seq[byte],
   haveHashes: var seq[WakuMessageHash],
   needHashes: var seq[WakuMessageHash],
   ): Result[Option[seq[byte]], string] =
-  let payload: seq[byte] = negentropyClientReconcile(self.negentropy, message, haveHashes, needHashes)
+  let payload: seq[byte] = negentropyClientReconcile(negentropy, message, haveHashes, needHashes)
   ok(some(payload))
 
-proc intitialization(self: WakuSync): Future[Result[seq[byte], string]] {.async.} =
-  let payload: seq[byte] = negentropyInitiate(self.negentropy)
+proc intitialization(self: WakuSync, negentropy: pointer): Future[Result[seq[byte], string]] {.async.} =  
+  let payload: seq[byte] = negentropyInitiate(negentropy)
   info "initialized negentropy ", value=payload
 
   ok(payload)
 
+#[ template freeNegentropyAndReturn(negentropy: pointer, ret: untyped) =
+  negentropyFree(negentropy)
+  return ret ]#
+
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let request: seq[byte] = (await self.intitialization()).valueOr:
+  let negentropy = negentropyNew(self.storage, DefaultFrameSize)
+  let request: seq[byte] = (await self.intitialization(negentropy)).valueOr:
+    negentropyFree(negentropy)
     return err(error)
   debug "sending request to server", req=request
   let writeRes = catch: await conn.writeLP(request)
   if writeRes.isErr():
+    negentropyFree(negentropy)
     return err(writeRes.error.msg)
 
   var
@@ -82,9 +89,11 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
   while true:
     let readRes = catch: await conn.readLp(self.maxFrameSize)
     let buffer: seq[byte] = readRes.valueOr:
-      return err(error.msg)
+      negentropyFree(negentropy)
+      return  err(error.msg)
     debug "Received Sync request from peer", request=buffer
-    let responseOpt: Option[seq[byte]] = self.clientReconciliation(buffer, haveHashes, needHashes).valueOr:
+    let responseOpt: Option[seq[byte]] = self.clientReconciliation(negentropy, buffer, haveHashes, needHashes).valueOr:
+      negentropyFree(negentropy)
       return err(error)
 
     let response: seq[byte] =
@@ -97,9 +106,11 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     debug "Sending Sync response to peer", response=response
     let writeRes = catch: await conn.writeLP(response)
     if writeRes.isErr():
-      return err(writeRes.error.msg)
+      negentropyFree(negentropy)
+      return  err(writeRes.error.msg)
   #Need to handle empty needhashes return
-  return ok(needHashes)
+  negentropyFree(negentropy)
+  return  ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:

@@ -2,6 +2,7 @@
 
 import
   std/options,
+  #std/asyncdispatch,
   testutils/unittests,
   chronos,
   chronicles,
@@ -103,12 +104,12 @@ suite "Waku Sync - Protocol Tests":
           hashes.value.len == 1
           hashes.value[0] == computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg2)
         #Assuming message is fetched from peer
-#[         client.ingessMessage(DefaultPubsubTopic, msg2)
+        client.ingessMessage(DefaultPubsubTopic, msg2)
         sleep(1000)
         hashes = await client.sync(serverPeerInfo)
         require (hashes.isOk())
         check:
-          hashes.value.len == 0 ]#
+          hashes.value.len == 0
 
     asyncTest "sync 2 nodes same hashes":
         ## Setup
@@ -139,3 +140,69 @@ suite "Waku Sync - Protocol Tests":
         assert hashes.isOk(), $hashes.error
         check:
           hashes.value.len == 0
+
+
+#[     asyncTest "sync 3 nodes cyclic":
+        #[Setup
+        node1 (client) <--> node2(server)
+        node2(client) <--> node3(server)
+        node3(client) <--> node1(server)]#
+
+        let
+            node1Switch = newTestSwitch()
+            node2Switch = newTestSwitch()
+            node3Switch = newTestSwitch()
+        
+        await allFutures(node1Switch.start(), node2Switch.start(), node3Switch.start())
+    
+        let node1PeerInfo = node1Switch.peerInfo.toRemotePeerInfo()
+        let node2PeerInfo = node2Switch.peerInfo.toRemotePeerInfo()
+        let node3PeerInfo = node3Switch.peerInfo.toRemotePeerInfo()
+
+        let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            node1 = await newTestWakuSync(node1Switch, handler=protoHandler)
+            node2 = await newTestWakuSync(node2Switch, handler=protoHandler)
+            node3 = await newTestWakuSync(node3Switch, handler=protoHandler)
+
+        node1.ingessMessage(DefaultPubsubTopic, msg1)
+        node2.ingessMessage(DefaultPubsubTopic, msg1)
+        node2.ingessMessage(DefaultPubsubTopic, msg2)
+        node3.ingessMessage(DefaultPubsubTopic, msg3)
+
+        let f1 = node1.sync(node2PeerInfo)
+        let f2 = node2.sync(node3PeerInfo)
+        let f3 = node3.sync(node1PeerInfo)
+
+        ## gather all futures in one
+        proc waitAllFutures(f1, f2, f3: Future[Result[seq[WakuMessageHash], string]]) {.async.} =
+
+          proc synccallback(data: ptr) {.gcsafe, raises:[].}=
+            let f1Result = f1.internalValue.valueOr("error 1")
+            let f2Result = f2.internalValue.valueOr("error 2")
+            let f3Result = f3.internalValue.valueOr("error 3")
+
+            echo "inside callback result from f1: " & $f1Result
+            echo "inside callback result from f2: " & $f2Result
+            echo "inside callback result from f3: " & $f3Result
+
+#[             let hashes = f1Res.read
+            assert hashes.isOk(), $hashes.error
+            check:
+              hashes.value.len == 1 ]#
+
+
+          let allFuts = allFutures(@[f1, f2, f3])
+          allFuts.addCallback(synccallback)
+          await allFuts
+
+        waitFor waitAllFutures(f1, f2, f3)
+ ]#

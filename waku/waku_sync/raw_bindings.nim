@@ -110,6 +110,10 @@ proc raw_reconcile(negentropy: pointer, query: ptr Buffer, r: ptr BindingResult)
 
 proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
 
+proc negentropyFree*(negentropy: pointer){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
+
+proc storageFree*(storage: pointer){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
+
 ### Wrappings ###
 
 #TODO: Change all these methods to private as we don't want them to be exposed outside Sync package
