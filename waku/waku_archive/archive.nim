@@ -61,7 +61,7 @@ proc new*(T: type WakuArchive,
 
   return ok(archive)
 
-proc validate*(self: WakuArchive, msg: WakuMessage): Result[void, string] =
+proc validate(msg: WakuMessage): Result[void, string] =
   let
     now = getNanosecondTime(getTime().toUnixFloat())
     lowerBound = now - MaxMessageTimestampVariance
@@ -82,7 +82,7 @@ proc handleMessage*(self: WakuArchive,
     # Ephemeral message, do not store
     return
 
-  self.validate(msg).isOkOr:
+  validate(msg).isOkOr:
     waku_archive_errors.inc(labelValues = [error])
     return
 
@@ -188,21 +188,22 @@ proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
   let policy = self.retentionPolicy.get()
 
   while true:
-    await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
-
     (await policy.execute(self.driver)).isOkOr:
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error=error
 
+    await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
+
 proc periodicMetricReport(self: WakuArchive) {.async.} =
   while true:
-    await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
-
-    let count = (await self.driver.getMessagesCount()).valueOr:
+    let countRes = (await self.driver.getMessagesCount())
+    if countRes.isErr():
       error "loopReportStoredMessagesMetric failed to get messages count", error=error
-      continue
+    else:
+      let count = countRes.get()
+      waku_archive_messages.set(count, labelValues = ["stored"])
 
-    waku_archive_messages.set(count, labelValues = ["stored"])
+    await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
 proc start*(self: WakuArchive) =
   if self.retentionPolicy.isSome():
