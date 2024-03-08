@@ -373,3 +373,55 @@ proc startNode*(node: WakuNode, conf: WakuNodeConf,
     node.peerManager.start()
 
   return ok()
+
+proc setupNode*(conf: WakuNodeConf, rng: Option[ref HmacDrbgContext] = none(ref HmacDrbgContext)):
+  Result[WakuNode, string] =
+    var nodeRng = if rng.isSome(): rng.get() else: crypto.newRng()
+
+    # Use provided key only if corresponding rng is also provided
+    let key =
+      if conf.nodeKey.isSome() and rng.isSome():
+        conf.nodeKey.get()
+      else:
+          warn "missing key or rng, generating new set"
+          crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
+            error "Failed to generate key", error=error
+            return err("Failed to generate key: " & $error)
+      
+    let netConfig = networkConfiguration(conf, clientId).valueOr:
+      error "failed to create internal config", error=error
+      return err("failed to create internal config: " & error)
+
+    let record = enrConfiguration(conf, netConfig, key).valueOr:
+      error "failed to create record", error=error
+      return err("failed to create record: " & error)
+
+    if isClusterMismatched(record, conf.clusterId):
+      error "cluster id mismatch configured shards"
+      return err("cluster id mismatch configured shards")
+
+    debug "Setting up storage"
+
+    ## Peer persistence
+    var peerStore: Option[WakuPeerStorage]
+    if conf.peerPersistence:
+      peerStore = setupPeerStorage().valueOr:
+        error "Setting up storage failed", error = "failed to setup peer store " & error
+        return err("Setting up storage failed: " & error)
+
+    debug "Initializing node"
+
+    let node = initNode(conf, netConfig, nodeRng, key, record, peerStore).valueOr:
+      error "Initializing node failed", error = error
+      return err("Initializing node failed: " & error)
+
+    debug "Mounting protocols"
+
+    try:  
+      (waitFor node.setupProtocols(conf, key)).isOkOr:
+        error "Mounting protocols failed", error = error
+        return err("Mounting protocols failed: " & error)
+    except CatchableError:
+      return err("Exception setting up protocols: " & getCurrentExceptionMsg())
+
+    return ok(node)
