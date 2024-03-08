@@ -19,6 +19,7 @@ suite "Node Factory":
       not node.isNil()
       node.wakuArchive.isNil()
       node.wakuStore.isNil()
+      node.wakuFilter.isNil()
       not node.wakuStoreClient.isNil()
       not node.rendezvous.isNil()
   
@@ -33,7 +34,17 @@ suite "Node Factory":
       not node.isNil()
       not node.wakuStore.isNil()
       not node.wakuArchive.isNil()
+
+test "Set up a node with Filter enabled":    
+    var conf = defaultTestWakuNodeConf()
+    conf.filter = true
     
+    let node = setupNode(conf).valueOr:
+      raiseAssert error
+    
+    check:
+      not node.isNil()
+      not node.wakuFilter.isNil()    
 
 
 
