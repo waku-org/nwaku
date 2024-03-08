@@ -18,7 +18,7 @@ include
   ../../apps/wakunode2/app
 
 suite "Wakunode2 - App":
-  test "compilation version should be reported":    
+  test "compilation version should be reported":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
