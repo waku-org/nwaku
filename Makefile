@@ -137,7 +137,7 @@ LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
 LIBRLN_VERSION := v0.4.1
 else
-LIBRLN_VERSION := v0.3.4
+LIBRLN_VERSION := v0.3.6
 endif
 
 ifeq ($(OS),Windows_NT)

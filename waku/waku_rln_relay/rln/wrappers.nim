@@ -500,7 +500,7 @@ proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[v
     return err("could not set the metadata")
   return ok()
 
-proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
+proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
   ## gets the metadata of the RLN instance
   ## returns an error if the metadata could not be retrieved
   ## returns the metadata if the metadata is retrieved successfully
@@ -513,6 +513,9 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
   if not getMetadataSuccessful:
     return err("could not get the metadata")
   trace "metadata length", metadataLen = metadata.len
+
+  if metadata.len == 0:
+    return ok(none(RlnMetadata))
 
   let 
     lastProcessedBlockOffset = 0
@@ -536,7 +539,7 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
   let validRootsBytes = metadataBytes[validRootsOffset..metadataBytes.high]
   validRoots = MerkleNodeSeq.deserialize(validRootsBytes)
 
-  return ok(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
-                        chainId: chainId,
-                        contractAddress: "0x" & contractAddress,
-                        validRoots: validRoots))
+  return ok(some(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
+                             chainId: chainId,
+                             contractAddress: "0x" & contractAddress,
+                             validRoots: validRoots)))
