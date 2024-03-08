@@ -260,17 +260,25 @@ suite "Waku rln relay":
                                   chainId: 1155511,
                                   contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
 
-    let metadataRes = rln.getMetadata()
+    let metadataOpt = rln.getMetadata().valueOr:
+      raiseAssert $error
 
-    require:
-      metadataRes.isOk()
-
-    let metadata = metadataRes.get()
-
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
     check:
       metadata.lastProcessedBlock == 128
       metadata.chainId == 1155511
       metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
+
+  test "getMetadata: empty rln metadata":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rln = createRLNInstanceWrapper().valueOr:
+      raiseAssert $error
+    let metadata = rln.getMetadata().valueOr:
+      raiseAssert $error
+
+    check:
+      metadata.isNone()
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils,times,options],
+  std/[sequtils,options],
   testutils/unittests,
   chronos
 import
@@ -12,8 +12,6 @@ import
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres
-
-proc now():int64 = getTime().toUnix()
 
 proc computeTestCursor(pubsubTopic: PubsubTopic,
                        message: WakuMessage):
@@ -56,7 +54,7 @@ suite "Postgres driver":
     # Actually, the diff randomly goes between 1 and 2 seconds.
     # although in theory it should spend 1s because we establish 100
     # connections and we spawn 100 tasks that spend ~1s each.
-    require diff < 20
+    assert diff < 20_000_000_000
 
   asyncTest "Insert a message":
     const contentTopic = "test-content-topic"
@@ -69,14 +67,14 @@ suite "Postgres driver":
     assert putRes.isOk(), putRes.error
 
     let storedMsg = (await driver.getAllMessages()).tryGet()
-    require:
-      storedMsg.len == 1
-      storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, actualMsg, digest, storeTimestamp) = item
-        actualMsg.contentTopic == contentTopic and
-        pubsubTopic == DefaultPubsubTopic and
-        toHex(computedDigest.data) == toHex(digest) and
-        toHex(actualMsg.payload) == toHex(msg.payload)
+
+    assert storedMsg.len == 1
+
+    let (pubsubTopic, actualMsg, digest, storeTimestamp) = storedMsg[0]
+    assert actualMsg.contentTopic == contentTopic
+    assert pubsubTopic == DefaultPubsubTopic
+    assert toHex(computedDigest.data) == toHex(digest)
+    assert toHex(actualMsg.payload) == toHex(msg.payload)
 
   asyncTest "Insert and query message":
     const contentTopic1 = "test-content-topic-1"
@@ -96,21 +94,21 @@ suite "Postgres driver":
 
     let countMessagesRes = await driver.getMessagesCount()
 
-    require countMessagesRes.isOk() and countMessagesRes.get() == 2
+    assert countMessagesRes.isOk(), $countMessagesRes.error
+    assert countMessagesRes.get() == 2
 
     var messagesRes = await driver.getMessages(contentTopic = @[contentTopic1])
 
-    require messagesRes.isOk()
-    require messagesRes.get().len == 1
+    assert messagesRes.isOk(), $messagesRes.error
+    assert messagesRes.get().len == 1
 
     # Get both content topics, check ordering
     messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
                                                             contentTopic2])
     assert messagesRes.isOk(), messagesRes.error
 
-    require:
-      messagesRes.get().len == 2 and
-      messagesRes.get()[0][1].contentTopic == contentTopic1
+    assert messagesRes.get().len == 2
+    assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Descending order
     messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
@@ -118,9 +116,8 @@ suite "Postgres driver":
                                            ascendingOrder = false)
     assert messagesRes.isOk(), messagesRes.error
 
-    require:
-      messagesRes.get().len == 2 and
-      messagesRes.get()[0][1].contentTopic == contentTopic2
+    assert messagesRes.get().len == 2
+    assert messagesRes.get()[0][1].contentTopic == contentTopic2
 
     # cursor
     # Get both content topics
@@ -130,8 +127,8 @@ suite "Postgres driver":
                                  cursor = some(
                                         computeTestCursor(pubsubTopic1,
                                                           messagesRes.get()[1][1])))
-    require messagesRes.isOk()
-    require messagesRes.get().len == 1
+    assert messagesRes.isOk()
+    assert messagesRes.get().len == 1
 
     # Get both content topics but one pubsub topic
     messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
@@ -139,16 +136,15 @@ suite "Postgres driver":
                                            pubsubTopic = some(pubsubTopic1))
     assert messagesRes.isOk(), messagesRes.error
 
-    require:
-      messagesRes.get().len == 1 and
-      messagesRes.get()[0][1].contentTopic == contentTopic1
+    assert messagesRes.get().len == 1
+    assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Limit
     messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
                                                             contentTopic2],
                                            maxPageSize = 1)
     assert messagesRes.isOk(), messagesRes.error
-    require messagesRes.get().len == 1
+    assert messagesRes.get().len == 1
 
   asyncTest "Insert true duplicated messages":
     # Validates that two completely equal messages can not be stored.
@@ -164,5 +160,5 @@ suite "Postgres driver":
 
     putRes = await driver.put(DefaultPubsubTopic,
                               msg2, computeDigest(msg2), computeMessageHash(DefaultPubsubTopic, msg2), msg2.timestamp)
-    require not putRes.isOk()
+    assert not putRes.isOk()
 
