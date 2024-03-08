@@ -25,7 +25,7 @@ proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTo
     senderTime = msg.timestamp
     hash = computeMessageHash(pubsubTopic, msg)
 
-  Index(
+  return Index(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
     receiverTime: receivedTime,
@@ -34,7 +34,7 @@ proc compute*(T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTo
   )
 
 proc tohistoryCursor*(index: Index): ArchiveCursor =
-  ArchiveCursor(
+  return ArchiveCursor(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     storeTime: index.receiverTime,
@@ -43,7 +43,7 @@ proc tohistoryCursor*(index: Index): ArchiveCursor =
   )
 
 proc toIndex*(index: ArchiveCursor): Index =
-  Index(
+  return Index(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     receiverTime: index.storeTime,
@@ -53,9 +53,10 @@ proc toIndex*(index: ArchiveCursor): Index =
 
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index equality
-  (x.senderTime == y.senderTime) and
-  (x.digest == y.digest) and
-  (x.pubsubTopic == y.pubsubTopic)
+  return 
+    (x.senderTime == y.senderTime) and
+    (x.digest == y.digest) and
+    (x.pubsubTopic == y.pubsubTopic)
 
 proc cmp*(x, y: Index): int =
   ## compares x and y

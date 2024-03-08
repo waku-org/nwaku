@@ -77,10 +77,10 @@ proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T
 
 proc contains*(driver: QueueDriver, index: Index): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.
-  driver.items.eq(index).isOk()
+  return driver.items.eq(index).isOk()
 
 proc len*(driver: QueueDriver): int {.noSideEffect.} =
-  driver.items.len
+  return driver.items.len
 
 proc getPage(driver: QueueDriver,
              pageSize: uint = 0,

@@ -41,7 +41,7 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   if resMsgIndex.isErr():
     return err("failed to create i_msg index: " & resMsgIndex.error())
 
-  ok()
+  return ok()
 
 type SqliteDriver* = ref object of ArchiveDriver
     db: SqliteDatabase
@@ -56,7 +56,7 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  ok(SqliteDriver(db: db, insertStmt: insertStmt))
+  return ok(SqliteDriver(db: db, insertStmt: insertStmt))
 
 method put*(s: SqliteDriver,
             pubsubTopic: PubsubTopic,

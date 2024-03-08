@@ -8,7 +8,6 @@ import
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver as driver_module,
-  ../../../waku/waku_archive/driver/builder,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
@@ -670,10 +669,10 @@ suite "Postgres driver - queries":
     ]
     var messages = expected
 
-    let hashes = messages.mapIt(computeMessageHash(DefaultPubsubTopic, it))
-
     shuffle(messages)
     debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
+
+    let hashes = messages.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
     for (msg, hash) in messages.zip(hashes):
       require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), hash, msg.timestamp)).isOk()
