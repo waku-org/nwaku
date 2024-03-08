@@ -198,7 +198,7 @@ proc periodicMetricReport(self: WakuArchive) {.async.} =
   while true:
     let countRes = (await self.driver.getMessagesCount())
     if countRes.isErr():
-      error "loopReportStoredMessagesMetric failed to get messages count", error=error
+      error "loopReportStoredMessagesMetric failed to get messages count", error=countRes.error
     else:
       let count = countRes.get()
       waku_archive_messages.set(count, labelValues = ["stored"])
