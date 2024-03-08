@@ -20,7 +20,12 @@ import
   ./constants,
   ./protocol_types,
   ./protocol_metrics
+
+when defined(rln_v2):
+  import ./nonce_manager
+
 import
+  ../common/error_handling,
   ../waku_relay, # for WakuRelayHandler
   ../waku_core,
   ../waku_keystore,
@@ -29,14 +34,19 @@ import
 logScope:
   topics = "waku rln_relay"
 
-type WakuRlnConfig* = object
-  rlnRelayDynamic*: bool
-  rlnRelayCredIndex*: Option[uint]
-  rlnRelayEthContractAddress*: string
-  rlnRelayEthClientAddress*: string
-  rlnRelayCredPath*: string
-  rlnRelayCredPassword*: string
-  rlnRelayTreePath*: string
+type 
+  WakuRlnConfig* = object
+    rlnRelayDynamic*: bool
+    rlnRelayCredIndex*: Option[uint]
+    rlnRelayEthContractAddress*: string
+    rlnRelayEthClientAddress*: string
+    rlnRelayCredPath*: string
+    rlnRelayCredPassword*: string
+    rlnRelayTreePath*: string
+    rlnEpochSizeSec*: uint64
+    onFatalErrorAction*: OnFatalErrorHandler
+    when defined(rln_v2):
+      rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
     seq[RawMembershipCredentials], string
@@ -67,19 +77,24 @@ proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
   let root = rln.getMerkleRoot().value().inHex()
   return ok((output, root))
 
-proc calcEpoch*(t: float64): Epoch =
-  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
-  ## and returns its corresponding rln `Epoch` value
-  let e = uint64(t/EpochUnitSeconds)
-  return toEpoch(e)
-
 type WakuRLNRelay* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-  nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
+  nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
+  rlnEpochSizeSec*: uint64
+  rlnMaxEpochGap*: uint64
   groupManager*: GroupManager
+  onFatalErrorAction*: OnFatalErrorHandler
+  when defined(rln_v2):
+    nonceManager*: NonceManager
 
-method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
+proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
+  ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
+  ## and returns its corresponding rln `Epoch` value
+  let e = uint64(t/rlnPeer.rlnEpochSizeSec.float64)
+  return toEpoch(e)
+
+proc stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
   ## Throws an error if it cannot stop the rln-relay protocol
 
@@ -88,62 +103,53 @@ method stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   await rlnPeer.groupManager.stop()
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
+                   epoch: Epoch,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `proofMetadata`'s epoch and nullifier
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
-  let externalNullifier = proofMetadata.externalNullifier
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
+  let nullifier = proofMetadata.nullifier
+  if not rlnPeer.nullifierLog.hasKey(epoch):
     return ok(false)
   try:
-    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
+    if rlnPeer.nullifierLog[epoch].hasKey(nullifier):
       # there is an identical record, mark it as spam
-      return ok(true)
-
-    # check for a message with the same nullifier but different secret shares
-    let matched = rlnPeer.nullifierLog[externalNullifier].filterIt((
-        it.nullifier == proofMetadata.nullifier) and ((it.shareX != proofMetadata.shareX) or
-        (it.shareY != proofMetadata.shareY)))
-
-    if matched.len != 0:
-      # there is a duplicate
       return ok(true)
 
     # there is no duplicate
     return ok(false)
 
-  except KeyError as e:
-    return err("the epoch was not found")
+  except KeyError:
+    return err("the epoch was not found: " & getCurrentExceptionMsg())
 
 proc updateLog*(rlnPeer: WakuRLNRelay,
+                epoch: Epoch,
                 proofMetadata: ProofMetadata): RlnRelayResult[void] =
   ## saves supplied proofMetadata `proofMetadata`
   ## in the `nullifierLog` of the `rlnPeer`
   ## Returns an error if it cannot update the log
 
-  let externalNullifier = proofMetadata.externalNullifier
-  # check if the externalNullifier exists
-  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
-    rlnPeer.nullifierLog[externalNullifier] = @[proofMetadata]
+  # check if the epoch exists
+  if not rlnPeer.nullifierLog.hasKeyOrPut(epoch, { proofMetadata.nullifier: proofMetadata }.toTable()):
     return ok()
 
   try:
     # check if an identical record exists
-    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
+    if rlnPeer.nullifierLog[epoch].hasKeyOrPut(proofMetadata.nullifier, proofMetadata):
+      # the above condition could be `discarded` but it is kept for clarity, that slashing will 
+      # be implemented here
       # TODO: slashing logic
       return ok()
-    # add proofMetadata to the log
-    rlnPeer.nullifierLog[externalNullifier].add(proofMetadata)
     return ok()
-  except KeyError as e:
-    return err("the external nullifier was not found") # should never happen
+  except KeyError:
+    return err("the epoch was not found: " & getCurrentExceptionMsg()) # should never happen
 
-proc getCurrentEpoch*(): Epoch =
+proc getCurrentEpoch*(rlnPeer: WakuRLNRelay): Epoch =
   ## gets the current rln Epoch time
-  return calcEpoch(epochTime())
+  return rlnPeer.calcEpoch(epochTime())
 
 proc absDiff*(e1, e2: Epoch): uint64 =
   ## returns the absolute difference between the two rln `Epoch`s `e1` and `e2`
@@ -183,10 +189,10 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   # it corresponds to the validation of rln external nullifier
   var epoch: Epoch
   if timeOption.isSome():
-    epoch = calcEpoch(timeOption.get())
+    epoch = rlnPeer.calcEpoch(timeOption.get())
   else:
     # get current rln epoch
-    epoch = getCurrentEpoch()
+    epoch = rlnPeer.getCurrentEpoch()
 
   let
     msgEpoch = proof.epoch
@@ -196,7 +202,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   trace "epoch info", currentEpoch = fromEpoch(epoch), msgEpoch = fromEpoch(msgEpoch)
 
   # validate the epoch
-  if gap > MaxEpochGap:
+  if gap > rlnPeer.rlnMaxEpochGap:
     # message's epoch is too old or too ahead
     # accept messages whose epoch is within +-MaxEpochGap from the current epoch
     warn "invalid message: epoch gap exceeds a threshold", gap = gap,
@@ -234,7 +240,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   if proofMetadataRes.isErr():
     waku_rln_errors_total.inc(labelValues=["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
-  let hasDup = rlnPeer.hasDuplicate(proofMetadataRes.get())
+  let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
@@ -267,7 +273,7 @@ proc validateMessageAndUpdateLog*(
     return MessageValidationResult.Invalid
 
   # insert the message to the log (never errors)
-  discard rlnPeer.updateLog(proofMetadataRes.get())
+  discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return result
 
@@ -281,32 +287,36 @@ proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
 
 proc appendRLNProof*(rlnPeer: WakuRLNRelay,
                      msg: var WakuMessage,
-                     senderEpochTime: float64): bool =
+                     senderEpochTime: float64): RlnRelayResult[void] =
   ## returns true if it can create and append a `RateLimitProof` to the supplied `msg`
   ## returns false otherwise
   ## `senderEpochTime` indicates the number of seconds passed since Unix epoch. The fractional part holds sub-seconds.
   ## The `epoch` field of `RateLimitProof` is derived from the provided `senderEpochTime` (using `calcEpoch()`)
 
   let input = msg.toRLNSignal()
-  let epoch = calcEpoch(senderEpochTime)
+  let epoch = rlnPeer.calcEpoch(senderEpochTime)
 
-  let proofGenRes = rlnPeer.groupManager.generateProof(input, epoch)
+  when defined(rln_v2):
+    let nonce = rlnPeer.nonceManager.getNonce().valueOr:
+      return err("could not get new message id to generate an rln proof: " & $error)
+    let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
+      return err("could not generate rln-v2 proof: " & $error)
+  else:
+    let proof = rlnPeer.groupManager.generateProof(input, epoch).valueOr:
+      return err("could not generate rln proof: " & $error)
 
-  if proofGenRes.isErr():
-    return false
-
-  msg.proof = proofGenRes.get().encode().buffer
-  return true
+  msg.proof = proof.encode().buffer
+  return ok()
 
 proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
   # if more than MaxEpochGap epochs are in the log
   # note: the epochs are ordered ascendingly
-  if rlnPeer.nullifierLog.len().uint < MaxEpochGap:
+  if rlnPeer.nullifierLog.len().uint < rlnPeer.rlnMaxEpochGap:
     return
 
-  trace "clearing epochs from the nullifier log", count = MaxEpochGap
-  let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0..<MaxEpochGap]
+  trace "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
+  let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0..<rlnPeer.rlnMaxEpochGap]
   for epoch in epochsToClear:
     rlnPeer.nullifierLog.del(epoch)
 
@@ -358,6 +368,7 @@ proc mount(conf: WakuRlnConfig,
           ): Future[WakuRlnRelay] {.async: (raises: [Exception]).} =
   var
     groupManager: GroupManager
+    wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
   let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
   if rlnInstanceRes.isErr():
@@ -371,7 +382,8 @@ proc mount(conf: WakuRlnConfig,
     groupManager = StaticGroupManager(groupSize: StaticGroupSize,
                                       groupKeys: parsedGroupKeysRes.get(),
                                       membershipIndex: conf.rlnRelayCredIndex,
-                                      rlnInstance: rlnInstance)
+                                      rlnInstance: rlnInstance,
+                                      onFatalErrorAction: conf.onFatalErrorAction)
     # we don't persist credentials in static mode since they exist in ./constants.nim
   else:
     # dynamic setup
@@ -380,19 +392,32 @@ proc mount(conf: WakuRlnConfig,
     let
       rlnRelayCredPath = useValueOrNone(conf.rlnRelayCredPath)
       rlnRelayCredPassword = useValueOrNone(conf.rlnRelayCredPassword)
-    groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
+    groupManager = OnchainGroupManager(ethClientUrl: string(conf.rlnRelayethClientAddress),
                                        ethContractAddress: $conf.rlnRelayEthContractAddress,
                                        rlnInstance: rlnInstance,
                                        registrationHandler: registrationHandler,
                                        keystorePath: rlnRelayCredPath,
                                        keystorePassword: rlnRelayCredPassword,
-                                       membershipIndex: conf.rlnRelayCredIndex)
+                                       membershipIndex: conf.rlnRelayCredIndex,
+                                       onFatalErrorAction: conf.onFatalErrorAction)
+
   # Initialize the groupManager
   await groupManager.init()
   # Start the group sync
   await groupManager.startGroupSync()
 
-  return WakuRLNRelay(groupManager: groupManager)
+  when defined(rln_v2): 
+    return WakuRLNRelay(groupManager: groupManager, 
+                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit),
+                        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+                        rlnMaxEpochGap: uint64(MaxClockGapSeconds/float64(conf.rlnEpochSizeSec)),
+                        onFatalErrorAction: conf.onFatalErrorAction)
+  else:
+    return WakuRLNRelay(groupManager: groupManager,
+                        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+                        rlnMaxEpochGap: uint64(MaxClockGapSeconds/float64(conf.rlnEpochSizeSec)),
+                        onFatalErrorAction: conf.onFatalErrorAction)
+
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages

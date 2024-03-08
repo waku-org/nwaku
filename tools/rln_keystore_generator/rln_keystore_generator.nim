@@ -13,7 +13,7 @@ import
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
   ../../waku/waku_rln_relay/group_manager/on_chain,
-  ../../apps/wakunode2/external_config
+  ../../waku/factory/external_config
 
 logScope:
   topics = "rln_keystore_generator"
@@ -49,7 +49,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     quit(0)
 
   # 4. initialize OnchainGroupManager
-  let groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
+  let groupManager = OnchainGroupManager(ethClientUrl: string(conf.rlnRelayethClientAddress),
                                          ethContractAddress: conf.rlnRelayEthContractAddress,
                                          rlnInstance: rlnInstance,
                                          keystorePath: none(string),
@@ -63,7 +63,10 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
 
   # 5. register on-chain
   try:
-    waitFor groupManager.register(credential)
+    when defined(rln_v2):
+      waitFor groupManager.register(credential, conf.rlnRelayUserMessageLimit)
+    else:
+      waitFor groupManager.register(credential)
   except Exception, CatchableError:
     error "failure while registering credentials on-chain", error=getCurrentExceptionMsg()
     quit(1)
@@ -73,16 +76,29 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
   info "Your membership has been registered on-chain.", chainId = $groupManager.chainId.get(),
                                                         contractAddress = conf.rlnRelayEthContractAddress,
                                                         membershipIndex = groupManager.membershipIndex.get()
+  when defined(rln_v2):
+    info "Your user message limit is", userMessageLimit = conf.rlnRelayUserMessageLimit
 
   # 6. write to keystore
-  let keystoreCred = KeystoreMembership(
-    membershipContract: MembershipContract(
-      chainId: $groupManager.chainId.get(),
-      address: conf.rlnRelayEthContractAddress,
-    ),
-    treeIndex: groupManager.membershipIndex.get(),
-    identityCredential: credential,
-  )
+  when defined(rln_v2):
+    let keystoreCred = KeystoreMembership(
+      membershipContract: MembershipContract(
+        chainId: $groupManager.chainId.get(),
+        address: conf.rlnRelayEthContractAddress,
+      ),
+      treeIndex: groupManager.membershipIndex.get(),
+      identityCredential: credential,
+      userMessageLimit: conf.rlnRelayUserMessageLimit,
+    )
+  else:
+    let keystoreCred = KeystoreMembership(
+      membershipContract: MembershipContract(
+        chainId: $groupManager.chainId.get(),
+        address: conf.rlnRelayEthContractAddress,
+      ),
+      treeIndex: groupManager.membershipIndex.get(),
+      identityCredential: credential,
+    )
 
   let persistRes = addMembershipCredentials(conf.rlnRelayCredPath,
                                             keystoreCred,

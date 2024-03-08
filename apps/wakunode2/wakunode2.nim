@@ -14,8 +14,9 @@ import
   libp2p/crypto/crypto
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
-  ./external_config,
+  ../../waku/factory/external_config,
   ./networks_config,
   ./app
 
@@ -33,8 +34,10 @@ proc logConfig(conf: WakuNodeConf) =
 
   info "Configuration. Network",
     cluster = conf.clusterId,
-    pubsubTopics = conf.pubsubTopics,
     maxPeers = conf.maxRelayPeers
+
+  for shard in conf.pubsubTopics:
+    info "Configuration. Shards", shard=shard
 
   for i in conf.discv5BootstrapNodes:
     info "Configuration. Bootstrap nodes", node = i
@@ -43,7 +46,10 @@ proc logConfig(conf: WakuNodeConf) =
     info "Configuration. Validation",
       mechanism = "onchain rln",
       contract = conf.rlnRelayEthContractAddress,
-      maxMessageSize = conf.maxMessageSize
+      maxMessageSize = conf.maxMessageSize,
+      rlnEpochSizeSec = conf.rlnEpochSizeSec,
+      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
+      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -66,25 +72,6 @@ when isMainModule:
 
   var conf = confRes.get()
 
-  # The Waku Network config (cluster-id=1)
-  if conf.clusterId == 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(conf.shards) != 0:
-      conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-    # Override configuration
-    conf.maxMessageSize = twnClusterConf.maxMessageSize
-    conf.clusterId = twnClusterConf.clusterId
-    conf.rlnRelay = twnClusterConf.rlnRelay
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    conf.discv5Discovery = twnClusterConf.discv5Discovery
-    conf.discv5BootstrapNodes =
-      conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-
   ## Logging setup
 
   # Adhere to NO_COLOR initiative: https://no-color.org/
@@ -97,14 +84,38 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-  info "Running nwaku node", version = app.git_version
-  logConfig(conf)
-
   case conf.cmd
   of generateRlnKeystore:
     doRlnKeystoreGenerator(conf)
+  of inspectRlnDb:
+    doInspectRlnDb(conf)
   of noCommand:
+    # The Waku Network config (cluster-id=1)
+    if conf.clusterId == 1:
+      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+      if len(conf.shards) != 0:
+        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+      else:
+        conf.pubsubTopics = twnClusterConf.pubsubTopics
+
+      # Override configuration
+      conf.maxMessageSize = twnClusterConf.maxMessageSize
+      conf.clusterId = twnClusterConf.clusterId
+      conf.rlnRelay = twnClusterConf.rlnRelay
+      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+      conf.discv5Discovery = twnClusterConf.discv5Discovery
+      conf.discv5BootstrapNodes =
+        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+
     var wakunode2 = App.init(rng, conf)
+
+    info "Running nwaku node", version = app.git_version
+    logConfig(conf)
+
 
     ##############
     # Node setup #

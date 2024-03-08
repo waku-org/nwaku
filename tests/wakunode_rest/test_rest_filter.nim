@@ -39,8 +39,8 @@ proc testWakuNode(): WakuNode =
 type RestFilterTest = object
   serviceNode: WakuNode
   subscriberNode: WakuNode
-  restServer: RestServerRef
-  restServerForService: RestServerRef
+  restServer: WakuRestServerRef
+  restServerForService: WakuRestServerRef
   messageCache: MessageCache
   client: RestClientRef
   clientTwdServiceNode: RestClientRef
@@ -61,10 +61,10 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
 
   let restPort = Port(58011)
   let restAddress = parseIpAddress("127.0.0.1")
-  testSetup.restServer = RestServerRef.init(restAddress, restPort).tryGet()
+  testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
   let restPort2 = Port(58012)
-  testSetup.restServerForService = RestServerRef.init(restAddress, restPort2).tryGet()
+  testSetup.restServerForService = WakuRestServerRef.init(restAddress, restPort2).tryGet()
 
   # through this one we will see if messages are pushed according to our content topic sub
   testSetup.messageCache = MessageCache.init()
@@ -261,7 +261,8 @@ suite "Waku v2 Rest API - Filter V2":
     let testMessage = WakuMessage(
                                         payload: "TEST-PAYLOAD-MUST-RECEIVE".toBytes(),
                                         contentTopic: "1",
-                                        timestamp: int64(2022)
+                                        timestamp: int64(2022),
+                                        meta: "test-meta".toBytes()
                                       )
 
     let postMsgResponse = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(

@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, osproc, sequtils, deques, streams, strutils, tempfiles],
+  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles],
   stew/[results, byteutils],
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -31,6 +31,11 @@ proc generateCredentials(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
   return credRes.get()
 
+when defined(rln_v2):
+  proc getRateCommitment(idCredential: IdentityCredential, userMessageLimit: UserMessageLimit): RateCommitment =
+    return RateCommitment(idCommitment: idCredential.idCommitment,
+                          userMessageLimit: userMessageLimit)
+
 proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] =
   var credentials: seq[IdentityCredential]
   for i in 0 ..< n:
@@ -38,7 +43,7 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
   return credentials
 
 #  a util function used for testing purposes
-#  it deploys membership contract on Ganache (or any Eth client available on EthClient address)
+#  it deploys membership contract on Anvil (or any Eth client available on EthClient address)
 #  must be edited if used for a different contract than membership contract
 # <the difference between this and rln-v1 is that there is no need to deploy the poseidon hasher contract>
 proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
@@ -84,7 +89,11 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "Address of the deployed registry contract: ", contractAddress
 
   let registryContract = web3.contractSender(WakuRlnRegistry, contractAddress)
-  let newStorageReceipt = await registryContract.newStorage().send()
+  when defined(rln_v2):
+    let initReceipt = await registryContract.initialize().send()
+    let newStorageReceipt = await registryContract.newStorage(20.u256).send()
+  else:
+    let newStorageReceipt = await registryContract.newStorage().send()
 
   debug "Receipt of the newStorage transaction: ", newStorageReceipt
   let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
@@ -117,47 +126,57 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   return (pk, acc)
 
-# Runs Ganache daemon
-proc runGanache(): Process =
-  # We run directly "node node_modules/ganache/dist/node/cli.js" rather than using "npx ganache", so that the daemon does not spawn in a new child process.
-  # In this way, we can directly send a SIGINT signal to the corresponding PID to gracefully terminate Ganache without dealing with multiple processes.
+proc getAnvilPath(): string =
+  var anvilPath = ""
+  if existsEnv("XDG_CONFIG_HOME"):
+    anvilPath = joinPath(anvilPath, os.getEnv("XDG_CONFIG_HOME", ""))
+  else:
+    anvilPath = joinPath(anvilPath, os.getEnv("HOME", ""))
+  anvilPath = joinPath(anvilPath, ".foundry/bin/anvil")
+  return $anvilPath
+
+# Runs Anvil daemon
+proc runAnvil(): Process =
   # Passed options are
   # --port                            Port to listen on.
-  # --miner.blockGasLimit             Sets the block gas limit in WEI.
-  # --wallet.defaultBalance           The default account balance, specified in ether.
-  # See ganache documentation https://www.npmjs.com/package/ganache for more details
+  # --gas-limit                       Sets the block gas limit in WEI.
+  # --balance                         The default account balance, specified in ether.
+  # --chain-id                        Chain ID of the network.
+  # See anvil documentation https://book.getfoundry.sh/reference/anvil/ for more details
   try:
-    let runGanache = startProcess("npx", args = ["--yes", "ganache@7.9.0", "--port", "8540", "--miner.blockGasLimit", "300000000000000", "--wallet.defaultBalance", "10000"], options = {poUsePath})
-    let ganachePID = runGanache.processID
+    let anvilPath = getAnvilPath()
+    debug "Anvil path", anvilPath
+    let runAnvil = startProcess(anvilPath, args = ["--port", "8540", "--gas-limit", "300000000000000", "--balance", "10000", "--chain-id", "1337"], options = {poUsePath})
+    let anvilPID = runAnvil.processID
 
-    # We read stdout from Ganache to see when daemon is ready
-    var ganacheStartLog: string
+    # We read stdout from Anvil to see when daemon is ready
+    var anvilStartLog: string
     var cmdline: string
     while true:
       try:
-        if runGanache.outputstream.readLine(cmdline):
-          ganacheStartLog.add(cmdline)
+        if runAnvil.outputstream.readLine(cmdline):
+          anvilStartLog.add(cmdline)
           if cmdline.contains("Listening on 127.0.0.1:8540"):
             break
       except Exception, CatchableError:
         break
-    debug "Ganache daemon is running and ready", pid=ganachePID, startLog=ganacheStartLog
-    return runGanache
+    debug "Anvil daemon is running and ready", pid=anvilPID, startLog=anvilStartLog
+    return runAnvil
   except:  # TODO: Fix "BareExcept" warning
-    error "Ganache daemon run failed", err = getCurrentExceptionMsg()
+    error "Anvil daemon run failed", err = getCurrentExceptionMsg()
 
 
-# Stops Ganache daemon
-proc stopGanache(runGanache: Process) {.used.} =
+# Stops Anvil daemon
+proc stopAnvil(runAnvil: Process) {.used.} =
 
-  let ganachePID = runGanache.processID
+  let anvilPID = runAnvil.processID
   # We wait the daemon to exit
   try:
-    # We terminate Ganache daemon by sending a SIGTERM signal to the runGanache PID to trigger RPC server termination and clean-up
-    discard startProcess("pkill", args = ["-f", "ganache"], options = {poUsePath})
-    debug "Sent SIGTERM to Ganache", ganachePID=ganachePID
+    # We terminate Anvil daemon by sending a SIGTERM signal to the runAnvil PID to trigger RPC server termination and clean-up
+    kill(runAnvil)
+    debug "Sent SIGTERM to Anvil", anvilPID=anvilPID
   except:
-    error "Ganache daemon termination failed: ", err = getCurrentExceptionMsg()
+    error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
 proc setup(): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes = createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
@@ -185,8 +204,8 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
   return manager
 
 suite "Onchain group manager":
-  # We run Ganache
-  let runGanache {.used.} = runGanache()
+  # We run Anvil
+  let runAnvil {.used.} = runAnvil()
 
   asyncTest "should initialize successfully":
     let manager = await setup()
@@ -222,6 +241,13 @@ suite "Onchain group manager":
                                        ethContractAddress: $differentContractAddress,
                                        rlnInstance: manager.rlnInstance)
     expect(ValueError): await manager2.init()
+
+  asyncTest "should error when keystore path and password are provided but file doesn't exist":
+    let manager = await setup()
+    manager.keystorePath = some("/inexistent/file")
+    manager.keystorePassword = some("password")
+
+    expect(CatchableError): await manager.init()
 
   asyncTest "startGroupSync: should start group sync":
     let manager = await setup()
@@ -261,14 +287,24 @@ suite "Onchain group manager":
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
         require:
           registrations.len == 1
-          registrations[0].idCommitment == credentials.idCommitment
+          registrations[0].index == 0
+        when defined(rln_v2):
+          require:
+            registrations[0].rateCommitment == getRateCommitment(credentials, UserMessageLimit(1))
+        else:
+          require:
+            registrations[0].idCommitment == credentials.idCommitment
+        require:
           registrations[0].index == 0
         fut.complete()
       return callback
 
     try:
       manager.onRegister(generateCallback(fut))
-      await manager.register(credentials)
+      when defined(rln_v2):
+        await manager.register(credentials, UserMessageLimit(1))
+      else:
+        await manager.register(credentials)
       await manager.startGroupSync()
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
@@ -302,11 +338,18 @@ suite "Onchain group manager":
     proc generateCallback(futs: TestGroupSyncFuts, credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        if registrations.len == 1 and
-            registrations[0].idCommitment == credentials[futureIndex].idCommitment and
-            registrations[0].index == MembershipIndex(futureIndex):
-          futs[futureIndex].complete()
-          futureIndex += 1
+        when defined(rln_v2):
+          if  registrations.len == 1 and
+              registrations[0].rateCommitment == getRateCommitment(credentials[futureIndex], UserMessageLimit(1)) and
+              registrations[0].index == MembershipIndex(futureIndex):
+            futs[futureIndex].complete()
+            futureIndex += 1
+        else:
+          if  registrations.len == 1 and
+              registrations[0].idCommitment == credentials[futureIndex].idCommitment and
+              registrations[0].index == MembershipIndex(futureIndex):
+            futs[futureIndex].complete()
+            futureIndex += 1
       return callback
 
     try:
@@ -314,7 +357,10 @@ suite "Onchain group manager":
       await manager.startGroupSync()
 
       for i in 0 ..< credentials.len():
-        await manager.register(credentials[i])
+        when defined(rln_v2):
+          await manager.register(credentials[i], UserMessageLimit(1))
+        else:
+          await manager.register(credentials[i])
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -335,7 +381,11 @@ suite "Onchain group manager":
     let dummyCommitment = default(IDCommitment)
 
     try:
-      await manager.register(dummyCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: dummyCommitment, 
+                                              userMessageLimit: UserMessageLimit(1)))
+      else:
+        await manager.register(dummyCommitment)
     except CatchableError:
       assert true
     except Exception:
@@ -358,7 +408,11 @@ suite "Onchain group manager":
     let merkleRootBefore = merkleRootBeforeRes.get()
 
     try:
-      await manager.register(idCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: idCommitment, 
+                                              userMessageLimit: UserMessageLimit(1)))
+      else:
+        await manager.register(idCommitment)
     except Exception, CatchableError:
       assert false, "exception raised when calling register: " & getCurrentExceptionMsg()
 
@@ -381,7 +435,13 @@ suite "Onchain group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       require:
         registrations.len == 1
-        registrations[0].idCommitment == idCommitment
+      when defined(rln_v2):
+        require:
+          registrations[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1))
+      else:
+        require:
+          registrations[0].idCommitment == idCommitment
+      require:
         registrations[0].index == 0
       fut.complete()
 
@@ -389,7 +449,10 @@ suite "Onchain group manager":
     await manager.init()
     try:
       await manager.startGroupSync()
-      await manager.register(idCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: idCommitment, userMessageLimit: UserMessageLimit(1)))
+      else:
+        await manager.register(idCommitment)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -421,18 +484,27 @@ suite "Onchain group manager":
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      if registrations.len == 1 and
-         registrations[0].idCommitment == credentials.idCommitment and
-         registrations[0].index == 0:
-        manager.idCredentials = some(credentials)
-        manager.membershipIndex = some(registrations[0].index)
-        fut.complete()
+      when defined(rln_v2):
+        if registrations.len == 1 and
+           registrations[0].rateCommitment == getRateCommitment(credentials, UserMessageLimit(1)) and
+           registrations[0].index == 0:
+          manager.idCredentials = some(credentials)
+          fut.complete()
+      else:
+        if registrations.len == 1 and
+          registrations[0].idCommitment == credentials.idCommitment and
+          registrations[0].index == 0:
+          manager.idCredentials = some(credentials)
+          fut.complete()
 
     manager.onRegister(callback)
 
     try:
       await manager.startGroupSync()
-      await manager.register(credentials)
+      when defined(rln_v2):
+        await manager.register(credentials, UserMessageLimit(1))
+      else:
+        await manager.register(credentials)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -445,8 +517,14 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(data = messageBytes,
-                                              epoch = epoch)
+    when defined(rln_v2):
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch,
+                                                messageId = MessageId(1))
+    else:
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch)
+
     require:
       validProofRes.isOk()
     let validProof = validProofRes.get()
@@ -471,6 +549,8 @@ suite "Onchain group manager":
     ## Assume the registration occured out of band
     manager.idCredentials = some(credentials)
     manager.membershipIndex = some(MembershipIndex(0))
+    when defined(rln_v2):
+      manager.userMessageLimit = some(UserMessageLimit(1))
 
     let messageBytes = "Hello".toBytes()
 
@@ -479,8 +559,13 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(data = messageBytes,
-                                              epoch = epoch)
+    when defined(rln_v2):  
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch,
+                                                messageId = MessageId(0))
+    else:
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch)
     require:
       validProofRes.isOk()
     let validProof = validProofRes.get()
@@ -500,18 +585,27 @@ suite "Onchain group manager":
     let fut = newFuture[void]()
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-      if registrations.len == 1 and
-         registrations[0].idCommitment == credentials.idCommitment and
-         registrations[0].index == 0:
-        manager.idCredentials = some(credentials)
-        manager.membershipIndex = some(registrations[0].index)
-        fut.complete()
+      when defined(rln_v2):
+        if registrations.len == 1 and
+           registrations[0].rateCommitment == getRateCommitment(credentials, UserMessageLimit(1)) and
+           registrations[0].index == 0:
+          manager.idCredentials = some(credentials)
+          fut.complete()
+      else:
+        if registrations.len == 1 and
+           registrations[0].idCommitment == credentials.idCommitment and
+           registrations[0].index == 0:
+          manager.idCredentials = some(credentials)
+          fut.complete()
 
     manager.onRegister(callback)
 
     try:
       await manager.startGroupSync()
-      await manager.register(credentials)
+      when defined(rln_v2):
+        await manager.register(credentials, UserMessageLimit(1))
+      else:
+        await manager.register(credentials)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
     await fut
@@ -523,8 +617,13 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(data = messageBytes,
-                                              epoch = epoch)
+    when defined(rln_v2):
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch,
+                                                messageId = MessageId(0))
+    else:
+      let validProofRes = manager.generateProof(data = messageBytes,
+                                                epoch = epoch)
     require:
       validProofRes.isOk()
     let validProof = validProofRes.get()
@@ -549,7 +648,10 @@ suite "Onchain group manager":
     let idCredential = generateCredentials(manager.rlnInstance)
 
     try:
-      await manager.register(idCredential.idCommitment)
+      when defined(rln_v2):
+        await manager.register(getRateCommitment(idCredential, UserMessageLimit(1)))
+      else:
+        await manager.register(idCredential.idCommitment)
     except Exception, CatchableError:
       assert false, "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
 
@@ -558,6 +660,8 @@ suite "Onchain group manager":
     ## Assume the registration occured out of band
     manager.idCredentials = some(idCredential2)
     manager.membershipIndex = some(MembershipIndex(0))
+    when defined(rln_v2):
+      manager.userMessageLimit = some(UserMessageLimit(1))
 
     let messageBytes = "Hello".toBytes()
 
@@ -566,8 +670,14 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let invalidProofRes = manager.generateProof(data = messageBytes,
-                                                epoch = epoch)
+    when defined(rln_v2):
+      let invalidProofRes = manager.generateProof(data = messageBytes,
+                                                  epoch = epoch,
+                                                  messageId = MessageId(0))
+    else:
+      let invalidProofRes = manager.generateProof(data = messageBytes,
+                                                  epoch = epoch)
+
     require:
       invalidProofRes.isOk()
     let invalidProof = invalidProofRes.get()
@@ -596,18 +706,28 @@ suite "Onchain group manager":
     proc generateCallback(futs: TestBackfillFuts, credentials: seq[IdentityCredential]): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        if registrations.len == 1 and
-            registrations[0].idCommitment == credentials[futureIndex].idCommitment and
-            registrations[0].index == MembershipIndex(futureIndex):
-          futs[futureIndex].complete()
-          futureIndex += 1
+        when defined(rln_v2):
+          if  registrations.len == 1 and
+              registrations[0].rateCommitment == getRateCommitment(credentials[futureIndex], UserMessageLimit(1)) and
+              registrations[0].index == MembershipIndex(futureIndex):
+            futs[futureIndex].complete()
+            futureIndex += 1
+        else:
+          if registrations.len == 1 and
+             registrations[0].idCommitment == credentials[futureIndex].idCommitment and
+             registrations[0].index == MembershipIndex(futureIndex):
+            futs[futureIndex].complete()
+            futureIndex += 1
       return callback
 
     try:
       manager.onRegister(generateCallback(futures, credentials))
       await manager.startGroupSync()
       for i in 0 ..< credentials.len():
-        await manager.register(credentials[i])
+        when defined(rln_v2):
+          await manager.register(credentials[i], UserMessageLimit(1))
+        else:
+          await manager.register(credentials[i])
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -685,8 +805,8 @@ suite "Onchain group manager":
 
 
   ################################
-  ## Terminating/removing Ganache
+  ## Terminating/removing Anvil
   ################################
 
-  # We stop Ganache daemon
-  stopGanache(runGanache)
+  # We stop Anvil daemon
+  stopAnvil(runAnvil)

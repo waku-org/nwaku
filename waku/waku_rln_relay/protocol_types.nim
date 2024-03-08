@@ -33,10 +33,13 @@ type
 
 when defined(rln_v2):
   type
-    UserMessageLimit* = uint64
     MessageId* = uint64
     ExternalNullifier* = array[32, byte]
 
+  type RateCommitment* = object
+    idCommitment*: IDCommitment
+    userMessageLimit*: UserMessageLimit
+    
 # Custom data types defined for waku rln relay -------------------------
 type RateLimitProof* = object
   ## RateLimitProof holds the public inputs to rln circuit as

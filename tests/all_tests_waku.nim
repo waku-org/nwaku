@@ -66,14 +66,6 @@ import
 # Waku Keystore test suite
 import ./test_waku_keystore_keyfile, ./test_waku_keystore
 
-## Wakunode JSON-RPC API test suite
-import
-  ./wakunode_jsonrpc/test_jsonrpc_admin,
-  ./wakunode_jsonrpc/test_jsonrpc_debug,
-  ./wakunode_jsonrpc/test_jsonrpc_filter,
-  ./wakunode_jsonrpc/test_jsonrpc_relay,
-  ./wakunode_jsonrpc/test_jsonrpc_store
-
 ## Wakunode Rest API test suite
 import
   ./wakunode_rest/test_rest_debug,
@@ -85,7 +77,8 @@ import
   ./wakunode_rest/test_rest_filter,
   ./wakunode_rest/test_rest_legacy_filter,
   ./wakunode_rest/test_rest_lightpush,
-  ./wakunode_rest/test_rest_admin
+  ./wakunode_rest/test_rest_admin,
+  ./wakunode_rest/test_rest_cors
 
 import
   ./waku_rln_relay/test_waku_rln_relay,

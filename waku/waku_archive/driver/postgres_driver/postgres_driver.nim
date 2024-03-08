@@ -4,41 +4,29 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,times],
+  std/[nre,options,sequtils,strutils,strformat,times],
   stew/[results,byteutils],
   db_postgres,
   postgres,
   chronos,
   chronicles
 import
+  ../../../common/error_handling,
   ../../../waku_core,
   ../../common,
   ../../driver,
   ../../../common/databases/db_postgres as waku_postgres,
-  ./postgres_healthcheck
-
-export postgres_driver
+  ./postgres_healthcheck,
+  ./partitions_manager
 
 type PostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
   writeConnPool: PgAsyncPool
   readConnPool: PgAsyncPool
 
-proc dropTableQuery(): string =
-  "DROP TABLE messages"
-
-proc createTableQuery(): string =
-  "CREATE TABLE IF NOT EXISTS messages (" &
-  " pubsubTopic VARCHAR NOT NULL," &
-  " contentTopic VARCHAR NOT NULL," &
-  " payload VARCHAR," &
-  " version INTEGER NOT NULL," &
-  " timestamp BIGINT NOT NULL," &
-  " id VARCHAR NOT NULL," &
-  " messageHash VARCHAR NOT NULL," &
-  " storedAt BIGINT NOT NULL," &
-  " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
-  ");"
+  ## Partition container
+  partitionMngr: PartitionManager
+  futLoopPartitionFactory: Future[void]
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
@@ -89,7 +77,7 @@ const DefaultMaxNumConns = 50
 proc new*(T: type PostgresDriver,
           dbUrl: string,
           maxConnections = DefaultMaxNumConns,
-          onErrAction: OnErrHandler = nil):
+          onFatalErrorAction: OnFatalErrorHandler = nil):
           ArchiveDriverResult[T] =
 
   ## Very simplistic split of max connections
@@ -101,44 +89,22 @@ proc new*(T: type PostgresDriver,
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(readConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
 
-  if not isNil(onErrAction):
-    asyncSpawn checkConnectivity(writeConnPool, onErrAction)
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
-  return ok(PostgresDriver(writeConnPool: writeConnPool,
-                           readConnPool: readConnPool))
-
-proc createMessageTable*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.}  =
-
-  let execRes = await s.writeConnPool.pgQuery(createTableQuery())
-  if execRes.isErr():
-    return err("error in createMessageTable: " & execRes.error)
-
-  return ok()
-
-proc deleteMessageTable*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[void]] {.async.} =
-
-  let execRes = await s.writeConnPool.pgQuery(dropTableQuery())
-  if execRes.isErr():
-    return err("error in deleteMessageTable: " & execRes.error)
-
-  return ok()
-
-proc init*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let createMsgRes = await s.createMessageTable()
-  if createMsgRes.isErr():
-    return err("createMsgRes.isErr in init: " & createMsgRes.error)
-
-  return ok()
+  let driver = PostgresDriver(writeConnPool: writeConnPool,
+                              readConnPool: readConnPool,
+                              partitionMngr: PartitionManager.new())
+  return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-
-  let ret = await s.deleteMessageTable()
+  ## Clear the database partitions
+  let targetSize = 0
+  let forceRemoval = true
+  let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
   return ret
 
 proc rowCallbackImpl(pqResult: ptr PGresult,
@@ -202,6 +168,8 @@ method put*(s: PostgresDriver,
   let version = $message.version
   let timestamp = $message.timestamp
 
+  debug "put PostgresDriver", timestamp = timestamp
+
   return await s.writeConnPool.runStmt(InsertRowStmtName,
                                        InsertRowStmtDefinition,
                                      @[digest,
@@ -240,6 +208,33 @@ method getAllMessages*(s: PostgresDriver):
     return err("failed in query: " & $error)
 
   return ok(rows)
+
+proc getPartitionsList(s: PostgresDriver): Future[ArchiveDriverResult[seq[string]]] {.async.} =
+  ## Retrieves the seq of partition table names.
+  ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
+
+  var partitions: seq[string]
+  proc rowCallback(pqResult: ptr PGresult) =
+    for iRow in 0..<pqResult.pqNtuples():
+      let partitionName = $(pqgetvalue(pqResult, iRow, 0))
+      partitions.add(partitionName)
+
+  (await s.readConnPool.pgQuery("""
+                      SELECT child.relname       AS partition_name
+                          FROM pg_inherits
+                          JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+                          JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+                          JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+                          JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+                          WHERE parent.relname='messages'
+                          """,
+                          newSeq[string](0),
+                          rowCallback
+                              )).isOkOr:
+
+    return err("getPartitionsList failed in query: " & $error)
+
+  return ok(partitions)
 
 proc getMessagesArbitraryQuery(s: PostgresDriver,
                     contentTopic: seq[ContentTopic] = @[],
@@ -411,29 +406,41 @@ method getMessages*(s: PostgresDriver,
                                              maxPageSize,
                                              ascendingOrder)
 
+proc getStr(s: PostgresDriver,
+            query: string):
+            Future[ArchiveDriverResult[string]] {.async.} =
+  # Performs a query that is expected to return a single string
+
+  var ret: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in getStr"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in getStr"
+      return
+
+    ret = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("failed in getRow: " & $error)
+
+  return ok(ret)
+
 proc getInt(s: PostgresDriver,
             query: string):
             Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
   var retInt = 0'i64
-  proc rowCallback(pqResult: ptr PGresult) =
-    if pqResult.pqnfields() != 1:
-      error "Wrong number of fields in getInt"
-      return
+  let str = (await s.getStr(query)).valueOr:
+    return err("could not get str in getInt: " & $error)
 
-    if pqResult.pqNtuples() != 1:
-      error "Wrong number of rows in getInt"
-      return
-
-    try:
-      retInt = parseInt( $(pqgetvalue(pqResult, 0, 0)) )
-    except ValueError:
-      error "exception in getInt, parseInt", error = getCurrentExceptionMsg()
-      return
-
-  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
-    return err("failed in getRow: " & $error)
+  try:
+    retInt = parseInt( str )
+  except ValueError:
+    return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
 
   return ok(retInt)
 
@@ -503,6 +510,9 @@ method deleteOldestMessagesNotWithinLimit*(
 
 method close*(s: PostgresDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
+  ## Cancel the partition factory loop
+  s.futLoopPartitionFactory.cancel()
+
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
   let readCloseRes = await s.readConnPool.close()
@@ -535,3 +545,259 @@ proc sleep*(s: PostgresDriver, seconds: int):
     return err("exception sleeping: " & getCurrentExceptionMsg())
 
   return ok()
+
+proc performWriteQuery*(s: PostgresDriver, query: string):
+                        Future[ArchiveDriverResult[void]] {.async.} =
+  ## Performs a query that somehow changes the state of the database
+
+  (await s.writeConnPool.pgQuery(query)).isOkOr:
+    return err("error in performWriteQuery: " & $error)
+
+  return ok()
+
+proc addPartition(self: PostgresDriver,
+                  startTime: Timestamp,
+                  duration: timer.Duration):
+                  Future[ArchiveDriverResult[void]] {.async.} =
+  ## Creates a partition table that will store the messages that fall in the range
+  ## `startTime` <= storedAt < `startTime + duration`.
+  ## `startTime` is measured in seconds since epoch
+
+  let beginning = startTime
+  let `end` = (startTime + duration.seconds)
+
+  let fromInSec: string = $beginning
+  let untilInSec: string = $`end`
+
+  let fromInNanoSec: string = fromInSec & "000000000"
+  let untilInNanoSec: string = untilInSec & "000000000"
+
+  let partitionName = "messages_" & fromInSec & "_" & untilInSec
+
+  let createPartitionQuery = "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
+        "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
+
+  (await self.performWriteQuery(createPartitionQuery)).isOkOr:
+    return err(fmt"error adding partition [{partitionName}]: " & $error)
+
+  debug "new partition added", query = createPartitionQuery
+
+  self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+  return ok()
+
+proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+  let partitionNamesRes = await self.getPartitionsList()
+  if not partitionNamesRes.isOk():
+    return err("Could not retrieve partitions list: " & $partitionNamesRes.error)
+  else:
+    let partitionNames = partitionNamesRes.get()
+    for partitionName in partitionNames:
+      ## partitionName contains something like 'messages_1708449815_1708449875'
+      let bothTimes = partitionName.replace("messages_", "")
+      let times = bothTimes.split("_")
+      if times.len != 2:
+        return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
+
+      var beginning: int64
+      try:
+        beginning = parseInt(times[0])
+      except ValueError:
+        return err("Could not parse beginning time: " & getCurrentExceptionMsg())
+
+      var `end`: int64
+      try:
+        `end` = parseInt(times[1])
+      except ValueError:
+        return err("Could not parse end time: " & getCurrentExceptionMsg())
+
+      self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
+
+    return ok()
+
+const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
+const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
+
+proc loopPartitionFactory(self: PostgresDriver,
+                          onFatalError: OnFatalErrorHandler) {.async.} =
+  ## Loop proc that continuously checks whether we need to create a new partition.
+  ## Notice that the deletion of partitions is handled by the retention policy modules.
+
+  debug "starting loopPartitionFactory"
+
+  if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
+    onFatalError("partition factory partition range interval should be bigger than check interval")
+
+  ## First of all, let's make the 'partition_manager' aware of the current partitions
+  (await self.initializePartitionsInfo()).isOkOr:
+    onFatalError("issue in loopPartitionFactory: " & $error)
+
+  while true:
+    trace "Check if we need to create a new partition"
+
+    let now = times.now().toTime().toUnix()
+
+    if self.partitionMngr.isEmpty():
+      debug "adding partition because now there aren't more partitions"
+      (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+        onFatalError("error when creating a new partition from empty state: " & $error)
+    else:
+      let newestPartitionRes = self.partitionMngr.getNewestPartition()
+      if newestPartitionRes.isErr():
+        onFatalError("could not get newest partition: " & $newestPartitionRes.error)
+
+      let newestPartition = newestPartitionRes.get()
+      if newestPartition.containsMoment(now):
+        debug "creating a new partition for the future"
+        ## The current used partition is the last one that was created.
+        ## Thus, let's create another partition for the future.
+        (await self.addPartition(newestPartition.getLastMoment(), PartitionsRangeInterval)).isOkOr:
+          onFatalError("could not add the next partition for 'now': " & $error)
+      elif now >= newestPartition.getLastMoment():
+        debug "creating a new partition to contain current messages"
+        ## There is no partition to contain the current time.
+        ## This happens if the node has been stopped for quite a long time.
+        ## Then, let's create the needed partition to contain 'now'.
+        (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+          onFatalError("could not add the next partition: " & $error)
+
+    await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
+
+proc startPartitionFactory*(self: PostgresDriver,
+                            onFatalError: OnFatalErrorHandler) {.async.} =
+
+  self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
+
+proc getTableSize*(self: PostgresDriver,
+                   tableName: string): Future[ArchiveDriverResult[string]] {.async.} =
+  ## Returns a human-readable representation of the size for the requested table.
+  ## tableName - table of interest.
+
+  let tableSize = (await self.getStr(fmt"""
+                SELECT pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
+                FROM pg_class C
+                where relname = '{tableName}'""")).valueOr:
+    return err("error in getDatabaseSize: " & error)
+
+  return ok(tableSize)
+
+proc removeOldestPartition(self: PostgresDriver,
+                           forceRemoval: bool = false, ## To allow cleanup in tests
+                           ):
+                           Future[ArchiveDriverResult[void]] {.async.}  =
+  ## Indirectly called from the retention policy
+
+  let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    return err("could not remove oldest partition: " & $error)
+
+  if not forceRemoval:
+    let now = times.now().toTime().toUnix()
+    let currentPartitionRes = self.partitionMngr.getPartitionFromDateTime(now)
+    if currentPartitionRes.isOk():
+      ## The database contains a partition that would store current messages.
+
+      if currentPartitionRes.get() == oldestPartition:
+        debug "Skipping to remove the current partition"
+        return ok()
+
+  var partSize = ""
+  let partSizeRes = await self.getTableSize(oldestPartition.getName())
+  if partSizeRes.isOk():
+    partSize = partSizeRes.get()
+
+  ## In the following lines is where the partition removal happens.
+  ## Detach and remove the partition concurrently to not block the parent table (messages)
+  let detachPartitionQuery =
+    "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() & " CONCURRENTLY;"
+  debug "removeOldestPartition", query = detachPartitionQuery
+  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
+    return err(fmt"error in {detachPartitionQuery}: " & $error)
+
+  ## Drop the partition
+  let dropPartitionQuery = "DROP TABLE " & oldestPartition.getName()
+  debug "removeOldestPartition drop partition", query = dropPartitionQuery
+  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
+    return err(fmt"error in {dropPartitionQuery}: " & $error)
+
+  debug "removed partition", partition_name = oldestPartition.getName(), partition_size = partSize
+  self.partitionMngr.removeOldestPartitionName()
+
+  return ok()
+
+proc containsAnyPartition*(self: PostgresDriver): bool =
+  return not self.partitionMngr.isEmpty()
+
+method decreaseDatabaseSize*(driver: PostgresDriver,
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+  var dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("decreaseDatabaseSize failed to get database size: " & $error)
+
+  ## database size in bytes
+  var totalSizeOfDB: int64 = int64(dbSize)
+
+  if totalSizeOfDB <= targetSizeInBytes:
+    return ok()
+
+  debug "start reducing database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+
+  while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
+    (await driver.removeOldestPartition(forceRemoval)).isOkOr:
+      return err("decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error)
+
+    dbSize = (await driver.getDatabaseSize()).valueOr:
+      return err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
+
+    let newCurrentSize = int64(dbSize)
+    if newCurrentSize == totalSizeOfDB:
+      return err("the previous partition removal didn't clear database size")
+
+    totalSizeOfDB = newCurrentSize
+
+    debug "reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+
+  return ok()
+
+method existsTable*(s: PostgresDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string = fmt"""
+  SELECT EXISTS (
+    SELECT FROM
+        pg_tables
+    WHERE
+        tablename  = '{tableName}'
+    );
+    """
+
+  var exists: string
+  proc rowCallback(pqResult: ptr PGresult) =
+    if pqResult.pqnfields() != 1:
+      error "Wrong number of fields in existsTable"
+      return
+
+    if pqResult.pqNtuples() != 1:
+      error "Wrong number of rows in existsTable"
+      return
+
+    exists = $(pqgetvalue(pqResult, 0, 0))
+
+  (await s.readConnPool.pgQuery(query, newSeq[string](0), rowCallback)).isOkOr:
+    return err("existsTable failed in getRow: " & $error)
+
+  return ok(exists == "t")
+
+proc getCurrentVersion*(s: PostgresDriver):
+                        Future[ArchiveDriverResult[int64]] {.async.} =
+
+  let existsVersionTable = (await s.existsTable("version")).valueOr:
+    return err("error in getCurrentVersion-existsTable: " & $error)
+
+  if not existsVersionTable:
+    return ok(0)
+
+  let res = (await s.getInt(fmt"SELECT version FROM version")).valueOr:
+    return err("error in getMessagesCount: " & $error)
+
+  return ok(res)
+
+

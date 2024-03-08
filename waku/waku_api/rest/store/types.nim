@@ -42,6 +42,7 @@ type
     version*: Option[uint32]
     timestamp*: Option[Timestamp]
     ephemeral*: Option[bool]
+    meta*: Option[Base64String]
 
   StoreResponseRest* = object
     # inspired by https://rfc.vac.dev/spec/16/#storeresponse
@@ -97,7 +98,8 @@ proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
       contentTopic: message.contentTopic.get(),
       version: message.version.get(),
       timestamp: message.timestamp.get(),
-      ephemeral: message.ephemeral.get()
+      ephemeral: message.ephemeral.get(),
+      meta: message.meta.get(Base64String("")).decode().get()
     )
 
 # Converts a 'HistoryResponse' object to an 'StoreResponseRest'
@@ -110,7 +112,8 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
       contentTopic: some(message.contentTopic),
       version: some(message.version),
       timestamp: some(message.timestamp),
-      ephemeral: some(message.ephemeral)
+      ephemeral: some(message.ephemeral),
+      meta: if message.meta.len > 0: some(base64.encode(message.meta)) else: none(Base64String)
     )
 
   var storeWakuMsgs: seq[StoreWakuMessage]
@@ -146,6 +149,8 @@ proc writeValue*(writer: var JsonWriter,
     writer.writeField("timestamp", value.timestamp.get())
   if value.ephemeral.isSome():
     writer.writeField("ephemeral", value.ephemeral.get())
+  if value.meta.isSome():
+    writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader,
@@ -157,6 +162,7 @@ proc readValue*(reader: var JsonReader,
     version = none(uint32)
     timestamp = none(Timestamp)
     ephemeral = none(bool)
+    meta = none(Base64String)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -177,6 +183,8 @@ proc readValue*(reader: var JsonReader,
       timestamp = some(reader.readValue(Timestamp))
     of "ephemeral":
       ephemeral = some(reader.readValue(bool))
+    of "meta":
+      meta = some(reader.readValue(Base64String))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
@@ -188,7 +196,8 @@ proc readValue*(reader: var JsonReader,
     contentTopic: contentTopic,
     version: version,
     timestamp: timestamp,
-    ephemeral: ephemeral
+    ephemeral: ephemeral,
+    meta: meta
   )
 
 ## End of StoreWakuMessage serde

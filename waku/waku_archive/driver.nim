@@ -9,6 +9,7 @@ import
   chronos
 import
   ../waku_core,
+  ../common/error_handling,
   ./common
 
 const DefaultPageSize*: uint = 25
@@ -16,7 +17,6 @@ const DefaultPageSize*: uint = 25
 type
   ArchiveDriverResult*[T] = Result[T, string]
   ArchiveDriver* = ref object of RootObj
-  OnErrHandler* = proc(errMsg: string) {.gcsafe, closure, raises: [].}
 
 type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 
@@ -72,6 +72,14 @@ method deleteOldestMessagesNotWithinLimit*(driver: ArchiveDriver,
                                            limit: int):
                                            Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
+method decreaseDatabaseSize*(driver: ArchiveDriver,
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
+                             Future[ArchiveDriverResult[void]] {.base, async.} = discard
+
 method close*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
+
+method existsTable*(driver: ArchiveDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.base, async.} = discard
 
