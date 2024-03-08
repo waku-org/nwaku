@@ -75,7 +75,7 @@ type
     initialBackoffInSec*: int
     backoffFactor*: int
     maxFailedAttempts*: int
-    storage: PeerStorage
+    storage*: PeerStorage
     serviceSlots*: Table[string, RemotePeerInfo]
     maxRelayPeers*: int
     outRelayPeersTarget: int
