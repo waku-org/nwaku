@@ -265,7 +265,58 @@ suite "Waku Sync - Protocol Tests":
           hashes.value.len == 1
           hashes.value[0] == computeMessageHash(DefaultPubsubTopic,diffMsg)
           
+    asyncTest "sync 2 nodes 100K msgs 10K diffs":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+        var i = 0
+        let msgCount = 100000
+        var diffCount = 10000
+        var diffMsgHashes: seq[WakuMessageHash]
+        var randIndexes:  seq[int]
+        while i < diffCount:
+          let randInt = rand(msgCount)
+          if randInt in randIndexes:
+            continue
+          randIndexes.add(randInt)
+          i = i + 1
+        
+        i = 0
+        var tmpDiffCnt = diffCount
+        var clientNotIngessedCount = 0
+        while i < msgCount:
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if tmpDiffCnt > 0 and i in randIndexes:
+            #info "not ingessing in client", i=i
+            diffMsgHashes.add(computeMessageHash(DefaultPubsubTopic,msg))
+            tmpDiffCnt = tmpDiffCnt - 1 
+            clientNotIngessedCount = clientNotIngessedCount + 1
+          else:
+            client.ingessMessage(DefaultPubsubTopic,msg)
+
+          server.ingessMessage(DefaultPubsubTopic,msg)
+          i = i + 1
+        info "clientNotIngessedCount:", clientNotIngessedCount=clientNotIngessedCount
+        let hashes = await client.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
+        check:
+          hashes.value.len == diffCount
+          #TODO: Check if all diffHashes are there in needHashes        
+  
 #[     asyncTest "sync 3 nodes cyclic":
         #[Setup
         node1 (client) <--> node2(server)
