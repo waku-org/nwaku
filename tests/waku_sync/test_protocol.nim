@@ -297,46 +297,33 @@ suite "Waku Sync - Protocol Tests":
         
         i = 0
         var tmpDiffCnt = diffCount
-        var clientNotIngessedCount = 0
         while i < msgCount:
           let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
           if tmpDiffCnt > 0 and i in randIndexes:
             #info "not ingessing in client", i=i
             diffMsgHashes.add(computeMessageHash(DefaultPubsubTopic,msg))
             tmpDiffCnt = tmpDiffCnt - 1 
-            clientNotIngessedCount = clientNotIngessedCount + 1
           else:
             client.ingessMessage(DefaultPubsubTopic,msg)
 
           server.ingessMessage(DefaultPubsubTopic,msg)
           i = i + 1
-        info "clientNotIngessedCount:", clientNotIngessedCount=clientNotIngessedCount
         let hashes = await client.sync(serverPeerInfo)
         assert hashes.isOk(), $hashes.error
         check:
           hashes.value.len == diffCount
           #TODO: Check if all diffHashes are there in needHashes        
-  
-#[     asyncTest "sync 3 nodes cyclic":
-        #[Setup
-        node1 (client) <--> node2(server)
-        node2(client) <--> node3(server)
-        node3(client) <--> node1(server)]#
 
+ #[    asyncTest "sync 3 nodes 2 client 1 server":
+        ## Setup
         let
-            node1Switch = newTestSwitch()
-            node2Switch = newTestSwitch()
-            node3Switch = newTestSwitch()
+            serverSwitch = newTestSwitch()
+            client1Switch = newTestSwitch()
+            client2Switch = newTestSwitch()
         
-        await allFutures(node1Switch.start(), node2Switch.start(), node3Switch.start())
+        await allFutures(serverSwitch.start(), client1Switch.start(), client2Switch.start())
     
-        let node1PeerInfo = node1Switch.peerInfo.toRemotePeerInfo()
-        let node2PeerInfo = node2Switch.peerInfo.toRemotePeerInfo()
-        let node3PeerInfo = node3Switch.peerInfo.toRemotePeerInfo()
-
-        let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
-        let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
-        let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
         let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
             debug "Received needHashes from peer:", len = hashes.len
@@ -344,43 +331,121 @@ suite "Waku Sync - Protocol Tests":
                 debug "Hash received from peer:", hash=hash.to0xHex()
 
         let
-            node1 = await newTestWakuSync(node1Switch, handler=protoHandler)
-            node2 = await newTestWakuSync(node2Switch, handler=protoHandler)
-            node3 = await newTestWakuSync(node3Switch, handler=protoHandler)
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client1 = await newTestWakuSync(client1Switch, handler=protoHandler)
+            client2 = await newTestWakuSync(client2Switch, handler=protoHandler)
+        let msgCount = 10000
+        var i = 0
+        let diffCount = 100
+        var randIndexes1, randIndexes2:  seq[int]
+        while i < int(diffCount/2):
+          let randInt = rand(msgCount)
+          if randInt in randIndexes1:
+            continue
+          randIndexes1.add(randInt)
+          i = i + 1
+        while i < diffCount:
+          let randInt = rand(msgCount)
+          if randInt in randIndexes2 or randInt in randIndexes1:
+            continue
+          randIndexes2.add(randInt)
+          i = i + 1
+        info "lengths ",randIndexes1=randIndexes1.len, randIndexes2=randIndexes2.len
+        i = 0
+        var tmpDiffCnt = diffCount
+        
+        while i < msgCount:
+          i = i + 1
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if tmpDiffCnt > 0 :
+            tmpDiffCnt = tmpDiffCnt - 1 
+            if i in randIndexes1:
+              #"not ingessing in client2"
+              client2.ingessMessage(DefaultPubsubTopic,msg)
+            elif i in randIndexes2:
+              #"not ingessing in client1"
+              client1.ingessMessage(DefaultPubsubTopic,msg)
+          else:
+            client1.ingessMessage(DefaultPubsubTopic,msg)
+            client2.ingessMessage(DefaultPubsubTopic,msg)
+          
+          server.ingessMessage(DefaultPubsubTopic, msg)
 
-        node1.ingessMessage(DefaultPubsubTopic, msg1)
-        node2.ingessMessage(DefaultPubsubTopic, msg1)
-        node2.ingessMessage(DefaultPubsubTopic, msg2)
-        node3.ingessMessage(DefaultPubsubTopic, msg3)
 
-        let f1 = node1.sync(node2PeerInfo)
-        let f2 = node2.sync(node3PeerInfo)
-        let f3 = node3.sync(node1PeerInfo)
+        let hashes = await client1.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
+        check:
+          hashes.value.len == int(diffCount/2)
 
-        ## gather all futures in one
-        proc waitAllFutures(f1, f2, f3: Future[Result[seq[WakuMessageHash], string]]) {.async.} =
+        let hashes1 = await client2.sync(serverPeerInfo)
+        assert hashes1.isOk(), $hashes1.error
+        check:
+          hashes1.value.len == int(diffCount/2) ]#
 
-          proc synccallback(data: pointer) =
-            let f1Result = f1.internalValue
-            assert f1Result.isOk(), f1Result.error
+    asyncTest "sync 3 nodes cyclic":
+        #[Setup
+        node1 (client) <--> node2(server)
+        node2(client) <--> node3(server)
+        node3(client) <--> node1(server)]#
 
-            let f2Result = f2.internalValue
-            assert f2Result.isOk(), f2Result.error
+      let
+          node1Switch = newTestSwitch()
+          node2Switch = newTestSwitch()
+          node3Switch = newTestSwitch()
+      
+      await allFutures(node1Switch.start(), node2Switch.start(), node3Switch.start())
+  
+      let node1PeerInfo = node1Switch.peerInfo.toRemotePeerInfo()
+      let node2PeerInfo = node2Switch.peerInfo.toRemotePeerInfo()
+      let node3PeerInfo = node3Switch.peerInfo.toRemotePeerInfo()
 
-            let f3Result = f3.internalValue
-            assert f3Result.isOk(), f3Result.error
+      let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+      let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+      let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
 
-            let hashes1 = f1Result.get()
-            let hashes2 = f2Result.get()
-            let hashes3 = f3Result.get()
+      let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+          debug "Received needHashes from peer:", len = hashes.len
+          for hash in hashes:
+              debug "Hash received from peer:", hash=hash.to0xHex()
 
-            check:
-              hashes1.len == 1
-              hashes2.len == 1
-              hashes3.len == 1
+      let
+          node1 = await newTestWakuSync(node1Switch, handler=protoHandler)
+          node2 = await newTestWakuSync(node2Switch, handler=protoHandler)
+          node3 = await newTestWakuSync(node3Switch, handler=protoHandler)
 
-          let allFuts = allFutures(@[f1, f2, f3])
-          allFuts.addCallback(synccallback)
-          await allFuts
+      node1.ingessMessage(DefaultPubsubTopic, msg1)
+      node2.ingessMessage(DefaultPubsubTopic, msg1)
+      node2.ingessMessage(DefaultPubsubTopic, msg2)
+      node3.ingessMessage(DefaultPubsubTopic, msg3)
 
-        waitFor waitAllFutures(f1, f2, f3) ]#
+      let f1 = node1.sync(node2PeerInfo)
+      let f2 = node2.sync(node3PeerInfo)
+      let f3 = node3.sync(node1PeerInfo)
+
+      ## gather all futures in one
+      proc waitAllFutures(f1, f2, f3: Future[Result[seq[WakuMessageHash], string]]) {.async.} =
+
+        proc synccallback(data: pointer) =
+          let f1Result = f1.internalValue
+          assert f1Result.isOk(), f1Result.error
+
+          let f2Result = f2.internalValue
+          assert f2Result.isOk(), f2Result.error
+
+          let f3Result = f3.internalValue
+          assert f3Result.isOk(), f3Result.error
+
+          let hashes1 = f1Result.get()
+          let hashes2 = f2Result.get()
+          let hashes3 = f3Result.get()
+
+          check:
+            hashes1.len == 1
+            hashes2.len == 1
+            hashes3.len == 1
+
+        let allFuts = allFutures(@[f1, f2, f3])
+        allFuts.addCallback(synccallback)
+        await allFuts
+
+      waitFor waitAllFutures(f1, f2, f3)
