@@ -246,7 +246,7 @@ suite "Waku Sync - Protocol Tests":
             server = await newTestWakuSync(serverSwitch, handler=protoHandler)
             client = await newTestWakuSync(clientSwitch, handler=protoHandler)
         var i = 0
-        let msgCount = 1000
+        let msgCount = 100000
         var diffIndex = rand(msgCount)
         debug "diffIndex is ",diffIndex=diffIndex
         var diffMsg: WakuMessage

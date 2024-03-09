@@ -21,7 +21,7 @@ proc newTestWakuSync*(switch: Switch, handler: WakuSyncCallback): Future[WakuSyn
   const DefaultFrameSize = 153600
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuSync.new(peerManager, DefaultFrameSize, 2.seconds, some(handler))
+    proto = WakuSync.new(peerManager, DefaultFrameSize, 60.minutes, some(handler))
 
   proto.start()
   switch.mount(proto)

@@ -280,9 +280,10 @@ proc clientReconcile*(
 
   deallocCStringArray(cppHaveIds)
   deallocCStringArray(cppNeedIds) ]#
+  debug "return " , output=output, len = output.len
+
   free_result(myResultPtr)
 
-  debug "return " , output=output
 
   if output.len < 1:
     return ok(none(NegentropyPayload))
