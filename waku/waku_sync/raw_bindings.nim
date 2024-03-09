@@ -196,6 +196,7 @@ proc serverReconcile*(
 
   let outputBytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
   debug "outputBytes len", len=outputBytes.len
+
   #TODO error handling
 
   return ok(NegentropyPayload(outputBytes))
@@ -283,7 +284,6 @@ proc clientReconcile*(
   debug "return " , output=output, len = output.len
 
   free_result(myResultPtr)
-
 
   if output.len < 1:
     return ok(none(NegentropyPayload))

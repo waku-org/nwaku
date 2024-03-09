@@ -67,6 +67,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
   let payload =  negentropy.initiate().valueOr:
     free(negentropy)
+
     return err(error)
 
   debug "sending request to server", payload = toHex(seq[byte](payload))

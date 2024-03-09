@@ -8,6 +8,7 @@ import
   libp2p/crypto/crypto,
   stew/byteutils,
   std/random
+
 from std/os import sleep
 
 import
@@ -196,6 +197,7 @@ suite "Waku Sync - Protocol Tests":
         require (hashes.isOk())
         check:
           hashes.value.len == 0
+
 
     asyncTest "sync 2 nodes same hashes":
         ## Setup
