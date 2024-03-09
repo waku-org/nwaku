@@ -191,9 +191,12 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
     let discoveredRecords = await wd.findRandomPeers()
     let discoveredPeers = discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
+    echo "-------------- discoveredPeers.len: ", discoveredPeers.len
     for peer in discoveredPeers:
+      echo "peer: ", peer
       # Peers added are filtered by the peer manager
       peerManager.addPeer(peer, PeerOrigin.Discv5)
+    echo "---------------------------------------------"
 
     # Discovery `queryRandom` can have a synchronous fast path for example
     # when no peers are in the routing table. Don't run it in continuous loop.
