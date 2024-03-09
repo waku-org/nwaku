@@ -84,6 +84,9 @@ task test, "Build & run Waku tests":
 task testwakunode2, "Build & run wakunode2 app tests":
   test "all_tests_wakunode2"
 
+task testfactory, "Build & run factory tests":
+  test "all_tests_factory"
+
 task example2, "Build Waku examples":
   buildBinary "publisher", "examples/"
   buildBinary "subscriber", "examples/"
