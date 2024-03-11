@@ -58,13 +58,13 @@ As an example, consider the following command to run nwaku in a Docker container
 ```bash
 docker run -i -t -p 60000:60000 -p 9000:9000/udp wakuorg/nwaku:v0.20.0 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im \
+  --dns-discovery-url:enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im \
   --discv5-discovery \
   --nat:extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```
 
 This runs nwaku in a new container from the `wakuorg/nwaku:v0.20.0` image,
-connects to `wakuv2.prod` as bootstrap fleet and
+connects to `wakuv.sandbox` as bootstrap fleet and
 enables [Waku Discovery v5](https://rfc.vac.dev/spec/33/) for ambient peer discovery,
 while mapping the default libp2p listening port (`60000`)
 and default discv5 UDP port (`9000`) to the host.

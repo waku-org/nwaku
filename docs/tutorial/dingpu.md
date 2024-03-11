@@ -2,7 +2,7 @@
 
 > TODO (2023-05-24): Deprecate or fix
 
-*NOTE: Some of these addresses might change. To get the latest, please see `curl -s https://fleets.status.im | jq '.fleets["wakuv2.test"]'`*
+*NOTE: Some of these addresses might change. To get the latest, please see `curl -s https://fleets.status.im | jq '.fleets["waku.test"]'`*
 
 ## Basic chat usage
 
@@ -11,8 +11,8 @@
 Start two chat apps:
 
 ```
-./build/chat2 --ports-shift:0 --storenode:/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS --staticnode:/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS
-./build/chat2 --ports-shift:1 --storenode:/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS --staticnode:/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS
+./build/chat2 --ports-shift:0 --storenode:/ip4/178.128.141.171/tcp/60000/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W --staticnode:/ip4/178.128.141.171/tcp/60000/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
+./build/chat2 --ports-shift:1 --storenode:/ip4/178.128.141.171/tcp/60000/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W --staticnode:/ip4/178.128.141.171/tcp/60000/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
 ```
 
 By specifying `staticnode` it connects to that node subscribes to the `waku` topic. This ensures messages are relayed properly.
@@ -25,9 +25,7 @@ There is also an interactive mode. Type `/connect` then paste address of other n
 
 ## Dingpu cluster node
 
-```
-/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS
-```
+> TODO (2024-03-11): Fix node multiaddr
 
 ## Run a node
 

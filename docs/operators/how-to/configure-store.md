@@ -15,11 +15,11 @@ This option controls the mounting of the Waku Store protocol, meaning that your 
 
 Provide at least one store service node address with the `--storenode` option. This option is independent of the `--store` option i.e., one node can act as a waku store client without mounting the Waku Store protocol.
 
-For example, to use the peer at `/dns4/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/30303/p2p/16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm` as the waku store service node:
+For example, to use the peer at `/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp` as the waku store service node:
 
 ```shell
 wakunode2 \
-  --storenode=/dns4/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/30303/p2p/16Uiu2HAkvWiyFsgRhuJEb9JfjYxEkoHLgnUQmr1N5mKWnYjxYRVm
+  --storenode=/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp
 ```
 
 Your node can now send queries to retrieve historical messages
@@ -41,7 +41,7 @@ There is a set of configuration options to customize the waku store protocol's m
   + SQLite engine: The only database engine supported by the nwaku node. The database URL has this shape: `sqlite://<database-file-path>`. If the `<database-file-path>` is not an absolute path (preceded by a `/` character), the file will be created in the current working directory. The SQLite engine also supports to select a non-persistent in-memory database by setting the `<database-file-path>` to `:memory:`.
   + In the case you don't want to use a persistent message store; set the `--store-message-db-url` to an empty string, `""`. This will instruct the node to use the fallback in-memory message store.
 
-By default the node message store will be configured with a time retention policy set to `14400` seconds (4 hours). Additionally, by default, the node message store will use the SQLite database engine to store historical messages in order to persist these between restarts. 
+By default the node message store will be configured with a time retention policy set to `14400` seconds (4 hours). Additionally, by default, the node message store will use the SQLite database engine to store historical messages in order to persist these between restarts.
 
 > :warning: Note the 3 slashes, `///`,  after the SQLite database URL schema. The third slash indicates that it is an absolute path: `/mnt/nwaku/data/db1/store.sqlite3`
 

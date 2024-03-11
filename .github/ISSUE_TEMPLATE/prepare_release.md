@@ -12,7 +12,7 @@ Add appropriate release number to title!
 
 For detailed info on the release process refer to https://github.com/waku-org/nwaku/blob/master/docs/contributors/release-process.md
  -->
- 
+
 ### Items to complete
 - [ ] create release branch
 - [ ] assign release candidate tag
@@ -23,5 +23,5 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 - [ ] assign release tag to the cherry-picked release notes commit
 - [ ] create GitHub release
 - [ ] deploy the release to DockerHub
-- [ ] deploy release to `wakuv2.prod` fleet
+- [ ] [deploy release to `waku.sandbox` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox)
 - [ ] announce the release

@@ -138,6 +138,7 @@ suite "Waku ENR - Multiaddresses":
     var record: Record
     require record.fromURI(enrUri)
 
+    # TODO: get rid of wakuv2 here too. Needt to generate a ne ENR record
     let
       expectedAddr1 = MultiAddress
         .init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")

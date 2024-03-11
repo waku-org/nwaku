@@ -1055,10 +1055,10 @@
         "current": {
           "selected": true,
           "text": [
-            "wakuv2.test"
+            "waku.test"
           ],
           "value": [
-            "wakuv2.test"
+            "waku.test"
           ]
         },
         "datasource": {

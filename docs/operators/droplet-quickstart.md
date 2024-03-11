@@ -1,6 +1,6 @@
 # Quickstart for running nwaku on a DigitalOcean Droplet
 
-This guide explains how to run a nwaku node on a 
+This guide explains how to run a nwaku node on a
 DigitalOcean Droplet. We enable the following protocols -
 
 1. Relay
@@ -10,9 +10,9 @@ DigitalOcean Droplet. We enable the following protocols -
 
 A Droplet is a simple virtual machine that runs in DigitalOcean's datacenters.
 
-Note that Droplets do cost money, the size described in the guide costs approximately $12 a month. 
+Note that Droplets do cost money, the size described in the guide costs approximately $12 a month.
 
-The guide makes heavy use of the `doctl` cli to make it as UI agnostic as possible. 
+The guide makes heavy use of the `doctl` cli to make it as UI agnostic as possible.
 There are similar steps to accomplish the same through DigitalOcean's cloud console, accessible [here](https://cloud.digitalocean.com/)
 
 ## Prerequisites
@@ -238,7 +238,7 @@ Run the following command to run `nwaku` -
 
 *Note the path to the wakunode2 binary*
 
-a. Add the parent directory of the wakunode2 binary to your environment: 
+a. Add the parent directory of the wakunode2 binary to your environment:
 
   If you built it locally and copied it via scp -
 
@@ -255,8 +255,8 @@ a. Add the parent directory of the wakunode2 binary to your environment:
   ```
 
 b. Choose the fleet you wish to connect your node to:
-  - waku prod: enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im
-  - waku test: enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im
+  - waku sandbox: enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im
+  - waku test: enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im
 
   ```bash
   export WAKU_FLEET=<fleet>
@@ -293,7 +293,7 @@ c. Run `nwaku`:
 
 You now have nwaku running! You can verify this by observing the logs. The logs should show that the node completed 7 steps of setup, and is actively discovering other nodes.
 
-You may now detach from stdout, by following instructions according to the terminal multiplexer chosen previously - 
+You may now detach from stdout, by following instructions according to the terminal multiplexer chosen previously -
 1. [screen](https://linuxize.com/post/how-to-use-linux-screen/#detach-from-linux-screen-session)
 2. [tmux](https://linuxize.com/post/getting-started-with-tmux/#starting-your-first-tmux-session)
 

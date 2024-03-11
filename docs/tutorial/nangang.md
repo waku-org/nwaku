@@ -39,6 +39,4 @@ You should see other node receive something.
 
 ## Nangang cluster node
 
-```
-/ip4/134.209.139.210/tcp/60000/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS
-```
+> TODO (2024-03-11): Fix node multiaddr

@@ -21,15 +21,16 @@ import
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
-# An accesible bootstrap node. See wakuv2.prod fleets.status.im
-
+# An accesible bootstrap node. See waku.sandbox fleets.status.im
 const bootstrapNode =
-  "enr:-Nm4QOdTOKZJKTUUZ4O_W932CXIET-M9NamewDnL78P5u9D" &
-  "OGnZlK0JFZ4k0inkfe6iY-0JAaJVovZXc575VV3njeiABgmlkgn" &
-  "Y0gmlwhAjS3ueKbXVsdGlhZGRyc7g6ADg2MW5vZGUtMDEuYWMtY" &
-  "24taG9uZ2tvbmctYy53YWt1djIucHJvZC5zdGF0dXNpbS5uZXQG" &
-  "H0DeA4lzZWNwMjU2azGhAo0C-VvfgHiXrxZi3umDiooXMGY9FvY" &
-  "j5_d1Q4EeS7eyg3RjcIJ2X4N1ZHCCIyiFd2FrdTIP"
+  "enr:-QEkuEB3WHNS-xA3RDpfu9A2Qycr3bN3u7VoArMEiDIFZJ6" &
+  "6F1EB3d4wxZN1hcdcOX-RfuXB-MQauhJGQbpz3qUofOtLAYJpZI" &
+  "J2NIJpcIQI2SVcim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmFjL" &
+  "WNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2" &
+  "XwA2Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5" &
+  "kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQ" &
+  "AGAAeJc2VjcDI1NmsxoQPK35Nnz0cWUtSAhBp7zvHEhyU_AqeQU" &
+  "lqzLiLxfP2L4oN0Y3CCdl-DdWRwgiMohXdha3UyDw"
 
 # careful if running pub and sub in the same machine
 const wakuPort = 60000

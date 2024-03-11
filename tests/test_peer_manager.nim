@@ -99,7 +99,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
-      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e"
+      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmQSMNExfUYUqfuXWkD5DaNZnMYnigRxFKbk3tcEFQeQeE"
     )
     require nonExistentPeerRes.isOk()
 
@@ -174,7 +174,7 @@ procSuite "Peer Manager":
 
     # Failed connection
     let nonExistentPeerRes = parsePeerInfo(
-      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e"
+      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmQSMNExfUYUqfuXWkD5DaNZnMYnigRxFKbk3tcEFQeQeE"
     )
     require:
       nonExistentPeerRes.isOk()
@@ -218,7 +218,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     let nonExistentPeerRes = parsePeerInfo(
-      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmL5okWopX7NqZWBUKVqW8iUxCEmd5GMHLVPwCgzYzQv3e"
+      "/ip4/0.0.0.0/tcp/1000/p2p/16Uiu2HAmQSMNExfUYUqfuXWkD5DaNZnMYnigRxFKbk3tcEFQeQeE"
     )
     require nonExistentPeerRes.isOk()
 
