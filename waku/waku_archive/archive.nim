@@ -5,7 +5,7 @@ else:
 
 import
   std/[times, options, sequtils, strutils, algorithm],
-  stew/results,
+  stew/[results, byteutils],
   chronicles,
   chronos,
   metrics
