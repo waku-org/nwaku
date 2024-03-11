@@ -35,7 +35,8 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     maxMessageSize: "1024 KiB",
     clusterId: 1.uint32,
     topics: @["/waku/2/rs/1/0"],
-    relay: true
+    relay: true,
+    storeMessageDbUrl: "sqlite://store.sqlite3"
   )
 
 proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
