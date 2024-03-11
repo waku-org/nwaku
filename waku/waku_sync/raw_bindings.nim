@@ -88,6 +88,10 @@ proc raw_insert(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.hea
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
 proc raw_erase(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
+proc free*(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
+
+proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
+
 ### Negentropy ###
 
 type
@@ -111,6 +115,8 @@ type
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
 #proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+
+proc free*(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
 
 proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
@@ -277,9 +283,9 @@ proc clientReconcile*(
 
   deallocCStringArray(cppHaveIds)
   deallocCStringArray(cppNeedIds) ]#
-  free_result(myResultPtr)
+  debug "return " , output=output, len = output.len
 
-  debug "return " , output=output
+  free_result(myResultPtr)
 
   if output.len < 1:
     return ok(none(NegentropyPayload))

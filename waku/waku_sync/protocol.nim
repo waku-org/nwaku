@@ -55,17 +55,19 @@ proc serverReconciliation(self: WakuSync, payload: NegentropyPayload): Result[Ne
  return self.negentropy.serverReconcile(payload)
 
 proc clientReconciliation(
-  self: WakuSync, payload: NegentropyPayload,
+  self: WakuSync, negentropy : Negentropy,
+  payload: NegentropyPayload,
   haveHashes: var seq[WakuMessageHash],
   needHashes: var seq[WakuMessageHash],
   ): Result[Option[NegentropyPayload], string] =
-  return self.negentropy.clientReconcile(payload, haveHashes, needHashes)
-
-proc intitialization(self: WakuSync): Future[Result[NegentropyPayload, string]] {.async.} =
-  return self.negentropy.initiate()
+  return negentropy.clientReconcile(payload, haveHashes, needHashes)
 
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let payload = (await self.intitialization()).valueOr:
+  let negentropy = Negentropy.new(self.storage, DefaultFrameSize)
+
+  let payload =  negentropy.initiate().valueOr:
+    free(negentropy)
+
     return err(error)
 
   debug "sending request to server", payload = toHex(seq[byte](payload))
@@ -88,7 +90,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
     let request = NegentropyPayload(buffer)
 
-    let responseOpt = self.clientReconciliation(request, haveHashes, needHashes).valueOr:
+    let responseOpt = self.clientReconciliation(negentropy, request, haveHashes, needHashes).valueOr:
       return err(error)
 
     let response = responseOpt.valueOr:
@@ -155,6 +157,7 @@ proc new*(T: type WakuSync,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
+
   let storage = Storage.new()
   let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
 
@@ -193,3 +196,7 @@ proc start*(self: WakuSync) =
   
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()
+
+
+proc storageSize*(self: WakuSync):int =
+  return self.storage.size()

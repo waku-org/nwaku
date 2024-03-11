@@ -6,7 +6,10 @@ import
   chronos,
   chronicles,
   libp2p/crypto/crypto,
-  stew/byteutils
+  stew/byteutils,
+  std/random,
+  std/times
+
 from std/os import sleep
 
 import
@@ -24,6 +27,7 @@ import
   ],
   ./sync_utils
 
+random.randomize()
 
 suite "Waku Sync - Protocol Tests":
 
@@ -69,6 +73,95 @@ suite "Waku Sync - Protocol Tests":
         check:
           s1.erase(msg1.timestamp, msgHash).isOk()
 
+    asyncTest "sync 2 nodes both empty":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+
+        var hashes = await client.sync(serverPeerInfo)
+        require (hashes.isOk())
+        check:
+          hashes.value.len == 0
+
+    asyncTest "sync 2 nodes empty client full server":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+        let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+
+        server.ingessMessage(DefaultPubsubTopic, msg1)
+        server.ingessMessage(DefaultPubsubTopic, msg2)
+        server.ingessMessage(DefaultPubsubTopic, msg3)
+
+        var hashes = await client.sync(serverPeerInfo)
+        require (hashes.isOk())
+        check:
+          hashes.value.len == 3
+          computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg1) in hashes.value
+          computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg2) in hashes.value
+          computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg3) in hashes.value
+
+    asyncTest "sync 2 nodes full client empty server":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+        let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+        let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+
+        client.ingessMessage(DefaultPubsubTopic, msg1)
+        client.ingessMessage(DefaultPubsubTopic, msg2)
+        client.ingessMessage(DefaultPubsubTopic, msg3)
+
+        var hashes = await client.sync(serverPeerInfo)
+        require (hashes.isOk())
+        check:
+          hashes.value.len == 0
+
     asyncTest "sync 2 nodes different hashes":
         ## Setup
         let
@@ -99,12 +192,13 @@ suite "Waku Sync - Protocol Tests":
           hashes.value.len == 1
           hashes.value[0] == computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg2)
         #Assuming message is fetched from peer
-#[         client.ingessMessage(DefaultPubsubTopic, msg2)
+        client.ingessMessage(DefaultPubsubTopic, msg2)
         sleep(1000)
         hashes = await client.sync(serverPeerInfo)
         require (hashes.isOk())
         check:
-          hashes.value.len == 0 ]#
+          hashes.value.len == 0
+
 
     asyncTest "sync 2 nodes same hashes":
         ## Setup
@@ -135,3 +229,300 @@ suite "Waku Sync - Protocol Tests":
         assert hashes.isOk(), $hashes.error
         check:
           hashes.value.len == 0
+
+    asyncTest "sync 2 nodes 100K msgs":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+        var i = 0
+        let msgCount = 100000
+        var diffIndex = rand(msgCount)
+        debug "diffIndex is ",diffIndex=diffIndex
+        var diffMsg: WakuMessage
+        while i < msgCount:
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if i != diffIndex:
+            client.ingessMessage(DefaultPubsubTopic,msg)
+          else:
+            diffMsg = msg
+          server.ingessMessage(DefaultPubsubTopic,msg)
+          i = i + 1
+
+        let hashes = await client.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
+        check:
+          hashes.value.len == 1
+          hashes.value[0] == computeMessageHash(DefaultPubsubTopic,diffMsg)
+          
+    asyncTest "sync 2 nodes 100K msgs 10K diffs":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            clientSwitch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), clientSwitch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client = await newTestWakuSync(clientSwitch, handler=protoHandler)
+        var i = 0
+        let msgCount = 100000
+        var diffCount = 10000
+        var diffMsgHashes: seq[WakuMessageHash]
+        var randIndexes:  seq[int]
+        while i < diffCount:
+          let randInt = rand(msgCount)
+          if randInt in randIndexes:
+            continue
+          randIndexes.add(randInt)
+          i = i + 1
+        
+        i = 0
+        var tmpDiffCnt = diffCount
+        while i < msgCount:
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if tmpDiffCnt > 0 and i in randIndexes:
+            #info "not ingessing in client", i=i
+            diffMsgHashes.add(computeMessageHash(DefaultPubsubTopic,msg))
+            tmpDiffCnt = tmpDiffCnt - 1 
+          else:
+            client.ingessMessage(DefaultPubsubTopic,msg)
+
+          server.ingessMessage(DefaultPubsubTopic,msg)
+          i = i + 1
+        let hashes = await client.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
+        check:
+          hashes.value.len == diffCount
+          #TODO: Check if all diffHashes are there in needHashes        
+
+    asyncTest "sync 3 nodes 2 client 1 server":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            client1Switch = newTestSwitch()
+            client2Switch = newTestSwitch()
+        
+        await allFutures(serverSwitch.start(), client1Switch.start(), client2Switch.start())
+    
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client1 = await newTestWakuSync(client1Switch, handler=protoHandler)
+            client2 = await newTestWakuSync(client2Switch, handler=protoHandler)
+        let msgCount = 10000
+        var i = 0
+        
+        while i < msgCount:
+          i = i + 1
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if i mod 2 == 0:
+            client2.ingessMessage(DefaultPubsubTopic,msg)
+          else:
+            client1.ingessMessage(DefaultPubsubTopic,msg)
+          server.ingessMessage(DefaultPubsubTopic, msg)
+
+        let hashes = await client1.sync(serverPeerInfo)
+        assert hashes.isOk(), $hashes.error
+        check:
+          hashes.value.len == int(msgCount/2)
+          #TODO: Check if all diffHashes are there in needHashes
+
+        let hashes1 = await client2.sync(serverPeerInfo)
+        assert hashes1.isOk(), $hashes1.error
+        check:
+          hashes1.value.len == int(msgCount/2)
+          #TODO: Check if all diffHashes are there in needHashes
+
+    asyncTest "sync 6 nodes varying sync diffs":
+        ## Setup
+        let
+            serverSwitch = newTestSwitch()
+            client1Switch = newTestSwitch()
+            client2Switch = newTestSwitch()
+            client3Switch = newTestSwitch()
+            client4Switch = newTestSwitch()
+            client5Switch = newTestSwitch()
+
+        await allFutures(serverSwitch.start(), client1Switch.start(),
+                          client2Switch.start(), client3Switch.start(),
+                          client4Switch.start(), client5Switch.start())
+
+        let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+
+        let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+            debug "Received needHashes from peer:", len = hashes.len
+            for hash in hashes:
+                debug "Hash received from peer:", hash=hash.to0xHex()
+
+        let
+            server = await newTestWakuSync(serverSwitch, handler=protoHandler)
+            client1 = await newTestWakuSync(client1Switch, handler=protoHandler)
+            client2 = await newTestWakuSync(client2Switch, handler=protoHandler)
+            client3 = await newTestWakuSync(client3Switch, handler=protoHandler)
+            client4 = await newTestWakuSync(client4Switch, handler=protoHandler)
+            client5 = await newTestWakuSync(client5Switch, handler=protoHandler)
+
+        let msgCount = 100000
+        var i = 0
+
+        while i < msgCount:
+          let msg = fakeWakuMessage(contentTopic=DefaultContentTopic)
+          if i < msgCount-1:
+            client1.ingessMessage(DefaultPubsubTopic,msg)
+          if i < msgCount-10:
+            client2.ingessMessage(DefaultPubsubTopic,msg)
+          if i < msgCount - 100:
+            client3.ingessMessage(DefaultPubsubTopic,msg)
+          if i < msgCount - 1000:
+            client4.ingessMessage(DefaultPubsubTopic,msg)
+          if i < msgCount - 10000:
+            client5.ingessMessage(DefaultPubsubTopic,msg)
+          server.ingessMessage(DefaultPubsubTopic, msg)
+          i = i + 1
+        info "client2 storage size",size=client2.storageSize()
+
+        var timeBefore = cpuTime()
+        let hashes1 = await client1.sync(serverPeerInfo)
+        var timeAfter = cpuTime()
+        var syncTime = (timeAfter - timeBefore)
+        info "sync time in seconds",msgsTotal=msgCount, diff=1,syncTime=syncTime
+        assert hashes1.isOk(), $hashes1.error
+        check:
+          hashes1.value.len == 1
+          #TODO: Check if all diffHashes are there in needHashes
+
+        timeBefore = cpuTime()
+        let hashes2 = await client2.sync(serverPeerInfo)
+        timeAfter = cpuTime()
+        syncTime = (timeAfter - timeBefore)
+        info "sync time in seconds",msgsTotal=msgCount, diff=10,syncTime=syncTime
+        assert hashes2.isOk(), $hashes2.error
+        check:
+          hashes2.value.len == 10
+          #TODO: Check if all diffHashes are there in needHashes
+
+        timeBefore = cpuTime()
+        let hashes3 = await client3.sync(serverPeerInfo)
+        timeAfter = cpuTime()
+        syncTime = (timeAfter - timeBefore)
+        info "sync time in seconds",msgsTotal=msgCount, diff=100,syncTime=syncTime
+        assert hashes3.isOk(), $hashes3.error
+        check:
+          hashes3.value.len == 100
+          #TODO: Check if all diffHashes are there in needHashes
+
+        timeBefore = cpuTime()
+        let hashes4 = await client4.sync(serverPeerInfo)
+        timeAfter = cpuTime()
+        syncTime = (timeAfter - timeBefore)
+        info "sync time in seconds",msgsTotal=msgCount, diff=1000,syncTime=syncTime
+        assert hashes4.isOk(), $hashes4.error
+        check:
+          hashes4.value.len == 1000
+          #TODO: Check if all diffHashes are there in needHashes
+
+        timeBefore = cpuTime()
+        let hashes5 = await client5.sync(serverPeerInfo)
+        timeAfter = cpuTime()
+        syncTime = (timeAfter - timeBefore)
+        info "sync time in seconds",msgsTotal=msgCount, diff=10000,syncTime=syncTime
+        assert hashes5.isOk(), $hashes5.error
+        check:
+          hashes5.value.len == 10000
+          #TODO: Check if all diffHashes are there in needHashes
+
+    asyncTest "sync 3 nodes cyclic":
+        #[Setup
+        node1 (client) <--> node2(server)
+        node2(client) <--> node3(server)
+        node3(client) <--> node1(server)]#
+
+      let
+          node1Switch = newTestSwitch()
+          node2Switch = newTestSwitch()
+          node3Switch = newTestSwitch()
+      
+      await allFutures(node1Switch.start(), node2Switch.start(), node3Switch.start())
+  
+      let node1PeerInfo = node1Switch.peerInfo.toRemotePeerInfo()
+      let node2PeerInfo = node2Switch.peerInfo.toRemotePeerInfo()
+      let node3PeerInfo = node3Switch.peerInfo.toRemotePeerInfo()
+
+      let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+      let msg2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+      let msg3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+
+      let protoHandler:WakuSyncCallback = proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.} = 
+          debug "Received needHashes from peer:", len = hashes.len
+          for hash in hashes:
+              debug "Hash received from peer:", hash=hash.to0xHex()
+
+      let
+          node1 = await newTestWakuSync(node1Switch, handler=protoHandler)
+          node2 = await newTestWakuSync(node2Switch, handler=protoHandler)
+          node3 = await newTestWakuSync(node3Switch, handler=protoHandler)
+
+      node1.ingessMessage(DefaultPubsubTopic, msg1)
+      node2.ingessMessage(DefaultPubsubTopic, msg1)
+      node2.ingessMessage(DefaultPubsubTopic, msg2)
+      node3.ingessMessage(DefaultPubsubTopic, msg3)
+
+      let f1 = node1.sync(node2PeerInfo)
+      let f2 = node2.sync(node3PeerInfo)
+      let f3 = node3.sync(node1PeerInfo)
+
+      ## gather all futures in one
+      proc waitAllFutures(f1, f2, f3: Future[Result[seq[WakuMessageHash], string]]) {.async.} =
+
+        proc synccallback(data: pointer) =
+          let f1Result = f1.internalValue
+          assert f1Result.isOk(), f1Result.error
+
+          let f2Result = f2.internalValue
+          assert f2Result.isOk(), f2Result.error
+
+          let f3Result = f3.internalValue
+          assert f3Result.isOk(), f3Result.error
+
+          let hashes1 = f1Result.get()
+          let hashes2 = f2Result.get()
+          let hashes3 = f3Result.get()
+
+          check:
+            hashes1.len == 1
+            hashes2.len == 1
+            hashes3.len == 1
+
+        let allFuts = allFutures(@[f1, f2, f3])
+        allFuts.addCallback(synccallback)
+        await allFuts
+
+      waitFor waitAllFutures(f1, f2, f3)
