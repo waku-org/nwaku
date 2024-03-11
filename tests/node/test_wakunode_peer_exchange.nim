@@ -88,7 +88,6 @@ suite "Waku Peer Exchange":
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
-      # await node2.stop()
       await node.mountPeerExchange()
 
       # When a node fetches peers
