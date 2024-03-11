@@ -196,3 +196,7 @@ proc start*(self: WakuSync) =
   
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()
+
+
+proc storageSize*(self: WakuSync):int =
+  return self.storage.size()

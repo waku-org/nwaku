@@ -90,6 +90,8 @@ proc raw_erase(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.head
 
 proc free*(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
 
+proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
+
 ### Negentropy ###
 
 type
