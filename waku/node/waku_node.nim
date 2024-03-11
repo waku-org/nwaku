@@ -777,13 +777,12 @@ proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
                    Result[void, string] =
+  node.wakuArchive = WakuArchive.new(
+    driver = driver,
+    retentionPolicy = retentionPolicy,
+    ).valueOr:
+    return err("error in mountArchive: " & error)
 
-  let wakuArchiveRes = WakuArchive.new(driver,
-                                       retentionPolicy)
-  if wakuArchiveRes.isErr():
-    return err("error in mountArchive: " & wakuArchiveRes.error)
-
-  node.wakuArchive = wakuArchiveRes.get()
   node.wakuArchive.start()
 
   return ok()

@@ -5,7 +5,7 @@ else:
 
 import
   std/[times, options, sequtils, strutils, algorithm],
-  stew/[results, byteutils],
+  stew/results,
   chronicles,
   chronos,
   metrics
@@ -22,46 +22,41 @@ logScope:
   topics = "waku archive"
 
 const
-  #TODO if waku message are 150KiB max are those numbers still appropriate???
-  DefaultPageSize*: uint = 20 # 2.93 MiB
-  MaxPageSize*: uint = 100 # 14.65 MiB
+  DefaultPageSize*: uint = 20
+  MaxPageSize*: uint = 100
 
 # Retention policy
-const WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
+  WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
 
 # Metrics reporting
-const WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
+  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
 
 # Message validation
 # 20 seconds maximum allowable sender timestamp "drift"
-const MaxMessageTimestampVariance* = getNanoSecondTime(20) 
+  MaxMessageTimestampVariance* = getNanoSecondTime(20) 
+
+type MessageValidator* = proc(msg: WakuMessage): Result[void, string] {.closure, gcsafe, raises: [].}
 
 ## Archive
 
 type WakuArchive* = ref object
   driver: ArchiveDriver
 
+  validator: MessageValidator
+
   retentionPolicy: Option[RetentionPolicy]
 
   retentionPolicyHandle: Future[void]
   metricsHandle: Future[void]
 
-proc new*(T: type WakuArchive,
-          driver: ArchiveDriver,
-          retentionPolicy = none(RetentionPolicy)):
-          Result[T, string] =
-  if driver.isNil():
-    return err("archive driver is Nil")
+proc validate*(msg: WakuMessage): Result[void, string] =
+  if msg.ephemeral:
+    # Ephemeral message, do not store
+    return
+  
+  if msg.timestamp == 0:
+    return ok()
 
-  let archive =
-    WakuArchive(
-      driver: driver,
-      retentionPolicy: retentionPolicy,
-    )
-
-  return ok(archive)
-
-proc validate(msg: WakuMessage): Result[void, string] =
   let
     now = getNanosecondTime(getTime().toUnixFloat())
     lowerBound = now - MaxMessageTimestampVariance
@@ -73,33 +68,49 @@ proc validate(msg: WakuMessage): Result[void, string] =
   if upperBound < msg.timestamp:
     return err(invalidMessageFuture)
 
-  ok()
+  return ok()
+
+proc new*(T: type WakuArchive,
+          driver: ArchiveDriver,
+          validator: MessageValidator = validate,
+          retentionPolicy = none(RetentionPolicy)):
+          Result[T, string] =
+  if driver.isNil():
+    return err("archive driver is Nil")
+
+  let archive =
+    WakuArchive(
+      driver: driver,
+      validator: validator,
+      retentionPolicy: retentionPolicy,
+    )
+
+  return ok(archive)
 
 proc handleMessage*(self: WakuArchive,
                     pubsubTopic: PubsubTopic,
                     msg: WakuMessage) {.async.} =
-  if msg.ephemeral:
-    # Ephemeral message, do not store
-    return
-
-  validate(msg).isOkOr:
+  self.validator(msg).isOkOr:
     waku_archive_errors.inc(labelValues = [error])
     return
 
   let
     msgDigest = computeDigest(msg)
     msgHash = computeMessageHash(pubsubTopic, msg)
+    msgTimestamp = if msg.timestamp > 0: msg.timestamp
+                        else: getNanosecondTime(getTime().toUnixFloat())
 
   trace "handling message",
     pubsubTopic=pubsubTopic,
     contentTopic=msg.contentTopic,
-    timestamp=msg.timestamp,
+    msgTimestamp=msg.timestamp,
+    usedTimestamp=msgTimestamp,
     digest=toHex(msgDigest.data),
     messageHash=toHex(msgHash)
   
   let insertStartTime = getTime().toUnixFloat()
 
-  (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)).isOkOr:
+  (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     # Prevent spamming the logs when multiple nodes are connected to the same database.
     # In that case, the message cannot be inserted but is an expected "insert error"
