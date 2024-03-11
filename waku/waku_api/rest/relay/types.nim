@@ -23,6 +23,7 @@ type RelayWakuMessage* = object
       version*: Option[Natural]
       timestamp*: Option[int64]
       meta*: Option[Base64String]
+      ephemeral*: Option[bool]
 
 type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]
@@ -36,7 +37,8 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String)
+    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String),
+    ephemeral: some(msg.ephemeral)
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -45,6 +47,7 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
     contentTopic = msg.contentTopic.get(DefaultContentTopic)
     version = uint32(msg.version.get(version))
     meta = ?msg.meta.get(Base64String("")).decode()
+    ephemeral = msg.ephemeral.get(false)
 
   var timestamp = msg.timestamp.get(0)
 
@@ -52,7 +55,7 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
     timestamp = getNanosecondTime(getTime().toUnixFloat())
 
   return ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version,
-    timestamp: timestamp, meta: meta))
+    timestamp: timestamp, meta: meta, ephemeral: ephemeral))
 
 #### Serialization and deserialization
 
@@ -68,6 +71,8 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
     writer.writeField("timestamp", value.timestamp.get())
   if value.meta.isSome():
     writer.writeField("meta", value.meta.get())
+  if value.ephemeral.isSome():
+    writer.writeField("ephemeral", value.ephemeral.get())
   writer.endRecord()
 
 proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
@@ -78,6 +83,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     version = none(Natural)
     timestamp = none(int64)
     meta = none(Base64String)
+    ephemeral = none(bool)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -98,6 +104,8 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
       timestamp = some(reader.readValue(int64))
     of "meta":
       meta = some(reader.readValue(Base64String))
+    of "ephemeral":
+      ephemeral = some(reader.readValue(bool))
     else:
       unrecognizedFieldWarning()
 
@@ -112,5 +120,6 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     contentTopic: contentTopic,
     version: version,
     timestamp: timestamp,
-    meta: meta
+    meta: meta,
+    ephemeral: ephemeral
   )
