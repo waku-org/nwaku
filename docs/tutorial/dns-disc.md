@@ -42,30 +42,30 @@ The following command line options are available for both `wakunode2` or `chat2`
 
 A node will attempt connection to all discovered nodes.
 
-## Example for `wakuv2.test` fleet
+## Example for `waku.test` fleet
 
 To illustrate the above and prove the concept,
-a list of `wakuv2.test` fleet nodes was encoded according to EIP-1459 and deployed to `test.nodes.vac.dev`.
-The list was signed by the public key `AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C`.
-The complete URL for DNS discovery is therefore: `enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.nodes.vac.dev`.
+a list of `waku.test` fleet nodes was encoded according to EIP-1459 and deployed to `test.waku.nodes.status.im`.
+The list was signed by the public key `AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI`.
+The complete URL for DNS discovery is therefore: `enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im`.
 
-To run a `wakunode2` with DNS-based discovery of `wakuv2.test` nodes:
+To run a `wakunode2` with DNS-based discovery of `waku.test` nodes:
 
 ```
-./build/wakunode2 --dns-discovery:true --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.nodes.vac.dev
+./build/wakunode2 --dns-discovery:true --dns-discovery-url:enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im
 ```
 
 Similarly, for `chat2`:
 
 ```
-./build/chat2 --dns-discovery:true --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.nodes.vac.dev
+./build/chat2 --dns-discovery:true --dns-discovery-url:enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im
 ```
 
-The node will discover and attempt connection to all `wakuv2.test` nodes during setup procedures.
+The node will discover and attempt connection to all `waku.test` nodes during setup procedures.
 
 To use specific DNS name servers, one or more `--dns-discovery-name-server` arguments can be added:
 
 ```
-./build/wakunode2 --dns-discovery:true --dns-discovery-url:enrtree://AOFTICU2XWDULNLZGRMQS4RIZPAZEHYMV4FYHAPW563HNRAOERP7C@test.nodes.vac.dev --dns-dis
+./build/wakunode2 --dns-discovery:true --dns-discovery-url:enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im --dns-dis
 covery-name-server:8.8.8.8 --dns-discovery-name-server:8.8.4.4
 ```

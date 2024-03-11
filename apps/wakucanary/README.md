@@ -30,14 +30,14 @@ $ make wakucanary
 And used as follows. A reachable node that supports both `store` and `filter` protocols.
 
 ```console
-$ ./build/wakucanary --address=/ip4/8.210.222.231/tcp/30303/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr24iDQpSN5Qa992BCjjwgrD --protocol=store --protocol=filter
+$ ./build/wakucanary --address=/dns4/node-01.ac-cn-hongkong-c.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmSJvSJphxRdbnigUV5bjRRZFBhTtWFTSyiKaQByCjwmpV --protocol=store --protocol=filter
 $ echo $?
 0
 ```
 
 A node that can't be reached.
 ```console
-$ ./build/wakucanary --address=/ip4/8.210.222.231/tcp/1000/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr24iDQpSN5Qa992BCjjwgrD --protocol=store --protocol=filter
+$ ./build/wakucanary --address=/dns4/node-01.ac-cn-hongkong-c.waku.sandbox.status.im/tcp/1000/p2p/16Uiu2HAmSJvSJphxRdbnigUV5bjRRZFBhTtWFTSyiKaQByCjwmpV --protocol=store --protocol=filter
 $ echo $?
 1
 ```

@@ -10,8 +10,8 @@ import
 
 const
   LightpushPeer =
-    "/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ"
-    # node-01.do-ams3.wakuv2.test.statusim.net on wakuv2.test
+    "/ip4/178.128.141.171/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W"
+    # node-01.do-ams3.waku.test.statusim.net on waku.test
   LightpushPubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
   LightpushContentTopic = ContentTopic("/examples/1/light-pubsub-example/proto")
 

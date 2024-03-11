@@ -1,7 +1,7 @@
 # Quickstart: running a nwaku node
 
 This guide helps you run a nwaku node with typical configuration.
-It connects your node to the `wakuv2.prod` fleet for bootstrapping
+It connects your node to the `waku.sandbox` fleet for bootstrapping
 and enables discovery v5 for continuous peer discovery.
 Only [`relay`](https://rfc.vac.dev/spec/11/) protocol is enabled.
 For a more comprehensive overview,
@@ -18,7 +18,7 @@ cd nwaku
 make wakunode2
 ./build/wakunode2 \
   --dns-discovery:true \
-  --dns-discovery-url:enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im \
+  --dns-discovery-url:enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im \
   --discv5-discovery \
   --nat=extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```
@@ -31,7 +31,7 @@ make wakunode2
 docker run -i -t -p 60000:60000 -p 9000:9000/udp \
   wakuorg/nwaku:v0.20.0 \ # or, the image:tag of your choice
     --dns-discovery:true \
-    --dns-discovery-url:enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im \
+    --dns-discovery-url:enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im \
     --discv5-discovery \
     --nat:extip:[yourpublicip] # or, if you are behind a nat: --nat=any
 ```

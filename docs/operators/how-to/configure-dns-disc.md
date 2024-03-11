@@ -24,7 +24,7 @@ A node will attempt connection to all discovered nodes.
 
 This can be used, for example, to connect to one of the existing fleets.
 Current URLs for the published fleet lists:
-- production fleet: `enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im`
-- test fleet: `enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im`
+- production fleet: `enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im`
+- test fleet: `enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im`
 
 See the [separate tutorial](../../tutorial/dns-disc.md) for a complete guide to DNS discovery.

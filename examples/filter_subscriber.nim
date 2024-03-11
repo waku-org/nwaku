@@ -10,8 +10,8 @@ import
 
 const
   FilterPeer =
-    "/ip4/104.154.239.128/tcp/30303/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS"
-    # node-01.gc-us-central1-a.wakuv2.test.statusim.net on wakuv2.test
+    "/ip4/34.16.1.67/tcp/30303/p2p/16Uiu2HAmDCp8XJ9z1ev18zuv8NHekAsjNyezAvmMfFEJkiharitG"
+    # node-01.gc-us-central1-a.waku.test.statusim.net on waku.test
   FilterPubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
   FilterContentTopic = ContentTopic("/examples/1/light-pubsub-example/proto")
 

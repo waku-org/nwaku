@@ -5,7 +5,7 @@
 The `chat2` application is a basic command-line chat app using the [Waku v2 suite of protocols](https://rfc.vac.dev/).
 It optionally connects to a [fleet of nodes](fleets.status.im) to provide end-to-end p2p chat capabilities.
 Each fleet is a publicly accessible network of Waku v2 peers, providing a bootstrap connection point for new peers, historical message storage, etc.
-The Waku team is currently using this application on the _production_ fleet for internal testing.
+The Waku team is currently using this application on the _sandbox_ fleet for internal testing.
 For more information on the available fleets, see [`Connecting to a Waku v2 fleet`](#connecting-to-a-waku-v2-fleet).
 If you want to try our protocols, or join the dogfooding fun, follow the instructions below.
 
@@ -33,16 +33,16 @@ You should be prompted to provide a nickname for the chat session.
 Choose a nickname >>
 ```
 
-After entering a nickname, the app will randomly select and connect to a peer from the `prod` fleet.
+After entering a nickname, the app will randomly select and connect to a peer from the `sandbox` fleet.
 
 ```
-No static peers configured. Choosing one at random from prod fleet...
+No static peers configured. Choosing one at random from sandbox fleet...
 ```
 
-It will then attempt to download historical messages from a random peer in the `prod` fleet.
+It will then attempt to download historical messages from a random peer in the `sandbox` fleet.
 
 ```
-Store enabled, but no store nodes configured. Choosing one at random from prod fleet...
+Store enabled, but no store nodes configured. Choosing one at random from sandbox fleet...
 ```
 
 Wait for the chat prompt (`>>`) and chat away!
@@ -60,10 +60,10 @@ The `chat2` application can retrieve historical chat messages from a node suppor
 It's possible to query a *specific* store node by configuring its `multiaddr` as `storenode` when starting the app:
 
 ```
-./build/chat2 --storenode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
+./build/chat2 --storenode:/dns4/node-01.do-ams3.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
 ```
 
-Alternatively, the `chat2` application will select a random `storenode` for you from the configured fleet (`prod` by default) if `storenode` is left unspecified.
+Alternatively, the `chat2` application will select a random `storenode` for you from the configured fleet (`sandbox` by default) if `storenode` is left unspecified.
 
 ```
 ./build/chat2
@@ -80,7 +80,7 @@ To disable historical message retrieval, use the `--store:false` option:
 In order to connect to a *specific* node as [`relay`](https://rfc.vac.dev/spec/11/) peer, define that node's `multiaddr` as a `staticnode` when starting the app:
 
 ```
-./build/chat2 --staticnode:/ip4/134.209.139.210/tcp/30303/p2p/16Uiu2HAmPLe7Mzm8TsYUubgCAW1aJoeFScxrLj8ppHFivPo97bUZ
+./build/chat2 --staticnode:/dns4/node-01.do-ams3.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
 ```
 
 This will bypass the random peer selection process and connect to the specified node.
@@ -93,11 +93,11 @@ It is possible to specify a specific Waku v2 fleet to connect to when starting t
 ./build/chat2 --fleet:test
 ```
 
-There are currently two fleets to select from, namely _production_ (`wakuv2.prod`) and _test_ (`wakuv2.test`).
+There are currently two fleets to select from, namely _sandbox_ (`waku.sandbox`) and _test_ (`waku.test`).
 The `test` fleet is updated with each incremental change to the `nim-waku` codebase.
-As a result it may have more advanced and experimental features, but will be less stable than `prod`.
-The `prod` fleet is a deployed network of the latest released Waku v2 nodes.
-If no `fleet` is specified, `chat2` will connect to the `prod` fleet by default.
+As a result it may have more advanced and experimental features, but will be less stable than `sandbox`.
+The `sandbox` fleet is a deployed network of the latest released Waku v2 nodes.
+If no `fleet` is specified, `chat2` will connect to the `sandbox` fleet by default.
 To start `chat2` without connecting to a fleet, use the `--fleet:none` option _or_ [specify a static peer](#specifying-a-static-peer).
 
 ## Specifying a content topic
@@ -108,7 +108,7 @@ To publish chat messages on a specific [content topic](https://rfc.vac.dev/spec/
 ./build/chat2 --content-topic:/waku/2/my-content-topic/proto
 ```
 
-> **NOTE:** Currently (2021/05/26) the content topic defaults to `/waku/2/huilong/proto` if left unspecified, where `huilong` is the name of our latest testnet. 
+> **NOTE:** Currently (2021/05/26) the content topic defaults to `/waku/2/huilong/proto` if left unspecified, where `huilong` is the name of our latest testnet.
 
 ## In-chat options
 
@@ -153,7 +153,7 @@ Follow the matterbridge [Discord instructions](https://github.com/42wim/matterbr
 
 # You can get your token by following the instructions on
 # https://github.com/42wim/matterbridge/wiki/Discord-bot-setup.
-# If you want roles/groups mentions to be shown with names instead of ID, 
+# If you want roles/groups mentions to be shown with names instead of ID,
 # you'll need to give your bot the "Manage Roles" permission.
 Token="MTk4NjIyNDgzNDcdOTI1MjQ4.Cl2FMZ.ZnCjm1XVW7vRze4b7Cq4se7kKWs-abD"
 
