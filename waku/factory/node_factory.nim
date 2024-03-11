@@ -33,7 +33,7 @@ import
 ## Peer persistence
 
 const PeerPersistenceDbUrl = "peers.db"
-proc setupPeerStorage*(): Result[Option[WakuPeerStorage], string] =
+proc setupPeerStorage(): Result[Option[WakuPeerStorage], string] =
   let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
 
   ? peer_store_sqlite_migrations.migrate(db)
@@ -44,41 +44,9 @@ proc setupPeerStorage*(): Result[Option[WakuPeerStorage], string] =
 
   ok(some(res.value))
 
-## Retrieve dynamic bootstrap nodes (DNS discovery)
-
-proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool,
-                                    dnsDiscoveryUrl: string,
-                                    dnsDiscoveryNameServers: seq[IpAddress]):
-                                    Result[seq[RemotePeerInfo], string] =
-
-  if dnsDiscovery and dnsDiscoveryUrl != "":
-    # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
-
-    var nameServers: seq[TransportAddress]
-    for ip in dnsDiscoveryNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    let dnsResolver = DnsResolver.new(nameServers)
-
-    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain=domain
-      let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
-
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers()
-        .mapErr(proc (e: cstring): string = $e)
-    else:
-      warn "Failed to init Waku DNS discovery"
-
-  debug "No method for retrieving dynamic bootstrap nodes specified."
-  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
-
 ## Init waku node instance
 
-proc initNode*(conf: WakuNodeConf,
+proc initNode(conf: WakuNodeConf,
               netConfig: NetConfig,
               rng: ref HmacDrbgContext,
               nodeKey: crypto.PrivateKey,
@@ -130,7 +98,7 @@ proc initNode*(conf: WakuNodeConf,
 
 ## Mount protocols
 
-proc setupProtocols*(node: WakuNode,
+proc setupProtocols(node: WakuNode,
                     conf: WakuNodeConf,
                     nodeKey: crypto.PrivateKey):
                     Future[Result[void, string]] {.async.} =
