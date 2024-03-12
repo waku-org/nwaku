@@ -149,7 +149,7 @@ proc serialize*(memIndices: seq[MembershipIndex]): seq[byte] =
 proc toEpoch*(t: uint64): Epoch =
   ## converts `t` to `Epoch` in little-endian order
   let bytes = toBytes(t, Endianness.littleEndian)
-  debug "bytes", bytes = bytes
+  trace "epoch bytes", bytes = bytes
   var epoch: Epoch
   discard epoch.copyFrom(bytes)
   return epoch

@@ -79,7 +79,7 @@ proc createMembershipList*(rln: ptr RLN, n: int): RlnRelayResult[(
 
 type WakuRLNRelay* = ref object of RootObj
   # the log of nullifiers and Shamir shares of the past messages grouped per epoch
-  nullifierLog*: OrderedTable[Epoch, seq[ProofMetadata]]
+  nullifierLog*: OrderedTable[Epoch, Table[Nullifier, ProofMetadata]]
   lastEpoch*: Epoch # the epoch of the last published rln message
   rlnEpochSizeSec*: uint64
   rlnMaxEpochGap*: uint64
@@ -103,58 +103,49 @@ proc stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   await rlnPeer.groupManager.stop()
 
 proc hasDuplicate*(rlnPeer: WakuRLNRelay,
+                   epoch: Epoch,
                    proofMetadata: ProofMetadata): RlnRelayResult[bool] =
   ## returns true if there is another message in the  `nullifierLog` of the `rlnPeer` with the same
   ## epoch and nullifier as `proofMetadata`'s epoch and nullifier
   ## otherwise, returns false
   ## Returns an error if it cannot check for duplicates
 
-  let externalNullifier = proofMetadata.externalNullifier
   # check if the epoch exists
-  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
+  let nullifier = proofMetadata.nullifier
+  if not rlnPeer.nullifierLog.hasKey(epoch):
     return ok(false)
   try:
-    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
+    if rlnPeer.nullifierLog[epoch].hasKey(nullifier):
       # there is an identical record, mark it as spam
-      return ok(true)
-
-    # check for a message with the same nullifier but different secret shares
-    let matched = rlnPeer.nullifierLog[externalNullifier].filterIt((
-        it.nullifier == proofMetadata.nullifier) and ((it.shareX != proofMetadata.shareX) or
-        (it.shareY != proofMetadata.shareY)))
-
-    if matched.len != 0:
-      # there is a duplicate
       return ok(true)
 
     # there is no duplicate
     return ok(false)
 
-  except KeyError as e:
-    return err("the epoch was not found")
+  except KeyError:
+    return err("the epoch was not found: " & getCurrentExceptionMsg())
 
 proc updateLog*(rlnPeer: WakuRLNRelay,
+                epoch: Epoch,
                 proofMetadata: ProofMetadata): RlnRelayResult[void] =
   ## saves supplied proofMetadata `proofMetadata`
   ## in the `nullifierLog` of the `rlnPeer`
   ## Returns an error if it cannot update the log
 
-  let externalNullifier = proofMetadata.externalNullifier
-  # check if the externalNullifier exists
-  if not rlnPeer.nullifierLog.hasKey(externalNullifier):
-    rlnPeer.nullifierLog[externalNullifier] = @[proofMetadata]
+  # check if the epoch exists
+  if not rlnPeer.nullifierLog.hasKeyOrPut(epoch, { proofMetadata.nullifier: proofMetadata }.toTable()):
     return ok()
 
   try:
     # check if an identical record exists
-    if rlnPeer.nullifierLog[externalNullifier].contains(proofMetadata):
+    if rlnPeer.nullifierLog[epoch].hasKeyOrPut(proofMetadata.nullifier, proofMetadata):
+      # the above condition could be `discarded` but it is kept for clarity, that slashing will 
+      # be implemented here
       # TODO: slashing logic
       return ok()
-    # add proofMetadata to the log
-    rlnPeer.nullifierLog[externalNullifier].add(proofMetadata)
     return ok()
-  except KeyError as e:
-    return err("the external nullifier was not found") # should never happen
+  except KeyError:
+    return err("the epoch was not found: " & getCurrentExceptionMsg()) # should never happen
 
 proc getCurrentEpoch*(rlnPeer: WakuRLNRelay): Epoch =
   ## gets the current rln Epoch time
@@ -249,7 +240,7 @@ proc validateMessage*(rlnPeer: WakuRLNRelay,
   if proofMetadataRes.isErr():
     waku_rln_errors_total.inc(labelValues=["proof_metadata_extraction"])
     return MessageValidationResult.Invalid
-  let hasDup = rlnPeer.hasDuplicate(proofMetadataRes.get())
+  let hasDup = rlnPeer.hasDuplicate(msgEpoch, proofMetadataRes.get())
   if hasDup.isErr():
     waku_rln_errors_total.inc(labelValues=["duplicate_check"])
   elif hasDup.value == true:
@@ -282,7 +273,7 @@ proc validateMessageAndUpdateLog*(
     return MessageValidationResult.Invalid
 
   # insert the message to the log (never errors)
-  discard rlnPeer.updateLog(proofMetadataRes.get())
+  discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return result
 
@@ -417,7 +408,7 @@ proc mount(conf: WakuRlnConfig,
 
   when defined(rln_v2): 
     return WakuRLNRelay(groupManager: groupManager, 
-                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit),
+                        nonceManager: NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
                         rlnEpochSizeSec: conf.rlnEpochSizeSec,
                         rlnMaxEpochGap: uint64(MaxClockGapSeconds/float64(conf.rlnEpochSizeSec)),
                         onFatalErrorAction: conf.onFatalErrorAction)

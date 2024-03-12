@@ -58,7 +58,7 @@ const
 # rln-v2: rate commitments are used for the Merkle tree construction, defaulting the UserMessageLimit to 20
 # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
 when defined(rln_v2):
-  const StaticGroupMerkleRoot* = "0a15ba7c5753ee78e8126603113028a343c1a01ffcb389565c76626be158e964"
+  const StaticGroupMerkleRoot* = "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
 else:
   const StaticGroupMerkleRoot* = "1e534adab58f7d300aaeecae57a25e0a0b18c368a09f720280da92b288950901"
 

@@ -16,25 +16,25 @@ import
 logScope:
   topics = "rln_db_inspector"
 
-when isMainModule:
-  {.pop.}
+proc doInspectRlnDb*(conf: WakuNodeConf) =
   # 1. load configuration
-  let conf = RlnDbInspectorConf.loadConfig().valueOr:
-    error "failure while loading the configuration", error
-    quit(1)
-
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
   let rlnInstance = createRLNInstance(d=20,
-                                      tree_path = conf.rlnRelayTreePath).valueOr:
+                                      tree_path = conf.treePath).valueOr:
     error "failure while creating RLN instance", error
     quit(1)
 
   # 3. get metadata
-  let metadata = rlnInstance.getMetadata().valueOr:
+  let metadataOpt = rlnInstance.getMetadata().valueOr:
     error "failure while getting RLN metadata", error
     quit(1)
+  
+  if metadataOpt.isNone():
+    error "RLN metadata does not exist"
+    quit(1)
+  let metadata = metadataOpt.get()
 
   info "RLN metadata", lastProcessedBlock = metadata.lastProcessedBlock, 
                        chainId = metadata.chainId,

@@ -7,17 +7,25 @@ import
   std/options,
   stew/results,
   stew/byteutils,
+  stew/arrayops,
   nimcrypto/sha2
 import
   ../waku_core,
   ../common/paging
 
-
 ## Waku message digest
-# TODO: Move this into the driver implementations. We should be passing
-#  here a buffer containing a serialized implementation dependent cursor.
 
 type MessageDigest* = MDigest[256]
+
+proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
+  
+  var data: array[32, byte]
+        
+  let byteCount = copyFrom[byte](data, src)
+
+  assert byteCount == 32
+
+  return MessageDigest(data: data)
 
 proc computeDigest*(msg: WakuMessage): MessageDigest =
   var ctx: sha256
@@ -30,23 +38,16 @@ proc computeDigest*(msg: WakuMessage): MessageDigest =
   # Computes the hash
   return ctx.finish()
 
-
-# TODO: Move this into the driver implementations. We should be passing
-#  here a buffer containing a serialized implementation dependent cursor.
-type DbCursor = object
-    pubsubTopic*: PubsubTopic
-    senderTime*: Timestamp
-    storeTime*: Timestamp
-    digest*: MessageDigest
-
-
 ## Public API types
 
 type
-  # TODO: We should be passing here a buffer containing a serialized
-  # implementation dependent cursor. Waku archive logic should be independent
-  # of the cursor format.
-  ArchiveCursor* = DbCursor
+  #TODO Once Store v2 is removed, the cursor becomes the hash of the last message
+  ArchiveCursor* = object
+    digest*: MessageDigest
+    storeTime*: Timestamp
+    senderTime*: Timestamp
+    pubsubTopic*: PubsubTopic
+    hash*: WakuMessageHash
 
   ArchiveQuery* = object
     pubsubTopic*: Option[PubsubTopic]
@@ -54,10 +55,12 @@ type
     cursor*: Option[ArchiveCursor]
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
+    hashes*: seq[WakuMessageHash]
     pageSize*: uint
     direction*: PagingDirection
 
   ArchiveResponse* = object
+    hashes*: seq[WakuMessageHash]
     messages*: seq[WakuMessage]
     cursor*: Option[ArchiveCursor]
 

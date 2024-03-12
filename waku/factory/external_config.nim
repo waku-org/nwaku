@@ -41,6 +41,7 @@ type EthRpcUrl = distinct string
 type StartUpCommand* = enum
     noCommand # default, runs waku
     generateRlnKeystore # generates a new RLN keystore
+    inspectRlnDb # Inspects a given RLN tree db, providing essential db stats
 
 type
   WakuNodeConf* = object
@@ -103,6 +104,13 @@ type
       command
       defaultValue: noCommand }: StartUpCommand
 
+    of inspectRlnDb: 
+      # have to change the name here since it counts as a duplicate, within noCommand
+      treePath* {.
+        desc: "Path to the RLN merkle tree sled db (https://github.com/spacejam/sled)",
+        defaultValue: ""
+        name: "rln-relay-tree-path" .}: string
+    
     of generateRlnKeystore:
       execute* {.
         desc: "Runs the registration function on-chain. By default, a dry-run will occur",

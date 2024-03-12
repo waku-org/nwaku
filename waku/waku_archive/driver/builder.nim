@@ -15,7 +15,6 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./postgres_driver/migrations as archive_postgres_driver_migrations,
   ./queue_driver
 
 export
@@ -23,7 +22,9 @@ export
   queue_driver
 
 when defined(postgres):
-  import ./postgres_driver ## This import adds dependency with an external libpq library
+  import ## These imports add dependency with an external libpq library
+    ./postgres_driver/migrations as archive_postgres_driver_migrations,  
+    ./postgres_driver 
   export postgres_driver
 
 proc new*(T: type ArchiveDriver,
@@ -106,6 +107,19 @@ proc new*(T: type ArchiveDriver,
         let migrateRes = await archive_postgres_driver_migrations.migrate(driver)
         if migrateRes.isErr():
           return err("ArchiveDriver build failed in migration: " & $migrateRes.error)
+
+      ## This should be started once we make sure the 'messages' table exists
+      ## Hence, this should be run after the migration is completed.
+      asyncSpawn driver.startPartitionFactory(onFatalErrorAction)
+
+      info "waiting for a partition to be created"
+      for i in 0..<100:
+        if driver.containsAnyPartition():
+          break
+        await sleepAsync(chronos.milliseconds(100))
+
+      if not driver.containsAnyPartition():
+        onFatalErrorAction("a partition could not be created")
 
       return ok(driver)
 

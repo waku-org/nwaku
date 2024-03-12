@@ -20,15 +20,16 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
   for x in data.mitems: x = 1
 
   for i in 0..<numMessages:
-    let msg = IndexedWakuMessage(
-      msg: WakuMessage(payload: @[byte i], timestamp: Timestamp(i)),
-      index: Index(
-        receiverTime: Timestamp(i),
-        senderTime: Timestamp(i),
-        digest: MessageDigest(data: data)
-      )
+   
+    let msg = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
+
+    let index = Index(
+      receiverTime: Timestamp(i),
+      senderTime: Timestamp(i),
+      digest: MessageDigest(data: data)
     )
-    discard testQueueDriver.add(msg)
+   
+    discard testQueueDriver.add(index, msg)
 
   return testQueueDriver
 
@@ -37,7 +38,7 @@ procSuite "Queue driver - pagination":
   let driver = getTestQueueDriver(10)
   let
     indexList: seq[Index] = toSeq(driver.fwdIterator()).mapIt(it[0])
-    msgList: seq[WakuMessage] = toSeq(driver.fwdIterator()).mapIt(it[1].msg)
+    msgList: seq[WakuMessage] = toSeq(driver.fwdIterator()).mapIt(it[1])
 
   test "Forward pagination - normal pagination":
     ## Given
@@ -211,7 +212,7 @@ procSuite "Queue driver - pagination":
       cursor: Option[Index] = none(Index)
       forward = true
 
-    proc onlyEvenTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 == 0
+    proc onlyEvenTimes(index: Index, msg: WakuMessage): bool = msg.timestamp.int64 mod 2 == 0
 
     ## When
     let page = driver.getPage(pageSize=pageSize, forward=forward, cursor=cursor, predicate=onlyEvenTimes)
@@ -392,7 +393,7 @@ procSuite "Queue driver - pagination":
       cursor: Option[Index] = none(Index)
       forward = false
 
-    proc onlyOddTimes(i: IndexedWakuMessage): bool = i.msg.timestamp.int64 mod 2 != 0
+    proc onlyOddTimes(index: Index, msg: WakuMessage): bool = msg.timestamp.int64 mod 2 != 0
 
     ## When
     let page = driver.getPage(pageSize=pageSize, forward=forward, cursor=cursor, predicate=onlyOddTimes)

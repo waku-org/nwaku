@@ -23,9 +23,9 @@ proc encode*(rpc: WakuMetadataRequest): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, rpc.clusterId)
-
   for shard in rpc.shards:
-    pb.write3(2, shard)
+    pb.write3(2, shard) # deprecated
+  pb.writePacked(3, rpc.shards)
   pb.finish3()
 
   pb
@@ -41,7 +41,13 @@ proc decode*(T: type WakuMetadataRequest, buffer: seq[byte]): ProtoResult[T] =
     rpc.clusterId = some(clusterId.uint32)
 
   var shards: seq[uint64]
-  if ?pb.getRepeatedField(2, shards):
+  if ?pb.getPackedRepeatedField(3, shards):
+    for shard in shards:
+      rpc.shards.add(shard.uint32)
+  elif ?pb.getPackedRepeatedField(2, shards):
+    for shard in shards:
+      rpc.shards.add(shard.uint32)
+  elif ?pb.getRepeatedField(2, shards):
     for shard in shards:
       rpc.shards.add(shard.uint32)
 
@@ -51,9 +57,9 @@ proc encode*(rpc: WakuMetadataResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, rpc.clusterId)
-
   for shard in rpc.shards:
-    pb.write3(2, shard)
+    pb.write3(2, shard) # deprecated
+  pb.writePacked(3, rpc.shards)
   pb.finish3()
 
   pb
@@ -69,8 +75,16 @@ proc decode*(T: type WakuMetadataResponse, buffer: seq[byte]): ProtoResult[T] =
     rpc.clusterId = some(clusterId.uint32)
 
   var shards: seq[uint64]
-  if ?pb.getRepeatedField(2, shards):
+
+  if ?pb.getPackedRepeatedField(3, shards):
     for shard in shards:
       rpc.shards.add(shard.uint32)
+  elif ?pb.getPackedRepeatedField(2, shards):
+    for shard in shards:
+      rpc.shards.add(shard.uint32)
+  elif ?pb.getRepeatedField(2, shards):
+    for shard in shards:
+      rpc.shards.add(shard.uint32)
+
 
   ok(rpc)

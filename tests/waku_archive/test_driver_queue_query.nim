@@ -30,7 +30,8 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message)
+    digest: computeDigest(message),
+    hash: computeMessageHash(pubsubTopic, message),
   )
 
 
