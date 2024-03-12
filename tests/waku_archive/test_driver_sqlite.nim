@@ -41,9 +41,10 @@ suite "SQLite driver":
     let driver = newSqliteArchiveDriver()
 
     let msg = fakeWakuMessage(contentTopic=contentTopic)
+    let msgHash = computeMessageHash(DefaultPubsubTopic, msg)
 
     ## When
-    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), computeMessageHash(DefaultPubsubTopic, msg), msg.timestamp)
+    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msgHash, msg.timestamp)
 
     ## Then
     check:
@@ -53,9 +54,10 @@ suite "SQLite driver":
     check:
       storedMsg.len == 1
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, msg, digest, storeTimestamp) = item
+        let (pubsubTopic, msg, _, _, hash) = item
         msg.contentTopic == contentTopic and
-        pubsubTopic == DefaultPubsubTopic
+        pubsubTopic == DefaultPubsubTopic and
+        hash == msgHash
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")

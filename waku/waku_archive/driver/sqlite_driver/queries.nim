@@ -5,7 +5,7 @@ else:
 
 import
   std/[options, sequtils],
-  stew/[results, byteutils],
+  stew/[results, byteutils, arrayops],
   sqlite3_abi
 import
   ../../../common/databases/db_sqlite,
@@ -24,14 +24,15 @@ proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCo
     topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, contentTopicCol))
     topicLength = sqlite3_column_bytes(s, contentTopicCol)
     contentTopic = string.fromBytes(@(toOpenArray(topic, 0, topicLength-1)))
-  let
+
     p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, payloadCol))
+
     length = sqlite3_column_bytes(s, payloadCol)
     payload = @(toOpenArray(p, 0, length-1))
-  let version = sqlite3_column_int64(s, versionCol)
-  let senderTimestamp = sqlite3_column_int64(s, senderTimestampCol)
+    version = sqlite3_column_int64(s, versionCol)
+    senderTimestamp = sqlite3_column_int64(s, senderTimestampCol)
 
-  WakuMessage(
+  return WakuMessage(
     contentTopic: ContentTopic(contentTopic),
     payload: payload ,
     version: uint32(version),
@@ -40,7 +41,7 @@ proc queryRowWakuMessageCallback(s: ptr sqlite3_stmt, contentTopicCol, payloadCo
 
 proc queryRowReceiverTimestampCallback(s: ptr sqlite3_stmt, storedAtCol: cint): Timestamp =
   let storedAt = sqlite3_column_int64(s, storedAtCol)
-  Timestamp(storedAt)
+  return Timestamp(storedAt)
 
 proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): PubsubTopic =
   let
@@ -48,7 +49,7 @@ proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): Pub
     pubsubTopicLength = sqlite3_column_bytes(s, pubsubTopicCol)
     pubsubTopic = string.fromBytes(@(toOpenArray(pubsubTopicPointer, 0, pubsubTopicLength-1)))
 
-  pubsubTopic
+  return pubsubTopic
 
 proc queryRowDigestCallback(s: ptr sqlite3_stmt, digestCol: cint): seq[byte] =
   let
@@ -56,8 +57,15 @@ proc queryRowDigestCallback(s: ptr sqlite3_stmt, digestCol: cint): seq[byte] =
     digestLength = sqlite3_column_bytes(s, digestCol)
     digest = @(toOpenArray(digestPointer, 0, digestLength-1))
 
-  digest
+  return digest
 
+proc queryRowWakuMessageHashCallback(s: ptr sqlite3_stmt, hashCol: cint): WakuMessageHash =
+  let
+    hashPointer = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, hashCol))
+    hashLength = sqlite3_column_bytes(s, hashCol)
+    hash = fromBytes(toOpenArray(hashPointer, 0, hashLength-1))
+
+  return hash
 
 ### SQLite queries
 
@@ -79,7 +87,7 @@ proc createTableQuery(table: string): SqlQueryStr =
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createTableQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
-  ok()
+  return ok()
 
 ## Create indices
 
@@ -90,8 +98,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase):
                                         DatabaseResult[void] =
   let query = createOldestMessageTimestampIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
-  ok()
-
+  return ok()
 
 proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
   "CREATE INDEX IF NOT EXISTS i_query ON " & table & " (contentTopic, pubsubTopic, storedAt, id);"
@@ -99,24 +106,24 @@ proc createHistoryQueryIndexQuery(table: string): SqlQueryStr =
 proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createHistoryQueryIndexQuery(DbTable)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
-  ok()
-
+  return ok()
 
 ## Insert message
 type InsertMessageParams* = (seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
-  "INSERT INTO " & table & "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
-  " VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+  return
+    "INSERT INTO " & table & "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
+    " VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
 
 proc prepareInsertMessageStmt*(db: SqliteDatabase): SqliteStmt[InsertMessageParams, void] =
   let query = insertMessageQuery(DbTable)
-  db.prepareStmt(query, InsertMessageParams, void).expect("this is a valid statement")
+  return db.prepareStmt(query, InsertMessageParams, void).expect("this is a valid statement")
 
 ## Count table messages
 
 proc countMessagesQuery(table: string): SqlQueryStr =
-  "SELECT COUNT(*) FROM " & table
+  return "SELECT COUNT(*) FROM " & table
 
 proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   var count: int64
@@ -128,12 +135,12 @@ proc getMessageCount*(db: SqliteDatabase): DatabaseResult[int64] =
   if res.isErr():
     return err("failed to count number of messages in the database")
 
-  ok(count)
+  return ok(count)
 
 ## Get oldest message receiver timestamp
 
 proc selectOldestMessageTimestampQuery(table: string): SqlQueryStr =
-  "SELECT MIN(storedAt) FROM " & table
+  return "SELECT MIN(storedAt) FROM " & table
 
 proc selectOldestReceiverTimestamp*(db: SqliteDatabase):
                                     DatabaseResult[Timestamp] {.inline.}=
@@ -146,12 +153,12 @@ proc selectOldestReceiverTimestamp*(db: SqliteDatabase):
   if res.isErr():
     return err("failed to get the oldest receiver timestamp from the database")
 
-  ok(timestamp)
+  return ok(timestamp)
 
 ## Get newest message receiver timestamp
 
 proc selectNewestMessageTimestampQuery(table: string): SqlQueryStr =
-  "SELECT MAX(storedAt) FROM " & table
+  return "SELECT MAX(storedAt) FROM " & table
 
 proc selectNewestReceiverTimestamp*(db: SqliteDatabase):
                                     DatabaseResult[Timestamp] {.inline.}=
@@ -164,64 +171,67 @@ proc selectNewestReceiverTimestamp*(db: SqliteDatabase):
   if res.isErr():
     return err("failed to get the newest receiver timestamp from the database")
 
-  ok(timestamp)
+  return ok(timestamp)
 
 ## Delete messages older than timestamp
 
 proc deleteMessagesOlderThanTimestampQuery(table: string, ts: Timestamp): SqlQueryStr =
-  "DELETE FROM " & table & " WHERE storedAt < " & $ts
+  return "DELETE FROM " & table & " WHERE storedAt < " & $ts
 
 proc deleteMessagesOlderThanTimestamp*(db: SqliteDatabase, ts: int64):
                                        DatabaseResult[void] =
   let query = deleteMessagesOlderThanTimestampQuery(DbTable, ts)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
-  ok()
-
+  return ok()
 
 ## Delete oldest messages not within limit
 
 proc deleteOldestMessagesNotWithinLimitQuery(table: string, limit: int): SqlQueryStr =
-  "DELETE FROM " & table & " WHERE (storedAt, id, pubsubTopic) NOT IN (" &
-  " SELECT storedAt, id, pubsubTopic FROM " & table &
-  " ORDER BY storedAt DESC, id DESC" &
-  " LIMIT " & $limit &
-  ");"
+  return 
+    "DELETE FROM " & table & " WHERE (storedAt, id, pubsubTopic) NOT IN (" &
+    " SELECT storedAt, id, pubsubTopic FROM " & table &
+    " ORDER BY storedAt DESC, id DESC" &
+    " LIMIT " & $limit &
+    ");"
 
 proc deleteOldestMessagesNotWithinLimit*(db: SqliteDatabase, limit: int):
                                          DatabaseResult[void] =
   # NOTE: The word `limit` here refers the store capacity/maximum number-of-messages allowed limit
   let query = deleteOldestMessagesNotWithinLimitQuery(DbTable, limit=limit)
   discard ?db.query(query, proc(s: ptr sqlite3_stmt) = discard)
-  ok()
+  return ok()
 
 ## Select all messages
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
-  "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id" &
-  " FROM " & table &
-  " ORDER BY storedAt ASC"
+  return 
+    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash" &
+    " FROM " & table &
+    " ORDER BY storedAt ASC"
 
 proc selectAllMessages*(db: SqliteDatabase): DatabaseResult[seq[(PubsubTopic,
                                                                  WakuMessage,
                                                                  seq[byte],
-                                                                 Timestamp)]] =
+                                                                 Timestamp,
+                                                                 WakuMessageHash)]] =
   ## Retrieve all messages from the store.
-  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
       wakuMessage = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
       digest = queryRowDigestCallback(s, digestCol=6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
+      hash = queryRowWakuMessageHashCallback(s, hashCol=7)
 
-    rows.add((pubsubTopic, wakuMessage, digest, storedAt))
+    rows.add((pubsubTopic, wakuMessage, digest, storedAt, hash))
 
   let query = selectAllMessagesQuery(DbTable)
   let res = db.query(query, queryRowCallback)
   if res.isErr():
     return err(res.error())
 
-  ok(rows)
+  return ok(rows)
 
 ## Select messages by history query with limit
 
@@ -233,13 +243,14 @@ proc combineClauses(clauses: varargs[Option[string]]): Option[string] =
   var where: string = whereSeq[0]
   for clause in whereSeq[1..^1]:
     where &= " AND " & clause
-  some(where)
+  return some(where)
 
 proc whereClause(cursor: Option[DbCursor],
                  pubsubTopic: Option[PubsubTopic],
                  contentTopic: seq[ContentTopic],
                  startTime: Option[Timestamp],
                  endTime: Option[Timestamp],
+                 hashes: seq[WakuMessageHash],
                  ascending: bool): Option[string] =
 
   let cursorClause = if cursor.isNone():
@@ -273,14 +284,36 @@ proc whereClause(cursor: Option[DbCursor],
       else:
         some("storedAt <= (?)")
 
-  combineClauses(cursorClause, pubsubTopicClause, contentTopicClause, startTimeClause, endTimeClause)
+  let hashesClause = if hashes.len <= 0:
+        none(string)
+      else:
+        var where = "messageHash IN ("
+        where &= "?"
+        for _ in 1..<hashes.len:
+          where &= ", ?"
+        where &= ")"
+        some(where)
 
-proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: uint, ascending=true): SqlQueryStr =
+  return combineClauses(
+    cursorClause,
+    pubsubTopicClause,
+    contentTopicClause,
+    startTimeClause,
+    endTimeClause,
+    hashesClause,
+    )
+
+proc selectMessagesWithLimitQuery(
+  table: string,
+  where: Option[string],
+  limit: uint,
+  ascending=true
+  ): SqlQueryStr =
   let order = if ascending: "ASC" else: "DESC"
 
   var query: string
 
-  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id"
+  query = "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash"
   query &= " FROM " & table
 
   if where.isSome():
@@ -289,12 +322,12 @@ proc selectMessagesWithLimitQuery(table: string, where: Option[string], limit: u
   query &= " ORDER BY storedAt " & order & ", id " & order
   query &= " LIMIT " & $limit & ";"
 
-  query
+  return query
 
 proc prepareSelectMessagesWithlimitStmt(db: SqliteDatabase, stmt: string): DatabaseResult[SqliteStmt[void, void]] =
   var s: RawStmtPtr
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
-  ok(SqliteStmt[void, void](s))
+  return ok(SqliteStmt[void, void](s))
 
 proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
                           cursor: Option[DbCursor],
@@ -302,6 +335,7 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
                           contentTopic: seq[ContentTopic],
                           startTime: Option[Timestamp],
                           endTime: Option[Timestamp],
+                          hashes: seq[WakuMessageHash],
                           onRowCallback: DataProc): DatabaseResult[void] =
   let s = RawStmtPtr(s)
 
@@ -324,6 +358,16 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
     checkErr bindParam(s, paramIndex, topic.toBytes())
     paramIndex += 1
 
+  for hash in hashes:
+    let bytes: array[32, byte] = hash
+    var byteSeq: seq[byte]
+
+    let byteCount = copyFrom(byteSeq, bytes)
+    assert byteCount == 32
+
+    checkErr bindParam(s, paramIndex, byteSeq)
+    paramIndex += 1
+
   if startTime.isSome():
     let time = startTime.get()
     checkErr bindParam(s, paramIndex, time)
@@ -333,7 +377,6 @@ proc execSelectMessagesWithLimitStmt(s: SqliteStmt,
     let time = endTime.get()
     checkErr bindParam(s, paramIndex, time)
     paramIndex += 1
-
 
   try:
     while true:
@@ -356,26 +399,37 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
                                             cursor: Option[DbCursor],
                                             startTime: Option[Timestamp],
                                             endTime: Option[Timestamp],
+                                            hashes: seq[WakuMessageHash],
                                             limit: uint,
                                             ascending: bool):
                                             DatabaseResult[seq[(PubsubTopic,
                                                                 WakuMessage,
                                                                 seq[byte],
-                                                                Timestamp)]] =
+                                                                Timestamp,
+                                                                WakuMessageHash)]] =
 
 
-  var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)] = @[]
+  var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)] = @[]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol=3)
       message = queryRowWakuMessageCallback(s, contentTopicCol=1, payloadCol=2, versionCol=4, senderTimestampCol=5)
       digest = queryRowDigestCallback(s, digestCol=6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol=0)
+      hash = queryRowWakuMessageHashCallback(s, hashCol=7)
 
-    messages.add((pubsubTopic, message, digest, storedAt))
+    messages.add((pubsubTopic, message, digest, storedAt, hash))
 
   let query = block:
-    let where = whereClause(cursor, pubsubTopic, contentTopic, startTime, endTime, ascending)
+    let where = whereClause(
+      cursor,
+      pubsubTopic,
+      contentTopic,
+      startTime,
+      endTime,
+      hashes,
+      ascending,
+      )
     selectMessagesWithLimitQuery(DbTable, where, limit, ascending)
 
   let dbStmt = ?db.prepareSelectMessagesWithlimitStmt(query)
@@ -385,8 +439,9 @@ proc selectMessagesByHistoryQueryWithLimit*(db: SqliteDatabase,
     contentTopic,
     startTime,
     endTime,
+    hashes,
     queryRowCallback
   )
   dbStmt.dispose()
 
-  ok(messages)
+  return ok(messages)

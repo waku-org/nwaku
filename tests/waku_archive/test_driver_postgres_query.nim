@@ -8,7 +8,6 @@ import
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver as driver_module,
-  ../../../waku/waku_archive/driver/builder,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
@@ -33,7 +32,8 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: computeDigest(message)
+    digest: computeDigest(message),
+    hash: computeMessageHash(pubsubTopic, message)
   )
 
 suite "Postgres driver - queries":
@@ -651,6 +651,45 @@ suite "Postgres driver - queries":
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages == expectedMessages[4..5].reversed()
+
+  asyncTest "only hashes - descending order":
+    ## Given
+    let timeOrigin = now()
+    var expected = @[
+      fakeWakuMessage(@[byte 0], ts=ts(00, timeOrigin)),
+      fakeWakuMessage(@[byte 1], ts=ts(10, timeOrigin)),
+      fakeWakuMessage(@[byte 2], ts=ts(20, timeOrigin)),
+      fakeWakuMessage(@[byte 3], ts=ts(30, timeOrigin)),
+      fakeWakuMessage(@[byte 4],  ts=ts(40, timeOrigin)),
+      fakeWakuMessage(@[byte 5],  ts=ts(50, timeOrigin)),
+      fakeWakuMessage(@[byte 6],  ts=ts(60, timeOrigin)),
+      fakeWakuMessage(@[byte 7],  ts=ts(70, timeOrigin)),
+      fakeWakuMessage(@[byte 8],  ts=ts(80, timeOrigin)),
+      fakeWakuMessage(@[byte 9],  ts=ts(90, timeOrigin)),
+    ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence=messages.mapIt(it.payload)
+
+    let hashes = messages.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+
+    for (msg, hash) in messages.zip(hashes):
+      require (await driver.put(DefaultPubsubTopic, msg, computeDigest(msg), hash, msg.timestamp)).isOk()
+
+    ## When
+    let res = await driver.getMessages(
+      hashes=hashes,
+      ascendingOrder=false
+    )
+
+    ## Then
+    assert res.isOk(), res.error
+
+    let expectedMessages = expected.reversed()
+    let filteredMessages = res.tryGet().mapIt(it[1])
+    check:
+      filteredMessages == expectedMessages
 
   asyncTest "start time only":
     ## Given

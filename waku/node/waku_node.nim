@@ -777,14 +777,14 @@ proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
                    Result[void, string] =
+  node.wakuArchive = WakuArchive.new(
+    driver = driver,
+    retentionPolicy = retentionPolicy,
+    ).valueOr:
+    return err("error in mountArchive: " & error)
 
-  let wakuArchiveRes = WakuArchive.new(driver,
-                                       retentionPolicy)
-  if wakuArchiveRes.isErr():
-    return err("error in mountArchive: " & wakuArchiveRes.error)
+  node.wakuArchive.start()
 
-  node.wakuArchive = wakuArchiveRes.get()
-  asyncSpawn node.wakuArchive.start()
   return ok()
 
 ## Waku store
@@ -1194,7 +1194,7 @@ proc stop*(node: WakuNode) {.async.} =
       error "exception stopping the node", error=getCurrentExceptionMsg()
 
   if not node.wakuArchive.isNil():
-    await node.wakuArchive.stop()
+    await node.wakuArchive.stopWait()
 
   node.started = false
 

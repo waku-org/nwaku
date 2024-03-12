@@ -4,8 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[nre,options,sequtils,strutils,strformat,times],
-  stew/[results,byteutils],
+  std/[nre, options, sequtils, strutils, strformat, times],
+  stew/[results, byteutils, arrayops],
   db_postgres,
   postgres,
   chronos,
@@ -36,7 +36,7 @@ const InsertRowStmtDefinition =
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -45,7 +45,7 @@ const SelectNoCursorAscStmtDef =
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -54,7 +54,7 @@ const SelectNoCursorDescStmtDef =
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) < ($3,$4) AND
@@ -64,7 +64,7 @@ const SelectWithCursorDescStmtDef =
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages
+ """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) > ($3,$4) AND
@@ -107,8 +107,10 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
   return ret
 
-proc rowCallbackImpl(pqResult: ptr PGresult,
-                     outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]) =
+proc rowCallbackImpl(
+  pqResult: ptr PGresult,
+  outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)],
+  ) =
   ## Proc aimed to contain the logic of the callback passed to the `psasyncpool`.
   ## That callback is used in "SELECT" queries.
   ##
@@ -116,7 +118,7 @@ proc rowCallbackImpl(pqResult: ptr PGresult,
   ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
 
   let numFields = pqResult.pqnfields()
-  if numFields != 7:
+  if numFields != 8:
     error "Wrong number of fields"
     return
 
@@ -130,7 +132,9 @@ proc rowCallbackImpl(pqResult: ptr PGresult,
     var storedAt: int64
     var digest: string
     var payload: string
-
+    var hashHex: string
+    var msgHash: WakuMessageHash
+    
     try:
       storedAt = parseInt( $(pqgetvalue(pqResult, iRow, 0)) )
       contentTopic = $(pqgetvalue(pqResult, iRow, 1))
@@ -139,6 +143,8 @@ proc rowCallbackImpl(pqResult: ptr PGresult,
       version = parseUInt( $(pqgetvalue(pqResult, iRow, 4)) )
       timestamp = parseInt( $(pqgetvalue(pqResult, iRow, 5)) )
       digest = parseHexStr( $(pqgetvalue(pqResult, iRow, 6)) )
+      hashHex = parseHexStr( $(pqgetvalue(pqResult, iRow, 7)) )
+      msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
 
@@ -150,7 +156,9 @@ proc rowCallbackImpl(pqResult: ptr PGresult,
     outRows.add((pubSubTopic,
                  wakuMessage,
                  @(digest.toOpenArrayByte(0, digest.high)),
-                 storedAt))
+                 storedAt,
+                 msgHash,
+                 ))
 
 method put*(s: PostgresDriver,
             pubsubTopic: PubsubTopic,
@@ -195,13 +203,13 @@ method getAllMessages*(s: PostgresDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
 
-  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
   (await s.readConnPool.pgQuery("""SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
-                                       id FROM messages ORDER BY storedAt ASC""",
+                                       id, messageHash FROM messages ORDER BY storedAt ASC""",
                                        newSeq[string](0),
                                        rowCallback
                               )).isOkOr:
@@ -242,12 +250,13 @@ proc getMessagesArbitraryQuery(s: PostgresDriver,
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
+                    hexHashes: seq[string] = @[],
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
-  var query = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id FROM messages"""
+  var query = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
@@ -255,6 +264,12 @@ proc getMessagesArbitraryQuery(s: PostgresDriver,
     let cstmt = "contentTopic IN (" & "?".repeat(contentTopic.len).join(",") & ")"
     statements.add(cstmt)
     for t in contentTopic:
+      args.add(t)
+
+  if hexHashes.len > 0:
+    let cstmt = "messageHash IN (" & "?".repeat(hexHashes.len).join(",") & ")"
+    statements.add(cstmt)
+    for t in hexHashes:
       args.add(t)
 
   if pubsubTopic.isSome():
@@ -289,10 +304,10 @@ proc getMessagesArbitraryQuery(s: PostgresDriver,
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
-
+  
   (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
     return err("failed to run query: " & $error)
 
@@ -313,7 +328,7 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   ##
   ## contentTopic - string with list of conten topics. e.g: "'ctopic1','ctopic2','ctopic3'"
 
-  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
@@ -327,7 +342,7 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
 
     let digest = toHex(cursor.get().digest.data)
     let storeTime = $cursor.get().storeTime
-
+    
     (await s.readConnPool.runStmt(
                                   stmtName,
                                   stmtDef,
@@ -354,6 +369,7 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   else:
     var stmtName = if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
     var stmtDef = if ascOrder: SelectNoCursorAscStmtDef else: SelectNoCursorDescStmtDef
+    
     (await s.readConnPool.runStmt(stmtName,
                                   stmtDef,
                                  @[contentTopic,
@@ -374,15 +390,17 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   return ok(rows)
 
 method getMessages*(s: PostgresDriver,
-                    contentTopicSeq: seq[ContentTopic] = @[],
+                    contentTopicSeq = newSeq[ContentTopic](0),
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
+                    hashes = newSeq[WakuMessageHash](0),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-
+  let hexHashes = hashes.mapIt(toHex(it))
+  
   if contentTopicSeq.len == 1 and
     pubsubTopic.isSome() and
     startTime.isSome() and
@@ -399,12 +417,13 @@ method getMessages*(s: PostgresDriver,
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesArbitraryQuery(contentTopicSeq,
-                                             pubsubTopic,
-                                             cursor,
-                                             startTime,
-                                             endTime,
-                                             maxPageSize,
-                                             ascendingOrder)
+                                              pubsubTopic,
+                                              cursor,
+                                              startTime,
+                                              endTime,
+                                              hexHashes,
+                                              maxPageSize,
+                                              ascendingOrder)
 
 proc getStr(s: PostgresDriver,
             query: string):
