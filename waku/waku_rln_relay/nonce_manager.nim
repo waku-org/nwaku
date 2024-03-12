@@ -43,9 +43,9 @@ proc `$`*(ne: NonceManagerError): string =
   of NonceLimitReached:
     return "NonceLimitReached: " & ne.error
 
-proc init*(T: type NonceManager, nonceLimit: Nonce): T =
+proc init*(T: type NonceManager, nonceLimit: Nonce, epoch = 1.float64): T =
   return NonceManager(
-    epoch: 0,
+    epoch: epoch,
     nextNonce: 0,
     lastNonceTime: 0,
     nonceLimit: nonceLimit
@@ -62,6 +62,6 @@ proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
 
   if retNonce >= n.nonceLimit:
     return err(NonceManagerError(kind: NonceLimitReached, 
-                                 error: "Nonce limit reached. Please wait for the next epoch"))
+                                 error: "Nonce limit reached. Please wait for the next epoch. requested nonce: " & $retNonce & " & nonceLimit: " & $n.nonceLimit))
   
   return ok(retNonce)

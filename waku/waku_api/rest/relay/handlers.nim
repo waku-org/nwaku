@@ -132,7 +132,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
       # append the proof to the message
       node.wakuRlnRelay.appendRLNProof(message,
                                        float64(getTime().toUnix())).isOkOr:
-        return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message")
+        return RestApiResponse.internalServerError("Failed to publish: error appending RLN proof to message: " & $error)
 
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
@@ -220,7 +220,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     if not node.wakuRlnRelay.isNil():
       node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError(
-          "Failed to publish: error appending RLN proof to message")
+          "Failed to publish: error appending RLN proof to message: " & $error)
 
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)

@@ -163,7 +163,11 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
 when defined(rln_v2):
   proc toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[seq[byte]] =
     let idCommitment = rateCommitment.idCommitment
-    let userMessageLimit =  cast[array[32, byte]](rateCommitment.userMessageLimit)
+    var userMessageLimit: array[32, byte]
+    try:
+      discard userMessageLimit.copyFrom(toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian))
+    except CatchableError:
+      return err("could not convert the user message limit to bytes: " & getCurrentExceptionMsg())
     let leaf = poseidon(@[@idCommitment, @userMessageLimit]).valueOr:
       return err("could not convert the rate commitment to a leaf")
     var retLeaf = newSeq[byte](leaf.len)
@@ -179,27 +183,16 @@ when defined(rln_v2):
       leaves.add(leaf)
     return ok(leaves)
 
-  # TODO: collocate this proc with the definition of the RateLimitProof
-  # and the ProofMetadata types
-  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
-    return ok(ProofMetadata(
-      nullifier: proof.nullifier,
-      shareX: proof.shareX,
-      shareY: proof.shareY,
-      externalNullifier: proof.externalNullifier
-    ))
-else:
-  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
-    let externalNullifierRes = poseidon(@[@(proof.epoch),
-                                          @(proof.rlnIdentifier)])
-    if externalNullifierRes.isErr():
-      return err("could not construct the external nullifier")
-    return ok(ProofMetadata(
-      nullifier: proof.nullifier,
-      shareX: proof.shareX,
-      shareY: proof.shareY,
-      externalNullifier: externalNullifierRes.get()
-    ))
+proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
+  let externalNullifier = poseidon(@[@(proof.epoch),
+                                     @(proof.rlnIdentifier)]).valueOr:
+    return err("could not construct the external nullifier")
+  return ok(ProofMetadata(
+    nullifier: proof.nullifier,
+    shareX: proof.shareX,
+    shareY: proof.shareY,
+    externalNullifier: externalNullifier
+  ))
 
 when defined(rln_v2):
   proc proofGen*(rlnInstance: ptr RLN, 
@@ -266,6 +259,8 @@ when defined(rln_v2):
     let output = RateLimitProof(proof: zkproof,
                                 merkleRoot: proofRoot,
                                 externalNullifier: externalNullifier,
+                                epoch: epoch,
+                                rlnIdentifier: rlnIdentifier,
                                 shareX: shareX,
                                 shareY: shareY,
                                 nullifier: nullifier)
@@ -339,8 +334,15 @@ proc proofVerify*(rlnInstance: ptr RLN,
                   validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
   ## verifies the proof, returns an error if the proof verification fails
   ## returns true if the proof is valid
+  var normalizedProof = proof
+  when defined(rln_v2):
+    # when we do this, we ensure that we compute the proof for the derived value
+    # of the externalNullifier. The proof verification will fail if a malicious peer
+    # attaches invalid epoch+rlnidentifier pair
+    normalizedProof.externalNullifier = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)]).valueOr:
+      return err("could not construct the external nullifier")
   var
-    proofBytes = serialize(proof, data)
+    proofBytes = serialize(normalizedProof, data)
     proofBuffer = proofBytes.toBuffer()
     validProof: bool
     rootsBytes = serialize(validRoots)

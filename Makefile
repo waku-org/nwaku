@@ -135,7 +135,7 @@ clean: | clean-libbacktrace
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
-LIBRLN_VERSION := v0.4.1
+LIBRLN_VERSION := v0.4.2
 else
 LIBRLN_VERSION := v0.3.6
 endif

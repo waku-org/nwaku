@@ -14,11 +14,13 @@ import
   ../../../waku/waku_node,
   ../../../waku/waku_rln_relay,
   ../testlib/wakucore,
-  ../testlib/wakunode
+  ../testlib/wakunode,
+  ./rln/waku_rln_relay_utils
 
 from std/times import epochTime
 
 procSuite "WakuNode - RLN relay":
+  # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
   asyncTest "testing rln-relay with valid proof":
 
     let
@@ -39,33 +41,54 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"))
+    else:
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"))
+    await node1.mountRlnRelay(wakuRlnConfig1)
 
     await node1.start()
 
     # node 2
     await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
-    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"))
+    else:
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_2"))
+    await node2.mountRlnRelay(wakuRlnConfig2)
 
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[DefaultPubsubTopic])
 
-    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"))
+    else:
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_3"))
+    await node3.mountRlnRelay(wakuRlnConfig3)
 
     await node3.start()
 
@@ -88,7 +111,7 @@ procSuite "WakuNode - RLN relay":
 
     # prepare the epoch
     var message = WakuMessage(payload: @payload, contentTopic: contentTopic)
-    doAssert(node1.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
+    doAssert(node1.wakuRlnRelay.unsafeAppendRLNProof(message, epochTime()).isOk())
 
 
     ## node1 publishes a message with a rate limit proof, the message is then relayed to node2 which in turn
@@ -123,10 +146,18 @@ procSuite "WakuNode - RLN relay":
 
     # mount rlnrelay in off-chain mode
     for index, node in nodes:
-      await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index.uint + 1),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index+1))))
+      when defined(rln_v2):
+        let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+                                          rlnRelayCredIndex: some(index.uint + 1),
+                                          rlnRelayUserMessageLimit: 1,
+                                          rlnEpochSizeSec: 1,
+                                          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index+1)))
+      else:
+        let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+                                          rlnRelayCredIndex: some(index.uint + 1),
+                                          rlnEpochSizeSec: 1,
+                                          rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $(index+1)))
+      await node.mountRlnRelay(wakuRlnConfig)
 
     # start them
     await allFutures(nodes.mapIt(it.start()))
@@ -159,12 +190,14 @@ procSuite "WakuNode - RLN relay":
 
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[0])
-      doAssert(nodes[0].wakuRlnRelay.appendRLNProof(message, epochTime).isOk())
+      nodes[0].wakuRlnRelay.unsafeAppendRLNProof(message, epochTime).isOkOr:
+        raiseAssert $error
       messages1.add(message)
 
     for i in 0..<3:
       var message = WakuMessage(payload: ("Payload_" & $i).toBytes(), contentTopic: contentTopics[1])
-      doAssert(nodes[1].wakuRlnRelay.appendRLNProof(message, epochTime).isOk())
+      nodes[1].wakuRlnRelay.unsafeAppendRLNProof(message, epochTime).isOkOr:
+        raiseAssert $error
       messages2.add(message)
 
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
@@ -202,34 +235,54 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"))
+    else:
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_4"))
+    await node1.mountRlnRelay(wakuRlnConfig1)
 
     await node1.start()
 
     # node 2
     await node2.mountRelay(@[DefaultPubsubTopic])
     # mount rlnrelay in off-chain mode
-    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"))
+    else:
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_5"))
+    await node2.mountRlnRelay(wakuRlnConfig2)
 
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[DefaultPubsubTopic])
 
-    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"),
-    ))
-
+    when defined(rln_v2):
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"))
+    else:
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_6"))
+    await node3.mountRlnRelay(wakuRlnConfig3)
     await node3.start()
 
     # connect them together
@@ -261,14 +314,13 @@ procSuite "WakuNode - RLN relay":
 
     when defined(rln_v2):
       let nonceManager = node1.wakuRlnRelay.nonceManager
-      let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(input, 
+      let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(concat(input, extraBytes), 
                                                                             epoch,
                                                                             MessageId(0))
     else:
       let rateLimitProofRes = node1.wakuRlnRelay.groupManager.generateProof(concat(input, extraBytes),   # we add extra bytes to invalidate proof verification against original payload
                                                                             epoch)
-    require:
-      rateLimitProofRes.isOk()
+    assert rateLimitProofRes.isOk(), $rateLimitProofRes.error # check the proof is generated correctly outside when block to avoid duplication
     let rateLimitProof = rateLimitProofRes.get().encode().buffer
 
     let message = WakuMessage(payload: @payload,
@@ -311,11 +363,18 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"))
+    else:
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_7"))
+    await node1.mountRlnRelay(wakuRlnConfig1)
 
     await node1.start()
 
@@ -323,23 +382,36 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"),
-    ))
-
+    when defined(rln_v2):
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"))
+    else:
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_8"))
+    await node2.mountRlnRelay(wakuRlnConfig2)
     await node2.start()
 
     # node 3
     await node3.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node3.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(3.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"))
+    else:
+      let wakuRlnConfig3 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(3.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"))
+    await node3.mountRlnRelay(wakuRlnConfig3)
 
     await node3.start()
 
@@ -352,20 +424,18 @@ procSuite "WakuNode - RLN relay":
     #  create some messages with rate limit proofs
     var
       wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-      proofAdded1 = node3.wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-      proofAdded2 = node3.wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-      proofAdded3 = node3.wakuRlnRelay.appendRLNProof(wm3, time+float64(node3.wakuRlnRelay.rlnEpochSizeSec))
       wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
-
-    #  check proofs are added correctly
-    check:
-      proofAdded1.isOk()
-      proofAdded2.isOk()
-      proofAdded3.isOk()
+    
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
+    node3.wakuRlnRelay.unsafeAppendRLNProof(wm3, time+float64(node3.wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
+      raiseAssert $error
 
     #  relay handler for node3
     var completionFut1 = newFuture[bool]()
@@ -434,11 +504,18 @@ procSuite "WakuNode - RLN relay":
     await node1.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node1.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"))
+    else:
+      let wakuRlnConfig1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(1.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"))
+    await node1.mountRlnRelay(wakuRlnConfig1)
 
     await node1.start()
 
@@ -446,11 +523,18 @@ procSuite "WakuNode - RLN relay":
     await node2.mountRelay(@[DefaultPubsubTopic])
 
     # mount rlnrelay in off-chain mode
-    await node2.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
-    ))
+    when defined(rln_v2):
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"))
+    else:
+      let wakuRlnConfig2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(2.uint),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"))
+    await node2.mountRlnRelay(wakuRlnConfig2)
 
     await node2.start()
 
@@ -461,19 +545,17 @@ procSuite "WakuNode - RLN relay":
     #  create some messages with rate limit proofs
     var
       wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-      proofAdded1 = node1.wakuRlnRelay.appendRLNProof(wm1, time)
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-      proofAdded2 = node1.wakuRlnRelay.appendRLNProof(wm2, time)
       #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
-      proofAdded3 = node1.wakuRlnRelay.appendRLNProof(wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2))
 
-    #  check proofs are added correctly
-    check:
-      proofAdded1.isOk()
-      proofAdded2.isOk()
-      proofAdded3.isOk()
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2)).isOkOr:
+      raiseAssert $error
 
     #  relay handler for node2
     var completionFut1 = newFuture[bool]()
