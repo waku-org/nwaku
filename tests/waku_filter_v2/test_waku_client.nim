@@ -21,14 +21,14 @@ import
 import
   ../../../waku/[
     node/peer_manager,
-    waku_core,
-    waku_filter/rpc_codec
+    waku_core
   ],
   ../../../waku/waku_filter_v2/[
     common,
     client,
     subscriptions,
-    protocol
+    protocol,
+    rpc_codec
   ],
   ../testlib/[
     wakucore,
@@ -2013,8 +2013,8 @@ suite "Waku Filter - End to End":
           msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
           msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB
           msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize - 1024)) # Max Size (Inclusive Limit)
-          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxRpcSize)) # Max Size (Exclusive Limit)
+          msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxPushSize - 1024)) # Max Push RPC Size (Inclusive Limit)
+          msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxPushSize)) # Max Push RPC Size (Exclusive Limit)
 
         # When sending the 1KiB message
         await wakuFilter.handleMessage(pubsubTopic, msg1)
@@ -2048,7 +2048,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic3 == pubsubTopic
           pushedMsg3 == msg3
 
-        # When sending the MaxRpcSize - 1024B message
+        # When sending the MaxPushSize - 1024B message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg4)
 
@@ -2059,7 +2059,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic4 == pubsubTopic
           pushedMsg4 == msg4
 
-        # When sending the MaxRpcSize message
+        # When sending the MaxPushSize message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg5)
 
