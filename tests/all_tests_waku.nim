@@ -81,3 +81,6 @@ import
   ./wakunode_rest/test_rest_cors
 
 import ./waku_rln_relay/test_all
+
+# Node Factory
+import ./factory/test_node_factory
