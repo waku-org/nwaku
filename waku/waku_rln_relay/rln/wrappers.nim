@@ -164,7 +164,10 @@ when defined(rln_v2):
   proc toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[seq[byte]] =
     let idCommitment = rateCommitment.idCommitment
     var userMessageLimit: array[32, byte]
-    discard userMessageLimit.copyFrom(toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian))
+    try:
+      discard userMessageLimit.copyFrom(toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian))
+    except CatchableError:
+      return err("could not convert the user message limit to bytes: " & getCurrentExceptionMsg())
     let leaf = poseidon(@[@idCommitment, @userMessageLimit]).valueOr:
       return err("could not convert the rate commitment to a leaf")
     var retLeaf = newSeq[byte](leaf.len)
