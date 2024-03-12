@@ -63,9 +63,12 @@ func decodeRequestBody[T](
 
   return ok(requestResult.get())
 
-proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
+proc getStatusDesc(protocolClientRes: filter_protocol_type.FilterSubscribeResult): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
+  if protocolClientRes.isOk:
+    return "OK"
 
+  let err = protocolClientRes.error
   case err.kind
   of FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
     err.address
@@ -81,16 +84,10 @@ proc convertResponse(
     protocolClientRes: filter_protocol_type.FilterSubscribeResult,
 ): T =
   ## Properly convert filter protocol's response to rest response
-
-  if protocolClientRes.isErr():
-    return FilterSubscriptionResponse(
-      requestId: requestId,
-      statusCode: uint32(protocolClientRes.error().kind),
-      statusDesc: getErrorCause(protocolClientRes.error()),
-    )
-  else:
-    return
-      FilterSubscriptionResponse(requestId: requestId, statusCode: 0, statusDesc: "")
+  return FilterSubscriptionResponse(
+    requestId: requestId,
+    statusDesc: getStatusDesc(protocolClientRes),
+  )
 
 proc convertResponse(
     T: type FilterSubscriptionResponse,
@@ -98,10 +95,8 @@ proc convertResponse(
     protocolClientRes: filter_protocol_type.FilterSubscribeError,
 ): T =
   ## Properly convert filter protocol's response to rest response in case of error
-
   return FilterSubscriptionResponse(
     requestId: requestId,
-    statusCode: uint32(protocolClientRes.kind),
     statusDesc: $protocolClientRes,
   )
 

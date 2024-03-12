@@ -47,7 +47,6 @@ type FilterUnsubscribeAllRequest* = object
 
 type FilterSubscriptionResponse* = object
   requestId*: string
-  statusCode*: uint32
   statusDesc*: string
 
 #### Type conversion
@@ -119,7 +118,6 @@ proc writeValue*(
 ) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
-  writer.writeField("statusCode", value.statusCode)
   writer.writeField("statusDesc", value.statusDesc)
   writer.endRecord()
 
@@ -406,7 +404,6 @@ proc readValue*(
 ) {.raises: [SerializationError, IOError].} =
   var
     requestId = none(string)
-    statusCode = none(uint32)
     statusDesc = none(string)
 
   var keys = initHashSet[string]()
@@ -423,8 +420,6 @@ proc readValue*(
     case fieldName
     of "requestId":
       requestId = some(reader.readValue(string))
-    of "statusCode":
-      statusCode = some(reader.readValue(uint32))
     of "statusDesc":
       statusDesc = some(reader.readValue(string))
     else:
@@ -435,6 +430,5 @@ proc readValue*(
 
   value = FilterSubscriptionResponse(
     requestId: requestId.get(),
-    statusCode: statusCode.get(),
     statusDesc: statusDesc.get(""),
   )
