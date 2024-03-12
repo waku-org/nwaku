@@ -211,7 +211,7 @@ proc installRelayApiHandlers*(router: var RestRouter, node: WakuNode, cache: Mes
     var message: WakuMessage = req.toWakuMessage(version = 0).valueOr:
       return RestApiResponse.badRequest()
 
-    let pubsubTopic = getShard(message.contentTopic).valueOr:
+    let pubsubTopic = node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "publish error", msg=msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)

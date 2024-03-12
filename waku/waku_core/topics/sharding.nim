@@ -19,11 +19,16 @@ import
   ./content_topic,
   ./pubsub_topic
 
-## For indices allocation and other magic numbers refer to RFC 64
-const ClusterId* = 1
-const GenerationZeroShardsCount* = 8
+type Sharding* = object
+  clusterId*: uint32
+  # TODO: generations could be stored in a table here
+  shardCountGenZero*: uint32
 
-proc getGenZeroShard*(topic: NsContentTopic, count: int): NsPubsubTopic =
+proc new*(T: type Sharding, clusterId: uint32, shardCount: uint32): T =
+  return Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+
+
+proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubTopic =
   let bytes = toBytes(topic.application) & toBytes(topic.version)
 
   let hash = sha256.digest(bytes)
@@ -33,35 +38,35 @@ proc getGenZeroShard*(topic: NsContentTopic, count: int): NsPubsubTopic =
 
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
- 
-  NsPubsubTopic.staticSharding(ClusterId, uint16(shard))
 
-proc getShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
+  NsPubsubTopic.staticSharding(uint16(s.clusterId), uint16(shard))
+
+proc getShard*(s: Sharding, topic: NsContentTopic): Result[NsPubsubTopic, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.
-  
+
   if topic.generation.isNone():
     ## Implicit generation # is 0 for all content topic
-    return ok(getGenZeroShard(topic, GenerationZeroShardsCount))
- 
+    return ok(s.getGenZeroShard(topic, int(s.shardCountGenZero)))
+
   case topic.generation.get():
-    of 0: return ok(getGenZeroShard(topic, GenerationZeroShardsCount))
+    of 0: return ok(s.getGenZeroShard(topic, int(s.shardCountGenZero)))
     else: return err("Generation > 0 are not supported yet")
 
-proc getShard*(topic: ContentTopic): Result[PubsubTopic, string] =
+proc getShard*(s: Sharding, topic: ContentTopic): Result[PubsubTopic, string] =
   let parsedTopic = NsContentTopic.parse(topic).valueOr:
     return err($error)
 
-  let shard = ?getShard(parsedTopic)
+  let shard = ?s.getShard(parsedTopic)
 
   ok($shard)
 
-proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]): Result[Table[NsPubsubTopic, seq[NsContentTopic]], string] =
+proc parseSharding*(s: Sharding, pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopic|seq[ContentTopic]): Result[Table[NsPubsubTopic, seq[NsContentTopic]], string] =
   var topics: seq[ContentTopic]
   when contentTopics is seq[ContentTopic]:
     topics = contentTopics
   else:
     topics = @[contentTopics]
-  
+
   var topicMap = initTable[NsPubsubTopic, seq[NsContentTopic]]()
   for contentTopic in topics:
     let parseRes = NsContentTopic.parse(contentTopic)
@@ -79,7 +84,7 @@ proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopi
           return err("Cannot parse pubsub topic: " & $parseRes.error)
         else: parseRes.get()
       else:
-        let shardsRes = getShard(content)
+        let shardsRes = s.getShard(content)
 
         if shardsRes.isErr():
           return err("Cannot autoshard content topic: " & $shardsRes.error)
@@ -87,7 +92,7 @@ proc parseSharding*(pubsubTopic: Option[PubsubTopic], contentTopics: ContentTopi
 
     if not topicMap.hasKey(pubsub):
       topicMap[pubsub] = @[]
-    
+
     try:
       topicMap[pubsub].add(content)
     except CatchableError:

@@ -27,8 +27,8 @@ const
 
 type
   RelayShards* = object
-    clusterId: uint16
-    shardIds: seq[uint16]
+    clusterId*: uint16
+    shardIds*: seq[uint16]
 
 func clusterId*(rs: RelayShards): uint16 =
   rs.clusterId
