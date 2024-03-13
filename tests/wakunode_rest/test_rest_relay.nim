@@ -263,6 +263,7 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
+    require node.mountSharding(1, 8).isOk
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -276,12 +277,10 @@ suite "Waku v2 Rest API - Relay":
     restServer.start()
 
     let contentTopics = @[
-      ContentTopic("/waku/2/default-content1/proto"),
-      ContentTopic("/waku/2/default-content2/proto"),
-      ContentTopic("/waku/2/default-content3/proto")
+      ContentTopic("/app-1/2/default-content/proto"),
+      ContentTopic("/app-2/2/default-content/proto"),
+      ContentTopic("/app-3/2/default-content/proto")
     ]
-
-    let shards = contentTopics.mapIt(getShard(it).expect("Valid Shard")).deduplicate()
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -300,7 +299,7 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       # Node should be subscribed to all shards
-      toSeq(node.wakuRelay.subscribedTopics).len == shards.len
+      node.wakuRelay.subscribedTopics == @["/waku/2/rs/1/7", "/waku/2/rs/1/2", "/waku/2/rs/1/5"]
 
     await restServer.stop()
     await restServer.closeWait()

@@ -506,10 +506,11 @@ suite "WakuNode - Relay":
 
     await node.start()
     await node.mountRelay()
+    require node.mountSharding(1, 1).isOk
 
     ## Given
     let
-      shard = "/waku/2/rs/1/1"
+      shard = "/waku/2/rs/1/0"
       contentTopicA = DefaultContentTopic
       contentTopicB = ContentTopic("/waku/2/default-content1/proto")
       contentTopicC = ContentTopic("/waku/2/default-content2/proto")
@@ -520,10 +521,9 @@ suite "WakuNode - Relay":
           ): Future[void] {.gcsafe, raises: [Defect].} =
           discard pubsubTopic
           discard message
-
-    assert shard == getShard(contentTopicA).expect("Valid Topic"), "topic must use the same shard"
-    assert shard == getShard(contentTopicB).expect("Valid Topic"), "topic must use the same shard"
-    assert shard == getShard(contentTopicC).expect("Valid Topic"), "topic must use the same shard"
+    assert shard == node.wakuSharding.getShard(contentTopicA).expect("Valid Topic"), "topic must use the same shard"
+    assert shard == node.wakuSharding.getShard(contentTopicB).expect("Valid Topic"), "topic must use the same shard"
+    assert shard == node.wakuSharding.getShard(contentTopicC).expect("Valid Topic"), "topic must use the same shard"
 
     ## When
     node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler))
