@@ -19,14 +19,6 @@ const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & 
 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
-#[ proc StringtoBytes(data: cstring): seq[byte] =
-  let size = data.len()
-
-  var bytes = newSeq[byte](size)
-  copyMem(bytes[0].addr, data[0].unsafeAddr, size)
-
-  return bytes ]#
-
 type Buffer* = object
   len*: uint64
   `ptr`*: ptr uint8
@@ -101,13 +93,13 @@ type
 proc constructNegentropy(storage: Storage, frameSizeLimit: uint64): Negentropy {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(negentropy: Negentropy, output: ptr Buffer): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+proc raw_initiate(negentropy: Negentropy, r: ptr BindingResult): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
 proc raw_setInitiator(negentropy: Negentropy) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
+proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 #[ 
 type
   ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
@@ -118,7 +110,7 @@ type
 
 proc free*(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
 
-proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
+proc raw_reconcile_with_ids(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
 proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
 
@@ -168,13 +160,16 @@ proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
 
 proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
   ## Client inititate a sync session with a server by sending a payload 
-  
-  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
-  var outBuffer: Buffer = toBuffer(output)
-  let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
-  let bytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  var myResultPtr = addr myResult
 
-  debug "received return from initiate", len=outLen
+  let ret = raw_initiate(negentropy, myResultPtr)
+  if ret < 0 or myResultPtr == nil:
+    error "negentropy initiate failed with code ", code=ret
+    return err("ERROR from raw_initiate!")
+  let bytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
+  free_result(myResultPtr)
+  debug "received return from initiate", len=myResultPtr.output.len
   
   return ok(NegentropyPayload(bytes))
 
@@ -190,15 +185,18 @@ proc serverReconcile*(
   
   let queryBuf = toBuffer(seq[byte](query))
   var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
-  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
-  var outBuffer: Buffer = toBuffer(output)
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  var myResultPtr = addr myResult
 
-  let outLen: int = raw_reconcile(negentropy, queryBufPtr, outBuffer.unsafeAddr)
-  debug "received return from raw_reconcile", len=outLen
+  let ret = raw_reconcile(negentropy, queryBufPtr, myResultPtr)
+  if ret < 0 or myResultPtr == nil:
+    error "raw_reconcile failed with code ", code=ret
+    return err("ERROR from raw_reconcile!")
+  debug "received return from raw_reconcile", len=myResultPtr.output.len
 
-  let outputBytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  let outputBytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
   debug "outputBytes len", len=outputBytes.len
-
+  free_result(myResultPtr)
   #TODO error handling
 
   return ok(NegentropyPayload(outputBytes))
@@ -219,7 +217,7 @@ proc clientReconcile*(
   myResult.need_ids_len = 0
   var myResultPtr = addr myResult
 
-  raw_reconcile(negentropy, cQuery.unsafeAddr, myResultPtr)
+  raw_reconcile_with_ids(negentropy, cQuery.unsafeAddr, myResultPtr)
 
   if myResultPtr == nil:
     return err("ERROR from raw_reconcile!")
@@ -247,42 +245,6 @@ proc clientReconcile*(
     debug "need hashes ", index=i, hash=hash.to0xHex()
     needIds.add(hash)
 
-
-#[  Callback Approach, to be uncommented later during optimization phase    
-  var 
-    cppHaveIds: cstringArray = allocCStringArray([])
-    cppNeedIds: cstringArray = allocCStringArray([])
-    haveIdsLen: uint
-    needIdsLen: uint
-    output: seq[byte] = newSeq[byte](1) #TODO: fix this hack.
-
-  
-    let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
-                                        need_ids_len:uint64, outBuffer: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.} = 
-      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len  , outBufLen=outBuffer.len    
-      if outBuffer.len > 0:
-        let ret = BufferToBytes(outBuffer)
-        outptr = cast[ptr cchar](ret[0].unsafeAddr)
-      
-  try:
-    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler, cast[ptr cchar](output[0].unsafeAddr))
-    if ret != 0:
-      error "failed to reconcile"
-      return 
-  except Exception as e:
-    error "exception raised from raw_reconcile", error=e.msg ]#
-
-  
-#[   debug "haveIdsLen", len=haveIdsLen
-
-  for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
-    haveIds.add(toWakuMessageHash(ele))
-
-  for ele in cstringArrayToSeq(cppNeedIds, needIdsLen):
-    needIds.add(toWakuMessageHash(ele))
-
-  deallocCStringArray(cppHaveIds)
-  deallocCStringArray(cppNeedIds) ]#
   debug "return " , output=output, len = output.len
 
   free_result(myResultPtr)
