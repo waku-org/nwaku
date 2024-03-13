@@ -1,5 +1,5 @@
 const ContentScriptVersion_2* = """
-DROP TABLE IF EXISTS messages_backup;
+ALTER TABLE IF EXISTS messages_backup RENAME TO messages;
 ALTER TABLE messages RENAME TO messages_backup;
 ALTER TABLE messages_backup DROP CONSTRAINT messageIndex;
 
