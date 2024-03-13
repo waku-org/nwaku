@@ -507,7 +507,6 @@ suite "WakuNode - Relay":
     await node.start()
     await node.mountRelay()
     require node.mountSharding(1, 1).isOk
-    echo node.wakuSharding.getShard(DefaultContentTopic)
 
     ## Given
     let
