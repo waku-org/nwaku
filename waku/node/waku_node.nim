@@ -93,6 +93,7 @@ type
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
+    wakuSharding*: Sharding
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -195,6 +196,12 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
 
   return ok()
 
+## Waku Sharding
+proc mountSharding*(node: WakuNode, clusterId: uint32, shardCount: uint32): Result[void, string] =
+  info "mounting sharding", clusterId=clusterId, shardCount=shardCount
+  node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+  return ok()
+
 ## Waku relay
 
 proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
@@ -245,7 +252,7 @@ proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentSub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -278,7 +285,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentUnsub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -319,7 +326,7 @@ proc publish*(
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
-    getShard(message.contentTopic).valueOr:
+    node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "publish error", msg=msg
       return err(msg)
@@ -471,7 +478,7 @@ proc filterSubscribe*(node: WakuNode,
 
     return subRes
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -539,7 +546,7 @@ proc filterUnsubscribe*(node: WakuNode,
     return unsubRes
 
   else: # pubsubTopic.isNone
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -778,7 +785,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
     return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
-  let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
+  let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
 
   let topicMap =
     if topicMapRes.isErr():

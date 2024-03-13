@@ -27,14 +27,8 @@ const
 
 type
   RelayShards* = object
-    clusterId: uint16
-    shardIds: seq[uint16]
-
-func clusterId*(rs: RelayShards): uint16 =
-  rs.clusterId
-
-func shardIds*(rs: RelayShards): seq[uint16] =
-  rs.shardIds
+    clusterId*: uint16
+    shardIds*: seq[uint16]
 
 func topics*(rs: RelayShards): seq[NsPubsubTopic] =
   rs.shardIds.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))

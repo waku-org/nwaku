@@ -108,6 +108,9 @@ proc setupProtocols(node: WakuNode,
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
+  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+    return err("failed to mount waku sharding: " & error)
+
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
   if conf.relayPeerExchange:
@@ -130,7 +133,7 @@ proc setupProtocols(node: WakuNode,
       if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
         # TODO autoshard content topics only once.
         # Already checked for errors in app.init
-        let shards = conf.contentTopics.mapIt(getShard(it).expect("Valid Shard"))
+        let shards = conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
         conf.pubsubTopics & shards
       else:
         conf.topics
