@@ -333,7 +333,9 @@ proc startNode*(node: WakuNode, conf: WakuNodeConf,
   # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    await node.fetchPeerExchangePeers(desiredOutDegree)
+    (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
+      error "error while fetching peers from peer exchange", error = error 
+      quit(QuitFailure)
 
   # Start keepalive, if enabled
   if conf.keepAlive:
