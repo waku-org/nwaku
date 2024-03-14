@@ -66,7 +66,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
   let negentropy = Negentropy.new(self.storage, DefaultFrameSize)
 
   let payload =  negentropy.initiate().valueOr:
-    free(negentropy)
+    delete(negentropy)
 
     return err(error)
 

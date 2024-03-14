@@ -80,7 +80,7 @@ proc raw_insert(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.hea
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
 proc raw_erase(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
-proc free*(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
+proc free(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
 
 proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
 
@@ -108,7 +108,7 @@ type
 # https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
 #proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
 
-proc free*(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
+proc free(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
 
 proc raw_reconcile_with_ids(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
@@ -126,6 +126,9 @@ proc new*(T: type Storage): T =
   #TODO error handling
 
   return storage
+
+proc delete*(storage: Storage) =
+  free(storage)
 
 proc erase*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, string] =
   let cString = toBuffer(hash)
@@ -157,6 +160,9 @@ proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
   #TODO error handling
 
   return negentropy
+
+proc delete*(negentropy: Negentropy) =
+  free(negentropy)
 
 proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
   ## Client inititate a sync session with a server by sending a payload 
