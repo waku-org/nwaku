@@ -342,6 +342,11 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
   of ConnEventKind.Disconnected:
     discard
 
+proc peerHasProtocol(
+    peerManager: PeerManager, peerId: PeerId, protocol: string
+): bool {.inline, raises: [].} =
+  return peerManager.peerStore[ProtoBook][peerId].contains(protocol)
+
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
   # To prevent metadata protocol from breaking prev nodes, by now we only
   # disconnect if the clusterid is specified.
@@ -372,7 +377,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       break guardClauses
 
     if (
-      pm.peerStore.hasProtocol(peerId, WakuRelayCodec) and
+      pm.peerHasProtocol(peerId, WakuRelayCodec) and
       not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
     ):
       reason = "no shards in common"
