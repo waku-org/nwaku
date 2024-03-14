@@ -66,14 +66,14 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
   let negentropy = Negentropy.new(self.storage, DefaultFrameSize)
 
   let payload =  negentropy.initiate().valueOr:
-    delete(negentropy)
+    negentropy.delete()
     return err(error)
 
   debug "sending request to server", payload = toHex(seq[byte](payload))
 
   let writeRes = catch: await conn.writeLP(seq[byte](payload))
   if writeRes.isErr():
-    delete(negentropy)
+    negentropy.delete()
     return err(writeRes.error.msg)
 
   var
@@ -84,7 +84,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let readRes = catch: await conn.readLp(self.maxFrameSize)
 
     let buffer: seq[byte] = readRes.valueOr:
-      delete(negentropy)
+      negentropy.delete()
       return err(error.msg)
 
     debug "Received Sync request from peer", payload = toHex(buffer)
@@ -92,7 +92,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let request = NegentropyPayload(buffer)
 
     let responseOpt = self.clientReconciliation(negentropy, request, haveHashes, needHashes).valueOr:
-      delete(negentropy)
+      negentropy.delete()
       return err(error)
 
     let response = responseOpt.valueOr:
@@ -104,9 +104,9 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
     let writeRes = catch: await conn.writeLP(seq[byte](response))
     if writeRes.isErr():
-      delete(negentropy)
+      negentropy.delete()
       return err(writeRes.error.msg)
-  delete(negentropy)
+  negentropy.delete()
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
