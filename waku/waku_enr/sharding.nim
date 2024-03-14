@@ -113,7 +113,7 @@ func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
 
   ok(res)
 
-func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
+func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
   if buf.len < 3:
     return err("insufficient data: expected at least 3 bytes, got " & $buf.len & " bytes")
 

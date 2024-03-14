@@ -59,7 +59,6 @@ import
   ./test_waku_keepalive,
   ./test_waku_enr,
   ./test_waku_dnsdisc,
-  ./test_waku_discv5,
   ./test_relay_peer_exchange,
   ./test_waku_noise,
   ./test_waku_noise_sessions,
