@@ -35,7 +35,7 @@ type
     UnknownOrigin,
     Discv5,
     Static,
-    PeerExcahnge,
+    PeerExchange,
     Dns
 
   PeerDirection* = enum

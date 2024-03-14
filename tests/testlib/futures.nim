@@ -5,6 +5,7 @@ import ../../../waku/[waku_core/message, waku_store]
 const
   FUTURE_TIMEOUT* = 1.seconds
   FUTURE_TIMEOUT_LONG* = 10.seconds
+  FUTURE_TIMEOUT_SHORT* = 100.milliseconds
 
 proc newPushHandlerFuture*(): Future[(string, WakuMessage)] =
   newFuture[(string, WakuMessage)]()
@@ -31,6 +32,8 @@ proc toResult*(future: Future[void]): Result[void, string] =
   else:
     return chronos.err("Future finished but failed.")
 
-proc waitForResult*[T](future: Future[T], timeout = FUTURE_TIMEOUT): Future[Result[T, string]] {.async.} =
+proc waitForResult*[T](
+    future: Future[T], timeout = FUTURE_TIMEOUT
+): Future[Result[T, string]] {.async.} =
   discard await future.withTimeout(timeout)
   return future.toResult()
