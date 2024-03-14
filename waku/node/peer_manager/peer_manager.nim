@@ -10,7 +10,9 @@ import
   metrics,
   libp2p/multistream,
   libp2p/muxers/muxer,
-  libp2p/nameresolving/nameresolver
+  libp2p/nameresolving/nameresolver,
+  libp2p/peerstore
+
 import
   ../../common/nimchronos,
   ../../common/enr,
