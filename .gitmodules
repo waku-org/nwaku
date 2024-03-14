@@ -168,4 +168,4 @@
 	ignore = untracked
 	path = vendor/negentropy
 	url = https://github.com/waku-org/negentropy.git
-	branch = chore/optimizations
+	branch = master
