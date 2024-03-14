@@ -159,7 +159,7 @@ suite "Waku Peer Exchange":
       # And a valid peer info
       let invalidMultiAddress = MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
 
-      # When making any request with a valid peer info
+      # When making any request with an invalid peer info
       node.setPeerExchangePeer(invalidMultiAddress)
 
       # Then no peer is added to the peer store
