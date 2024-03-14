@@ -1,58 +1,40 @@
-## Waku v2
-
-# Waku core test suite
-import ./waku_core/test_all
-
-# Waku archive test suite
-import ./waku_archive/test_all
-
-# Waku store test suite
-import ./waku_store/test_all
-
 import
-  ./node/test_all,
+  # ./common/test_all, # In all_tests_common.nim
+  ./factory/test_all,
+  ./waku_archive/test_all,
+  ./waku_core/test_all,
+  ./waku_discv5/test_all,
+  ./waku_enr/test_all,
   ./waku_filter_v2/test_all,
-  ./waku_peer_exchange/test_all,
   ./waku_lightpush/test_all,
-  ./waku_relay/test_all
+  ./waku_node/test_all,
+  ./waku_peer_exchange/test_all,
+  ./waku_relay/test_all,
+  ./waku_rln_relay/test_all,
+  ./waku_store/test_all,
+  ./wakunode_rest/test_all 
+  # ./wakunode2/test_all # In all_tests_wakunode2.nim
 
 import
-  # Waku v2 tests
-  ./test_wakunode,
-  ./test_wakunode_lightpush,
-  # Waku Filter
-  ./test_waku_filter_legacy,
-  ./test_wakunode_filter_legacy,
-  ./test_peer_store_extended,
-  ./test_message_cache,
-  ./test_peer_manager,
-  ./test_peer_storage,
-  ./test_waku_keepalive,
-  ./test_waku_enr,
-  ./test_waku_dnsdisc,
-  ./test_relay_peer_exchange,
-  ./test_waku_noise,
-  ./test_waku_noise_sessions,
-  ./test_waku_netconfig,
-  ./test_waku_switch,
-  ./test_waku_rendezvous
-
-# Waku Keystore test suite
-import ./test_waku_keystore_keyfile, ./test_waku_keystore
-
-## Wakunode JSON-RPC API test suite
-import ./wakunode_jsonrpc/test_all
-
-## Wakunode Rest API test suite
-import ./wakunode_rest/test_all
-
-import ./waku_rln_relay/test_all
-
-# import
-#   ./waku_rln_relay/test_waku_rln_relay,
-#   ./waku_rln_relay/test_wakunode_rln_relay,
-#   ./waku_rln_relay/test_rln_group_manager_onchain,
-#   ./waku_rln_relay/test_rln_group_manager_static
-
-# Node Factory
-import ./factory/test_node_factory
+  ./test_message_cache, # Previously tagged as Waku Filter
+  ./test_peer_manager, # Previously tagged as Waku Filter
+  ./test_peer_storage, # Previously tagged as Waku Filter
+  ./test_peer_store_extended, # Previously tagged as Waku Filter
+  ./test_relay_peer_exchange, # Previously tagged as Waku Filter
+  ./test_utils_compat.nim, # Wasn't added previously
+  ./test_waku_dnsdisc, # Previously tagged as Waku Filter
+  ./test_waku_enr, # Previously tagged as Waku Filter
+  ./test_waku_filter_legacy, # Previously tagged as Waku Filter
+  ./test_waku_keepalive, # Previously tagged as Waku Filter
+  ./test_waku_keystore_keyfile, # Previously tagged as Waku Keystore
+  ./test_waku_keystore, # Previously tagged as Waku Keystore
+  ./test_waku_metadata, # Wasn't added previously
+  ./test_waku_netconfig, # Previously tagged as Waku Filter
+  ./test_waku_noise_sessions, # Previously tagged as Waku Filter
+  ./test_waku_noise, # Previously tagged as Waku Filter
+  ./test_waku_protobufs, # Wasn't added previously
+  ./test_waku_rendezvous, # Previously tagged as Waku Filter
+  ./test_waku_switch, # Previously tagged as Waku Filter
+  ./test_wakunode_filter_legacy, # Previously tagged as Waku Filter
+  ./test_wakunode_lightpush, # Previously tagged as Waku v2
+  ./test_wakunode # Previously tagged as Waku v2
