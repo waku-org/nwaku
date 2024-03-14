@@ -5,5 +5,4 @@ import
 
 export
   message_cache,
-  rest,
-  jsonrpc
+  rest

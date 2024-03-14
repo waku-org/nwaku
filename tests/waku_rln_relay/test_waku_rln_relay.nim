@@ -260,17 +260,25 @@ suite "Waku rln relay":
                                   chainId: 1155511,
                                   contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
 
-    let metadataRes = rln.getMetadata()
+    let metadataOpt = rln.getMetadata().valueOr:
+      raiseAssert $error
 
-    require:
-      metadataRes.isOk()
-
-    let metadata = metadataRes.get()
-
+    assert metadataOpt.isSome(), "metadata is not set"
+    let metadata = metadataOpt.get()
     check:
       metadata.lastProcessedBlock == 128
       metadata.chainId == 1155511
       metadata.contractAddress == "0x9c09146844c1326c2dbc41c451766c7138f88155"
+
+  test "getMetadata: empty rln metadata":
+    # create an RLN instance which also includes an empty Merkle tree
+    let rln = createRLNInstanceWrapper().valueOr:
+      raiseAssert $error
+    let metadata = rln.getMetadata().valueOr:
+      raiseAssert $error
+
+    check:
+      metadata.isNone()
 
   test "Merkle tree consistency check between deletion and insertion":
     # create an RLN instance
@@ -510,18 +518,23 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     # create a Merkle tree
-    let membersAdded = rln.insertMembers(0, groupIDCommitments)
-    require:
-      membersAdded
-    let rootRes = rln.getMerkleRoot()
+    when defined(rln_v2):
+      let rateCommitments = groupIDCommitments.mapIt(RateCommitment(idCommitment: it, 
+                                                                    userMessageLimit: 20))
+      let leaves = rateCommitments.toLeaves().valueOr:
+        raiseAssert $error
+      let membersAdded = rln.insertMembers(0, leaves)
+    else:
+      let membersAdded = rln.insertMembers(0, groupIDCommitments)
+    
+    assert membersAdded, "members should be added"
+    let rawRoot = rln.getMerkleRoot().valueOr:
+      raiseAssert $error
 
-    require:
-      rootRes.isOk()
-
-    let root = rootRes.get().inHex()
+    let root = rawRoot.inHex()
 
     debug "groupIdCredentials", groupIdCredentials
-    debug "groupIDCommitments", groupIDCommitments
+    debug "groupIDCommitments", groupIDCommitments = groupIDCommitments.mapIt(it.inHex())
     debug "root", root
 
     check:
@@ -589,8 +602,8 @@ suite "Waku rln relay":
 
   test "updateLog and hasDuplicate tests":
     let
-      wakurlnrelay = WakuRLNRelay()
-      epoch = getCurrentEpoch()
+      wakuRlnRelay = WakuRLNRelay()
+      epoch = wakuRlnRelay.getCurrentEpoch()
 
     #  create some dummy nullifiers and secret shares
     var nullifier1: Nullifier
@@ -632,41 +645,44 @@ suite "Waku rln relay":
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
     # no duplicate for proof1 should be found, since the log is empty
-    let result1 = wakurlnrelay.hasDuplicate(proof1.extractMetadata().tryGet())
-    require:
-      result1.isOk()
-      # no duplicate is found
-      result1.value == false
+    let proofMetadata1 = proof1.extractMetadata().tryGet()
+    let isDuplicate1 = wakuRlnRelay.hasDuplicate(epoch, proofMetadata1).valueOr:
+      raiseAssert $error
+    assert isDuplicate1 == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof1.extractMetadata().tryGet())
+    discard wakuRlnRelay.updateLog(epoch, proofMetadata1)
 
-    # # no duplicate for proof2 should be found, its nullifier differs from proof1
-    let result2 = wakurlnrelay.hasDuplicate(proof2.extractMetadata().tryGet())
-    require:
-      result2.isOk()
-      # no duplicate is found
-      result2.value == false
+    # no duplicate for proof2 should be found, its nullifier differs from proof1
+    let proofMetadata2 = proof2.extractMetadata().tryGet()
+    let isDuplicate2 = wakuRlnRelay.hasDuplicate(epoch, proofMetadata2).valueOr:
+      raiseAssert $error
+    # no duplicate is found
+    assert isDuplicate2 == false, "no duplicate should be found"
     #  add it to the log
-    discard wakurlnrelay.updateLog(proof2.extractMetadata().tryGet())
+    discard wakuRlnRelay.updateLog(epoch, proofMetadata2)
 
     #  proof3 has the same nullifier as proof1 but different secret shares, it should be detected as duplicate
-    let result3 = wakurlnrelay.hasDuplicate(proof3.extractMetadata().tryGet())
-    require:
-      result3.isOk()
-    check:
-      # it is a duplicate
-      result3.value == true
+    let isDuplicate3 = wakuRlnRelay.hasDuplicate(epoch, proof3.extractMetadata().tryGet()).valueOr:
+      raiseAssert $error
+    # it is a duplicate
+    assert isDuplicate3, "duplicate should be found"
 
   asyncTest "validateMessageAndUpdateLog test":
     let index = MembershipIndex(5)
 
-    let rlnConf = WakuRlnConfig(rlnRelayDynamic: false,
-                                rlnRelayCredIndex: some(index),
-                                rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
-    let wakuRlnRelayRes = await WakuRlnRelay.new(rlnConf)
-    require:
-      wakuRlnRelayRes.isOk()
-    let wakuRlnRelay = wakuRlnRelayRes.get()
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(index),
+                                        rlnRelayUserMessageLimit: 1,
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+                                        rlnRelayCredIndex: some(index),
+                                        rlnEpochSizeSec: 1,
+                                        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
+    let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+      raiseAssert $error
 
     # get the current epoch time
     let time = epochTime()
@@ -680,16 +696,12 @@ suite "Waku rln relay":
       wm3 = WakuMessage(payload: "Valid message".toBytes())
       wm4 = WakuMessage(payload: "Invalid message".toBytes())
 
-    let
-      proofAdded1 = wakuRlnRelay.appendRLNProof(wm1, time)
-      proofAdded2 = wakuRlnRelay.appendRLNProof(wm2, time)
-      proofAdded3 = wakuRlnRelay.appendRLNProof(wm3, time+EpochUnitSeconds)
-
-    # ensure proofs are added
-    require:
-      proofAdded1
-      proofAdded2
-      proofAdded3
+    wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+    wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, time+float64(wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
+      raiseAssert $error
 
     # validate messages
     # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
@@ -708,6 +720,64 @@ suite "Waku rln relay":
       msgValidate2 == MessageValidationResult.Spam
       msgValidate3 == MessageValidationResult.Valid
       msgValidate4 == MessageValidationResult.Invalid
+
+  asyncTest "validateMessageAndUpdateLog: multiple senders with same external nullifier":
+    let index1 = MembershipIndex(5)
+    let index2 = MembershipIndex(6)
+
+    when defined(rln_v2):
+      let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                   rlnRelayCredIndex: some(index1),
+                                   rlnRelayUserMessageLimit: 1,
+                                   rlnEpochSizeSec: 1,
+                                   rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
+    else:
+      let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
+                                  rlnRelayCredIndex: some(index1),
+                                  rlnEpochSizeSec: 1,
+                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
+          
+    let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
+
+    when defined(rln_v2):
+      let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                   rlnRelayCredIndex: some(index2),
+                                   rlnRelayUserMessageLimit: 1,
+                                   rlnEpochSizeSec: 1,
+                                   rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+    else:
+      let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
+                                  rlnRelayCredIndex: some(index2),
+                                  rlnEpochSizeSec: 1,
+                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+    let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
+      raiseAssert "failed to create waku rln relay: " & $error
+    # get the current epoch time
+    let time = epochTime()
+
+    #  create messages from different peers and append rln proofs to them
+    var
+      wm1 = WakuMessage(payload: "Valid message from sender 1".toBytes())
+      # another message in the same epoch as wm1, it will break the messaging rate limit
+      wm2 = WakuMessage(payload: "Valid message from sender 2".toBytes())
+
+
+    wakuRlnRelay1.appendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+    wakuRlnRelay2.appendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
+
+    # validate messages
+    # validateMessage proc checks the validity of the message fields and adds it to the log (if valid)
+    let
+      msgValidate1 = wakuRlnRelay1.validateMessageAndUpdateLog(wm1, some(time))
+      # since this message is from a different sender, it should be validated successfully
+      msgValidate2 = wakuRlnRelay1.validateMessageAndUpdateLog(wm2, some(time))
+
+    check:
+      msgValidate1 == MessageValidationResult.Valid
+      msgValidate2 == MessageValidationResult.Valid
 
   test "toIDCommitment and toUInt256":
     # create an instance of rln

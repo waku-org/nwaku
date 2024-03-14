@@ -28,6 +28,7 @@ import
   ../../waku/waku_discv5,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_rln_relay,
+  ../../waku/factory/builder,
   ../wakunode2/networks_config,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
@@ -494,6 +495,8 @@ when isMainModule:
     conf.pubsubTopics = twnClusterConf.pubsubTopics
     conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
     conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -542,10 +545,11 @@ when isMainModule:
       rlnRelayDynamic: conf.rlnRelayDynamic,
       rlnRelayCredIndex: some(uint(0)),
       rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-      rlnRelayEthClientAddress: conf.rlnRelayEthClientAddress,
+      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
       rlnRelayCredPath: "",
       rlnRelayCredPassword: "",
       rlnRelayTreePath: conf.rlnRelayTreePath,
+      rlnEpochSizeSec: conf.rlnEpochSizeSec
     )
 
     try:

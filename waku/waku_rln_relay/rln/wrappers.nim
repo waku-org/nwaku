@@ -161,42 +161,38 @@ proc poseidon*(data: seq[seq[byte]]): RlnRelayResult[array[32, byte]] =
   return ok(output)
 
 when defined(rln_v2):
-  func toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[MerkleNode] {.inline.} =
+  proc toLeaf*(rateCommitment: RateCommitment): RlnRelayResult[seq[byte]] =
     let idCommitment = rateCommitment.idCommitment
-    let userMessageLimit = rateCommitment.userMessageLimit
-    let leafRes = poseidon(@[@idCommitment, cast[seq[byte]](userMessageLimit)])
-    return leafRes
+    var userMessageLimit: array[32, byte]
+    try:
+      discard userMessageLimit.copyFrom(toBytes(rateCommitment.userMessageLimit, Endianness.littleEndian))
+    except CatchableError:
+      return err("could not convert the user message limit to bytes: " & getCurrentExceptionMsg())
+    let leaf = poseidon(@[@idCommitment, @userMessageLimit]).valueOr:
+      return err("could not convert the rate commitment to a leaf")
+    var retLeaf = newSeq[byte](leaf.len)
+    for i in 0..<leaf.len:
+      retLeaf[i] = leaf[i]
+    return ok(retLeaf)
 
-  func toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[MerkleNode]] {.inline.} =
-    var leaves = newSeq[MerkleNode](rateCommitments.len)
+  proc toLeaves*(rateCommitments: seq[RateCommitment]): RlnRelayResult[seq[seq[byte]]] =
+    var leaves = newSeq[seq[byte]]()
     for rateCommitment in rateCommitments:
-      let leafRes = toLeaf(rateCommitment)
-      if leafRes.isErr():
-        return err("could not convert the rate commitment to a leaf: " & leafRes.error)
-      leaves.add(leafRes.get())
+      let leaf = toLeaf(rateCommitment).valueOr:
+        return err("could not convert the rate commitment to a leaf: " & $error)
+      leaves.add(leaf)
     return ok(leaves)
 
-  # TODO: collocate this proc with the definition of the RateLimitProof
-  # and the ProofMetadata types
-  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
-    return ok(ProofMetadata(
-      nullifier: proof.nullifier,
-      shareX: proof.shareX,
-      shareY: proof.shareY,
-      externalNullifier: proof.externalNullifier
-    ))
-else:
-  proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
-    let externalNullifierRes = poseidon(@[@(proof.epoch),
-                                          @(proof.rlnIdentifier)])
-    if externalNullifierRes.isErr():
-      return err("could not construct the external nullifier")
-    return ok(ProofMetadata(
-      nullifier: proof.nullifier,
-      shareX: proof.shareX,
-      shareY: proof.shareY,
-      externalNullifier: externalNullifierRes.get()
-    ))
+proc extractMetadata*(proof: RateLimitProof): RlnRelayResult[ProofMetadata] =
+  let externalNullifier = poseidon(@[@(proof.epoch),
+                                     @(proof.rlnIdentifier)]).valueOr:
+    return err("could not construct the external nullifier")
+  return ok(ProofMetadata(
+    nullifier: proof.nullifier,
+    shareX: proof.shareX,
+    shareY: proof.shareY,
+    externalNullifier: externalNullifier
+  ))
 
 when defined(rln_v2):
   proc proofGen*(rlnInstance: ptr RLN, 
@@ -263,6 +259,8 @@ when defined(rln_v2):
     let output = RateLimitProof(proof: zkproof,
                                 merkleRoot: proofRoot,
                                 externalNullifier: externalNullifier,
+                                epoch: epoch,
+                                rlnIdentifier: rlnIdentifier,
                                 shareX: shareX,
                                 shareY: shareY,
                                 nullifier: nullifier)
@@ -336,8 +334,15 @@ proc proofVerify*(rlnInstance: ptr RLN,
                   validRoots: seq[MerkleNode] = @[]): RlnRelayResult[bool] =
   ## verifies the proof, returns an error if the proof verification fails
   ## returns true if the proof is valid
+  var normalizedProof = proof
+  when defined(rln_v2):
+    # when we do this, we ensure that we compute the proof for the derived value
+    # of the externalNullifier. The proof verification will fail if a malicious peer
+    # attaches invalid epoch+rlnidentifier pair
+    normalizedProof.externalNullifier = poseidon(@[@(proof.epoch), @(proof.rlnIdentifier)]).valueOr:
+      return err("could not construct the external nullifier")
   var
-    proofBytes = serialize(proof, data)
+    proofBytes = serialize(normalizedProof, data)
     proofBuffer = proofBytes.toBuffer()
     validProof: bool
     rootsBytes = serialize(validRoots)
@@ -497,7 +502,7 @@ proc setMetadata*(rlnInstance: ptr RLN, metadata: RlnMetadata): RlnRelayResult[v
     return err("could not set the metadata")
   return ok()
 
-proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
+proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[Option[RlnMetadata]] =
   ## gets the metadata of the RLN instance
   ## returns an error if the metadata could not be retrieved
   ## returns the metadata if the metadata is retrieved successfully
@@ -510,6 +515,9 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
   if not getMetadataSuccessful:
     return err("could not get the metadata")
   trace "metadata length", metadataLen = metadata.len
+
+  if metadata.len == 0:
+    return ok(none(RlnMetadata))
 
   let 
     lastProcessedBlockOffset = 0
@@ -533,7 +541,7 @@ proc getMetadata*(rlnInstance: ptr RLN): RlnRelayResult[RlnMetadata] =
   let validRootsBytes = metadataBytes[validRootsOffset..metadataBytes.high]
   validRoots = MerkleNodeSeq.deserialize(validRootsBytes)
 
-  return ok(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
-                        chainId: chainId,
-                        contractAddress: "0x" & contractAddress,
-                        validRoots: validRoots))
+  return ok(some(RlnMetadata(lastProcessedBlock: lastProcessedBlock,
+                             chainId: chainId,
+                             contractAddress: "0x" & contractAddress,
+                             validRoots: validRoots)))

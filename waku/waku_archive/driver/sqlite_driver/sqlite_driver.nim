@@ -41,7 +41,7 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   if resMsgIndex.isErr():
     return err("failed to create i_msg index: " & resMsgIndex.error())
 
-  ok()
+  return ok()
 
 type SqliteDriver* = ref object of ArchiveDriver
     db: SqliteDatabase
@@ -56,7 +56,7 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  ok(SqliteDriver(db: db, insertStmt: insertStmt))
+  return ok(SqliteDriver(db: db, insertStmt: insertStmt))
 
 method put*(s: SqliteDriver,
             pubsubTopic: PubsubTopic,
@@ -85,11 +85,12 @@ method getAllMessages*(s: SqliteDriver):
   return s.db.selectAllMessages()
 
 method getMessages*(s: SqliteDriver,
-                    contentTopic: seq[ContentTopic] = @[],
+                    contentTopic = newSeq[ContentTopic](0),
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
+                    hashes = newSeq[WakuMessageHash](0),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
@@ -102,6 +103,7 @@ method getMessages*(s: SqliteDriver,
     cursor,
     startTime,
     endTime,
+    hashes,
     limit=maxPageSize,
     ascending=ascendingOrder
   )
@@ -146,6 +148,41 @@ method deleteOldestMessagesNotWithinLimit*(s: SqliteDriver,
                                            Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.deleteOldestMessagesNotWithinLimit(limit)
 
+method decreaseDatabaseSize*(driver: SqliteDriver,
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
+                             Future[ArchiveDriverResult[void]] {.async.} =
+
+  ## To remove 20% of the outdated data from database
+  const DeleteLimit = 0.80
+
+  ## when db size overshoots the database limit, shread 20% of outdated messages
+  ## get size of database
+  let dbSize = (await driver.getDatabaseSize()).valueOr:
+    return err("failed to get database size: " & $error)
+
+  ## database size in bytes
+  let totalSizeOfDB: int64 = int64(dbSize)
+
+  if totalSizeOfDB < targetSizeInBytes:
+    return ok()
+
+  ## to shread/delete messsges, get the total row/message count
+  let numMessages = (await driver.getMessagesCount()).valueOr:
+    return err("failed to get messages count: " & error)
+
+  ## NOTE: Using SQLite vacuuming is done manually, we delete a percentage of rows
+  ## if vacumming is done automatically then we aim to check DB size periodially for efficient
+  ## retention policy implementation.
+
+  ## 80% of the total messages are to be kept, delete others
+  let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
+
+  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+    return err("deleting oldest messages failed: " & error)
+
+  return ok()
+
 method close*(s: SqliteDriver):
               Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
@@ -154,4 +191,8 @@ method close*(s: SqliteDriver):
   # Close connection
   s.db.close()
   return ok()
+
+method existsTable*(s: SqliteDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.async.} =
+  return err("existsTable method not implemented in sqlite_driver")
 

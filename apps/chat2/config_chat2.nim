@@ -1,11 +1,12 @@
 import
-  std/strutils,
-  confutils, confutils/defs, confutils/std/net,
   chronicles, chronos,
+  confutils, confutils/defs, confutils/std/net,
+  eth/keys,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   nimcrypto/utils,
-  eth/keys
+  std/strutils,
+  regex
 import
   ../../../waku/waku_core
 
@@ -14,7 +15,7 @@ type
     none
     prod
     test
-
+  EthRpcUrl = distinct string
   Chat2Conf* = object
     ## General node config
 
@@ -126,33 +127,6 @@ type
       defaultValue: ""
       name: "lightpushnode" }: string
 
-    ## JSON-RPC config
-
-    rpc* {.
-      desc: "Enable Waku JSON-RPC server: true|false",
-      defaultValue: true
-      name: "rpc" }: bool
-
-    rpcAddress* {.
-      desc: "Listening address of the JSON-RPC server.",
-      defaultValue: parseIpAddress("127.0.0.1")
-      name: "rpc-address" }: IpAddress
-
-    rpcPort* {.
-      desc: "Listening port of the JSON-RPC server.",
-      defaultValue: 8545
-      name: "rpc-port" }: uint16
-
-    rpcAdmin* {.
-      desc: "Enable access to JSON-RPC Admin API: true|false",
-      defaultValue: false
-      name: "rpc-admin" }: bool
-
-    rpcPrivate* {.
-      desc: "Enable access to JSON-RPC Private API: true|false",
-      defaultValue: false
-      name: "rpc-private" }: bool
-
     ## Metrics config
 
     metricsServer* {.
@@ -252,9 +226,9 @@ type
       name: "rln-relay-id-commitment-key" }: string
 
     rlnRelayEthClientAddress* {.
-      desc: "WebSocket address of an Ethereum testnet client e.g., http://localhost:8540/",
+      desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
       defaultValue: "http://localhost:8540/"
-      name: "rln-relay-eth-client-address" }: string
+      name: "rln-relay-eth-client-address" }: EthRpcUrl
 
     rlnRelayEthContractAddress* {.
       desc: "Address of membership contract on an Ethereum testnet",
@@ -265,6 +239,16 @@ type
       desc: "Password for encrypting RLN credentials",
       defaultValue: ""
       name: "rln-relay-cred-password" }: string
+
+    rlnRelayUserMessageLimit* {.
+      desc: "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      defaultValue: 1,
+      name: "rln-relay-user-message-limit" .}: uint64
+
+    rlnEpochSizeSec* {.
+      desc: "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      defaultValue: 1
+      name: "rln-relay-epoch-sec" .}: uint64
 
 # NOTE: Keys are different in nim-libp2p
 proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
@@ -301,6 +285,28 @@ proc parseCmdArg*(T: type Option[uint], p: string): T =
     some(parseUint(p))
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
+
+proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
+  return @[]
+
+proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
+  ## allowed patterns:
+  ## http://url:port
+  ## https://url:port
+  ## http://url:port/path
+  ## https://url:port/path
+  ## http://url/with/path
+  ## http://url:port/path?query
+  ## https://url:port/path?query
+  ## disallowed patterns:
+  ## any valid/invalid ws or wss url
+  var httpPattern = re2"^(https?):\/\/((localhost)|([\w_-]+(?:(?:\.[\w_-]+)+)))(:[0-9]{1,5})?([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])*"
+  var wsPattern =   re2"^(wss?):\/\/((localhost)|([\w_-]+(?:(?:\.[\w_-]+)+)))(:[0-9]{1,5})?([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])*"
+  if regex.match(s, wsPattern):
+    raise newException(ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL")
+  if not regex.match(s, httpPattern):
+    raise newException(ValueError, "Invalid HTTP RPC URL")
+  return EthRpcUrl(s)
 
 func defaultListenAddress*(conf: Chat2Conf): IpAddress =
   # TODO: How should we select between IPv4 and IPv6

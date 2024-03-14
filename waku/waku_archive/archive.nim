@@ -4,22 +4,15 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, times, sequtils, options, algorithm, strutils],
+  std/[times, options, sequtils, strutils, algorithm],
   stew/[results, byteutils],
   chronicles,
   chronos,
-  regex,
   metrics
 import
-  ../common/[
-    databases/dburl,
-    databases/db_sqlite,
-    paging
-  ],
+  ../common/paging,
   ./driver,
   ./retention_policy,
-  ./retention_policy/retention_policy_capacity,
-  ./retention_policy/retention_policy_time,
   ../waku_core,
   ../waku_core/message/digest,
   ./common,
@@ -32,22 +25,35 @@ const
   DefaultPageSize*: uint = 20
   MaxPageSize*: uint = 100
 
-## Message validation
+# Retention policy
+  WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
 
-type
-  MessageValidator* = ref object of RootObj
+# Metrics reporting
+  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
 
-  ValidationResult* = Result[void, string]
+# Message validation
+# 20 seconds maximum allowable sender timestamp "drift"
+  MaxMessageTimestampVariance* = getNanoSecondTime(20) 
 
-method validate*(validator: MessageValidator, msg: WakuMessage): ValidationResult {.base.} = discard
+type MessageValidator* = proc(msg: WakuMessage): Result[void, string] {.closure, gcsafe, raises: [].}
 
-# Default message validator
+## Archive
 
-const MaxMessageTimestampVariance* = getNanoSecondTime(20) # 20 seconds maximum allowable sender timestamp "drift"
+type WakuArchive* = ref object
+  driver: ArchiveDriver
 
-type DefaultMessageValidator* = ref object of MessageValidator
+  validator: MessageValidator
 
-method validate*(validator: DefaultMessageValidator, msg: WakuMessage): ValidationResult =
+  retentionPolicy: Option[RetentionPolicy]
+
+  retentionPolicyHandle: Future[void]
+  metricsHandle: Future[void]
+
+proc validate*(msg: WakuMessage): Result[void, string] =
+  if msg.ephemeral:
+    # Ephemeral message, do not store
+    return
+  
   if msg.timestamp == 0:
     return ok()
 
@@ -62,188 +68,167 @@ method validate*(validator: DefaultMessageValidator, msg: WakuMessage): Validati
   if upperBound < msg.timestamp:
     return err(invalidMessageFuture)
 
-  ok()
-
-## Archive
-
-type
-  WakuArchive* = ref object
-    driver*: ArchiveDriver  # TODO: Make this field private. Remove asterisk
-    validator: MessageValidator
-    retentionPolicy: RetentionPolicy
-    retPolicyFut: Future[Result[void, string]]  ## retention policy cancelable future
-    retMetricsRepFut: Future[Result[void, string]]  ## metrics reporting cancelable future
+  return ok()
 
 proc new*(T: type WakuArchive,
           driver: ArchiveDriver,
+          validator: MessageValidator = validate,
           retentionPolicy = none(RetentionPolicy)):
           Result[T, string] =
+  if driver.isNil():
+    return err("archive driver is Nil")
 
-  let retPolicy = if retentionPolicy.isSome():
-                    retentionPolicy.get()
-                  else:
-                    nil
+  let archive =
+    WakuArchive(
+      driver: driver,
+      validator: validator,
+      retentionPolicy: retentionPolicy,
+    )
 
-  let wakuArch = WakuArchive(driver: driver,
-                             validator: DefaultMessageValidator(),
-                             retentionPolicy: retPolicy)
-  return ok(wakuArch)
+  return ok(archive)
 
-proc handleMessage*(w: WakuArchive,
+proc handleMessage*(self: WakuArchive,
                     pubsubTopic: PubsubTopic,
                     msg: WakuMessage) {.async.} =
-  if msg.ephemeral:
-    # Ephemeral message, do not store
+  self.validator(msg).isOkOr:
+    waku_archive_errors.inc(labelValues = [error])
     return
 
-  if not w.validator.isNil():
-    let validationRes = w.validator.validate(msg)
-    if validationRes.isErr():
-      waku_archive_errors.inc(labelValues = [validationRes.error])
-      return
-
-  let insertStartTime = getTime().toUnixFloat()
-
-  block:
-    let
-      msgDigest = computeDigest(msg)
-      msgHash = computeMessageHash(pubsubTopic, msg)
-      msgDigestHex = toHex(msgDigest.data)
-      msgHashHex = toHex(msgHash)
-      msgReceivedTime = if msg.timestamp > 0: msg.timestamp
+  let
+    msgDigest = computeDigest(msg)
+    msgHash = computeMessageHash(pubsubTopic, msg)
+    msgTimestamp = if msg.timestamp > 0: msg.timestamp
                         else: getNanosecondTime(getTime().toUnixFloat())
 
-    trace "handling message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic, timestamp=msg.timestamp, digest=msgDigestHex, messageHash=msgHashHex
+  trace "handling message",
+    pubsubTopic=pubsubTopic,
+    contentTopic=msg.contentTopic,
+    msgTimestamp=msg.timestamp,
+    usedTimestamp=msgTimestamp,
+    digest=toHex(msgDigest.data),
+    messageHash=toHex(msgHash)
+  
+  let insertStartTime = getTime().toUnixFloat()
 
-    let putRes = await w.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgReceivedTime)
-    if putRes.isErr():
-      if "duplicate key value violates unique constraint" in putRes.error:
-        trace "failed to insert message", err=putRes.error
-      else:
-        debug "failed to insert message", err=putRes.error
-      waku_archive_errors.inc(labelValues = [insertFailure])
-
+  (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
+    waku_archive_errors.inc(labelValues = [insertFailure])
+    # Prevent spamming the logs when multiple nodes are connected to the same database.
+    # In that case, the message cannot be inserted but is an expected "insert error"
+    # and therefore we reduce its visibility by having the log in trace level.
+    if "duplicate key value violates unique constraint" in error:
+      trace "failed to insert message", err=error
+    else:
+      debug "failed to insert message", err=error
+    
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
-proc findMessages*(w: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
+proc findMessages*(self: WakuArchive, query: ArchiveQuery): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
-  let
-    qContentTopics = query.contentTopics
-    qPubSubTopic = query.pubsubTopic
-    qCursor = query.cursor
-    qStartTime = query.startTime
-    qEndTime = query.endTime
-    qMaxPageSize = if query.pageSize <= 0: DefaultPageSize
-                   else: min(query.pageSize, MaxPageSize)
-    isAscendingOrder = query.direction.into()
+  
+  let maxPageSize =
+    if query.pageSize <= 0:
+      DefaultPageSize
+    else:
+      min(query.pageSize, MaxPageSize)
+    
+  let isAscendingOrder = query.direction.into()
 
-  if qContentTopics.len > 10:
+  if query.contentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
   let queryStartTime = getTime().toUnixFloat()
 
-  let queryRes = await w.driver.getMessages(
-      contentTopic = qContentTopics,
-      pubsubTopic = qPubSubTopic,
-      cursor = qCursor,
-      startTime = qStartTime,
-      endTime = qEndTime,
-      maxPageSize = qMaxPageSize + 1,
-      ascendingOrder = isAscendingOrder
-    )
+  let rows = (await self.driver.getMessages(
+    contentTopic = query.contentTopics,
+    pubsubTopic = query.pubsubTopic,
+    cursor = query.cursor,
+    startTime = query.startTime,
+    endTime = query.endTime,
+    hashes = query.hashes,
+    maxPageSize = maxPageSize + 1,
+    ascendingOrder = isAscendingOrder
+  )).valueOr:
+    return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))
 
   let queryDuration = getTime().toUnixFloat() - queryStartTime
   waku_archive_query_duration_seconds.observe(queryDuration)
 
-  # Build response
-  if queryRes.isErr():
-    return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: queryRes.error))
-
-  let rows = queryRes.get()
+  var hashes = newSeq[WakuMessageHash]()
   var messages = newSeq[WakuMessage]()
   var cursor = none(ArchiveCursor)
+  
   if rows.len == 0:
-    return ok(ArchiveResponse(messages: messages, cursor: cursor))
+    return ok(ArchiveResponse(hashes: hashes, messages: messages, cursor: cursor))
 
   ## Messages
-  let pageSize = min(rows.len, int(qMaxPageSize))
+  let pageSize = min(rows.len, int(maxPageSize))
+  
+  #TODO once store v2 is removed, unzip instead of 2x map
   messages = rows[0..<pageSize].mapIt(it[1])
+  hashes = rows[0..<pageSize].mapIt(it[4])
 
   ## Cursor
-  if rows.len > int(qMaxPageSize):
+  if rows.len > int(maxPageSize):
     ## Build last message cursor
     ## The cursor is built from the last message INCLUDED in the response
     ## (i.e. the second last message in the rows list)
-    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
+    
+    #TODO Once Store v2 is removed keep only message and hash
+    let (pubsubTopic, message, digest, storeTimestamp, hash) = rows[^2]
 
-    # TODO: Improve coherence of MessageDigest type
-    let messageDigest = block:
-        var data: array[32, byte]
-        for i in 0..<min(digest.len, 32):
-          data[i] = digest[i]
-
-        MessageDigest(data: data)
-
+    #TODO Once Store v2 is removed, the cursor becomes the hash of the last message
     cursor = some(ArchiveCursor(
-      pubsubTopic: pubsubTopic,
-      senderTime: message.timestamp,
+      digest: MessageDigest.fromBytes(digest),
       storeTime: storeTimestamp,
-      digest: messageDigest
+      sendertime: message.timestamp,
+      pubsubTopic: pubsubTopic,
+      hash: hash,
     ))
 
   # All messages MUST be returned in chronological order
   if not isAscendingOrder:
     reverse(messages)
+    reverse(hashes)
 
-  return ok(ArchiveResponse(messages: messages, cursor: cursor))
+  return ok(ArchiveResponse(hashes: hashes, messages: messages, cursor: cursor))
 
-# Retention policy
-const WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
+proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
+  debug "executing message retention policy"
 
-proc loopApplyRetentionPolicy*(w: WakuArchive):
-                               Future[Result[void, string]] {.async.} =
-
-  if w.retentionPolicy.isNil():
-    return err("retentionPolicy is Nil in executeMessageRetentionPolicy")
-
-  if w.driver.isNil():
-    return err("driver is Nil in executeMessageRetentionPolicy")
+  let policy = self.retentionPolicy.get()
 
   while true:
-    debug "executing message retention policy"
-    let retPolicyRes = await w.retentionPolicy.execute(w.driver)
-    if retPolicyRes.isErr():
-        waku_archive_errors.inc(labelValues = [retPolicyFailure])
-        error "failed execution of retention policy", error=retPolicyRes.error
+    (await policy.execute(self.driver)).isOkOr:
+      waku_archive_errors.inc(labelValues = [retPolicyFailure])
+      error "failed execution of retention policy", error=error
 
     await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
 
-  return ok()
-
-# Metrics reporting
-const WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
-
-proc loopReportStoredMessagesMetric*(w: WakuArchive):
-                                     Future[Result[void, string]] {.async.} =
-  if w.driver.isNil():
-    return err("driver is Nil in loopReportStoredMessagesMetric")
-
+proc periodicMetricReport(self: WakuArchive) {.async.} =
   while true:
-    let resCount = await w.driver.getMessagesCount()
-    if resCount.isErr():
-      return err("loopReportStoredMessagesMetric failed to get messages count: " & resCount.error)
+    let countRes = (await self.driver.getMessagesCount())
+    if countRes.isErr():
+      error "loopReportStoredMessagesMetric failed to get messages count", error=countRes.error
+    else:
+      let count = countRes.get()
+      waku_archive_messages.set(count, labelValues = ["stored"])
 
-    waku_archive_messages.set(resCount.value, labelValues = ["stored"])
     await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
-  return ok()
+proc start*(self: WakuArchive) =
+  if self.retentionPolicy.isSome():
+    self.retentionPolicyHandle = self.periodicRetentionPolicy()
 
-proc start*(self: WakuArchive) {.async.} =
-  ## TODO: better control the Result in case of error. Now it is ignored
-  self.retPolicyFut = self.loopApplyRetentionPolicy()
-  self.retMetricsRepFut = self.loopReportStoredMessagesMetric()
+  self.metricsHandle = self.periodicMetricReport()
 
-proc stop*(self: WakuArchive) {.async.} =
-  self.retPolicyFut.cancel()
-  self.retMetricsRepFut.cancel()
+proc stopWait*(self: WakuArchive) {.async.} =
+  var futures: seq[Future[void]]
+
+  if self.retentionPolicy.isSome() and not self.retentionPolicyHandle.isNil():
+    futures.add(self.retentionPolicyHandle.cancelAndWait())
+
+  if not self.metricsHandle.isNil:
+    futures.add(self.metricsHandle.cancelAndWait())
+
+  await noCancel(allFutures(futures))

@@ -57,6 +57,7 @@ TARGET ?= prod
 
 ## Git version
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
+## Compilation parameters. If defined in the CLI the assignments won't be executed
 NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
 
 ## Heaptracker options
@@ -82,6 +83,20 @@ endif
 ## Dependencies ##
 ##################
 .PHONY: deps libbacktrace
+
+rustup:
+ifeq (, $(shell which cargo))
+# Install Rustup if it's not installed
+# -y: Assume "yes" for all prompts
+# --default-toolchain stable: Install the stable toolchain
+	curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain stable
+endif
+
+anvil: rustup
+ifeq (, $(shell which anvil))
+# Install Anvil if it's not installed
+	./scripts/install_anvil.sh
+endif
 
 deps: | deps-common nat-libs waku.nims
 
@@ -120,9 +135,9 @@ clean: | clean-libbacktrace
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
-LIBRLN_VERSION := v0.4.1
+LIBRLN_VERSION := v0.4.2
 else
-LIBRLN_VERSION := v0.3.4
+LIBRLN_VERSION := v0.3.6
 endif
 
 ifeq ($(OS),Windows_NT)
@@ -166,7 +181,8 @@ testcommon: | build deps
 ##########
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
-testwaku: | build deps librln
+# install anvil only for the testwaku target
+testwaku: | build deps anvil librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
@@ -248,7 +264,8 @@ docker-image:
 		--build-arg="NIMFLAGS=$(DOCKER_IMAGE_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=$(LOG_LEVEL)" \
-		--label="commit=$(GIT_VERSION)" \
+		--label="commit=$(shell git rev-parse HEAD)" \
+		--label="version=$(GIT_VERSION)" \
 		--target $(TARGET) \
 		--tag $(DOCKER_IMAGE_NAME) .
 

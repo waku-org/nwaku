@@ -261,7 +261,7 @@ proc new*(T: type WakuFilter,
 
 const MaintainSubscriptionsInterval* = 1.minutes
 
-proc startMaintainingSubscriptions*(wf: WakuFilter, interval: Duration) =
+proc startMaintainingSubscriptions(wf: WakuFilter, interval: Duration) =
   trace "starting to maintain subscriptions"
   var maintainSubs: CallbackFunc
   maintainSubs = CallbackFunc(

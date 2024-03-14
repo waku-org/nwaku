@@ -1,6 +1,6 @@
 ## HTTP REST API
 
-Similar to the JSON-RPC API, the HTTP REST API consists of a set of methods operating on the Waku Node remotely over HTTP.
+The HTTP REST API consists of a set of methods operating on the Waku Node remotely over HTTP.
 
 This API is divided in different _namespaces_ which group a set of resources:
 
@@ -40,14 +40,6 @@ A particular OpenAPI spec can be easily imported into [Postman](https://www.post
 ### Usage example
 
 #### [`get_waku_v2_debug_v1_info`](https://rfc.vac.dev/spec/16/#get_waku_v2_debug_v1_info)
-
-JSON-RPC call:
-
-```bash
-curl -d '{"jsonrpc":"2.0","method":"get_waku_v2_debug_v1_info","params":[],"id":1}' -H 'Content-Type: application/json' localhost:8645 -s | jq
-```
-
-Equivalent call for the REST API:
 
 ```bash
 curl http://localhost:8645/debug/v1/info -s | jq

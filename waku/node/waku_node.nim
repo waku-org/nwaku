@@ -97,6 +97,7 @@ type
     wakuLightpushClient*: WakuLightPushClient
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
+    wakuSharding*: Sharding
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -199,6 +200,12 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
 
   return ok()
 
+## Waku Sharding
+proc mountSharding*(node: WakuNode, clusterId: uint32, shardCount: uint32): Result[void, string] =
+  info "mounting sharding", clusterId=clusterId, shardCount=shardCount
+  node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+  return ok()
+
 ## Waku relay
 
 proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
@@ -255,7 +262,7 @@ proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentSub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -288,7 +295,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentUnsub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -329,7 +336,7 @@ proc publish*(
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
-    getShard(message.contentTopic).valueOr:
+    node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "publish error", msg=msg
       return err(msg)
@@ -514,7 +521,7 @@ proc legacyFilterSubscribe*(node: WakuNode,
       error "failed legacy filter subscription", error=res.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -571,13 +578,16 @@ proc filterSubscribe*(node: WakuNode,
     let subRes = await node.wakuFilterClient.subscribe(remotePeer, pubsubTopic.get(), contentTopics)
     if subRes.isOk():
       info "v2 subscribed to topic", pubsubTopic=pubsubTopic, contentTopics=contentTopics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic.get()))
     else:
       error "failed filter v2 subscription", error=subRes.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
 
     return subRes
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -604,6 +614,9 @@ proc filterSubscribe*(node: WakuNode,
 
     for pubsub, topics in topicMap.pairs:
       info "subscribed to topic", pubsubTopic=pubsub, contentTopics=topics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
 
     # return the last error or ok
     return subRes
@@ -636,7 +649,7 @@ proc legacyFilterUnsubscribe*(node: WakuNode,
       error "failed filter unsubscription", error=res.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -689,6 +702,9 @@ proc filterUnsubscribe*(node: WakuNode,
     let unsubRes = await node.wakuFilterClient.unsubscribe(remotePeer, pubsubTopic.get(), contentTopics)
     if unsubRes.isOk():
       info "unsubscribed from topic", pubsubTopic=pubsubTopic.get(), contentTopics=contentTopics
+    
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic.get()))
     else:
       error "failed filter unsubscription", error=unsubRes.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
@@ -696,7 +712,7 @@ proc filterUnsubscribe*(node: WakuNode,
     return unsubRes
 
   else: # pubsubTopic.isNone
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -723,6 +739,9 @@ proc filterUnsubscribe*(node: WakuNode,
 
     for pubsub, topics in topicMap.pairs:
       info "unsubscribed from topic", pubsubTopic=pubsub, contentTopics=topics
+
+      # Purpose is to update Waku Metadata
+      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
 
     # return the last error or ok
     return unsubRes
@@ -765,14 +784,14 @@ proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
                    Result[void, string] =
+  node.wakuArchive = WakuArchive.new(
+    driver = driver,
+    retentionPolicy = retentionPolicy,
+    ).valueOr:
+    return err("error in mountArchive: " & error)
 
-  let wakuArchiveRes = WakuArchive.new(driver,
-                                       retentionPolicy)
-  if wakuArchiveRes.isErr():
-    return err("error in mountArchive: " & wakuArchiveRes.error)
+  node.wakuArchive.start()
 
-  node.wakuArchive = wakuArchiveRes.get()
-  asyncSpawn node.wakuArchive.start()
   return ok()
 
 ## Waku store
@@ -935,7 +954,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
     return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
-  let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
+  let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
 
   let topicMap =
     if topicMapRes.isErr():
@@ -979,7 +998,7 @@ proc mountRlnRelay*(node: WakuNode,
     raise newException(CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay")
 
   let rlnRelayRes = waitFor WakuRlnRelay.new(rlnConf,
-                                            registrationHandler)
+                                             registrationHandler)
   if rlnRelayRes.isErr():
     raise newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
@@ -1182,7 +1201,7 @@ proc stop*(node: WakuNode) {.async.} =
       error "exception stopping the node", error=getCurrentExceptionMsg()
 
   if not node.wakuArchive.isNil():
-    await node.wakuArchive.stop()
+    await node.wakuArchive.stopWait()
 
   node.started = false
 

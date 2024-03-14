@@ -29,7 +29,7 @@ suite "Waku Archive - Retention policy":
 
     let driver = newSqliteArchiveDriver()
 
-    let retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
+    let retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.new(capacity=capacity)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     ## When
@@ -61,7 +61,7 @@ suite "Waku Archive - Retention policy":
 
     let driver = newSqliteArchiveDriver()
 
-    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.init(size=sizeLimit)
+    let retentionPolicy: RetentionPolicy = SizeRetentionPolicy.new(size=sizeLimit)
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     # make sure that the db is empty to before test begins
@@ -115,7 +115,7 @@ suite "Waku Archive - Retention policy":
 
     let
       driver = newSqliteArchiveDriver()
-      retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.init(capacity=capacity)
+      retentionPolicy: RetentionPolicy = CapacityRetentionPolicy.new(capacity=capacity)
 
     let messages = @[
       fakeWakuMessage(contentTopic=DefaultContentTopic, ts=ts(0)),
@@ -138,7 +138,7 @@ suite "Waku Archive - Retention policy":
     check:
       storedMsg.len == capacity
       storedMsg.all do (item: auto) -> bool:
-        let (pubsubTopic, msg, digest, storeTimestamp) = item
+        let (pubsubTopic, msg, _, _, _) = item
         msg.contentTopic == contentTopic and
         pubsubTopic == DefaultPubsubTopic
 

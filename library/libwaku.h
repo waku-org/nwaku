@@ -6,6 +6,8 @@
 #ifndef __libwaku__
 #define __libwaku__
 
+#include <stddef.h>
+
 // The possible returned values for the functions that return int
 #define RET_OK                0
 #define RET_ERR               1
@@ -15,7 +17,7 @@
 extern "C" {
 #endif
 
-typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len);
+typedef void (*WakuCallBack) (int callerRet, const char* msg, size_t len, void* userData);
 
 // Creates a new instance of the waku node.
 // Sets up the waku node from the given configuration.
@@ -33,11 +35,17 @@ int waku_stop(void* ctx,
               WakuCallBack callback,
               void* userData);
 
+// Destroys an instance of a waku node created with waku_new
+int waku_destroy(void* ctx,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_version(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
-void waku_set_event_callback(WakuCallBack callback,
+void waku_set_event_callback(void* ctx,
+                             WakuCallBack callback,
                              void* userData);
 
 int waku_content_topic(void* ctx,
@@ -79,6 +87,10 @@ int waku_connect(void* ctx,
                  unsigned int timeoutMs,
                  WakuCallBack callback,
                  void* userData);
+
+int waku_listen_addresses(void* ctx,
+                          WakuCallBack callback,
+                          void* userData);
 
 #ifdef __cplusplus
 }

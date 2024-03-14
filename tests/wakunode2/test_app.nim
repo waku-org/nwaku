@@ -22,7 +22,8 @@ suite "Wakunode2 - App":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
-    var wakunode2 = App.init(rng(), conf)
+    let wakunode2 = App.init(conf).valueOr:
+      raiseAssert error 
 
     ## When
     let version = wakunode2.version
@@ -37,38 +38,25 @@ suite "Wakunode2 - App initialization":
     var conf = defaultTestWakuNodeConf()
     conf.peerPersistence = true
 
-    var wakunode2 = App.init(rng(), conf)
+    let wakunode2 = App.init(conf).valueOr:
+      raiseAssert error 
 
-    ## When
-    let res = wakunode2.setupPeerPersistence()
-
-    ## Then
-    check res.isOk()
+    check:
+      not wakunode2.node.peerManager.storage.isNil()
 
   test "node setup is successful with default configuration":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
     ## When
-    var wakunode2 = App.init(rng(), conf)
+    var wakunode2 = App.init(conf).valueOr:
+      raiseAssert error
 
-    let persRes = wakunode2.setupPeerPersistence()
-    assert persRes.isOk(), persRes.error
+    wakunode2.startApp().isOkOr:
+      raiseAssert error
 
-    let bootRes = wakunode2.setupDyamicBootstrapNodes()
-    assert bootRes.isOk(), bootRes.error
-
-    let setupRes = wakunode2.setupWakuApp()
-    assert setupRes.isOk(), setupRes.error
-
-    let mountRes = waitFor wakunode2.setupAndMountProtocols()
+    let mountRes = wakunode2.setupMonitoringAndExternalInterfaces()
     assert mountRes.isOk(), mountRes.error
-
-    let startRes = wakunode2.startApp()
-    assert startRes.isOk(), startRes.error
-
-    let monitorRes = wakunode2.setupMonitoringAndExternalInterfaces()
-    assert monitorRes.isOk(), monitorRes.error
 
     ## Then
     let node = wakunode2.node
@@ -88,22 +76,18 @@ suite "Wakunode2 - App initialization":
     conf.tcpPort = Port(0)
 
     ## When
-    var wakunode2 = App.init(rng(), conf)
-    require wakunode2.setupPeerPersistence().isOk()
-    require wakunode2.setupDyamicBootstrapNodes().isOk()
-    require wakunode2.setupWakuApp().isOk()
-    require isOk(waitFor wakunode2.setupAndMountProtocols())
-    require isOk(wakunode2.startApp())
-    require wakunode2.setupMonitoringAndExternalInterfaces().isOk()
+    var wakunode2 = App.init(conf).valueOr:
+      raiseAssert error
+
+    wakunode2.startApp().isOkOr:
+      raiseAssert error
 
     ## Then
     let 
       node = wakunode2.node
       typedNodeEnr = node.enr.toTypedRecord()
-      typedAppEnr = wakunode2.record.toTypedRecord()
 
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
-    assert typedAppEnr.isOk(), $typedAppEnr.error
 
     check:
       # App started properly
@@ -114,10 +98,7 @@ suite "Wakunode2 - App initialization":
       not node.rendezvous.isNil()
 
       # DS structures are updated with dynamic ports
-      wakunode2.netConf.bindPort != Port(0)
-      wakunode2.netConf.enrPort.get() != Port(0)
       typedNodeEnr.get().tcp.get() != 0
-      typedAppEnr.get().tcp.get() != 0
 
     ## Cleanup
     waitFor wakunode2.stop()

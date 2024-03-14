@@ -57,6 +57,8 @@ nimbus-build-system.paths
 *.sqlite3-wal
 
 /examples/nodejs/build/
+/examples/rust/target/
+
 
 # Coverage
 coverage_html_report/

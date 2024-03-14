@@ -16,9 +16,9 @@ const DefaultPageSize*: uint = 25
 type
   ArchiveDriverResult*[T] = Result[T, string]
   ArchiveDriver* = ref object of RootObj
-  OnErrHandler* = proc(errMsg: string) {.gcsafe, closure, raises: [].}
 
-type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
+#TODO Once Store v2 is removed keep only messages and hashes
+type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)
 
 # ArchiveDriver interface
 
@@ -34,11 +34,12 @@ method getAllMessages*(driver: ArchiveDriver):
                        Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} = discard
 
 method getMessages*(driver: ArchiveDriver,
-                    contentTopic: seq[ContentTopic] = @[],
+                    contentTopic = newSeq[ContentTopic](0),
                     pubsubTopic = none(PubsubTopic),
                     cursor = none(ArchiveCursor),
                     startTime = none(Timestamp),
                     endTime = none(Timestamp),
+                    hashes = newSeq[WakuMessageHash](0),
                     maxPageSize = DefaultPageSize,
                     ascendingOrder = true):
                     Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} = discard
@@ -72,6 +73,14 @@ method deleteOldestMessagesNotWithinLimit*(driver: ArchiveDriver,
                                            limit: int):
                                            Future[ArchiveDriverResult[void]] {.base, async.} = discard
 
+method decreaseDatabaseSize*(driver: ArchiveDriver,
+                             targetSizeInBytes: int64,
+                             forceRemoval: bool = false):
+                             Future[ArchiveDriverResult[void]] {.base, async.} = discard
+
 method close*(driver: ArchiveDriver):
               Future[ArchiveDriverResult[void]] {.base, async.} = discard
+
+method existsTable*(driver: ArchiveDriver, tableName: string):
+                    Future[ArchiveDriverResult[bool]] {.base, async.} = discard
 

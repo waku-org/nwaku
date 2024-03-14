@@ -4,11 +4,13 @@ import
 import
   chronicles,
   chronos,
+  stew/byteutils,
   stew/results,
   stew/shims/net
 import
   ../../../../../waku/waku_core/message/message,
   ../../../../../waku/node/waku_node,
+  ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../../waku/waku_relay/protocol,
@@ -104,13 +106,16 @@ proc process*(self: ptr RelayRequest,
       node.wakuRelay.unsubscribeAll($self.pubsubTopic)
 
     of PUBLISH:
-      let numPeers = await node.wakuRelay.publish($self.pubsubTopic,
-                                                  self.message.toWakuMessage())
+      let msg = self.message.toWakuMessage()
+      let pubsubTopic = $self.pubsubTopic
+
+      let numPeers = await node.wakuRelay.publish(pubsubTopic,
+                                                  msg)
       if numPeers == 0:
         return err("Message not sent because no peers found.")
 
       elif numPeers > 0:
-        # TODO: pending to return a valid message Id
-        return ok("hard-coded-message-id")
+        let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
+        return ok(msgHash)
 
   return ok("")

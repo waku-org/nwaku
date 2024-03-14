@@ -14,8 +14,9 @@ import
   libp2p/crypto/crypto
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
-  ./external_config,
+  ../../waku/factory/external_config,
   ./networks_config,
   ./app
 
@@ -33,8 +34,10 @@ proc logConfig(conf: WakuNodeConf) =
 
   info "Configuration. Network",
     cluster = conf.clusterId,
-    pubsubTopics = conf.pubsubTopics,
     maxPeers = conf.maxRelayPeers
+
+  for shard in conf.pubsubTopics:
+    info "Configuration. Shards", shard=shard
 
   for i in conf.discv5BootstrapNodes:
     info "Configuration. Bootstrap nodes", node = i
@@ -43,7 +46,10 @@ proc logConfig(conf: WakuNodeConf) =
     info "Configuration. Validation",
       mechanism = "onchain rln",
       contract = conf.rlnRelayEthContractAddress,
-      maxMessageSize = conf.maxMessageSize
+      maxMessageSize = conf.maxMessageSize,
+      rlnEpochSizeSec = conf.rlnEpochSizeSec,
+      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
+      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -57,7 +63,6 @@ when isMainModule:
   ## 6. Setup graceful shutdown hooks
 
   const versionString = "version / git commit hash: " & app.git_version
-  let rng = crypto.newRng()
 
   let confRes = WakuNodeConf.load(version = versionString)
   if confRes.isErr():
@@ -65,25 +70,6 @@ when isMainModule:
     quit(QuitFailure)
 
   var conf = confRes.get()
-
-  # The Waku Network config (cluster-id=1)
-  if conf.clusterId == 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(conf.shards) != 0:
-      conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-    # Override configuration
-    conf.maxMessageSize = twnClusterConf.maxMessageSize
-    conf.clusterId = twnClusterConf.clusterId
-    conf.rlnRelay = twnClusterConf.rlnRelay
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    conf.discv5Discovery = twnClusterConf.discv5Discovery
-    conf.discv5BootstrapNodes =
-      conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
 
   ## Logging setup
 
@@ -97,63 +83,49 @@ when isMainModule:
   logging.setupLogLevel(conf.logLevel)
   logging.setupLogFormat(conf.logFormat, color)
 
-  info "Running nwaku node", version = app.git_version
-  logConfig(conf)
-
   case conf.cmd
   of generateRlnKeystore:
     doRlnKeystoreGenerator(conf)
+  of inspectRlnDb:
+    doInspectRlnDb(conf)
   of noCommand:
-    var wakunode2 = App.init(rng, conf)
+    # The Waku Network config (cluster-id=1)
+    if conf.clusterId == 1:
+      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+      if len(conf.shards) != 0:
+        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+      else:
+        conf.pubsubTopics = twnClusterConf.pubsubTopics
 
-    ##############
-    # Node setup #
-    ##############
+      # Override configuration
+      conf.maxMessageSize = twnClusterConf.maxMessageSize
+      conf.clusterId = twnClusterConf.clusterId
+      conf.rlnRelay = twnClusterConf.rlnRelay
+      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+      conf.discv5Discovery = twnClusterConf.discv5Discovery
+      conf.discv5BootstrapNodes =
+        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
-    debug "1/7 Setting up storage"
+    info "Running nwaku node", version = app.git_version
+    logConfig(conf)
 
-    ## Peer persistence
-    let res1 = wakunode2.setupPeerPersistence()
-    if res1.isErr():
-      error "1/7 Setting up storage failed", error = res1.error
+    var wakunode2 = App.init(conf).valueOr:
+      error "App initialization failed", error = error
       quit(QuitFailure)
 
-    debug "2/7 Retrieve dynamic bootstrap nodes"
-
-    let res3 = wakunode2.setupDyamicBootstrapNodes()
-    if res3.isErr():
-      error "2/7 Retrieving dynamic bootstrap nodes failed", error = res3.error
+    wakunode2.startApp().isOkOr:
+      error "Starting app failed", error = error
       quit(QuitFailure)
 
-    debug "3/7 Initializing node"
+    wakunode2.setupMonitoringAndExternalInterfaces().isOkOr:
+      error "Starting monitoring and external interfaces failed", error = error
+      quit(QuitFailure) 
 
-    let res4 = wakunode2.setupWakuApp()
-    if res4.isErr():
-      error "3/7 Initializing node failed", error = res4.error
-      quit(QuitFailure)
-
-    debug "4/7 Mounting protocols"
-
-    let res5 = waitFor wakunode2.setupAndMountProtocols()
-    if res5.isErr():
-      error "4/7 Mounting protocols failed", error = res5.error
-      quit(QuitFailure)
-
-    debug "5/7 Starting node and mounted protocols"
-
-    let res6 = wakunode2.startApp()
-    if res6.isErr():
-      error "5/7 Starting node and protocols failed", error = res6.error
-      quit(QuitFailure)
-
-    debug "6/7 Starting monitoring and external interfaces"
-
-    let res7 = wakunode2.setupMonitoringAndExternalInterfaces()
-    if res7.isErr():
-      error "6/7 Starting monitoring and external interfaces failed", error = res7.error
-      quit(QuitFailure)
-
-    debug "7/7 Setting up shutdown hooks"
+    debug "Setting up shutdown hooks"
     ## Setup shutdown hooks for this process.
     ## Stop node gracefully on shutdown.
 

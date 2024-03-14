@@ -1,4 +1,5 @@
 import
+  ../../common/error_handling,
   ../protocol_types,
   ../protocol_metrics,
   ../constants,
@@ -44,6 +45,7 @@ type
     initialized*: bool
     latestIndex*: MembershipIndex
     validRoots*: Deque[MerkleNode]
+    onFatalErrorAction*: OnFatalErrorHandler
     when defined(rln_v2):
       userMessageLimit*: Option[UserMessageLimit]
 
@@ -188,10 +190,12 @@ when defined(rln_v2):
       return err("user message limit is not set")
     waku_rln_proof_generation_duration_seconds.nanosecondTime:
       let proof = proofGen(rlnInstance = g.rlnInstance,
-                                data = data,
-                                memKeys = g.idCredentials.get(),
-                                memIndex = g.membershipIndex.get(),
-                                epoch = epoch).valueOr:
+                           data = data,
+                           membership = g.idCredentials.get(),
+                           index = g.membershipIndex.get(),
+                           epoch = epoch,
+                           userMessageLimit = g.userMessageLimit.get(),
+                           messageId = messageId).valueOr:
         return err("proof generation failed: " & $error)
     return ok(proof)
 else:

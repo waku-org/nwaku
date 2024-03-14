@@ -14,7 +14,7 @@ import
   stew/shims/net
 import
   ../../../waku/node/waku_node,
-  ../events/[json_error_event,json_message_event,json_base_event],
+  ../events/[json_message_event,json_base_event],
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
 
@@ -26,6 +26,8 @@ type
     respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
     respSignal: ThreadSignalPtr
     userData*: pointer
+    eventCallback*: pointer
+    eventUserdata*: pointer
 
 # To control when the thread is running
 var running: Atomic[bool]
@@ -93,12 +95,16 @@ proc createWakuThread*(): Result[ptr Context, string] =
 
   return ok(ctx)
 
-proc stopWakuNodeThread*(ctx: ptr Context) =
+proc stopWakuThread*(ctx: ptr Context): Result[void, string] =
   running.store(false)
+  let fireRes = ctx.reqSignal.fireSync()
+  if fireRes.isErr():
+    return err("error in stopWakuThread: " & $fireRes.error)
   joinThread(ctx.thread)
   discard ctx.reqSignal.close()
   discard ctx.respSignal.close()
   freeShared(ctx)
+  return ok()
 
 proc sendRequestToWakuThread*(ctx: ptr Context,
                               reqType: RequestType,

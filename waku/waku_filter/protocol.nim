@@ -120,14 +120,6 @@ proc new*(T: type WakuFilterLegacy,
   wf.initProtocolHandler()
   return wf
 
-proc init*(T: type WakuFilterLegacy,
-           peerManager: PeerManager,
-           rng: ref rand.HmacDrbgContext,
-           timeout: Duration = WakuLegacyFilterTimeout): T {.
-  deprecated: "WakuFilterLegacy.new()' instead".} =
-  WakuFilterLegacy.new(peerManager, rng, timeout)
-
-
 proc sendFilterRpc(wf: WakuFilterLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
   let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)
   if connOpt.isNone():

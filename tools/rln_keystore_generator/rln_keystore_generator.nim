@@ -13,7 +13,7 @@ import
   ../../waku/waku_rln_relay/rln,
   ../../waku/waku_rln_relay/conversion_utils,
   ../../waku/waku_rln_relay/group_manager/on_chain,
-  ../../apps/wakunode2/external_config
+  ../../waku/factory/external_config
 
 logScope:
   topics = "rln_keystore_generator"
@@ -49,7 +49,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     quit(0)
 
   # 4. initialize OnchainGroupManager
-  let groupManager = OnchainGroupManager(ethClientUrl: conf.rlnRelayEthClientAddress,
+  let groupManager = OnchainGroupManager(ethClientUrl: string(conf.rlnRelayethClientAddress),
                                          ethContractAddress: conf.rlnRelayEthContractAddress,
                                          rlnInstance: rlnInstance,
                                          keystorePath: none(string),

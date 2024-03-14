@@ -100,7 +100,11 @@ suite "Static group manager":
     let dummyCommitment = default(IDCommitment)
 
     try:
-      await manager.register(dummyCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: dummyCommitment, 
+                                              userMessageLimit: DefaultUserMessageLimit))
+      else:
+        await manager.register(dummyCommitment)
     except ValueError:
       assert true
     except Exception, CatchableError:
@@ -119,7 +123,11 @@ suite "Static group manager":
         merkleRootBeforeRes.isOk()
     let merkleRootBefore = merkleRootBeforeRes.get()
     try:
-      await manager.register(idCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: idCommitment, 
+                                              userMessageLimit: DefaultUserMessageLimit))
+      else:
+        await manager.register(idCommitment)
     except Exception, CatchableError:
         assert false, "exception raised: " & getCurrentExceptionMsg()
     let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
@@ -139,8 +147,13 @@ suite "Static group manager":
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       require:
         registrations.len == 1
-        registrations[0].idCommitment == idCommitment
         registrations[0].index == 10
+      when defined(rln_v2):
+        require:
+          registrations[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit)
+      else:
+        require:
+          registrations[0].idCommitment == idCommitment
       callbackCalled = true
       fut.complete()
 
@@ -148,7 +161,11 @@ suite "Static group manager":
       manager.onRegister(callback)
       await manager.init()
       await manager.startGroupSync()
-      await manager.register(idCommitment)
+      when defined(rln_v2):
+        await manager.register(RateCommitment(idCommitment: idCommitment, 
+                                              userMessageLimit: DefaultUserMessageLimit))
+      else:
+        await manager.register(idCommitment)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
@@ -198,8 +215,13 @@ suite "Static group manager":
     proc callback(withdrawals: seq[Membership]): Future[void] {.async.} =
       require:
         withdrawals.len == 1
-        withdrawals[0].idCommitment == idCommitment
         withdrawals[0].index == 0
+      when defined(rln_v2):
+        require:
+          withdrawals[0].rateCommitment == RateCommitment(idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit)
+      else:
+        require:
+          withdrawals[0].idCommitment == idCommitment
       callbackCalled = true
       fut.complete()
 
