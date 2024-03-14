@@ -73,6 +73,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
   let writeRes = catch: await conn.writeLP(seq[byte](payload))
   if writeRes.isErr():
+    delete(negentropy)
     return err(writeRes.error.msg)
 
   var
@@ -83,6 +84,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let readRes = catch: await conn.readLp(self.maxFrameSize)
 
     let buffer: seq[byte] = readRes.valueOr:
+      delete(negentropy)
       return err(error.msg)
 
     debug "Received Sync request from peer", payload = toHex(buffer)
@@ -90,6 +92,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let request = NegentropyPayload(buffer)
 
     let responseOpt = self.clientReconciliation(negentropy, request, haveHashes, needHashes).valueOr:
+      delete(negentropy)
       return err(error)
 
     let response = responseOpt.valueOr:
@@ -101,8 +104,9 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
     let writeRes = catch: await conn.writeLP(seq[byte](response))
     if writeRes.isErr():
+      delete(negentropy)
       return err(writeRes.error.msg)
- 
+  delete(negentropy)
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
@@ -155,11 +159,10 @@ proc new*(T: type WakuSync,
   maxFrameSize: int = DefaultFrameSize,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
-): T =
+): T {. raises:[ValueError].}=
 
   let storage = Storage.new()
   let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
-
   let sync = WakuSync(
     storage: storage,
     negentropy: negentropy,
