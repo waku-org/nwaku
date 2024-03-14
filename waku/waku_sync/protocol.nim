@@ -190,8 +190,8 @@ proc periodicSync(self: WakuSync) {.async.} =
 
 proc start*(self: WakuSync) =
   self.started = true
-
-  self.periodicSyncFut = self.periodicSync()
+  if self.syncInterval > 0.seconds: # start periodic-sync only if interval is set.
+    self.periodicSyncFut = self.periodicSync()
   
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()
