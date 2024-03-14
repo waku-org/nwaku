@@ -60,6 +60,16 @@ proc sendRlnMessage(
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
 
+proc versionAwareGenerateProof(
+    groupManager: GroupManager, messageBytes: seq[byte], epoch: Epoch
+): GroupManagerResult[RateLimitProof] =
+  when defined(rln_v2):
+    return groupManager.generateProof(
+        data = messageBytes, epoch = epoch, messageId = MessageId(1)
+      )
+  else:
+    return groupManager.generateProof(data = messageBytes, epoch = epoch)
+
 proc sendRlnMessageWithInvalidProof(
     client: WakuNode,
     pubsubTopic: string,
@@ -70,7 +80,7 @@ proc sendRlnMessageWithInvalidProof(
   let
     extraBytes: seq[byte] = @[byte(1), 2, 3]
     rateLimitProofRes =
-      client.wakuRlnRelay.groupManager.generateProof(
+      client.wakuRlnRelay.groupManager.versionAwareGenerateProof(
         concat(payload, extraBytes),
           # we add extra bytes to invalidate proof verification against original payload
         client.wakuRlnRelay.getCurrentEpoch()
