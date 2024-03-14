@@ -247,22 +247,22 @@ suite "Waku RlnRelay - End to End":
 
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message1b, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 0
+          message1b, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 0)
         ).isOk()
       )
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message1kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 1
+          message1kib, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 1)
         ).isOk()
       )
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message150kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 2
+          message150kib, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 2)
         ).isOk()
       )
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
+          message151kibPlus, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 3)
         ).isOk()
       )
 
@@ -327,7 +327,7 @@ suite "Waku RlnRelay - End to End":
 
       doAssert(
         client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
+          message151kibPlus, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 3)
         ).isOk()
       )
 
