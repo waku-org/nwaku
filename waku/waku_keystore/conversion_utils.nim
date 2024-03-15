@@ -3,10 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
-  json,
-  stew/[results, byteutils],
-  ./protocol_types
+import json, stew/[results, byteutils], ./protocol_types
 
 # Encodes a KeystoreMembership credential to a byte sequence
 proc encode*(credential: KeystoreMembership): seq[byte] =
@@ -24,8 +21,6 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[KeystoreMembership] =
     let jsonObject = parseJson(string.fromBytes(encodedCredential))
     return ok(to(jsonObject, KeystoreMembership))
   except JsonParsingError:
-    return err(AppKeystoreError(kind: KeystoreJsonError, 
-                                msg: getCurrentExceptionMsg()))
+    return err(AppKeystoreError(kind: KeystoreJsonError, msg: getCurrentExceptionMsg()))
   except Exception: #parseJson raises Exception
-    return err(AppKeystoreError(kind: KeystoreOsError,
-                                msg: getCurrentExceptionMsg()))
+    return err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))

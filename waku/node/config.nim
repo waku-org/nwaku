@@ -8,11 +8,8 @@ import
   stew/results,
   stew/shims/net,
   libp2p/[multiaddress, multicodec]
-import
-   ../../waku/waku_core/peers
-import
-  ../waku_enr
-
+import ../../waku/waku_core/peers
+import ../waku_enr
 
 type NetConfig* = object
   hostAddress*: MultiAddress
@@ -36,7 +33,6 @@ type NetConfig* = object
 
 type NetConfigResult* = Result[NetConfig, string]
 
-
 template ip4TcpEndPoint(address, port): MultiAddress =
   MultiAddress.init(address, tcpProtocol, port)
 
@@ -50,14 +46,15 @@ template dns4TcpEndPoint(dns4DomainName: string, port: Port): MultiAddress =
   dns4Ma(dns4DomainName) & tcpPortMa(port)
 
 template wsFlag(wssEnabled: bool): MultiAddress =
-  if wssEnabled: MultiAddress.init("/wss").tryGet()
-  else: MultiAddress.init("/ws").tryGet()
-
+  if wssEnabled:
+    MultiAddress.init("/wss").tryGet()
+  else:
+    MultiAddress.init("/ws").tryGet()
 
 proc formatListenAddress(inputMultiAdd: MultiAddress): MultiAddress =
-    let inputStr = $inputMultiAdd
-    # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
-    return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
+  let inputStr = $inputMultiAdd
+  # If MultiAddress contains "0.0.0.0", replace it for "127.0.0.1"
+  return MultiAddress.init(inputStr.replace("0.0.0.0", "127.0.0.1")).get()
 
 proc isWsAddress*(ma: MultiAddress): bool =
   let
@@ -67,9 +64,10 @@ proc isWsAddress*(ma: MultiAddress): bool =
   return isWs or isWss
 
 proc containsWsAddress(extMultiAddrs: seq[MultiAddress]): bool =
-  return extMultiAddrs.filterIt( it.isWsAddress() ).len > 0
+  return extMultiAddrs.filterIt(it.isWsAddress()).len > 0
 
-proc init*(T: type NetConfig,
+proc init*(
+    T: type NetConfig,
     bindIp: IpAddress,
     bindPort: Port,
     extIp = none(IpAddress),
@@ -82,7 +80,8 @@ proc init*(T: type NetConfig,
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
     clusterId: uint32 = 0,
-    wakuFlags = none(CapabilitiesBitfield)): NetConfigResult =
+    wakuFlags = none(CapabilitiesBitfield),
+): NetConfigResult =
   ## Initialize and validate waku node network configuration
 
   # Bind addresses
@@ -95,8 +94,16 @@ proc init*(T: type NetConfig,
     except CatchableError:
       return err(getCurrentExceptionMsg())
 
-  let enrIp = if extIp.isSome(): extIp else: some(bindIp)
-  let enrPort = if extPort.isSome(): extPort else: some(bindPort)
+  let enrIp =
+    if extIp.isSome():
+      extIp
+    else:
+      some(bindIp)
+  let enrPort =
+    if extPort.isSome():
+      extPort
+    else:
+      some(bindPort)
 
   # Setup external addresses, if available
   var hostExtAddress, wsExtAddress = none(MultiAddress)
@@ -110,7 +117,8 @@ proc init*(T: type NetConfig,
 
     if wsHostAddress.isSome():
       try:
-        wsExtAddress = some(dns4TcpEndPoint(dns4DomainName.get(), wsBindPort) & wsFlag(wssEnabled))
+        wsExtAddress =
+          some(dns4TcpEndPoint(dns4DomainName.get(), wsBindPort) & wsFlag(wssEnabled))
       except CatchableError:
         return err(getCurrentExceptionMsg())
   else:
@@ -120,7 +128,8 @@ proc init*(T: type NetConfig,
 
       if wsHostAddress.isSome():
         try:
-          wsExtAddress = some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
+          wsExtAddress =
+            some(ip4TcpEndPoint(extIp.get(), wsBindPort) & wsFlag(wssEnabled))
         except CatchableError:
           return err(getCurrentExceptionMsg())
 
@@ -130,14 +139,15 @@ proc init*(T: type NetConfig,
     if hostExtAddress.isSome():
       announcedAddresses.add(hostExtAddress.get())
     else:
-      announcedAddresses.add(formatListenAddress(hostAddress)) # We always have at least a bind address for the host
+      announcedAddresses.add(formatListenAddress(hostAddress))
+        # We always have at least a bind address for the host
 
     if wsExtAddress.isSome():
       announcedAddresses.add(wsExtAddress.get())
     elif wsHostAddress.isSome() and not containsWsAddress(extMultiAddrs):
       # Only publish wsHostAddress if a WS address is not set in extMultiAddrs
       announcedAddresses.add(wsHostAddress.get())
-  
+
   # External multiaddrs that the operator may have configured
   if extMultiAddrs.len > 0:
     announcedAddresses.add(extMultiAddrs)
@@ -145,28 +155,30 @@ proc init*(T: type NetConfig,
   let
     # enrMultiaddrs are just addresses which cannot be represented in ENR, as described in
     # https://rfc.vac.dev/spec/31/#many-connection-types
-    enrMultiaddrs = announcedAddresses.filterIt(it.hasProtocol("dns4") or
-                                                it.hasProtocol("dns6") or
-                                                it.hasProtocol("ws") or
-                                                it.hasProtocol("wss"))
+    enrMultiaddrs = announcedAddresses.filterIt(
+      it.hasProtocol("dns4") or it.hasProtocol("dns6") or it.hasProtocol("ws") or
+        it.hasProtocol("wss")
+    )
 
-  ok(NetConfig(
-    hostAddress: hostAddress,
-    clusterId: clusterId,
-    wsHostAddress: wsHostAddress,
-    hostExtAddress: hostExtAddress,
-    wsExtAddress: wsExtAddress,
-    extIp: extIp,
-    extPort: extPort,
-    wssEnabled: wssEnabled,
-    dns4DomainName: dns4DomainName,
-    announcedAddresses: announcedAddresses,
-    extMultiAddrs: extMultiAddrs,
-    enrMultiaddrs: enrMultiaddrs,
-    enrIp: enrIp,
-    enrPort: enrPort,
-    discv5UdpPort: discv5UdpPort,
-    bindIp: bindIp,
-    bindPort: bindPort,
-    wakuFlags: wakuFlags
-  ))
+  ok(
+    NetConfig(
+      hostAddress: hostAddress,
+      clusterId: clusterId,
+      wsHostAddress: wsHostAddress,
+      hostExtAddress: hostExtAddress,
+      wsExtAddress: wsExtAddress,
+      extIp: extIp,
+      extPort: extPort,
+      wssEnabled: wssEnabled,
+      dns4DomainName: dns4DomainName,
+      announcedAddresses: announcedAddresses,
+      extMultiAddrs: extMultiAddrs,
+      enrMultiaddrs: enrMultiaddrs,
+      enrIp: enrIp,
+      enrPort: enrPort,
+      discv5UdpPort: discv5UdpPort,
+      bindIp: bindIp,
+      bindPort: bindPort,
+      wakuFlags: wakuFlags,
+    )
+  )

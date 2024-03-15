@@ -11,7 +11,8 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/waku_node,
-  ../../waku/node/waku_node as waku_node2,  # TODO: Remove after moving `git_version` to the app code.
+  ../../waku/node/waku_node as waku_node2,
+    # TODO: Remove after moving `git_version` to the app code.
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/client,
   ../../waku/waku_api/rest/responses,
@@ -23,7 +24,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc testWakuNode(): WakuNode =
   let
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
@@ -32,7 +32,6 @@ proc testWakuNode(): WakuNode =
     port = Port(0)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
-
 
 suite "Waku v2 REST API - health":
   # TODO: better test for health
@@ -60,11 +59,14 @@ suite "Waku v2 REST API - health":
       response.data == "Node is not ready"
 
     # now kick in rln (currently the only check for health)
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-    ))
+    await node.mountRlnRelay(
+      WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      )
+    )
 
     # When
     response = await client.healthCheck()

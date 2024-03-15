@@ -3,24 +3,16 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  stew/results,
-  stew/byteutils,
-  stew/arrayops,
-  nimcrypto/sha2
-import
-  ../waku_core,
-  ../common/paging
+import std/options, stew/results, stew/byteutils, stew/arrayops, nimcrypto/sha2
+import ../waku_core, ../common/paging
 
 ## Waku message digest
 
 type MessageDigest* = MDigest[256]
 
 proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
-  
   var data: array[32, byte]
-        
+
   let byteCount = copyFrom[byte](data, src)
 
   assert byteCount == 32
@@ -30,7 +22,8 @@ proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
 proc computeDigest*(msg: WakuMessage): MessageDigest =
   var ctx: sha256
   ctx.init()
-  defer: ctx.clear()
+  defer:
+    ctx.clear()
 
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.payload)
@@ -79,9 +72,8 @@ type
 
   ArchiveResult* = Result[ArchiveResponse, ArchiveError]
 
-
 proc `$`*(err: ArchiveError): string =
-  case err.kind:
+  case err.kind
   of ArchiveErrorKind.DRIVER_ERROR:
     "DIRVER_ERROR: " & err.cause
   of ArchiveErrorKind.INVALID_QUERY:

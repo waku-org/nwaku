@@ -1,13 +1,11 @@
-import std/tables,
-       stew/objects,
-       stew/templateutils
+import std/tables, stew/objects, stew/templateutils
 
 template keepItIf*[A, B](tableParam: var Table[A, B], itPredicate: untyped) =
   bind evalTemplateParamOnce
   evalTemplateParamOnce(tableParam, t):
     var itemsToDelete: seq[A]
-    var key {.inject.} : A
-    var val {.inject.} : B
+    var key {.inject.}: A
+    var val {.inject.}: B
 
     for k, v in t.mpairs():
       key = k
@@ -22,8 +20,8 @@ template keepItIf*[A, B](tableParam: var TableRef[A, B], itPredicate: untyped) =
   bind evalTemplateParamOnce
   evalTemplateParamOnce(tableParam, t):
     var itemsToDelete: seq[A]
-    let key {.inject.} : A
-    let val {.inject.} : B
+    let key {.inject.}: A
+    let val {.inject.}: B
 
     for k, v in t[].mpairs():
       key = k

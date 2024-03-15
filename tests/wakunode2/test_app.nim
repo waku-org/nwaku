@@ -9,13 +9,9 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   libp2p/switch
-import
-  ../testlib/common,
-  ../testlib/wakucore,
-  ../testlib/wakunode
+import ../testlib/common, ../testlib/wakucore, ../testlib/wakunode
 
-include
-  ../../apps/wakunode2/app
+include ../../apps/wakunode2/app
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":
@@ -23,7 +19,7 @@ suite "Wakunode2 - App":
     let conf = defaultTestWakuNodeConf()
 
     let wakunode2 = App.init(conf).valueOr:
-      raiseAssert error 
+      raiseAssert error
 
     ## When
     let version = wakunode2.version
@@ -39,7 +35,7 @@ suite "Wakunode2 - App initialization":
     conf.peerPersistence = true
 
     let wakunode2 = App.init(conf).valueOr:
-      raiseAssert error 
+      raiseAssert error
 
     check:
       not wakunode2.node.peerManager.storage.isNil()
@@ -83,7 +79,7 @@ suite "Wakunode2 - App initialization":
       raiseAssert error
 
     ## Then
-    let 
+    let
       node = wakunode2.node
       typedNodeEnr = node.enr.toTypedRecord()
 

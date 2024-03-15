@@ -3,11 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-    libp2p/[peerinfo, switch]
+import libp2p/[peerinfo, switch]
 
-import
-  ./peers
+import ./peers
 
 proc constructMultiaddrStr*(wireaddr: MultiAddress, peerId: PeerId): string =
   # Constructs a multiaddress with both wire address and p2p identity
@@ -24,4 +22,3 @@ proc constructMultiaddrStr*(remotePeerInfo: RemotePeerInfo): string =
   if remotePeerInfo.addrs.len == 0:
     return ""
   return constructMultiaddrStr(remotePeerInfo.addrs[0], remotePeerInfo.peerId)
-

@@ -5,8 +5,13 @@ else:
 
 import
   std/[tables, times, strutils, hashes, sequtils],
-  chronos, confutils, chronicles, chronicles/topics_registry, chronos/streams/tlsstream,
-  metrics, metrics/chronos_httpserver,
+  chronos,
+  confutils,
+  chronicles,
+  chronicles/topics_registry,
+  chronos/streams/tlsstream,
+  metrics,
+  metrics/chronos_httpserver,
   stew/byteutils,
   eth/net/nat,
   json_rpc/rpcserver,
@@ -27,7 +32,8 @@ import
   # Common cli config
   ./config_chat2bridge
 
-declarePublicCounter chat2_mb_transfers, "Number of messages transferred between chat2 and Matterbridge", ["type"]
+declarePublicCounter chat2_mb_transfers,
+  "Number of messages transferred between chat2 and Matterbridge", ["type"]
 declarePublicCounter chat2_mb_dropped, "Number of messages dropped", ["reason"]
 
 logScope:
@@ -37,8 +43,7 @@ logScope:
 # Default values #
 ##################
 
-const
-  DeduplQSize = 20  # Maximum number of seen messages to keep in deduplication queue
+const DeduplQSize = 20 # Maximum number of seen messages to keep in deduplication queue
 
 #########
 # Types #
@@ -53,7 +58,7 @@ type
     seen: seq[Hash] #FIFO queue
     contentTopic: string
 
-  MbMessageHandler = proc (jsonNode: JsonNode) {.async.}
+  MbMessageHandler = proc(jsonNode: JsonNode) {.async.}
 
 ###################
 # Helper funtions #
@@ -65,25 +70,27 @@ proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
 
   if sequence.len >= DeduplQSize:
     trace "Deduplication queue full. Removing oldest item."
-    sequence.delete 0, 0  # Remove first item in queue
+    sequence.delete 0, 0 # Remove first item in queue
 
   sequence.add(hash)
 
   return false
 
-proc toWakuMessage(cmb: Chat2MatterBridge, jsonNode: JsonNode): WakuMessage {.raises: [Defect, KeyError]} =
+proc toWakuMessage(
+    cmb: Chat2MatterBridge, jsonNode: JsonNode
+): WakuMessage {.raises: [Defect, KeyError].} =
   # Translates a Matterbridge API JSON response to a Waku v2 message
   let msgFields = jsonNode.getFields()
 
   # @TODO error handling here - verify expected fields
 
-  let chat2pb = Chat2Message(timestamp: getTime().toUnix(), # @TODO use provided timestamp
-                             nick: msgFields["username"].getStr(),
-                             payload: msgFields["text"].getStr().toBytes()).encode()
+  let chat2pb = Chat2Message(
+    timestamp: getTime().toUnix(), # @TODO use provided timestamp
+    nick: msgFields["username"].getStr(),
+    payload: msgFields["text"].getStr().toBytes(),
+  ).encode()
 
-  WakuMessage(payload: chat2pb.buffer,
-              contentTopic: cmb.contentTopic,
-              version: 0)
+  WakuMessage(payload: chat2pb.buffer, contentTopic: cmb.contentTopic, version: 0)
 
 proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
   let msg = cmb.toWakuMessage(jsonNode)
@@ -100,7 +107,9 @@ proc toChat2(cmb: Chat2MatterBridge, jsonNode: JsonNode) {.async.} =
   (await cmb.nodev2.publish(some(DefaultPubsubTopic), msg)).isOkOr:
     error "failed to publish message", error = error
 
-proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: [Exception].} =
+proc toMatterbridge(
+    cmb: Chat2MatterBridge, msg: WakuMessage
+) {.gcsafe, raises: [Exception].} =
   if cmb.seen.containsOrAdd(msg.payload.hash()):
     # This is a duplicate message. Return.
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
@@ -119,8 +128,9 @@ proc toMatterbridge(cmb: Chat2MatterBridge, msg: WakuMessage) {.gcsafe, raises: 
 
   assert chat2Msg.isOk
 
-  let postRes = cmb.mbClient.postMessage(text = string.fromBytes(chat2Msg[].payload),
-                                         username = chat2Msg[].nick)
+  let postRes = cmb.mbClient.postMessage(
+    text = string.fromBytes(chat2Msg[].payload), username = chat2Msg[].nick
+  )
 
   if postRes.isErr() or (postRes[] == false):
     chat2_mb_dropped.inc(labelValues = ["duplicate"])
@@ -142,41 +152,50 @@ proc pollMatterbridge(cmb: Chat2MatterBridge, handler: MbMessageHandler) {.async
 ##############
 # Public API #
 ##############
-proc new*(T: type Chat2MatterBridge,
-          # Matterbridge initialisation
-          mbHostUri: string,
-          mbGateway: string,
-          # NodeV2 initialisation
-          nodev2Key: crypto.PrivateKey,
-          nodev2BindIp: IpAddress, nodev2BindPort: Port,
-          nodev2ExtIp = none[IpAddress](), nodev2ExtPort = none[Port](),
-          contentTopic: string): T
-  {.raises: [Defect, ValueError, KeyError, TLSStreamProtocolError, IOError, LPError].} =
-
+proc new*(
+    T: type Chat2MatterBridge,
+    # Matterbridge initialisation
+    mbHostUri: string,
+    mbGateway: string,
+    # NodeV2 initialisation
+    nodev2Key: crypto.PrivateKey,
+    nodev2BindIp: IpAddress,
+    nodev2BindPort: Port,
+    nodev2ExtIp = none[IpAddress](),
+    nodev2ExtPort = none[Port](),
+    contentTopic: string,
+): T {.
+    raises: [Defect, ValueError, KeyError, TLSStreamProtocolError, IOError, LPError]
+.} =
   # Setup Matterbridge
-  let
-    mbClient = MatterbridgeClient.new(mbHostUri, mbGateway)
+  let mbClient = MatterbridgeClient.new(mbHostUri, mbGateway)
 
   # Let's verify the Matterbridge configuration before continuing
   let clientHealth = mbClient.isHealthy()
 
   if clientHealth.isOk() and clientHealth[]:
-    info "Reached Matterbridge host", host=mbClient.host
+    info "Reached Matterbridge host", host = mbClient.host
   else:
     raise newException(ValueError, "Matterbridge client not reachable/healthy")
 
   # Setup Waku v2 node
   let nodev2 = block:
-      var builder = WakuNodeBuilder.init()
-      builder.withNodeKey(nodev2Key)
-      builder.withNetworkConfigurationDetails(nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort).tryGet()
-      builder.build().tryGet()
+    var builder = WakuNodeBuilder.init()
+    builder.withNodeKey(nodev2Key)
+    builder
+    .withNetworkConfigurationDetails(
+      nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort
+    )
+    .tryGet()
+    builder.build().tryGet()
 
-  return Chat2MatterBridge(mbClient: mbClient,
-                           nodev2: nodev2,
-                           running: false,
-                           pollPeriod: chronos.seconds(1),
-                           contentTopic: contentTopic)
+  return Chat2MatterBridge(
+    mbClient: mbClient,
+    nodev2: nodev2,
+    running: false,
+    pollPeriod: chronos.seconds(1),
+    contentTopic: contentTopic,
+  )
 
 proc start*(cmb: Chat2MatterBridge) {.async.} =
   info "Starting Chat2MatterBridge"
@@ -187,7 +206,7 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Start Matterbridge polling (@TODO: use streaming interface)
   proc mbHandler(jsonNode: JsonNode) {.async.} =
-    trace "Bridging message from Matterbridge to chat2", jsonNode=jsonNode
+    trace "Bridging message from Matterbridge to chat2", jsonNode = jsonNode
     waitFor cmb.toChat2(jsonNode)
 
   asyncSpawn cmb.pollMatterbridge(mbHandler)
@@ -203,8 +222,10 @@ proc start*(cmb: Chat2MatterBridge) {.async.} =
 
   # Bridging
   # Handle messages on Waku v2 and bridge to Matterbridge
-  proc relayHandler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async.} =
-    trace "Bridging message from Chat2 to Matterbridge", msg=msg
+  proc relayHandler(
+      pubsubTopic: PubsubTopic, msg: WakuMessage
+  ): Future[void] {.async.} =
+    trace "Bridging message from Chat2 to Matterbridge", msg = msg
     try:
       cmb.toMatterbridge(msg)
     except:
@@ -219,11 +240,10 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
 
   await cmb.nodev2.stop()
 
-{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
+{.pop.}
+  # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
-  import
-    ../../../waku/common/utils/nat,
-    ../../waku/waku_api/message_cache
+  import ../../../waku/common/utils/nat, ../../waku/waku_api/message_cache
 
   let
     rng = newRng()
@@ -232,9 +252,12 @@ when isMainModule:
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let natRes = setupNat(conf.nat, clientId,
-                        Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                        Port(uint16(conf.udpPort) + conf.portsShift))
+  let natRes = setupNat(
+    conf.nat,
+    clientId,
+    Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
+    Port(uint16(conf.udpPort) + conf.portsShift),
+  )
   if natRes.isErr():
     error "Error in setupNat", error = natRes.error
 
@@ -243,19 +266,22 @@ when isMainModule:
     (nodev2ExtIp, nodev2ExtPort, _) = natRes.get()
     ## The following heuristic assumes that, in absence of manual
     ## config, the external port is the same as the bind port.
-    extPort = if nodev2ExtIp.isSome() and nodev2ExtPort.isNone():
-                some(Port(uint16(conf.libp2pTcpPort) + conf.portsShift))
-              else:
-                nodev2ExtPort
+    extPort =
+      if nodev2ExtIp.isSome() and nodev2ExtPort.isNone():
+        some(Port(uint16(conf.libp2pTcpPort) + conf.portsShift))
+      else:
+        nodev2ExtPort
 
-  let
-    bridge = Chat2Matterbridge.new(
-                            mbHostUri = "http://" & $initTAddress(conf.mbHostAddress, Port(conf.mbHostPort)),
-                            mbGateway = conf.mbGateway,
-                            nodev2Key = conf.nodekey,
-                            nodev2BindIp = conf.listenAddress, nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
-                            nodev2ExtIp = nodev2ExtIp, nodev2ExtPort = extPort,
-                            contentTopic = conf.contentTopic)
+  let bridge = Chat2Matterbridge.new(
+    mbHostUri = "http://" & $initTAddress(conf.mbHostAddress, Port(conf.mbHostPort)),
+    mbGateway = conf.mbGateway,
+    nodev2Key = conf.nodekey,
+    nodev2BindIp = conf.listenAddress,
+    nodev2BindPort = Port(uint16(conf.libp2pTcpPort) + conf.portsShift),
+    nodev2ExtIp = nodev2ExtIp,
+    nodev2ExtPort = extPort,
+    contentTopic = conf.contentTopic,
+  )
 
   waitFor bridge.start()
 
@@ -284,7 +310,9 @@ when isMainModule:
     let filterPeer = parsePeerInfo(conf.filternode)
     if filterPeer.isOk():
       bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuLegacyFilterCodec)
-      bridge.nodev2.peerManager.addServicePeer(filterPeer.value, WakuFilterSubscribeCodec)
+      bridge.nodev2.peerManager.addServicePeer(
+        filterPeer.value, WakuFilterSubscribeCodec
+      )
     else:
       error "Error parsing conf.filternode", error = filterPeer.error
 

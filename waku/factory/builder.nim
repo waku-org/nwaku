@@ -12,15 +12,10 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
   libp2p/transports/wstransport
-import
-  ../waku_enr,
-  ../waku_discv5,
-  ../waku_node,
-  ../node/peer_manager
+import ../waku_enr, ../waku_discv5, ../waku_node, ../node/peer_manager
 
 type
-  WakuNodeBuilder* = object
-    # General
+  WakuNodeBuilder* = object # General
     nodeRng: Option[ref crypto.HmacDrbgContext]
     nodeKey: Option[crypto.PrivateKey]
     netConfig: Option[NetConfig]
@@ -45,12 +40,10 @@ type
 
   WakuNodeBuilderResult* = Result[void, string]
 
-
 ## Init
 
 proc init*(T: type WakuNodeBuilder): WakuNodeBuilder =
   WakuNodeBuilder()
-
 
 ## General
 
@@ -66,61 +59,67 @@ proc withRecord*(builder: var WakuNodeBuilder, record: enr.Record) =
 proc withNetworkConfiguration*(builder: var WakuNodeBuilder, config: NetConfig) =
   builder.netConfig = some(config)
 
-proc withNetworkConfigurationDetails*(builder: var WakuNodeBuilder,
-          bindIp: IpAddress,
-          bindPort: Port,
-          extIp = none(IpAddress),
-          extPort = none(Port),
-          extMultiAddrs = newSeq[MultiAddress](),
-          wsBindPort: Port = Port(8000),
-          wsEnabled: bool = false,
-          wssEnabled: bool = false,
-          wakuFlags = none(CapabilitiesBitfield),
-          dns4DomainName = none(string)): WakuNodeBuilderResult {.
-  deprecated: "use 'builder.withNetworkConfiguration()' instead".} =
-  let netConfig = ? NetConfig.init(
-    bindIp = bindIp,
-    bindPort = bindPort,
-    extIp = extIp,
-    extPort = extPort,
-    extMultiAddrs = extMultiAddrs,
-    wsBindPort = wsBindPort,
-    wsEnabled = wsEnabled,
-    wssEnabled = wssEnabled,
-    wakuFlags = wakuFlags,
-    dns4DomainName = dns4DomainName,
-  )
+proc withNetworkConfigurationDetails*(
+    builder: var WakuNodeBuilder,
+    bindIp: IpAddress,
+    bindPort: Port,
+    extIp = none(IpAddress),
+    extPort = none(Port),
+    extMultiAddrs = newSeq[MultiAddress](),
+    wsBindPort: Port = Port(8000),
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    wakuFlags = none(CapabilitiesBitfield),
+    dns4DomainName = none(string),
+): WakuNodeBuilderResult {.
+    deprecated: "use 'builder.withNetworkConfiguration()' instead"
+.} =
+  let netConfig =
+    ?NetConfig.init(
+      bindIp = bindIp,
+      bindPort = bindPort,
+      extIp = extIp,
+      extPort = extPort,
+      extMultiAddrs = extMultiAddrs,
+      wsBindPort = wsBindPort,
+      wsEnabled = wsEnabled,
+      wssEnabled = wssEnabled,
+      wakuFlags = wakuFlags,
+      dns4DomainName = dns4DomainName,
+    )
   builder.withNetworkConfiguration(netConfig)
   ok()
 
-
 ## Peer storage and peer manager
 
-proc withPeerStorage*(builder: var WakuNodeBuilder, peerStorage: PeerStorage, capacity = none(int)) =
+proc withPeerStorage*(
+    builder: var WakuNodeBuilder, peerStorage: PeerStorage, capacity = none(int)
+) =
   if not peerStorage.isNil():
     builder.peerStorage = some(peerStorage)
 
   builder.peerStorageCapacity = capacity
 
-proc withPeerManagerConfig*(builder: var WakuNodeBuilder,
-                            maxRelayPeers = none(int),
-                            shardAware = false) =
+proc withPeerManagerConfig*(
+    builder: var WakuNodeBuilder, maxRelayPeers = none(int), shardAware = false
+) =
   builder.maxRelayPeers = maxRelayPeers
   builder.shardAware = shardAware
 
-proc withColocationLimit*(builder: var WakuNodeBuilder,
-                          colocationLimit: int) =
+proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
 
 ## Waku switch
 
-proc withSwitchConfiguration*(builder: var WakuNodeBuilder,
-                              maxConnections = none(int),
-                              nameResolver: NameResolver = nil,
-                              sendSignedPeerRecord = false,
-                              secureKey = none(string),
-                              secureCert = none(string),
-                              agentString = none(string)) =
+proc withSwitchConfiguration*(
+    builder: var WakuNodeBuilder,
+    maxConnections = none(int),
+    nameResolver: NameResolver = nil,
+    sendSignedPeerRecord = false,
+    secureKey = none(string),
+    secureCert = none(string),
+    agentString = none(string),
+) =
   builder.switchMaxConnections = maxConnections
   builder.switchSendSignedPeerRecord = some(sendSignedPeerRecord)
   builder.switchSslSecureKey = secureKey

@@ -4,8 +4,4 @@ import
   ./waku_archive/driver,
   ./waku_archive/retention_policy
 
-export
-  common,
-  archive,
-  driver,
-  retention_policy
+export common, archive, driver, retention_policy

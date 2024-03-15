@@ -17,7 +17,7 @@ import
     waku_store/client,
     waku_archive,
     waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite
+    common/databases/db_sqlite,
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
@@ -55,16 +55,15 @@ suite "Waku Store - End to End - Sorted Archive":
         fakeWakuMessage(@[byte 06], ts = ts(60, timeOrigin)),
         fakeWakuMessage(@[byte 07], ts = ts(70, timeOrigin)),
         fakeWakuMessage(@[byte 08], ts = ts(80, timeOrigin)),
-        fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin))
+        fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
       ]
 
-    historyQuery =
-      HistoryQuery(
-        pubsubTopic: some(pubsubTopic),
-        contentTopics: contentTopicSeq,
-        direction: PagingDirection.Forward,
-        pageSize: 5,
-      )
+    historyQuery = HistoryQuery(
+      pubsubTopic: some(pubsubTopic),
+      contentTopics: contentTopicSeq,
+      direction: PagingDirection.Forward,
+      pageSize: 5,
+    )
 
     let
       serverKey = generateSecp256k1Key()
@@ -95,26 +94,24 @@ suite "Waku Store - End to End - Sorted Archive":
 
       # Then the response contains the messages
       check:
-        queryResponse.get().messages == archiveMessages[0..<5]
+        queryResponse.get().messages == archiveMessages[0 ..< 5]
 
       # Given the next query
-      var
-        otherHistoryQuery =
-          HistoryQuery(
-            cursor: queryResponse.get().cursor,
-            pubsubTopic: some(pubsubTopic),
-            contentTopics: contentTopicSeq,
-            direction: PagingDirection.FORWARD,
-            pageSize: 5,
-          )
+      var otherHistoryQuery = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: some(pubsubTopic),
+        contentTopics: contentTopicSeq,
+        direction: PagingDirection.FORWARD,
+        pageSize: 5,
+      )
 
       # When making the next history query
-      let
-        otherQueryResponse = await client.query(otherHistoryQuery, serverRemotePeerInfo)
+      let otherQueryResponse =
+        await client.query(otherHistoryQuery, serverRemotePeerInfo)
 
       # Then the response contains the messages
       check:
-        otherQueryResponse.get().messages == archiveMessages[5..<10]
+        otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
     asyncTest "Backward Pagination":
       # Given the history query is backward
@@ -125,26 +122,24 @@ suite "Waku Store - End to End - Sorted Archive":
 
       # Then the response contains the messages
       check:
-        queryResponse.get().messages == archiveMessages[5..<10]
+        queryResponse.get().messages == archiveMessages[5 ..< 10]
 
       # Given the next query
-      var
-        nextHistoryQuery =
-          HistoryQuery(
-            cursor: queryResponse.get().cursor,
-            pubsubTopic: some(pubsubTopic),
-            contentTopics: contentTopicSeq,
-            direction: PagingDirection.BACKWARD,
-            pageSize: 5,
-          )
+      var nextHistoryQuery = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: some(pubsubTopic),
+        contentTopics: contentTopicSeq,
+        direction: PagingDirection.BACKWARD,
+        pageSize: 5,
+      )
 
       # When making the next history query
-      let
-        otherQueryResponse = await client.query(nextHistoryQuery, serverRemotePeerInfo)
+      let otherQueryResponse =
+        await client.query(nextHistoryQuery, serverRemotePeerInfo)
 
       # Then the response contains the messages
       check:
-        otherQueryResponse.get().messages == archiveMessages[0..<5]
+        otherQueryResponse.get().messages == archiveMessages[0 ..< 5]
 
     suite "Pagination with Differente Page Sizes":
       asyncTest "Pagination with Small Page Size":
@@ -156,79 +151,71 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse1.get().messages == archiveMessages[0..<2]
+          queryResponse1.get().messages == archiveMessages[0 ..< 2]
 
         # Given the next query (2/5)
-        let
-          historyQuery2 =
-            HistoryQuery(
-              cursor: queryResponse1.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 2,
-            )
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse1.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 2,
+        )
 
         # When making the next history query
         let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse2.get().messages == archiveMessages[2..<4]
+          queryResponse2.get().messages == archiveMessages[2 ..< 4]
 
         # Given the next query (3/5)
-        let
-          historyQuery3 =
-            HistoryQuery(
-              cursor: queryResponse2.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 2,
-            )
+        let historyQuery3 = HistoryQuery(
+          cursor: queryResponse2.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 2,
+        )
 
         # When making the next history query
         let queryResponse3 = await client.query(historyQuery3, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse3.get().messages == archiveMessages[4..<6]
+          queryResponse3.get().messages == archiveMessages[4 ..< 6]
 
         # Given the next query (4/5)
-        let
-          historyQuery4 =
-            HistoryQuery(
-              cursor: queryResponse3.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 2,
-            )
+        let historyQuery4 = HistoryQuery(
+          cursor: queryResponse3.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 2,
+        )
 
         # When making the next history query
         let queryResponse4 = await client.query(historyQuery4, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse4.get().messages == archiveMessages[6..<8]
+          queryResponse4.get().messages == archiveMessages[6 ..< 8]
 
         # Given the next query (5/5)
-        let
-          historyQuery5 =
-            HistoryQuery(
-              cursor: queryResponse4.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 2,
-            )
+        let historyQuery5 = HistoryQuery(
+          cursor: queryResponse4.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 2,
+        )
 
         # When making the next history query
         let queryResponse5 = await client.query(historyQuery5, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse5.get().messages == archiveMessages[8..<10]
+          queryResponse5.get().messages == archiveMessages[8 ..< 10]
 
       asyncTest "Pagination with Large Page Size":
         # Given the first query (1/2)
@@ -239,25 +226,23 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse1.get().messages == archiveMessages[0..<8]
+          queryResponse1.get().messages == archiveMessages[0 ..< 8]
 
         # Given the next query (2/2)
-        let
-          historyQuery2 =
-            HistoryQuery(
-              cursor: queryResponse1.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 8,
-            )
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse1.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 8,
+        )
 
         # When making the next history query
         let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse2.get().messages == archiveMessages[8..<10]
+          queryResponse2.get().messages == archiveMessages[8 ..< 10]
 
       asyncTest "Pagination with Excessive Page Size":
         # Given the first query (1/1)
@@ -268,7 +253,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse1.get().messages == archiveMessages[0..<10]
+          queryResponse1.get().messages == archiveMessages[0 ..< 10]
 
       asyncTest "Pagination with Mixed Page Size":
         # Given the first query (1/3)
@@ -279,43 +264,39 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse1.get().messages == archiveMessages[0..<2]
+          queryResponse1.get().messages == archiveMessages[0 ..< 2]
 
         # Given the next query (2/3)
-        let
-          historyQuery2 =
-            HistoryQuery(
-              cursor: queryResponse1.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 4,
-            )
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse1.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 4,
+        )
 
         # When making the next history query
         let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse2.get().messages == archiveMessages[2..<6]
+          queryResponse2.get().messages == archiveMessages[2 ..< 6]
 
         # Given the next query (3/3)
-        let
-          historyQuery3 =
-            HistoryQuery(
-              cursor: queryResponse2.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 6,
-            )
+        let historyQuery3 = HistoryQuery(
+          cursor: queryResponse2.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 6,
+        )
 
         # When making the next history query
         let queryResponse3 = await client.query(historyQuery3, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse3.get().messages == archiveMessages[6..<10]
+          queryResponse3.get().messages == archiveMessages[6 ..< 10]
 
       asyncTest "Pagination with Zero Page Size (Behaves as DefaultPageSize)":
         # Given a message list of size higher than the default page size
@@ -326,7 +307,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
         var extraMessages: seq[WakuMessage] = @[]
-        for i in 0..<missingMessagesAmount:
+        for i in 0 ..< missingMessagesAmount:
           let
             timestampOffset = 10 * int(i + 1)
               # + 1 to avoid collision with existing messages
@@ -345,18 +326,16 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the archive.DefaultPageSize messages
         check:
-          queryResponse1.get().messages == totalMessages[0..<archive.DefaultPageSize]
+          queryResponse1.get().messages == totalMessages[0 ..< archive.DefaultPageSize]
 
         # Given the next query (2/2)
-        let
-          historyQuery2 =
-            HistoryQuery(
-              cursor: queryResponse1.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 0,
-            )
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse1.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 0,
+        )
 
         # When making the next history query
         let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
@@ -364,7 +343,7 @@ suite "Waku Store - End to End - Sorted Archive":
         # Then the response contains the remaining messages
         check:
           queryResponse2.get().messages ==
-            totalMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
+            totalMessages[archive.DefaultPageSize ..< archive.DefaultPageSize + 5]
 
       asyncTest "Pagination with Default Page Size":
         # Given a message list of size higher than the default page size
@@ -375,7 +354,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         let lastMessageTimestamp = archiveMessages[archiveMessages.len - 1].timestamp
         var extraMessages: seq[WakuMessage] = @[]
-        for i in 0..<missingMessagesAmount:
+        for i in 0 ..< missingMessagesAmount:
           let
             timestampOffset = 10 * int(i + 1)
               # + 1 to avoid collision with existing messages
@@ -387,29 +366,26 @@ suite "Waku Store - End to End - Sorted Archive":
         let totalMessages = archiveMessages & extraMessages
 
         # Given a query with default page size (1/2)
-        historyQuery =
-          HistoryQuery(
-            pubsubTopic: some(pubsubTopic),
-            contentTopics: contentTopicSeq,
-            direction: PagingDirection.FORWARD,
-          )
+        historyQuery = HistoryQuery(
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+        )
 
         # When making a history query
         let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
 
         # Then the response contains the messages
         check:
-          queryResponse.get().messages == totalMessages[0..<archive.DefaultPageSize]
+          queryResponse.get().messages == totalMessages[0 ..< archive.DefaultPageSize]
 
         # Given the next query (2/2)
-        let
-          historyQuery2 =
-            HistoryQuery(
-              cursor: queryResponse.get().cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-            )
+        let historyQuery2 = HistoryQuery(
+          cursor: queryResponse.get().cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+        )
 
         # When making the next history query
         let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
@@ -417,7 +393,7 @@ suite "Waku Store - End to End - Sorted Archive":
         # Then the response contains the messages
         check:
           queryResponse2.get().messages ==
-            totalMessages[archive.DefaultPageSize..<archive.DefaultPageSize + 5]
+            totalMessages[archive.DefaultPageSize ..< archive.DefaultPageSize + 5]
 
     suite "Pagination with Different Cursors":
       asyncTest "Starting Cursor":
@@ -431,7 +407,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the message
         check:
-          queryResponse.get().messages == archiveMessages[1..<2]
+          queryResponse.get().messages == archiveMessages[1 ..< 2]
 
       asyncTest "Middle Cursor":
         # Given a cursor pointing to the middle message1
@@ -444,7 +420,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the message
         check:
-          queryResponse.get().messages == archiveMessages[6..<7]
+          queryResponse.get().messages == archiveMessages[6 ..< 7]
 
       asyncTest "Ending Cursor":
         # Given a cursor pointing to the last message
@@ -482,28 +458,25 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Then the response contains the messages
         check:
-          queryResponse.get().messages == archiveMessages[0..<5]
+          queryResponse.get().messages == archiveMessages[0 ..< 5]
 
         # Given the cursor from the first query
         let cursor = queryResponse.get().cursor
 
         # When making a history query to the second server node
-        let
-          otherHistoryQuery =
-            HistoryQuery(
-              cursor: cursor,
-              pubsubTopic: some(pubsubTopic),
-              contentTopics: contentTopicSeq,
-              direction: PagingDirection.FORWARD,
-              pageSize: 5,
-            )
-        let
-          otherQueryResponse =
-            await client.query(otherHistoryQuery, otherServerRemotePeerInfo)
+        let otherHistoryQuery = HistoryQuery(
+          cursor: cursor,
+          pubsubTopic: some(pubsubTopic),
+          contentTopics: contentTopicSeq,
+          direction: PagingDirection.FORWARD,
+          pageSize: 5,
+        )
+        let otherQueryResponse =
+          await client.query(otherHistoryQuery, otherServerRemotePeerInfo)
 
         # Then the response contains the remaining messages
         check:
-          otherQueryResponse.get().messages == archiveMessages[5..<10]
+          otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
         waitFor otherServer.stop()
@@ -526,13 +499,12 @@ suite "Waku Store - End to End - Unsorted Archive":
     contentTopic = DefaultContentTopic
     contentTopicSeq = @[contentTopic]
 
-    historyQuery =
-      HistoryQuery(
-        pubsubTopic: some(pubsubTopic),
-        contentTopics: contentTopicSeq,
-        direction: PagingDirection.FORWARD,
-        pageSize: 5,
-      )
+    historyQuery = HistoryQuery(
+      pubsubTopic: some(pubsubTopic),
+      contentTopics: contentTopicSeq,
+      direction: PagingDirection.FORWARD,
+      pageSize: 5,
+    )
 
     let timeOrigin = now()
     unsortedArchiveMessages =
@@ -546,7 +518,7 @@ suite "Waku Store - End to End - Unsorted Archive":
         fakeWakuMessage(@[byte 06], ts = ts(20, timeOrigin)), # 6
         fakeWakuMessage(@[byte 01], ts = ts(20, timeOrigin)), # 9
         fakeWakuMessage(@[byte 04], ts = ts(20, timeOrigin)), # 7
-        fakeWakuMessage(@[byte 05], ts = ts(20, timeOrigin)) # 8
+        fakeWakuMessage(@[byte 05], ts = ts(20, timeOrigin)), # 8
       ]
 
     let
@@ -586,19 +558,17 @@ suite "Waku Store - End to End - Unsorted Archive":
           unsortedArchiveMessages[0],
           unsortedArchiveMessages[1],
           unsortedArchiveMessages[4],
-          unsortedArchiveMessages[3]
+          unsortedArchiveMessages[3],
         ]
 
     # Given the next query
-    var
-      historyQuery2 =
-        HistoryQuery(
-          cursor: queryResponse.get().cursor,
-          pubsubTopic: some(pubsubTopic),
-          contentTopics: contentTopicSeq,
-          direction: PagingDirection.FORWARD,
-          pageSize: 5,
-        )
+    var historyQuery2 = HistoryQuery(
+      cursor: queryResponse.get().cursor,
+      pubsubTopic: some(pubsubTopic),
+      contentTopics: contentTopicSeq,
+      direction: PagingDirection.FORWARD,
+      pageSize: 5,
+    )
 
     # When making the next history query
     let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
@@ -611,7 +581,7 @@ suite "Waku Store - End to End - Unsorted Archive":
           unsortedArchiveMessages[6],
           unsortedArchiveMessages[8],
           unsortedArchiveMessages[9],
-          unsortedArchiveMessages[7]
+          unsortedArchiveMessages[7],
         ]
 
   asyncTest "Backward pagination with Ascending Sorting":
@@ -629,7 +599,7 @@ suite "Waku Store - End to End - Unsorted Archive":
         @[
           unsortedArchiveMessages[2],
           unsortedArchiveMessages[0],
-          unsortedArchiveMessages[1]
+          unsortedArchiveMessages[1],
         ]
 
   asyncTest "Forward Pagination with Ascending Sorting":
@@ -649,7 +619,7 @@ suite "Waku Store - End to End - Unsorted Archive":
           unsortedArchiveMessages[5],
           unsortedArchiveMessages[6],
           unsortedArchiveMessages[8],
-          unsortedArchiveMessages[9]
+          unsortedArchiveMessages[9],
         ]
 
 suite "Waku Store - End to End - Archive with Multiple Topics":
@@ -680,18 +650,16 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     contentTopicSeq =
       @[contentTopic, contentTopicB, contentTopicC, contentTopicSpecials]
 
-    historyQuery =
-      HistoryQuery(
-        pubsubTopic: some(pubsubTopic),
-        contentTopics: contentTopicSeq,
-        direction: PagingDirection.FORWARD,
-        pageSize: 5,
-      )
+    historyQuery = HistoryQuery(
+      pubsubTopic: some(pubsubTopic),
+      contentTopics: contentTopicSeq,
+      direction: PagingDirection.FORWARD,
+      pageSize: 5,
+    )
 
     let timeOrigin = now()
-    originTs =
-      proc(offset = 0): Timestamp {.gcsafe, raises: [].} =
-          ts(offset, timeOrigin)
+    originTs = proc(offset = 0): Timestamp {.gcsafe, raises: [].} =
+      ts(offset, timeOrigin)
 
     archiveMessages =
       @[
@@ -706,7 +674,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         fakeWakuMessage(@[byte 08], ts = originTs(80), contentTopic = contentTopicC),
         fakeWakuMessage(
           @[byte 09], ts = originTs(90), contentTopic = contentTopicSpecials
-        )
+        ),
       ]
 
     let
@@ -716,11 +684,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    let
-      archiveDriver =
-        newSqliteArchiveDriver().put(pubsubTopic, archiveMessages[0..<6]).put(
-          pubsubTopicB, archiveMessages[6..<10]
-        )
+    let archiveDriver = newSqliteArchiveDriver()
+      .put(pubsubTopic, archiveMessages[0 ..< 6])
+      .put(pubsubTopicB, archiveMessages[6 ..< 10])
     let mountSortedArchiveResult = server.mountArchive(archiveDriver)
 
     assert mountSortedArchiveResult.isOk()
@@ -761,7 +727,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             archiveMessages[0],
             archiveMessages[1],
             archiveMessages[3],
-            archiveMessages[4]
+            archiveMessages[4],
           ]
 
     asyncTest "Empty Content Filtering":
@@ -773,25 +739,23 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       # Then the response contains the messages
       check:
-        queryResponse.get().messages == archiveMessages[0..<5]
+        queryResponse.get().messages == archiveMessages[0 ..< 5]
 
       # Given the next query
-      let
-        historyQuery2 =
-          HistoryQuery(
-            cursor: queryResponse.get().cursor,
-            pubsubTopic: none(PubsubTopic),
-            contentTopics: contentTopicSeq,
-            direction: PagingDirection.FORWARD,
-            pageSize: 5,
-          )
+      let historyQuery2 = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: none(PubsubTopic),
+        contentTopics: contentTopicSeq,
+        direction: PagingDirection.FORWARD,
+        pageSize: 5,
+      )
 
       # When making the next history query
       let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
 
       # Then the response contains the messages
       check:
-        queryResponse2.get().messages == archiveMessages[5..<10]
+        queryResponse2.get().messages == archiveMessages[5 ..< 10]
 
     asyncTest "Non-Existent Content Topic":
       # Given a history query with non-existent content filtering
@@ -830,7 +794,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             archiveMessages[6],
             archiveMessages[7],
             archiveMessages[8],
-            archiveMessages[9]
+            archiveMessages[9],
           ]
 
     asyncTest "PubsubTopic Left Empty":
@@ -842,25 +806,23 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       # Then the response contains the messages
       check:
-        queryResponse.get().messages == archiveMessages[0..<5]
+        queryResponse.get().messages == archiveMessages[0 ..< 5]
 
       # Given the next query
-      let
-        historyQuery2 =
-          HistoryQuery(
-            cursor: queryResponse.get().cursor,
-            pubsubTopic: none(PubsubTopic),
-            contentTopics: contentTopicSeq,
-            direction: PagingDirection.FORWARD,
-            pageSize: 5,
-          )
+      let historyQuery2 = HistoryQuery(
+        cursor: queryResponse.get().cursor,
+        pubsubTopic: none(PubsubTopic),
+        contentTopics: contentTopicSeq,
+        direction: PagingDirection.FORWARD,
+        pageSize: 5,
+      )
 
       # When making the next history query
       let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
 
       # Then the response contains the messages
       check:
-        queryResponse2.get().messages == archiveMessages[5..<10]
+        queryResponse2.get().messages == archiveMessages[5 ..< 10]
 
   suite "Validation of Time-based Filtering":
     asyncTest "Basic Time Filtering":
@@ -891,7 +853,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             archiveMessages[2],
             archiveMessages[3],
             archiveMessages[4],
-            archiveMessages[5]
+            archiveMessages[5],
           ]
 
     asyncTest "Only End Time Specified":
@@ -910,7 +872,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             archiveMessages[1],
             archiveMessages[2],
             archiveMessages[3],
-            archiveMessages[4]
+            archiveMessages[4],
           ]
 
     asyncTest "Invalid Time Range":
@@ -959,7 +921,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           @[
             fakeWakuMessage(@[byte 00], ts = ts(00), ephemeral = true),
             fakeWakuMessage(@[byte 01], ts = ts(10), ephemeral = true),
-            fakeWakuMessage(@[byte 02], ts = ts(20), ephemeral = true)
+            fakeWakuMessage(@[byte 02], ts = ts(20), ephemeral = true),
           ]
         ephemeralArchiveDriver =
           newSqliteArchiveDriver().put(pubsubTopic, ephemeralMessages)
@@ -978,8 +940,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       let ephemeralServerRemotePeerInfo = ephemeralServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with only ephemeral messages
-      let
-        queryResponse = await client.query(historyQuery, ephemeralServerRemotePeerInfo)
+      let queryResponse =
+        await client.query(historyQuery, ephemeralServerRemotePeerInfo)
 
       # Then the response contains no messages
       check:
@@ -995,18 +957,17 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           @[
             fakeWakuMessage(@[byte 00], ts = ts(00), ephemeral = true),
             fakeWakuMessage(@[byte 01], ts = ts(10), ephemeral = true),
-            fakeWakuMessage(@[byte 02], ts = ts(20), ephemeral = true)
+            fakeWakuMessage(@[byte 02], ts = ts(20), ephemeral = true),
           ]
         nonEphemeralMessages =
           @[
             fakeWakuMessage(@[byte 03], ts = ts(30), ephemeral = false),
             fakeWakuMessage(@[byte 04], ts = ts(40), ephemeral = false),
-            fakeWakuMessage(@[byte 05], ts = ts(50), ephemeral = false)
+            fakeWakuMessage(@[byte 05], ts = ts(50), ephemeral = false),
           ]
-        mixedArchiveDriver =
-          newSqliteArchiveDriver().put(pubsubTopic, ephemeralMessages).put(
-            pubsubTopic, nonEphemeralMessages
-          )
+        mixedArchiveDriver = newSqliteArchiveDriver()
+          .put(pubsubTopic, ephemeralMessages)
+          .put(pubsubTopic, nonEphemeralMessages)
 
       # And a server node with the mixed archive
       let
@@ -1060,12 +1021,11 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
       var voluminousArchiveMessages: seq[WakuMessage] = @[]
-      for i in 0..<100000:
+      for i in 0 ..< 100000:
         let topic = "topic" & $i
         voluminousArchiveMessages.add(fakeWakuMessage(@[byte i], contentTopic = topic))
-      let
-        voluminousArchiveDriverWithMessages =
-          newArchiveDriverWithMessages(pubsubTopic, voluminousArchiveMessages)
+      let voluminousArchiveDriverWithMessages =
+        newArchiveDriverWithMessages(pubsubTopic, voluminousArchiveMessages)
 
       # And a server node with the voluminous archive
       let
@@ -1085,8 +1045,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         @["topic10000", "topic30000", "topic50000", "topic70000", "topic90000"]
 
       # When making a history query to the server with a voluminous archive
-      let
-        queryResponse = await client.query(historyQuery, voluminousServerRemotePeerInfo)
+      let queryResponse =
+        await client.query(historyQuery, voluminousServerRemotePeerInfo)
 
       # Then the response contains the messages
       check:
@@ -1096,7 +1056,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             voluminousArchiveMessages[30000],
             voluminousArchiveMessages[50000],
             voluminousArchiveMessages[70000],
-            voluminousArchiveMessages[90000]
+            voluminousArchiveMessages[90000],
           ]
 
       # Cleanup
@@ -1105,7 +1065,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10
       historyQuery.contentTopics = @[contentTopic]
-      for i in 0..<9:
+      for i in 0 ..< 9:
         let topic = "topic" & $i
         historyQuery.contentTopics.add(topic)
 

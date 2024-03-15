@@ -1,17 +1,12 @@
 {.used.}
 
-import 
-  testutils/unittests,
-  chronos,
-  os
-import 
-  ../../../waku/waku_rln_relay/nonce_manager
-
+import testutils/unittests, chronos, os
+import ../../../waku/waku_rln_relay/nonce_manager
 
 suite "Nonce manager":
   test "should initialize successfully":
     let nm = NonceManager.init(nonceLimit = 100.uint)
-    
+
     check:
       nm.nonceLimit == 100.uint
       nm.nextNonce == 0.uint
@@ -20,7 +15,7 @@ suite "Nonce manager":
     let nm = NonceManager.init(nonceLimit = 100.uint)
     let nonce = nm.getNonce().valueOr:
       raiseAssert $error
-    
+
     check:
       nonce == 0.uint
       nm.nextNonce == 1.uint

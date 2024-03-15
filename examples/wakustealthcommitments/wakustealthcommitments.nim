@@ -4,10 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  stew/results,
-  chronicles,
-  ./node_spec as Waku,
-  ./stealth_commitment_protocol as SCP
+  stew/results, chronicles, ./node_spec as Waku, ./stealth_commitment_protocol as SCP
 
 logScope:
   topics = "waku stealthcommitments"
@@ -24,7 +21,7 @@ when isMainModule:
 
   logging.setupLogLevel(logging.LogLevel.INFO)
   logging.setupLogFormat(logging.LogFormat.TEXT, color)
-  
+
   info "Starting Waku Stealth Commitment Protocol"
   info "Starting Waku Node"
   let node = Waku.setup()
@@ -32,7 +29,7 @@ when isMainModule:
   let scp = SCP.new(node).valueOr:
     error "Could not start Stealth Commitment Protocol", error = $error
     quit(1)
-  
+
   try:
     info "Sending stealth commitment request"
     (waitFor scp.sendRequest()).isOkOr:

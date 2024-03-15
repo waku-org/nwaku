@@ -3,18 +3,11 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  nimcrypto/hash
-import
-  ../common/[protobuf, paging],
-  ../waku_core,
-  ./common,
-  ./rpc
+import std/options, nimcrypto/hash
+import ../common/[protobuf, paging], ../waku_core, ./common, ./rpc
 
-
-const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
-
+const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64 * 1024
+  # We add a 64kB safety buffer for protocol overhead
 
 ## Pagination
 
@@ -66,7 +59,6 @@ proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtobufResult[T] =
 
   ok(rpc)
 
-
 proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
   ## Encodes a PagingInfo object into a ProtoBuffer
   ## returns the resultant ProtoBuffer
@@ -74,7 +66,13 @@ proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
 
   pb.write3(1, rpc.pageSize)
   pb.write3(2, rpc.cursor.map(encode))
-  pb.write3(3, rpc.direction.map(proc(d: PagingDirection): uint32 = uint32(ord(d))))
+  pb.write3(
+    3,
+    rpc.direction.map(
+      proc(d: PagingDirection): uint32 =
+        uint32(ord(d))
+    ),
+  )
   pb.finish3()
 
   pb
@@ -105,7 +103,6 @@ proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtobufResult[T] =
 
   ok(rpc)
 
-
 ## Wire protocol
 
 proc encode*(rpc: HistoryContentFilterRPC): ProtoBuffer =
@@ -124,7 +121,6 @@ proc decode*(T: type HistoryContentFilterRPC, buffer: seq[byte]): ProtobufResult
     return err(ProtobufError.missingRequiredField("content_topic"))
   ok(HistoryContentFilterRPC(contentTopic: contentTopic))
 
-
 proc encode*(rpc: HistoryQueryRPC): ProtoBuffer =
   var pb = initProtoBuffer()
   pb.write3(2, rpc.pubsubTopic)
@@ -133,8 +129,20 @@ proc encode*(rpc: HistoryQueryRPC): ProtoBuffer =
     pb.write3(3, filter.encode())
 
   pb.write3(4, rpc.pagingInfo.map(encode))
-  pb.write3(5, rpc.startTime.map(proc (time: int64): zint64 = zint64(time)))
-  pb.write3(6, rpc.endTime.map(proc (time: int64): zint64 = zint64(time)))
+  pb.write3(
+    5,
+    rpc.startTime.map(
+      proc(time: int64): zint64 =
+        zint64(time)
+    ),
+  )
+  pb.write3(
+    6,
+    rpc.endTime.map(
+      proc(time: int64): zint64 =
+        zint64(time)
+    ),
+  )
   pb.finish3()
 
   pb
@@ -178,7 +186,6 @@ proc decode*(T: type HistoryQueryRPC, buffer: seq[byte]): ProtobufResult[T] =
 
   ok(rpc)
 
-
 proc encode*(response: HistoryResponseRPC): ProtoBuffer =
   var pb = initProtoBuffer()
 
@@ -217,7 +224,6 @@ proc decode*(T: type HistoryResponseRPC, buffer: seq[byte]): ProtobufResult[T] =
     rpc.error = HistoryResponseErrorRPC.parse(error)
 
   ok(rpc)
-
 
 proc encode*(rpc: HistoryRPC): ProtoBuffer =
   var pb = initProtoBuffer()

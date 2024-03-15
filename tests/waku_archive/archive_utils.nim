@@ -9,7 +9,7 @@ import
     waku_archive,
     waku_archive/common,
     waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite
+    common/databases/db_sqlite,
   ],
   ../testlib/[wakucore]
 
@@ -42,7 +42,7 @@ proc put*(
       msgDigest = computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
       _ = waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
-          # discard crashes
+        # discard crashes
   return driver
 
 proc newArchiveDriverWithMessages*(

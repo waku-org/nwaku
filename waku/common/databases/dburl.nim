@@ -1,8 +1,4 @@
-
-import
-  std/strutils,
-  regex,
-  stew/results
+import std/strutils, regex, stew/results
 
 proc validateDbUrl*(dbUrl: string): Result[string, string] =
   ## dbUrl mimics SQLAlchemy Database URL schema

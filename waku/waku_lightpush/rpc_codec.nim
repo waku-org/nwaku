@@ -3,17 +3,11 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+import std/options
+import ../common/protobuf, ../waku_core, ./rpc
 
-import
-  std/options
-import
-  ../common/protobuf,
-  ../waku_core,
-  ./rpc
-
-
-const MaxRpcSize* = MaxWakuMessageSize + 64 * 1024 # We add a 64kB safety buffer for protocol overhead
-
+const MaxRpcSize* = MaxWakuMessageSize + 64 * 1024
+  # We add a 64kB safety buffer for protocol overhead
 
 proc encode*(rpc: PushRequest): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -42,7 +36,6 @@ proc decode*(T: type PushRequest, buffer: seq[byte]): ProtobufResult[T] =
 
   ok(rpc)
 
-
 proc encode*(rpc: PushResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
@@ -69,7 +62,6 @@ proc decode*(T: type PushResponse, buffer: seq[byte]): ProtobufResult[T] =
     rpc.info = some(info)
 
   ok(rpc)
-
 
 proc encode*(rpc: PushRPC): ProtoBuffer =
   var pb = initProtoBuffer()

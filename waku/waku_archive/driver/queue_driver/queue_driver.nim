@@ -3,17 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  stew/results,
-  stew/sorted_set,
-  chronicles,
-  chronos
-import
-  ../../../waku_core,
-  ../../common,
-  ../../driver,
-  ./index
+import std/options, stew/results, stew/sorted_set, chronicles, chronos
+import ../../../waku_core, ../../common, ../../driver, ./index
 
 logScope:
   topics = "waku archive queue_store"
@@ -32,7 +23,7 @@ type
     ## item will be removed to make space for the new one.
     ## This implies both a `delete` and `add` operation
     ## for new items.
-    
+
     # TODO: a circular/ring buffer may be a more efficient implementation
     items: SortedSet[Index, WakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
@@ -43,20 +34,22 @@ type
   QueueDriverGetPageResult = Result[seq[ArchiveRow], QueueDriverErrorKind]
 
 proc `$`(error: QueueDriverErrorKind): string =
-  case error:
-  of INVALID_CURSOR:
-    "invalid_cursor"
+  case error
+  of INVALID_CURSOR: "invalid_cursor"
 
 ### Helpers
 
-proc walkToCursor(w: SortedSetWalkRef[Index, WakuMessage],
-                  startCursor: Index,
-                  forward: bool): SortedSetResult[Index, WakuMessage] =
+proc walkToCursor(
+    w: SortedSetWalkRef[Index, WakuMessage], startCursor: Index, forward: bool
+): SortedSetResult[Index, WakuMessage] =
   ## Walk to util we find the cursor
   ## TODO: Improve performance here with a binary/tree search
 
-  var nextItem = if forward: w.first()
-                 else: w.last()
+  var nextItem =
+    if forward:
+      w.first()
+    else:
+      w.last()
 
   ## Fast forward until we reach the startCursor
   while nextItem.isOk():
@@ -64,8 +57,11 @@ proc walkToCursor(w: SortedSetWalkRef[Index, WakuMessage],
       break
 
     # Not yet at cursor. Continue advancing
-    nextItem = if forward: w.next()
-               else: w.prev()
+    nextItem =
+      if forward:
+        w.next()
+      else:
+        w.prev()
 
   return nextItem
 
@@ -82,11 +78,13 @@ proc contains*(driver: QueueDriver, index: Index): bool =
 proc len*(driver: QueueDriver): int {.noSideEffect.} =
   return driver.items.len
 
-proc getPage(driver: QueueDriver,
-             pageSize: uint = 0,
-             forward: bool = true,
-             cursor: Option[Index] = none(Index),
-             predicate: QueryFilterMatcher = nil): QueueDriverGetPageResult =
+proc getPage(
+    driver: QueueDriver,
+    pageSize: uint = 0,
+    forward: bool = true,
+    cursor: Option[Index] = none(Index),
+    predicate: QueryFilterMatcher = nil,
+): QueueDriverGetPageResult =
   ## Populate a single page in forward direction
   ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
@@ -94,7 +92,8 @@ proc getPage(driver: QueueDriver,
   var outSeq: seq[ArchiveRow]
 
   var w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
-  defer: w.destroy()
+  defer:
+    w.destroy()
 
   var currentEntry: SortedSetResult[Index, WakuMessage]
 
@@ -105,14 +104,20 @@ proc getPage(driver: QueueDriver,
       return err(QueueDriverErrorKind.INVALID_CURSOR)
 
     # Advance walker once more
-    currentEntry = if forward: w.next()
-                   else: w.prev()
+    currentEntry =
+      if forward:
+        w.next()
+      else:
+        w.prev()
   else:
     # Start from the beginning of the queue
-    currentEntry = if forward: w.first()
-                   else: w.last()
+    currentEntry =
+      if forward:
+        w.first()
+      else:
+        w.last()
 
-  trace "Starting page query", currentEntry=currentEntry
+  trace "Starting page query", currentEntry = currentEntry
 
   ## This loop walks forward over the queue:
   ## 1. from the given cursor (or first/last entry, if not provided)
@@ -120,7 +125,8 @@ proc getPage(driver: QueueDriver,
   ## 3. until either the end of the queue or maxPageSize is reached
   var numberOfItems: uint = 0
   while currentEntry.isOk() and numberOfItems < pageSize:
-    trace "Continuing page query", currentEntry=currentEntry, numberOfItems=numberOfItems
+    trace "Continuing page query",
+      currentEntry = currentEntry, numberOfItems = numberOfItems
 
     let
       key = currentEntry.value.key
@@ -129,15 +135,19 @@ proc getPage(driver: QueueDriver,
     if predicate.isNil() or predicate(key, data):
       numberOfItems += 1
 
-      outSeq.add((key.pubsubTopic, data, @(key.digest.data), key.receiverTime, key.hash))
+      outSeq.add(
+        (key.pubsubTopic, data, @(key.digest.data), key.receiverTime, key.hash)
+      )
 
-    currentEntry = if forward: w.next()
-                   else: w.prev()
+    currentEntry =
+      if forward:
+        w.next()
+      else:
+        w.prev()
 
-  trace "Successfully retrieved page", len=outSeq.len
+  trace "Successfully retrieved page", len = outSeq.len
 
   return ok(outSeq)
-
 
 ## --- SortedSet accessors ---
 
@@ -189,12 +199,14 @@ proc last*(driver: QueueDriver): ArchiveDriverResult[Index] =
 
 ## --- Queue API ---
 
-proc add*(driver: QueueDriver, index: Index, msg: WakuMessage): ArchiveDriverResult[void] =
+proc add*(
+    driver: QueueDriver, index: Index, msg: WakuMessage
+): ArchiveDriverResult[void] =
   ## Add a message to the queue
   ##
   ## If we're at capacity, we will be removing, the oldest (first) item
   if driver.contains(index):
-    trace "could not add item to store queue. Index already exists", index=index
+    trace "could not add item to store queue. Index already exists", index = index
     return err("duplicate")
 
   # TODO: the below delete block can be removed if we convert to circular buffer
@@ -215,62 +227,66 @@ proc add*(driver: QueueDriver, index: Index, msg: WakuMessage): ArchiveDriverRes
 
   return ok()
 
-method put*(driver: QueueDriver,
-            pubsubTopic: PubsubTopic,
-            message: WakuMessage,
-            digest: MessageDigest,
-            messageHash: WakuMessageHash,
-            receivedTime: Timestamp):
-            Future[ArchiveDriverResult[void]] {.async.} =
+method put*(
+    driver: QueueDriver,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+    digest: MessageDigest,
+    messageHash: WakuMessageHash,
+    receivedTime: Timestamp,
+): Future[ArchiveDriverResult[void]] {.async.} =
   let index = Index(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     receiverTime: receivedTime,
     digest: digest,
     hash: messageHash,
-    )
-  
+  )
+
   return driver.add(index, message)
 
-method getAllMessages*(driver: QueueDriver):
-                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+method getAllMessages*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
-method existsTable*(driver: QueueDriver, tableName: string):
-                    Future[ArchiveDriverResult[bool]] {.async.} =
+method existsTable*(
+    driver: QueueDriver, tableName: string
+): Future[ArchiveDriverResult[bool]] {.async.} =
   return err("interface method not implemented")
 
 method getMessages*(
-  driver: QueueDriver,
-  contentTopic: seq[ContentTopic] = @[],
-  pubsubTopic = none(PubsubTopic),
-  cursor = none(ArchiveCursor),
-  startTime = none(Timestamp),
-  endTime = none(Timestamp),
-  hashes: seq[WakuMessageHash] = @[],
-  maxPageSize = DefaultPageSize,
-  ascendingOrder = true,
-  ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+    driver: QueueDriver,
+    contentTopic: seq[ContentTopic] = @[],
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    hashes: seq[WakuMessageHash] = @[],
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   let cursor = cursor.map(toIndex)
 
-  let matchesQuery: QueryFilterMatcher = func(index: Index, msg: WakuMessage): bool =
-    if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
-      return false
+  let matchesQuery: QueryFilterMatcher =
+    func (index: Index, msg: WakuMessage): bool =
+      if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
+        return false
 
-    if contentTopic.len > 0 and msg.contentTopic notin contentTopic:
-      return false
+      if contentTopic.len > 0 and msg.contentTopic notin contentTopic:
+        return false
 
-    if startTime.isSome() and msg.timestamp < startTime.get():
-      return false
+      if startTime.isSome() and msg.timestamp < startTime.get():
+        return false
 
-    if endTime.isSome() and msg.timestamp > endTime.get():
-      return false
+      if endTime.isSome() and msg.timestamp > endTime.get():
+        return false
 
-    if hashes.len > 0 and index.hash notin hashes:
-      return false
+      if hashes.len > 0 and index.hash notin hashes:
+        return false
 
-    return true
+      return true
 
   var pageRes: QueueDriverGetPageResult
   try:
@@ -283,52 +299,63 @@ method getMessages*(
 
   return ok(pageRes.value)
 
-method getMessagesCount*(driver: QueueDriver):
-                         Future[ArchiveDriverResult[int64]] {.async} =
+method getMessagesCount*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
-method getPagesCount*(driver: QueueDriver):
-                         Future[ArchiveDriverResult[int64]] {.async} =
+method getPagesCount*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
-method getPagesSize*(driver: QueueDriver):
-                         Future[ArchiveDriverResult[int64]] {.async} =
+method getPagesSize*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
-method getDatabaseSize*(driver: QueueDriver):
-                         Future[ArchiveDriverResult[int64]] {.async} =
+method getDatabaseSize*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
-method performVacuum*(driver: QueueDriver):
-              Future[ArchiveDriverResult[void]] {.async.} =
+method performVacuum*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
-method getOldestMessageTimestamp*(driver: QueueDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return driver.first().map(proc(index: Index): Timestamp = index.receiverTime)
+method getOldestMessageTimestamp*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  return driver.first().map(
+      proc(index: Index): Timestamp =
+        index.receiverTime
+    )
 
-method getNewestMessageTimestamp*(driver: QueueDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return driver.last().map(proc(index: Index): Timestamp = index.receiverTime)
+method getNewestMessageTimestamp*(
+    driver: QueueDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  return driver.last().map(
+      proc(index: Index): Timestamp =
+        index.receiverTime
+    )
 
-method deleteMessagesOlderThanTimestamp*(driver: QueueDriver,
-                                         ts: Timestamp):
-                                         Future[ArchiveDriverResult[void]] {.async.} =
+method deleteMessagesOlderThanTimestamp*(
+    driver: QueueDriver, ts: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
-method deleteOldestMessagesNotWithinLimit*(driver: QueueDriver,
-                                           limit: int):
-                                           Future[ArchiveDriverResult[void]] {.async.} =
+method deleteOldestMessagesNotWithinLimit*(
+    driver: QueueDriver, limit: int
+): Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
-method decreaseDatabaseSize*(driver: QueueDriver,
-                             targetSizeInBytes: int64,
-                             forceRemoval: bool = false):
-                             Future[ArchiveDriverResult[void]] {.async.} =
+method decreaseDatabaseSize*(
+    driver: QueueDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+): Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
-method close*(driver: QueueDriver):
-              Future[ArchiveDriverResult[void]] {.async.} =
+method close*(driver: QueueDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()

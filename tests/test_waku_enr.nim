@@ -1,19 +1,12 @@
 {.used.}
 
-import
-  std/[options, sequtils],
-  stew/results,
-  testutils/unittests
-import
-  ../../waku/waku_core,
-  ../../waku/waku_enr,
-  ./testlib/wakucore
-
+import std/[options, sequtils], stew/results, testutils/unittests
+import ../../waku/waku_core, ../../waku/waku_enr, ./testlib/wakucore
 
 suite "Waku ENR -  Capabilities bitfield":
   test "check capabilities support":
     ## Given
-    let bitfield: CapabilitiesBitfield = 0b0000_1101u8  # Lightpush, Filter, Relay
+    let bitfield: CapabilitiesBitfield = 0b0000_1101u8 # Lightpush, Filter, Relay
 
     ## Then
     check:
@@ -25,11 +18,8 @@ suite "Waku ENR -  Capabilities bitfield":
   test "bitfield to capabilities list":
     ## Given
     let bitfield = CapabilitiesBitfield.init(
-        relay = true,
-        store = false,
-        lightpush = true,
-        filter = true
-      )
+      relay = true, store = false, lightpush = true, filter = true
+    )
 
     ## When
     let caps = bitfield.toCapabilities()
@@ -83,9 +73,10 @@ suite "Waku ENR -  Capabilities bitfield":
 
   test "check capabilities on a waku node record":
     ## Given
-    let wakuRecord = "-Hy4QC73_E3B_FkZhsOakaD4pHe-U--UoGASdG9N0F3SFFUDY_jdQbud8" &
-        "EXVyrlOZ5pZ7VYFBDPMRCENwy87Lh74dFIBgmlkgnY0iXNlY3AyNTZrMaECvNt1jIWbWGp" &
-        "AWWdlLGYm1E1OjlkQk3ONoxDC5sfw8oOFd2FrdTID"
+    let wakuRecord =
+      "-Hy4QC73_E3B_FkZhsOakaD4pHe-U--UoGASdG9N0F3SFFUDY_jdQbud8" &
+      "EXVyrlOZ5pZ7VYFBDPMRCENwy87Lh74dFIBgmlkgnY0iXNlY3AyNTZrMaECvNt1jIWbWGp" &
+      "AWWdlLGYm1E1OjlkQk3ONoxDC5sfw8oOFd2FrdTID"
 
     ## When
     var record: Record
@@ -109,9 +100,10 @@ suite "Waku ENR -  Capabilities bitfield":
   test "check capabilities on a non-waku node record":
     ## Given
     # non waku enr, i.e. Ethereum one
-    let nonWakuEnr = "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G" &
-    "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl" &
-    "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
+    let nonWakuEnr =
+      "enr:-KG4QOtcP9X1FbIMOe17QNMKqDxCpm14jcX5tiOE4_TyMrFqbmhPZHK_ZPG2G" &
+      "xb1GE2xdtodOfx9-cgvNtxnRyHEmC0ghGV0aDKQ9aX9QgAAAAD__________4JpZIJ2NIJpcIQDE8KdiXNl" &
+      "Y3AyNTZrMaEDhpehBDbZjM_L9ek699Y7vhUJ-eAdMyQW_Fil522Y0fODdGNwgiMog3VkcIIjKA"
 
     ## When
     var record: Record
@@ -131,26 +123,33 @@ suite "Waku ENR -  Capabilities bitfield":
       record.supportsCapability(Capabilities.Filter) == false
       record.supportsCapability(Capabilities.Lightpush) == false
 
-
 suite "Waku ENR - Multiaddresses":
-
   test "decode record with multiaddrs field":
     ## Given
-    let enrUri = "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
-                 "KCyJDGRLBGsloNbS8AZF33IVuefjOO6BIJpZIJ2NIJpcIQS39tkim11bHRpYWRkcn" &
-                 "O4lgAvNihub2RlLTAxLmRvLWFtczMud2FrdXYyLnRlc3Quc3RhdHVzaW0ubmV0BgG" &
-                 "73gMAODcxbm9kZS0wMS5hYy1jbi1ob25na29uZy1jLndha3V2Mi50ZXN0LnN0YXR1" &
-                 "c2ltLm5ldAYBu94DACm9A62t7AQL4Ef5ZYZosRpQTzFVAB8jGjf1TER2wH-0zBOe1" &
-                 "-MDBNLeA4lzZWNwMjU2azGhAzfsxbxyCkgCqq8WwYsVWH7YkpMLnU2Bw5xJSimxKa" &
-                 "v-g3VkcIIjKA"
+    let enrUri =
+      "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
+      "KCyJDGRLBGsloNbS8AZF33IVuefjOO6BIJpZIJ2NIJpcIQS39tkim11bHRpYWRkcn" &
+      "O4lgAvNihub2RlLTAxLmRvLWFtczMud2FrdXYyLnRlc3Quc3RhdHVzaW0ubmV0BgG" &
+      "73gMAODcxbm9kZS0wMS5hYy1jbi1ob25na29uZy1jLndha3V2Mi50ZXN0LnN0YXR1" &
+      "c2ltLm5ldAYBu94DACm9A62t7AQL4Ef5ZYZosRpQTzFVAB8jGjf1TER2wH-0zBOe1" &
+      "-MDBNLeA4lzZWNwMjU2azGhAzfsxbxyCkgCqq8WwYsVWH7YkpMLnU2Bw5xJSimxKa" &
+      "v-g3VkcIIjKA"
 
     var record: Record
     require record.fromURI(enrUri)
 
     let
-      expectedAddr1 = MultiAddress.init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss").get()
-      expectedAddr2 = MultiAddress.init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss").get()
-      expectedAddr3 = MultiAddress.init("/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:1234/wss").get()
+      expectedAddr1 = MultiAddress
+        .init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")
+        .get()
+      expectedAddr2 = MultiAddress
+        .init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss")
+        .get()
+      expectedAddr3 = MultiAddress
+        .init(
+          "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:1234/wss"
+        )
+        .get()
 
     ## When
     let typedRecord = record.toTyped()
@@ -225,7 +224,11 @@ suite "Waku ENR - Multiaddresses":
       enrPrivKey = generatesecp256k1key()
 
     let
-      addr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD").get()
+      addr1 = MultiAddress
+        .init(
+          "/ip4/127.0.0.1/tcp/80/ws/p2p/16Uiu2HAm4v86W3bmT1BiH6oSPzcsSr31iDQpSN5Qa882BCjjwgrD"
+        )
+        .get()
       addr2 = MultiAddress.init("/ip4/127.0.0.1/tcp/443/wss").get()
 
     let expectedAddr1 = MultiAddress.init("/ip4/127.0.0.1/tcp/80/ws").get()
@@ -252,9 +255,7 @@ suite "Waku ENR - Multiaddresses":
       multiaddrs.contains(expectedAddr1)
       multiaddrs.contains(addr2)
 
-
 suite "Waku ENR - Relay static sharding":
-
   test "new relay shards object with single invalid shard id":
     ## Given
     let
@@ -374,7 +375,8 @@ suite "Waku ENR - Relay static sharding":
       enrSeqNum = 1u64
       enrPrivKey = generatesecp256k1key()
 
-    let shardsTopics = RelayShards.init(33, toSeq(0u16 ..< 64u16)).expect("Valid Shards")
+    let shardsTopics =
+      RelayShards.init(33, toSeq(0u16 ..< 64u16)).expect("Valid Shards")
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
     require builder.withWakuRelaySharding(shardsTopics).isOk()
@@ -402,9 +404,12 @@ suite "Waku ENR - Relay static sharding":
       enrPrivKey = generatesecp256k1key()
 
     let
-      relayShardsIndicesList = RelayShards.init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]).expect("Valid Shards")
-      relayShardsBitVector = RelayShards.init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16]).expect("Valid Shards")
-
+      relayShardsIndicesList = RelayShards
+        .init(22, @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16])
+        .expect("Valid Shards")
+      relayShardsBitVector = RelayShards
+        .init(33, @[13u16, 24u16, 37u16, 61u16, 98u16, 159u16])
+        .expect("Valid Shards")
 
     var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
     require builder.withWakuRelayShardingIndicesList(relayShardsIndicesList).isOk()

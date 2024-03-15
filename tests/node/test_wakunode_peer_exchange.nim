@@ -19,7 +19,7 @@ import
     waku_peer_exchange,
     node/peer_manager,
     waku_relay/protocol,
-    waku_core
+    waku_core,
   ],
   ../waku_peer_exchange/utils,
   ../testlib/[wakucore, wakunode, testasync]
@@ -187,82 +187,72 @@ suite "Waku Peer Exchange with discv5":
     ## Given (copied from test_waku_discv5.nim)
     let
       # todo: px flag
-      flags =
-        CapabilitiesBitfield.init(
-          lightpush = false, filter = false, store = false, relay = true
-        )
+      flags = CapabilitiesBitfield.init(
+        lightpush = false, filter = false, store = false, relay = true
+      )
       bindIp = parseIpAddress("0.0.0.0")
       extIp = parseIpAddress("127.0.0.1")
 
       nodeKey1 = generateSecp256k1Key()
       nodeTcpPort1 = Port(64010)
       nodeUdpPort1 = Port(9000)
-      node1 =
-        newTestWakuNode(
-          nodeKey1,
-          bindIp,
-          nodeTcpPort1,
-          some(extIp),
-          wakuFlags = some(flags),
-          discv5UdpPort = some(nodeUdpPort1),
-        )
+      node1 = newTestWakuNode(
+        nodeKey1,
+        bindIp,
+        nodeTcpPort1,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort1),
+      )
 
       nodeKey2 = generateSecp256k1Key()
       nodeTcpPort2 = Port(64012)
       nodeUdpPort2 = Port(9002)
-      node2 =
-        newTestWakuNode(
-          nodeKey2,
-          bindIp,
-          nodeTcpPort2,
-          some(extIp),
-          wakuFlags = some(flags),
-          discv5UdpPort = some(nodeUdpPort2),
-        )
+      node2 = newTestWakuNode(
+        nodeKey2,
+        bindIp,
+        nodeTcpPort2,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort2),
+      )
 
       nodeKey3 = generateSecp256k1Key()
       nodeTcpPort3 = Port(64014)
       nodeUdpPort3 = Port(9004)
-      node3 =
-        newTestWakuNode(
-          nodeKey3,
-          bindIp,
-          nodeTcpPort3,
-          some(extIp),
-          wakuFlags = some(flags),
-          discv5UdpPort = some(nodeUdpPort3),
-        )
+      node3 = newTestWakuNode(
+        nodeKey3,
+        bindIp,
+        nodeTcpPort3,
+        some(extIp),
+        wakuFlags = some(flags),
+        discv5UdpPort = some(nodeUdpPort3),
+      )
 
     # discv5
-    let
-      conf1 =
-        WakuDiscoveryV5Config(
-          discv5Config: none(DiscoveryConfig),
-          address: bindIp,
-          port: nodeUdpPort1,
-          privateKey: keys.PrivateKey(nodeKey1.skkey),
-          bootstrapRecords: @[],
-          autoupdateRecord: true,
-        )
+    let conf1 = WakuDiscoveryV5Config(
+      discv5Config: none(DiscoveryConfig),
+      address: bindIp,
+      port: nodeUdpPort1,
+      privateKey: keys.PrivateKey(nodeKey1.skkey),
+      bootstrapRecords: @[],
+      autoupdateRecord: true,
+    )
 
-    let
-      disc1 =
-        WakuDiscoveryV5.new(node1.rng, conf1, some(node1.enr), some(node1.peerManager))
+    let disc1 =
+      WakuDiscoveryV5.new(node1.rng, conf1, some(node1.enr), some(node1.peerManager))
 
-    let
-      conf2 =
-        WakuDiscoveryV5Config(
-          discv5Config: none(DiscoveryConfig),
-          address: bindIp,
-          port: nodeUdpPort2,
-          privateKey: keys.PrivateKey(nodeKey2.skkey),
-          bootstrapRecords: @[disc1.protocol.getRecord()],
-          autoupdateRecord: true,
-        )
+    let conf2 = WakuDiscoveryV5Config(
+      discv5Config: none(DiscoveryConfig),
+      address: bindIp,
+      port: nodeUdpPort2,
+      privateKey: keys.PrivateKey(nodeKey2.skkey),
+      bootstrapRecords: @[disc1.protocol.getRecord()],
+      autoupdateRecord: true,
+    )
 
-    let
-      disc2 =
-        WakuDiscoveryV5.new(node2.rng, conf2, some(node2.enr), some(node2.peerManager))
+    let disc2 =
+      WakuDiscoveryV5.new(node2.rng, conf2, some(node2.enr), some(node2.peerManager))
 
     await allFutures(node1.start(), node2.start(), node3.start())
     let resultDisc1StartRes = await disc1.start()
@@ -286,9 +276,8 @@ suite "Waku Peer Exchange with discv5":
     await node1.mountPeerExchange()
     await node3.mountPeerExchange()
 
-    let
-      dialResponse =
-        await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())
+    let dialResponse =
+      await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())
 
     check dialResponse.isOk
 

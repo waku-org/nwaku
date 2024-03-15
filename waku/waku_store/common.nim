@@ -3,15 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/[options,sequtils],
-  stew/results,
-  stew/byteutils,
-  nimcrypto/sha2
-import
-  ../waku_core,
-  ../common/paging
-
+import std/[options, sequtils], stew/results, stew/byteutils, nimcrypto/sha2
+import ../waku_core, ../common/paging
 
 const
   WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
@@ -20,9 +13,7 @@ const
 
   MaxPageSize*: uint64 = 100
 
-
 type WakuStoreResult*[T] = Result[T, string]
-
 
 ## Waku message digest
 
@@ -31,14 +22,14 @@ type MessageDigest* = MDigest[256]
 proc computeDigest*(msg: WakuMessage): MessageDigest =
   var ctx: sha256
   ctx.init()
-  defer: ctx.clear()
+  defer:
+    ctx.clear()
 
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.payload)
 
   # Computes the hash
   return ctx.finish()
-
 
 ## Public API types
 
@@ -80,16 +71,15 @@ type
 
   HistoryResult* = Result[HistoryResponse, HistoryError]
 
-
 proc parse*(T: type HistoryErrorKind, kind: uint32): T =
-  case kind:
+  case kind
   of 000, 200, 300, 400, 503:
     HistoryErrorKind(kind)
   else:
     HistoryErrorKind.UNKNOWN
 
 proc `$`*(err: HistoryError): string =
-  case err.kind:
+  case err.kind
   of HistoryErrorKind.PEER_DIAL_FAILURE:
     "PEER_DIAL_FAILURE: " & err.address
   of HistoryErrorKind.BAD_RESPONSE:
@@ -103,15 +93,14 @@ proc `$`*(err: HistoryError): string =
 
 proc checkHistCursor*(self: HistoryCursor): Result[void, HistoryError] =
   if self.pubsubTopic.len == 0:
-    return err(HistoryError(kind: BAD_REQUEST,
-                            cause: "empty pubsubTopic"))
+    return err(HistoryError(kind: BAD_REQUEST, cause: "empty pubsubTopic"))
   if self.senderTime == 0:
-    return err(HistoryError(kind: BAD_REQUEST,
-                            cause: "invalid senderTime"))
+    return err(HistoryError(kind: BAD_REQUEST, cause: "invalid senderTime"))
   if self.storeTime == 0:
-    return err(HistoryError(kind: BAD_REQUEST,
-                            cause: "invalid storeTime"))
-  if self.digest.data.all(proc (x: byte): bool = x == 0):
-    return err(HistoryError(kind: BAD_REQUEST,
-                            cause: "empty digest"))
+    return err(HistoryError(kind: BAD_REQUEST, cause: "invalid storeTime"))
+  if self.digest.data.all(
+    proc(x: byte): bool =
+      x == 0
+  ):
+    return err(HistoryError(kind: BAD_REQUEST, cause: "empty digest"))
   return ok()

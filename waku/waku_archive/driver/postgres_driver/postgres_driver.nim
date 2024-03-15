@@ -29,14 +29,13 @@ type PostgresDriver* = ref object of ArchiveDriver
   futLoopPartitionFactory: Future[void]
 
 const InsertRowStmtName = "InsertRow"
-const InsertRowStmtDefinition =
-  # TODO: get the sql queries from a file
- """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
+const InsertRowStmtDefinition = # TODO: get the sql queries from a file
+  """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
   version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -45,7 +44,7 @@ const SelectNoCursorAscStmtDef =
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -54,7 +53,7 @@ const SelectNoCursorDescStmtDef =
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) < ($3,$4) AND
@@ -64,7 +63,7 @@ const SelectWithCursorDescStmtDef =
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
- """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) > ($3,$4) AND
@@ -74,12 +73,12 @@ const SelectWithCursorAscStmtDef =
 
 const DefaultMaxNumConns = 50
 
-proc new*(T: type PostgresDriver,
-          dbUrl: string,
-          maxConnections = DefaultMaxNumConns,
-          onFatalErrorAction: OnFatalErrorHandler = nil):
-          ArchiveDriverResult[T] =
-
+proc new*(
+    T: type PostgresDriver,
+    dbUrl: string,
+    maxConnections = DefaultMaxNumConns,
+    onFatalErrorAction: OnFatalErrorHandler = nil,
+): ArchiveDriverResult[T] =
   ## Very simplistic split of max connections
   let maxNumConnOnEachPool = int(maxConnections / 2)
 
@@ -95,9 +94,11 @@ proc new*(T: type PostgresDriver,
   if not isNil(onFatalErrorAction):
     asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
-  let driver = PostgresDriver(writeConnPool: writeConnPool,
-                              readConnPool: readConnPool,
-                              partitionMngr: PartitionManager.new())
+  let driver = PostgresDriver(
+    writeConnPool: writeConnPool,
+    readConnPool: readConnPool,
+    partitionMngr: PartitionManager.new(),
+  )
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -108,9 +109,9 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ret
 
 proc rowCallbackImpl(
-  pqResult: ptr PGresult,
-  outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)],
-  ) =
+    pqResult: ptr PGresult,
+    outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)],
+) =
   ## Proc aimed to contain the logic of the callback passed to the `psasyncpool`.
   ## That callback is used in "SELECT" queries.
   ##
@@ -122,8 +123,7 @@ proc rowCallbackImpl(
     error "Wrong number of fields"
     return
 
-  for iRow in 0..<pqResult.pqNtuples():
-
+  for iRow in 0 ..< pqResult.pqNtuples():
     var wakuMessage: WakuMessage
     var timestamp: Timestamp
     var version: uint
@@ -134,16 +134,16 @@ proc rowCallbackImpl(
     var payload: string
     var hashHex: string
     var msgHash: WakuMessageHash
-    
+
     try:
-      storedAt = parseInt( $(pqgetvalue(pqResult, iRow, 0)) )
+      storedAt = parseInt($(pqgetvalue(pqResult, iRow, 0)))
       contentTopic = $(pqgetvalue(pqResult, iRow, 1))
-      payload = parseHexStr( $(pqgetvalue(pqResult, iRow, 2)) )
+      payload = parseHexStr($(pqgetvalue(pqResult, iRow, 2)))
       pubSubTopic = $(pqgetvalue(pqResult, iRow, 3))
-      version = parseUInt( $(pqgetvalue(pqResult, iRow, 4)) )
-      timestamp = parseInt( $(pqgetvalue(pqResult, iRow, 5)) )
-      digest = parseHexStr( $(pqgetvalue(pqResult, iRow, 6)) )
-      hashHex = parseHexStr( $(pqgetvalue(pqResult, iRow, 7)) )
+      version = parseUInt($(pqgetvalue(pqResult, iRow, 4)))
+      timestamp = parseInt($(pqgetvalue(pqResult, iRow, 5)))
+      digest = parseHexStr($(pqgetvalue(pqResult, iRow, 6)))
+      hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
       msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
@@ -153,21 +153,24 @@ proc rowCallbackImpl(
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
 
-    outRows.add((pubSubTopic,
-                 wakuMessage,
-                 @(digest.toOpenArrayByte(0, digest.high)),
-                 storedAt,
-                 msgHash,
-                 ))
+    outRows.add(
+      (
+        pubSubTopic,
+        wakuMessage,
+        @(digest.toOpenArrayByte(0, digest.high)),
+        storedAt,
+        msgHash,
+      )
+    )
 
-method put*(s: PostgresDriver,
-            pubsubTopic: PubsubTopic,
-            message: WakuMessage,
-            digest: MessageDigest,
-            messageHash: WakuMessageHash,
-            receivedTime: Timestamp):
-            Future[ArchiveDriverResult[void]] {.async.} =
-
+method put*(
+    s: PostgresDriver,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+    digest: MessageDigest,
+    messageHash: WakuMessageHash,
+    receivedTime: Timestamp,
+): Future[ArchiveDriverResult[void]] {.async.} =
   let digest = toHex(digest.data)
   let messageHash = toHex(messageHash)
   let rxTime = $receivedTime
@@ -178,56 +181,63 @@ method put*(s: PostgresDriver,
 
   debug "put PostgresDriver", timestamp = timestamp
 
-  return await s.writeConnPool.runStmt(InsertRowStmtName,
-                                       InsertRowStmtDefinition,
-                                     @[digest,
-                                       messageHash,
-                                       rxTime,
-                                       contentTopic,
-                                       payload,
-                                       pubsubTopic,
-                                       version,
-                                       timestamp],
-                                     @[int32(digest.len),
-                                       int32(messageHash.len),
-                                       int32(rxTime.len),
-                                       int32(contentTopic.len),
-                                       int32(payload.len),
-                                       int32(pubsubTopic.len),
-                                       int32(version.len),
-                                       int32(timestamp.len)],
-                                     @[int32(0), int32(0), int32(0), int32(0),
-                                       int32(0), int32(0), int32(0), int32(0)])
+  return await s.writeConnPool.runStmt(
+    InsertRowStmtName,
+    InsertRowStmtDefinition,
+    @[
+      digest, messageHash, rxTime, contentTopic, payload, pubsubTopic, version,
+      timestamp,
+    ],
+    @[
+      int32(digest.len),
+      int32(messageHash.len),
+      int32(rxTime.len),
+      int32(contentTopic.len),
+      int32(payload.len),
+      int32(pubsubTopic.len),
+      int32(version.len),
+      int32(timestamp.len),
+    ],
+    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+  )
 
-method getAllMessages*(s: PostgresDriver):
-                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+method getAllMessages*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
 
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery("""SELECT storedAt, contentTopic,
+  (
+    await s.readConnPool.pgQuery(
+      """SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
                                        id, messageHash FROM messages ORDER BY storedAt ASC""",
-                                       newSeq[string](0),
-                                       rowCallback
-                              )).isOkOr:
+      newSeq[string](0),
+      rowCallback,
+    )
+  ).isOkOr:
     return err("failed in query: " & $error)
 
   return ok(rows)
 
-proc getPartitionsList(s: PostgresDriver): Future[ArchiveDriverResult[seq[string]]] {.async.} =
+proc getPartitionsList(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[seq[string]]] {.async.} =
   ## Retrieves the seq of partition table names.
   ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
 
   var partitions: seq[string]
   proc rowCallback(pqResult: ptr PGresult) =
-    for iRow in 0..<pqResult.pqNtuples():
+    for iRow in 0 ..< pqResult.pqNtuples():
       let partitionName = $(pqgetvalue(pqResult, iRow, 0))
       partitions.add(partitionName)
 
-  (await s.readConnPool.pgQuery("""
+  (
+    await s.readConnPool.pgQuery(
+      """
                       SELECT child.relname       AS partition_name
                           FROM pg_inherits
                           JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
@@ -236,27 +246,29 @@ proc getPartitionsList(s: PostgresDriver): Future[ArchiveDriverResult[seq[string
                           JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
                           WHERE parent.relname='messages'
                           """,
-                          newSeq[string](0),
-                          rowCallback
-                              )).isOkOr:
-
+      newSeq[string](0),
+      rowCallback,
+    )
+  ).isOkOr:
     return err("getPartitionsList failed in query: " & $error)
 
   return ok(partitions)
 
-proc getMessagesArbitraryQuery(s: PostgresDriver,
-                    contentTopic: seq[ContentTopic] = @[],
-                    pubsubTopic = none(PubsubTopic),
-                    cursor = none(ArchiveCursor),
-                    startTime = none(Timestamp),
-                    endTime = none(Timestamp),
-                    hexHashes: seq[string] = @[],
-                    maxPageSize = DefaultPageSize,
-                    ascendingOrder = true):
-                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+proc getMessagesArbitraryQuery(
+    s: PostgresDriver,
+    contentTopic: seq[ContentTopic] = @[],
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    hexHashes: seq[string] = @[],
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
-  var query = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
+  var query =
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
@@ -307,22 +319,22 @@ proc getMessagesArbitraryQuery(s: PostgresDriver,
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
-  
+
   (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
 
-proc getMessagesPreparedStmt(s: PostgresDriver,
-                    contentTopic: string,
-                    pubsubTopic: PubsubTopic,
-                    cursor = none(ArchiveCursor),
-                    startTime: Timestamp,
-                    endTime: Timestamp,
-                    maxPageSize = DefaultPageSize,
-                    ascOrder = true):
-                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-
+proc getMessagesPreparedStmt(
+    s: PostgresDriver,
+    contentTopic: string,
+    pubsubTopic: PubsubTopic,
+    cursor = none(ArchiveCursor),
+    startTime: Timestamp,
+    endTime: Timestamp,
+    maxPageSize = DefaultPageSize,
+    ascOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
   ##
@@ -337,97 +349,93 @@ proc getMessagesPreparedStmt(s: PostgresDriver,
   let limit = $maxPageSize
 
   if cursor.isSome():
-    var stmtName = if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
-    var stmtDef = if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
+    var stmtName =
+      if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
+    var stmtDef =
+      if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
 
     let digest = toHex(cursor.get().digest.data)
     let storeTime = $cursor.get().storeTime
-    
-    (await s.readConnPool.runStmt(
-                                  stmtName,
-                                  stmtDef,
-                                 @[contentTopic,
-                                   pubsubTopic,
-                                   storeTime,
-                                   digest,
-                                   startTimeStr,
-                                   endTimeStr,
-                                   limit],
-                                 @[int32(contentTopic.len),
-                                   int32(pubsubTopic.len),
-                                   int32(storeTime.len),
-                                   int32(digest.len),
-                                   int32(startTimeStr.len),
-                                   int32(endTimeStr.len),
-                                   int32(limit.len)],
-                                 @[int32(0), int32(0), int32(0), int32(0),
-                                   int32(0), int32(0), int32(0)],
-                                  rowCallback)
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[contentTopic, pubsubTopic, storeTime, digest, startTimeStr, endTimeStr, limit],
+        @[
+          int32(contentTopic.len),
+          int32(pubsubTopic.len),
+          int32(storeTime.len),
+          int32(digest.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+      )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
-
   else:
-    var stmtName = if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
+    var stmtName =
+      if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
     var stmtDef = if ascOrder: SelectNoCursorAscStmtDef else: SelectNoCursorDescStmtDef
-    
-    (await s.readConnPool.runStmt(stmtName,
-                                  stmtDef,
-                                 @[contentTopic,
-                                   pubsubTopic,
-                                   startTimeStr,
-                                   endTimeStr,
-                                   limit],
-                                 @[int32(contentTopic.len),
-                                   int32(pubsubTopic.len),
-                                   int32(startTimeStr.len),
-                                   int32(endTimeStr.len),
-                                   int32(limit.len)],
-                                 @[int32(0), int32(0), int32(0), int32(0), int32(0)],
-                                  rowCallback)
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[contentTopic, pubsubTopic, startTimeStr, endTimeStr, limit],
+        @[
+          int32(contentTopic.len),
+          int32(pubsubTopic.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+      )
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
 
   return ok(rows)
 
-method getMessages*(s: PostgresDriver,
-                    contentTopicSeq = newSeq[ContentTopic](0),
-                    pubsubTopic = none(PubsubTopic),
-                    cursor = none(ArchiveCursor),
-                    startTime = none(Timestamp),
-                    endTime = none(Timestamp),
-                    hashes = newSeq[WakuMessageHash](0),
-                    maxPageSize = DefaultPageSize,
-                    ascendingOrder = true):
-                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+method getMessages*(
+    s: PostgresDriver,
+    contentTopicSeq = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    hashes = newSeq[WakuMessageHash](0),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   let hexHashes = hashes.mapIt(toHex(it))
-  
-  if contentTopicSeq.len == 1 and
-    pubsubTopic.isSome() and
-    startTime.isSome() and
-    endTime.isSome():
 
+  if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
+      endTime.isSome():
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
-    return await s.getMessagesPreparedStmt(contentTopicSeq.join(","),
-                                           PubsubTopic(pubsubTopic.get()),
-                                           cursor,
-                                           startTime.get(),
-                                           endTime.get(),
-                                           maxPageSize,
-                                           ascendingOrder)
+    return await s.getMessagesPreparedStmt(
+      contentTopicSeq.join(","),
+      PubsubTopic(pubsubTopic.get()),
+      cursor,
+      startTime.get(),
+      endTime.get(),
+      maxPageSize,
+      ascendingOrder,
+    )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
-    return await s.getMessagesArbitraryQuery(contentTopicSeq,
-                                              pubsubTopic,
-                                              cursor,
-                                              startTime,
-                                              endTime,
-                                              hexHashes,
-                                              maxPageSize,
-                                              ascendingOrder)
+    return await s.getMessagesArbitraryQuery(
+      contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+      ascendingOrder,
+    )
 
-proc getStr(s: PostgresDriver,
-            query: string):
-            Future[ArchiveDriverResult[string]] {.async.} =
+proc getStr(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[string]] {.async.} =
   # Performs a query that is expected to return a single string
 
   var ret: string
@@ -447,9 +455,9 @@ proc getStr(s: PostgresDriver,
 
   return ok(ret)
 
-proc getInt(s: PostgresDriver,
-            query: string):
-            Future[ArchiveDriverResult[int64]] {.async.} =
+proc getInt(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
   var retInt = 0'i64
@@ -457,42 +465,42 @@ proc getInt(s: PostgresDriver,
     return err("could not get str in getInt: " & $error)
 
   try:
-    retInt = parseInt( str )
+    retInt = parseInt(str)
   except ValueError:
     return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
 
   return ok(retInt)
 
-method getDatabaseSize*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
-
+method getDatabaseSize*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
     return err("error in getDatabaseSize: " & error)
 
   let databaseSize: int64 = int64(intRes)
   return ok(databaseSize)
 
-method getMessagesCount*(s: PostgresDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
-
+method getMessagesCount*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   let intRes = await s.getInt("SELECT COUNT(1) FROM messages")
   if intRes.isErr():
     return err("error in getMessagesCount: " & intRes.error)
 
   return ok(intRes.get())
 
-method getOldestMessageTimestamp*(s: PostgresDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
-
+method getOldestMessageTimestamp*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
   if intRes.isErr():
     return err("error in getOldestMessageTimestamp: " & intRes.error)
 
   return ok(Timestamp(intRes.get()))
 
-method getNewestMessageTimestamp*(s: PostgresDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
-
+method getNewestMessageTimestamp*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   let intRes = await s.getInt("SELECT MAX(storedAt) FROM messages")
   if intRes.isErr():
     return err("error in getNewestMessageTimestamp: " & intRes.error)
@@ -500,35 +508,31 @@ method getNewestMessageTimestamp*(s: PostgresDriver):
   return ok(Timestamp(intRes.get()))
 
 method deleteMessagesOlderThanTimestamp*(
-                                 s: PostgresDriver,
-                                 ts: Timestamp):
-                                 Future[ArchiveDriverResult[void]] {.async.} =
-
-  let execRes = await s.writeConnPool.pgQuery(
-                            "DELETE FROM messages WHERE storedAt < " & $ts)
+    s: PostgresDriver, ts: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  let execRes =
+    await s.writeConnPool.pgQuery("DELETE FROM messages WHERE storedAt < " & $ts)
   if execRes.isErr():
     return err("error in deleteMessagesOlderThanTimestamp: " & execRes.error)
 
   return ok()
 
 method deleteOldestMessagesNotWithinLimit*(
-                                 s: PostgresDriver,
-                                 limit: int):
-                                 Future[ArchiveDriverResult[void]] {.async.} =
-
+    s: PostgresDriver, limit: int
+): Future[ArchiveDriverResult[void]] {.async.} =
   let execRes = await s.writeConnPool.pgQuery(
-                     """DELETE FROM messages WHERE id NOT IN
+    """DELETE FROM messages WHERE id NOT IN
                           (
                         SELECT id FROM messages ORDER BY storedAt DESC LIMIT ?
                           );""",
-                     @[$limit])
+    @[$limit],
+  )
   if execRes.isErr():
     return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
 
   return ok()
 
-method close*(s: PostgresDriver):
-              Future[ArchiveDriverResult[void]] {.async.} =
+method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Cancel the partition factory loop
   s.futLoopPartitionFactory.cancel()
 
@@ -544,8 +548,9 @@ method close*(s: PostgresDriver):
 
   return ok()
 
-proc sleep*(s: PostgresDriver, seconds: int):
-            Future[ArchiveDriverResult[void]] {.async.} =
+proc sleep*(
+    s: PostgresDriver, seconds: int
+): Future[ArchiveDriverResult[void]] {.async.} =
   # This is for testing purposes only. It is aimed to test the proper
   # implementation of asynchronous requests. It merely triggers a sleep in the
   # database for the amount of seconds given as a parameter.
@@ -558,15 +563,15 @@ proc sleep*(s: PostgresDriver, seconds: int):
     let params = @[$seconds]
     (await s.writeConnPool.pgQuery("SELECT pg_sleep(?)", params, rowCallback)).isOkOr:
       return err("error in postgres_driver sleep: " & $error)
-
   except DbError:
     # This always raises an exception although the sleep works
     return err("exception sleeping: " & getCurrentExceptionMsg())
 
   return ok()
 
-proc performWriteQuery*(s: PostgresDriver, query: string):
-                        Future[ArchiveDriverResult[void]] {.async.} =
+proc performWriteQuery*(
+    s: PostgresDriver, query: string
+): Future[ArchiveDriverResult[void]] {.async.} =
   ## Performs a query that somehow changes the state of the database
 
   (await s.writeConnPool.pgQuery(query)).isOkOr:
@@ -574,10 +579,9 @@ proc performWriteQuery*(s: PostgresDriver, query: string):
 
   return ok()
 
-proc addPartition(self: PostgresDriver,
-                  startTime: Timestamp,
-                  duration: timer.Duration):
-                  Future[ArchiveDriverResult[void]] {.async.} =
+proc addPartition(
+    self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
+): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
@@ -593,8 +597,9 @@ proc addPartition(self: PostgresDriver,
 
   let partitionName = "messages_" & fromInSec & "_" & untilInSec
 
-  let createPartitionQuery = "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
-        "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
+  let createPartitionQuery =
+    "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
+    "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
 
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
     return err(fmt"error adding partition [{partitionName}]: " & $error)
@@ -604,7 +609,9 @@ proc addPartition(self: PostgresDriver,
   self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
   return ok()
 
-proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+proc initializePartitionsInfo(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[void]] {.async.} =
   let partitionNamesRes = await self.getPartitionsList()
   if not partitionNamesRes.isOk():
     return err("Could not retrieve partitions list: " & $partitionNamesRes.error)
@@ -636,15 +643,18 @@ proc initializePartitionsInfo(self: PostgresDriver): Future[ArchiveDriverResult[
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
 const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
-proc loopPartitionFactory(self: PostgresDriver,
-                          onFatalError: OnFatalErrorHandler) {.async.} =
+proc loopPartitionFactory(
+    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
 
   debug "starting loopPartitionFactory"
 
   if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
-    onFatalError("partition factory partition range interval should be bigger than check interval")
+    onFatalError(
+      "partition factory partition range interval should be bigger than check interval"
+    )
 
   ## First of all, let's make the 'partition_manager' aware of the current partitions
   (await self.initializePartitionsInfo()).isOkOr:
@@ -669,7 +679,11 @@ proc loopPartitionFactory(self: PostgresDriver,
         debug "creating a new partition for the future"
         ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
-        (await self.addPartition(newestPartition.getLastMoment(), PartitionsRangeInterval)).isOkOr:
+        (
+          await self.addPartition(
+            newestPartition.getLastMoment(), PartitionsRangeInterval
+          )
+        ).isOkOr:
           onFatalError("could not add the next partition for 'now': " & $error)
       elif now >= newestPartition.getLastMoment():
         debug "creating a new partition to contain current messages"
@@ -681,28 +695,32 @@ proc loopPartitionFactory(self: PostgresDriver,
 
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
 
-proc startPartitionFactory*(self: PostgresDriver,
-                            onFatalError: OnFatalErrorHandler) {.async.} =
-
+proc startPartitionFactory*(
+    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+) {.async.} =
   self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
 
-proc getTableSize*(self: PostgresDriver,
-                   tableName: string): Future[ArchiveDriverResult[string]] {.async.} =
+proc getTableSize*(
+    self: PostgresDriver, tableName: string
+): Future[ArchiveDriverResult[string]] {.async.} =
   ## Returns a human-readable representation of the size for the requested table.
   ## tableName - table of interest.
 
-  let tableSize = (await self.getStr(fmt"""
+  let tableSize = (
+    await self.getStr(
+      fmt"""
                 SELECT pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
                 FROM pg_class C
-                where relname = '{tableName}'""")).valueOr:
+                where relname = '{tableName}'"""
+    )
+  ).valueOr:
     return err("error in getDatabaseSize: " & error)
 
   return ok(tableSize)
 
-proc removeOldestPartition(self: PostgresDriver,
-                           forceRemoval: bool = false, ## To allow cleanup in tests
-                           ):
-                           Future[ArchiveDriverResult[void]] {.async.}  =
+proc removeOldestPartition(
+    self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
+): Future[ArchiveDriverResult[void]] {.async.} =
   ## Indirectly called from the retention policy
 
   let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
@@ -726,7 +744,8 @@ proc removeOldestPartition(self: PostgresDriver,
   ## In the following lines is where the partition removal happens.
   ## Detach and remove the partition concurrently to not block the parent table (messages)
   let detachPartitionQuery =
-    "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() & " CONCURRENTLY;"
+    "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() &
+    " CONCURRENTLY;"
   debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
     return err(fmt"error in {detachPartitionQuery}: " & $error)
@@ -737,7 +756,8 @@ proc removeOldestPartition(self: PostgresDriver,
   (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
     return err(fmt"error in {dropPartitionQuery}: " & $error)
 
-  debug "removed partition", partition_name = oldestPartition.getName(), partition_size = partSize
+  debug "removed partition",
+    partition_name = oldestPartition.getName(), partition_size = partSize
   self.partitionMngr.removeOldestPartitionName()
 
   return ok()
@@ -745,10 +765,9 @@ proc removeOldestPartition(self: PostgresDriver,
 proc containsAnyPartition*(self: PostgresDriver): bool =
   return not self.partitionMngr.isEmpty()
 
-method decreaseDatabaseSize*(driver: PostgresDriver,
-                             targetSizeInBytes: int64,
-                             forceRemoval: bool = false):
-                             Future[ArchiveDriverResult[void]] {.async.} =
+method decreaseDatabaseSize*(
+    driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+): Future[ArchiveDriverResult[void]] {.async.} =
   var dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("decreaseDatabaseSize failed to get database size: " & $error)
 
@@ -758,14 +777,18 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
   if totalSizeOfDB <= targetSizeInBytes:
     return ok()
 
-  debug "start reducing database size", targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+  debug "start reducing database size",
+    targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
 
   while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
     (await driver.removeOldestPartition(forceRemoval)).isOkOr:
-      return err("decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error)
+      return err(
+        "decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error
+      )
 
     dbSize = (await driver.getDatabaseSize()).valueOr:
-      return err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
+      return
+        err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
 
     let newCurrentSize = int64(dbSize)
     if newCurrentSize == totalSizeOfDB:
@@ -773,13 +796,16 @@ method decreaseDatabaseSize*(driver: PostgresDriver,
 
     totalSizeOfDB = newCurrentSize
 
-    debug "reducing database size", targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+    debug "reducing database size",
+      targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
 
   return ok()
 
-method existsTable*(s: PostgresDriver, tableName: string):
-                    Future[ArchiveDriverResult[bool]] {.async.} =
-  let query: string = fmt"""
+method existsTable*(
+    s: PostgresDriver, tableName: string
+): Future[ArchiveDriverResult[bool]] {.async.} =
+  let query: string =
+    fmt"""
   SELECT EXISTS (
     SELECT FROM
         pg_tables
@@ -805,9 +831,9 @@ method existsTable*(s: PostgresDriver, tableName: string):
 
   return ok(exists == "t")
 
-proc getCurrentVersion*(s: PostgresDriver):
-                        Future[ArchiveDriverResult[int64]] {.async.} =
-
+proc getCurrentVersion*(
+    s: PostgresDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   let existsVersionTable = (await s.existsTable("version")).valueOr:
     return err("error in getCurrentVersion-existsTable: " & $error)
 
@@ -818,5 +844,3 @@ proc getCurrentVersion*(s: PostgresDriver):
     return err("error in getMessagesCount: " & $error)
 
   return ok(res)
-
-

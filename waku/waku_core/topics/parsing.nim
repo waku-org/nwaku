@@ -5,10 +5,9 @@ else:
 
 import stew/results
 
-
 type
   ParsingErrorKind* {.pure.} = enum
-    InvalidFormat,
+    InvalidFormat
     MissingPart
 
   ParsingError* = object
@@ -20,16 +19,14 @@ type
 
 type ParsingResult*[T] = Result[T, ParsingError]
 
-
 proc invalidFormat*(T: type ParsingError, cause = "invalid format"): T =
   ParsingError(kind: ParsingErrorKind.InvalidFormat, cause: cause)
 
 proc missingPart*(T: type ParsingError, part = "unknown"): T =
   ParsingError(kind: ParsingErrorKind.MissingPart, part: part)
 
-
 proc `$`*(err: ParsingError): string =
-  case err.kind:
+  case err.kind
   of ParsingErrorKind.InvalidFormat:
     return "invalid format: " & err.cause
   of ParsingErrorKind.MissingPart:

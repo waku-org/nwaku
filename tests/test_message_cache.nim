@@ -1,13 +1,7 @@
 {.used.}
 
-import
-  std/sets,
-  stew/[results, byteutils],
-  testutils/unittests
-import
-  ../../waku/waku_core,
-  ../../waku/waku_api/message_cache,
-  ./testlib/wakucore
+import std/sets, stew/[results, byteutils], testutils/unittests
+import ../../waku/waku_core, ../../waku/waku_api/message_cache, ./testlib/wakucore
 
 suite "MessageCache":
   setup:
@@ -77,7 +71,7 @@ suite "MessageCache":
     cache.addMessage(testPubsubTopic, testMessage)
 
     ## When
-    var res = cache.getMessages(testPubsubTopic, clear=true)
+    var res = cache.getMessages(testPubsubTopic, clear = true)
     require(res.isOk())
 
     res = cache.getMessages(testPubsubTopic)
@@ -121,15 +115,15 @@ suite "MessageCache":
     ## Then
     let res = cache.getMessages(testPubsubTopic)
     check:
-     res.isErr()
-     res.error() == "not subscribed to any pubsub topics"
+      res.isErr()
+      res.error() == "not subscribed to any pubsub topics"
 
   test "add messages beyond the capacity":
     ## Given
     var testMessages = @[fakeWakuMessage(toBytes("MSG-1"))]
 
     # Prevent duplicate messages timestamp
-    for i in 0..<5:
+    for i in 0 ..< 5:
       var msg = fakeWakuMessage(toBytes("MSG-1"))
 
       while msg.timestamp <= testMessages[i].timestamp:
@@ -166,7 +160,7 @@ suite "MessageCache":
     check:
       getRes.isOk
       getRes.get() == @[fakeMessage]
-  
+
   test "add same message twice":
     cache.pubsubSubscribe(testPubsubTopic)
 

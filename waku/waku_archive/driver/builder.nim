@@ -1,13 +1,9 @@
-
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
 
-import
-  stew/results,
-  chronicles,
-  chronos
+import stew/results, chronicles, chronos
 import
   ../driver,
   ../../common/databases/dburl,
@@ -17,23 +13,22 @@ import
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
   ./queue_driver
 
-export
-  sqlite_driver,
-  queue_driver
+export sqlite_driver, queue_driver
 
 when defined(postgres):
   import ## These imports add dependency with an external libpq library
-    ./postgres_driver/migrations as archive_postgres_driver_migrations,  
-    ./postgres_driver 
+    ./postgres_driver/migrations as archive_postgres_driver_migrations,
+    ./postgres_driver
   export postgres_driver
 
-proc new*(T: type ArchiveDriver,
-          url: string,
-          vacuum: bool,
-          migrate: bool,
-          maxNumConn: int,
-          onFatalErrorAction: OnFatalErrorHandler):
-          Future[Result[T, string]] {.async.} =
+proc new*(
+    T: type ArchiveDriver,
+    url: string,
+    vacuum: bool,
+    migrate: bool,
+    maxNumConn: int,
+    onFatalErrorAction: OnFatalErrorHandler,
+): Future[Result[T, string]] {.async.} =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
   ## migrate - if true, the database schema will be updated
@@ -42,13 +37,11 @@ proc new*(T: type ArchiveDriver,
 
   let dbUrlValidationRes = dburl.validateDbUrl(url)
   if dbUrlValidationRes.isErr():
-    return err("DbUrl failure in ArchiveDriver.new: " &
-               dbUrlValidationRes.error)
+    return err("DbUrl failure in ArchiveDriver.new: " & dbUrlValidationRes.error)
 
   let engineRes = dburl.getDbEngine(url)
   if engineRes.isErr():
-    return err("error getting db engine in setupWakuArchiveDriver: " &
-               engineRes.error)
+    return err("error getting db engine in setupWakuArchiveDriver: " & engineRes.error)
 
   let engine = engineRes.get()
 
@@ -70,9 +63,8 @@ proc new*(T: type ArchiveDriver,
       return err("error while gathering sqlite stats: " & $sqliteStatsRes.error)
 
     let (pageSize, pageCount, freelistCount) = sqliteStatsRes.get()
-    debug "sqlite database page stats", pageSize = pageSize,
-                                        pages = pageCount,
-                                        freePages = freelistCount
+    debug "sqlite database page stats",
+      pageSize = pageSize, pages = pageCount, freePages = freelistCount
 
     if vacuum and (pageCount > 0 and freelistCount > 0):
       let vacuumRes = db.performSqliteVacuum()
@@ -91,12 +83,13 @@ proc new*(T: type ArchiveDriver,
       return err("failed to init sqlite archive driver: " & res.error)
 
     return ok(res.get())
-
   of "postgres":
     when defined(postgres):
-      let res = PostgresDriver.new(dbUrl = url,
-                                   maxConnections = maxNumConn,
-                                   onFatalErrorAction = onFatalErrorAction)
+      let res = PostgresDriver.new(
+        dbUrl = url,
+        maxConnections = maxNumConn,
+        onFatalErrorAction = onFatalErrorAction,
+      )
       if res.isErr():
         return err("failed to init postgres archive driver: " & res.error)
 
@@ -113,7 +106,7 @@ proc new*(T: type ArchiveDriver,
       asyncSpawn driver.startPartitionFactory(onFatalErrorAction)
 
       info "waiting for a partition to be created"
-      for i in 0..<100:
+      for i in 0 ..< 100:
         if driver.containsAnyPartition():
           break
         await sleepAsync(chronos.milliseconds(100))
@@ -122,12 +115,11 @@ proc new*(T: type ArchiveDriver,
         onFatalErrorAction("a partition could not be created")
 
       return ok(driver)
-
     else:
-      return err("Postgres has been configured but not been compiled. Check compiler definitions.")
-
+      return err(
+        "Postgres has been configured but not been compiled. Check compiler definitions."
+      )
   else:
     debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new()  # Defaults to a capacity of 25.000 messages
+    let driver = QueueDriver.new() # Defaults to a capacity of 25.000 messages
     return ok(driver)
-

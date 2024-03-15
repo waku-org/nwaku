@@ -3,10 +3,11 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  metrics
+import metrics
 
-proc parseCollectorIntoF64(collector: SimpleCollector): float64 {.gcsafe, raises: [Defect] } = 
+proc parseCollectorIntoF64(
+    collector: SimpleCollector
+): float64 {.gcsafe, raises: [Defect].} =
   {.gcsafe.}:
     var total = 0.float64
     for metrics in collector.metrics:

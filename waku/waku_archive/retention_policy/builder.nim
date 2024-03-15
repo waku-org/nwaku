@@ -1,22 +1,18 @@
-
 when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
 
-import
-  std/[strutils, options],
-  regex,
-  stew/results
+import std/[strutils, options], regex, stew/results
 import
   ../retention_policy,
   ./retention_policy_time,
   ./retention_policy_capacity,
   ./retention_policy_size
 
-proc new*(T: type RetentionPolicy,
-          retPolicy: string):
-          RetentionPolicyResult[Option[RetentionPolicy]] =
+proc new*(
+    T: type RetentionPolicy, retPolicy: string
+): RetentionPolicyResult[Option[RetentionPolicy]] =
   let retPolicy = retPolicy.toLower
 
   # Validate the retention policy format
@@ -42,7 +38,6 @@ proc new*(T: type RetentionPolicy,
 
     let retPolicy: RetentionPolicy = TimeRetentionPolicy.new(retentionTimeSeconds)
     return ok(some(retPolicy))
-
   elif policy == "capacity":
     var retentionCapacity: int
     try:
@@ -52,15 +47,14 @@ proc new*(T: type RetentionPolicy,
 
     let retPolicy: RetentionPolicy = CapacityRetentionPolicy.new(retentionCapacity)
     return ok(some(retPolicy))
-
   elif policy == "size":
     var retentionSize: string
     retentionSize = policyArgs
 
     # captures the size unit such as GB or MB
-    let sizeUnit = retentionSize.substr(retentionSize.len-2)
+    let sizeUnit = retentionSize.substr(retentionSize.len - 2)
     # captures the string type number data of the size provided
-    let sizeQuantityStr = retentionSize.substr(0,retentionSize.len-3)
+    let sizeQuantityStr = retentionSize.substr(0, retentionSize.len - 3)
     # to hold the numeric value data of size
     var inptSizeQuantity: float
     var sizeQuantity: int64
@@ -71,23 +65,24 @@ proc new*(T: type RetentionPolicy,
     except ValueError:
       return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
 
-    case sizeUnit:
-      of "gb":
-        sizeMultiplier = 1024.0 * 1024.0 * 1024.0
-      of "mb":
-        sizeMultiplier = 1024.0 * 1024.0
-      else:
-        return err ("""invalid size retention value unit: expected "Mb" or "Gb" but got """ & sizeUnit )
+    case sizeUnit
+    of "gb":
+      sizeMultiplier = 1024.0 * 1024.0 * 1024.0
+    of "mb":
+      sizeMultiplier = 1024.0 * 1024.0
+    else:
+      return err (
+        """invalid size retention value unit: expected "Mb" or "Gb" but got """ &
+        sizeUnit
+      )
 
     # quantity is converted into bytes for uniform processing
-    sizeQuantity =  int64(inptSizeQuantity * sizeMultiplier)
+    sizeQuantity = int64(inptSizeQuantity * sizeMultiplier)
 
     if sizeQuantity <= 0:
-          return err("invalid size retention policy argument: a non-zero value is required")
+      return err("invalid size retention policy argument: a non-zero value is required")
 
     let retPolicy: RetentionPolicy = SizeRetentionPolicy.new(sizeQuantity)
     return ok(some(retPolicy))
-
   else:
     return err("unknown retention policy")
-

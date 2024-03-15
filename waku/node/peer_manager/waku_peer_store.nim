@@ -45,18 +45,21 @@ type
 # Peer Store API #
 ##################
 
-proc delete*(peerStore: PeerStore,
-             peerId: PeerId) =
+proc delete*(peerStore: PeerStore, peerId: PeerId) =
   # Delete all the information of a given peer.
   peerStore.del(peerId)
 
-proc get*(peerStore: PeerStore,
-          peerId: PeerID): RemotePeerInfo =
+proc get*(peerStore: PeerStore, peerId: PeerID): RemotePeerInfo =
   ## Get the stored information of a given peer.
   RemotePeerInfo(
     peerId: peerId,
     addrs: peerStore[AddressBook][peerId],
-    enr: if peerStore[ENRBook][peerId] != default(enr.Record): some(peerStore[ENRBook][peerId]) else: none(enr.Record),
+    enr:
+      if peerStore[ENRBook][peerId] != default(enr.Record):
+        some(peerStore[ENRBook][peerId])
+      else:
+        none(enr.Record)
+    ,
     protocols: peerStore[ProtoBook][peerId],
     agent: peerStore[AgentBook][peerId],
     protoVersion: peerStore[ProtoVersionBook][peerId],
@@ -68,23 +71,26 @@ proc get*(peerStore: PeerStore,
     origin: peerStore[SourceBook][peerId],
     direction: peerStore[DirectionBook][peerId],
     lastFailedConn: peerStore[LastFailedConnBook][peerId],
-    numberFailedConn: peerStore[NumberFailedConnBook][peerId]
+    numberFailedConn: peerStore[NumberFailedConnBook][peerId],
   )
 
 proc getWakuProtos*(peerStore: PeerStore): seq[string] =
   ## Get the waku protocols of all the stored peers.
   let wakuProtocols = toSeq(peerStore[ProtoBook].book.values())
-                        .flatten()
-                        .deduplicate()
-                        .filterIt(it.startsWith("/vac/waku"))
+    .flatten()
+    .deduplicate()
+    .filterIt(it.startsWith("/vac/waku"))
   return wakuProtocols
 
 # TODO: Rename peers() to getPeersByProtocol()
 proc peers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   ## Get all the stored information of every peer.
-  let allKeys = concat(toSeq(peerStore[AddressBook].book.keys()),
-                       toSeq(peerStore[ProtoBook].book.keys()),
-                       toSeq(peerStore[KeyBook].book.keys())).toHashSet()
+  let allKeys = concat(
+      toSeq(peerStore[AddressBook].book.keys()),
+      toSeq(peerStore[ProtoBook].book.keys()),
+      toSeq(peerStore[KeyBook].book.keys()),
+    )
+    .toHashSet()
 
   return allKeys.mapIt(peerStore.get(it))
 
@@ -122,7 +128,9 @@ proc hasPeers*(peerStore: PeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
   toSeq(peerStore[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
 
-proc getPeersByDirection*(peerStore: PeerStore, direction: PeerDirection): seq[RemotePeerInfo] =
+proc getPeersByDirection*(
+    peerStore: PeerStore, direction: PeerDirection
+): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(it.direction == direction)
 
 proc getNotConnectedPeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
@@ -135,10 +143,19 @@ proc getPeersByProtocol*(peerStore: PeerStore, proto: string): seq[RemotePeerInf
   return peerStore.peers.filterIt(it.protocols.contains(proto))
 
 proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(it.connectedness == CanConnect or it.connectedness == Connected)
+  return peerStore.peers.filterIt(
+    it.connectedness == CanConnect or it.connectedness == Connected
+  )
 
-proc getPeersByShard*(peerStore: PeerStore, cluster, shard: uint16): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().containsShard(cluster, shard))
+proc getPeersByShard*(
+    peerStore: PeerStore, cluster, shard: uint16
+): seq[RemotePeerInfo] =
+  return peerStore.peers.filterIt(
+    it.enr.isSome() and it.enr.get().containsShard(cluster, shard)
+  )
 
-proc getPeersByCapability*(peerStore: PeerStore, cap: Capabilities): seq[RemotePeerInfo] =
-  return peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))
+proc getPeersByCapability*(
+    peerStore: PeerStore, cap: Capabilities
+): seq[RemotePeerInfo] =
+  return
+    peerStore.peers.filterIt(it.enr.isSome() and it.enr.get().supportsCapability(cap))

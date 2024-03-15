@@ -16,7 +16,7 @@ import
     node/waku_node,
     waku_filter_v2,
     waku_filter_v2/client,
-    waku_filter_v2/subscriptions
+    waku_filter_v2/subscriptions,
   ],
   ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]
 
@@ -34,11 +34,10 @@ suite "Waku Filter - End to End":
 
   asyncSetup:
     pushHandlerFuture = newFuture[(string, WakuMessage)]()
-    messagePushHandler =
-      proc(pubsubTopic: PubsubTopic, message: WakuMessage): Future[void] {.
-        async, closure, gcsafe
-      .} =
-          pushHandlerFuture.complete((pubsubTopic, message))
+    messagePushHandler = proc(
+        pubsubTopic: PubsubTopic, message: WakuMessage
+    ): Future[void] {.async, closure, gcsafe.} =
+      pushHandlerFuture.complete((pubsubTopic, message))
 
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
@@ -72,11 +71,9 @@ suite "Waku Filter - End to End":
 
   asyncTest "Client Node receives Push from Server Node, via Filter":
     # When a client node subscribes to a filter node
-    let
-      subscribeResponse =
-        await client.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse = await client.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
 
     # Then the subscription is successful
     check:
@@ -96,11 +93,9 @@ suite "Waku Filter - End to End":
       pushedMsg1 == msg1
 
     # When unsubscribing from the subscription
-    let
-      unsubscribeResponse =
-        await client.filterUnsubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let unsubscribeResponse = await client.filterUnsubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
 
     # Then the unsubscription is successful
     check:
@@ -121,11 +116,9 @@ suite "Waku Filter - End to End":
     await server.mountRelay()
 
     # And valid filter subscription
-    let
-      subscribeResponse =
-        await client.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse = await client.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
     require:
       subscribeResponse.isOk()
       server.wakuFilter.subscriptions.subscribedPeerCount() == 1
@@ -149,22 +142,18 @@ suite "Waku Filter - End to End":
     let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
     # When a client node subscribes to the server node
-    let
-      subscribeResponse =
-        await client.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse = await client.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
 
     # Then the subscription is successful
     check (not subscribeResponse.isOk())
 
   asyncTest "Filter Client Node can receive messages after subscribing and restarting, via Filter":
     # Given a valid filter subscription
-    let
-      subscribeResponse =
-        await client.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse = await client.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
     require:
       subscribeResponse.isOk()
       server.wakuFilter.subscriptions.subscribedPeerCount() == 1
@@ -188,11 +177,9 @@ suite "Waku Filter - End to End":
     await server.mountRelay()
 
     # Given a valid filter subscription
-    let
-      subscribeResponse =
-        await client.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse = await client.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
     require:
       subscribeResponse.isOk()
       server.wakuFilter.subscriptions.subscribedPeerCount() == 1
@@ -209,11 +196,9 @@ suite "Waku Filter - End to End":
     check (not await pushHandlerFuture.withTimeout(FUTURE_TIMEOUT))
 
     # Given the client refreshes the subscription
-    let
-      subscribeResponse2 =
-        await clientClone.filterSubscribe(
-          some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
-        )
+    let subscribeResponse2 = await clientClone.filterSubscribe(
+      some(pubsubTopic), contentTopicSeq, serverRemotePeerInfo
+    )
     check:
       subscribeResponse2.isOk()
       server.wakuFilter.subscriptions.subscribedPeerCount() == 1
