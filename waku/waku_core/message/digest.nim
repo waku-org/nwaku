@@ -6,8 +6,7 @@ else:
 
 import
   std/sequtils,
-  stew/byteutils,
-  stew/endians2,
+  stew/[byteutils, endians2, arrayops],
   nimcrypto/sha2
 import
   ../topics,
@@ -19,6 +18,11 @@ import
 
 type WakuMessageHash* = array[32, byte]
 
+converter fromBytes*(array: openArray[byte]): WakuMessageHash =
+  var hash: WakuMessageHash
+  let copiedBytes = copyFrom(hash, array)
+  assert copiedBytes == 32, "Waku message hash is 32 bytes"
+  hash
 
 converter toBytesArray*(digest: MDigest[256]): WakuMessageHash =
   digest.data

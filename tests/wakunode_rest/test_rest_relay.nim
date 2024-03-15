@@ -155,17 +155,17 @@ suite "Waku v2 Rest API - Relay":
 
     var messages = @[
       fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-        meta = toBytes("test-meta") )
+        meta = toBytes("test-meta"), ephemeral = true)
     ]
 
     # Prevent duplicate messages
     for i in 0..<2:
       var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-        meta = toBytes("test-meta"))
+        meta = toBytes("test-meta"), ephemeral = true)
 
       while msg == messages[i]:
         msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-          meta = toBytes("test-meta"))
+          meta = toBytes("test-meta"), ephemeral = true)
 
       messages.add(msg)
 
@@ -192,7 +192,8 @@ suite "Waku v2 Rest API - Relay":
         msg.contentTopic.get() == "content-topic-x" and
         msg.version.get() == 2 and
         msg.timestamp.get() != Timestamp(0) and
-        msg.meta.get() == base64.encode("test-meta")
+        msg.meta.get() == base64.encode("test-meta") and
+        msg.ephemeral.get() == true
 
     check:
       cache.isPubsubSubscribed(pubSubTopic)
@@ -208,10 +209,18 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 20,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
     var restPort = Port(0)
@@ -255,6 +264,7 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
+    require node.mountSharding(1, 8).isOk
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -268,12 +278,10 @@ suite "Waku v2 Rest API - Relay":
     restServer.start()
 
     let contentTopics = @[
-      ContentTopic("/waku/2/default-content1/proto"),
-      ContentTopic("/waku/2/default-content2/proto"),
-      ContentTopic("/waku/2/default-content3/proto")
+      ContentTopic("/app-1/2/default-content/proto"),
+      ContentTopic("/app-2/2/default-content/proto"),
+      ContentTopic("/app-3/2/default-content/proto")
     ]
-
-    let shards = contentTopics.mapIt(getShard(it).expect("Valid Shard")).deduplicate()
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -292,7 +300,7 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       # Node should be subscribed to all shards
-      toSeq(node.wakuRelay.subscribedTopics).len == shards.len
+      node.wakuRelay.subscribedTopics == @["/waku/2/rs/1/7", "/waku/2/rs/1/2", "/waku/2/rs/1/5"]
 
     await restServer.stop()
     await restServer.closeWait()
@@ -411,10 +419,18 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 20,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
     var restPort = Port(0)
@@ -456,10 +472,18 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 20,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
     var restPort = Port(0)
@@ -496,10 +520,18 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 20,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
     var restPort = Port(0)
@@ -541,10 +573,18 @@ suite "Waku v2 Rest API - Relay":
     let node = testWakuNode()
     await node.start()
     await node.mountRelay()
-    await node.mountRlnRelay(WakuRlnConfig(rlnRelayDynamic: false,
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 20,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    else:
+      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1")))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+    await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
     var restPort = Port(0)

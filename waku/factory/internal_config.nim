@@ -31,24 +31,14 @@ proc enrConfiguration*(conf: WakuNodeConf, netConfig: NetConfig, key: crypto.Pri
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  let topics =
-    if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-      let shardsRes = conf.contentTopics.mapIt(getShard(it))
-      for res in shardsRes:
-        if res.isErr():
-          error "failed to shard content topic", error=res.error
-          return err($res.error)
+  let shards: seq[uint16] =
+    # no shards configured
+    if conf.shards.len == 0: toSeq(0..<conf.topics.len).mapIt(uint16(it))
+    # some shards configured
+    else: toSeq(conf.shards.mapIt(uint16(it)))
 
-      let shards = shardsRes.mapIt(it.get())
-
-      conf.pubsubTopics & shards
-    else:
-      conf.topics
-
-  let addShardedTopics = enrBuilder.withShardedTopics(topics)
-  if addShardedTopics.isErr():
-      error "failed to add sharded topics to ENR", error=addShardedTopics.error
-      return err($addShardedTopics.error)
+  enrBuilder.withWakuRelaySharding(RelayShards(clusterId:uint16(conf.clusterId), shardIds: shards)).isOkOr():
+      return err("could not initialize ENR with shards")
 
   let recordRes = enrBuilder.build()
   let record =

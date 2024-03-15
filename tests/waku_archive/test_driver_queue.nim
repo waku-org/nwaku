@@ -13,8 +13,8 @@ import
 
 # Helper functions
 
-proc genIndexedWakuMessage(i: int8): IndexedWakuMessage =
-  ## Use i to generate an IndexedWakuMessage
+proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
+  ## Use i to generate an Index WakuMessage
   var data {.noinit.}: array[32, byte]
   for x in data.mitems: x = i.byte
 
@@ -27,14 +27,14 @@ proc genIndexedWakuMessage(i: int8): IndexedWakuMessage =
       pubsubTopic: "test-pubsub-topic"
     )
 
-  IndexedWakuMessage(msg: message, index: cursor)
+  (cursor, message)
 
 proc getPrepopulatedTestQueue(unsortedSet: auto, capacity: int): QueueDriver =
   let driver = QueueDriver.new(capacity)
 
   for i in unsortedSet:
-    let message = genIndexedWakuMessage(i.int8)
-    discard driver.add(message)
+    let (index, message) = genIndexedWakuMessage(i.int8)
+    discard driver.add(index, message)
 
   driver
 
@@ -49,12 +49,12 @@ procSuite "Sorted driver queue":
     ## When
     # Fill up the queue
     for i in 1..capacity:
-      let message = genIndexedWakuMessage(i.int8)
-      require(driver.add(message).isOk())
+      let (index, message) = genIndexedWakuMessage(i.int8)
+      require(driver.add(index, message).isOk())
 
     # Add one more. Capacity should not be exceeded
-    let message = genIndexedWakuMessage(capacity.int8 + 1)
-    require(driver.add(message).isOk())
+    let (index, message) = genIndexedWakuMessage(capacity.int8 + 1)
+    require(driver.add(index, message).isOk())
 
     ## Then
     check:
@@ -68,14 +68,14 @@ procSuite "Sorted driver queue":
     ## When
     # Fill up the queue
     for i in 1..capacity:
-      let message = genIndexedWakuMessage(i.int8)
-      require(driver.add(message).isOk())
+      let (index, message) = genIndexedWakuMessage(i.int8)
+      require(driver.add(index, message).isOk())
 
     # Attempt to add message with older value than oldest in queue should fail
     let
-      oldestTimestamp = driver.first().get().index.senderTime
-      message = genIndexedWakuMessage(oldestTimestamp.int8 - 1)
-      addRes = driver.add(message)
+      oldestTimestamp = driver.first().get().senderTime
+      (index, message) = genIndexedWakuMessage(oldestTimestamp.int8 - 1)
+      addRes = driver.add(index, message)
 
     ## Then
     check:
@@ -93,14 +93,14 @@ procSuite "Sorted driver queue":
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     # Walk forward through the set and verify ascending order
-    var prevSmaller = genIndexedWakuMessage(min(unsortedSet).int8 - 1).index
+    var (prevSmaller, _) = genIndexedWakuMessage(min(unsortedSet).int8 - 1)
     for i in driver.fwdIterator:
       let (index, _) = i
       check cmp(index, prevSmaller) > 0
       prevSmaller = index
 
     # Walk backward through the set and verify descending order
-    var prevLarger = genIndexedWakuMessage(max(unsortedSet).int8 + 1).index
+    var (prevLarger, _) = genIndexedWakuMessage(max(unsortedSet).int8 + 1)
     for i in driver.bwdIterator:
       let (index, _) = i
       check cmp(index, prevLarger) < 0
@@ -122,7 +122,7 @@ procSuite "Sorted driver queue":
 
     let first = firstRes.tryGet()
     check:
-      first.msg.timestamp == Timestamp(1)
+      first.senderTime == Timestamp(1)
 
   test "get first item from empty queue should fail":
     ## Given
@@ -153,7 +153,7 @@ procSuite "Sorted driver queue":
 
     let last = lastRes.tryGet()
     check:
-      last.msg.timestamp == Timestamp(5)
+      last.senderTime == Timestamp(5)
 
   test "get last item from empty queue should fail":
     ## Given
@@ -176,8 +176,8 @@ procSuite "Sorted driver queue":
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     let
-      existingIndex = genIndexedWakuMessage(4).index
-      nonExistingIndex = genIndexedWakuMessage(99).index
+      (existingIndex, _) = genIndexedWakuMessage(4)
+      (nonExistingIndex, _) = genIndexedWakuMessage(99)
 
     ## Then
     check:

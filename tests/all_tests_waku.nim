@@ -38,7 +38,12 @@ when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)
   import ./waku_store/test_resume
 
-import ./waku_relay/test_all, ./waku_filter_v2/test_all, ./waku_lightpush/test_all
+import
+  ./node/test_all,
+  ./waku_filter_v2/test_all,
+  ./waku_peer_exchange/test_all,
+  ./waku_lightpush/test_all,
+  ./waku_relay/test_all
 
 import
   # Waku v2 tests
@@ -47,7 +52,6 @@ import
   # Waku Filter
   ./test_waku_filter_legacy,
   ./test_wakunode_filter_legacy,
-  ./test_waku_peer_exchange,
   ./test_peer_store_extended,
   ./test_message_cache,
   ./test_peer_manager,
@@ -55,8 +59,7 @@ import
   ./test_waku_keepalive,
   ./test_waku_enr,
   ./test_waku_dnsdisc,
-  ./test_waku_discv5,
-  ./test_peer_exchange,
+  ./test_relay_peer_exchange,
   ./test_waku_noise,
   ./test_waku_noise_sessions,
   ./test_waku_netconfig,
@@ -80,9 +83,7 @@ import
   ./wakunode_rest/test_rest_admin,
   ./wakunode_rest/test_rest_cors
 
-import
-  ./waku_rln_relay/test_waku_rln_relay,
-  ./waku_rln_relay/test_wakunode_rln_relay,
-  ./waku_rln_relay/test_rln_group_manager_onchain,
-  ./waku_rln_relay/test_rln_group_manager_static,
-  ./wakunode_rest/test_rest_health
+import ./waku_rln_relay/test_all
+
+# Node Factory
+import ./factory/test_node_factory

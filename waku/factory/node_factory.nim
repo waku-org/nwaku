@@ -33,7 +33,7 @@ import
 ## Peer persistence
 
 const PeerPersistenceDbUrl = "peers.db"
-proc setupPeerStorage*(): Result[Option[WakuPeerStorage], string] =
+proc setupPeerStorage(): Result[Option[WakuPeerStorage], string] =
   let db = ? SqliteDatabase.new(PeerPersistenceDbUrl)
 
   ? peer_store_sqlite_migrations.migrate(db)
@@ -44,41 +44,9 @@ proc setupPeerStorage*(): Result[Option[WakuPeerStorage], string] =
 
   ok(some(res.value))
 
-## Retrieve dynamic bootstrap nodes (DNS discovery)
-
-proc retrieveDynamicBootstrapNodes*(dnsDiscovery: bool,
-                                    dnsDiscoveryUrl: string,
-                                    dnsDiscoveryNameServers: seq[IpAddress]):
-                                    Result[seq[RemotePeerInfo], string] =
-
-  if dnsDiscovery and dnsDiscoveryUrl != "":
-    # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
-
-    var nameServers: seq[TransportAddress]
-    for ip in dnsDiscoveryNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    let dnsResolver = DnsResolver.new(nameServers)
-
-    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain=domain
-      let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
-
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers()
-        .mapErr(proc (e: cstring): string = $e)
-    else:
-      warn "Failed to init Waku DNS discovery"
-
-  debug "No method for retrieving dynamic bootstrap nodes specified."
-  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
-
 ## Init waku node instance
 
-proc initNode*(conf: WakuNodeConf,
+proc initNode(conf: WakuNodeConf,
               netConfig: NetConfig,
               rng: ref HmacDrbgContext,
               nodeKey: crypto.PrivateKey,
@@ -130,7 +98,7 @@ proc initNode*(conf: WakuNodeConf,
 
 ## Mount protocols
 
-proc setupProtocols*(node: WakuNode,
+proc setupProtocols(node: WakuNode,
                     conf: WakuNodeConf,
                     nodeKey: crypto.PrivateKey):
                     Future[Result[void, string]] {.async.} =
@@ -140,6 +108,9 @@ proc setupProtocols*(node: WakuNode,
 
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
+
+  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+    return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
@@ -163,7 +134,7 @@ proc setupProtocols*(node: WakuNode,
       if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
         # TODO autoshard content topics only once.
         # Already checked for errors in app.init
-        let shards = conf.contentTopics.mapIt(getShard(it).expect("Valid Shard"))
+        let shards = conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
         conf.pubsubTopics & shards
       else:
         conf.topics
@@ -362,7 +333,9 @@ proc startNode*(node: WakuNode, conf: WakuNodeConf,
   # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":
     let desiredOutDegree = node.wakuRelay.parameters.d.uint64()
-    await node.fetchPeerExchangePeers(desiredOutDegree)
+    (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
+      error "error while fetching peers from peer exchange", error = error 
+      quit(QuitFailure)
 
   # Start keepalive, if enabled
   if conf.keepAlive:
@@ -373,3 +346,55 @@ proc startNode*(node: WakuNode, conf: WakuNodeConf,
     node.peerManager.start()
 
   return ok()
+
+proc setupNode*(conf: WakuNodeConf, rng: Option[ref HmacDrbgContext] = none(ref HmacDrbgContext)):
+  Result[WakuNode, string] =
+    var nodeRng = if rng.isSome(): rng.get() else: crypto.newRng()
+
+    # Use provided key only if corresponding rng is also provided
+    let key =
+      if conf.nodeKey.isSome() and rng.isSome():
+        conf.nodeKey.get()
+      else:
+          warn "missing key or rng, generating new set"
+          crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
+            error "Failed to generate key", error=error
+            return err("Failed to generate key: " & $error)
+      
+    let netConfig = networkConfiguration(conf, clientId).valueOr:
+      error "failed to create internal config", error=error
+      return err("failed to create internal config: " & error)
+
+    let record = enrConfiguration(conf, netConfig, key).valueOr:
+      error "failed to create record", error=error
+      return err("failed to create record: " & error)
+
+    if isClusterMismatched(record, conf.clusterId):
+      error "cluster id mismatch configured shards"
+      return err("cluster id mismatch configured shards")
+
+    debug "Setting up storage"
+
+    ## Peer persistence
+    var peerStore: Option[WakuPeerStorage]
+    if conf.peerPersistence:
+      peerStore = setupPeerStorage().valueOr:
+        error "Setting up storage failed", error = "failed to setup peer store " & error
+        return err("Setting up storage failed: " & error)
+
+    debug "Initializing node"
+
+    let node = initNode(conf, netConfig, nodeRng, key, record, peerStore).valueOr:
+      error "Initializing node failed", error = error
+      return err("Initializing node failed: " & error)
+
+    debug "Mounting protocols"
+
+    try:  
+      (waitFor node.setupProtocols(conf, key)).isOkOr:
+        error "Mounting protocols failed", error = error
+        return err("Mounting protocols failed: " & error)
+    except CatchableError:
+      return err("Exception setting up protocols: " & getCurrentExceptionMsg())
+
+    return ok(node)

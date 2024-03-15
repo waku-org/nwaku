@@ -27,14 +27,8 @@ const
 
 type
   RelayShards* = object
-    clusterId: uint16
-    shardIds: seq[uint16]
-
-func clusterId*(rs: RelayShards): uint16 =
-  rs.clusterId
-
-func shardIds*(rs: RelayShards): seq[uint16] =
-  rs.shardIds
+    clusterId*: uint16
+    shardIds*: seq[uint16]
 
 func topics*(rs: RelayShards): seq[NsPubsubTopic] =
   rs.shardIds.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
@@ -119,7 +113,7 @@ func toIndicesList*(rs: RelayShards): EnrResult[seq[byte]] =
 
   ok(res)
 
-func fromIndicesList(buf: seq[byte]): Result[RelayShards, string] =
+func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
   if buf.len < 3:
     return err("insufficient data: expected at least 3 bytes, got " & $buf.len & " bytes")
 

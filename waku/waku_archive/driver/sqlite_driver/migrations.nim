@@ -49,7 +49,7 @@ proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
 
   else:
     info "Not considered schema version 7"
-    ok(false)
+    return ok(false)
 
 proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult[void] =
   ## Compares the `user_version` of the sqlite database with the provided `targetVersion`, then
@@ -75,4 +75,4 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
     return err("failed to execute migration scripts: " & migrationRes.error)
 
   debug "finished message store's sqlite database migration"
-  ok()
+  return ok()

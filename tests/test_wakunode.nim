@@ -344,29 +344,3 @@ suite "WakuNode":
       node1MultiAddrs.contains(expectedMultiaddress1)
 
     await allFutures(node1.stop(), node2.stop())
-
-  asyncTest "Function fetchPeerExchangePeers succesfully exchanges px peers":
-    let
-      node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
-      node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
-
-    # Start and mount peer exchange
-    await allFutures([node1.start(), node2.start()])
-    await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
-
-    # Mock that we discovered a node (to avoid running discv5)
-    var enr = enr.Record()
-    require enr.fromUri("enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB")
-    node2.wakuPeerExchange.enrCache.add(enr)
-
-    # Set node2 as service peer (default one) for px protocol
-    node1.peerManager.addServicePeer(node2.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec)
-
-    # Request 1 peer from peer exchange protocol
-    await node1.fetchPeerExchangePeers(1)
-
-    # Check that the peer ended up in the peerstore
-    let rpInfo = enr.toRemotePeerInfo.get()
-    check:
-      node1.peerManager.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
-      node1.peerManager.peerStore.peers.anyIt(it.addrs == rpInfo.addrs)

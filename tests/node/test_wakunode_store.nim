@@ -508,7 +508,7 @@ suite "Waku Store - End to End - Sorted Archive":
         # Cleanup
         waitFor otherServer.stop()
 
-suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
+suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
   var contentTopic {.threadvar.}: ContentTopic
   var contentTopicSeq {.threadvar.}: seq[ContentTopic]
@@ -652,111 +652,6 @@ suite "Waku Store - End to End - Unsorted Archive with provided Timestamp":
           unsortedArchiveMessages[9]
         ]
 
-suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
-  var pubsubTopic {.threadvar.}: PubsubTopic
-  var contentTopic {.threadvar.}: ContentTopic
-  var contentTopicSeq {.threadvar.}: seq[ContentTopic]
-
-  var historyQuery {.threadvar.}: HistoryQuery
-  var unsortedArchiveMessages {.threadvar.}: seq[WakuMessage]
-
-  var server {.threadvar.}: WakuNode
-  var client {.threadvar.}: WakuNode
-
-  var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
-
-  asyncSetup:
-    pubsubTopic = DefaultPubsubTopic
-    contentTopic = DefaultContentTopic
-    contentTopicSeq = @[contentTopic]
-
-    historyQuery =
-      HistoryQuery(
-        pubsubTopic: some(pubsubTopic),
-        contentTopics: contentTopicSeq,
-        direction: PagingDirection.FORWARD,
-        pageSize: 5,
-      )
-
-    unsortedArchiveMessages =
-      @[ # Not providing explicit timestamp means it will be set in "arrive" order
-        fakeWakuMessage(@[byte 09]),
-        fakeWakuMessage(@[byte 07]),
-        fakeWakuMessage(@[byte 05]),
-        fakeWakuMessage(@[byte 03]),
-        fakeWakuMessage(@[byte 01]),
-        fakeWakuMessage(@[byte 00]),
-        fakeWakuMessage(@[byte 02]),
-        fakeWakuMessage(@[byte 04]),
-        fakeWakuMessage(@[byte 06]),
-        fakeWakuMessage(@[byte 08])
-      ]
-
-    let
-      serverKey = generateSecp256k1Key()
-      clientKey = generateSecp256k1Key()
-
-    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-
-    let
-      unsortedArchiveDriverWithMessages =
-        newArchiveDriverWithMessages(pubsubTopic, unsortedArchiveMessages)
-      mountUnsortedArchiveResult =
-        server.mountArchive(unsortedArchiveDriverWithMessages)
-
-    assert mountUnsortedArchiveResult.isOk()
-
-    waitFor server.mountStore()
-    client.mountStoreClient()
-
-    waitFor allFutures(server.start(), client.start())
-
-    serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
-
-  asyncTeardown:
-    waitFor allFutures(client.stop(), server.stop())
-
-  asyncTest "Sorting using receiverTime":
-    # When making a history query
-    let queryResponse = await client.query(historyQuery, serverRemotePeerInfo)
-
-    # Then the response contains the messages
-    check:
-      queryResponse.get().messages ==
-        @[
-          unsortedArchiveMessages[0],
-          unsortedArchiveMessages[1],
-          unsortedArchiveMessages[2],
-          unsortedArchiveMessages[3],
-          unsortedArchiveMessages[4]
-        ]
-
-    # Given the next query
-    var
-      historyQuery2 =
-        HistoryQuery(
-          cursor: queryResponse.get().cursor,
-          pubsubTopic: some(pubsubTopic),
-          contentTopics: contentTopicSeq,
-          direction: PagingDirection.FORWARD,
-          pageSize: 5,
-        )
-
-    # When making the next history query
-    let queryResponse2 = await client.query(historyQuery2, serverRemotePeerInfo)
-
-    # Then the response contains the messages
-    check:
-      queryResponse2.get().messages ==
-        @[
-          unsortedArchiveMessages[5],
-          unsortedArchiveMessages[6],
-          unsortedArchiveMessages[7],
-          unsortedArchiveMessages[8],
-          unsortedArchiveMessages[9]
-        ]
-
 suite "Waku Store - End to End - Archive with Multiple Topics":
   var pubsubTopic {.threadvar.}: PubsubTopic
   var pubsubTopicB {.threadvar.}: PubsubTopic
@@ -794,11 +689,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       )
 
     let timeOrigin = now()
-
-    proc myOriginTs(offset = 0): Timestamp {.gcsafe, raises: [].} =
-      ts(offset, timeOrigin)
-
-    originTs = myOriginTs
+    originTs =
+      proc(offset = 0): Timestamp {.gcsafe, raises: [].} =
+          ts(offset, timeOrigin)
 
     archiveMessages =
       @[
@@ -828,9 +721,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         newSqliteArchiveDriver().put(pubsubTopic, archiveMessages[0..<6]).put(
           pubsubTopicB, archiveMessages[6..<10]
         )
-    let mountUnsortedArchiveResult = server.mountArchive(archiveDriver)
+    let mountSortedArchiveResult = server.mountArchive(archiveDriver)
 
-    assert mountUnsortedArchiveResult.isOk()
+    assert mountSortedArchiveResult.isOk()
 
     waitFor server.mountStore()
     client.mountStoreClient()

@@ -51,7 +51,7 @@ import
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size, "message size histogram in kB",
-  buckets = [0.0, 5.0, 15.0, 50.0, 100.0, 300.0, 700.0, 1000.0, Inf]
+  buckets = [0.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 300.0, 700.0, 1000.0, Inf]
 
 declarePublicGauge waku_version, "Waku version info (in git describe format)", ["version"]
 declarePublicGauge waku_node_errors, "number of wakunode errors", ["type"]
@@ -99,6 +99,7 @@ type
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
     wakuSync*: WakuSync
+    wakuSharding*: Sharding
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -217,6 +218,12 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
 
   return ok()
 
+## Waku Sharding
+proc mountSharding*(node: WakuNode, clusterId: uint32, shardCount: uint32): Result[void, string] =
+  info "mounting sharding", clusterId=clusterId, shardCount=shardCount
+  node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
+  return ok()
+
 ## Waku relay
 
 proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
@@ -280,7 +287,7 @@ proc subscribe*(node: WakuNode, subscription: SubscriptionEvent, handler = none(
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentSub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -313,7 +320,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
   let (pubsubTopic, contentTopicOp) =
     case subscription.kind:
       of ContentUnsub:
-        let shard = getShard((subscription.topic)).valueOr:
+        let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
           error "Autosharding error", error=error
           return
 
@@ -354,7 +361,7 @@ proc publish*(
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
-    getShard(message.contentTopic).valueOr:
+    node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
       error "publish error", msg=msg
       return err(msg)
@@ -468,7 +475,7 @@ proc filterHandleMessage*(node: WakuNode,
                           {.async.}=
 
   if node.wakuFilter.isNil() or node.wakuFilterLegacy.isNil():
-    error "cannot handle filter message", error="waku filter is nil"
+    error "cannot handle filter message", error = "waku filter and waku filter legacy are both required"
     return
 
   await allFutures(node.wakuFilter.handleMessage(pubsubTopic, message),
@@ -539,7 +546,7 @@ proc legacyFilterSubscribe*(node: WakuNode,
       error "failed legacy filter subscription", error=res.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -605,7 +612,7 @@ proc filterSubscribe*(node: WakuNode,
 
     return subRes
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -667,7 +674,7 @@ proc legacyFilterUnsubscribe*(node: WakuNode,
       error "failed filter unsubscription", error=res.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
   else:
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -730,7 +737,7 @@ proc filterUnsubscribe*(node: WakuNode,
     return unsubRes
 
   else: # pubsubTopic.isNone
-    let topicMapRes = parseSharding(pubsubTopic, contentTopics)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, contentTopics)
 
     let topicMap =
       if topicMapRes.isErr():
@@ -802,14 +809,14 @@ proc mountArchive*(node: WakuNode,
                    driver: ArchiveDriver,
                    retentionPolicy = none(RetentionPolicy)):
                    Result[void, string] =
+  node.wakuArchive = WakuArchive.new(
+    driver = driver,
+    retentionPolicy = retentionPolicy,
+    ).valueOr:
+    return err("error in mountArchive: " & error)
 
-  let wakuArchiveRes = WakuArchive.new(driver,
-                                       retentionPolicy)
-  if wakuArchiveRes.isErr():
-    return err("error in mountArchive: " & wakuArchiveRes.error)
+  node.wakuArchive.start()
 
-  node.wakuArchive = wakuArchiveRes.get()
-  asyncSpawn node.wakuArchive.start()
   return ok()
 
 ## Waku store
@@ -972,7 +979,7 @@ proc lightpushPublish*(node: WakuNode, pubsubTopic: Option[PubsubTopic], message
     debug "publishing message with lightpush", pubsubTopic=pubsubTopic.get(), contentTopic=message.contentTopic, peer=peer.peerId
     return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
 
-  let topicMapRes = parseSharding(pubsubTopic, message.contentTopic)
+  let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
 
   let topicMap =
     if topicMapRes.isErr():
@@ -1040,10 +1047,12 @@ proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
 
-proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [Defect].} =
+proc fetchPeerExchangePeers*(
+    node: Wakunode, amount: uint64
+): Future[Result[int, string]] {.async, raises: [Defect].} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
-    return
+    return err("PeerExchange is not mounted")
 
   info "Retrieving peer info via peer exchange protocol"
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
@@ -1053,14 +1062,18 @@ proc fetchPeerExchangePeers*(node: Wakunode, amount: uint64) {.async, raises: [D
     for pi in peers:
       var record: enr.Record
       if enr.fromBytes(record, pi.enr):
-        node.peerManager.addPeer(record.toRemotePeerInfo().get, PeerExcahnge)
+        node.peerManager.addPeer(record.toRemotePeerInfo().get, PeerExchange)
         validPeers += 1
-    info "Retrieved peer info via peer exchange protocol", validPeers = validPeers, totalPeers = peers.len
+    info "Retrieved peer info via peer exchange protocol",
+      validPeers = validPeers, totalPeers = peers.len
+    return ok(validPeers)
   else:
-    warn "Failed to retrieve peer info via peer exchange protocol", error = pxPeersRes.error
+    warn "failed to retrieve peer info via peer exchange protocol",
+      error = pxPeersRes.error
+    return err("Peer exchange failure: " & $pxPeersRes.error)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
-proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) =
+proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo | MultiAddress | string) =
   if node.wakuPeerExchange.isNil():
     error "could not set peer, waku peer-exchange is nil"
     return
@@ -1072,7 +1085,7 @@ proc setPeerExchangePeer*(node: WakuNode, peer: RemotePeerInfo|string) =
     error "could not parse peer info", error = remotePeerRes.error
     return
 
-  node.peerManager.addPeer(remotePeerRes.value, WakuPeerExchangeCodec)
+  node.peerManager.addPeer(remotePeerRes.value, PeerExchange)
   waku_px_peers.inc()
 
 
@@ -1219,7 +1232,7 @@ proc stop*(node: WakuNode) {.async.} =
       error "exception stopping the node", error=getCurrentExceptionMsg()
 
   if not node.wakuArchive.isNil():
-    await node.wakuArchive.stop()
+    await node.wakuArchive.stopWait()
 
   node.started = false
 
