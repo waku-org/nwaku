@@ -5,10 +5,8 @@ else:
 
 import metrics
 
-
 declarePublicGauge waku_store_errors, "number of store protocol errors", ["type"]
 declarePublicGauge waku_store_queries, "number of store queries received"
-
 
 # Error types (metric label values)
 const

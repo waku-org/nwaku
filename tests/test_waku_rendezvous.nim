@@ -1,25 +1,19 @@
 {.used.}
 
-import
-  chronos,
-  testutils/unittests,
-  libp2p,
-  libp2p/protocols/rendezvous
+import chronos, testutils/unittests, libp2p, libp2p/protocols/rendezvous
 
-import
-  ../../waku/node/waku_switch,
-  ./testlib/common,
-  ./testlib/wakucore
+import ../../waku/node/waku_switch, ./testlib/common, ./testlib/wakucore
 
 proc newRendezvousClientSwitch(rdv: RendezVous): Switch =
-  SwitchBuilder.new()
-    .withRng(rng())
-    .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
-    .withTcpTransport()
-    .withMplex()
-    .withNoise()
-    .withRendezVous(rdv)
-    .build()
+  SwitchBuilder
+  .new()
+  .withRng(rng())
+  .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
+  .withTcpTransport()
+  .withMplex()
+  .withNoise()
+  .withRendezVous(rdv)
+  .build()
 
 procSuite "Waku Rendezvous":
   asyncTest "Waku Switch uses Rendezvous":
@@ -53,7 +47,5 @@ procSuite "Waku Rendezvous":
     check:
       res1.len == 1
       res1[0] == sourceSwitch.peerInfo.signedPeerRecord.data
-    
-    await allFutures(wakuSwitch.stop(), sourceSwitch.stop(), destSwitch.stop())
 
-   
+    await allFutures(wakuSwitch.stop(), sourceSwitch.stop(), destSwitch.stop())

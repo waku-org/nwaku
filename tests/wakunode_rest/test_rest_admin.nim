@@ -1,10 +1,11 @@
 {.used.}
 
 import
-  std/[sequtils,strformat],
+  std/[sequtils, strformat],
   stew/shims/net,
   testutils/unittests,
-  presto, presto/client as presto_client,
+  presto,
+  presto/client as presto_client,
   libp2p/crypto/crypto
 
 import
@@ -31,14 +32,17 @@ suite "Waku v2 Rest API - Admin":
   var peerInfo2 {.threadvar.}: RemotePeerInfo
   var peerInfo3 {.threadvar.}: RemotePeerInfo
   var restServer {.threadvar.}: WakuRestServerRef
-  var client{.threadvar.}: RestClientRef
+  var client {.threadvar.}: RestClientRef
 
   asyncSetup:
-    node1 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60600))
+    node1 =
+      newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60600))
     peerInfo1 = node1.switch.peerInfo
-    node2 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60602))
+    node2 =
+      newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60602))
     peerInfo2 = node2.switch.peerInfo
-    node3 = newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
+    node3 =
+      newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
     peerInfo3 = node3.switch.peerInfo
 
     await allFutures(node1.start(), node2.start(), node3.start())
@@ -61,8 +65,9 @@ suite "Waku v2 Rest API - Admin":
 
   asyncTest "Set and get remote peers":
     # Connect to nodes 2 and 3 using the Admin API
-    let postRes = await client.postPeers(@[constructMultiaddrStr(peerInfo2),
-                                           constructMultiaddrStr(peerInfo3)])
+    let postRes = await client.postPeers(
+      @[constructMultiaddrStr(peerInfo2), constructMultiaddrStr(peerInfo3)]
+    )
 
     check:
       postRes.status == 200
@@ -75,14 +80,19 @@ suite "Waku v2 Rest API - Admin":
       $getRes.contentType == $MIMETYPE_JSON
       getRes.data.len() == 2
       # Check peer 2
-      getRes.data.anyIt(it.protocols.find(WakuRelayCodec) >= 0 and
-                   it.multiaddr == constructMultiaddrStr(peerInfo2))
+      getRes.data.anyIt(
+        it.protocols.find(WakuRelayCodec) >= 0 and
+          it.multiaddr == constructMultiaddrStr(peerInfo2)
+      )
       # Check peer 3
-      getRes.data.anyIt(it.protocols.find(WakuRelayCodec) >= 0 and
-                   it.multiaddr == constructMultiaddrStr(peerInfo3))
+      getRes.data.anyIt(
+        it.protocols.find(WakuRelayCodec) >= 0 and
+          it.multiaddr == constructMultiaddrStr(peerInfo3)
+      )
 
   asyncTest "Set wrong peer":
-    let nonExistentPeer = "/ip4/0.0.0.0/tcp/10000/p2p/16Uiu2HAm6HZZr7aToTvEBPpiys4UxajCTU97zj5v7RNR2gbniy1D"
+    let nonExistentPeer =
+      "/ip4/0.0.0.0/tcp/10000/p2p/16Uiu2HAm6HZZr7aToTvEBPpiys4UxajCTU97zj5v7RNR2gbniy1D"
     let postRes = await client.postPeers(@[nonExistentPeer])
 
     check:
@@ -99,7 +109,9 @@ suite "Waku v2 Rest API - Admin":
       getRes.data.len() == 0
 
   asyncTest "Get filter data":
-    await allFutures(node1.mountFilter(), node2.mountFilterClient(), node3.mountFilterClient())
+    await allFutures(
+      node1.mountFilter(), node2.mountFilterClient(), node3.mountFilterClient()
+    )
 
     let
       contentFiltersNode2 = @[DefaultContentTopic, ContentTopic("2"), ContentTopic("3")]
@@ -127,7 +139,8 @@ suite "Waku v2 Rest API - Admin":
 
     let
       peers = @[getRes.data[0].peerId, getRes.data[1].peerId]
-      numCriteria = @[getRes.data[0].filterCriteria.len, getRes.data[1].filterCriteria.len]
+      numCriteria =
+        @[getRes.data[0].filterCriteria.len, getRes.data[1].filterCriteria.len]
 
     check:
       $peerInfo2 in peers

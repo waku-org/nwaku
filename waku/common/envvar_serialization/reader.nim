@@ -3,14 +3,11 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/[tables, typetraits, options, os],
   serialization/object_serialization,
   serialization/errors
-import
-  ./utils
-
+import ./utils
 
 type
   EnvvarReader* = object
@@ -25,12 +22,13 @@ type
     deserializedField*: string
     innerException*: ref CatchableError
 
-
-proc handleReadException*(r: EnvvarReader,
-                          Record: type,
-                          fieldName: string,
-                          field: auto,
-                          err: ref CatchableError) {.raises: [GenericEnvvarReaderError].} =
+proc handleReadException*(
+    r: EnvvarReader,
+    Record: type,
+    fieldName: string,
+    field: auto,
+    err: ref CatchableError,
+) {.raises: [GenericEnvvarReaderError].} =
   var ex = new GenericEnvvarReaderError
   ex.deserializedField = fieldName
   ex.innerException = err
@@ -45,17 +43,19 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
   when T is string:
     let key = constructKey(r.prefix, r.key)
     value = os.getEnv(key)
-
   elif T is (SomePrimitives or range):
     let key = constructKey(r.prefix, r.key)
     try:
       getValue(key, value)
     except ValueError:
-      raise newException(SerializationError,
-                         "Couldn't getValue SomePrimitives: " & getCurrentExceptionMsg())
-
+      raise newException(
+        SerializationError,
+        "Couldn't getValue SomePrimitives: " & getCurrentExceptionMsg(),
+      )
   elif T is Option:
-    template getUnderlyingType[T](_: Option[T]): untyped = T
+    template getUnderlyingType[T](_: Option[T]): untyped =
+      T
+
     let key = constructKey(r.prefix, r.key)
     if os.existsEnv(key):
       type uType = getUnderlyingType(value)
@@ -65,20 +65,19 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
         try:
           value = some(r.readValue(uType))
         except ValueError, IOError:
-          raise newException(SerializationError,
-                             "Couldn't read Option value: " & getCurrentExceptionMsg())
-
+          raise newException(
+            SerializationError,
+            "Couldn't read Option value: " & getCurrentExceptionMsg(),
+          )
   elif T is (seq or array):
     when uTypeIsPrimitives(T):
       let key = constructKey(r.prefix, r.key)
       getValue(key, value)
-
     else:
       let key = r.key[^1]
-      for i in 0..<value.len:
+      for i in 0 ..< value.len:
         r.key[^1] = key & $i
         r.readValue(value[i])
-
   elif T is (object or tuple):
     type T = type(value)
     when T.totalSerializedFields > 0:
@@ -97,7 +96,6 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
         if reader != nil:
           reader(value, r)
       discard r.key.pop()
-
   else:
     const typeName = typetraits.name(T)
     {.fatal: "Failed to convert from Envvar an unsupported type: " & typeName.}

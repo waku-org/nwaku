@@ -1,11 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables],
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto
+  std/[options, tables], testutils/unittests, chronicles, chronos, libp2p/crypto/crypto
 import
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
@@ -14,8 +10,9 @@ import
   ./testlib/common,
   ./testlib/wakucore
 
-
-proc newTestWakuFilterNode(switch: Switch, timeout: Duration = 2.hours): Future[WakuFilterLegacy] {.async.} =
+proc newTestWakuFilterNode(
+    switch: Switch, timeout: Duration = 2.hours
+): Future[WakuFilterLegacy] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     proto = WakuFilterLegacy.new(peerManager, rng, timeout)
@@ -35,7 +32,6 @@ proc newTestWakuFilterClient(switch: Switch): Future[WakuFilterClientLegacy] {.a
 
   return proto
 
-
 # TODO: Extend test coverage
 suite "Waku Filter":
   asyncTest "should forward messages to client after subscribed":
@@ -54,16 +50,20 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     let pushHandlerFuture = newFuture[(string, WakuMessage)]()
-    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.} =
+    proc pushHandler(
+        pubsubTopic: PubsubTopic, message: WakuMessage
+    ) {.async, gcsafe, closure.} =
       pushHandlerFuture.complete((pubsubTopic, message))
 
     let
       pubsubTopic = DefaultPubsubTopic
       contentTopic = "test-content-topic"
-      msg = fakeWakuMessage(contentTopic=contentTopic)
+      msg = fakeWakuMessage(contentTopic = contentTopic)
 
     ## When
-    require (await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer=serverAddr)).isOk()
+    require (
+      await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer = serverAddr)
+    ).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the subscription and the handle message proc
     await sleepAsync(500.milliseconds)
@@ -97,16 +97,20 @@ suite "Waku Filter":
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.} =
+    proc pushHandler(
+        pubsubTopic: PubsubTopic, message: WakuMessage
+    ) {.async, gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let
       pubsubTopic = DefaultPubsubTopic
       contentTopic = "test-content-topic"
-      msg = fakeWakuMessage(contentTopic=contentTopic)
+      msg = fakeWakuMessage(contentTopic = contentTopic)
 
     ## When
-    require (await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer=serverAddr)).isOk()
+    require (
+      await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer = serverAddr)
+    ).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the subscription and the handle message proc
     await sleepAsync(500.milliseconds)
@@ -118,7 +122,7 @@ suite "Waku Filter":
     # Reset to test unsubscribe
     pushHandlerFuture = newFuture[void]()
 
-    require (await client.unsubscribe(pubsubTopic, contentTopic, peer=serverAddr)).isOk()
+    require (await client.unsubscribe(pubsubTopic, contentTopic, peer = serverAddr)).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the unsubscription and the handle message proc
     await sleepAsync(500.milliseconds)
@@ -126,7 +130,8 @@ suite "Waku Filter":
     await server.handleMessage(pubsubTopic, msg)
 
     ## Then
-    let handlerWasCalledAfterUnsubscription = await pushHandlerFuture.withTimeout(1.seconds)
+    let handlerWasCalledAfterUnsubscription =
+      await pushHandlerFuture.withTimeout(1.seconds)
     check:
       not handlerWasCalledAfterUnsubscription
 
@@ -142,23 +147,27 @@ suite "Waku Filter":
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
     let
-      server = await newTestWakuFilterNode(serverSwitch, timeout=200.milliseconds)
+      server = await newTestWakuFilterNode(serverSwitch, timeout = 200.milliseconds)
       client = await newTestWakuFilterClient(clientSwitch)
 
     ## Given
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.} =
+    proc pushHandler(
+        pubsubTopic: PubsubTopic, message: WakuMessage
+    ) {.async, gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let
       pubsubTopic = DefaultPubsubTopic
       contentTopic = "test-content-topic"
-      msg = fakeWakuMessage(contentTopic=contentTopic)
+      msg = fakeWakuMessage(contentTopic = contentTopic)
 
     ## When
-    require (await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer=serverAddr)).isOk()
+    require (
+      await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer = serverAddr)
+    ).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the unsubscription and the handle message proc
     await sleepAsync(500.milliseconds)
@@ -207,23 +216,27 @@ suite "Waku Filter":
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
     let
-      server = await newTestWakuFilterNode(serverSwitch, timeout=200.milliseconds)
+      server = await newTestWakuFilterNode(serverSwitch, timeout = 200.milliseconds)
       client = await newTestWakuFilterClient(clientSwitch)
 
     ## Given
     let serverAddr = serverSwitch.peerInfo.toRemotePeerInfo()
 
     var pushHandlerFuture = newFuture[void]()
-    proc pushHandler(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.} =
+    proc pushHandler(
+        pubsubTopic: PubsubTopic, message: WakuMessage
+    ) {.async, gcsafe, closure.} =
       pushHandlerFuture.complete()
 
     let
       pubsubTopic = DefaultPubsubTopic
       contentTopic = "test-content-topic"
-      msg = fakeWakuMessage(contentTopic=contentTopic)
+      msg = fakeWakuMessage(contentTopic = contentTopic)
 
     ## When
-    require (await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer=serverAddr)).isOk()
+    require (
+      await client.subscribe(pubsubTopic, contentTopic, pushHandler, peer = serverAddr)
+    ).isOk()
 
     # WARN: Sleep necessary to avoid a race condition between the unsubscription and the handle message proc
     await sleepAsync(500.milliseconds)
@@ -255,8 +268,7 @@ suite "Waku Filter":
 
     # Start switch with same key as before
     let clientSwitch2 = newTestSwitch(
-      some(clientSwitch.peerInfo.privateKey),
-      some(clientSwitch.peerInfo.addrs[0])
+      some(clientSwitch.peerInfo.privateKey), some(clientSwitch.peerInfo.addrs[0])
     )
     await clientSwitch2.start()
     await client.start()

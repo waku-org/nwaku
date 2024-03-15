@@ -3,20 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/[options, tables, deques],
-  stew/arrayops,
-  chronos,
-  web3,
-  eth/keys
-import
-  ../waku_core,
-  ../waku_keystore,
-  ../common/protobuf
+import std/[options, tables, deques], stew/arrayops, chronos, web3, eth/keys
+import ../waku_core, ../waku_keystore, ../common/protobuf
 
-export
-  waku_keystore,
-  waku_core
+export waku_keystore, waku_core
 
 type RlnRelayResult*[T] = Result[T, string]
 
@@ -25,7 +15,8 @@ type RLN* {.incompleteStruct.} = object
 type RLNResult* = RlnRelayResult[ptr RLN]
 
 type
-  MerkleNode* = array[32, byte] # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
+  MerkleNode* = array[32, byte]
+    # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32, byte]
   Epoch* = array[32, byte]
   RlnIdentifier* = array[32, byte]
@@ -39,7 +30,7 @@ when defined(rln_v2):
   type RateCommitment* = object
     idCommitment*: IDCommitment
     userMessageLimit*: UserMessageLimit
-    
+
 # Custom data types defined for waku rln relay -------------------------
 type RateLimitProof* = object
   ## RateLimitProof holds the public inputs to rln circuit as
@@ -72,9 +63,10 @@ type ProofMetadata* = object
 
 type
   MessageValidationResult* {.pure.} = enum
-    Valid,
-    Invalid,
+    Valid
+    Invalid
     Spam
+
   MerkleNodeResult* = RlnRelayResult[MerkleNode]
   RateLimitProofResult* = RlnRelayResult[RateLimitProof]
 
@@ -85,35 +77,34 @@ proc init*(T: type RateLimitProof, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var proof: seq[byte]
-  discard ? pb.getField(1, proof)
+  discard ?pb.getField(1, proof)
   discard nsp.proof.copyFrom(proof)
 
   var merkleRoot: seq[byte]
-  discard ? pb.getField(2, merkleRoot)
+  discard ?pb.getField(2, merkleRoot)
   discard nsp.merkleRoot.copyFrom(merkleRoot)
 
   var epoch: seq[byte]
-  discard ? pb.getField(3, epoch)
+  discard ?pb.getField(3, epoch)
   discard nsp.epoch.copyFrom(epoch)
 
   var shareX: seq[byte]
-  discard ? pb.getField(4, shareX)
+  discard ?pb.getField(4, shareX)
   discard nsp.shareX.copyFrom(shareX)
 
   var shareY: seq[byte]
-  discard ? pb.getField(5, shareY)
+  discard ?pb.getField(5, shareY)
   discard nsp.shareY.copyFrom(shareY)
 
   var nullifier: seq[byte]
-  discard ? pb.getField(6, nullifier)
+  discard ?pb.getField(6, nullifier)
   discard nsp.nullifier.copyFrom(nullifier)
 
   var rlnIdentifier: seq[byte]
-  discard ? pb.getField(7, rlnIdentifier)
+  discard ?pb.getField(7, rlnIdentifier)
   discard nsp.rlnIdentifier.copyFrom(rlnIdentifier)
 
   return ok(nsp)
-
 
 proc encode*(nsp: RateLimitProof): ProtoBuffer =
   var output = initProtoBuffer()
@@ -130,5 +121,7 @@ proc encode*(nsp: RateLimitProof): ProtoBuffer =
   return output
 
 type
-  SpamHandler* = proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
-  RegistrationHandler* = proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}
+  SpamHandler* =
+    proc(wakuMessage: WakuMessage): void {.gcsafe, closure, raises: [Defect].}
+  RegistrationHandler* =
+    proc(txHash: string): void {.gcsafe, closure, raises: [Defect].}

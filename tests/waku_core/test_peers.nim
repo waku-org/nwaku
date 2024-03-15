@@ -1,19 +1,14 @@
 {.used.}
 
 import
-  stew/results,
-  testutils/unittests,
-  libp2p/multiaddress,
-  libp2p/peerid,
-  libp2p/errors
-import
-  ../../waku/waku_core
+  stew/results, testutils/unittests, libp2p/multiaddress, libp2p/peerid, libp2p/errors
+import ../../waku/waku_core
 
 suite "Waku Core - Peers":
-
   test "Peer info parses correctly":
     ## Given
-    let address = "/ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/ip4/127.0.0.1/tcp/65002/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
     let remotePeerInfoRes = parsePeerInfo(address)
@@ -29,7 +24,8 @@ suite "Waku Core - Peers":
 
   test "DNS multiaddrs parsing - dns peer":
     ## Given
-    let address = "/dns/localhost/tcp/65012/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/dns/localhost/tcp/65012/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
     let dnsPeerRes = parsePeerInfo(address)
@@ -45,7 +41,8 @@ suite "Waku Core - Peers":
 
   test "DNS multiaddrs parsing - dnsaddr peer":
     ## Given
-    let address = "/dnsaddr/localhost/tcp/65022/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/dnsaddr/localhost/tcp/65022/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
     let dnsAddrPeerRes = parsePeerInfo(address)
@@ -61,7 +58,8 @@ suite "Waku Core - Peers":
 
   test "DNS multiaddrs parsing - dns4 peer":
     ## Given
-    let address = "/dns4/localhost/tcp/65032/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/dns4/localhost/tcp/65032/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
     let dns4PeerRes = parsePeerInfo(address)
@@ -77,7 +75,8 @@ suite "Waku Core - Peers":
 
   test "DNS multiaddrs parsing - dns6 peer":
     ## Given
-    let address = "/dns6/localhost/tcp/65042/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/dns6/localhost/tcp/65042/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## When
     let dns6PeerRes = parsePeerInfo(address)
@@ -101,7 +100,8 @@ suite "Waku Core - Peers":
 
   test "Multiaddr parsing should fail with leading whitespace":
     ## Given
-    let address = " /ip4/127.0.0.1/tcp/65062/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      " /ip4/127.0.0.1/tcp/65062/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## Then
     check:
@@ -109,7 +109,8 @@ suite "Waku Core - Peers":
 
   test "Multiaddr parsing should fail with trailing whitespace":
     ## Given
-    let address = "/ip4/127.0.0.1/tcp/65072/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc "
+    let address =
+      "/ip4/127.0.0.1/tcp/65072/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc "
 
     ## Then
     check:
@@ -117,7 +118,8 @@ suite "Waku Core - Peers":
 
   test "Multiaddress parsing should fail with invalid IP address":
     ## Given
-    let address = "/ip4/127.0.0.0.1/tcp/65082/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/ip4/127.0.0.0.1/tcp/65082/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## Then
     check:
@@ -133,9 +135,9 @@ suite "Waku Core - Peers":
 
   test "Multiaddress parsing should fail with unsupported transport":
     ## Given
-    let address = "/ip4/127.0.0.1/udp/65102/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
+    let address =
+      "/ip4/127.0.0.1/udp/65102/p2p/16Uuu2HBmAcHvhLqQKwSSbX6BG5JLWUDRcaLVrehUVqpw7fz1hbYc"
 
     ## Then
     check:
       parsePeerInfo(address).isErr()
-

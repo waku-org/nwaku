@@ -1,12 +1,5 @@
-
-import
-  std/[options,sequtils,strutils]
-import
-  chronicles,
-  chronos,
-  stew/byteutils,
-  stew/results,
-  stew/shims/net
+import std/[options, sequtils, strutils]
+import chronicles, chronos, stew/byteutils, stew/results, stew/shims/net
 import
   ../../../../../waku/waku_core/message/message,
   ../../../../../waku/node/waku_node,
@@ -16,48 +9,46 @@ import
   ../../../../../waku/waku_relay/protocol,
   ../../../../alloc
 
-type
-  RelayMsgType* = enum
-    SUBSCRIBE
-    UNSUBSCRIBE
-    PUBLISH
+type RelayMsgType* = enum
+  SUBSCRIBE
+  UNSUBSCRIBE
+  PUBLISH
 
-type
-  ThreadSafeWakuMessage* = object
-    payload: SharedSeq[byte]
-    contentTopic: cstring
-    meta: SharedSeq[byte]
-    version: uint32
-    timestamp: Timestamp
-    ephemeral: bool
-    when defined(rln):
-      proof: SharedSeq[byte]
+type ThreadSafeWakuMessage* = object
+  payload: SharedSeq[byte]
+  contentTopic: cstring
+  meta: SharedSeq[byte]
+  version: uint32
+  timestamp: Timestamp
+  ephemeral: bool
+  when defined(rln):
+    proof: SharedSeq[byte]
 
-type
-  RelayRequest* = object
-    operation: RelayMsgType
-    pubsubTopic: cstring
-    relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
-    message: ThreadSafeWakuMessage # only used in 'PUBLISH' requests
+type RelayRequest* = object
+  operation: RelayMsgType
+  pubsubTopic: cstring
+  relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
+  message: ThreadSafeWakuMessage # only used in 'PUBLISH' requests
 
-proc createShared*(T: type RelayRequest,
-                   op: RelayMsgType,
-                   pubsubTopic: PubsubTopic,
-                   relayEventCallback: WakuRelayHandler = nil,
-                   m = WakuMessage()): ptr type T =
-
+proc createShared*(
+    T: type RelayRequest,
+    op: RelayMsgType,
+    pubsubTopic: PubsubTopic,
+    relayEventCallback: WakuRelayHandler = nil,
+    m = WakuMessage(),
+): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].pubsubTopic = pubsubTopic.alloc()
   ret[].relayEventCallback = relayEventCallback
   ret[].message = ThreadSafeWakuMessage(
-                                payload: allocSharedSeq(m.payload),
-                                contentTopic: m.contentTopic.alloc(),
-                                meta: allocSharedSeq(m.meta),
-                                version: m.version,
-                                timestamp: m.timestamp,
-                                ephemeral: m.ephemeral,
-                            )
+    payload: allocSharedSeq(m.payload),
+    contentTopic: m.contentTopic.alloc(),
+    meta: allocSharedSeq(m.meta),
+    version: m.version,
+    timestamp: m.timestamp,
+    ephemeral: m.ephemeral,
+  )
   when defined(rln):
     ret[].message.proof = allocSharedSeq(m.proof)
 
@@ -87,35 +78,31 @@ proc toWakuMessage(m: ThreadSafeWakuMessage): WakuMessage =
 
   return wakuMessage
 
-proc process*(self: ptr RelayRequest,
-              node: ptr WakuNode): Future[Result[string, string]] {.async.} =
-
-  defer: destroyShared(self)
+proc process*(
+    self: ptr RelayRequest, node: ptr WakuNode
+): Future[Result[string, string]] {.async.} =
+  defer:
+    destroyShared(self)
 
   if node.wakuRelay.isNil():
     return err("Operation not supported without Waku Relay enabled.")
 
-  case self.operation:
+  case self.operation
+  of SUBSCRIBE:
+    # TO DO: properly perform 'subscribe'
+    discard node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
+  of UNSUBSCRIBE:
+    # TODO: properly perform 'unsubscribe'
+    node.wakuRelay.unsubscribeAll($self.pubsubTopic)
+  of PUBLISH:
+    let msg = self.message.toWakuMessage()
+    let pubsubTopic = $self.pubsubTopic
 
-    of SUBSCRIBE:
-      # TO DO: properly perform 'subscribe'
-      discard node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
-
-    of UNSUBSCRIBE:
-      # TODO: properly perform 'unsubscribe'
-      node.wakuRelay.unsubscribeAll($self.pubsubTopic)
-
-    of PUBLISH:
-      let msg = self.message.toWakuMessage()
-      let pubsubTopic = $self.pubsubTopic
-
-      let numPeers = await node.wakuRelay.publish(pubsubTopic,
-                                                  msg)
-      if numPeers == 0:
-        return err("Message not sent because no peers found.")
-
-      elif numPeers > 0:
-        let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
-        return ok(msgHash)
+    let numPeers = await node.wakuRelay.publish(pubsubTopic, msg)
+    if numPeers == 0:
+      return err("Message not sent because no peers found.")
+    elif numPeers > 0:
+      let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
+      return ok(msgHash)
 
   return ok("")

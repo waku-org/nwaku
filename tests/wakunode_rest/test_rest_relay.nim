@@ -5,7 +5,8 @@ import
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
-  presto, presto/client as presto_client,
+  presto,
+  presto/client as presto_client,
   libp2p/crypto/crypto
 import
   ../../waku/common/base64,
@@ -33,7 +34,6 @@ proc testWakuNode(): WakuNode =
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
-
 suite "Waku v2 Rest API - Relay":
   asyncTest "Subscribe a node to an array of pubsub topics - POST /relay/v1/subscriptions":
     # Given
@@ -52,11 +52,12 @@ suite "Waku v2 Rest API - Relay":
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics = @[
-      PubSubTopic("pubsub-topic-1"),
-      PubSubTopic("pubsub-topic-2"),
-      PubSubTopic("pubsub-topic-3")
-    ]
+    let pubSubTopics =
+      @[
+        PubSubTopic("pubsub-topic-1"),
+        PubSubTopic("pubsub-topic-2"),
+        PubSubTopic("pubsub-topic-3"),
+      ]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -84,12 +85,9 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay(@[
-      "pubsub-topic-1",
-      "pubsub-topic-2",
-      "pubsub-topic-3",
-      "pubsub-topic-x",
-      ])
+    await node.mountRelay(
+      @["pubsub-topic-1", "pubsub-topic-2", "pubsub-topic-3", "pubsub-topic-x"]
+    )
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -106,12 +104,13 @@ suite "Waku v2 Rest API - Relay":
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics = @[
-      PubSubTopic("pubsub-topic-1"),
-      PubSubTopic("pubsub-topic-2"),
-      PubSubTopic("pubsub-topic-3"),
-      PubSubTopic("pubsub-topic-y")
-    ]
+    let pubSubTopics =
+      @[
+        PubSubTopic("pubsub-topic-1"),
+        PubSubTopic("pubsub-topic-2"),
+        PubSubTopic("pubsub-topic-3"),
+        PubSubTopic("pubsub-topic-y"),
+      ]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -153,19 +152,32 @@ suite "Waku v2 Rest API - Relay":
 
     let pubSubTopic = "/waku/2/default-waku/proto"
 
-    var messages = @[
-      fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-        meta = toBytes("test-meta"), ephemeral = true)
-    ]
+    var messages =
+      @[
+        fakeWakuMessage(
+          contentTopic = "content-topic-x",
+          payload = toBytes("TEST-1"),
+          meta = toBytes("test-meta"),
+          ephemeral = true,
+        )
+      ]
 
     # Prevent duplicate messages
-    for i in 0..<2:
-      var msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-        meta = toBytes("test-meta"), ephemeral = true)
+    for i in 0 ..< 2:
+      var msg = fakeWakuMessage(
+        contentTopic = "content-topic-x",
+        payload = toBytes("TEST-1"),
+        meta = toBytes("test-meta"),
+        ephemeral = true,
+      )
 
       while msg == messages[i]:
-        msg = fakeWakuMessage(contentTopic = "content-topic-x", payload = toBytes("TEST-1"),
-          meta = toBytes("test-meta"), ephemeral = true)
+        msg = fakeWakuMessage(
+          contentTopic = "content-topic-x",
+          payload = toBytes("TEST-1"),
+          meta = toBytes("test-meta"),
+          ephemeral = true,
+        )
 
       messages.add(msg)
 
@@ -187,13 +199,11 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.len == 3
-      response.data.all do (msg: RelayWakuMessage) -> bool:
+      response.data.all do(msg: RelayWakuMessage) -> bool:
         msg.payload == base64.encode("TEST-1") and
-        msg.contentTopic.get() == "content-topic-x" and
-        msg.version.get() == 2 and
-        msg.timestamp.get() != Timestamp(0) and
-        msg.meta.get() == base64.encode("test-meta") and
-        msg.ephemeral.get() == true
+          msg.contentTopic.get() == "content-topic-x" and msg.version.get() == 2 and
+          msg.timestamp.get() != Timestamp(0) and
+          msg.meta.get() == base64.encode("test-meta") and msg.ephemeral.get() == true
 
     check:
       cache.isPubsubSubscribed(pubSubTopic)
@@ -210,16 +220,20 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnRelayUserMessageLimit: 20,
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
@@ -241,11 +255,14 @@ suite "Waku v2 Rest API - Relay":
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
-      payload: base64.encode("TEST-PAYLOAD"),
-      contentTopic: some(DefaultContentTopic),
-      timestamp: some(int64(2022))
-    ))
+    let response = await client.relayPostMessagesV1(
+      DefaultPubsubTopic,
+      RelayWakuMessage(
+        payload: base64.encode("TEST-PAYLOAD"),
+        contentTopic: some(DefaultContentTopic),
+        timestamp: some(int64(2022)),
+      ),
+    )
 
     # Then
     check:
@@ -277,11 +294,12 @@ suite "Waku v2 Rest API - Relay":
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let contentTopics = @[
-      ContentTopic("/app-1/2/default-content/proto"),
-      ContentTopic("/app-2/2/default-content/proto"),
-      ContentTopic("/app-3/2/default-content/proto")
-    ]
+    let contentTopics =
+      @[
+        ContentTopic("/app-1/2/default-content/proto"),
+        ContentTopic("/app-2/2/default-content/proto"),
+        ContentTopic("/app-3/2/default-content/proto"),
+      ]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -300,7 +318,8 @@ suite "Waku v2 Rest API - Relay":
 
     check:
       # Node should be subscribed to all shards
-      node.wakuRelay.subscribedTopics == @["/waku/2/rs/1/7", "/waku/2/rs/1/2", "/waku/2/rs/1/5"]
+      node.wakuRelay.subscribedTopics ==
+        @["/waku/2/rs/1/7", "/waku/2/rs/1/2", "/waku/2/rs/1/5"]
 
     await restServer.stop()
     await restServer.closeWait()
@@ -318,12 +337,13 @@ suite "Waku v2 Rest API - Relay":
 
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    let contentTopics = @[
-      ContentTopic("/waku/2/default-content1/proto"),
-      ContentTopic("/waku/2/default-content2/proto"),
-      ContentTopic("/waku/2/default-content3/proto"),
-      ContentTopic("/waku/2/default-contentX/proto")
-    ]
+    let contentTopics =
+      @[
+        ContentTopic("/waku/2/default-content1/proto"),
+        ContentTopic("/waku/2/default-content2/proto"),
+        ContentTopic("/waku/2/default-content3/proto"),
+        ContentTopic("/waku/2/default-contentX/proto"),
+      ]
 
     let cache = MessageCache.init()
     cache.contentSubscribe(contentTopics[0])
@@ -368,16 +388,20 @@ suite "Waku v2 Rest API - Relay":
 
     let contentTopic = DefaultContentTopic
 
-    var messages = @[
-      fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
-    ]
+    var messages =
+      @[
+        fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
+      ]
 
     # Prevent duplicate messages
-    for i in 0..<2:
-      var msg = fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
+    for i in 0 ..< 2:
+      var msg =
+        fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
 
       while msg == messages[i]:
-        msg = fakeWakuMessage(contentTopic = DefaultContentTopic, payload = toBytes("TEST-1"))
+        msg = fakeWakuMessage(
+          contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")
+        )
 
       messages.add(msg)
 
@@ -399,15 +423,15 @@ suite "Waku v2 Rest API - Relay":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.len == 3
-      response.data.all do (msg: RelayWakuMessage) -> bool:
+      response.data.all do(msg: RelayWakuMessage) -> bool:
         msg.payload == base64.encode("TEST-1") and
-        msg.contentTopic.get() == DefaultContentTopic and
-        msg.version.get() == 2 and
-        msg.timestamp.get() != Timestamp(0)
+          msg.contentTopic.get() == DefaultContentTopic and msg.version.get() == 2 and
+          msg.timestamp.get() != Timestamp(0)
 
     check:
       cache.isContentSubscribed(contentTopic)
-      cache.getAutoMessages(contentTopic).tryGet().len == 0 # The cache is cleared when getMessage is called
+      cache.getAutoMessages(contentTopic).tryGet().len == 0
+        # The cache is cleared when getMessage is called
 
     await restServer.stop()
     await restServer.closeWait()
@@ -420,16 +444,20 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnRelayUserMessageLimit: 20,
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
@@ -450,11 +478,13 @@ suite "Waku v2 Rest API - Relay":
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
-      payload: base64.encode("TEST-PAYLOAD"),
-      contentTopic: some(DefaultContentTopic),
-      timestamp: some(int64(2022))
-    ))
+    let response = await client.relayPostAutoMessagesV1(
+      RelayWakuMessage(
+        payload: base64.encode("TEST-PAYLOAD"),
+        contentTopic: some(DefaultContentTopic),
+        timestamp: some(int64(2022)),
+      )
+    )
 
     # Then
     check:
@@ -473,16 +503,20 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnRelayUserMessageLimit: 20,
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
@@ -499,17 +533,20 @@ suite "Waku v2 Rest API - Relay":
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     # When
-    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
-      payload: base64.encode("TEST-PAYLOAD"),
-      contentTopic: some("invalidContentTopic"),
-      timestamp: some(int64(2022))
-    ))
+    let response = await client.relayPostAutoMessagesV1(
+      RelayWakuMessage(
+        payload: base64.encode("TEST-PAYLOAD"),
+        contentTopic: some("invalidContentTopic"),
+        timestamp: some(int64(2022)),
+      )
+    )
 
     # Then
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      response.data == "Failed to publish. Autosharding error: invalid format: topic must start with slash"
+      response.data ==
+        "Failed to publish. Autosharding error: invalid format: topic must start with slash"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -521,16 +558,20 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnRelayUserMessageLimit: 20,
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
@@ -552,17 +593,22 @@ suite "Waku v2 Rest API - Relay":
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let response = await client.relayPostMessagesV1(DefaultPubsubTopic, RelayWakuMessage(
-      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
-      contentTopic: some(DefaultContentTopic),
-      timestamp: some(int64(2022))
-    ))
+    let response = await client.relayPostMessagesV1(
+      DefaultPubsubTopic,
+      RelayWakuMessage(
+        payload: base64.encode(getByteSequence(MaxWakuMessageSize)),
+          # Message will be bigger than the max size
+        contentTopic: some(DefaultContentTopic),
+        timestamp: some(int64(2022)),
+      ),
+    )
 
     # Then
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
+      response.data ==
+        fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -574,16 +620,20 @@ suite "Waku v2 Rest API - Relay":
     await node.start()
     await node.mountRelay()
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnRelayUserMessageLimit: 20,
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
         rlnRelayCredIndex: some(1.uint),
         rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"))
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_1"),
+      )
     await node.mountRlnRelay(wakuRlnConfig)
 
     # RPC server setup
@@ -605,17 +655,21 @@ suite "Waku v2 Rest API - Relay":
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let response = await client.relayPostAutoMessagesV1(RelayWakuMessage(
-      payload: base64.encode(getByteSequence(MaxWakuMessageSize)), # Message will be bigger than the max size
-      contentTopic: some(DefaultContentTopic),
-      timestamp: some(int64(2022))
-    ))
+    let response = await client.relayPostAutoMessagesV1(
+      RelayWakuMessage(
+        payload: base64.encode(getByteSequence(MaxWakuMessageSize)),
+          # Message will be bigger than the max size
+        contentTopic: some(DefaultContentTopic),
+        timestamp: some(int64(2022)),
+      )
+    )
 
     # Then
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
-      response.data == fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
+      response.data ==
+        fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()

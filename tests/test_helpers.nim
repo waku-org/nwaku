@@ -1,6 +1,4 @@
-import
-  chronos, bearssl/rand,
-  eth/[keys, p2p]
+import chronos, bearssl/rand, eth/[keys, p2p]
 
 import libp2p/crypto/crypto
 
@@ -8,20 +6,23 @@ var nextPort = 30303
 
 proc localAddress*(port: int): Address =
   let port = Port(port)
-  result = Address(udpPort: port, tcpPort: port,
-                   ip: parseIpAddress("127.0.0.1"))
+  result = Address(udpPort: port, tcpPort: port, ip: parseIpAddress("127.0.0.1"))
 
 proc setupTestNode*(
-    rng: ref HmacDrbgContext,
-    capabilities: varargs[ProtocolInfo, `protocolInfo`]): EthereumNode =
+    rng: ref HmacDrbgContext, capabilities: varargs[ProtocolInfo, `protocolInfo`]
+): EthereumNode =
   let
     keys1 = keys.KeyPair.random(rng[])
     address = localAddress(nextPort)
-  result = newEthereumNode(keys1, address, NetworkId(1),
-                           addAllCapabilities = false,
-                           bindUdpPort = address.udpPort, # Assume same as external
-                           bindTcpPort = address.tcpPort, # Assume same as external
-                           rng = rng)
+  result = newEthereumNode(
+    keys1,
+    address,
+    NetworkId(1),
+    addAllCapabilities = false,
+    bindUdpPort = address.udpPort, # Assume same as external
+    bindTcpPort = address.tcpPort, # Assume same as external
+    rng = rng,
+  )
   nextPort.inc
   for capability in capabilities:
     result.addCapability capability

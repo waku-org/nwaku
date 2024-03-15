@@ -5,15 +5,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  libp2p/protobuf/minprotobuf,
-  libp2p/varint
+import std/options, libp2p/protobuf/minprotobuf, libp2p/varint
 
-export
-  minprotobuf,
-  varint
-
+export minprotobuf, varint
 
 ## Custom errors
 
@@ -32,21 +26,18 @@ type
 
   ProtobufResult*[T] = Result[T, ProtobufError]
 
-
 converter toProtobufError*(err: minprotobuf.ProtoError): ProtobufError =
-  case err:
+  case err
   of minprotobuf.ProtoError.RequiredFieldMissing:
     ProtobufError(kind: ProtobufErrorKind.MissingRequiredField, field: "unknown")
   else:
     ProtobufError(kind: ProtobufErrorKind.DecodeFailure, error: err)
-
 
 proc missingRequiredField*(T: type ProtobufError, field: string): T =
   ProtobufError(kind: ProtobufErrorKind.MissingRequiredField, field: field)
 
 proc invalidLengthField*(T: type ProtobufError, field: string): T =
   ProtobufError(kind: ProtobufErrorKind.InvalidLengthField, field: field)
-
 
 ## Extension methods
 
@@ -69,9 +60,9 @@ proc `==`*(a: zint64, b: zint64): bool =
   int64(a) == int64(b)
 
 proc `$`*(err: ProtobufError): string =
-  case err.kind:
+  case err.kind
   of DecodeFailure:
-    case err.error:
+    case err.error
     of VarintDecode:
       return "VarintDecode"
     of MessageIncomplete:
@@ -90,4 +81,3 @@ proc `$`*(err: ProtobufError): string =
     return "MissingRequiredField " & err.field
   of InvalidLengthField:
     return "InvalidLengthField " & err.field
-

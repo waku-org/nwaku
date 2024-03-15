@@ -5,7 +5,8 @@ import
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
-  presto, presto/client as presto_client,
+  presto,
+  presto/client as presto_client,
   libp2p/crypto/crypto
 
 import
@@ -24,7 +25,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc testWakuNode(): WakuNode =
   let
     privkey = generateSecp256k1Key()
@@ -34,7 +34,6 @@ proc testWakuNode(): WakuNode =
 
   return newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
-
 type RestLightPushTest = object
   serviceNode: WakuNode
   pushNode: WakuNode
@@ -42,32 +41,34 @@ type RestLightPushTest = object
   restServer: WakuRestServerRef
   client: RestClientRef
 
-
 proc init(T: type RestLightPushTest): Future[T] {.async.} =
   var testSetup = RestLightPushTest()
   testSetup.serviceNode = testWakuNode()
   testSetup.pushNode = testWakuNode()
   testSetup.consumerNode = testWakuNode()
 
-  await allFutures(testSetup.serviceNode.start(),
-                   testSetup.pushNode.start(),
-                   testSetup.consumerNode.start())
+  await allFutures(
+    testSetup.serviceNode.start(),
+    testSetup.pushNode.start(),
+    testSetup.consumerNode.start(),
+  )
 
   await testSetup.consumerNode.mountRelay()
   await testSetup.serviceNode.mountRelay()
   await testSetup.serviceNode.mountLightPush()
   testSetup.pushNode.mountLightPushClient()
 
-
   testSetup.serviceNode.peerManager.addServicePeer(
-            testSetup.consumerNode.peerInfo.toRemotePeerInfo(),
-            WakuRelayCodec)
+    testSetup.consumerNode.peerInfo.toRemotePeerInfo(), WakuRelayCodec
+  )
 
-  await testSetup.serviceNode.connectToNodes(@[testSetup.consumerNode.peerInfo.toRemotePeerInfo()])
+  await testSetup.serviceNode.connectToNodes(
+    @[testSetup.consumerNode.peerInfo.toRemotePeerInfo()]
+  )
 
   testSetup.pushNode.peerManager.addServicePeer(
-            testSetup.serviceNode.peerInfo.toRemotePeerInfo(),
-            WakuLightPushCodec)
+    testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
+  )
 
   let restPort = Port(58011)
   let restAddress = parseIpAddress("127.0.0.1")
@@ -81,29 +82,33 @@ proc init(T: type RestLightPushTest): Future[T] {.async.} =
 
   return testSetup
 
-
 proc shutdown(self: RestLightPushTest) {.async.} =
   await self.restServer.stop()
   await self.restServer.closeWait()
   await allFutures(self.serviceNode.stop(), self.pushNode.stop())
-
 
 suite "Waku v2 Rest API - lightpush":
   asyncTest "Push message request":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
-    restLightPushTest.consumerNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
-    restLightPushTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restLightPushTest.consumerNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic)
+    )
+    restLightPushTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic)
+    )
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let message : RelayWakuMessage = fakeWakuMessage(contentTopic = DefaultContentTopic,
-                                                     payload = toBytes("TEST-1")).toRelayWakuMessage()
+    let message: RelayWakuMessage = fakeWakuMessage(
+        contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")
+      )
+      .toRelayWakuMessage()
 
-    let requestBody = PushRequest(pubsubTopic: some(DefaultPubsubTopic),
-                                  message: message)
+    let requestBody =
+      PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
     let response = await restLightPushTest.client.sendPushRequest(requestBody)
 
     echo "response", $response
@@ -119,23 +124,27 @@ suite "Waku v2 Rest API - lightpush":
     # Given
     let restLightPushTest = await RestLightPushTest.init()
 
-    restLightPushTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    restLightPushTest.serviceNode.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic)
+    )
     require:
       toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
 
     # When
-    let badMessage1 : RelayWakuMessage = fakeWakuMessage(contentTopic = DefaultContentTopic,
-                                                         payload = toBytes("")).toRelayWakuMessage()
-    let badRequestBody1 = PushRequest(pubsubTopic: some(DefaultPubsubTopic),
-                                      message: badMessage1)
+    let badMessage1: RelayWakuMessage = fakeWakuMessage(
+        contentTopic = DefaultContentTopic, payload = toBytes("")
+      )
+      .toRelayWakuMessage()
+    let badRequestBody1 =
+      PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: badMessage1)
 
-    let badMessage2 : RelayWakuMessage = fakeWakuMessage(contentTopic = "",
-                                                         payload = toBytes("Sthg")).toRelayWakuMessage()
-    let badRequestBody2 = PushRequest(pubsubTopic: some(DefaultPubsubTopic),
-                                      message: badMessage2)
+    let badMessage2: RelayWakuMessage =
+      fakeWakuMessage(contentTopic = "", payload = toBytes("Sthg")).toRelayWakuMessage()
+    let badRequestBody2 =
+      PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: badMessage2)
 
-    let badRequestBody3 = PushRequest(pubsubTopic: none(PubsubTopic),
-                                      message: badMessage2)
+    let badRequestBody3 =
+      PushRequest(pubsubTopic: none(PubsubTopic), message: badMessage2)
 
     var response: RestResponse[string]
 
@@ -148,7 +157,6 @@ suite "Waku v2 Rest API - lightpush":
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data.startsWith("Invalid content body")
-
 
     # when
     response = await restLightPushTest.client.sendPushRequest(badRequestBody2)

@@ -16,7 +16,6 @@ import
   ../../../waku_core,
   ../serdes
 
-
 #### Types
 
 type
@@ -44,8 +43,7 @@ type
     ephemeral*: Option[bool]
     meta*: Option[Base64String]
 
-  StoreResponseRest* = object
-    # inspired by https://rfc.vac.dev/spec/16/#storeresponse
+  StoreResponseRest* = object # inspired by https://rfc.vac.dev/spec/16/#storeresponse
     messages*: seq[StoreWakuMessage]
     cursor*: Option[HistoryCursorRest]
     # field that contains error information
@@ -53,15 +51,12 @@ type
 
 createJsonFlavor RestJson
 
-Json.setWriter JsonWriter,
-               PreferredOutput = string
+Json.setWriter JsonWriter, PreferredOutput = string
 
 #### Type conversion
 
 # Converts a URL-encoded-base64 string into a 'MessageDigest'
-proc parseMsgDigest*(input: Option[string]):
-          Result[Option[MessageDigest], string] =
-
+proc parseMsgDigest*(input: Option[string]): Result[Option[MessageDigest], string] =
   if not input.isSome() or input.get() == "":
     return ok(none(MessageDigest))
 
@@ -76,11 +71,11 @@ proc parseMsgDigest*(input: Option[string]):
   # Next snippet inspired by "nwaku/waku/waku_archive/archive.nim"
   # TODO: Improve coherence of MessageDigest type
   messageDigest = block:
-      var data: array[32, byte]
-      for i in 0..<min(base64DecodedArr.len, 32):
-        data[i] = base64DecodedArr[i]
+    var data: array[32, byte]
+    for i in 0 ..< min(base64DecodedArr.len, 32):
+      data[i] = base64DecodedArr[i]
 
-      MessageDigest(data: data)
+    MessageDigest(data: data)
 
   return ok(some(messageDigest))
 
@@ -93,19 +88,18 @@ proc toRestStringMessageDigest*(self: MessageDigest): string =
   encodeUrl($base64Encoded)
 
 proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
-    WakuMessage(
-      payload: base64.decode(message.payload).get(),
-      contentTopic: message.contentTopic.get(),
-      version: message.version.get(),
-      timestamp: message.timestamp.get(),
-      ephemeral: message.ephemeral.get(),
-      meta: message.meta.get(Base64String("")).decode().get()
-    )
+  WakuMessage(
+    payload: base64.decode(message.payload).get(),
+    contentTopic: message.contentTopic.get(),
+    version: message.version.get(),
+    timestamp: message.timestamp.get(),
+    ephemeral: message.ephemeral.get(),
+    meta: message.meta.get(Base64String("")).decode().get(),
+  )
 
 # Converts a 'HistoryResponse' object to an 'StoreResponseRest'
 # that can be serialized to a json object.
 proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
-
   proc toStoreWakuMessage(message: WakuMessage): StoreWakuMessage =
     StoreWakuMessage(
       payload: base64.encode(message.payload),
@@ -113,7 +107,12 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
       version: some(message.version),
       timestamp: some(message.timestamp),
       ephemeral: some(message.ephemeral),
-      meta: if message.meta.len > 0: some(base64.encode(message.meta)) else: none(Base64String)
+      meta:
+        if message.meta.len > 0:
+          some(base64.encode(message.meta))
+        else:
+          none(Base64String)
+      ,
     )
 
   var storeWakuMsgs: seq[StoreWakuMessage]
@@ -122,23 +121,22 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
 
   var cursor = none(HistoryCursorRest)
   if histResp.cursor.isSome:
-    cursor = some(HistoryCursorRest(
-      pubsubTopic: histResp.cursor.get().pubsubTopic,
-      senderTime: histResp.cursor.get().senderTime,
-      storeTime: histResp.cursor.get().storeTime,
-      digest: histResp.cursor.get().digest
-    ))
+    cursor = some(
+      HistoryCursorRest(
+        pubsubTopic: histResp.cursor.get().pubsubTopic,
+        senderTime: histResp.cursor.get().senderTime,
+        storeTime: histResp.cursor.get().storeTime,
+        digest: histResp.cursor.get().digest,
+      )
+    )
 
-  StoreResponseRest(
-    messages: storeWakuMsgs,
-    cursor: cursor
-  )
+  StoreResponseRest(messages: storeWakuMsgs, cursor: cursor)
 
 ## Beginning of StoreWakuMessage serde
 
-proc writeValue*(writer: var JsonWriter,
-                 value: StoreWakuMessage)
-                {.gcsafe, raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: StoreWakuMessage
+) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", $value.payload)
   if value.contentTopic.isSome():
@@ -153,9 +151,9 @@ proc writeValue*(writer: var JsonWriter,
     writer.writeField("meta", value.meta.get())
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader,
-                value: var StoreWakuMessage)
-          {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var StoreWakuMessage
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     payload = none(Base64String)
     contentTopic = none(ContentTopic)
@@ -168,8 +166,11 @@ proc readValue*(reader: var JsonReader,
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "StoreWakuMessage")
 
     case fieldName
@@ -197,25 +198,24 @@ proc readValue*(reader: var JsonReader,
     version: version,
     timestamp: timestamp,
     ephemeral: ephemeral,
-    meta: meta
+    meta: meta,
   )
 
 ## End of StoreWakuMessage serde
 
 ## Beginning of MessageDigest serde
 
-proc writeValue*(writer: var JsonWriter,
-                 value: MessageDigest)
-  {.gcsafe, raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: MessageDigest
+) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("data", base64.encode(value.data))
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader,
-                value: var MessageDigest)
-  {.gcsafe, raises: [SerializationError, IOError].} =
-  var
-    data = none(seq[byte])
+proc readValue*(
+    reader: var JsonReader, value: var MessageDigest
+) {.gcsafe, raises: [SerializationError, IOError].} =
+  var data = none(seq[byte])
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -232,16 +232,16 @@ proc readValue*(reader: var JsonReader,
   if data.isNone():
     reader.raiseUnexpectedValue("Field `data` is missing")
 
-  for i in 0..<32:
+  for i in 0 ..< 32:
     value.data[i] = data.get()[i]
 
 ## End of MessageDigest serde
 
 ## Beginning of HistoryCursorRest serde
 
-proc writeValue*(writer: var JsonWriter,
-                 value: HistoryCursorRest)
-  {.gcsafe, raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: HistoryCursorRest
+) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("pubsub_topic", value.pubsubTopic)
   writer.writeField("sender_time", value.senderTime)
@@ -249,9 +249,9 @@ proc writeValue*(writer: var JsonWriter,
   writer.writeField("digest", value.digest)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader,
-                value: var HistoryCursorRest)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var HistoryCursorRest
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     pubsubTopic = none(PubsubTopic)
     senderTime = none(Timestamp)
@@ -262,19 +262,27 @@ proc readValue*(reader: var JsonReader,
     case fieldName
     of "pubsub_topic":
       if pubsubTopic.isSome():
-        reader.raiseUnexpectedField("Multiple `pubsub_topic` fields found", "HistoryCursorRest")
+        reader.raiseUnexpectedField(
+          "Multiple `pubsub_topic` fields found", "HistoryCursorRest"
+        )
       pubsubTopic = some(reader.readValue(PubsubTopic))
     of "sender_time":
       if senderTime.isSome():
-        reader.raiseUnexpectedField("Multiple `sender_time` fields found", "HistoryCursorRest")
+        reader.raiseUnexpectedField(
+          "Multiple `sender_time` fields found", "HistoryCursorRest"
+        )
       senderTime = some(reader.readValue(Timestamp))
     of "store_time":
       if storeTime.isSome():
-        reader.raiseUnexpectedField("Multiple `store_time` fields found", "HistoryCursorRest")
+        reader.raiseUnexpectedField(
+          "Multiple `store_time` fields found", "HistoryCursorRest"
+        )
       storeTime = some(reader.readValue(Timestamp))
     of "digest":
       if digest.isSome():
-        reader.raiseUnexpectedField("Multiple `digest` fields found", "HistoryCursorRest")
+        reader.raiseUnexpectedField(
+          "Multiple `digest` fields found", "HistoryCursorRest"
+        )
       digest = some(reader.readValue(MessageDigest))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
@@ -295,16 +303,16 @@ proc readValue*(reader: var JsonReader,
     pubsubTopic: pubsubTopic.get(),
     senderTime: senderTime.get(),
     storeTime: storeTime.get(),
-    digest: digest.get()
+    digest: digest.get(),
   )
 
 ## End of HistoryCursorRest serde
 
 ## Beginning of StoreResponseRest serde
 
-proc writeValue*(writer: var JsonWriter,
-                 value: StoreResponseRest)
-  {.gcsafe, raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: StoreResponseRest
+) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("messages", value.messages)
   if value.cursor.isSome():
@@ -313,9 +321,9 @@ proc writeValue*(writer: var JsonWriter,
     writer.writeField("error_message", value.errorMessage.get())
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader,
-                value: var StoreResponseRest)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader, value: var StoreResponseRest
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     messages = none(seq[StoreWakuMessage])
     cursor = none(HistoryCursorRest)
@@ -325,15 +333,21 @@ proc readValue*(reader: var JsonReader,
     case fieldName
     of "messages":
       if messages.isSome():
-        reader.raiseUnexpectedField("Multiple `messages` fields found", "StoreResponseRest")
+        reader.raiseUnexpectedField(
+          "Multiple `messages` fields found", "StoreResponseRest"
+        )
       messages = some(reader.readValue(seq[StoreWakuMessage]))
     of "cursor":
       if cursor.isSome():
-        reader.raiseUnexpectedField("Multiple `cursor` fields found", "StoreResponseRest")
+        reader.raiseUnexpectedField(
+          "Multiple `cursor` fields found", "StoreResponseRest"
+        )
       cursor = some(reader.readValue(HistoryCursorRest))
     of "error_message":
       if errorMessage.isSome():
-        reader.raiseUnexpectedField("Multiple `error_message` fields found", "StoreResponseRest")
+        reader.raiseUnexpectedField(
+          "Multiple `error_message` fields found", "StoreResponseRest"
+        )
       errorMessage = some(reader.readValue(string))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
@@ -342,19 +356,16 @@ proc readValue*(reader: var JsonReader,
     reader.raiseUnexpectedValue("Field `messages` is missing")
 
   value = StoreResponseRest(
-    messages: messages.get(),
-    cursor: cursor,
-    errorMessage: errorMessage
+    messages: messages.get(), cursor: cursor, errorMessage: errorMessage
   )
 
 ## End of StoreResponseRest serde
 
 ## Beginning of StoreRequestRest serde
 
-proc writeValue*(writer: var JsonWriter,
-                 value: StoreRequestRest)
-  {.gcsafe, raises: [IOError].} =
-
+proc writeValue*(
+    writer: var JsonWriter, value: StoreRequestRest
+) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   if value.pubsubTopic.isSome():
     writer.writeField("pubsub_topic", value.pubsubTopic.get())
@@ -368,4 +379,3 @@ proc writeValue*(writer: var JsonWriter,
   writer.endRecord()
 
 ## End of StoreRequestRest serde
-

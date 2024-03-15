@@ -1,22 +1,19 @@
 {.used.}
 
-import
-  std/options,
-  stew/results,
-  testutils/unittests
+import std/options, stew/results, testutils/unittests
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/queue_driver/queue_driver {.all.},
   ../../../waku/waku_archive/driver/queue_driver/index,
   ../../../waku/waku_core
 
-
 # Helper functions
 
 proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
   ## Use i to generate an Index WakuMessage
   var data {.noinit.}: array[32, byte]
-  for x in data.mitems: x = i.byte
+  for x in data.mitems:
+    x = i.byte
 
   let
     message = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
@@ -24,7 +21,7 @@ proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
       receiverTime: Timestamp(i),
       senderTime: Timestamp(i),
       digest: MessageDigest(data: data),
-      pubsubTopic: "test-pubsub-topic"
+      pubsubTopic: "test-pubsub-topic",
     )
 
   (cursor, message)
@@ -38,9 +35,7 @@ proc getPrepopulatedTestQueue(unsortedSet: auto, capacity: int): QueueDriver =
 
   driver
 
-
 procSuite "Sorted driver queue":
-
   test "queue capacity - add a message over the limit":
     ## Given
     let capacity = 5
@@ -48,7 +43,7 @@ procSuite "Sorted driver queue":
 
     ## When
     # Fill up the queue
-    for i in 1..capacity:
+    for i in 1 .. capacity:
       let (index, message) = genIndexedWakuMessage(i.int8)
       require(driver.add(index, message).isOk())
 
@@ -67,7 +62,7 @@ procSuite "Sorted driver queue":
 
     ## When
     # Fill up the queue
-    for i in 1..capacity:
+    for i in 1 .. capacity:
       let (index, message) = genIndexedWakuMessage(i.int8)
       require(driver.add(index, message).isOk())
 
@@ -89,7 +84,7 @@ procSuite "Sorted driver queue":
     ## Given
     let
       capacity = 5
-      unsortedSet = [5,1,3,2,4]
+      unsortedSet = [5, 1, 3, 2, 4]
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     # Walk forward through the set and verify ascending order
@@ -110,7 +105,7 @@ procSuite "Sorted driver queue":
     ## Given
     let
       capacity = 5
-      unsortedSet = [5,1,3,2,4]
+      unsortedSet = [5, 1, 3, 2, 4]
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     ## When
@@ -141,7 +136,7 @@ procSuite "Sorted driver queue":
     ## Given
     let
       capacity = 5
-      unsortedSet = [5,1,3,2,4]
+      unsortedSet = [5, 1, 3, 2, 4]
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     ## When
@@ -172,7 +167,7 @@ procSuite "Sorted driver queue":
     ## Given
     let
       capacity = 5
-      unsortedSet = [5,1,3,2,4]
+      unsortedSet = [5, 1, 3, 2, 4]
     let driver = getPrepopulatedTestQueue(unsortedSet, capacity)
 
     let

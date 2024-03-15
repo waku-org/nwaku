@@ -1,8 +1,4 @@
-
-import
-  std/[times, strutils, strformat],
-  stew/results,
-  chronos
+import std/[times, strutils, strformat], stew/results, chronos
 
 include db_postgres
 
@@ -11,11 +7,10 @@ type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 ## Connection management
 
 proc check*(db: DbConn): Result[void, string] =
-
   var message: string
   try:
     message = $db.pqErrorMessage()
-  except ValueError,DbError:
+  except ValueError, DbError:
     return err("exception in check: " & getCurrentExceptionMsg())
 
   if message.len > 0:
@@ -23,15 +18,13 @@ proc check*(db: DbConn): Result[void, string] =
 
   return ok()
 
-proc open*(connString: string):
-           Result[DbConn, string] =
+proc open*(connString: string): Result[DbConn, string] =
   ## Opens a new connection.
   var conn: DbConn = nil
   try:
-    conn = open("","", "", connString)
+    conn = open("", "", "", connString)
   except DbError:
-    return err("exception opening new connection: " &
-               getCurrentExceptionMsg())
+    return err("exception opening new connection: " & getCurrentExceptionMsg())
 
   if conn.status != CONNECTION_OK:
     let checkRes = conn.check()
@@ -42,10 +35,9 @@ proc open*(connString: string):
 
   ok(conn)
 
-proc sendQuery(db: DbConn,
-               query: SqlQuery,
-               args: seq[string]):
-               Future[Result[void, string]] {.async.} =
+proc sendQuery(
+    db: DbConn, query: SqlQuery, args: seq[string]
+): Future[Result[void, string]] {.async.} =
   ## This proc can be used directly for queries that don't retrieve values back.
 
   if db.status != CONNECTION_OK:
@@ -58,8 +50,7 @@ proc sendQuery(db: DbConn,
   try:
     wellFormedQuery = dbFormat(query, args)
   except DbError:
-    return err("exception formatting the query: " &
-               getCurrentExceptionMsg())
+    return err("exception formatting the query: " & getCurrentExceptionMsg())
 
   let success = db.pqsendQuery(cstring(wellFormedQuery))
   if success != 1:
@@ -71,17 +62,18 @@ proc sendQuery(db: DbConn,
   return ok()
 
 proc sendQueryPrepared(
-               db: DbConn,
-               stmtName: string,
-               paramValues: openArray[string],
-               paramLengths: openArray[int32],
-               paramFormats: openArray[int32]):
-               Result[void, string] {.raises: [].} =
+    db: DbConn,
+    stmtName: string,
+    paramValues: openArray[string],
+    paramLengths: openArray[int32],
+    paramFormats: openArray[int32],
+): Result[void, string] {.raises: [].} =
   ## This proc can be used directly for queries that don't retrieve values back.
 
   if paramValues.len != paramLengths.len or paramValues.len != paramFormats.len or
-     paramLengths.len != paramFormats.len:
-    let lengthsErrMsg = $paramValues.len & " " & $paramLengths.len & " " & $paramFormats.len
+      paramLengths.len != paramFormats.len:
+    let lengthsErrMsg =
+      $paramValues.len & " " & $paramLengths.len & " " & $paramFormats.len
     return err("lengths discrepancies in sendQueryPrepared: " & $lengthsErrMsg)
 
   if db.status != CONNECTION_OK:
@@ -91,18 +83,21 @@ proc sendQueryPrepared(
     return err("unknown reason")
 
   var cstrArrayParams = allocCStringArray(paramValues)
-  defer: deallocCStringArray(cstrArrayParams)
+  defer:
+    deallocCStringArray(cstrArrayParams)
 
   let nParams = cast[int32](paramValues.len)
 
   const ResultFormat = 0 ## 0 for text format, 1 for binary format.
 
-  let success = db.pqsendQueryPrepared(stmtName,
-                                       nParams,
-                                       cstrArrayParams,
-                                       unsafeAddr paramLengths[0],
-                                       unsafeAddr paramFormats[0],
-                                       ResultFormat)
+  let success = db.pqsendQueryPrepared(
+    stmtName,
+    nParams,
+    cstrArrayParams,
+    unsafeAddr paramLengths[0],
+    unsafeAddr paramFormats[0],
+    ResultFormat,
+  )
   if success != 1:
     db.check().isOkOr:
       return err("failed pqsendQueryPrepared: " & $error)
@@ -111,9 +106,9 @@ proc sendQueryPrepared(
 
   return ok()
 
-proc waitQueryToFinish(db: DbConn,
-                       rowCallback: DataProc = nil):
-                       Future[Result[void, string]] {.async.} =
+proc waitQueryToFinish(
+    db: DbConn, rowCallback: DataProc = nil
+): Future[Result[void, string]] {.async.} =
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
@@ -150,12 +145,9 @@ proc waitQueryToFinish(db: DbConn,
 
     pqclear(pqResult)
 
-proc dbConnQuery*(db: DbConn,
-                  query: SqlQuery,
-                  args: seq[string],
-                  rowCallback: DataProc):
-                  Future[Result[void, string]] {.async, gcsafe.} =
-
+proc dbConnQuery*(
+    db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
+): Future[Result[void, string]] {.async, gcsafe.} =
   (await db.sendQuery(query, args)).isOkOr:
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
@@ -164,15 +156,15 @@ proc dbConnQuery*(db: DbConn,
 
   return ok()
 
-proc dbConnQueryPrepared*(db: DbConn,
-                          stmtName: string,
-                          paramValues: seq[string],
-                          paramLengths: seq[int32],
-                          paramFormats: seq[int32],
-                          rowCallback: DataProc):
-                          Future[Result[void, string]] {.async, gcsafe.} =
-
-  db.sendQueryPrepared(stmtName, paramValues , paramLengths, paramFormats).isOkOr:
+proc dbConnQueryPrepared*(
+    db: DbConn,
+    stmtName: string,
+    paramValues: seq[string],
+    paramLengths: seq[int32],
+    paramFormats: seq[int32],
+    rowCallback: DataProc,
+): Future[Result[void, string]] {.async, gcsafe.} =
+  db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
   (await db.waitQueryToFinish(rowCallback)).isOkOr:

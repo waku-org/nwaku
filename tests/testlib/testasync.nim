@@ -3,14 +3,18 @@
 
 template asyncTeardown*(body: untyped): untyped =
   teardown:
-    waitFor((
-      proc() {.async, gcsafe.} =
-        body
-    )())
+    waitFor(
+      (
+        proc() {.async, gcsafe.} =
+          body
+      )()
+    )
 
 template asyncSetup*(body: untyped): untyped =
   setup:
-    waitFor((
-      proc() {.async, gcsafe.} =
-        body
-    )())
+    waitFor(
+      (
+        proc() {.async, gcsafe.} =
+          body
+      )()
+    )

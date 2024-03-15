@@ -1,18 +1,11 @@
 {.used.}
 
-import
-  std/times,
-  stew/byteutils,
-  testutils/unittests,
-  nimcrypto
-import
-  ../../../waku/waku_core,
-  ../../../waku/waku_archive/driver/queue_driver/index
-
+import std/times, stew/byteutils, testutils/unittests, nimcrypto
+import ../../../waku/waku_core, ../../../waku/waku_archive/driver/queue_driver/index
 
 ## Helpers
 
-proc getTestTimestamp(offset=0): Timestamp =
+proc getTestTimestamp(offset = 0): Timestamp =
   let now = getNanosecondTime(epochTime() + float(offset))
   Timestamp(now)
 
@@ -26,52 +19,75 @@ proc hashFromStr(input: string): MDigest[256] =
 
   return hashed
 
-
 suite "Queue Driver - index":
-
   ## Test vars
   let
-    smallIndex1 = Index(digest: hashFromStr("1234"),
-                        receiverTime: getNanosecondTime(0),
-                        senderTime: getNanosecondTime(1000))
-    smallIndex2 = Index(digest: hashFromStr("1234567"), # digest is less significant than senderTime
-                        receiverTime: getNanosecondTime(0),
-                        senderTime: getNanosecondTime(1000))
-    largeIndex1 = Index(digest: hashFromStr("1234"),
-                        receiverTime: getNanosecondTime(0),
-                        senderTime: getNanosecondTime(9000)) # only senderTime differ from smallIndex1
-    largeIndex2 = Index(digest: hashFromStr("12345"), # only digest differs from smallIndex1
-                        receiverTime: getNanosecondTime(0),
-                        senderTime: getNanosecondTime(1000))
-    eqIndex1 = Index(digest: hashFromStr("0003"),
-                     receiverTime: getNanosecondTime(0),
-                     senderTime: getNanosecondTime(54321))
-    eqIndex2 = Index(digest: hashFromStr("0003"),
-                     receiverTime: getNanosecondTime(0),
-                     senderTime: getNanosecondTime(54321))
-    eqIndex3 = Index(digest: hashFromStr("0003"),
-                     receiverTime: getNanosecondTime(9999), # receiverTime difference should have no effect on comparisons
-                     senderTime: getNanosecondTime(54321))
-    diffPsTopic = Index(digest: hashFromStr("1234"),
-                        receiverTime: getNanosecondTime(0),
-                        senderTime: getNanosecondTime(1000),
-                        pubsubTopic: "zzzz")
-    noSenderTime1 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(1100),
-                          senderTime: getNanosecondTime(0),
-                          pubsubTopic: "zzzz")
-    noSenderTime2 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(10000),
-                          senderTime: getNanosecondTime(0),
-                          pubsubTopic: "zzzz")
-    noSenderTime3 = Index(digest: hashFromStr("1234"),
-                          receiverTime: getNanosecondTime(1200),
-                          senderTime: getNanosecondTime(0),
-                          pubsubTopic: "aaaa")
-    noSenderTime4 = Index(digest: hashFromStr("0"),
-                          receiverTime: getNanosecondTime(1200),
-                          senderTime: getNanosecondTime(0),
-                          pubsubTopic: "zzzz")
+    smallIndex1 = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(1000),
+    )
+    smallIndex2 = Index(
+      digest: hashFromStr("1234567"), # digest is less significant than senderTime
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(1000),
+    )
+    largeIndex1 = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(9000),
+    ) # only senderTime differ from smallIndex1
+    largeIndex2 = Index(
+      digest: hashFromStr("12345"), # only digest differs from smallIndex1
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(1000),
+    )
+    eqIndex1 = Index(
+      digest: hashFromStr("0003"),
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(54321),
+    )
+    eqIndex2 = Index(
+      digest: hashFromStr("0003"),
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(54321),
+    )
+    eqIndex3 = Index(
+      digest: hashFromStr("0003"),
+      receiverTime: getNanosecondTime(9999),
+        # receiverTime difference should have no effect on comparisons
+      senderTime: getNanosecondTime(54321),
+    )
+    diffPsTopic = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(0),
+      senderTime: getNanosecondTime(1000),
+      pubsubTopic: "zzzz",
+    )
+    noSenderTime1 = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(1100),
+      senderTime: getNanosecondTime(0),
+      pubsubTopic: "zzzz",
+    )
+    noSenderTime2 = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(10000),
+      senderTime: getNanosecondTime(0),
+      pubsubTopic: "zzzz",
+    )
+    noSenderTime3 = Index(
+      digest: hashFromStr("1234"),
+      receiverTime: getNanosecondTime(1200),
+      senderTime: getNanosecondTime(0),
+      pubsubTopic: "aaaa",
+    )
+    noSenderTime4 = Index(
+      digest: hashFromStr("0"),
+      receiverTime: getNanosecondTime(1200),
+      senderTime: getNanosecondTime(0),
+      pubsubTopic: "zzzz",
+    )
 
   test "Index comparison":
     # Index comparison with senderTime diff
@@ -125,9 +141,9 @@ suite "Queue Driver - index":
     # Receiver time plays no role, even without sender time
     check:
       eqIndex1 == eqIndex3
-      noSenderTime1 == noSenderTime2  # only receiver time differs, indices are equal
-      noSenderTime1 != noSenderTime3  # pubsubTopics differ
-      noSenderTime1 != noSenderTime4  # digests differ
+      noSenderTime1 == noSenderTime2 # only receiver time differs, indices are equal
+      noSenderTime1 != noSenderTime3 # pubsubTopics differ
+      noSenderTime1 != noSenderTime4 # digests differ
 
     # Unequal sender time
     check:

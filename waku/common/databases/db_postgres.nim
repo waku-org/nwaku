@@ -1,8 +1,3 @@
+import ./common, ./db_postgres/pgasyncpool
 
-import
-  ./common,
-  ./db_postgres/pgasyncpool
-
-export
-  common,
-  pgasyncpool
+export common, pgasyncpool

@@ -15,9 +15,7 @@ import
   ./testlib/wakucore,
   ./testlib/wakunode
 
-
 suite "WakuNode - Filter":
-
   asyncTest "subscriber should receive the message handled by the publisher":
     ## Setup
     let
@@ -38,14 +36,18 @@ suite "WakuNode - Filter":
     let
       pubSubTopic = DefaultPubsubTopic
       contentTopic = DefaultContentTopic
-      message = fakeWakuMessage(contentTopic=contentTopic)
+      message = fakeWakuMessage(contentTopic = contentTopic)
 
     var filterPushHandlerFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterPushHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
+    proc filterPushHandler(
+        pubsubTopic: PubsubTopic, msg: WakuMessage
+    ) {.async, gcsafe, closure.} =
       filterPushHandlerFut.complete((pubsubTopic, msg))
 
     ## When
-    await client.legacyFilterSubscribe(some(pubsubTopic), contentTopic, filterPushHandler, peer=serverPeerInfo)
+    await client.legacyFilterSubscribe(
+      some(pubsubTopic), contentTopic, filterPushHandler, peer = serverPeerInfo
+    )
 
     # Wait for subscription to take effect
     waitFor sleepAsync(100.millis)

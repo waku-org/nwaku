@@ -4,7 +4,8 @@ import
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
-  presto, presto/client as presto_client,
+  presto,
+  presto/client as presto_client,
   libp2p/crypto/crypto
 import
   ../../waku/waku_api/message_cache,
@@ -25,7 +26,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc testWakuNode(): WakuNode =
   let
     privkey = generateSecp256k1Key()
@@ -35,7 +35,6 @@ proc testWakuNode(): WakuNode =
 
   return newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
-
 type RestFilterTest = object
   serviceNode: WakuNode
   subscriberNode: WakuNode
@@ -44,7 +43,6 @@ type RestFilterTest = object
   messageCache: MessageCache
   client: RestClientRef
   clientTwdServiceNode: RestClientRef
-
 
 proc init(T: type RestFilterTest): Future[T] {.async.} =
   var testSetup = RestFilterTest()
@@ -57,30 +55,37 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   await testSetup.serviceNode.mountFilter()
   await testSetup.subscriberNode.mountFilterClient()
 
-  testSetup.subscriberNode.peerManager.addServicePeer(testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuFilterSubscribeCodec)
+  testSetup.subscriberNode.peerManager.addServicePeer(
+    testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuFilterSubscribeCodec
+  )
 
   let restPort = Port(58011)
   let restAddress = parseIpAddress("127.0.0.1")
   testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
 
   let restPort2 = Port(58012)
-  testSetup.restServerForService = WakuRestServerRef.init(restAddress, restPort2).tryGet()
+  testSetup.restServerForService =
+    WakuRestServerRef.init(restAddress, restPort2).tryGet()
 
   # through this one we will see if messages are pushed according to our content topic sub
   testSetup.messageCache = MessageCache.init()
-  installFilterRestApiHandlers(testSetup.restServer.router, testSetup.subscriberNode, testSetup.messageCache)
+  installFilterRestApiHandlers(
+    testSetup.restServer.router, testSetup.subscriberNode, testSetup.messageCache
+  )
 
   let topicCache = MessageCache.init()
-  installRelayApiHandlers(testSetup.restServerForService.router, testSetup.serviceNode, topicCache)
+  installRelayApiHandlers(
+    testSetup.restServerForService.router, testSetup.serviceNode, topicCache
+  )
 
   testSetup.restServer.start()
   testSetup.restServerForService.start()
 
   testSetup.client = newRestHttpClient(initTAddress(restAddress, restPort))
-  testSetup.clientTwdServiceNode = newRestHttpClient(initTAddress(restAddress, restPort2))
+  testSetup.clientTwdServiceNode =
+    newRestHttpClient(initTAddress(restAddress, restPort2))
 
   return testSetup
-
 
 proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServer.stop()
@@ -89,7 +94,6 @@ proc shutdown(self: RestFilterTest) {.async.} =
   await self.restServerForService.closeWait()
   await allFutures(self.serviceNode.stop(), self.subscriberNode.stop())
 
-
 suite "Waku v2 Rest API - Filter V2":
   asyncTest "Subscribe a node to an array of topics - POST /filter/v2/subscriptions":
     # Given
@@ -97,23 +101,30 @@ suite "Waku v2 Rest API - Filter V2":
     let subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
     # When
-    let contentFilters = @[DefaultContentTopic
-                          ,ContentTopic("2")
-                          ,ContentTopic("3")
-                          ,ContentTopic("4")
-                          ]
+    let contentFilters =
+      @[DefaultContentTopic, ContentTopic("2"), ContentTopic("3"), ContentTopic("4")]
 
-    let requestBody = FilterSubscribeRequest(requestId: "1234",
-                                                 contentFilters: contentFilters,
-                                                 pubsubTopic: some(DefaultPubsubTopic))
+    let requestBody = FilterSubscribeRequest(
+      requestId: "1234",
+      contentFilters: contentFilters,
+      pubsubTopic: some(DefaultPubsubTopic),
+    )
     let response = await restFilterTest.client.filterPostSubscriptions(requestBody)
 
     echo "response", $response
 
-    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, DefaultContentTopic)
-    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "2")
-    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "3")
-    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "4")
+    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, DefaultContentTopic
+    )
+    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "2"
+    )
+    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "3"
+    )
+    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "4"
+    )
 
     # Then
     check:
@@ -127,8 +138,11 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId in subscribedPeer4
 
     # When - error case
-    let badRequestBody = FilterSubscribeRequest(requestId: "4567", contentFilters: @[], pubsubTopic: none(string))
-    let badRequestResp = await restFilterTest.client.filterPostSubscriptions(badRequestBody)
+    let badRequestBody = FilterSubscribeRequest(
+      requestId: "4567", contentFilters: @[], pubsubTopic: none(string)
+    )
+    let badRequestResp =
+      await restFilterTest.client.filterPostSubscriptions(badRequestBody)
 
     check:
       badRequestResp.status == 400
@@ -146,30 +160,41 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
     # When
-    var requestBody = FilterSubscribeRequest(requestId: "1234",
-                                                 contentFilters: @[ContentTopic("1")
-                                                                  ,ContentTopic("2")
-                                                                  ,ContentTopic("3")
-                                                                  ,ContentTopic("4")
-                                                                  ],
-                                                 pubsubTopic: some(DefaultPubsubTopic))
+    var requestBody = FilterSubscribeRequest(
+      requestId: "1234",
+      contentFilters:
+        @[ContentTopic("1"), ContentTopic("2"), ContentTopic("3"), ContentTopic("4")],
+      pubsubTopic: some(DefaultPubsubTopic),
+    )
     discard await restFilterTest.client.filterPostSubscriptions(requestBody)
 
-    let contentFilters = @[ContentTopic("1")
-                          ,ContentTopic("2")
-                          ,ContentTopic("3")
-                          # ,ContentTopic("4") # Keep this subscription for check
-                          ]
+    let contentFilters =
+      @[
+        ContentTopic("1"),
+        ContentTopic("2"),
+        ContentTopic("3"), # ,ContentTopic("4") # Keep this subscription for check
+      ]
 
-    let requestBodyUnsub = FilterUnsubscribeRequest(requestId: "4321",
-                                                    contentFilters: contentFilters,
-                                                    pubsubTopic: some(DefaultPubsubTopic))
-    let response = await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsub)
+    let requestBodyUnsub = FilterUnsubscribeRequest(
+      requestId: "4321",
+      contentFilters: contentFilters,
+      pubsubTopic: some(DefaultPubsubTopic),
+    )
+    let response =
+      await restFilterTest.client.filterDeleteSubscriptions(requestBodyUnsub)
 
-    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, DefaultContentTopic)
-    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "2")
-    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "3")
-    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "4")
+    let subscribedPeer1 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, DefaultContentTopic
+    )
+    let subscribedPeer2 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "2"
+    )
+    let subscribedPeer3 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "3"
+    )
+    let subscribedPeer4 = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "4"
+    )
 
     # Then
     check:
@@ -185,9 +210,12 @@ suite "Waku v2 Rest API - Filter V2":
 
     # When - error case
     let requestBodyUnsubAll = FilterUnsubscribeAllRequest(requestId: "2143")
-    let responseUnsubAll = await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
+    let responseUnsubAll =
+      await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
 
-    let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(DefaultPubsubTopic, "4")
+    let subscribedPeer = restFilterTest.serviceNode.wakuFilter.subscriptions.findSubscribedPeers(
+      DefaultPubsubTopic, "4"
+    )
 
     check:
       responseUnsubAll.status == 200
@@ -204,9 +232,11 @@ suite "Waku v2 Rest API - Filter V2":
       subPeerId = restFilterTest.subscriberNode.peerInfo.toRemotePeerInfo().peerId
 
     # When
-    var requestBody = FilterSubscribeRequest(requestId: "1234",
-                                                  contentFilters: @[ContentTopic("1")],
-                                                  pubsubTopic: some(DefaultPubsubTopic))
+    var requestBody = FilterSubscribeRequest(
+      requestId: "1234",
+      contentFilters: @[ContentTopic("1")],
+      pubsubTopic: some(DefaultPubsubTopic),
+    )
     discard await restFilterTest.client.filterPostSubscriptions(requestBody)
 
     let pingResponse = await restFilterTest.client.filterSubscriberPing("9999")
@@ -220,7 +250,8 @@ suite "Waku v2 Rest API - Filter V2":
 
     # When - error case
     let requestBodyUnsubAll = FilterUnsubscribeAllRequest(requestId: "9988")
-    discard await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
+    discard
+      await restFilterTest.client.filterDeleteAllSubscriptions(requestBodyUnsubAll)
 
     let pingResponseFail = await restFilterTest.client.filterSubscriberPing("9977")
 
@@ -243,9 +274,11 @@ suite "Waku v2 Rest API - Filter V2":
     restFilterTest.serviceNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
 
     # When
-    var requestBody = FilterSubscribeRequest(requestId: "1234",
-                                                  contentFilters: @[ContentTopic("1")],
-                                                  pubsubTopic: some(DefaultPubsubTopic))
+    var requestBody = FilterSubscribeRequest(
+      requestId: "1234",
+      contentFilters: @[ContentTopic("1")],
+      pubsubTopic: some(DefaultPubsubTopic),
+    )
     discard await restFilterTest.client.filterPostSubscriptions(requestBody)
 
     let pingResponse = await restFilterTest.client.filterSubscriberPing("9999")
@@ -259,16 +292,15 @@ suite "Waku v2 Rest API - Filter V2":
 
     # When - message push
     let testMessage = WakuMessage(
-                                        payload: "TEST-PAYLOAD-MUST-RECEIVE".toBytes(),
-                                        contentTopic: "1",
-                                        timestamp: int64(2022),
-                                        meta: "test-meta".toBytes()
-                                      )
+      payload: "TEST-PAYLOAD-MUST-RECEIVE".toBytes(),
+      contentTopic: "1",
+      timestamp: int64(2022),
+      meta: "test-meta".toBytes(),
+    )
 
     let postMsgResponse = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(
-                                            DefaultPubsubTopic,
-                                            toRelayWakuMessage(testMessage)
-                                            )
+      DefaultPubsubTopic, toRelayWakuMessage(testMessage)
+    )
     # Then
     let messages = restFilterTest.messageCache.getAutoMessages("1").tryGet()
 

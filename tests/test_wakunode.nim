@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils,strutils],
+  std/[sequtils, strutils],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -25,9 +25,7 @@ import
   ./testlib/wakucore,
   ./testlib/wakunode
 
-
 suite "WakuNode":
-
   asyncTest "Protocol matcher works as expected":
     let
       nodeKey1 = generateSecp256k1Key()
@@ -53,14 +51,16 @@ suite "WakuNode":
 
     check:
       # Check that mounted codecs are actually different
-      node1.wakuRelay.codec ==  "/vac/waku/relay/2.0.0"
+      node1.wakuRelay.codec == "/vac/waku/relay/2.0.0"
       node2.wakuRelay.codec == "/vac/waku/relay/2.0.0-beta2"
 
     # Now verify that protocol matcher returns `true` and relay works
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
     var completionFut = newFuture[bool]()
-    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
       check:
         topic == pubSubTopic
         msg.contentTopic == contentTopic
@@ -87,7 +87,9 @@ suite "WakuNode":
 
     let
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(61020), nameResolver = resolver)
+      node1 = newTestWakuNode(
+        nodeKey1, parseIpAddress("0.0.0.0"), Port(61020), nameResolver = resolver
+      )
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(61022))
 
@@ -112,14 +114,16 @@ suite "WakuNode":
     let
       maxConnections = 2
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"),
-        Port(60010), maxConnections = maxConnections)
+      node1 = newTestWakuNode(
+        nodeKey1,
+        parseIpAddress("0.0.0.0"),
+        Port(60010),
+        maxConnections = maxConnections,
+      )
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"),
-        Port(60012))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(60012))
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"),
-        Port(60013))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(60013))
 
     check:
       # Sanity check, to verify config was applied
@@ -137,9 +141,11 @@ suite "WakuNode":
     await node3.start()
     await node3.mountRelay()
 
-    discard await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
+    discard
+      await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
     await sleepAsync(3.seconds)
-    discard await node1.peerManager.connectRelay(node3.switch.peerInfo.toRemotePeerInfo())
+    discard
+      await node1.peerManager.connectRelay(node3.switch.peerInfo.toRemotePeerInfo())
 
     check:
       # Verify that only the first connection succeeded
@@ -153,11 +159,14 @@ suite "WakuNode":
 
     expect ResultDefect:
       # gibberish
-      discard newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"),
+      discard newTestWakuNode(
+        nodeKey1,
+        parseIpAddress("0.0.0.0"),
         bindPort = Port(61004),
         wsBindPort = Port(8000),
         wssEnabled = true,
-        secureKey = "../../waku/node/key_dummy.txt")
+        secureKey = "../../waku/node/key_dummy.txt",
+      )
 
   asyncTest "Peer info updates with correct announced addresses":
     let
@@ -166,10 +175,7 @@ suite "WakuNode":
       bindPort = Port(61006)
       extIp = some(parseIpAddress("127.0.0.1"))
       extPort = some(Port(61008))
-      node = newTestWakuNode(
-        nodeKey,
-        bindIp, bindPort,
-        extIp, extPort)
+      node = newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort)
 
     let
       bindEndpoint = MultiAddress.init(bindIp, tcpProtocol, bindPort)
@@ -206,12 +212,11 @@ suite "WakuNode":
       extIp = some(parseIpAddress("127.0.0.1"))
       extPort = some(Port(61012))
       domainName = "example.com"
-      expectedDns4Addr = MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
+      expectedDns4Addr =
+        MultiAddress.init("/dns4/" & domainName & "/tcp/" & $(extPort.get())).get()
       node = newTestWakuNode(
-        nodeKey,
-        bindIp, bindPort,
-        extIp, extPort,
-        dns4DomainName = some(domainName))
+        nodeKey, bindIp, bindPort, extIp, extPort, dns4DomainName = some(domainName)
+      )
 
     check:
       node.announcedAddresses.len == 1
@@ -224,17 +229,15 @@ suite "WakuNode":
       bindPort = Port(0)
 
       domainName = "status.im"
-      node = newTestWakuNode(
-        nodeKey,
-        bindIp, bindPort,
-        dns4DomainName = some(domainName))
+      node =
+        newTestWakuNode(nodeKey, bindIp, bindPort, dns4DomainName = some(domainName))
 
     var ipStr = ""
     var enrIp = node.enr.tryGet("ip", array[4, byte])
-    
+
     if enrIp.isSome():
-        ipStr &= $ipv4(enrIp.get())
-    
+      ipStr &= $ipv4(enrIp.get())
+
     # Check that the IP filled is the one received by the DNS lookup
     # As IPs may change, we check that it's not empty, not the 0 IP and not localhost
     check:
@@ -251,24 +254,21 @@ suite "WakuNode":
       inexistentDomain = "thisdomain.doesnot.exist"
       invalidDomain = ""
       expectedError = "Could not resolve IP from DNS: empty response"
-    
+
     var inexistentDomainErr, invalidDomainErr: string = ""
 
     # Create node with inexistent domain
     try:
       let node = newTestWakuNode(
-        nodeKey,
-        bindIp, bindPort,
-        dns4DomainName = some(inexistentDomain))
+        nodeKey, bindIp, bindPort, dns4DomainName = some(inexistentDomain)
+      )
     except Exception as e:
       inexistentDomainErr = e.msg
 
     # Create node with invalid domain
     try:
-      let node = newTestWakuNode(
-        nodeKey,
-        bindIp, bindPort,
-        dns4DomainName = some(invalidDomain))
+      let node =
+        newTestWakuNode(nodeKey, bindIp, bindPort, dns4DomainName = some(invalidDomain))
     except Exception as e:
       invalidDomainErr = e.msg
 
@@ -287,8 +287,12 @@ suite "WakuNode":
     let
       # node with custom agent string
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(61014),
-                           agentString = some(expectedAgentString1))
+      node1 = newTestWakuNode(
+        nodeKey1,
+        parseIpAddress("0.0.0.0"),
+        Port(61014),
+        agentString = some(expectedAgentString1),
+      )
 
       # node with default agent string from libp2p
       nodeKey2 = generateSecp256k1Key()
@@ -303,8 +307,10 @@ suite "WakuNode":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
 
-    let node1Agent = node2.switch.peerStore[AgentBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
-    let node2Agent = node1.switch.peerStore[AgentBook][node2.switch.peerInfo.toRemotePeerInfo().peerId]
+    let node1Agent =
+      node2.switch.peerStore[AgentBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
+    let node2Agent =
+      node1.switch.peerStore[AgentBook][node2.switch.peerInfo.toRemotePeerInfo().peerId]
 
     check:
       node1Agent == expectedAgentString1
@@ -322,8 +328,12 @@ suite "WakuNode":
     let
       # node with custom multiaddress
       nodeKey1 = generateSecp256k1Key()
-      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(61018),
-                           extMultiAddrs = @[expectedMultiaddress1])
+      node1 = newTestWakuNode(
+        nodeKey1,
+        parseIpAddress("0.0.0.0"),
+        Port(61018),
+        extMultiAddrs = @[expectedMultiaddress1],
+      )
 
       # node with default multiaddress
       nodeKey2 = generateSecp256k1Key()
@@ -338,7 +348,9 @@ suite "WakuNode":
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node2.connectToNodes(@[node1.switch.peerInfo.toRemotePeerInfo()])
 
-    let node1MultiAddrs = node2.switch.peerStore[AddressBook][node1.switch.peerInfo.toRemotePeerInfo().peerId]
+    let node1MultiAddrs = node2.switch.peerStore[AddressBook][
+      node1.switch.peerInfo.toRemotePeerInfo().peerId
+    ]
 
     check:
       node1MultiAddrs.contains(expectedMultiaddress1)

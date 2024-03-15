@@ -23,24 +23,24 @@ import
 logScope:
   topics = "waku filter client"
 
-
 const Defaultstring = "/waku/2/default-waku/proto"
 
 ## Client
 type WakuFilterClientLegacy* = ref object of LPProtocol
-    rng: ref rand.HmacDrbgContext
-    peerManager: PeerManager
-    subManager: SubscriptionManager
+  rng: ref rand.HmacDrbgContext
+  peerManager: PeerManager
+  subManager: SubscriptionManager
 
-
-proc handleMessagePush(wf: WakuFilterClientLegacy, peerId: PeerId, requestId: string, rpc: MessagePush) =
+proc handleMessagePush(
+    wf: WakuFilterClientLegacy, peerId: PeerId, requestId: string, rpc: MessagePush
+) =
   for msg in rpc.messages:
     let
-      pubsubTopic = Defaultstring # TODO: Extend the filter push rpc to provide the pubsub topic. This is a limitation
+      pubsubTopic = Defaultstring
+        # TODO: Extend the filter push rpc to provide the pubsub topic. This is a limitation
       contentTopic = msg.contentTopic
 
     wf.subManager.notifySubscriptionHandler(pubsubTopic, contentTopic, msg)
-
 
 proc initProtocolHandler(wf: WakuFilterClientLegacy) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
@@ -66,26 +66,26 @@ proc initProtocolHandler(wf: WakuFilterClientLegacy) =
       requestId = rpc.requestId
       push = rpc.push.get()
 
-    info "received filter message push", peerId=conn.peerId, requestId=requestId
+    info "received filter message push", peerId = conn.peerId, requestId = requestId
     wf.handleMessagePush(peerId, requestId, push)
 
   wf.handler = handle
   wf.codec = WakuLegacyFilterCodec
 
-proc new*(T: type WakuFilterClientLegacy,
-          peerManager: PeerManager,
-          rng: ref rand.HmacDrbgContext): T =
-
+proc new*(
+    T: type WakuFilterClientLegacy,
+    peerManager: PeerManager,
+    rng: ref rand.HmacDrbgContext,
+): T =
   let wf = WakuFilterClientLegacy(
-      peerManager: peerManager,
-      rng: rng,
-      subManager: SubscriptionManager.init()
-    )
+    peerManager: peerManager, rng: rng, subManager: SubscriptionManager.init()
+  )
   wf.initProtocolHandler()
   wf
 
-
-proc sendFilterRpc(wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async, gcsafe.}=
+proc sendFilterRpc(
+    wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId | RemotePeerInfo
+): Future[WakuFilterResult[void]] {.async, gcsafe.} =
   let connOpt = await wf.peerManager.dialPeer(peer, WakuLegacyFilterCodec)
   if connOpt.isNone():
     return err(dialFailure)
@@ -94,22 +94,23 @@ proc sendFilterRpc(wf: WakuFilterClientLegacy, rpc: FilterRPC, peer: PeerId|Remo
   await connection.writeLP(rpc.encode().buffer)
   return ok()
 
-proc sendFilterRequestRpc(wf: WakuFilterClientLegacy,
-                          pubsubTopic: PubsubTopic,
-                          contentTopics: seq[ContentTopic],
-                          subscribe: bool,
-                          peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
-
+proc sendFilterRequestRpc(
+    wf: WakuFilterClientLegacy,
+    pubsubTopic: PubsubTopic,
+    contentTopics: seq[ContentTopic],
+    subscribe: bool,
+    peer: PeerId | RemotePeerInfo,
+): Future[WakuFilterResult[void]] {.async.} =
   let requestId = generateRequestId(wf.rng)
   let contentFilters = contentTopics.mapIt(ContentFilter(contentTopic: it))
 
   let rpc = FilterRpc(
     requestId: requestId,
-    request: some(FilterRequest(
-      subscribe: subscribe,
-      pubSubTopic: pubsubTopic,
-      contentFilters: contentFilters
-    ))
+    request: some(
+      FilterRequest(
+        subscribe: subscribe, pubSubTopic: pubsubTopic, contentFilters: contentFilters
+      )
+    ),
   )
 
   let sendRes = await wf.sendFilterRpc(rpc, peer)
@@ -119,19 +120,21 @@ proc sendFilterRequestRpc(wf: WakuFilterClientLegacy,
 
   return ok()
 
-
-proc subscribe*(wf: WakuFilterClientLegacy,
-                pubsubTopic: PubsubTopic,
-                contentTopic: ContentTopic|seq[ContentTopic],
-                handler: FilterPushHandler,
-                peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
+proc subscribe*(
+    wf: WakuFilterClientLegacy,
+    pubsubTopic: PubsubTopic,
+    contentTopic: ContentTopic | seq[ContentTopic],
+    handler: FilterPushHandler,
+    peer: PeerId | RemotePeerInfo,
+): Future[WakuFilterResult[void]] {.async.} =
   var topics: seq[ContentTopic]
   when contentTopic is seq[ContentTopic]:
     topics = contentTopic
   else:
     topics = @[contentTopic]
 
-  let sendRes = await wf.sendFilterRequestRpc(pubsubTopic, topics, subscribe=true, peer=peer)
+  let sendRes =
+    await wf.sendFilterRequestRpc(pubsubTopic, topics, subscribe = true, peer = peer)
   if sendRes.isErr():
     return err(sendRes.error)
 
@@ -140,17 +143,20 @@ proc subscribe*(wf: WakuFilterClientLegacy,
 
   return ok()
 
-proc unsubscribe*(wf: WakuFilterClientLegacy,
-                  pubsubTopic: PubsubTopic,
-                  contentTopic: ContentTopic|seq[ContentTopic],
-                  peer: PeerId|RemotePeerInfo): Future[WakuFilterResult[void]] {.async.} =
+proc unsubscribe*(
+    wf: WakuFilterClientLegacy,
+    pubsubTopic: PubsubTopic,
+    contentTopic: ContentTopic | seq[ContentTopic],
+    peer: PeerId | RemotePeerInfo,
+): Future[WakuFilterResult[void]] {.async.} =
   var topics: seq[ContentTopic]
   when contentTopic is seq[ContentTopic]:
     topics = contentTopic
   else:
     topics = @[contentTopic]
 
-  let sendRes = await wf.sendFilterRequestRpc(pubsubTopic, topics, subscribe=false, peer=peer)
+  let sendRes =
+    await wf.sendFilterRequestRpc(pubsubTopic, topics, subscribe = false, peer = peer)
   if sendRes.isErr():
     return err(sendRes.error)
 

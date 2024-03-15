@@ -1,4 +1,3 @@
-
 ##
 ## This file is aimed to attend the requests that come directly
 ## from the 'self' node. It is expected to attend the store requests that
@@ -14,16 +13,12 @@
 ## stored by that local store node.
 ##
 
-import
-  stew/results,
-  chronos,
-  chronicles
-import
-  ./protocol,
-  ./common
+import stew/results, chronos, chronicles
+import ./protocol, ./common
 
-proc handleSelfStoreRequest*(self: WakuStore, histQuery: HistoryQuery):
-                             Future[WakuStoreResult[HistoryResponse]] {.async.} =
+proc handleSelfStoreRequest*(
+    self: WakuStore, histQuery: HistoryQuery
+): Future[WakuStoreResult[HistoryResponse]] {.async.} =
   ## Handles the store requests made by the node to itself.
   ## Normally used in REST-store requests
 
@@ -32,7 +27,5 @@ proc handleSelfStoreRequest*(self: WakuStore, histQuery: HistoryQuery):
       return err("error in handleSelfStoreRequest: " & $error)
 
     return WakuStoreResult[HistoryResponse].ok(resp)
-
   except Exception:
     return err("exception in handleSelfStoreRequest: " & getCurrentExceptionMsg())
-

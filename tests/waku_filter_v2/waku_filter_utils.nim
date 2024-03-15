@@ -1,14 +1,4 @@
-import
-  std/[
-    options,
-    tables,
-    sets,
-    sequtils,
-    algorithm
-  ],
-  chronos,
-  chronicles,
-  os
+import std/[options, tables, sets, sequtils, algorithm], chronos, chronicles, os
 
 import
   ../../../waku/[
@@ -16,22 +6,21 @@ import
     waku_filter_v2,
     waku_filter_v2/client,
     waku_filter_v2/subscriptions,
-    waku_core
+    waku_core,
   ],
-  ../testlib/[
-    common,
-    wakucore
-  ]
+  ../testlib/[common, wakucore]
 
-
-proc newTestWakuFilter*(switch: Switch,
-                        subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
-                        maxFilterPeers: uint32 = MaxFilterPeers,
-                        maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer):
-                    Future[WakuFilter] {.async.} =
+proc newTestWakuFilter*(
+    switch: Switch,
+    subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
+    maxFilterPeers: uint32 = MaxFilterPeers,
+    maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+): Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuFilter.new(peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer)
+    proto = WakuFilter.new(
+      peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
+    )
 
   await proto.start()
   switch.mount(proto)
@@ -48,7 +37,9 @@ proc newTestWakuFilterClient*(switch: Switch): Future[WakuFilterClient] {.async.
 
   return proto
 
-proc getSubscribedContentTopics*(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
+proc getSubscribedContentTopics*(
+    wakuFilter: WakuFilter, peerId: PeerId
+): seq[ContentTopic] =
   var contentTopics: seq[ContentTopic] = @[]
   let peersCriteria = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
 

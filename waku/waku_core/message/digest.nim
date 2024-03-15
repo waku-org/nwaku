@@ -3,15 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
-import
-  std/sequtils,
-  stew/[byteutils, endians2, arrayops],
-  nimcrypto/sha2
-import
-  ../topics,
-  ./message
-
+import std/sequtils, stew/[byteutils, endians2, arrayops], nimcrypto/sha2
+import ../topics, ./message
 
 ## 14/WAKU2-MESSAGE: Deterministic message hashing
 ## https://rfc.vac.dev/spec/14/#deterministic-message-hashing
@@ -33,7 +26,8 @@ converter toBytes*(digest: MDigest[256]): seq[byte] =
 proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessageHash =
   var ctx: sha256
   ctx.init()
-  defer: ctx.clear()
+  defer:
+    ctx.clear()
 
   ctx.update(pubsubTopic.toBytes())
   ctx.update(msg.payload)
@@ -41,4 +35,4 @@ proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessag
   ctx.update(msg.meta)
   ctx.update(toBytesBE(uint64(msg.timestamp)))
 
-  return ctx.finish()  # Computes the hash
+  return ctx.finish() # Computes the hash

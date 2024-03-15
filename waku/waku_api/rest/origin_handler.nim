@@ -11,11 +11,9 @@ import
   chronos,
   chronos/apps/http/httpserver
 
-type
-  OriginHandlerMiddlewareRef* = ref object of HttpServerMiddlewareRef
-    allowedOriginMatcher: Option[Regex]
-    everyOriginAllowed: bool
-
+type OriginHandlerMiddlewareRef* = ref object of HttpServerMiddlewareRef
+  allowedOriginMatcher: Option[Regex]
+  everyOriginAllowed: bool
 
 proc isEveryOriginAllowed(maybeAllowedOrigin: Option[string]): bool =
   return maybeAllowedOrigin.isSome() and maybeAllowedOrigin.get() == "*"
@@ -30,7 +28,7 @@ proc compileOriginMatcher(maybeAllowedOrigin: Option[string]): Option[Regex] =
     return none(Regex)
 
   try:
-    var matchOrigin : string
+    var matchOrigin: string
 
     if allowedOrigin == "*":
       matchOrigin = r".*"
@@ -38,9 +36,9 @@ proc compileOriginMatcher(maybeAllowedOrigin: Option[string]): Option[Regex] =
 
     let allowedOrigins = allowedOrigin.split(",")
 
-    var matchExpressions : seq[string] = @[]
+    var matchExpressions: seq[string] = @[]
 
-    var prefix : string
+    var prefix: string
     for allowedOrigin in allowedOrigins:
       if allowedOrigin.startsWith("http://"):
         prefix = r"http:\/\/"
@@ -63,22 +61,22 @@ proc compileOriginMatcher(maybeAllowedOrigin: Option[string]): Option[Regex] =
     return some(re(finalExpression, {reIgnoreCase, reExtended}))
   except RegexError:
     var msg = getCurrentExceptionMsg()
-    error "Failed to compile regex", source=allowedOrigin, err=msg
+    error "Failed to compile regex", source = allowedOrigin, err = msg
     return none(Regex)
 
-proc originsMatch(originHandler: OriginHandlerMiddlewareRef,
-                  requestOrigin: string): bool =
-
+proc originsMatch(
+    originHandler: OriginHandlerMiddlewareRef, requestOrigin: string
+): bool =
   if originHandler.allowedOriginMatcher.isNone():
     return false
 
   return requestOrigin.match(originHandler.allowedOriginMatcher.get())
 
 proc originMiddlewareProc(
-                          middleware: HttpServerMiddlewareRef,
-                          reqfence: RequestFence,
-                          nextHandler: HttpProcessCallback2
-                          ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
+    middleware: HttpServerMiddlewareRef,
+    reqfence: RequestFence,
+    nextHandler: HttpProcessCallback2,
+): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
   if reqfence.isErr():
     # Ignore request errors that detected before our middleware.
     # Let final handler deal with it.
@@ -106,7 +104,9 @@ proc originMiddlewareProc(
       elif origin.len == 0:
         discard
       elif origin.len > 1:
-        return await request.respond(Http400, "Only a single Origin header must be specified")
+        return await request.respond(
+          Http400, "Only a single Origin header must be specified"
+        )
     except HttpWriteError as exc:
       # We use default error handler if we unable to send response.
       return defaultResponse(exc)
@@ -114,12 +114,13 @@ proc originMiddlewareProc(
   # Calling next handler.
   return await nextHandler(reqfence)
 
-proc new*(t: typedesc[OriginHandlerMiddlewareRef],
-          allowedOrigin: Option[string] = none(string)
-         ): HttpServerMiddlewareRef =
-
-  let middleware =
-    OriginHandlerMiddlewareRef(allowedOriginMatcher: compileOriginMatcher(allowedOrigin),
-                               everyOriginAllowed: isEveryOriginAllowed(allowedOrigin),
-                               handler: originMiddlewareProc)
+proc new*(
+    t: typedesc[OriginHandlerMiddlewareRef],
+    allowedOrigin: Option[string] = none(string),
+): HttpServerMiddlewareRef =
+  let middleware = OriginHandlerMiddlewareRef(
+    allowedOriginMatcher: compileOriginMatcher(allowedOrigin),
+    everyOriginAllowed: isEveryOriginAllowed(allowedOrigin),
+    handler: originMiddlewareProc,
+  )
   return HttpServerMiddlewareRef(middleware)

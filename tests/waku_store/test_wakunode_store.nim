@@ -29,22 +29,22 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 procSuite "WakuNode - Store":
   ## Fixtures
   let timeOrigin = now()
-  let msgListA = @[
-    fakeWakuMessage(@[byte 00], ts=ts(00, timeOrigin)),
-    fakeWakuMessage(@[byte 01], ts=ts(10, timeOrigin)),
-    fakeWakuMessage(@[byte 02], ts=ts(20, timeOrigin)),
-    fakeWakuMessage(@[byte 03], ts=ts(30, timeOrigin)),
-    fakeWakuMessage(@[byte 04], ts=ts(40, timeOrigin)),
-    fakeWakuMessage(@[byte 05], ts=ts(50, timeOrigin)),
-    fakeWakuMessage(@[byte 06], ts=ts(60, timeOrigin)),
-    fakeWakuMessage(@[byte 07], ts=ts(70, timeOrigin)),
-    fakeWakuMessage(@[byte 08], ts=ts(80, timeOrigin)),
-    fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
-  ]
+  let msgListA =
+    @[
+      fakeWakuMessage(@[byte 00], ts = ts(00, timeOrigin)),
+      fakeWakuMessage(@[byte 01], ts = ts(10, timeOrigin)),
+      fakeWakuMessage(@[byte 02], ts = ts(20, timeOrigin)),
+      fakeWakuMessage(@[byte 03], ts = ts(30, timeOrigin)),
+      fakeWakuMessage(@[byte 04], ts = ts(40, timeOrigin)),
+      fakeWakuMessage(@[byte 05], ts = ts(50, timeOrigin)),
+      fakeWakuMessage(@[byte 06], ts = ts(60, timeOrigin)),
+      fakeWakuMessage(@[byte 07], ts = ts(70, timeOrigin)),
+      fakeWakuMessage(@[byte 08], ts = ts(80, timeOrigin)),
+      fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
+    ]
 
   let archiveA = block:
     let driver = newSqliteArchiveDriver()
@@ -52,7 +52,9 @@ procSuite "WakuNode - Store":
     for msg in msgListA:
       let msg_digest = waku_archive.computeDigest(msg)
       let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
-      require (waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)).isOk()
+      require (
+        waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)
+      ).isOk()
 
     driver
 
@@ -78,7 +80,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
-    let queryRes = waitFor client.query(req, peer=serverPeer)
+    let queryRes = waitFor client.query(req, peer = serverPeer)
 
     ## Then
     check queryRes.isOk()
@@ -108,7 +110,11 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: PagingDirection.FORWARD)
+    let req = HistoryQuery(
+      contentTopics: @[DefaultContentTopic],
+      pageSize: 7,
+      direction: PagingDirection.FORWARD,
+    )
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -117,8 +123,8 @@ procSuite "WakuNode - Store":
     var pages = newSeq[seq[WakuMessage]](2)
     var cursors = newSeq[Option[HistoryCursor]](2)
 
-    for i in 0..<2:
-      let res = waitFor client.query(nextReq, peer=serverPeer)
+    for i in 0 ..< 2:
+      let res = waitFor client.query(nextReq, peer = serverPeer)
       require res.isOk()
 
       # Keep query response content
@@ -135,8 +141,8 @@ procSuite "WakuNode - Store":
       cursors[1] == none(HistoryCursor)
 
     check:
-      pages[0] == msgListA[0..6]
-      pages[1] == msgListA[7..9]
+      pages[0] == msgListA[0 .. 6]
+      pages[1] == msgListA[7 .. 9]
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -159,7 +165,11 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], pageSize: 7, direction: PagingDirection.BACKWARD)
+    let req = HistoryQuery(
+      contentTopics: @[DefaultContentTopic],
+      pageSize: 7,
+      direction: PagingDirection.BACKWARD,
+    )
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -168,8 +178,8 @@ procSuite "WakuNode - Store":
     var pages = newSeq[seq[WakuMessage]](2)
     var cursors = newSeq[Option[HistoryCursor]](2)
 
-    for i in 0..<2:
-      let res = waitFor client.query(nextReq, peer=serverPeer)
+    for i in 0 ..< 2:
+      let res = waitFor client.query(nextReq, peer = serverPeer)
       require res.isOk()
 
       # Keep query response content
@@ -186,8 +196,8 @@ procSuite "WakuNode - Store":
       cursors[1] == none(HistoryCursor)
 
     check:
-      pages[0] == msgListA[3..9]
-      pages[1] == msgListA[0..2]
+      pages[0] == msgListA[3 .. 9]
+      pages[1] == msgListA[0 .. 2]
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -197,7 +207,8 @@ procSuite "WakuNode - Store":
     ## Setup
     let
       filterSourceKey = generateSecp256k1Key()
-      filterSource = newTestWakuNode(filterSourceKey, parseIpAddress("0.0.0.0"), Port(0))
+      filterSource =
+        newTestWakuNode(filterSourceKey, parseIpAddress("0.0.0.0"), Port(0))
       serverKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
       clientKey = generateSecp256k1Key()
@@ -224,10 +235,17 @@ procSuite "WakuNode - Store":
 
     ## Then
     let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
-    proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
+    proc filterHandler(
+        pubsubTopic: PubsubTopic, msg: WakuMessage
+    ) {.async, gcsafe, closure.} =
       filterFut.complete((pubsubTopic, msg))
 
-    waitFor server.legacyFilterSubscribe(some(DefaultPubsubTopic), DefaultContentTopic, filterHandler, peer=filterSourcePeer)
+    waitFor server.legacyFilterSubscribe(
+      some(DefaultPubsubTopic),
+      DefaultContentTopic,
+      filterHandler,
+      peer = filterSourcePeer,
+    )
 
     waitFor sleepAsync(100.millis)
 
@@ -237,7 +255,9 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
 
-    let res = waitFor client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
+    let res = waitFor client.query(
+      HistoryQuery(contentTopics: @[DefaultContentTopic]), peer = serverPeer
+    )
 
     ## Then
     check res.isOk()
@@ -273,20 +293,23 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Forcing a bad cursor with empty digest data
-    var data: array[32, byte] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    var data: array[32, byte] = [
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0,
+    ]
     let cursor = HistoryCursor(
-          pubsubTopic: "pubsubTopic",
-          senderTime: now(),
-          storeTime: now(),
-          digest: waku_archive.MessageDigest(data: data)
-        )
+      pubsubTopic: "pubsubTopic",
+      senderTime: now(),
+      storeTime: now(),
+      digest: waku_archive.MessageDigest(data: data),
+    )
 
     ## Given
     let req = HistoryQuery(contentTopics: @[DefaultContentTopic], cursor: some(cursor))
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
-    let queryRes = waitFor client.query(req, peer=serverPeer)
+    let queryRes = waitFor client.query(req, peer = serverPeer)
 
     ## Then
     check not queryRes.isOk()

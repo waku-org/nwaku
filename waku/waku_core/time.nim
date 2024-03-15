@@ -3,9 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/times,
-  metrics
+import std/times, metrics
 
 type Timestamp* = int64 # A nanosecond precision timestamp
 

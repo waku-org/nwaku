@@ -3,17 +3,15 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options
-import
-  ../common/protobuf,
-  ../waku_core,
-  ./rpc
+import std/options
+import ../common/protobuf, ../waku_core, ./rpc
 
 const
-  MaxSubscribeSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
-  MaxSubscribeResponseSize* = 64*1024 # Responses are small. 64kB safety buffer.
-  MaxPushSize* = 10 * MaxWakuMessageSize + 64*1024 # We add a 64kB safety buffer for protocol overhead
+  MaxSubscribeSize* = 10 * MaxWakuMessageSize + 64 * 1024
+    # We add a 64kB safety buffer for protocol overhead
+  MaxSubscribeResponseSize* = 64 * 1024 # Responses are small. 64kB safety buffer.
+  MaxPushSize* = 10 * MaxWakuMessageSize + 64 * 1024
+    # We add a 64kB safety buffer for protocol overhead
 
 proc encode*(rpc: FilterSubscribeRequest): ProtoBuffer =
   var pb = initProtoBuffer()

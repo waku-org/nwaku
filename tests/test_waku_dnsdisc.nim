@@ -42,9 +42,12 @@ suite "Waku DNS Discovery":
     await allFutures([node1.start(), node2.start(), node3.start()])
 
     # Build and sign tree
-    var tree = buildTree(1,                   # Seq no
-                         @[enr1, enr2, enr3], # ENR entries
-                         @[]).get()           # No link entries
+    var tree = buildTree(
+        1, # Seq no
+        @[enr1, enr2, enr3], # ENR entries
+        @[],
+      )
+      .get() # No link entries
 
     let treeKeys = keys.KeyPair.random(rng[])
 
@@ -57,7 +60,8 @@ suite "Waku DNS Discovery":
       domain = "testnodes.aq"
       zoneTxts = tree.buildTXT(domain).get()
       username = Base32.encode(treeKeys.pubkey().toRawCompressed())
-      location = LinkPrefix & username & "@" & domain # See EIP-1459: https://eips.ethereum.org/EIPS/eip-1459
+      location = LinkPrefix & username & "@" & domain
+        # See EIP-1459: https://eips.ethereum.org/EIPS/eip-1459
 
     # Create a resolver for the domain
 
@@ -90,11 +94,20 @@ suite "Waku DNS Discovery":
 
     check:
       # We have successfully connected to all discovered nodes
-      node4.peerManager.peerStore.peers().anyIt(it.peerId == node1.switch.peerInfo.peerId)
-      node4.peerManager.peerStore.connectedness(node1.switch.peerInfo.peerId) == Connected
-      node4.peerManager.peerStore.peers().anyIt(it.peerId == node2.switch.peerInfo.peerId)
-      node4.peerManager.peerStore.connectedness(node2.switch.peerInfo.peerId) == Connected
-      node4.peerManager.peerStore.peers().anyIt(it.peerId == node3.switch.peerInfo.peerId)
-      node4.peerManager.peerStore.connectedness(node3.switch.peerInfo.peerId) == Connected
+      node4.peerManager.peerStore.peers().anyIt(
+        it.peerId == node1.switch.peerInfo.peerId
+      )
+      node4.peerManager.peerStore.connectedness(node1.switch.peerInfo.peerId) ==
+        Connected
+      node4.peerManager.peerStore.peers().anyIt(
+        it.peerId == node2.switch.peerInfo.peerId
+      )
+      node4.peerManager.peerStore.connectedness(node2.switch.peerInfo.peerId) ==
+        Connected
+      node4.peerManager.peerStore.peers().anyIt(
+        it.peerId == node3.switch.peerInfo.peerId
+      )
+      node4.peerManager.peerStore.connectedness(node3.switch.peerInfo.peerId) ==
+        Connected
 
     await allFutures([node1.stop(), node2.stop(), node3.stop(), node4.stop()])
