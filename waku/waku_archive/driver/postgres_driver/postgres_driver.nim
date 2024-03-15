@@ -31,7 +31,7 @@ type PostgresDriver* = ref object of ArchiveDriver
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);"""
+  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
