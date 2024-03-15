@@ -17,7 +17,7 @@ import
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, futures],
+  ../testlib/[wakucore, wakunode, testasync, futures, assertions],
   ../resources/payloads
 
 proc setupRln(node: WakuNode, identifier: uint) {.async.} =
@@ -55,7 +55,7 @@ proc sendRlnMessage(
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
   var message = WakuMessage(payload: payload, contentTopic: contentTopic)
-  doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
+  assertResultOk client.wakuRlnRelay.appendRLNProof(message, epochTime())
   discard await client.publish(some(pubsubTopic), message)
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
@@ -145,6 +145,7 @@ suite "Waku RlnRelay - End to End":
         catchRes.error()[].msg ==
           "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
 
+    # FIXME: fails on macos
     asyncTest "Pubsub topics subscribed before mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -183,6 +184,7 @@ suite "Waku RlnRelay - End to End":
       check:
         not isCompleted2
 
+    # FIXME: fails on macos
     asyncTest "Pubsub topics subscribed after mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln without subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[])
@@ -219,6 +221,7 @@ suite "Waku RlnRelay - End to End":
         not isCompleted2
 
   suite "Analysis of Bandwith Limitations":
+    # FIXME: fails on macos
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -305,6 +308,7 @@ suite "Waku RlnRelay - End to End":
       # Then the message is not relayed
       check not await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
 
+    # FIXME: fails on macos
     asyncTest "Invalid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])

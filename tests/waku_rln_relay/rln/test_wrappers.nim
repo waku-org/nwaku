@@ -13,7 +13,7 @@ import
 import
   ../../../waku/[waku_rln_relay, waku_rln_relay/rln, waku_rln_relay/rln/wrappers],
   ./waku_rln_relay_utils,
-  ../../testlib/[simple_mock]
+  ../../testlib/[simple_mock, assertions]
 
 const Empty32Array = default(array[32, byte])
 
@@ -47,60 +47,61 @@ suite "membershipKeyGen":
       identityCredentials.idSecretHash.valid()
       identityCredentials.idCommitment.valid()
 
-  # FIXME: fails on macos
-  test "done is false":
-    # Given the key_gen function fails
-    let backup = rln_interface.key_gen
-    mock(rln_interface.key_gen):
-      proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
-        return false
+  when not defined(macosx):
+    # FIXME: fails on macos [mock]
 
-      keyGenMock
+    test "done is false":
+      # Given the key_gen function fails
+      let backup = rln_interface.key_gen
+      mock(rln_interface.key_gen):
+        proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
+          return false
 
-    # When we generate the membership keys
-    let identityCredentialsRes = membershipKeyGen(rlnRes.get())
+        keyGenMock
 
-    # Then it fails
-    check:
-      identityCredentialsRes.error() == "error in key generation"
+      # When we generate the membership keys
+      let identityCredentialsRes = membershipKeyGen(rlnRes.get())
 
-    # Cleanup
-    mock(rln_interface.key_gen):
-      backup
+      # Then it fails
+      check:
+        identityCredentialsRes.error() == "error in key generation"
 
-  # FIXME: fails on macos
-  test "generatedKeys length is not 128":
-    # Given the key_gen function succeeds with wrong values
-    let backup = rln_interface.key_gen
-    mock(rln_interface.key_gen):
-      proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
-        echo "# RUNNING MOCK"
-        output_buffer.len = 0
-        output_buffer.ptr = cast[ptr uint8](newSeq[byte](0))
-        return true
+      # Cleanup
+      mock(rln_interface.key_gen):
+        backup
 
-      keyGenMock
+    test "generatedKeys length is not 128":
+      # Given the key_gen function succeeds with wrong values
+      let backup = rln_interface.key_gen
+      mock(rln_interface.key_gen):
+        proc keyGenMock(ctx: ptr RLN, output_buffer: ptr Buffer): bool =
+          echo "# RUNNING MOCK"
+          output_buffer.len = 0
+          output_buffer.ptr = cast[ptr uint8](newSeq[byte](0))
+          return true
 
-    # When we generate the membership keys
-    let identityCredentialsRes = membershipKeyGen(rlnRes.get())
+        keyGenMock
 
-    # Then it fails
-    check:
-      identityCredentialsRes.error() == "keysBuffer is of invalid length"
+      # When we generate the membership keys
+      let identityCredentialsRes = membershipKeyGen(rlnRes.get())
 
-    # Cleanup
-    mock(rln_interface.key_gen):
-      backup
+      # Then it fails
+      check:
+        identityCredentialsRes.error() == "keysBuffer is of invalid length"
+
+      # Cleanup
+      mock(rln_interface.key_gen):
+        backup
 
 suite "RlnConfig":
   suite "createRLNInstance":
+    # FIXME: fails on macos
     test "ok":
       # When we create the RLN instance
       let rlnRes: RLNResult = createRLNInstance(15, "my.db")
 
       # Then it succeeds
-      check:
-        rlnRes.isOk()
+      assertResultOk rlnRes
 
     test "default":
       # When we create the RLN instance
@@ -110,25 +111,27 @@ suite "RlnConfig":
       check:
         rlnRes.isOk()
 
-    # FIXME: fails on macos
-    test "new_circuit fails":
-      # Given the new_circuit function fails
-      let backup = rln_interface.new_circuit
-      mock(rln_interface.new_circuit):
-        proc newCircuitMock(
-            tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
-        ): bool =
-          return false
+    when not defined(macosx):
+      # FIXME: fails on macos [mock]
 
-        newCircuitMock
+      test "new_circuit fails":
+        # Given the new_circuit function fails
+        let backup = rln_interface.new_circuit
+        mock(rln_interface.new_circuit):
+          proc newCircuitMock(
+              tree_height: uint, input_buffer: ptr Buffer, ctx: ptr (ptr RLN)
+          ): bool =
+            return false
 
-      # When we create the RLN instance
-      let rlnRes: RLNResult = createRLNInstance(15, "my.db")
+          newCircuitMock
 
-      # Then it fails
-      check:
-        rlnRes.error() == "error in parameters generation"
+        # When we create the RLN instance
+        let rlnRes: RLNResult = createRLNInstance(15, "my.db")
 
-      # Cleanup
-      mock(rln_interface.new_circuit):
-        backup
+        # Then it fails
+        check:
+          rlnRes.error() == "error in parameters generation"
+
+        # Cleanup
+        mock(rln_interface.new_circuit):
+          backup
