@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[json,tables,sequtils],
+  std/[json, tables, sequtils],
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -26,32 +26,29 @@ logScope:
 #discovery_message_requests_outgoing_total{response="no_response"}
 
 declarePublicGauge networkmonitor_peer_type_as_per_enr,
-    "Number of peers supporting each capability according to the ENR",
-    labels = ["capability"]
+  "Number of peers supporting each capability according to the ENR",
+  labels = ["capability"]
 
 declarePublicGauge networkmonitor_peer_type_as_per_protocol,
-    "Number of peers supporting each protocol, after a successful connection) ",
-    labels = ["protocols"]
+  "Number of peers supporting each protocol, after a successful connection) ",
+  labels = ["protocols"]
 
 declarePublicGauge networkmonitor_peer_user_agents,
-    "Number of peers with each user agent",
-    labels = ["user_agent"]
+  "Number of peers with each user agent", labels = ["user_agent"]
 
 declarePublicHistogram networkmonitor_peer_ping,
-    "Histogram tracking ping durations for discovered peers",
-    buckets = [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 2000.0, Inf]
+  "Histogram tracking ping durations for discovered peers",
+  buckets =
+    [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0, 2000.0, Inf]
 
 declarePublicGauge networkmonitor_peer_count,
-    "Number of discovered peers",
-    labels = ["connected"]
+  "Number of discovered peers", labels = ["connected"]
 
 declarePublicGauge networkmonitor_peer_country_count,
-    "Number of peers per country",
-    labels = ["country"]
+  "Number of peers per country", labels = ["country"]
 
 type
-  CustomPeerInfo* = object
-    # populated after discovery
+  CustomPeerInfo* = object # populated after discovery
     lastTimeDiscovered*: int64
     discovered*: int64
     peerId*: string
@@ -80,23 +77,32 @@ type
   # stores the content topic and the count of rx messages
   ContentTopicMessageTableRef* = TableRef[string, int]
 
-proc installHandler*(router: var RestRouter,
-                     allPeers: CustomPeersTableRef,
-                     numMessagesPerContentTopic: ContentTopicMessageTableRef) =
-  router.api(MethodGet, "/allpeersinfo") do () -> RestApiResponse:
+proc installHandler*(
+    router: var RestRouter,
+    allPeers: CustomPeersTableRef,
+    numMessagesPerContentTopic: ContentTopicMessageTableRef,
+) =
+  router.api(MethodGet, "/allpeersinfo") do() -> RestApiResponse:
     let values = toSeq(allPeers.values())
-    return RestApiResponse.response(values.toJson(), contentType="application/json")
-  router.api(MethodGet, "/contenttopics") do () -> RestApiResponse:
+    return RestApiResponse.response(values.toJson(), contentType = "application/json")
+  router.api(MethodGet, "/contenttopics") do() -> RestApiResponse:
     # TODO: toJson() includes the hash
-    return RestApiResponse.response($(%numMessagesPerContentTopic), contentType="application/json")
+    return RestApiResponse.response(
+      $(%numMessagesPerContentTopic), contentType = "application/json"
+    )
 
 proc startMetricsServer*(serverIp: IpAddress, serverPort: Port): Result[void, string] =
-    info "Starting metrics HTTP server", serverIp, serverPort
+  info "Starting metrics HTTP server", serverIp, serverPort
 
-    try:
-      startMetricsHttpServer($serverIp, serverPort)
-    except Exception as e:
-      error("Failed to start metrics HTTP server", serverIp=serverIp, serverPort=serverPort, msg=e.msg)
+  try:
+    startMetricsHttpServer($serverIp, serverPort)
+  except Exception as e:
+    error(
+      "Failed to start metrics HTTP server",
+      serverIp = serverIp,
+      serverPort = serverPort,
+      msg = e.msg,
+    )
 
-    info "Metrics HTTP server started", serverIp, serverPort
-    ok()
+  info "Metrics HTTP server started", serverIp, serverPort
+  ok()

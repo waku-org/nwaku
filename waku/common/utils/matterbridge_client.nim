@@ -3,9 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/[httpclient, json, uri, options],
-  stew/results
+import std/[httpclient, json, uri, options], stew/results
 
 const
   # Resource locators
@@ -22,16 +20,14 @@ type
     host*: Uri
     gateway*: string
 
-proc new*(T: type MatterbridgeClient,
-          hostUri: string,
-          gateway = "gateway1"): MatterbridgeClient 
-  {.raises: [Defect, KeyError].} =
-  
+proc new*(
+    T: type MatterbridgeClient, hostUri: string, gateway = "gateway1"
+): MatterbridgeClient {.raises: [Defect, KeyError].} =
   let mbClient = MatterbridgeClient()
 
   mbClient.hostClient = newHttpClient()
-  mbClient.hostClient.headers = newHttpHeaders({ "Content-Type": "application/json" })
-  
+  mbClient.hostClient.headers = newHttpHeaders({"Content-Type": "application/json"})
+
   mbClient.host = parseUri(hostUri)
   mbClient.gateway = gateway
 
@@ -54,18 +50,17 @@ proc getMessages*(mb: MatterbridgeClient): MatterbridgeResult[seq[JsonNode]] =
 proc postMessage*(mb: MatterbridgeClient, msg: JsonNode): MatterbridgeResult[bool] =
   var response: Response
   try:
-    response = mb.hostClient.request($(mb.host / message),
-                                     httpMethod = HttpPost,
-                                     body = $msg)
+    response =
+      mb.hostClient.request($(mb.host / message), httpMethod = HttpPost, body = $msg)
   except Exception as e:
     return err("post request failed: " & e.msg)
 
   ok(response.status == "200 OK")
 
-proc postMessage*(mb: MatterbridgeClient, text: string, username: string): MatterbridgeResult[bool] =
-  let jsonNode = %* {"text": text,
-                     "username": username,
-                     "gateway": mb.gateway}
+proc postMessage*(
+    mb: MatterbridgeClient, text: string, username: string
+): MatterbridgeResult[bool] =
+  let jsonNode = %*{"text": text, "username": username, "gateway": mb.gateway}
 
   return mb.postMessage(jsonNode)
 

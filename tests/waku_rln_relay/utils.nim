@@ -1,6 +1,8 @@
 import web3, chronos, options, stint
 
-proc deployContract*(web3: Web3, code: string, gasPrice = 0, contractInput = ""): Future[ReceiptObject] {.async.} =
+proc deployContract*(
+    web3: Web3, code: string, gasPrice = 0, contractInput = ""
+): Future[ReceiptObject] {.async.} =
   # the contract input is the encoded version of contract constructor's input
   # use nim-web3/encoding.nim module to find the appropriate encoding procedure for different argument types
   # e.g., consider the following contract constructor in solidity

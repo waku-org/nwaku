@@ -1,2 +1,1 @@
-type
-  OnFatalErrorHandler* = proc(errMsg: string) {.gcsafe, closure, raises: [].}
+type OnFatalErrorHandler* = proc(errMsg: string) {.gcsafe, closure, raises: [].}

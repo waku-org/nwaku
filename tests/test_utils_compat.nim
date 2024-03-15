@@ -1,7 +1,6 @@
 {.used.}
 
-import
-  testutils/unittests
+import testutils/unittests
 import
   stew/results,
   ../../waku/waku_core/message,
@@ -9,7 +8,6 @@ import
   ./testlib/common
 
 suite "Waku Payload":
-
   test "Encode/Decode waku message with timestamp":
     ## Test encoding and decoding of the timestamp field of a WakuMessage
 
@@ -21,7 +19,7 @@ suite "Waku Payload":
       msg = WakuMessage(payload: payload, version: version, timestamp: timestamp)
 
     ## When
-    let pb =  msg.encode()
+    let pb = msg.encode()
     let msgDecoded = WakuMessage.decode(pb.buffer)
 
     ## Then
@@ -42,7 +40,7 @@ suite "Waku Payload":
       msg = WakuMessage(payload: payload, version: version)
 
     ## When
-    let pb =  msg.encode()
+    let pb = msg.encode()
     let msgDecoded = WakuMessage.decode(pb.buffer)
 
     ## Then

@@ -3,10 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronicles,
-  sequtils,
-  stew/[results]
+import chronicles, sequtils, stew/[results]
 
 import
   ../../waku/waku_rln_relay/rln,
@@ -21,8 +18,7 @@ proc doInspectRlnDb*(conf: WakuNodeConf) =
   trace "configuration", conf = $conf
 
   # 2. initialize rlnInstance
-  let rlnInstance = createRLNInstance(d=20,
-                                      tree_path = conf.treePath).valueOr:
+  let rlnInstance = createRLNInstance(d = 20, tree_path = conf.treePath).valueOr:
     error "failure while creating RLN instance", error
     quit(1)
 
@@ -30,15 +26,16 @@ proc doInspectRlnDb*(conf: WakuNodeConf) =
   let metadataOpt = rlnInstance.getMetadata().valueOr:
     error "failure while getting RLN metadata", error
     quit(1)
-  
+
   if metadataOpt.isNone():
     error "RLN metadata does not exist"
     quit(1)
   let metadata = metadataOpt.get()
 
-  info "RLN metadata", lastProcessedBlock = metadata.lastProcessedBlock, 
-                       chainId = metadata.chainId,
-                       contractAddress = metadata.contractAddress,
-                       validRoots = metadata.validRoots.mapIt(it.inHex())
+  info "RLN metadata",
+    lastProcessedBlock = metadata.lastProcessedBlock,
+    chainId = metadata.chainId,
+    contractAddress = metadata.contractAddress,
+    validRoots = metadata.validRoots.mapIt(it.inHex())
 
   quit(0)

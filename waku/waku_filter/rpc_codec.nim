@@ -3,18 +3,12 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options
-import
-  ../common/protobuf,
-  ../waku_core,
-  ./rpc
-
+import std/options
+import ../common/protobuf, ../waku_core, ./rpc
 
 # Multiply by 10 for safety. Currently we never push more than 1 message at a time
 # We add a 64kB safety buffer for protocol overhead.
 const MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024
-
 
 proc encode*(filter: ContentFilter): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -35,7 +29,6 @@ proc decode*(T: type ContentFilter, buffer: seq[byte]): ProtobufResult[T] =
     rpc.contentTopic = topic
 
   ok(rpc)
-
 
 proc encode*(rpc: FilterRequest): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -76,7 +69,6 @@ proc decode*(T: type FilterRequest, buffer: seq[byte]): ProtobufResult[T] =
 
   ok(rpc)
 
-
 proc encode*(push: MessagePush): ProtoBuffer =
   var pb = initProtoBuffer()
 
@@ -100,7 +92,6 @@ proc decode*(T: type MessagePush, buffer: seq[byte]): ProtobufResult[T] =
       rpc.messages.add(msg)
 
   ok(rpc)
-
 
 proc encode*(rpc: FilterRPC): ProtoBuffer =
   var pb = initProtoBuffer()

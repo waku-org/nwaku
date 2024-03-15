@@ -5,18 +5,16 @@ import
   stew/results,
   chronicles,
   sqlite3_abi # sqlite3_column_int64
-import
-  ../../../common/databases/db_sqlite,
-  ../../../common/databases/common
-
+import ../../../common/databases/db_sqlite, ../../../common/databases/common
 
 logScope:
   topics = "waku archive migration"
 
-
 const SchemaVersion* = 8 # increase this when there is an update in the database schema
 
-template projectRoot: string = currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".."
+template projectRoot(): string =
+  currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".."
+
 const MessageStoreMigrationPath: string = projectRoot / "migrations" / "message_store"
 
 proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
@@ -39,14 +37,14 @@ proc isSchemaVersion7*(db: SqliteDatabase): DatabaseResult[bool] =
     let colName = cstring sqlite3_column_text(s, 0)
     pkColumns.add($colName)
 
-  let query = """SELECT l.name FROM pragma_table_info("Message") as l WHERE l.pk != 0;"""
+  let query =
+    """SELECT l.name FROM pragma_table_info("Message") as l WHERE l.pk != 0;"""
   let res = db.query(query, queryRowCallback)
   if res.isErr():
     return err("failed to determine the current SchemaVersion: " & $res.error)
 
   if pkColumns == @["pubsubTopic", "id", "storedAt"]:
     return ok(true)
-
   else:
     info "Not considered schema version 7"
     return ok(false)
@@ -62,15 +60,16 @@ proc migrate*(db: SqliteDatabase, targetVersion = SchemaVersion): DatabaseResult
   ## NOTE: Down migration it is not currently supported
   debug "starting message store's sqlite database migration"
 
-  let userVersion = ? db.getUserVersion()
-  let isSchemaVersion7 = ? db.isSchemaVersion7()
+  let userVersion = ?db.getUserVersion()
+  let isSchemaVersion7 = ?db.isSchemaVersion7()
 
   if userVersion == 0'i64 and isSchemaVersion7:
     info "We found user_version 0 but the database schema reflects the user_version 7"
     ## Force the correct schema version
-    ? db.setUserVersion( 7 )
+    ?db.setUserVersion(7)
 
-  let migrationRes = migrate(db, targetVersion, migrationsScriptsDir=MessageStoreMigrationPath)
+  let migrationRes =
+    migrate(db, targetVersion, migrationsScriptsDir = MessageStoreMigrationPath)
   if migrationRes.isErr():
     return err("failed to execute migration scripts: " & migrationRes.error)
 

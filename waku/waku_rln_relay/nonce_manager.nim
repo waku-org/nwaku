@@ -3,18 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronos,
-  stew/results,
-  times
-import
-  ./constants
+import chronos, stew/results, times
+import ./constants
 
-export
-  chronos,
-  times,
-  results,
-  constants
+export chronos, times, results, constants
 
 # This module contains the NonceManager interface
 # The NonceManager is responsible for managing the messageId used to generate RLN proofs
@@ -44,24 +36,26 @@ proc `$`*(ne: NonceManagerError): string =
     return "NonceLimitReached: " & ne.error
 
 proc init*(T: type NonceManager, nonceLimit: Nonce, epoch = 1.float64): T =
-  return NonceManager(
-    epoch: epoch,
-    nextNonce: 0,
-    lastNonceTime: 0,
-    nonceLimit: nonceLimit
-  )
-
+  return
+    NonceManager(epoch: epoch, nextNonce: 0, lastNonceTime: 0, nonceLimit: nonceLimit)
 
 proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
   let now = getTime().toUnixFloat()
   var retNonce = n.nextNonce
 
-  if now - n.lastNonceTime >= n.epoch: retNonce = 0
+  if now - n.lastNonceTime >= n.epoch:
+    retNonce = 0
   n.nextNonce = retNonce + 1
   n.lastNonceTime = now
 
   if retNonce >= n.nonceLimit:
-    return err(NonceManagerError(kind: NonceLimitReached, 
-                                 error: "Nonce limit reached. Please wait for the next epoch. requested nonce: " & $retNonce & " & nonceLimit: " & $n.nonceLimit))
-  
+    return err(
+      NonceManagerError(
+        kind: NonceLimitReached,
+        error:
+          "Nonce limit reached. Please wait for the next epoch. requested nonce: " &
+          $retNonce & " & nonceLimit: " & $n.nonceLimit,
+      )
+    )
+
   return ok(retNonce)

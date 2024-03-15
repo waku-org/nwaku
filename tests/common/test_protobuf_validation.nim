@@ -1,18 +1,14 @@
-
 {.used.}
 
-import
-  testutils/unittests
-import
-  ../../waku/common/protobuf
-
+import testutils/unittests
+import ../../waku/common/protobuf
 
 ## Fixtures
 
 const MaxTestRpcFieldLen = 5
 
 type TestRpc = object
-    testField*: string
+  testField*: string
 
 proc init(T: type TestRpc, field: string): T =
   T(testField: field)
@@ -40,11 +36,9 @@ proc decode(T: type TestRpc, buf: seq[byte]): ProtobufResult[T] =
 
   ok(TestRpc.init(field))
 
-
 ## Tests
 
 suite "Waku Common - libp2p minprotobuf wrapper":
-
   test "serialize and deserialize - valid length field":
     ## Given
     let field = "12345"
@@ -82,10 +76,9 @@ suite "Waku Common - libp2p minprotobuf wrapper":
       error.kind == ProtobufErrorKind.MissingRequiredField
       error.field == "test_field"
 
-
   test "serialize and deserialize - invalid length field":
     ## Given
-    let field = "123456"  # field.len = MaxTestRpcFieldLen + 1
+    let field = "123456" # field.len = MaxTestRpcFieldLen + 1
 
     let rpc = TestRpc.init(field)
 

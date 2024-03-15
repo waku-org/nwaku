@@ -1,9 +1,6 @@
 {.used.}
 
-import
-  std/sequtils,
-  testutils/unittests,
-  chronos
+import std/sequtils, testutils/unittests, chronos
 import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_archive,
@@ -13,9 +10,7 @@ import
   ../testlib/common,
   ../testlib/wakucore
 
-
 suite "SQLite driver":
-
   test "init driver and database":
     ## Given
     let database = newSqliteDatabase()
@@ -40,11 +35,13 @@ suite "SQLite driver":
 
     let driver = newSqliteArchiveDriver()
 
-    let msg = fakeWakuMessage(contentTopic=contentTopic)
+    let msg = fakeWakuMessage(contentTopic = contentTopic)
     let msgHash = computeMessageHash(DefaultPubsubTopic, msg)
 
     ## When
-    let putRes = waitFor driver.put(DefaultPubsubTopic, msg, computeDigest(msg), msgHash, msg.timestamp)
+    let putRes = waitFor driver.put(
+      DefaultPubsubTopic, msg, computeDigest(msg), msgHash, msg.timestamp
+    )
 
     ## Then
     check:
@@ -53,11 +50,10 @@ suite "SQLite driver":
     let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     check:
       storedMsg.len == 1
-      storedMsg.all do (item: auto) -> bool:
+      storedMsg.all do(item: auto) -> bool:
         let (pubsubTopic, msg, _, _, hash) = item
-        msg.contentTopic == contentTopic and
-        pubsubTopic == DefaultPubsubTopic and
-        hash == msgHash
+        msg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic and
+          hash == msgHash
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")

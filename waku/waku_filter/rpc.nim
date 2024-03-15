@@ -3,11 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options
-import
-  ../waku_core
-
+import std/options
+import ../waku_core
 
 type
   ContentFilter* = object

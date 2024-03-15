@@ -9,11 +9,9 @@ import
   libp2p/protocols/pubsub,
   libp2p/protocols/pubsub/rpc/messages
 
-
 ## Message ID provider
 
 type MessageIdProvider* = pubsub.MsgIdProvider
-
 
 ## Default message ID provider
 # Performs a sha256 digest on the Waku Relay message payload. As Protocol Buffers v3
@@ -28,10 +26,11 @@ type MessageIdProvider* = pubsub.MsgIdProvider
 # Waku Relay (Gossipsub) protocol's message cache and the gossiping process, and
 # as a consequence the network.
 
-proc defaultMessageIdProvider*(message: messages.Message): Result[MessageID, ValidationResult] =
+proc defaultMessageIdProvider*(
+    message: messages.Message
+): Result[MessageID, ValidationResult] =
   let hash = sha256.digest(message.data)
   ok(@(hash.data))
-
 
 ## Waku message Unique ID provider
 # TODO: Add here the MUID provider once `meta` field RFC PR is merged

@@ -8,23 +8,20 @@ import
   libp2p/protocols/connectivity/relay/relay,
   libp2p/protocols/connectivity/relay/client,
   stew/byteutils
-import
-  ../../waku/node/waku_switch,
-  ./testlib/common,
-  ./testlib/wakucore
+import ../../waku/node/waku_switch, ./testlib/common, ./testlib/wakucore
 
 proc newCircuitRelayClientSwitch(relayClient: RelayClient): Switch =
-  SwitchBuilder.new()
-    .withRng(rng())
-    .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
-    .withTcpTransport()
-    .withMplex()
-    .withNoise()
-    .withCircuitRelay(relayClient)
-    .build()
+  SwitchBuilder
+  .new()
+  .withRng(rng())
+  .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
+  .withTcpTransport()
+  .withMplex()
+  .withNoise()
+  .withCircuitRelay(relayClient)
+  .build()
 
 suite "Waku Switch":
-
   asyncTest "Waku Switch works with AutoNat":
     ## Given
     let
@@ -35,7 +32,9 @@ suite "Waku Switch":
 
     ## When
     await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
-    let ma = await AutonatClient.new().dialMe(sourceSwitch, wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    let ma = await AutonatClient.new().dialMe(
+      sourceSwitch, wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs
+    )
 
     ## Then
     check:
@@ -62,8 +61,12 @@ suite "Waku Switch":
     ## Given
     let
       # Create a relay address to destSwitch using wakuSwitch as the relay
-      addrs = MultiAddress.init($wakuSwitch.peerInfo.addrs[0] & "/p2p/" &
-                                $wakuSwitch.peerInfo.peerId & "/p2p-circuit").get()
+      addrs = MultiAddress
+        .init(
+          $wakuSwitch.peerInfo.addrs[0] & "/p2p/" & $wakuSwitch.peerInfo.peerId &
+            "/p2p-circuit"
+        )
+        .get()
       msg = "Just one relay away..."
 
     # Create a custom protocol
@@ -87,10 +90,12 @@ suite "Waku Switch":
     await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
 
     # destClient reserves a slot on the relay.
-    let rsvp = await destClient.reserve(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    let rsvp =
+      await destClient.reserve(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
 
     # sourceSwitch dial destSwitch using the relay
-    let conn = await sourceSwitch.dial(destSwitch.peerInfo.peerId, @[addrs], customProtoCodec)
+    let conn =
+      await sourceSwitch.dial(destSwitch.peerInfo.peerId, @[addrs], customProtoCodec)
 
     await conn.writeLp(msg)
 

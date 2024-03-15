@@ -5,17 +5,14 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
+import
   ../rln/waku_rln_relay_utils,
   ../../../waku/waku_keystore/protocol_types,
   ../../../waku/waku_rln_relay,
   ../../../waku/waku_rln_relay/rln
 
-import
-  testutils/unittests
-import 
-  stew/results,
-  stint
+import testutils/unittests
+import stew/results, stint
 from std/times import epochTime
 
 func fromStrToBytesLe(v: string): seq[byte] =
@@ -28,18 +25,19 @@ func fromStrToBytesLe(v: string): seq[byte] =
 func defaultIdentityCredential*(): IdentityCredential =
   # zero out the values we don't need
   return IdentityCredential(
-    idTrapdoor: default(IdentityTrapdoor), 
-    idNullifier: default(IdentityNullifier), 
-    idSecretHash: fromStrToBytesLe("7984f7c054ad7793d9f31a1e9f29eaa8d05966511e546bced89961eb8874ab9"), 
-    idCommitment: fromStrToBytesLe("51c31de3bff7e52dc7b2eb34fc96813bacf38bde92d27fe326ce5d8296322a7")
+    idTrapdoor: default(IdentityTrapdoor),
+    idNullifier: default(IdentityNullifier),
+    idSecretHash: fromStrToBytesLe(
+      "7984f7c054ad7793d9f31a1e9f29eaa8d05966511e546bced89961eb8874ab9"
+    ),
+    idCommitment: fromStrToBytesLe(
+      "51c31de3bff7e52dc7b2eb34fc96813bacf38bde92d27fe326ce5d8296322a7"
+    ),
   )
 
 func defaultRateCommitment*(): RateCommitment =
   let idCredential = defaultIdentityCredential()
-  return RateCommitment(
-      idCommitment: idCredential.idCommitment,
-      userMessageLimit: 100
-  )
+  return RateCommitment(idCommitment: idCredential.idCommitment, userMessageLimit: 100)
 
 suite "RLN Relay v2: serde":
   test "toLeaf: converts a rateCommitment to a valid leaf":
@@ -49,9 +47,9 @@ suite "RLN Relay v2: serde":
     let leafRes = toLeaf(rateCommitment)
     assert leafRes.isOk(), $leafRes.error
 
-    let expectedLeaf = "09beac7784abfadc9958b3176b352389d0b969ccc7f8bccf3e968ed632e26eca"
+    let expectedLeaf =
+      "09beac7784abfadc9958b3176b352389d0b969ccc7f8bccf3e968ed632e26eca"
     check expectedLeaf == leafRes.value.inHex()
-
 
   test "proofGen: generates a valid zk proof":
     # this test vector is from zerokit
@@ -65,26 +63,24 @@ suite "RLN Relay v2: serde":
     let merkleRootRes = rln.getMerkleRoot()
     assert merkleRootRes.isOk, $merkleRootRes.error
     let merkleRoot = merkleRootRes.value
-    
+
     assert success, "failed to insert member"
 
-    let proofRes = rln.proofGen(data = @[],
-                                membership = credential,
-                                userMessageLimit = rateCommitment.userMessageLimit,
-                                messageId = 0,
-                                index = 0,
-                                epoch = uint64(epochTime()/1.float64).toEpoch())
-    
+    let proofRes = rln.proofGen(
+      data = @[],
+      membership = credential,
+      userMessageLimit = rateCommitment.userMessageLimit,
+      messageId = 0,
+      index = 0,
+      epoch = uint64(epochTime() / 1.float64).toEpoch(),
+    )
+
     assert proofRes.isOk, $proofRes.error
 
     let proof = proofRes.value
 
-    let proofVerifyRes = rln.proofVerify(data = @[],
-                                         proof = proof,
-                                         validRoots = @[merkleRoot])
+    let proofVerifyRes =
+      rln.proofVerify(data = @[], proof = proof, validRoots = @[merkleRoot])
 
     assert proofVerifyRes.isOk, $proofVerifyRes.error
     assert proofVerifyRes.value, "proof verification failed"
-
-
-

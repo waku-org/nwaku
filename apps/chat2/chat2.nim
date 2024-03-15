@@ -1,7 +1,7 @@
 ## chat2 is an example of usage of Waku v2. For suggested usage options, please
 ## see dingpu tutorial in docs folder.
 
-when not(compileOption("threads")):
+when not (compileOption("threads")):
   {.fatal: "Please, compile this program with the --threads:on option!".}
 
 when (NimMajor, NimMinor) < (1, 4):
@@ -10,18 +10,29 @@ else:
   {.push raises: [].}
 
 import std/[strformat, strutils, times, options, random]
-import confutils, chronicles, chronos, stew/shims/net as stewNet,
-       eth/keys, bearssl, stew/[byteutils, results],
-       metrics,
-       metrics/chronos_httpserver
-import libp2p/[switch,                   # manage transports, a single entry point for dialing and listening
-               crypto/crypto,            # cryptographic functions
-               stream/connection,        # create and close stream read / write connections
-               multiaddress,             # encode different addressing schemes. For example, /ip4/7.7.7.7/tcp/6543 means it is using IPv4 protocol and TCP
-               peerinfo,                 # manage the information of a peer, such as peer ID and public / private key
-               peerid,                   # Implement how peers interact
-               protobuf/minprotobuf,     # message serialisation/deserialisation from and to protobufs
-               nameresolving/dnsresolver]# define DNS resolution
+import
+  confutils,
+  chronicles,
+  chronos,
+  stew/shims/net as stewNet,
+  eth/keys,
+  bearssl,
+  stew/[byteutils, results],
+  metrics,
+  metrics/chronos_httpserver
+import
+  libp2p/[
+    switch, # manage transports, a single entry point for dialing and listening
+    crypto/crypto, # cryptographic functions
+    stream/connection, # create and close stream read / write connections
+    multiaddress,
+      # encode different addressing schemes. For example, /ip4/7.7.7.7/tcp/6543 means it is using IPv4 protocol and TCP
+    peerinfo,
+      # manage the information of a peer, such as peer ID and public / private key
+    peerid, # Implement how peers interact
+    protobuf/minprotobuf, # message serialisation/deserialisation from and to protobufs
+    nameresolving/dnsresolver,
+  ] # define DNS resolution
 import
   ../../waku/waku_core,
   ../../waku/waku_lightpush/common,
@@ -37,13 +48,11 @@ import
   ../../waku/common/utils/nat,
   ./config_chat2
 
-import
-  libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/pubsub/pubsub
-import
-  ../../waku/waku_rln_relay
+import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
+import ../../waku/waku_rln_relay
 
-const Help = """
+const Help =
+  """
   Commands: /[?|help|connect|nick|exit]
   help: Prints this help
   connect: dials a remote peer
@@ -55,14 +64,14 @@ const Help = """
 # Could poll connection pool or something here, I suppose
 # TODO Ensure connected turns true on incoming connections, or get rid of it
 type Chat = ref object
-    node: WakuNode          # waku node for publishing, subscribing, etc
-    transp: StreamTransport # transport streams between read & write file descriptor
-    subscribed: bool        # indicates if a node is subscribed or not to a topic
-    connected: bool         # if the node is connected to another peer
-    started: bool           # if the node has started
-    nick: string            # nickname for this chat session
-    prompt: bool            # chat prompt is showing
-    contentTopic: string    # default content topic for chat messages
+  node: WakuNode # waku node for publishing, subscribing, etc
+  transp: StreamTransport # transport streams between read & write file descriptor
+  subscribed: bool # indicates if a node is subscribed or not to a topic
+  connected: bool # if the node is connected to another peer
+  started: bool # if the node has started
+  nick: string # nickname for this chat session
+  prompt: bool # chat prompt is showing
+  contentTopic: string # default content topic for chat messages
 
 type
   PrivateKey* = crypto.PrivateKey
@@ -85,11 +94,11 @@ proc init*(T: type Chat2Message, buffer: seq[byte]): ProtoResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var timestamp: uint64
-  discard ? pb.getField(1, timestamp)
+  discard ?pb.getField(1, timestamp)
   msg.timestamp = int64(timestamp)
 
-  discard ? pb.getField(2, msg.nick)
-  discard ? pb.getField(3, msg.payload)
+  discard ?pb.getField(2, msg.nick)
+  discard ?pb.getField(3, msg.payload)
 
   ok(msg)
 
@@ -124,19 +133,25 @@ proc showChatPrompt(c: Chat) =
     except IOError:
       discard
 
-proc getChatLine(c: Chat, msg:WakuMessage): Result[string, string]=
+proc getChatLine(c: Chat, msg: WakuMessage): Result[string, string] =
   # No payload encoding/encryption from Waku
   let
     pb = Chat2Message.init(msg.payload)
-    chatLine = if pb.isOk: pb[].toString()
-              else: string.fromBytes(msg.payload)
+    chatLine =
+      if pb.isOk:
+        pb[].toString()
+      else:
+        string.fromBytes(msg.payload)
   return ok(chatline)
 
 proc printReceivedMessage(c: Chat, msg: WakuMessage) =
   let
     pb = Chat2Message.init(msg.payload)
-    chatLine = if pb.isOk: pb[].toString()
-              else: string.fromBytes(msg.payload)
+    chatLine =
+      if pb.isOk:
+        pb[].toString()
+      else:
+        string.fromBytes(msg.payload)
   try:
     echo &"{chatLine}"
   except ValueError:
@@ -145,8 +160,8 @@ proc printReceivedMessage(c: Chat, msg: WakuMessage) =
 
   c.prompt = false
   showChatPrompt(c)
-  trace "Printing message", topic=DefaultPubsubTopic, chatLine,
-    contentTopic = msg.contentTopic
+  trace "Printing message",
+    topic = DefaultPubsubTopic, chatLine, contentTopic = msg.contentTopic
 
 proc readNick(transp: StreamTransport): Future[string] {.async.} =
   # Chat prompt
@@ -154,9 +169,10 @@ proc readNick(transp: StreamTransport): Future[string] {.async.} =
   stdout.flushFile()
   return await transp.readLine()
 
-
-proc startMetricsServer(serverIp: IpAddress, serverPort: Port): Result[MetricsHttpServerRef, string] =
-  info "Starting metrics HTTP server", serverIp= $serverIp, serverPort= $serverPort
+proc startMetricsServer(
+    serverIp: IpAddress, serverPort: Port
+): Result[MetricsHttpServerRef, string] =
+  info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
 
   let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
   if metricsServerRes.isErr():
@@ -168,23 +184,25 @@ proc startMetricsServer(serverIp: IpAddress, serverPort: Port): Result[MetricsHt
   except CatchableError:
     return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
 
-  info "Metrics HTTP server started", serverIp= $serverIp, serverPort= $serverPort
+  info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
   ok(metricsServerRes.value)
-
 
 proc publish(c: Chat, line: string) =
   # First create a Chat2Message protobuf with this line of text
   let time = getTime().toUnix()
-  let chat2pb = Chat2Message(timestamp: time,
-                             nick: c.nick,
-                             payload: line.toBytes()).encode()
+  let chat2pb =
+    Chat2Message(timestamp: time, nick: c.nick, payload: line.toBytes()).encode()
 
   ## @TODO: error handling on failure
   proc handler(response: PushResponse) {.gcsafe, closure.} =
-    trace "lightpush response received", response=response
+    trace "lightpush response received", response = response
 
-  var message = WakuMessage(payload: chat2pb.buffer,
-    contentTopic: c.contentTopic, version: 0, timestamp: getNanosecondTime(time))
+  var message = WakuMessage(
+    payload: chat2pb.buffer,
+    contentTopic: c.contentTopic,
+    version: 0,
+    timestamp: getNanosecondTime(time),
+  )
   if not isNil(c.node.wakuRlnRelay):
     # for future version when we support more than one rln protected content topic,
     # we should check the message content topic as well
@@ -201,7 +219,8 @@ proc publish(c: Chat, line: string) =
       # TODO move it to log after dogfooding
       let msgEpoch = fromEpoch(proof.epoch)
       if fromEpoch(c.node.wakuRlnRelay.lastEpoch) == msgEpoch:
-        echo "--rln epoch: ", msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
+        echo "--rln epoch: ",
+          msgEpoch, " ⚠️ message rate violation! you are spamming the network!"
       else:
         echo "--rln epoch: ", msgEpoch
       # update the last epoch
@@ -216,25 +235,25 @@ proc publish(c: Chat, line: string) =
         (waitFor c.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
           error "failed to publish message", error = error
     except CatchableError:
-        error "caught error publishing message: ", error = getCurrentExceptionMsg()      
+      error "caught error publishing message: ", error = getCurrentExceptionMsg()
 
 # TODO This should read or be subscribe handler subscribe
 proc readAndPrint(c: Chat) {.async.} =
   while true:
-#    while p.connected:
-#      # TODO: echo &"{p.id} -> "
-#
-#      echo cast[string](await p.conn.readLp(1024))
+    #    while p.connected:
+    #      # TODO: echo &"{p.id} -> "
+    #
+    #      echo cast[string](await p.conn.readLp(1024))
     #echo "readAndPrint subscribe NYI"
     await sleepAsync(100.millis)
 
 # TODO Implement
 proc writeAndPrint(c: Chat) {.async.} =
   while true:
-# Connect state not updated on incoming WakuRelay connections
-#    if not c.connected:
-#      echo "type an address or wait for a connection:"
-#      echo "type /[help|?] for help"
+    # Connect state not updated on incoming WakuRelay connections
+    #    if not c.connected:
+    #      echo "type an address or wait for a connection:"
+    #      echo "type /[help|?] for help"
 
     # Chat prompt
     showChatPrompt(c)
@@ -244,11 +263,11 @@ proc writeAndPrint(c: Chat) {.async.} =
       echo Help
       continue
 
-#    if line.startsWith("/disconnect"):
-#      echo "Ending current session"
-#      if p.connected and p.conn.closed.not:
-#        await p.conn.close()
-#      p.connected = false
+    #    if line.startsWith("/disconnect"):
+    #      echo "Ending current session"
+    #      if p.connected and p.conn.closed.not:
+    #        await p.conn.close()
+    #      p.connected = false
     elif line.startsWith("/connect"):
       # TODO Should be able to connect to multiple peers for Waku chat
       if c.connected:
@@ -259,19 +278,21 @@ proc writeAndPrint(c: Chat) {.async.} =
       let address = await c.transp.readLine()
       if address.len > 0:
         await c.connectToNodes(@[address])
-
     elif line.startsWith("/nick"):
       # Set a new nickname
       c.nick = await readNick(c.transp)
       echo "You are now known as " & c.nick
-
     elif line.startsWith("/exit"):
       if not c.node.wakuFilterLegacy.isNil():
         echo "unsubscribing from content filters..."
 
         let peerOpt = c.node.peerManager.selectPeer(WakuLegacyFilterCodec)
         if peerOpt.isSome():
-          await c.node.legacyFilterUnsubscribe(pubsubTopic=some(DefaultPubsubTopic), contentTopics=c.contentTopic, peer=peerOpt.get())
+          await c.node.legacyFilterUnsubscribe(
+            pubsubTopic = some(DefaultPubsubTopic),
+            contentTopics = c.contentTopic,
+            peer = peerOpt.get(),
+          )
 
       echo "quitting..."
 
@@ -307,21 +328,28 @@ proc readInput(wfd: AsyncFD) {.thread, raises: [Defect, CatchableError].} =
     let line = stdin.readLine()
     discard waitFor transp.write(line & "\r\n")
 
-{.pop.} # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
+{.pop.}
+  # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let
     transp = fromPipe(rfd)
     conf = Chat2Conf.load()
-    nodekey = if conf.nodekey.isSome(): conf.nodekey.get()
-              else: PrivateKey.random(Secp256k1, rng[]).tryGet()
+    nodekey =
+      if conf.nodekey.isSome():
+        conf.nodekey.get()
+      else:
+        PrivateKey.random(Secp256k1, rng[]).tryGet()
 
   # set log level
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
 
-  let natRes = setupNat(conf.nat, clientId,
-      Port(uint16(conf.tcpPort) + conf.portsShift),
-      Port(uint16(conf.udpPort) + conf.portsShift))
+  let natRes = setupNat(
+    conf.nat,
+    clientId,
+    Port(uint16(conf.tcpPort) + conf.portsShift),
+    Port(uint16(conf.udpPort) + conf.portsShift),
+  )
 
   if natRes.isErr():
     raise newException(ValueError, "setupNat error " & natRes.error)
@@ -333,20 +361,28 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
-      error "failed to create enr record", error=recordRes.error
+      error "failed to create enr record", error = recordRes.error
       quit(QuitFailure)
-    else: recordRes.get()
+    else:
+      recordRes.get()
 
   let node = block:
-      var builder = WakuNodeBuilder.init()
-      builder.withNodeKey(nodeKey)
-      builder.withRecord(record)
-      builder.withNetworkConfigurationDetails(conf.listenAddress, Port(uint16(conf.tcpPort) + conf.portsShift),
-                                              extIp, extTcpPort,
-                                              wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
-                                              wsEnabled = conf.websocketSupport,
-                                              wssEnabled = conf.websocketSecureSupport).tryGet()
-      builder.build().tryGet()
+    var builder = WakuNodeBuilder.init()
+    builder.withNodeKey(nodeKey)
+    builder.withRecord(record)
+
+    builder
+    .withNetworkConfigurationDetails(
+      conf.listenAddress,
+      Port(uint16(conf.tcpPort) + conf.portsShift),
+      extIp,
+      extTcpPort,
+      wsBindPort = Port(uint16(conf.websocketPort) + conf.portsShift),
+      wsEnabled = conf.websocketSupport,
+      wssEnabled = conf.websocketSecureSupport,
+    )
+    .tryGet()
+    builder.build().tryGet()
 
   await node.start()
 
@@ -361,14 +397,16 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
   let nick = await readNick(transp)
   echo "Welcome, " & nick & "!"
 
-  var chat = Chat(node: node,
-                  transp: transp,
-                  subscribed: true,
-                  connected: false,
-                  started: true,
-                  nick: nick,
-                  prompt: false,
-                  contentTopic: conf.contentTopic)
+  var chat = Chat(
+    node: node,
+    transp: transp,
+    subscribed: true,
+    connected: false,
+    started: true,
+    nick: nick,
+    prompt: false,
+    contentTopic: conf.contentTopic,
+  )
 
   if conf.staticnodes.len > 0:
     echo "Connecting to static peers..."
@@ -381,14 +419,17 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     echo "Connecting to " & $conf.fleet & " fleet using DNS discovery..."
 
     if conf.fleet == Fleet.test:
-      dnsDiscoveryUrl = some("enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im")
+      dnsDiscoveryUrl = some(
+        "enrtree://AO47IDOLBKH72HIZZOXQP6NMRESAN7CHYWIBNXDXWRJRZWLODKII6@test.wakuv2.nodes.status.im"
+      )
     else:
       # Connect to prod by default
-      dnsDiscoveryUrl = some("enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im")
-
+      dnsDiscoveryUrl = some(
+        "enrtree://ANEDLO25QVUGJOUTQFRYKWX6P4Z4GKVESBMHML7DZ6YK4LGS5FC5O@prod.wakuv2.nodes.status.im"
+      )
   elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
-    debug "Discovering nodes using Waku DNS discovery", url=conf.dnsDiscoveryUrl
+    debug "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
     dnsDiscoveryUrl = some(conf.dnsDiscoveryUrl)
 
   var discoveredNodes: seq[RemotePeerInfo]
@@ -401,12 +442,11 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     let dnsResolver = DnsResolver.new(nameServers)
 
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain=domain
+      trace "resolving", domain = domain
       let resolved = await dnsResolver.resolveTxt(domain)
       return resolved[0] # Use only first answer
 
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(),
-                                                 resolver)
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
     if wakuDnsDiscovery.isOk:
       let discoveredPeers = wakuDnsDiscovery.get().findPeers()
       if discoveredPeers.isOk:
@@ -432,10 +472,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         storenode = some(peerInfo.value)
       else:
         error "Incorrect conf.storenode", error = peerInfo.error
-
     elif discoveredNodes.len > 0:
       echo "Store enabled, but no store nodes configured. Choosing one at random from discovered peers"
-      storenode = some(discoveredNodes[rand(0..len(discoveredNodes) - 1)])
+      storenode = some(discoveredNodes[rand(0 .. len(discoveredNodes) - 1)])
 
     if storenode.isSome():
       # We have a viable storenode. Let's query it for historical messages.
@@ -448,8 +487,11 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         for msg in response.messages:
           let
             pb = Chat2Message.init(msg.payload)
-            chatLine = if pb.isOk: pb[].toString()
-                      else: string.fromBytes(msg.payload)
+            chatLine =
+              if pb.isOk:
+                pb[].toString()
+              else:
+                string.fromBytes(msg.payload)
           echo &"{chatLine}"
         info "Hit store handler"
 
@@ -466,7 +508,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       node.peerManager.addServicePeer(peerInfo.value, WakuLightpushCodec)
     else:
       error "LightPush not mounted. Couldn't parse conf.lightpushnode",
-                error = peerInfo.error
+        error = peerInfo.error
 
   if conf.filternode != "":
     let peerInfo = parsePeerInfo(conf.filternode)
@@ -476,19 +518,22 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       await node.mountFilterClient()
       node.peerManager.addServicePeer(peerInfo.value, WakuLegacyFilterCodec)
 
-      proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
-        trace "Hit filter handler", contentTopic=msg.contentTopic
+      proc filterHandler(
+          pubsubTopic: PubsubTopic, msg: WakuMessage
+      ) {.async, gcsafe, closure.} =
+        trace "Hit filter handler", contentTopic = msg.contentTopic
         chat.printReceivedMessage(msg)
 
-      await node.legacyFilterSubscribe(pubsubTopic=some(DefaultPubsubTopic),
-                                       contentTopics=chat.contentTopic,
-                                       filterHandler,
-                                       peerInfo.value)
+      await node.legacyFilterSubscribe(
+        pubsubTopic = some(DefaultPubsubTopic),
+        contentTopics = chat.contentTopic,
+        filterHandler,
+        peerInfo.value,
+      )
       # TODO: Here to support FilterV2 relevant subscription, but still
       # Legacy Filter is concurrent to V2 untill legacy filter will be removed
     else:
-      error "Filter not mounted. Couldn't parse conf.filternode",
-                error = peerInfo.error
+      error "Filter not mounted. Couldn't parse conf.filternode", error = peerInfo.error
 
   # Subscribe to a topic, if relay is mounted
   if conf.relay:
@@ -524,7 +569,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
           rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-          rlnEpochSizeSec: conf.rlnEpochSizeSec
+          rlnEpochSizeSec: conf.rlnEpochSizeSec,
         )
       else:
         let rlnConf = WakuRlnConfig(
@@ -534,16 +579,16 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
           rlnRelayCredPath: conf.rlnRelayCredPath,
           rlnRelayCredPassword: conf.rlnRelayCredPassword,
-          rlnEpochSizeSec: conf.rlnEpochSizeSec
+          rlnEpochSizeSec: conf.rlnEpochSizeSec,
         )
 
-      waitFor node.mountRlnRelay(rlnConf,
-                                spamHandler=some(spamHandler))
+      waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))
 
       let membershipIndex = node.wakuRlnRelay.groupManager.membershipIndex.get()
       let identityCredential = node.wakuRlnRelay.groupManager.idCredentials.get()
       echo "your membership index is: ", membershipIndex
-      echo "your rln identity commitment key is: ", identityCredential.idCommitment.inHex()
+      echo "your rln identity commitment key is: ",
+        identityCredential.idCommitment.inHex()
     else:
       info "WakuRLNRelay is disabled"
       echo "WakuRLNRelay is disabled, please enable it by passing in the --rln-relay flag"
@@ -552,10 +597,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
   if conf.metricsServer:
     let metricsServer = startMetricsServer(
-      conf.metricsServerAddress,
-      Port(conf.metricsServerPort + conf.portsShift)
+      conf.metricsServerAddress, Port(conf.metricsServerPort + conf.portsShift)
     )
-
 
   await chat.readWriteLoop()
 
@@ -577,7 +620,6 @@ proc main(rng: ref HmacDrbgContext) {.async.} =
   # TODO: Throw other errors from the mounting procedure
   except ConfigurationError as e:
     raise e
-
 
 when isMainModule: # isMainModule = true when the module is compiled as the main file
   let rng = crypto.newRng()

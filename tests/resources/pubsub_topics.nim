@@ -3,7 +3,6 @@ import std/strformat
 proc getPubsubTopic*(pubsubTopicName: string): string =
   return fmt"/waku/2/{pubsubTopicName}"
 
-
 const
   CURRENT* = getPubsubTopic("test")
   CURRENT_NESTED* = getPubsubTopic("test/nested")

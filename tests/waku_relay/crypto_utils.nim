@@ -1,8 +1,6 @@
 # Source: nimcrypto/examples/cfb.nim
 
-
 import nimcrypto
-
 
 proc cfbEncode*(key: string, iv: string, data: string): seq[byte] =
   var context: CFB[aes256]
@@ -25,7 +23,6 @@ proc cfbEncode*(key: string, iv: string, data: string): seq[byte] =
 
   return encodedData
 
-
 proc cfbDecode*(key: string, iv: string, encodedData: seq[byte]): seq[byte] =
   var context: CFB[aes256]
   var pKey: array[aes256.sizeKey, byte]
@@ -43,5 +40,5 @@ proc cfbDecode*(key: string, iv: string, encodedData: seq[byte]): seq[byte] =
   context.decrypt(encodedData, decodedData)
   # Clear context of CFB[aes256]
   context.clear()
-  
+
   return decodedData

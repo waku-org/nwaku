@@ -3,7 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
   std/[sets, options],
   stew/results,
@@ -18,10 +17,9 @@ import
 
 export db_sqlite
 
-type
-  WakuPeerStorage* = ref object of PeerStorage
-    database*: SqliteDatabase
-    replaceStmt: SqliteStmt[(seq[byte], seq[byte]), void]
+type WakuPeerStorage* = ref object of PeerStorage
+  database*: SqliteDatabase
+  replaceStmt: SqliteStmt[(seq[byte], seq[byte]), void]
 
 ##########################
 # Protobuf Serialisation #
@@ -38,13 +36,13 @@ proc decode*(T: type RemotePeerInfo, buffer: seq[byte]): ProtoResult[T] =
 
   var pb = initProtoBuffer(buffer)
 
-  discard ? pb.getField(1, storedInfo.peerId)
-  discard ? pb.getRepeatedField(2, multiaddrSeq)
-  discard ? pb.getRepeatedField(3, protoSeq)
-  discard ? pb.getField(4, storedInfo.publicKey)
-  discard ? pb.getField(5, connectedness)
-  discard ? pb.getField(6, disconnectTime)
-  let hasENR = ? pb.getField(7, rlpBytes)
+  discard ?pb.getField(1, storedInfo.peerId)
+  discard ?pb.getRepeatedField(2, multiaddrSeq)
+  discard ?pb.getRepeatedField(3, protoSeq)
+  discard ?pb.getField(4, storedInfo.publicKey)
+  discard ?pb.getField(5, connectedness)
+  discard ?pb.getField(6, disconnectTime)
+  let hasENR = ?pb.getField(7, rlpBytes)
 
   storedInfo.addrs = multiaddrSeq
   storedInfo.protocols = protoSeq
@@ -70,7 +68,8 @@ proc encode*(remotePeerInfo: RemotePeerInfo): PeerStorageResult[ProtoBuffer] =
   for proto in remotePeerInfo.protocols.items:
     pb.write(3, proto)
 
-  let catchRes = catch: pb.write(4, remotePeerInfo.publicKey)
+  let catchRes = catch:
+    pb.write(4, remotePeerInfo.publicKey)
   if catchRes.isErr():
     return err("Enncoding public key failed: " & catchRes.error.msg)
 
@@ -96,16 +95,17 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   # It contains:
   #  - peer id as primary key, stored as a blob
   #  - stored info (serialised protobuf), stored as a blob
-  let createStmt = db.prepareStmt(
-    """
+  let createStmt = db
+    .prepareStmt(
+      """
     CREATE TABLE IF NOT EXISTS Peer (
         peerId BLOB PRIMARY KEY,
         storedInfo BLOB
     ) WITHOUT ROWID;
     """,
-    NoParams,
-    void
-  ).expect("Valid statement")
+      NoParams, void,
+    )
+    .expect("Valid statement")
 
   createStmt.exec(()).isOkOr:
     return err("failed to exec")
@@ -114,11 +114,13 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   createStmt.dispose()
 
   # Reusable prepared statements
-  let replaceStmt = db.prepareStmt(
-    "REPLACE INTO Peer (peerId, storedInfo) VALUES (?, ?);",
-    (seq[byte], seq[byte]),
-    void
-  ).expect("Valid statement")
+  let replaceStmt = db
+    .prepareStmt(
+      "REPLACE INTO Peer (peerId, storedInfo) VALUES (?, ?);",
+      (seq[byte], seq[byte]),
+      void,
+    )
+    .expect("Valid statement")
 
   # General initialization
   let ps = WakuPeerStorage(database: db, replaceStmt: replaceStmt)
@@ -126,11 +128,10 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
   return ok(ps)
 
 method put*(
-  db: WakuPeerStorage,
-  remotePeerInfo: RemotePeerInfo
-  ): PeerStorageResult[void] =
+    db: WakuPeerStorage, remotePeerInfo: RemotePeerInfo
+): PeerStorageResult[void] =
   ## Adds a peer to storage or replaces existing entry if it already exists
-  
+
   let encoded = remotePeerInfo.encode().valueOr:
     return err("peer info encoding failed: " & error)
 
@@ -140,11 +141,10 @@ method put*(
   return ok()
 
 method getAll*(
-  db: WakuPeerStorage,
-  onData: peer_storage.DataProc
-  ): PeerStorageResult[void] =
+    db: WakuPeerStorage, onData: peer_storage.DataProc
+): PeerStorageResult[void] =
   ## Retrieves all peers from storage
-  
+
   proc peer(s: ptr sqlite3_stmt) {.raises: [ResultError[ProtoError]].} =
     let
       # Stored Info
@@ -154,12 +154,14 @@ method getAll*(
 
     onData(storedInfo)
 
-  let catchRes = catch: db.database.query("SELECT peerId, storedInfo FROM Peer", peer)
+  let catchRes = catch:
+    db.database.query("SELECT peerId, storedInfo FROM Peer", peer)
 
   let queryRes =
     if catchRes.isErr():
       return err("failed to extract peer from query result: " & catchRes.error.msg)
-    else: catchRes.get()
+    else:
+      catchRes.get()
 
   if queryRes.isErr():
     return err("peer storage query failed: " & queryRes.error)
@@ -168,6 +170,6 @@ method getAll*(
 
 proc close*(db: WakuPeerStorage) =
   ## Closes the database.
-  
+
   db.replaceStmt.dispose()
   db.database.close()

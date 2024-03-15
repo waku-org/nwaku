@@ -1,27 +1,11 @@
 {.used.}
 
-import
-  std/options,
-  testutils/unittests,
-  chronos,
-  chronicles,
-  libp2p/crypto/crypto
-  
+import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[
-    node/peer_manager,
-    waku_core,
-    waku_store,
-    waku_store/client,
-    common/paging
-  ],
-  ../testlib/[
-    common,
-    wakucore,
-    testasync,
-    futures
-  ],
+  ../../../waku/
+    [node/peer_manager, waku_core, waku_store, waku_store/client, common/paging],
+  ../testlib/[common, wakucore, testasync, futures],
   ./store_utils
 
 suite "Store Client":
@@ -43,26 +27,24 @@ suite "Store Client":
   var clientPeerInfo {.threadvar.}: RemotePeerInfo
 
   asyncSetup:
-    message1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
-    message2 = fakeWakuMessage(contentTopic=DefaultContentTopic)
-    message3 = fakeWakuMessage(contentTopic=DefaultContentTopic)
+    message1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
+    message2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
+    message3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
     messageSeq = @[message1, message2, message3]
     handlerFuture = newHistoryFuture()
-    handler = proc(
-      req: HistoryQuery
-    ): Future[HistoryResult] {.async, gcsafe.} =
+    handler = proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.} =
       handlerFuture.complete(req)
       return ok(HistoryResponse(messages: messageSeq))
     historyQuery = HistoryQuery(
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
-      direction: PagingDirection.FORWARD
+      direction: PagingDirection.FORWARD,
     )
 
     serverSwitch = newTestSwitch()
     clientSwitch = newTestSwitch()
 
-    server = await newTestWakuStore(serverSwitch, handler=handler)
+    server = await newTestWakuStore(serverSwitch, handler = handler)
     client = newTestWakuStoreClient(clientSwitch)
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
@@ -72,11 +54,11 @@ suite "Store Client":
 
   asyncTeardown:
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
-  
+
   suite "HistoryQuery Creation and Execution":
     asyncTest "Valid Queries":
       # When a valid query is sent to the server
-      let queryResponse = await client.query(historyQuery, peer=serverPeerInfo)
+      let queryResponse = await client.query(historyQuery, peer = serverPeerInfo)
 
       # Then the query is processed successfully
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -90,42 +72,42 @@ suite "Store Client":
       # proper coverage we'd need an example implementation.
 
       # Given some invalid queries
-      let 
+      let
         invalidQuery1 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[],
-          direction: PagingDirection.FORWARD
+          direction: PagingDirection.FORWARD,
         )
         invalidQuery2 = HistoryQuery(
           pubsubTopic: PubsubTopic.none(),
           contentTopics: @[DefaultContentTopic],
-          direction: PagingDirection.FORWARD
+          direction: PagingDirection.FORWARD,
         )
         invalidQuery3 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
-          pageSize: 0
+          pageSize: 0,
         )
         invalidQuery4 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
-          pageSize: 0
+          pageSize: 0,
         )
         invalidQuery5 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
-          endTime: some(0.Timestamp)
+          endTime: some(0.Timestamp),
         )
         invalidQuery6 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
-          endTime: some(-1.Timestamp)
+          endTime: some(-1.Timestamp),
         )
 
       # When the query is sent to the server
-      let queryResponse1 = await client.query(invalidQuery1, peer=serverPeerInfo)
+      let queryResponse1 = await client.query(invalidQuery1, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -135,47 +117,47 @@ suite "Store Client":
 
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
-      let queryResponse2 = await client.query(invalidQuery2, peer=serverPeerInfo)
+      let queryResponse2 = await client.query(invalidQuery2, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         handlerFuture.read() == invalidQuery2
         queryResponse2.get().messages == messageSeq
-      
+
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
-      let queryResponse3 = await client.query(invalidQuery3, peer=serverPeerInfo)
+      let queryResponse3 = await client.query(invalidQuery3, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         handlerFuture.read() == invalidQuery3
         queryResponse3.get().messages == messageSeq
-      
+
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
-      let queryResponse4 = await client.query(invalidQuery4, peer=serverPeerInfo)
+      let queryResponse4 = await client.query(invalidQuery4, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         handlerFuture.read() == invalidQuery4
         queryResponse4.get().messages == messageSeq
-      
+
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
-      let queryResponse5 = await client.query(invalidQuery5, peer=serverPeerInfo)
+      let queryResponse5 = await client.query(invalidQuery5, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
         handlerFuture.read() == invalidQuery5
         queryResponse5.get().messages == messageSeq
-      
+
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
-      let queryResponse6 = await client.query(invalidQuery6, peer=serverPeerInfo)
+      let queryResponse6 = await client.query(invalidQuery6, peer = serverPeerInfo)
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -186,7 +168,7 @@ suite "Store Client":
   suite "Verification of HistoryResponse Payload":
     asyncTest "Positive Responses":
       # When a valid query is sent to the server
-      let queryResponse = await client.query(historyQuery, peer=serverPeerInfo)
+      let queryResponse = await client.query(historyQuery, peer = serverPeerInfo)
 
       # Then the query is processed successfully, and is of the expected type
       check:
@@ -198,9 +180,9 @@ suite "Store Client":
       let
         otherServerSwitch = newTestSwitch()
         otherServerPeerInfo = otherServerSwitch.peerInfo.toRemotePeerInfo()
-      
+
       # When a query is sent to the stopped peer
-      let queryResponse = await client.query(historyQuery, peer=otherServerPeerInfo)
+      let queryResponse = await client.query(historyQuery, peer = otherServerPeerInfo)
 
       # Then the query is not processed
       check:

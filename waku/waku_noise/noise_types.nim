@@ -59,7 +59,7 @@ type
   #################################
   # Noise Public Keys
   #################################
-  
+
   # A Noise public key is a public key exchanged during Noise handshakes (no private part)
   # This follows https://rfc.vac.dev/spec/35/#public-keys-serialization
   # pk contains the X coordinate of the public key, if unencrypted (this implies flag = 0)
@@ -204,7 +204,6 @@ type
   #################################
   # Some useful error types
   #################################
-
   NoiseError* = object of LPError
   NoiseHandshakeError* = object of NoiseError
   NoiseEmptyChaChaPolyInput* = object of NoiseError
@@ -224,56 +223,71 @@ const
   EmptyPreMessage*: seq[PreMessagePattern] = @[]
 
   # Supported Noise handshake patterns as defined in https://rfc.vac.dev/spec/35/#specification
-  NoiseHandshakePatterns*  = {
-    "K1K1":        HandshakePattern(name: "Noise_K1K1_25519_ChaChaPoly_SHA256",
-                                    preMessagePatterns: @[PreMessagePattern(direction: D_r, tokens: @[T_s]),
-                                                          PreMessagePattern(direction: D_l, tokens: @[T_s])],
-                                    messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                             MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
-                                                             MessagePattern(direction: D_r, tokens: @[T_se])]
-                                    ),
-     
-    "XK1":         HandshakePattern(name: "Noise_XK1_25519_ChaChaPoly_SHA256",
-                                    preMessagePatterns: @[PreMessagePattern(direction: D_l, tokens: @[T_s])], 
-                                    messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                             MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
-                                                             MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
-                                   ),
-     
-    "XX":          HandshakePattern(name: "Noise_XX_25519_ChaChaPoly_SHA256",
-                                    preMessagePatterns: EmptyPreMessage, 
-                                    messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e]),
-                                                             MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
-                                                             MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
-                                   ),
-     
-    "XXpsk0":      HandshakePattern(name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
-                                    preMessagePatterns: EmptyPreMessage, 
-                                    messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_psk, T_e]),
-                                                             MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
-                                                             MessagePattern(direction: D_r, tokens: @[T_s, T_se])]
-                                   ),
-
-    "WakuPairing": HandshakePattern(name: "Noise_WakuPairing_25519_ChaChaPoly_SHA256",
-                                    preMessagePatterns: @[PreMessagePattern(direction: D_l, tokens: @[T_e])], 
-                                    messagePatterns:    @[   MessagePattern(direction: D_r, tokens: @[T_e, T_ee]),
-                                                             MessagePattern(direction: D_l, tokens: @[T_s, T_es]),
-                                                             MessagePattern(direction: D_r, tokens: @[T_s, T_se, T_ss])]
-                                   )
-
-    }.toTable()
-
+  NoiseHandshakePatterns* = {
+    "K1K1": HandshakePattern(
+      name: "Noise_K1K1_25519_ChaChaPoly_SHA256",
+      preMessagePatterns:
+        @[
+          PreMessagePattern(direction: D_r, tokens: @[T_s]),
+          PreMessagePattern(direction: D_l, tokens: @[T_s]),
+        ],
+      messagePatterns:
+        @[
+          MessagePattern(direction: D_r, tokens: @[T_e]),
+          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
+          MessagePattern(direction: D_r, tokens: @[T_se]),
+        ],
+    ),
+    "XK1": HandshakePattern(
+      name: "Noise_XK1_25519_ChaChaPoly_SHA256",
+      preMessagePatterns: @[PreMessagePattern(direction: D_l, tokens: @[T_s])],
+      messagePatterns:
+        @[
+          MessagePattern(direction: D_r, tokens: @[T_e]),
+          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_es]),
+          MessagePattern(direction: D_r, tokens: @[T_s, T_se]),
+        ],
+    ),
+    "XX": HandshakePattern(
+      name: "Noise_XX_25519_ChaChaPoly_SHA256",
+      preMessagePatterns: EmptyPreMessage,
+      messagePatterns:
+        @[
+          MessagePattern(direction: D_r, tokens: @[T_e]),
+          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
+          MessagePattern(direction: D_r, tokens: @[T_s, T_se]),
+        ],
+    ),
+    "XXpsk0": HandshakePattern(
+      name: "Noise_XXpsk0_25519_ChaChaPoly_SHA256",
+      preMessagePatterns: EmptyPreMessage,
+      messagePatterns:
+        @[
+          MessagePattern(direction: D_r, tokens: @[T_psk, T_e]),
+          MessagePattern(direction: D_l, tokens: @[T_e, T_ee, T_s, T_es]),
+          MessagePattern(direction: D_r, tokens: @[T_s, T_se]),
+        ],
+    ),
+    "WakuPairing": HandshakePattern(
+      name: "Noise_WakuPairing_25519_ChaChaPoly_SHA256",
+      preMessagePatterns: @[PreMessagePattern(direction: D_l, tokens: @[T_e])],
+      messagePatterns:
+        @[
+          MessagePattern(direction: D_r, tokens: @[T_e, T_ee]),
+          MessagePattern(direction: D_l, tokens: @[T_s, T_es]),
+          MessagePattern(direction: D_r, tokens: @[T_s, T_se, T_ss]),
+        ],
+    ),
+  }.toTable()
 
   # Supported Protocol ID for PayloadV2 objects
   # Protocol IDs are defined according to https://rfc.vac.dev/spec/35/#specification
-  PayloadV2ProtocolIDs*  = {
-
-    "":                                           0.uint8,
-    "Noise_K1K1_25519_ChaChaPoly_SHA256":        10.uint8,
-    "Noise_XK1_25519_ChaChaPoly_SHA256":         11.uint8,
-    "Noise_XX_25519_ChaChaPoly_SHA256":          12.uint8,
-    "Noise_XXpsk0_25519_ChaChaPoly_SHA256":      13.uint8,
+  PayloadV2ProtocolIDs* = {
+    "": 0.uint8,
+    "Noise_K1K1_25519_ChaChaPoly_SHA256": 10.uint8,
+    "Noise_XK1_25519_ChaChaPoly_SHA256": 11.uint8,
+    "Noise_XX_25519_ChaChaPoly_SHA256": 12.uint8,
+    "Noise_XXpsk0_25519_ChaChaPoly_SHA256": 13.uint8,
     "Noise_WakuPairing_25519_ChaChaPoly_SHA256": 14.uint8,
-    "ChaChaPoly":                                30.uint8
-
-    }.toTable()  
+    "ChaChaPoly": 30.uint8,
+  }.toTable()

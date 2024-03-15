@@ -20,19 +20,14 @@ suite "Sharding":
       ## Given
       let mixedTopics = @["/waku/2/thisisatest", "/waku/2/rs/0/2", "/waku/2/rs/0/8"]
       let shardedTopics = @["/waku/2/rs/0/2", "/waku/2/rs/0/4", "/waku/2/rs/0/8"]
-      let
-        namedTopics =
-          @["/waku/2/thisisatest", "/waku/2/atestthisis", "/waku/2/isthisatest"]
-      let
-        gibberish =
-          @["aedyttydcb/uioasduyio", "jhdfsjhlsdfjhk/sadjhk", "khfsd/hjfdsgjh/dfs"]
+      let namedTopics =
+        @["/waku/2/thisisatest", "/waku/2/atestthisis", "/waku/2/isthisatest"]
+      let gibberish =
+        @["aedyttydcb/uioasduyio", "jhdfsjhlsdfjhk/sadjhk", "khfsd/hjfdsgjh/dfs"]
       let empty: seq[string] = @[]
 
-      let
-        shardsTopics =
-          RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect(
-            "Valid shardIds"
-          )
+      let shardsTopics =
+        RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect("Valid shardIds")
 
       ## When
 
@@ -66,24 +61,20 @@ suite "Sharding":
         tcpPort = 61500u16
         udpPort = 9000u16
 
-      let
-        record =
-          newTestEnrRecord(
-            privKey = privKey, extIp = extIp, tcpPort = tcpPort, udpPort = udpPort
-          )
+      let record = newTestEnrRecord(
+        privKey = privKey, extIp = extIp, tcpPort = tcpPort, udpPort = udpPort
+      )
 
       let queue = newAsyncEventQueue[SubscriptionEvent](30)
 
-      let
-        node =
-          newTestDiscv5(
-            privKey = privKey,
-            bindIp = bindIp,
-            tcpPort = tcpPort,
-            udpPort = udpPort,
-            record = record,
-            queue = queue,
-          )
+      let node = newTestDiscv5(
+        privKey = privKey,
+        bindIp = bindIp,
+        tcpPort = tcpPort,
+        udpPort = udpPort,
+        record = record,
+        queue = queue,
+      )
 
       let res = await node.start()
       assert res.isOk(), res.error

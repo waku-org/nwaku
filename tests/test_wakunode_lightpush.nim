@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  stew/shims/net as stewNet,
-  testutils/unittests,
-  chronos
+import std/options, stew/shims/net as stewNet, testutils/unittests, chronos
 import
   ../../waku/waku_core,
   ../../waku/waku_lightpush/common,
@@ -12,7 +8,6 @@ import
   ../../waku/waku_node,
   ./testlib/wakucore,
   ./testlib/wakunode
-
 
 suite "WakuNode - Lightpush":
   asyncTest "Lightpush message return success":
@@ -32,7 +27,9 @@ suite "WakuNode - Lightpush":
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
 
-    discard await lightNode.peerManager.dialPeer(bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec)
+    discard await lightNode.peerManager.dialPeer(
+      bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
+    )
     await sleepAsync(100.milliseconds)
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
 
@@ -40,11 +37,14 @@ suite "WakuNode - Lightpush":
     let message = fakeWakuMessage()
 
     var completionFutRelay = newFuture[bool]()
-    proc relayHandler(topic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
       check:
         topic == DefaultPubsubTopic
         msg == message
       completionFutRelay.complete(true)
+
     destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
 
     # Wait for subscription to take effect

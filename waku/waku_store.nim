@@ -1,7 +1,3 @@
-import
-  ./waku_store/common,
-  ./waku_store/protocol
+import ./waku_store/common, ./waku_store/protocol
 
-export
-  common,
-  protocol
+export common, protocol

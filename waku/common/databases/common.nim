@@ -1,6 +1,3 @@
+import stew/results
 
-import
-  stew/results
-
-type
-  DatabaseResult*[T] = Result[T, string]
+type DatabaseResult*[T] = Result[T, string]

@@ -17,9 +17,7 @@ suite "PeerStorage":
 
   suite "getAll":
     test "unimplemented":
-      let
-        emptyClosure =
-          proc(remotePeerInfo: RemotePeerInfo) =
-              discard
+      let emptyClosure = proc(remotePeerInfo: RemotePeerInfo) =
+        discard
       check:
         peerStorage.getAll(emptyClosure) == PeerStorageResult[void].err("Unimplemented")

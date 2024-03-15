@@ -9,21 +9,17 @@ import
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import
-  ../../../common/base64,
-  ../../../waku_core,
-  ../serdes
-
+import ../../../common/base64, ../../../waku_core, ../serdes
 
 #### Types
 
 type RelayWakuMessage* = object
-      payload*: Base64String
-      contentTopic*: Option[ContentTopic]
-      version*: Option[Natural]
-      timestamp*: Option[int64]
-      meta*: Option[Base64String]
-      ephemeral*: Option[bool]
+  payload*: Base64String
+  contentTopic*: Option[ContentTopic]
+  version*: Option[Natural]
+  timestamp*: Option[int64]
+  meta*: Option[Base64String]
+  ephemeral*: Option[bool]
 
 type
   RelayGetMessagesResponse* = seq[RelayWakuMessage]
@@ -37,8 +33,13 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String),
-    ephemeral: some(msg.ephemeral)
+    meta:
+      if msg.meta.len > 0:
+        some(base64.encode(msg.meta))
+      else:
+        none(Base64String)
+    ,
+    ephemeral: some(msg.ephemeral),
   )
 
 proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -54,13 +55,22 @@ proc toWakuMessage*(msg: RelayWakuMessage, version = 0): Result[WakuMessage, str
   if timestamp == 0:
     timestamp = getNanosecondTime(getTime().toUnixFloat())
 
-  return ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version,
-    timestamp: timestamp, meta: meta, ephemeral: ephemeral))
+  return ok(
+    WakuMessage(
+      payload: payload,
+      contentTopic: contentTopic,
+      version: version,
+      timestamp: timestamp,
+      meta: meta,
+      ephemeral: ephemeral,
+    )
+  )
 
 #### Serialization and deserialization
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: RelayWakuMessage
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", value.payload)
   if value.contentTopic.isSome():
@@ -75,8 +85,9 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: RelayWakuMessage)
     writer.writeField("ephemeral", value.ephemeral.get())
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var RelayWakuMessage
+) {.raises: [SerializationError, IOError].} =
   var
     payload = none(Base64String)
     contentTopic = none(ContentTopic)
@@ -89,8 +100,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "RelayWakuMessage")
 
     case fieldName
@@ -121,5 +135,5 @@ proc readValue*(reader: var JsonReader[RestJson], value: var RelayWakuMessage)
     version: version,
     timestamp: timestamp,
     meta: meta,
-    ephemeral: ephemeral
+    ephemeral: ephemeral,
   )

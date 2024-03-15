@@ -10,48 +10,45 @@ import
   json_serialization/std/options,
   presto/[route, client, common],
   libp2p/peerid
-import
-  ../../../common/base64,
-  ../../../waku_core,
-  ../serdes
+import ../../../common/base64, ../../../waku_core, ../serdes
 
 #### Types
 
 type FilterWakuMessage* = object
-      payload*: Base64String
-      contentTopic*: Option[ContentTopic]
-      version*: Option[Natural]
-      timestamp*: Option[int64]
-      meta*: Option[Base64String]
-      ephemeral*: Option[bool]
+  payload*: Base64String
+  contentTopic*: Option[ContentTopic]
+  version*: Option[Natural]
+  timestamp*: Option[int64]
+  meta*: Option[Base64String]
+  ephemeral*: Option[bool]
 
 type FilterGetMessagesResponse* = seq[FilterWakuMessage]
 
 type FilterLegacySubscribeRequest* = object
-      # Subscription request for legacy filter support
-      pubsubTopic*: Option[PubSubTopic]
-      contentFilters*: seq[ContentTopic]
+  # Subscription request for legacy filter support
+  pubsubTopic*: Option[PubSubTopic]
+  contentFilters*: seq[ContentTopic]
 
 type FilterSubscriberPing* = object
-      requestId*: string
+  requestId*: string
 
 type FilterSubscribeRequest* = object
-      requestId*: string
-      pubsubTopic*: Option[PubSubTopic]
-      contentFilters*: seq[ContentTopic]
+  requestId*: string
+  pubsubTopic*: Option[PubSubTopic]
+  contentFilters*: seq[ContentTopic]
 
 type FilterUnsubscribeRequest* = object
-      requestId*: string
-      pubsubTopic*: Option[PubSubTopic]
-      contentFilters*: seq[ContentTopic]
+  requestId*: string
+  pubsubTopic*: Option[PubSubTopic]
+  contentFilters*: seq[ContentTopic]
 
 type FilterUnsubscribeAllRequest* = object
-      requestId*: string
+  requestId*: string
 
 type FilterSubscriptionResponse* = object
-      requestId*: string
-      statusCode*: uint32
-      statusDesc*: string
+  requestId*: string
+  statusCode*: uint32
+  statusDesc*: string
 
 #### Type conversion
 
@@ -61,8 +58,13 @@ proc toFilterWakuMessage*(msg: WakuMessage): FilterWakuMessage =
     contentTopic: some(msg.contentTopic),
     version: some(Natural(msg.version)),
     timestamp: some(msg.timestamp),
-    meta: if msg.meta.len > 0: some(base64.encode(msg.meta)) else: none(Base64String),
-    ephemeral: some(msg.ephemeral)
+    meta:
+      if msg.meta.len > 0:
+        some(base64.encode(msg.meta))
+      else:
+        none(Base64String)
+    ,
+    ephemeral: some(msg.ephemeral),
   )
 
 proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, string] =
@@ -74,13 +76,22 @@ proc toWakuMessage*(msg: FilterWakuMessage, version = 0): Result[WakuMessage, st
     meta = ?msg.meta.get(Base64String("")).decode()
     ephemeral = msg.ephemeral.get(false)
 
-  ok(WakuMessage(payload: payload, contentTopic: contentTopic, version: version,
-    timestamp: timestamp, meta: meta, ephemeral: ephemeral))
+  ok(
+    WakuMessage(
+      payload: payload,
+      contentTopic: contentTopic,
+      version: version,
+      timestamp: timestamp,
+      meta: meta,
+      ephemeral: ephemeral,
+    )
+  )
 
 #### Serialization and deserialization
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterWakuMessage)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterWakuMessage
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("payload", value.payload)
   if value.contentTopic.isSome():
@@ -95,23 +106,26 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: FilterWakuMessage)
     writer.writeField("ephemeral", value.ephemeral.get())
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter, value: FilterLegacySubscribeRequest)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter, value: FilterLegacySubscribeRequest
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("pubsubTopic", value.pubsubTopic)
   writer.writeField("contentFilters", value.contentFilters)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscriptionResponse)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterSubscriptionResponse
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
   writer.writeField("statusCode", value.statusCode)
   writer.writeField("statusDesc", value.statusDesc)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscribeRequest)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterSubscribeRequest
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
   if value.pubsubTopic.isSome():
@@ -119,14 +133,16 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscribeRequest
   writer.writeField("contentFilters", value.contentFilters)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscriberPing)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterSubscriberPing
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterUnsubscribeRequest)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterUnsubscribeRequest
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
   if value.pubsubTopic.isSome():
@@ -134,14 +150,16 @@ proc writeValue*(writer: var JsonWriter[RestJson], value: FilterUnsubscribeReque
   writer.writeField("contentFilters", value.contentFilters)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterUnsubscribeAllRequest)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterUnsubscribeAllRequest
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("requestId", value.requestId)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterWakuMessage
+) {.raises: [SerializationError, IOError].} =
   var
     payload = none(Base64String)
     contentTopic = none(ContentTopic)
@@ -154,8 +172,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterWakuMessage")
 
     case fieldName
@@ -186,8 +207,9 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterWakuMessage)
     ephemeral: ephemeral,
   )
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterLegacySubscribeRequest)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterLegacySubscribeRequest
+) {.raises: [SerializationError, IOError].} =
   var
     pubsubTopic = none(PubsubTopic)
     contentFilters = none(seq[ContentTopic])
@@ -196,8 +218,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterLegacySubscri
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterLegacySubscribeRequest")
 
     case fieldName
@@ -215,21 +240,29 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterLegacySubscri
     reader.raiseUnexpectedValue("Field `contentFilters` is empty")
 
   value = FilterLegacySubscribeRequest(
-    pubsubTopic: if pubsubTopic.isNone() or pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
-    contentFilters: contentFilters.get()
+    pubsubTopic:
+      if pubsubTopic.isNone() or pubsubTopic.get() == "":
+        none(string)
+      else:
+        some(pubsubTopic.get())
+    ,
+    contentFilters: contentFilters.get(),
   )
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriberPing)
-  {.raises: [SerializationError, IOError].} =
-  var
-    requestId = none(string)
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterSubscriberPing
+) {.raises: [SerializationError, IOError].} =
+  var requestId = none(string)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterSubscriberPing")
 
     case fieldName
@@ -241,12 +274,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriberPin
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
 
-  value = FilterSubscriberPing(
-    requestId: requestId.get()
-  )
+  value = FilterSubscriberPing(requestId: requestId.get())
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscribeRequest)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterSubscribeRequest
+) {.raises: [SerializationError, IOError].} =
   var
     requestId = none(string)
     pubsubTopic = none(PubsubTopic)
@@ -256,8 +288,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscribeRequ
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterSubscribeRequest")
 
     case fieldName
@@ -281,12 +316,18 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscribeRequ
 
   value = FilterSubscribeRequest(
     requestId: requestId.get(),
-    pubsubTopic: if pubsubTopic.isNone() or pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
-    contentFilters: contentFilters.get()
+    pubsubTopic:
+      if pubsubTopic.isNone() or pubsubTopic.get() == "":
+        none(string)
+      else:
+        some(pubsubTopic.get())
+    ,
+    contentFilters: contentFilters.get(),
   )
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeRequest)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterUnsubscribeRequest
+) {.raises: [SerializationError, IOError].} =
   var
     requestId = none(string)
     pubsubTopic = none(PubsubTopic)
@@ -296,8 +337,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeRe
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterUnsubscribeRequest")
 
     case fieldName
@@ -321,21 +365,29 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeRe
 
   value = FilterUnsubscribeRequest(
     requestId: requestId.get(),
-    pubsubTopic: if pubsubTopic.isNone() or pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
-    contentFilters: contentFilters.get()
+    pubsubTopic:
+      if pubsubTopic.isNone() or pubsubTopic.get() == "":
+        none(string)
+      else:
+        some(pubsubTopic.get())
+    ,
+    contentFilters: contentFilters.get(),
   )
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeAllRequest)
-  {.raises: [SerializationError, IOError].} =
-  var
-    requestId = none(string)
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterUnsubscribeAllRequest
+) {.raises: [SerializationError, IOError].} =
+  var requestId = none(string)
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterUnsubscribeAllRequest")
 
     case fieldName
@@ -347,12 +399,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterUnsubscribeAl
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
 
-  value = FilterUnsubscribeAllRequest(
-    requestId: requestId.get(),
-  )
+  value = FilterUnsubscribeAllRequest(requestId: requestId.get())
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionResponse)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterSubscriptionResponse
+) {.raises: [SerializationError, IOError].} =
   var
     requestId = none(string)
     statusCode = none(uint32)
@@ -362,8 +413,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionR
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "FilterSubscriptionResponse")
 
     case fieldName
@@ -382,5 +436,5 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscriptionR
   value = FilterSubscriptionResponse(
     requestId: requestId.get(),
     statusCode: statusCode.get(),
-    statusDesc: statusDesc.get("")
+    statusDesc: statusDesc.get(""),
   )

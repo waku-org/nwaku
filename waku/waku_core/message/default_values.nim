@@ -1,6 +1,4 @@
-
-import
-  ../../common/utils/parse_size_units
+import ../../common/utils/parse_size_units
 
 const
   ## https://rfc.vac.dev/spec/64/#message-size

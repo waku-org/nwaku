@@ -3,13 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  stew/results,
-  chronicles,
-  chronos,
-  metrics,
-  bearssl/rand
+import std/options, stew/results, chronicles, chronos, metrics, bearssl/rand
 import
   ../node/peer_manager,
   ../utils/requests,
@@ -19,23 +13,21 @@ import
   ./rpc,
   ./rpc_codec
 
-
 logScope:
   topics = "waku lightpush client"
 
-
 type WakuLightPushClient* = ref object
-    peerManager*: PeerManager
-    rng*: ref rand.HmacDrbgContext
+  peerManager*: PeerManager
+  rng*: ref rand.HmacDrbgContext
 
-
-proc new*(T: type WakuLightPushClient,
-          peerManager: PeerManager,
-          rng: ref rand.HmacDrbgContext): T =
+proc new*(
+    T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
+): T =
   WakuLightPushClient(peerManager: peerManager, rng: rng)
 
-
-proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+proc sendPushRequest(
+    wl: WakuLightPushClient, req: PushRequest, peer: PeerId | RemotePeerInfo
+): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   let connOpt = await wl.peerManager.dialPeer(peer, WakuLightPushCodec)
   if connOpt.isNone():
     waku_lightpush_errors.inc(labelValues = [dialFailure])
@@ -71,6 +63,11 @@ proc sendPushRequest(wl: WakuLightPushClient, req: PushRequest, peer: PeerId|Rem
 
   return ok()
 
-proc publish*(wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage, peer: PeerId|RemotePeerInfo): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+proc publish*(
+    wl: WakuLightPushClient,
+    pubSubTopic: PubsubTopic,
+    message: WakuMessage,
+    peer: PeerId | RemotePeerInfo,
+): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   return await wl.sendPushRequest(pushRequest, peer)

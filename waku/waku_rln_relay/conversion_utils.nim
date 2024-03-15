@@ -9,30 +9,19 @@ import
   chronicles,
   stew/[arrayops, results, endians2],
   stint
-import
-  ./constants,
-  ./protocol_types
-import
-  ../waku_keystore
+import ./constants, ./protocol_types
+import ../waku_keystore
 
-export
-  web3,
-  chronicles,
-  stint,
-  constants,
-  endians2
+export web3, chronicles, stint, constants, endians2
 
 logScope:
-    topics = "waku rln_relay conversion_utils"
+  topics = "waku rln_relay conversion_utils"
 
-proc inHex*(value: IdentityTrapdoor or
-                   IdentityNullifier or
-                   IdentitySecretHash or
-                   IDCommitment or
-                   MerkleNode or
-                   Nullifier or
-                   Epoch or
-                   RlnIdentifier): string =
+proc inHex*(
+    value:
+      IdentityTrapdoor or IdentityNullifier or IdentitySecretHash or IDCommitment or
+      MerkleNode or Nullifier or Epoch or RlnIdentifier
+): string =
   var valueHex = "" #UInt256.fromBytesLE(value)
   for b in value.reversed():
     valueHex = valueHex & b.toHex()
@@ -60,21 +49,22 @@ proc encodeLengthPrefix*(input: openArray[byte]): seq[byte] =
 proc serialize*(v: uint64): array[32, byte] =
   ## a private proc to convert uint64 to a byte seq
   ## this conversion is used in the proofGen proc
-  
+
   ## converts `v` to a byte seq in little-endian order
   let bytes = toBytes(v, Endianness.littleEndian)
   var output: array[32, byte]
   discard output.copyFrom(bytes)
   return output
 
-
 when defined(rln_v2):
-  proc serialize*(idSecretHash: IdentitySecretHash, 
-                  memIndex: MembershipIndex, 
-                  userMessageLimit: UserMessageLimit,
-                  messageId: MessageId,
-                  externalNullifier: ExternalNullifier,
-                  msg: openArray[byte]): seq[byte] =
+  proc serialize*(
+      idSecretHash: IdentitySecretHash,
+      memIndex: MembershipIndex,
+      userMessageLimit: UserMessageLimit,
+      messageId: MessageId,
+      externalNullifier: ExternalNullifier,
+      msg: openArray[byte],
+  ): seq[byte] =
     ## a private proc to convert RateLimitProof and the data to a byte seq
     ## this conversion is used in the proofGen proc
     ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
@@ -83,13 +73,23 @@ when defined(rln_v2):
     let userMessageLimitBytes = userMessageLimit.serialize()
     let messageIdBytes = messageId.serialize()
     let lenPrefMsg = encodeLengthPrefix(msg)
-    let output = concat(@idSecretHash, @memIndexBytes, @userMessageLimitBytes, @messageIdBytes, @externalNullifier, lenPrefMsg)
+    let output = concat(
+      @idSecretHash,
+      @memIndexBytes,
+      @userMessageLimitBytes,
+      @messageIdBytes,
+      @externalNullifier,
+      lenPrefMsg,
+    )
     return output
+
 else:
-  proc serialize*(idSecretHash: IdentitySecretHash, 
-                memIndex: MembershipIndex, 
-                epoch: Epoch,
-                msg: openArray[byte]): seq[byte] =
+  proc serialize*(
+      idSecretHash: IdentitySecretHash,
+      memIndex: MembershipIndex,
+      epoch: Epoch,
+      msg: openArray[byte],
+  ): seq[byte] =
     ## a private proc to convert RateLimitProof and the data to a byte seq
     ## this conversion is used in the proofGen proc
     ## the serialization is done as instructed in  https://github.com/kilic/rln/blob/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43/src/public.rs#L146
@@ -99,29 +99,32 @@ else:
     let output = concat(@idSecretHash, @memIndexBytes, @epoch, lenPrefMsg)
     return output
 
-
 proc serialize*(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc
   ## [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> | signal_len<8> | signal<var> ]
   let lenPrefMsg = encodeLengthPrefix(@data)
   when defined(rln_v2):
-    var proofBytes = concat(@(proof.proof),
-                            @(proof.merkleRoot),
-                            @(proof.externalNullifier),
-                            @(proof.shareX),
-                            @(proof.shareY),
-                            @(proof.nullifier),
-                            lenPrefMsg)
+    var proofBytes = concat(
+      @(proof.proof),
+      @(proof.merkleRoot),
+      @(proof.externalNullifier),
+      @(proof.shareX),
+      @(proof.shareY),
+      @(proof.nullifier),
+      lenPrefMsg,
+    )
   else:
-    var proofBytes = concat(@(proof.proof),
-                            @(proof.merkleRoot),
-                            @(proof.epoch),
-                            @(proof.shareX),
-                            @(proof.shareY),
-                            @(proof.nullifier),
-                            @(proof.rlnIdentifier),
-                            lenPrefMsg)
+    var proofBytes = concat(
+      @(proof.proof),
+      @(proof.merkleRoot),
+      @(proof.epoch),
+      @(proof.shareX),
+      @(proof.shareY),
+      @(proof.nullifier),
+      @(proof.rlnIdentifier),
+      lenPrefMsg,
+    )
 
   return proofBytes
 
