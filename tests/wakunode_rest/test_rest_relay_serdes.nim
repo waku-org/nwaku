@@ -42,7 +42,8 @@ suite "Waku v2 Rest API - Relay - serialization":
         payload: payload,
         contentTopic: none(ContentTopic),
         version: none(Natural),
-        timestamp: none(int64)
+        timestamp: none(int64),
+        ephemeral: none(bool)
       )
 
       # When
