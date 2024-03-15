@@ -17,12 +17,13 @@ import
 proc new*(T: type RetentionPolicy,
           retPolicy: string):
           RetentionPolicyResult[Option[RetentionPolicy]] =
+  let retPolicy = retPolicy.toLower
 
   # Validate the retention policy format
   if retPolicy == "" or retPolicy == "none":
     return ok(none(RetentionPolicy))
 
-  const StoreMessageRetentionPolicyRegex = re"^\w+:\w+$"
+  const StoreMessageRetentionPolicyRegex = re"^\w+:\d*\.?\d+((g|m)b)?$"
   if not retPolicy.match(StoreMessageRetentionPolicyRegex):
     return err("invalid 'store message retention policy' format: " & retPolicy)
 
@@ -55,33 +56,32 @@ proc new*(T: type RetentionPolicy,
   elif policy == "size":
     var retentionSize: string
     retentionSize = policyArgs
-    
+
     # captures the size unit such as GB or MB
     let sizeUnit = retentionSize.substr(retentionSize.len-2)
-    # captures the string type number data of the size provided  
+    # captures the string type number data of the size provided
     let sizeQuantityStr = retentionSize.substr(0,retentionSize.len-3)
     # to hold the numeric value data of size
     var inptSizeQuantity: float
     var sizeQuantity: int64
-    
-    if sizeUnit in ["gb", "Gb", "GB", "gB"]:
-      # parse the actual value into integer type var
-      try:
-        inptSizeQuantity = parseFloat(sizeQuantityStr)
-      except ValueError:
-        return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
-      # GB data is converted into bytes for uniform processing
-      sizeQuantity =  int64(inptSizeQuantity * 1024.0 * 1024.0 * 1024.0)
-    elif sizeUnit in ["mb", "Mb", "MB", "mB"]:
-      try:
-        inptSizeQuantity = parseFloat(sizeQuantityStr)
-        # MB data is converted into bytes for uniform processing
-        sizeQuantity = int64(inptSizeQuantity * 1024.0 * 1024.0)
-      except ValueError:
-        return err("invalid size retention policy argument")
-    else:
-      return err ("""invalid size retention value unit: expected "Mb" or "Gb" but got """ & sizeUnit )
-    
+    var sizeMultiplier: float
+
+    try:
+      inptSizeQuantity = parseFloat(sizeQuantityStr)
+    except ValueError:
+      return err("invalid size retention policy argument: " & getCurrentExceptionMsg())
+
+    case sizeUnit:
+      of "gb":
+        sizeMultiplier = 1024.0 * 1024.0 * 1024.0
+      of "mb":
+        sizeMultiplier = 1024.0 * 1024.0
+      else:
+        return err ("""invalid size retention value unit: expected "Mb" or "Gb" but got """ & sizeUnit )
+
+    # quantity is converted into bytes for uniform processing
+    sizeQuantity =  int64(inptSizeQuantity * sizeMultiplier)
+
     if sizeQuantity <= 0:
           return err("invalid size retention policy argument: a non-zero value is required")
 
