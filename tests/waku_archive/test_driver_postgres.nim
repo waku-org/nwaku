@@ -1,6 +1,9 @@
 {.used.}
 
-import std/[sequtils, options], testutils/unittests, chronos
+import
+  std/[sequtils,options],
+  testutils/unittests,
+  chronos
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/postgres_driver,
@@ -10,7 +13,9 @@ import
   ../testlib/testasync,
   ../testlib/postgres
 
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
+proc computeTestCursor(pubsubTopic: PubsubTopic,
+                       message: WakuMessage):
+                       ArchiveCursor =
   ArchiveCursor(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
@@ -55,14 +60,12 @@ suite "Postgres driver":
   asyncTest "Insert a message":
     const contentTopic = "test-content-topic"
 
-    let msg = fakeWakuMessage(contentTopic = contentTopic)
+    let msg = fakeWakuMessage(contentTopic=contentTopic)
 
     let computedDigest = computeDigest(msg)
     let computedHash = computeMessageHash(DefaultPubsubTopic, msg)
 
-    let putRes = await driver.put(
-      DefaultPubsubTopic, msg, computedDigest, computedHash, msg.timestamp
-    )
+    let putRes = await driver.put(DefaultPubsubTopic, msg, computedDigest, computedHash, msg.timestamp)
     assert putRes.isOk(), putRes.error
 
     let storedMsg = (await driver.getAllMessages()).tryGet()
@@ -82,26 +85,14 @@ suite "Postgres driver":
     const pubsubTopic1 = "pubsubtopic-1"
     const pubsubTopic2 = "pubsubtopic-2"
 
-    let msg1 = fakeWakuMessage(contentTopic = contentTopic1)
+    let msg1 = fakeWakuMessage(contentTopic=contentTopic1)
 
-    var putRes = await driver.put(
-      pubsubTopic1,
-      msg1,
-      computeDigest(msg1),
-      computeMessageHash(pubsubTopic1, msg1),
-      msg1.timestamp,
-    )
+    var putRes = await driver.put(pubsubTopic1, msg1, computeDigest(msg1), computeMessageHash(pubsubTopic1, msg1), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
-    let msg2 = fakeWakuMessage(contentTopic = contentTopic2)
+    let msg2 = fakeWakuMessage(contentTopic=contentTopic2)
 
-    putRes = await driver.put(
-      pubsubTopic2,
-      msg2,
-      computeDigest(msg2),
-      computeMessageHash(pubsubTopic2, msg2),
-      msg2.timestamp,
-    )
+    putRes = await driver.put(pubsubTopic2, msg2, computeDigest(msg2), computeMessageHash(pubsubTopic2, msg2), msg2.timestamp)
     assert putRes.isOk(), putRes.error
 
     let countMessagesRes = await driver.getMessagesCount()
@@ -115,17 +106,17 @@ suite "Postgres driver":
     assert messagesRes.get().len == 1
 
     # Get both content topics, check ordering
-    messagesRes =
-      await driver.getMessages(contentTopic = @[contentTopic1, contentTopic2])
+    messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
+                                                            contentTopic2])
     assert messagesRes.isOk(), messagesRes.error
 
     assert messagesRes.get().len == 2
     assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Descending order
-    messagesRes = await driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2], ascendingOrder = false
-    )
+    messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
+                                                            contentTopic2],
+                                           ascendingOrder = false)
     assert messagesRes.isOk(), messagesRes.error
 
     assert messagesRes.get().len == 2
@@ -133,26 +124,28 @@ suite "Postgres driver":
 
     # cursor
     # Get both content topics
-    messagesRes = await driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2],
-      cursor = some(computeTestCursor(pubsubTopic1, messagesRes.get()[1][1])),
-    )
+    messagesRes =
+        await driver.getMessages(contentTopic = @[contentTopic1,
+                                                  contentTopic2],
+                                 cursor = some(
+                                        computeTestCursor(pubsubTopic1,
+                                                          messagesRes.get()[1][1])))
     assert messagesRes.isOk()
     assert messagesRes.get().len == 1
 
     # Get both content topics but one pubsub topic
-    messagesRes = await driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2], pubsubTopic = some(pubsubTopic1)
-    )
+    messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
+                                                            contentTopic2],
+                                           pubsubTopic = some(pubsubTopic1))
     assert messagesRes.isOk(), messagesRes.error
 
     assert messagesRes.get().len == 1
     assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Limit
-    messagesRes = await driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2], maxPageSize = 1
-    )
+    messagesRes = await driver.getMessages(contentTopic = @[contentTopic1,
+                                                            contentTopic2],
+                                           maxPageSize = 1)
     assert messagesRes.isOk(), messagesRes.error
     assert messagesRes.get().len == 1
 
@@ -164,20 +157,25 @@ suite "Postgres driver":
     let msg1 = fakeWakuMessage(ts = now)
     let msg2 = fakeWakuMessage(ts = now)
 
-    var putRes = await driver.put(
-      DefaultPubsubTopic,
-      msg1,
-      computeDigest(msg1),
-      computeMessageHash(DefaultPubsubTopic, msg1),
-      msg1.timestamp,
-    )
+    let initialNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
+    var putRes = await driver.put(DefaultPubsubTopic,
+                                  msg1, computeDigest(msg1), computeMessageHash(DefaultPubsubTopic, msg1), msg1.timestamp)
     assert putRes.isOk(), putRes.error
 
-    putRes = await driver.put(
-      DefaultPubsubTopic,
-      msg2,
-      computeDigest(msg2),
-      computeMessageHash(DefaultPubsubTopic, msg2),
-      msg2.timestamp,
-    )
-    assert not putRes.isOk()
+    var newNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
+    assert newNumMsgs == (initialNumMsgs + 1.int64), "wrong number of messages: " & $newNumMsgs
+
+    putRes = await driver.put(DefaultPubsubTopic,
+                              msg2, computeDigest(msg2), computeMessageHash(DefaultPubsubTopic, msg2), msg2.timestamp)
+
+    assert putRes.isOk()
+
+    newNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
+    assert newNumMsgs == (initialNumMsgs + 1.int64), "wrong number of messages: " & $newNumMsgs
+
