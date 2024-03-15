@@ -63,11 +63,12 @@ proc clientReconciliation(
   return negentropy.clientReconcile(payload, haveHashes, needHashes)
 
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let negentropy = Negentropy.new(self.storage, DefaultFrameSize)
+  let negentropy = Negentropy.new(self.storage, DefaultFrameSize).valueOr:
+    return err(error)
+  defer:
+     negentropy.delete()
 
   let payload =  negentropy.initiate().valueOr:
-    free(negentropy)
-
     return err(error)
 
   debug "sending request to server", payload = toHex(seq[byte](payload))
@@ -103,7 +104,6 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let writeRes = catch: await conn.writeLP(seq[byte](response))
     if writeRes.isErr():
       return err(writeRes.error.msg)
- 
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
@@ -158,9 +158,12 @@ proc new*(T: type WakuSync,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
 ): T =
 
-  let storage = Storage.new()
-  let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
-
+  let storage = Storage.new().valueOr:
+    error "storage creation failed"
+    return nil
+  let negentropy = Negentropy.new(storage, uint64(maxFrameSize)).valueOr:
+    error "negentropy creation failed"
+    return nil
   let sync = WakuSync(
     storage: storage,
     negentropy: negentropy,
@@ -191,8 +194,8 @@ proc periodicSync(self: WakuSync) {.async.} =
 
 proc start*(self: WakuSync) =
   self.started = true
-
-  self.periodicSyncFut = self.periodicSync()
+  if self.syncInterval > 0.seconds: # start periodic-sync only if interval is set.
+    self.periodicSyncFut = self.periodicSync()
   
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()

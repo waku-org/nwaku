@@ -32,11 +32,19 @@ random.randomize()
 suite "Waku Sync - Protocol Tests":
 
     asyncTest "test c integration":
-        let 
-            s1 = Storage.new()
-            s2 = Storage.new()
-            ng1 = Negentropy.new(s1,10000)
-            ng2 = Negentropy.new(s2,10000)
+        let s1Res = Storage.new()
+        let s1 = s1Res.value
+        assert s1Res.isOk(), $s1Res.error
+        let s2Res = Storage.new()
+        let s2 = s2Res.value
+        assert s2Res.isOk(), $s2Res.error
+
+        let ng1Res = Negentropy.new(s1,10000)
+        assert ng1Res.isOk(), $ng1Res.error
+        let ng1 = ng1Res.value
+        let ng2Res = Negentropy.new(s2,10000)
+        assert ng2Res.isOk(), $ng2Res.error
+        let ng2 = ng2Res.value
 
         let msg1 = fakeWakuMessage(contentTopic=DefaultContentTopic)
         let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic=DefaultPubsubTopic, msg1)

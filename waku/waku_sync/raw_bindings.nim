@@ -9,7 +9,8 @@ import
    std/[strutils],
    chronicles,
    std/options,
-   stew/[results, byteutils]
+   stew/[results, byteutils],
+   confutils
 import
   ../waku_core/message
 
@@ -18,14 +19,6 @@ const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & 
 {.link: negentropyPath & "libnegentropy.so".} 
 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
-
-#[ proc StringtoBytes(data: cstring): seq[byte] =
-  let size = data.len()
-
-  var bytes = newSeq[byte](size)
-  copyMem(bytes[0].addr, data[0].unsafeAddr, size)
-
-  return bytes ]#
 
 type Buffer* = object
   len*: uint64
@@ -37,6 +30,7 @@ type BindingResult* = object
   need_ids_len: uint
   have_ids: ptr Buffer
   need_ids: ptr Buffer
+  error: cstring
 
 proc toWakuMessageHash(buffer: Buffer): WakuMessageHash =
   assert buffer.len == 32
@@ -80,16 +74,19 @@ proc toBufferSeq(buffLen: uint, buffPtr: ptr Buffer): seq[Buffer] =
 type
   Storage* = distinct pointer
 
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L27
 proc storage_init(db_path:cstring, name: cstring): Storage{. header: NEGENTROPY_HEADER, importc: "storage_new".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L163
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L41
 proc raw_insert(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy/storage/btree/core.h#L300
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L43
 proc raw_erase(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
-proc free*(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L29
+proc free(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
 
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L31
 proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
 
 ### Negentropy ###
@@ -97,29 +94,25 @@ proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage
 type
   Negentropy* = distinct pointer
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L42
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L33
 proc constructNegentropy(storage: Storage, frameSizeLimit: uint64): Negentropy {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L46
-proc raw_initiate(negentropy: Negentropy, output: ptr Buffer): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L37
+proc raw_initiate(negentropy: Negentropy, r: ptr BindingResult): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L58
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L39
 proc raw_setInitiator(negentropy: Negentropy) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L62
-proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, output: ptr Buffer): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
-#[ 
-type
-  ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer, need_ids_len:uint64, output: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.}# {.header: NEGENTROPY_HEADER, importc: "reconcile_cbk".}
- ]#
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L45
+proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
-# https://github.com/hoytech/negentropy/blob/6e1e6083b985adcdce616b6bb57b6ce2d1a48ec1/cpp/negentropy.h#L69
-#proc raw_reconcile(negentropy: pointer, query: ptr Buffer, cbk: ReconcileCallback, output: ptr cchar): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids".}
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L35
+proc free(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
 
-proc free*(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L51
+proc raw_reconcile_with_ids(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult):int{.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
-proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
-
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L53
 proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
 
 ### Wrappings ###
@@ -127,20 +120,28 @@ proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "fre
 type
   NegentropyPayload* = distinct seq[byte]
 
-proc new*(T: type Storage): T =
+proc `==` *(a : Storage, b : pointer):bool{.borrow.}
+
+
+proc new*(T: type Storage): Result[T, string] =
   #TODO db name and path
   let storage = storage_init("", "")
 
-  #TODO error handling
+#[ TODO: Uncomment once we move to lmdb   
+  if storage == nil:
+    return err("storage initialization failed") ]#
 
-  return storage
+  return ok(storage)
+
+proc delete*(storage: Storage) =
+  free(storage)
 
 proc erase*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, string] =
   let cString = toBuffer(hash)
   
   let res = raw_erase(storage, uint64(id), cString.unsafeAddr)
 
-  #TODO error handling
+  #TODO error handling once we move to lmdb
 
   if res:
     return ok()
@@ -152,29 +153,36 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
   var bufPtr = addr(buffer)
   let res = raw_insert(storage, uint64(id), bufPtr)
   
-  #TODO error handling
+  #TODO error handling once we move to lmdb
 
   if res:
     return ok()
   else:
     return err("insert error")
 
-proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T =
-  let negentropy = constructNegentropy(storage, frameSizeLimit)
-  
-  #TODO error handling
+proc `==` *(a : Negentropy, b : pointer):bool{.borrow.}
 
-  return negentropy
+proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): Result[T, string] =
+  let negentropy = constructNegentropy(storage, frameSizeLimit)
+  if negentropy == nil:
+    return err("negentropy initialization failed due to lower framesize")
+  return ok(negentropy)
+
+proc delete*(negentropy: Negentropy) =
+  free(negentropy)
 
 proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
   ## Client inititate a sync session with a server by sending a payload 
-  
-  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
-  var outBuffer: Buffer = toBuffer(output)
-  let outLen: int = raw_initiate(negentropy, outBuffer.unsafeAddr)
-  let bytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  var myResultPtr = addr myResult
 
-  debug "received return from initiate", len=outLen
+  let ret = raw_initiate(negentropy, myResultPtr)
+  if ret < 0 or myResultPtr == nil:
+    error "negentropy initiate failed with code ", code=ret
+    return err("negentropy already initiated!")
+  let bytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
+  free_result(myResultPtr)
+  debug "received return from initiate", len=myResultPtr.output.len
   
   return ok(NegentropyPayload(bytes))
 
@@ -190,16 +198,18 @@ proc serverReconcile*(
   
   let queryBuf = toBuffer(seq[byte](query))
   var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
-  var output:seq[byte] = newSeq[byte](153600)  #TODO: Optimize this using callback to avoid huge alloc
-  var outBuffer: Buffer = toBuffer(output)
+  var myResult {.noinit.}: BindingResult = BindingResult()
+  var myResultPtr = addr myResult
 
-  let outLen: int = raw_reconcile(negentropy, queryBufPtr, outBuffer.unsafeAddr)
-  debug "received return from raw_reconcile", len=outLen
+  let ret = raw_reconcile(negentropy, queryBufPtr, myResultPtr)
+  if ret < 0 :
+    error "raw_reconcile failed with code ", code=ret
+    return err($myResultPtr.error)
+  debug "received return from raw_reconcile", len=myResultPtr.output.len
 
-  let outputBytes: seq[byte] = BufferToBytes(addr(outBuffer), some(uint64(outLen)))
+  let outputBytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
   debug "outputBytes len", len=outputBytes.len
-
-  #TODO error handling
+  free_result(myResultPtr)
 
   return ok(NegentropyPayload(outputBytes))
 
@@ -219,10 +229,10 @@ proc clientReconcile*(
   myResult.need_ids_len = 0
   var myResultPtr = addr myResult
 
-  raw_reconcile(negentropy, cQuery.unsafeAddr, myResultPtr)
-
-  if myResultPtr == nil:
-    return err("ERROR from raw_reconcile!")
+  let ret = raw_reconcile_with_ids(negentropy, cQuery.unsafeAddr, myResultPtr)
+  if ret < 0 :
+    error "raw_reconcile failed with code ", code=ret
+    return err($myResultPtr.error)
 
   let output = BufferToBytes(addr myResult.output)
 
@@ -247,42 +257,6 @@ proc clientReconcile*(
     debug "need hashes ", index=i, hash=hash.to0xHex()
     needIds.add(hash)
 
-
-#[  Callback Approach, to be uncommented later during optimization phase    
-  var 
-    cppHaveIds: cstringArray = allocCStringArray([])
-    cppNeedIds: cstringArray = allocCStringArray([])
-    haveIdsLen: uint
-    needIdsLen: uint
-    output: seq[byte] = newSeq[byte](1) #TODO: fix this hack.
-
-  
-    let handler:ReconcileCallback = proc(have_ids: ptr Buffer, have_ids_len:uint64, need_ids: ptr Buffer,
-                                        need_ids_len:uint64, outBuffer: ptr Buffer, outptr: var ptr cchar) {.cdecl, raises: [], gcsafe.} = 
-      debug "ReconcileCallback: Received needHashes from client:", len = need_ids_len  , outBufLen=outBuffer.len    
-      if outBuffer.len > 0:
-        let ret = BufferToBytes(outBuffer)
-        outptr = cast[ptr cchar](ret[0].unsafeAddr)
-      
-  try:
-    let ret  = raw_reconcile(negentropy, cQuery.unsafeAddr, handler, cast[ptr cchar](output[0].unsafeAddr))
-    if ret != 0:
-      error "failed to reconcile"
-      return 
-  except Exception as e:
-    error "exception raised from raw_reconcile", error=e.msg ]#
-
-  
-#[   debug "haveIdsLen", len=haveIdsLen
-
-  for ele in cstringArrayToSeq(cppHaveIds, haveIdsLen):
-    haveIds.add(toWakuMessageHash(ele))
-
-  for ele in cstringArrayToSeq(cppNeedIds, needIdsLen):
-    needIds.add(toWakuMessageHash(ele))
-
-  deallocCStringArray(cppHaveIds)
-  deallocCStringArray(cppNeedIds) ]#
   debug "return " , output=output, len = output.len
 
   free_result(myResultPtr)
