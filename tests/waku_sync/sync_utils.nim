@@ -22,6 +22,7 @@ proc newTestWakuSync*(switch: Switch, handler: WakuSyncCallback): Future[WakuSyn
   let
     peerManager = PeerManager.new(switch)
     proto = WakuSync.new(peerManager, DefaultFrameSize, 0.seconds, some(handler))
+  assert proto != nil
 
   proto.start()
   switch.mount(proto)

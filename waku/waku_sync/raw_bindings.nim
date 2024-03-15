@@ -123,15 +123,15 @@ type
 proc `==` *(a : Storage, b : pointer):bool{.borrow.}
 
 
-proc new*(T: type Storage): T =
+proc new*(T: type Storage): Result[T, string] =
   #TODO db name and path
   let storage = storage_init("", "")
 
 #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
-    raise newException(ValueError, "storage initialization failed") ]#
+    return err("storage initialization failed") ]#
 
-  return storage
+  return ok(storage)
 
 proc delete*(storage: Storage) =
   free(storage)
@@ -162,11 +162,11 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
 
 proc `==` *(a : Negentropy, b : pointer):bool{.borrow.}
 
-proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): T {.raises: [ValueError] .} =
+proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): Result[T, string] =
   let negentropy = constructNegentropy(storage, frameSizeLimit)
   if negentropy == nil:
-    raise newException(ValueError, "negentropy initialization failed due to lower framesize")
-  return negentropy
+    return err("negentropy initialization failed due to lower framesize")
+  return ok(negentropy)
 
 proc delete*(negentropy: Negentropy) =
   free(negentropy)

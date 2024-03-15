@@ -63,17 +63,18 @@ proc clientReconciliation(
   return negentropy.clientReconcile(payload, haveHashes, needHashes)
 
 proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let negentropy = Negentropy.new(self.storage, DefaultFrameSize)
+  let negentropy = Negentropy.new(self.storage, DefaultFrameSize).valueOr:
+    return err(error)
+  defer:
+     negentropy.delete()
 
   let payload =  negentropy.initiate().valueOr:
-    negentropy.delete()
     return err(error)
 
   debug "sending request to server", payload = toHex(seq[byte](payload))
 
   let writeRes = catch: await conn.writeLP(seq[byte](payload))
   if writeRes.isErr():
-    negentropy.delete()
     return err(writeRes.error.msg)
 
   var
@@ -84,7 +85,6 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let readRes = catch: await conn.readLp(self.maxFrameSize)
 
     let buffer: seq[byte] = readRes.valueOr:
-      negentropy.delete()
       return err(error.msg)
 
     debug "Received Sync request from peer", payload = toHex(buffer)
@@ -92,7 +92,6 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
     let request = NegentropyPayload(buffer)
 
     let responseOpt = self.clientReconciliation(negentropy, request, haveHashes, needHashes).valueOr:
-      negentropy.delete()
       return err(error)
 
     let response = responseOpt.valueOr:
@@ -104,9 +103,7 @@ proc request(self: WakuSync, conn: Connection): Future[Result[seq[WakuMessageHas
 
     let writeRes = catch: await conn.writeLP(seq[byte](response))
     if writeRes.isErr():
-      negentropy.delete()
       return err(writeRes.error.msg)
-  negentropy.delete()
   return ok(needHashes)
 
 proc sync*(self: WakuSync): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
@@ -159,10 +156,14 @@ proc new*(T: type WakuSync,
   maxFrameSize: int = DefaultFrameSize,
   syncInterval: Duration = DefaultSyncInterval,
   callback: Option[WakuSyncCallback] = none(WakuSyncCallback)
-): T {. raises:[ValueError].}=
+): T =
 
-  let storage = Storage.new()
-  let negentropy = Negentropy.new(storage, uint64(maxFrameSize))
+  let storage = Storage.new().valueOr:
+    error "storage creation failed"
+    return nil
+  let negentropy = Negentropy.new(storage, uint64(maxFrameSize)).valueOr:
+    error "negentropy creation failed"
+    return nil
   let sync = WakuSync(
     storage: storage,
     negentropy: negentropy,
