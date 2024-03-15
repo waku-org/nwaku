@@ -82,15 +82,21 @@ proc ping*(wfc: WakuFilterClient, servicePeer: RemotePeerInfo): Future[FilterSub
 proc subscribe*(wfc: WakuFilterClient,
                 servicePeer: RemotePeerInfo,
                 pubsubTopic: PubsubTopic,
-                contentTopics: seq[ContentTopic]):
+                contentTopics: ContentTopic|seq[ContentTopic]):
               Future[FilterSubscribeResult]
               {.async.} =
+
+  var contentTopicSeq: seq[ContentTopic]
+  when contentTopics is seq[ContentTopic]:
+    contentTopicSeq = contentTopics
+  else:
+    contentTopicSeq = @[contentTopics]
 
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.subscribe(
     requestId = requestId,
     pubsubTopic = pubsubTopic,
-    contentTopics = contentTopics
+    contentTopics = contentTopicSeq
   )
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
@@ -98,15 +104,21 @@ proc subscribe*(wfc: WakuFilterClient,
 proc unsubscribe*(wfc: WakuFilterClient,
                   servicePeer: RemotePeerInfo,
                   pubsubTopic: PubsubTopic,
-                  contentTopics: seq[ContentTopic]):
+                  contentTopics: ContentTopic|seq[ContentTopic]):
                 Future[FilterSubscribeResult]
                 {.async.} =
 
+  var contentTopicSeq: seq[ContentTopic]
+  when contentTopics is seq[ContentTopic]:
+    contentTopicSeq = contentTopics
+  else:
+    contentTopicSeq = @[contentTopics]
+  
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.unsubscribe(
     requestId = requestId,
     pubsubTopic = pubsubTopic,
-    contentTopics = contentTopics
+    contentTopics = contentTopicSeq
   )
 
   return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)

@@ -17,9 +17,12 @@ import
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
+  ../../../waku/waku_core/subscription,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
+  ../../../waku/waku_filter_v2,
+  ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_store,
   ../../../waku/waku_node,
   ../waku_store/store_utils,
@@ -202,6 +205,7 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
+    echo "Starting test"
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
@@ -223,14 +227,33 @@ procSuite "WakuNode - Store":
     ## Then
     let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
     proc filterHandler(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async, gcsafe, closure.} =
+      echo "Filter received message"
+      await server.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
+    server.wakuFilterClient.registerPushHandler(filterHandler)
+    let resp = waitFor server.filterSubscribe(some(DefaultPubsubTopic), DefaultContentTopic, peer=filterSourcePeer)
+
+    echo "Filter subscribed"
+    
     waitFor sleepAsync(100.millis)
+
+    echo "Handling message in filter source"
+    
+    waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+
+    echo "Starting wait for filter message"
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
 
+    echo "Done waiting"
+
+    echo "Querying for message"
+
     let res = waitFor client.query(HistoryQuery(contentTopics: @[DefaultContentTopic]), peer=serverPeer)
+
+    echo "Done querying"
 
     ## Then
     check res.isOk()
@@ -247,6 +270,8 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+
+    echo "Test finished"
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup

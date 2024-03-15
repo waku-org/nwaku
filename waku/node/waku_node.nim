@@ -440,6 +440,9 @@ proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
   node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
 
+  if node.started:
+    await node.wakuFilterClient.start()
+
   node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
 
 proc filterSubscribe*(node: WakuNode,
@@ -514,7 +517,7 @@ proc filterSubscribe*(node: WakuNode,
 
 proc filterUnsubscribe*(node: WakuNode,
                           pubsubTopic: Option[PubsubTopic],
-                          contentTopics: seq[ContentTopic],
+                          contentTopics: ContentTopic|seq[ContentTopic],
                           peer: RemotePeerInfo|string):
 
                 Future[FilterSubscribeResult]
