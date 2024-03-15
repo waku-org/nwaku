@@ -679,6 +679,7 @@ proc loopPartitionFactory(
         debug "creating a new partition for the future"
         ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
+
         (
           await self.addPartition(
             newestPartition.getLastMoment(), PartitionsRangeInterval
