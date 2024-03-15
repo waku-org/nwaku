@@ -55,7 +55,8 @@ proc sendRlnMessage(
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
   var message = WakuMessage(payload: payload, contentTopic: contentTopic)
-  assertResultOk client.wakuRlnRelay.appendRLNProof(message, epochTime())
+  let appendRlnProofResult = client.wakuRlnRelay.appendRLNProof(message, epochTime())
+  assertResultOk appendRlnProofResult
   discard await client.publish(some(pubsubTopic), message)
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
