@@ -80,7 +80,7 @@ endif
 ## end of Heaptracker options
 
 ## Pass libnegentropy to linker.
-NIM_PARAMS := $(NIM_PARAMS) --passL:libnegentropy.so
+NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
 
 ##################
 ## Dependencies ##
