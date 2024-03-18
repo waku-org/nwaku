@@ -15,23 +15,6 @@ https://github.com/arnetheduck/nph
 
 ```
 {
-    "editor.renderWhitespace": "all",
-    "editor.largeFileOptimizations": false,
-    "[python]": {
-        "editor.formatOnType": true
-    },
-    "explorer.confirmDelete": false,
-    "explorer.confirmDragAndDrop": false,
-    "editor.rulers": [
-        100
-    ],
-    "diffEditor.ignoreTrimWhitespace": false,
-    "editor.parameterHints.enabled": false,
-    "rust-analyzer.inlayHints.parameterHints.enable": false,
-    "rust-analyzer.inlayHints.bindingModeHints.enable": true,
-    "rust-analyzer.inlayHints.closureCaptureHints.enable": true,
-    "editor.minimap.enabled": false,
-    "window.zoomLevel": 1,
     "[nim]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "arnetheduck.vscode-nph"
