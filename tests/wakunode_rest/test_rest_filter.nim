@@ -246,7 +246,7 @@ suite "Waku v2 Rest API - Filter V2":
       pingResponse.status == 200
       $pingResponse.contentType == $MIMETYPE_JSON
       pingResponse.data.requestId == "9999"
-      pingResponse.data.statusDesc.len() == 0
+      pingResponse.data.statusDesc == "OK"
 
     # When - error case
     let requestBodyUnsubAll = FilterUnsubscribeAllRequest(requestId: "9988")
@@ -288,7 +288,7 @@ suite "Waku v2 Rest API - Filter V2":
       pingResponse.status == 200
       $pingResponse.contentType == $MIMETYPE_JSON
       pingResponse.data.requestId == "9999"
-      pingResponse.data.statusDesc.len() == 0
+      pingResponse.data.statusDesc == "OK"
 
     # When - message push
     let testMessage = WakuMessage(
