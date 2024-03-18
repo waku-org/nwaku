@@ -113,14 +113,7 @@ proc handleMessage*(
 
   (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
-    # Prevent spamming the logs when multiple nodes are connected to the same database.
-    # In that case, the message cannot be inserted but is an expected "insert error"
-    # and therefore we reduce its visibility by having the log in trace level.
-    if "duplicate key value violates unique constraint" in error:
-      trace "failed to insert message", err = error
-    else:
-      debug "failed to insert message", err = error
-
+    debug "failed to insert message", err = error
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 

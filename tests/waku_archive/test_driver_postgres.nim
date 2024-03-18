@@ -164,6 +164,9 @@ suite "Postgres driver":
     let msg1 = fakeWakuMessage(ts = now)
     let msg2 = fakeWakuMessage(ts = now)
 
+    let initialNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
     var putRes = await driver.put(
       DefaultPubsubTopic,
       msg1,
@@ -173,6 +176,12 @@ suite "Postgres driver":
     )
     assert putRes.isOk(), putRes.error
 
+    var newNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
+    assert newNumMsgs == (initialNumMsgs + 1.int64),
+      "wrong number of messages: " & $newNumMsgs
+
     putRes = await driver.put(
       DefaultPubsubTopic,
       msg2,
@@ -180,4 +189,11 @@ suite "Postgres driver":
       computeMessageHash(DefaultPubsubTopic, msg2),
       msg2.timestamp,
     )
-    assert not putRes.isOk()
+
+    assert putRes.isOk()
+
+    newNumMsgs = (await driver.getMessagesCount()).valueOr:
+      raiseAssert "could not get num mgs correctly: " & $error
+
+    assert newNumMsgs == (initialNumMsgs + 1.int64),
+      "wrong number of messages: " & $newNumMsgs
