@@ -3,11 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import 
-  std/[sequtils, tables],
-  stew/[results, endians2],
-  nimcrypto,
-  stint
+import std/[sequtils, tables], stew/[results, endians2], nimcrypto, stint
 
 # NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
 const CredentialByteSize* = 256
@@ -49,25 +45,37 @@ proc toMembershipIndex*(v: UInt256): MembershipIndex =
 
 # Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash, commitment) to an IdentityCredential
 type RawMembershipCredentials* = (string, string, string, string)
-proc toIdentityCredentials*(groupKeys: seq[RawMembershipCredentials]): Result[seq[
-    IdentityCredential], string] =
+proc toIdentityCredentials*(
+    groupKeys: seq[RawMembershipCredentials]
+): Result[seq[IdentityCredential], string] =
   ## groupKeys is  sequence of membership key tuples in the form of (identity key, identity commitment) all in the hexadecimal format
   ## the toIdentityCredentials proc populates a sequence of IdentityCredentials using the supplied groupKeys
   ## Returns an error if the conversion fails
 
   var groupIdCredentials = newSeq[IdentityCredential]()
 
-  for i in 0..groupKeys.len-1:
+  for i in 0 .. groupKeys.len - 1:
     try:
       let
-        idTrapdoor = IdentityTrapdoor(@(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE()))
-        idNullifier = IdentityNullifier(@(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE()))
-        idSecretHash = IdentitySecretHash(@(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE()))
-        idCommitment = IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
-      groupIdCredentials.add(IdentityCredential(idTrapdoor: idTrapdoor, 
-                                                idNullifier: idNullifier, 
-                                                idSecretHash: idSecretHash,
-                                                idCommitment: idCommitment))
+        idTrapdoor = IdentityTrapdoor(
+          @(hexToUint[CredentialByteSize](groupKeys[i][0]).toBytesLE())
+        )
+        idNullifier = IdentityNullifier(
+          @(hexToUint[CredentialByteSize](groupKeys[i][1]).toBytesLE())
+        )
+        idSecretHash = IdentitySecretHash(
+          @(hexToUint[CredentialByteSize](groupKeys[i][2]).toBytesLE())
+        )
+        idCommitment =
+          IDCommitment(@(hexToUint[CredentialByteSize](groupKeys[i][3]).toBytesLE()))
+      groupIdCredentials.add(
+        IdentityCredential(
+          idTrapdoor: idTrapdoor,
+          idNullifier: idNullifier,
+          idSecretHash: idSecretHash,
+          idCommitment: idCommitment,
+        )
+      )
     except ValueError as err:
       return err("could not convert the group key to bytes: " & err.msg)
   return ok(groupIdCredentials)
@@ -100,34 +108,47 @@ type KeystoreMembership* = ref object of RootObj
 
 when defined(rln_v2):
   proc `$`*(m: KeystoreMembership): string =
-    return "KeystoreMembership(chainId: " & m.membershipContract.chainId & ", contractAddress: " & m.membershipContract.address & ", treeIndex: " & $m.treeIndex & ", userMessageLimit: " & $m.userMessageLimit & ", identityCredential: "  & $m.identityCredential & ")"
+    return
+      "KeystoreMembership(chainId: " & m.membershipContract.chainId &
+      ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
+      $m.treeIndex & ", userMessageLimit: " & $m.userMessageLimit &
+      ", identityCredential: " & $m.identityCredential & ")"
+
 else:
   proc `$`*(m: KeystoreMembership): string =
-    return "KeystoreMembership(chainId: " & m.membershipContract.chainId & ", contractAddress: " & m.membershipContract.address & ", treeIndex: " & $m.treeIndex & ", identityCredential: "  & $m.identityCredential & ")"
+    return
+      "KeystoreMembership(chainId: " & m.membershipContract.chainId &
+      ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
+      $m.treeIndex & ", identityCredential: " & $m.identityCredential & ")"
 
 when defined(rln_v2):
   proc `==`*(x, y: KeystoreMembership): bool =
-    return x.membershipContract.chainId == y.membershipContract.chainId and
-          x.membershipContract.address == y.membershipContract.address and
-          x.treeIndex == y.treeIndex and
-          x.userMessageLimit == y.userMessageLimit and
-          x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
-          x.identityCredential.idNullifier == y.identityCredential.idNullifier and
-          x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
-          x.identityCredential.idCommitment == y.identityCredential.idCommitment
+    return
+      x.membershipContract.chainId == y.membershipContract.chainId and
+      x.membershipContract.address == y.membershipContract.address and
+      x.treeIndex == y.treeIndex and x.userMessageLimit == y.userMessageLimit and
+      x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
+      x.identityCredential.idNullifier == y.identityCredential.idNullifier and
+      x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
+      x.identityCredential.idCommitment == y.identityCredential.idCommitment
+
 else:
   proc `==`*(x, y: KeystoreMembership): bool =
-    return x.membershipContract.chainId == y.membershipContract.chainId and
-          x.membershipContract.address == y.membershipContract.address and
-          x.treeIndex == y.treeIndex and
-          x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
-          x.identityCredential.idNullifier == y.identityCredential.idNullifier and
-          x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
-          x.identityCredential.idCommitment == y.identityCredential.idCommitment
+    return
+      x.membershipContract.chainId == y.membershipContract.chainId and
+      x.membershipContract.address == y.membershipContract.address and
+      x.treeIndex == y.treeIndex and
+      x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
+      x.identityCredential.idNullifier == y.identityCredential.idNullifier and
+      x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
+      x.identityCredential.idCommitment == y.identityCredential.idCommitment
 
 proc hash*(m: KeystoreMembership): string =
   # hash together the chainId, address and treeIndex
-  return $sha256.digest(m.membershipContract.chainId & m.membershipContract.address & $m.treeIndex)
+  return
+    $sha256.digest(
+      m.membershipContract.chainId & m.membershipContract.address & $m.treeIndex
+    )
 
 type MembershipTable* = Table[string, KeystoreMembership]
 
@@ -144,24 +165,26 @@ type AppKeystore* = object
 
 type
   AppKeystoreErrorKind* = enum
-    KeystoreOsError               = "keystore error: OS specific error"
-    KeystoreIoError               = "keystore error: IO specific error"
-    KeystoreJsonKeyError          = "keystore error: fields not present in JSON"
-    KeystoreJsonError             = "keystore error: JSON encoder/decoder error"
-    KeystoreKeystoreDoesNotExist  = "keystore error: file does not exist"
-    KeystoreCreateKeystoreError   = "Error while creating application keystore"
-    KeystoreLoadKeystoreError     = "Error while loading application keystore"
-    KeystoreCreateKeyfileError    = "Error while creating keyfile for credentials"
-    KeystoreSaveKeyfileError      = "Error while saving keyfile for credentials"
-    KeystoreReadKeyfileError      = "Error while reading keyfile for credentials"
-    KeystoreCredentialAlreadyPresentError = "Error while adding credentials to keystore: credential already present"
-    KeystoreCredentialNotFoundError = "Error while searching credentials in keystore: credential not found"
+    KeystoreOsError = "keystore error: OS specific error"
+    KeystoreIoError = "keystore error: IO specific error"
+    KeystoreJsonKeyError = "keystore error: fields not present in JSON"
+    KeystoreJsonError = "keystore error: JSON encoder/decoder error"
+    KeystoreKeystoreDoesNotExist = "keystore error: file does not exist"
+    KeystoreCreateKeystoreError = "Error while creating application keystore"
+    KeystoreLoadKeystoreError = "Error while loading application keystore"
+    KeystoreCreateKeyfileError = "Error while creating keyfile for credentials"
+    KeystoreSaveKeyfileError = "Error while saving keyfile for credentials"
+    KeystoreReadKeyfileError = "Error while reading keyfile for credentials"
+    KeystoreCredentialAlreadyPresentError =
+      "Error while adding credentials to keystore: credential already present"
+    KeystoreCredentialNotFoundError =
+      "Error while searching credentials in keystore: credential not found"
 
   AppKeystoreError* = object
     kind*: AppKeystoreErrorKind
     msg*: string
 
-proc `$`*(e: AppKeystoreError) : string =
+proc `$`*(e: AppKeystoreError): string =
   return $e.kind & ": " & e.msg
 
 type KeystoreResult*[T] = Result[T, AppKeystoreError]

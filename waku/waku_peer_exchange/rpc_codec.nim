@@ -3,11 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
-import
-  ../common/protobuf,
-  ./rpc
-
+import ../common/protobuf, ./rpc
 
 proc encode*(rpc: PeerExchangeRequest): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -27,7 +23,6 @@ proc decode*(T: type PeerExchangeRequest, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
-
 proc encode*(rpc: PeerExchangePeerInfo): ProtoBuffer =
   var pb = initProtoBuffer()
 
@@ -45,7 +40,6 @@ proc decode*(T: type PeerExchangePeerInfo, buffer: seq[byte]): ProtoResult[T] =
     rpc.enr = peerInfoBuffer
 
   ok(rpc)
-
 
 proc encode*(rpc: PeerExchangeResponse): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -67,7 +61,6 @@ proc decode*(T: type PeerExchangeResponse, buffer: seq[byte]): ProtoResult[T] =
       rpc.peerInfos.add(?PeerExchangePeerInfo.decode(pib))
 
   ok(rpc)
-
 
 proc encode*(rpc: PeerExchangeRpc): ProtoBuffer =
   var pb = initProtoBuffer()

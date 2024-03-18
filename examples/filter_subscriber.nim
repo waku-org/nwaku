@@ -1,11 +1,7 @@
 ## Example showing how a resource restricted client may
 ## subscribe to messages without relay
 
-import
-  chronicles,
-  chronos,
-  stew/byteutils,
-  stew/results
+import chronicles, chronos, stew/byteutils, stew/results
 import
   ../../../waku/common/logging,
   ../../../waku/node/peer_manager,
@@ -13,34 +9,42 @@ import
   ../../../waku/waku_filter_v2/client
 
 const
-  FilterPeer = "/ip4/104.154.239.128/tcp/30303/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS" # node-01.gc-us-central1-a.wakuv2.test.statusim.net on wakuv2.test
+  FilterPeer =
+    "/ip4/104.154.239.128/tcp/30303/p2p/16Uiu2HAmJb2e28qLXxT5kZxVUUoJt72EMzNGXB47Rxx5hw3q4YjS"
+    # node-01.gc-us-central1-a.wakuv2.test.statusim.net on wakuv2.test
   FilterPubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
   FilterContentTopic = ContentTopic("/examples/1/light-pubsub-example/proto")
 
-proc unsubscribe(wfc: WakuFilterClient,
-                 filterPeer: RemotePeerInfo,
-                 filterPubsubTopic: PubsubTopic,
-                 filterContentTopic: ContentTopic) {.async.} =
+proc unsubscribe(
+    wfc: WakuFilterClient,
+    filterPeer: RemotePeerInfo,
+    filterPubsubTopic: PubsubTopic,
+    filterContentTopic: ContentTopic,
+) {.async.} =
   notice "unsubscribing from filter"
-  let unsubscribeRes = await wfc.unsubscribe(filterPeer, filterPubsubTopic, @[filterContentTopic])
+  let unsubscribeRes =
+    await wfc.unsubscribe(filterPeer, filterPubsubTopic, @[filterContentTopic])
   if unsubscribeRes.isErr:
-    notice "unsubscribe request failed", err=unsubscribeRes.error
+    notice "unsubscribe request failed", err = unsubscribeRes.error
   else:
     notice "unsubscribe request successful"
 
-proc messagePushHandler(pubsubTopic: PubsubTopic, message: WakuMessage)
-                                          {.async, gcsafe.} =
+proc messagePushHandler(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+) {.async, gcsafe.} =
   let payloadStr = string.fromBytes(message.payload)
-  notice "message received", payload=payloadStr,
-                             pubsubTopic=pubsubTopic,
-                             contentTopic=message.contentTopic,
-                             timestamp=message.timestamp
+  notice "message received",
+    payload = payloadStr,
+    pubsubTopic = pubsubTopic,
+    contentTopic = message.contentTopic,
+    timestamp = message.timestamp
 
-
-proc maintainSubscription(wfc: WakuFilterClient,
-                          filterPeer: RemotePeerInfo,
-                          filterPubsubTopic: PubsubTopic,
-                          filterContentTopic: ContentTopic) {.async.} =
+proc maintainSubscription(
+    wfc: WakuFilterClient,
+    filterPeer: RemotePeerInfo,
+    filterPubsubTopic: PubsubTopic,
+    filterContentTopic: ContentTopic,
+) {.async.} =
   while true:
     notice "maintaining subscription"
     # First use filter-ping to check if we have an active subscription
@@ -49,10 +53,11 @@ proc maintainSubscription(wfc: WakuFilterClient,
       # No subscription found. Let's subscribe.
       notice "no subscription found. Sending subscribe request"
 
-      let subscribeRes = await wfc.subscribe(filterPeer, filterPubsubTopic, @[filterContentTopic])
+      let subscribeRes =
+        await wfc.subscribe(filterPeer, filterPubsubTopic, @[filterContentTopic])
 
       if subscribeRes.isErr():
-        notice "subscribe request failed. Quitting.", err=subscribeRes.error
+        notice "subscribe request failed. Quitting.", err = subscribeRes.error
         break
       else:
         notice "subscribe request successful."
@@ -78,7 +83,9 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) =
   wfc.registerPushHandler(messagePushHandler)
 
   # Start maintaining subscription
-  asyncSpawn maintainSubscription(wfc, filterPeer, FilterPubsubTopic, FilterContentTopic)
+  asyncSpawn maintainSubscription(
+    wfc, filterPeer, FilterPubsubTopic, FilterContentTopic
+  )
 
 when isMainModule:
   let rng = newRng()

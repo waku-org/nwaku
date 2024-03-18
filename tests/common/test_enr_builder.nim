@@ -1,17 +1,9 @@
 {.used.}
 
-import
-  std/options,
-  stew/results,
-  stew/shims/net,
-  testutils/unittests
-import
-  ../../waku/common/enr,
-  ../testlib/wakucore
-
+import std/options, stew/results, stew/shims/net, testutils/unittests
+import ../../waku/common/enr, ../testlib/wakucore
 
 suite "nim-eth ENR - builder and typed record":
-
   test "Non-supported private key (ECDSA)":
     ## Given
     let privateKey = generateEcdsaKey()
@@ -45,28 +37,28 @@ suite "nim-eth ENR - builder and typed record":
       publicKey.isSome()
       @(publicKey.get()) == expectedPubKey
 
-
 suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
-
   test "EIP-778 test vector":
     ## Given
     # Test vector from EIP-778
     # See: https://eips.ethereum.org/EIPS/eip-778#test-vectors
-    let expectedEnr = "-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04j" &
-                      "RzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJ" &
-                      "c2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0x" &
-                      "OIN1ZHCCdl8"
+    let expectedEnr =
+      "-IS4QHCYrYZbAKWCBRlAy5zzaDZXJBGkcnh4MHcBFZntXNFrdvJjX04j" &
+      "RzjzCBOonrkTfj499SZuOh8R33Ls8RRcy5wBgmlkgnY0gmlwhH8AAAGJ" &
+      "c2VjcDI1NmsxoQPKY0yuDUmstAHYpMa2_oxVtw0RW_QAdpzBQA8yWM0x" & "OIN1ZHCCdl8"
 
     let
       seqNum = 1u64
-      privateKey = ethSecp256k1Key("b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291")
+      privateKey = ethSecp256k1Key(
+        "b71c71a67e1177ad4e901695e1b4b9ee17ae16c6668d313eac2f96dbcda3f291"
+      )
 
       enrIpAddr = parseIpAddress("127.0.0.1")
       enrUdpPort = Port(30303)
 
     ## When
     var builder = EnrBuilder.init(privateKey, seqNum)
-    builder.withIpAddressAndPorts(ipAddr=some(enrIpAddr), udpPort=some(enrUdpPort))
+    builder.withIpAddressAndPorts(ipAddr = some(enrIpAddr), udpPort = some(enrUdpPort))
 
     let enrRes = builder.build()
 
@@ -89,10 +81,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
 
     ## When
     var builder = EnrBuilder.init(privateKey, seqNum)
-    builder.withIpAddressAndPorts(
-      ipAddr=some(enrIpAddr),
-      tcpPort=some(enrTcpPort),
-    )
+    builder.withIpAddressAndPorts(ipAddr = some(enrIpAddr), tcpPort = some(enrTcpPort))
 
     let enrRes = builder.build()
 
@@ -119,10 +108,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
 
     ## When
     var builder = EnrBuilder.init(privateKey, seqNum)
-    builder.withIpAddressAndPorts(
-      ipAddr=some(enrIpAddr),
-      udpPort=some(enrUdpPort),
-    )
+    builder.withIpAddressAndPorts(ipAddr = some(enrIpAddr), udpPort = some(enrUdpPort))
 
     let enrRes = builder.build()
 

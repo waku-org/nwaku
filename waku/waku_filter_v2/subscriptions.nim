@@ -3,15 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/[sets,tables],
-  chronicles,
-  chronos,
-  libp2p/peerid,
-  stew/shims/sets
-import
-  ../waku_core,
-  ../utils/tableutils
+import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
+import ../waku_core, ../utils/tableutils
 
 logScope:
   topics = "waku filter subscriptions"
@@ -23,37 +16,35 @@ const
 
 type
   # a single filter criterion is fully defined by a pubsub topic and content topic
-  FilterCriterion* = tuple
-    pubsubTopic: PubsubTopic
-    contentTopic: ContentTopic
+  FilterCriterion* = tuple[pubsubTopic: PubsubTopic, contentTopic: ContentTopic]
 
   FilterCriteria* = HashSet[FilterCriterion] # a sequence of filter criteria
 
   SubscribedPeers* = HashSet[PeerID] # a sequence of peer ids
 
-  PeerData* = tuple
-    lastSeen: Moment
-    criteriaCount: uint
+  PeerData* = tuple[lastSeen: Moment, criteriaCount: uint]
 
   FilterSubscriptions* = object
-    peersSubscribed*    : Table[PeerID, PeerData]
-    subscriptions       : Table[FilterCriterion, SubscribedPeers]
-    subscriptionTimeout : Duration
-    maxPeers            : uint
-    maxCriteriaPerPeer  : uint
+    peersSubscribed*: Table[PeerID, PeerData]
+    subscriptions: Table[FilterCriterion, SubscribedPeers]
+    subscriptionTimeout: Duration
+    maxPeers: uint
+    maxCriteriaPerPeer: uint
 
-proc init*(T: type FilterSubscriptions,
-          subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
-          maxFilterPeers: uint32 = MaxFilterPeers,
-          maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer): FilterSubscriptions =
+proc init*(
+    T: type FilterSubscriptions,
+    subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
+    maxFilterPeers: uint32 = MaxFilterPeers,
+    maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+): FilterSubscriptions =
   ## Create a new filter subscription object
   return FilterSubscriptions(
-              peersSubscribed: initTable[PeerID, PeerData](),
-              subscriptions: initTable[FilterCriterion, SubscribedPeers](),
-              subscriptionTimeout: subscriptionTimeout,
-              maxPeers: maxFilterPeers,
-              maxCriteriaPerPeer: maxFilterCriteriaPerPeer
-            )
+    peersSubscribed: initTable[PeerID, PeerData](),
+    subscriptions: initTable[FilterCriterion, SubscribedPeers](),
+    subscriptionTimeout: subscriptionTimeout,
+    maxPeers: maxFilterPeers,
+    maxCriteriaPerPeer: maxFilterCriteriaPerPeer,
+  )
 
 proc isSubscribed*(s: var FilterSubscriptions, peerId: PeerID): bool =
   s.peersSubscribed.withValue(peerId, data):
@@ -64,7 +55,9 @@ proc isSubscribed*(s: var FilterSubscriptions, peerId: PeerID): bool =
 proc subscribedPeerCount*(s: FilterSubscriptions): uint =
   return cast[uint](s.peersSubscribed.len)
 
-proc getPeerSubscriptions*(s: var FilterSubscriptions, peerId: PeerID): seq[FilterCriterion] =
+proc getPeerSubscriptions*(
+    s: var FilterSubscriptions, peerId: PeerID
+): seq[FilterCriterion] =
   ## Get all pubsub-content topics a peer is subscribed to
   var subscribedContentTopics: seq[FilterCriterion] = @[]
   s.peersSubscribed.withValue(peerId, data):
@@ -77,10 +70,12 @@ proc getPeerSubscriptions*(s: var FilterSubscriptions, peerId: PeerID): seq[Filt
 
   return subscribedContentTopics
 
-proc findSubscribedPeers*(s: var FilterSubscriptions, pubsubTopic: PubsubTopic, contentTopic: ContentTopic): seq[PeerID] =
-  let filterCriterion : FilterCriterion = (pubsubTopic, contentTopic)
+proc findSubscribedPeers*(
+    s: var FilterSubscriptions, pubsubTopic: PubsubTopic, contentTopic: ContentTopic
+): seq[PeerID] =
+  let filterCriterion: FilterCriterion = (pubsubTopic, contentTopic)
 
-  var foundPeers : seq[PeerID] = @[]
+  var foundPeers: seq[PeerID] = @[]
   # only peers subscribed to criteria and with legit subscription is counted
   s.subscriptions.withValue(filterCriterion, peers):
     for peer in peers[]:
@@ -104,7 +99,7 @@ proc cleanUp*(fs: var FilterSubscriptions) =
 
   var filtersToRemove: seq[FilterCriterion] = @[]
   for filterCriterion, subscribedPeers in fs.subscriptions.mpairs:
-    subscribedPeers.keepItIf(fs.isSubscribed(it)==true)
+    subscribedPeers.keepItIf(fs.isSubscribed(it) == true)
 
   fs.subscriptions.keepItIf(val.len > 0)
 
@@ -112,7 +107,9 @@ proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
   s.peersSubscribed.withValue(peerId, data):
     data.lastSeen = Moment.now()
 
-proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria): Result[void, string] =
+proc addSubscription*(
+    s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
+): Result[void, string] =
   ## Add a subscription for a given peer
   var peerData: ptr PeerData
 
@@ -122,7 +119,6 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
 
     data.lastSeen = Moment.now()
     peerData = data
-
   do:
     ## not yet subscribed
     if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
@@ -139,10 +135,9 @@ proc addSubscription*(s: var FilterSubscriptions, peerId: PeerID, filterCriteria
 
   return ok()
 
-proc removeSubscription*(s: var FilterSubscriptions,
-                        peerId: PeerID,
-                        filterCriteria: FilterCriteria):
-                  Result[void, string] =
+proc removeSubscription*(
+    s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
+): Result[void, string] =
   ## Remove a subscription for a given peer
 
   s.peersSubscribed.withValue(peerId, peerData):
@@ -161,8 +156,5 @@ proc removeSubscription*(s: var FilterSubscriptions,
         return err("Peer was not subscribed to criterion")
 
     return ok()
-
   do:
     return err("Peer has no subscriptions")
-
-

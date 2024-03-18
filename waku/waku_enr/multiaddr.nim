@@ -10,35 +10,34 @@ import
   eth/keys,
   libp2p/[multiaddress, multicodec],
   libp2p/crypto/crypto
-import
-  ../common/enr
+import ../common/enr
 
-const
-  MultiaddrEnrField* = "multiaddrs"
-
+const MultiaddrEnrField* = "multiaddrs"
 
 func encodeMultiaddrs*(multiaddrs: seq[MultiAddress]): seq[byte] =
   var buffer = newSeq[byte]()
   for multiaddr in multiaddrs:
-
     let
       raw = multiaddr.data.buffer # binary encoded multiaddr
-      size = raw.len.uint16.toBytes(Endianness.bigEndian) # size as Big Endian unsigned 16-bit integer
+      size = raw.len.uint16.toBytes(Endianness.bigEndian)
+        # size as Big Endian unsigned 16-bit integer
 
     buffer.add(concat(@size, raw))
 
   buffer
 
-func readBytes(rawBytes: seq[byte], numBytes: int, pos: var int = 0): Result[seq[byte], cstring] =
+func readBytes(
+    rawBytes: seq[byte], numBytes: int, pos: var int = 0
+): Result[seq[byte], cstring] =
   ## Attempts to read `numBytes` from a sequence, from
   ## position `pos`. Returns the requested slice or
   ## an error if `rawBytes` boundary is exceeded.
   ##
   ## If successful, `pos` is advanced by `numBytes`
-  if rawBytes[pos..^1].len() < numBytes:
+  if rawBytes[pos ..^ 1].len() < numBytes:
     return err("insufficient bytes")
 
-  let slicedSeq = rawBytes[pos..<pos+numBytes]
+  let slicedSeq = rawBytes[pos ..< pos + numBytes]
   pos += numBytes
 
   return ok(slicedSeq)
@@ -50,19 +49,18 @@ func decodeMultiaddrs(buffer: seq[byte]): EnrResult[seq[MultiAddress]] =
 
   var pos = 0
   while pos < buffer.len():
-    let addrLenRaw = ? readBytes(buffer, 2, pos)
+    let addrLenRaw = ?readBytes(buffer, 2, pos)
     let addrLen = uint16.fromBytesBE(addrLenRaw)
     if addrLen == 0:
       # Ensure pos always advances and we don't get stuck in infinite loop
       return err("malformed multiaddr field: invalid length")
 
-    let addrRaw = ? readBytes(buffer, addrLen.int, pos)
+    let addrRaw = ?readBytes(buffer, addrLen.int, pos)
     let address = MultiAddress.init(addrRaw).get()
 
     multiaddrs.add(address)
 
   return ok(multiaddrs)
-
 
 # ENR builder extension
 func stripPeerId(multiaddr: MultiAddress): MultiAddress =

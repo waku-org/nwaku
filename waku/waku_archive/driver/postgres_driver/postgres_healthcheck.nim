@@ -3,13 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+import chronos, stew/results
 import
-  chronos,
-  stew/results
-import
-  ../../driver,
-  ../../../common/databases/db_postgres,
-  ../../../common/error_handling
+  ../../driver, ../../../common/databases/db_postgres, ../../../common/error_handling
 
 ## Simple query to validate that the postgres is working and attending requests
 const HealthCheckQuery = "SELECT version();"
@@ -17,13 +13,11 @@ const CheckConnectivityInterval = 60.seconds
 const MaxNumTrials = 20
 const TrialInterval = 1.seconds
 
-proc checkConnectivity*(connPool: PgAsyncPool,
-                        onFatalErrorAction: OnFatalErrorHandler) {.async.} =
-
+proc checkConnectivity*(
+    connPool: PgAsyncPool, onFatalErrorAction: OnFatalErrorHandler
+) {.async.} =
   while true:
-
     (await connPool.pgQuery(HealthCheckQuery)).isOkOr:
-
       ## The connection failed once. Let's try reconnecting for a while.
       ## Notice that the 'exec' proc tries to establish a new connection.
 

@@ -37,8 +37,7 @@ proc randomSeqByte*(rng: var HmacDrbgContext, size: int): seq[byte] =
 
 # Pads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
 proc pkcs7_pad*(payload: seq[byte], paddingSize: int): seq[byte] =
-
-  assert(paddingSize<256)
+  assert(paddingSize < 256)
 
   let k = paddingSize - (payload.len mod paddingSize)
 
@@ -56,36 +55,44 @@ proc pkcs7_pad*(payload: seq[byte], paddingSize: int): seq[byte] =
 # Unpads a payload according to PKCS#7 as per RFC 5652 https://datatracker.ietf.org/doc/html/rfc5652#section-6.3
 proc pkcs7_unpad*(payload: seq[byte], paddingSize: int): seq[byte] =
   let k = payload[payload.high]
-  let unpadded = payload[0..payload.high-k.int]
+  let unpadded = payload[0 .. payload.high - k.int]
   return unpadded
 
 proc seqToDigest256*(sequence: seq[byte]): MDigest[256] =
   var digest: MDigest[256]
-  for i in 0..<digest.data.len:
+  for i in 0 ..< digest.data.len:
     digest.data[i] = sequence[i]
   return digest
 
 proc digestToSeq*[T](digest: MDigest[T]): seq[byte] =
   var sequence: seq[byte]
-  for i in 0..<digest.data.len:
+  for i in 0 ..< digest.data.len:
     sequence.add digest.data[i]
   return sequence
 
 # Serializes input parameters to a base64 string for exposure through QR code (used by WakuPairing)
-proc toQr*(applicationName: string, applicationVersion: string, shardId: string, ephemeralKey: EllipticCurveKey, committedStaticKey: MDigest[256]): string =
-
+proc toQr*(
+    applicationName: string,
+    applicationVersion: string,
+    shardId: string,
+    ephemeralKey: EllipticCurveKey,
+    committedStaticKey: MDigest[256],
+): string =
   var qr: string
-  qr.add encode(applicationName, safe=true) & ":"
-  qr.add encode(applicationVersion, safe=true) & ":"
-  qr.add encode(shardId, safe=true) & ":"
-  qr.add encode(ephemeralKey, safe=true) & ":"
-  qr.add encode(committedStaticKey.data, safe=true)
+  qr.add encode(applicationName, safe = true) & ":"
+  qr.add encode(applicationVersion, safe = true) & ":"
+  qr.add encode(shardId, safe = true) & ":"
+  qr.add encode(ephemeralKey, safe = true) & ":"
+  qr.add encode(committedStaticKey.data, safe = true)
 
   return qr
 
 # Deserializes input string in base64 to the corresponding (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
-proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256]) {.raises: [Defect, ValueError].} =
-
+proc fromQr*(
+    qr: string
+): (string, string, string, EllipticCurveKey, MDigest[256]) {.
+    raises: [Defect, ValueError]
+.} =
   let values = qr.split(":")
 
   assert(values.len == 5)
@@ -96,12 +103,13 @@ proc fromQr*(qr: string): (string, string, string, EllipticCurveKey, MDigest[256
 
   let decodedEphemeralKey = decode(values[3]).toBytes
   var ephemeralKey: EllipticCurveKey
-  for i in 0..<ephemeralKey.len:
+  for i in 0 ..< ephemeralKey.len:
     ephemeralKey[i] = decodedEphemeralKey[i]
 
   let committedStaticKey = seqToDigest256(decode(values[4]).toBytes)
 
-  return (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
+  return
+    (applicationName, applicationVersion, shardId, ephemeralKey, committedStaticKey)
 
 # Converts a sequence or array (arbitrary size) to a MessageNametag
 proc toMessageNametag*(input: openArray[byte]): MessageNametag =
@@ -112,7 +120,7 @@ proc toMessageNametag*(input: openArray[byte]): MessageNametag =
 
   # We copy it to a MessageNametag
   var messageNametag: MessageNametag
-  for i in 0..<MessageNametagLength:
+  for i in 0 ..< MessageNametagLength:
     messageNametag[i] = byte_seq[i]
 
   return messageNametag
@@ -124,7 +132,9 @@ proc toMessageNametag*(hs: HandshakeState): MessageNametag =
   sha256.hkdf(hs.ss.h.data, [], [], output)
   return output[0]
 
-proc genMessageNametagSecrets*(hs: HandshakeState): (array[MessageNametagSecretLength, byte], array[MessageNametagSecretLength, byte]) =
+proc genMessageNametagSecrets*(
+    hs: HandshakeState
+): (array[MessageNametagSecretLength, byte], array[MessageNametagSecretLength, byte]) =
   var output: array[2, array[MessageNametagSecretLength, byte]]
   sha256.hkdf(hs.ss.h.data, [], [], output)
   return (output[0], output[1])
@@ -156,8 +166,7 @@ proc getPublicKey*(keypair: KeyPair): EllipticCurveKey =
   return keypair.publicKey
 
 # Prints Handshake Patterns using Noise pattern layout
-proc print*(self: HandshakePattern)
-   {.raises: [IOError, NoiseMalformedHandshake].}=
+proc print*(self: HandshakePattern) {.raises: [IOError, NoiseMalformedHandshake].} =
   try:
     if self.name != "":
       stdout.write self.name, ":\n"
@@ -165,16 +174,16 @@ proc print*(self: HandshakePattern)
     # We iterate over pre message patterns, if any
     if self.preMessagePatterns != EmptyPreMessage:
       for pattern in self.preMessagePatterns:
-          stdout.write "  ", pattern.direction
-          var first = true
-          for token in pattern.tokens:
-            if first:
-              stdout.write " ", token
-              first = false
-            else:
-              stdout.write ", ", token
-          stdout.write "\n"
-          stdout.flushFile()
+        stdout.write "  ", pattern.direction
+        var first = true
+        for token in pattern.tokens:
+          if first:
+            stdout.write " ", token
+            first = false
+          else:
+            stdout.write ", ", token
+        stdout.write "\n"
+        stdout.flushFile()
       stdout.write "    ...\n"
       stdout.flushFile()
     # We iterate over message patterns
@@ -194,7 +203,6 @@ proc print*(self: HandshakePattern)
 
 # Hashes a Noise protocol name using SHA256
 proc hashProtocol*(protocolName: string): MDigest[256] =
-
   # The output hash value
   var hash: MDigest[256]
 
@@ -204,7 +212,7 @@ proc hashProtocol*(protocolName: string): MDigest[256] =
   # sets h equal to protocol_name with zero bytes appended to make HASHLEN bytes.
   # Otherwise sets h = HASH(protocol_name).
   if protocolName.len <= 32:
-    hash.data[0..protocolName.high] = protocolName.toBytes
+    hash.data[0 .. protocolName.high] = protocolName.toBytes
   else:
     hash = sha256.digest(protocolName)
 
@@ -212,7 +220,6 @@ proc hashProtocol*(protocolName: string): MDigest[256] =
 
 # Commits a public key pk for randomness r as H(pk || s)
 proc commitPublicKey*(publicKey: EllipticCurveKey, r: seq[byte]): MDigest[256] =
-
   var hashInput: seq[byte]
   hashInput.add getBytes(publicKey)
   hashInput.add r
@@ -232,14 +239,15 @@ proc genAuthcode*(hs: HandshakeState): string =
 
 # Initializes the empty Message nametag buffer. The n-th nametag is equal to HKDF( secret || n )
 proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
-
   # We default the counter and buffer fields
   mntb.counter = 0
   mntb.buffer = default(array[MessageNametagBufferSize, MessageNametag])
 
   if mntb.secret.isSome:
-    for i in 0..<mntb.buffer.len:
-      mntb.buffer[i] = toMessageNametag(sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data)
+    for i in 0 ..< mntb.buffer.len:
+      mntb.buffer[i] = toMessageNametag(
+        sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data
+      )
       mntb.counter += 1
   else:
     # We warn users if no secret is set
@@ -247,7 +255,6 @@ proc initNametagsBuffer*(mntb: var MessageNametagBuffer) =
 
 # Deletes the first n elements in buffer and appends n new ones
 proc delete*(mntb: var MessageNametagBuffer, n: int) =
-
   if n <= 0:
     return
 
@@ -257,29 +264,33 @@ proc delete*(mntb: var MessageNametagBuffer, n: int) =
   # We update the last n values in the array if a secret is set
   # Note that if the input MessageNametagBuffer is set to default, nothing is done here
   if mntb.secret.isSome:
-
     # We rotate left the array by n
     mntb.buffer.rotateLeft(n)
 
-    for i in 0..<n:
-      mntb.buffer[mntb.buffer.len-n+i] = toMessageNametag(sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data)
+    for i in 0 ..< n:
+      mntb.buffer[mntb.buffer.len - n + i] = toMessageNametag(
+        sha256.digest(@(mntb.secret.get()) & @(toBytesLE(mntb.counter))).data
+      )
       mntb.counter += 1
-
   else:
     # We warn users that no secret is set
     debug "The message nametags buffer has no secret set"
 
-
 # Checks if the input messageNametag is contained in the input MessageNametagBuffer
-proc checkNametag*(messageNametag: MessageNametag, mntb: var MessageNametagBuffer): Result[bool, cstring]
-   {.raises: [Defect, NoiseMessageNametagError, NoiseSomeMessagesWereLost].} =
-
+proc checkNametag*(
+    messageNametag: MessageNametag, mntb: var MessageNametagBuffer
+): Result[bool, cstring] {.
+    raises: [Defect, NoiseMessageNametagError, NoiseSomeMessagesWereLost]
+.} =
   let index = mntb.buffer.find(messageNametag)
 
   if index == -1:
     raise newException(NoiseMessageNametagError, "Message nametag not found in buffer")
   elif index > 0:
-    raise newException(NoiseSomeMessagesWereLost, "Message nametag is present in buffer but is not the next expected nametag. One or more messages were probably lost")
+    raise newException(
+      NoiseSomeMessagesWereLost,
+      "Message nametag is present in buffer but is not the next expected nametag. One or more messages were probably lost",
+    )
 
   # index is 0, hence the read message tag is the next expected one
   return ok(true)
@@ -293,7 +304,6 @@ proc pop*(mntb: var MessageNametagBuffer): MessageNametag =
 
 # Performs a Diffie-Hellman operation between two elliptic curve keys (one private, one public)
 proc dh*(private: EllipticCurveKey, public: EllipticCurveKey): EllipticCurveKey =
-
   # The output result of the Diffie-Hellman operation
   var output: EllipticCurveKey
 
@@ -366,8 +376,9 @@ proc serializeNoisePublicKey*(noisePublicKey: NoisePublicKey): seq[byte] =
 
 # Converts a serialized Noise public key to a NoisePublicKey object as in
 # https://rfc.vac.dev/spec/35/#public-keys-serialization
-proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey
-  {.raises: [Defect, NoisePublicKeyError].} =
+proc intoNoisePublicKey*(
+    serializedNoisePublicKey: seq[byte]
+): NoisePublicKey {.raises: [Defect, NoisePublicKeyError].} =
   var noisePublicKey: NoisePublicKey
   # We retrieve the encryption flag
   noisePublicKey.flag = serializedNoisePublicKey[0]
@@ -375,12 +386,13 @@ proc intoNoisePublicKey*(serializedNoisePublicKey: seq[byte]): NoisePublicKey
   if not (noisePublicKey.flag == 0 or noisePublicKey.flag == 1):
     raise newException(NoisePublicKeyError, "Invalid flag in serialized public key")
   # We set the remaining sequence to the pk value (this may be an encrypted or not encrypted X coordinate)
-  noisePublicKey.pk = serializedNoisePublicKey[1..<serializedNoisePublicKey.len]
+  noisePublicKey.pk = serializedNoisePublicKey[1 ..< serializedNoisePublicKey.len]
   return noisePublicKey
 
 # Encrypts a Noise public key using a ChaChaPoly Cipher State
-proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseNonceMaxError].} =
+proc encryptNoisePublicKey*(
+    cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey
+): NoisePublicKey {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseNonceMaxError].} =
   var encryptedNoisePublicKey: NoisePublicKey
   # We proceed with encryption only if
   # - a key is set in the cipher state
@@ -398,8 +410,9 @@ proc encryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
   return encryptedNoisePublicKey
 
 # Decrypts a Noise public key using a ChaChaPoly Cipher State
-proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey): NoisePublicKey
-  {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
+proc decryptNoisePublicKey*(
+    cs: ChaChaPolyCipherState, noisePublicKey: NoisePublicKey
+): NoisePublicKey {.raises: [Defect, NoiseEmptyChaChaPolyInput, NoiseDecryptTagError].} =
   var decryptedNoisePublicKey: NoisePublicKey
   # We proceed with decryption only if
   # - a key is set in the cipher state
@@ -408,8 +421,9 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
     # Since the pk field would contain an encryption + tag, we retrieve the ciphertext length
     let pkLen = noisePublicKey.pk.len - ChaChaPolyTag.len
     # We isolate the ciphertext and the authorization tag
-    let pk = noisePublicKey.pk[0..<pkLen]
-    let pkAuth = intoChaChaPolyTag(noisePublicKey.pk[pkLen..<pkLen+ChaChaPolyTag.len])
+    let pk = noisePublicKey.pk[0 ..< pkLen]
+    let pkAuth =
+      intoChaChaPolyTag(noisePublicKey.pk[pkLen ..< pkLen + ChaChaPolyTag.len])
     # We convert it to a ChaChaPolyCiphertext
     let ciphertext = ChaChaPolyCiphertext(data: pk, tag: pkAuth)
     # We run decryption and store its value to a non-encrypted Noise public key (flag = 0)
@@ -428,34 +442,32 @@ proc decryptNoisePublicKey*(cs: ChaChaPolyCipherState, noisePublicKey: NoisePubl
 
 # Checks equality between two PayloadsV2 objects
 proc `==`*(p1, p2: PayloadV2): bool =
-  return (p1.messageNametag == p2.messageNametag) and
-         (p1.protocolId == p2.protocolId) and
-         (p1.handshakeMessage == p2.handshakeMessage) and
-         (p1.transportMessage == p2.transportMessage)
-
+  return
+    (p1.messageNametag == p2.messageNametag) and (p1.protocolId == p2.protocolId) and
+    (p1.handshakeMessage == p2.handshakeMessage) and
+    (p1.transportMessage == p2.transportMessage)
 
 # Generates a random PayloadV2
 proc randomPayloadV2*(rng: var HmacDrbgContext): PayloadV2 =
   var payload2: PayloadV2
   # We set a random messageNametag
   let randMessageNametag = randomSeqByte(rng, MessageNametagLength)
-  for i in 0..<MessageNametagLength:
+  for i in 0 ..< MessageNametagLength:
     payload2.messageNametag[i] = randMessageNametag[i]
   # To generate a random protocol id, we generate a random 1-byte long sequence, and we convert the first element to uint8
   payload2.protocolId = randomSeqByte(rng, 1)[0].uint8
   # We set the handshake message to three unencrypted random Noise Public Keys
-  payload2.handshakeMessage = @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
+  payload2.handshakeMessage =
+    @[genNoisePublicKey(rng), genNoisePublicKey(rng), genNoisePublicKey(rng)]
   # We set the transport message to a random 128-bytes long sequence
   payload2.transportMessage = randomSeqByte(rng, 128)
   return payload2
-
 
 # Serializes a PayloadV2 object to a byte sequences according to https://rfc.vac.dev/spec/35/.
 # The output serialized payload concatenates the input PayloadV2 object fields as
 # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
 # The output can be then passed to the payload field of a WakuMessage https://rfc.vac.dev/spec/14/
 proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
-
   # We collect public keys contained in the handshake message
   var
     # According to https://rfc.vac.dev/spec/35/, the maximum size for the handshake message is 256 bytes, that is
@@ -471,7 +483,7 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
     # We serialize the public key
     serializedPk = serializeNoisePublicKey(pk)
     # We sum its serialized length to the total
-    serializedHandshakeMessageLen +=  serializedPk.len
+    serializedHandshakeMessageLen += serializedPk.len
     # We add its serialization to the concatenation of all serialized public keys in the handshake message
     serializedHandshakeMessage.add serializedPk
     # If we are processing more than 256 byte, we return an error
@@ -485,13 +497,15 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
   # The output payload as in https://rfc.vac.dev/spec/35/. We concatenate all the PayloadV2 fields as
   # payload = ( protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
   # We declare it as a byte sequence of length accordingly to the PayloadV2 information read
-  var payload = newSeqOfCap[byte](MessageNametagLength + #MessageNametagLength bytes for messageNametag
-                                  1 + # 1 byte for protocol ID
-                                  1 + # 1 byte for length of serializedHandshakeMessage field
-                                  serializedHandshakeMessageLen + # serializedHandshakeMessageLen bytes for serializedHandshakeMessage
-                                  8 + # 8 bytes for transportMessageLen
-                                  transportMessageLen # transportMessageLen bytes for transportMessage
-                                  )
+  var payload = newSeqOfCap[byte](
+    MessageNametagLength + #MessageNametagLength bytes for messageNametag
+    1 + # 1 byte for protocol ID
+    1 + # 1 byte for length of serializedHandshakeMessage field
+    serializedHandshakeMessageLen +
+      # serializedHandshakeMessageLen bytes for serializedHandshakeMessage
+    8 + # 8 bytes for transportMessageLen
+    transportMessageLen # transportMessageLen bytes for transportMessage
+  )
 
   # We concatenate all the data
   # The protocol ID (1 byte) and handshake message length (1 byte) can be directly casted to byte to allow direct copy to the payload byte sequence
@@ -505,13 +519,12 @@ proc serializePayloadV2*(self: PayloadV2): Result[seq[byte], cstring] =
 
   return ok(payload)
 
-
 # Deserializes a byte sequence to a PayloadV2 object according to https://rfc.vac.dev/spec/35/.
 # The input serialized payload concatenates the output PayloadV2 object fields as
 # payload = ( messageNametag || protocolId || serializedHandshakeMessageLen || serializedHandshakeMessage || transportMessageLen || transportMessage)
-proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
-  {.raises: [Defect, NoisePublicKeyError].} =
-
+proc deserializePayloadV2*(
+    payload: seq[byte]
+): Result[PayloadV2, cstring] {.raises: [Defect, NoisePublicKeyError].} =
   # The output PayloadV2
   var payload2: PayloadV2
 
@@ -519,8 +532,8 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
   var i: uint64 = 0
 
   # We start by reading the messageNametag
-  for j in 0..<MessageNametagLength:
-    payload2.messageNametag[j] = payload[i+j.uint64]
+  for j in 0 ..< MessageNametagLength:
+    payload2.messageNametag[j] = payload[i + j.uint64]
   i += MessageNametagLength
 
   # We read the Protocol ID
@@ -551,28 +564,27 @@ proc deserializePayloadV2*(payload: seq[byte]): Result[PayloadV2, cstring]
     # If the key is unencrypted, we only read the X coordinate of the EC public key and we deserialize into a Noise Public Key
     if flag == 0:
       pkLen = 1 + EllipticCurveKey.len
-      handshakeMessage.add intoNoisePublicKey(payload[i..<i+pkLen])
+      handshakeMessage.add intoNoisePublicKey(payload[i ..< i + pkLen])
       i += pkLen
       written += pkLen
     # If the key is encrypted, we only read the encrypted X coordinate and the authorization tag, and we deserialize into a Noise Public Key
     elif flag == 1:
       pkLen = 1 + EllipticCurveKey.len + ChaChaPolyTag.len
-      handshakeMessage.add intoNoisePublicKey(payload[i..<i+pkLen])
+      handshakeMessage.add intoNoisePublicKey(payload[i ..< i + pkLen])
       i += pkLen
       written += pkLen
     else:
       return err("Invalid flag for Noise public key")
 
-
   # We save in the output PayloadV2 the read handshake message
   payload2.handshakeMessage = handshakeMessage
 
   # We read the transport message length (8 bytes) and we convert to uint64 in Little Endian
-  let transportMessageLen = fromBytesLE(uint64, payload[i..(i+8-1)])
+  let transportMessageLen = fromBytesLE(uint64, payload[i .. (i + 8 - 1)])
   i += 8
 
   # We read the transport message (handshakeMessage bytes)
-  payload2.transportMessage = payload[i..i+transportMessageLen-1]
+  payload2.transportMessage = payload[i .. i + transportMessageLen - 1]
   i += transportMessageLen
 
   return ok(payload2)

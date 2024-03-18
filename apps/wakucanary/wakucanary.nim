@@ -30,52 +30,58 @@ const WebSocketPortOffset = 1000
 const CertsDirectory = "./certs"
 
 # cli flags
-type
-  WakuCanaryConf* = object
-    address* {.
-      desc: "Multiaddress of the peer node to attempt to dial",
-      defaultValue: "",
-      name: "address",
-      abbr: "a".}: string
+type WakuCanaryConf* = object
+  address* {.
+    desc: "Multiaddress of the peer node to attempt to dial",
+    defaultValue: "",
+    name: "address",
+    abbr: "a"
+  .}: string
 
-    timeout* {.
-      desc: "Timeout to consider that the connection failed",
-      defaultValue: chronos.seconds(10),
-      name: "timeout",
-      abbr: "t".}: chronos.Duration
+  timeout* {.
+    desc: "Timeout to consider that the connection failed",
+    defaultValue: chronos.seconds(10),
+    name: "timeout",
+    abbr: "t"
+  .}: chronos.Duration
 
-    protocols* {.
-      desc: "Protocol required to be supported: store,relay,lightpush,filter (can be used multiple times)",
-      name: "protocol",
-      abbr: "p".}: seq[string]
+  protocols* {.
+    desc:
+      "Protocol required to be supported: store,relay,lightpush,filter (can be used multiple times)",
+    name: "protocol",
+    abbr: "p"
+  .}: seq[string]
 
-    logLevel* {.
-      desc: "Sets the log level",
-      defaultValue: LogLevel.INFO,
-      name: "log-level",
-      abbr: "l".}: LogLevel
+  logLevel* {.
+    desc: "Sets the log level",
+    defaultValue: LogLevel.INFO,
+    name: "log-level",
+    abbr: "l"
+  .}: LogLevel
 
-    nodePort* {.
-      desc: "Listening port for waku node",
-      defaultValue: 60000,
-      name: "node-port",
-      abbr: "np".}: uint16
+  nodePort* {.
+    desc: "Listening port for waku node",
+    defaultValue: 60000,
+    name: "node-port",
+    abbr: "np"
+  .}: uint16
 
-    ## websocket secure config
-    websocketSecureKeyPath* {.
-      desc: "Secure websocket key path:   '/path/to/key.txt' ",
-      defaultValue: ""
-      name: "websocket-secure-key-path".}: string
+  ## websocket secure config
+  websocketSecureKeyPath* {.
+    desc: "Secure websocket key path:   '/path/to/key.txt' ",
+    defaultValue: "",
+    name: "websocket-secure-key-path"
+  .}: string
 
-    websocketSecureCertPath* {.
-      desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
-      defaultValue: ""
-      name: "websocket-secure-cert-path".}: string
+  websocketSecureCertPath* {.
+    desc: "Secure websocket Certificate path:   '/path/to/cert.txt' ",
+    defaultValue: "",
+    name: "websocket-secure-cert-path"
+  .}: string
 
-    ping* {.
-      desc: "Ping the peer node to measure latency",
-      defaultValue: true,
-      name: "ping" .}: bool
+  ping* {.
+    desc: "Ping the peer node to measure latency", defaultValue: true, name: "ping"
+  .}: bool
 
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
@@ -88,17 +94,15 @@ proc completeCmdArg*(T: type chronos.Duration, val: string): seq[string] =
 
 # checks if rawProtocols (skipping version) are supported in nodeProtocols
 proc areProtocolsSupported(
-    rawProtocols: seq[string],
-    nodeProtocols: seq[string]): bool =
-
+    rawProtocols: seq[string], nodeProtocols: seq[string]
+): bool =
   var numOfSupportedProt: int = 0
 
   for nodeProtocol in nodeProtocols:
     for rawProtocol in rawProtocols:
       let protocolTag = ProtocolsTable[rawProtocol]
       if nodeProtocol.startsWith(protocolTag):
-        info "Supported protocol ok", expected = protocolTag,
-            supported = nodeProtocol
+        info "Supported protocol ok", expected = protocolTag, supported = nodeProtocol
         numOfSupportedProt += 1
         break
 
@@ -107,26 +111,29 @@ proc areProtocolsSupported(
 
   return false
 
-proc pingNode(node: WakuNode, peerInfo: RemotePeerInfo): Future[void] {.async, gcsafe.} =
+proc pingNode(
+    node: WakuNode, peerInfo: RemotePeerInfo
+): Future[void] {.async, gcsafe.} =
   try:
     let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
     let pingDelay = await node.libp2pPing.ping(conn)
-    info "Peer response time (ms)", peerId = peerInfo.peerId, ping=pingDelay.millis
-
+    info "Peer response time (ms)", peerId = peerInfo.peerId, ping = pingDelay.millis
   except CatchableError:
     var msg = getCurrentExceptionMsg()
     if msg == "Future operation cancelled!":
       msg = "timedout"
-    error "Failed to ping the peer", peer=peerInfo, err=msg
+    error "Failed to ping the peer", peer = peerInfo, err = msg
 
 proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let conf: WakuCanaryConf = WakuCanaryConf.load()
 
   # create dns resolver
   let
-    nameServers = @[
-      initTAddress(parseIpAddress("1.1.1.1"), Port(53)),
-      initTAddress(parseIpAddress("1.0.0.1"), Port(53))]
+    nameServers =
+      @[
+        initTAddress(parseIpAddress("1.1.1.1"), Port(53)),
+        initTAddress(parseIpAddress("1.0.0.1"), Port(53)),
+      ]
     resolver: DnsResolver = DnsResolver.new(nameServers)
 
   if conf.logLevel != LogLevel.NONE:
@@ -158,14 +165,16 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     nodeTcpPort = Port(conf.nodePort)
     isWs = peer.addrs[0].contains(multiCodec("ws")).get()
     isWss = peer.addrs[0].contains(multiCodec("wss")).get()
-    keyPath = if conf.websocketSecureKeyPath.len > 0:
-                conf.websocketSecureKeyPath
-              else:
-                CertsDirectory & "/key.pem"
-    certPath = if conf.websocketSecureCertPath.len > 0:
-                conf.websocketSecureCertPath
-              else:
-                CertsDirectory & "/cert.pem"
+    keyPath =
+      if conf.websocketSecureKeyPath.len > 0:
+        conf.websocketSecureKeyPath
+      else:
+        CertsDirectory & "/key.pem"
+    certPath =
+      if conf.websocketSecureCertPath.len > 0:
+        conf.websocketSecureCertPath
+      else:
+        CertsDirectory & "/cert.pem"
 
   var builder = WakuNodeBuilder.init()
   builder.withNodeKey(nodeKey)
@@ -183,12 +192,13 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
-      error "failed to create enr record", error=recordRes.error
+      error "failed to create enr record", error = recordRes.error
       quit(QuitFailure)
-    else: recordRes.get()
+    else:
+      recordRes.get()
 
-  if isWss and (conf.websocketSecureKeyPath.len == 0 or
-      conf.websocketSecureCertPath.len == 0):
+  if isWss and
+      (conf.websocketSecureKeyPath.len == 0 or conf.websocketSecureCertPath.len == 0):
     info "WebSocket Secure requires key and certificate. Generating them"
     if not dirExists(CertsDirectory):
       createDir(CertsDirectory)
@@ -199,9 +209,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig.tryGet())
   builder.withSwitchConfiguration(
-    secureKey = some(keyPath),
-    secureCert = some(certPath),
-    nameResolver = resolver,
+    secureKey = some(keyPath), secureCert = some(certPath), nameResolver = resolver
   )
 
   let node = builder.build().tryGet()
@@ -215,7 +223,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
 
   await node.start()
 
-  var pingFut:Future[bool]
+  var pingFut: Future[bool]
   if conf.ping:
     pingFut = pingNode(node, peer).withTimeout(conf.timeout)
 
@@ -233,8 +241,8 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
   if conStatus in [Connected, CanConnect]:
     let nodeProtocols = lp2pPeerStore[ProtoBook][peer.peerId]
     if not areProtocolsSupported(conf.protocols, nodeProtocols):
-      error "Not all protocols are supported", expected = conf.protocols,
-          supported = nodeProtocols
+      error "Not all protocols are supported",
+        expected = conf.protocols, supported = nodeProtocols
       return 1
   elif conStatus == CannotConnect:
     error "Could not connect", peerId = peer.peerId

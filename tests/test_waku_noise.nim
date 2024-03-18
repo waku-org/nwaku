@@ -17,16 +17,13 @@ import
   ../../waku/waku_core,
   ./testlib/common
 
-
 procSuite "Waku Noise":
   common.randomize()
 
   test "PKCS#7 Padding/Unpadding":
-
     # We test padding for different message lengths
     let maxMessageLength = 3 * NoisePaddingBlockSize
-    for messageLen in 0..maxMessageLength:
-
+    for messageLen in 0 .. maxMessageLength:
       let
         message = randomSeqByte(rng[], messageLen)
         padded = pkcs7_pad(message, NoisePaddingBlockSize)
@@ -38,12 +35,11 @@ procSuite "Waku Noise":
         message == unpadded
 
   test "ChaChaPoly Encryption/Decryption: random byte sequences":
-
     let cipherState = randomChaChaPolyCipherState(rng[])
 
     # We encrypt/decrypt random byte sequences
     let
-      plaintext: seq[byte] = randomSeqByte(rng[], rand(1..128))
+      plaintext: seq[byte] = randomSeqByte(rng[], rand(1 .. 128))
       ciphertext: ChaChaPolyCiphertext = encrypt(cipherState, plaintext)
       decryptedCiphertext: seq[byte] = decrypt(cipherState, ciphertext)
 
@@ -51,12 +47,11 @@ procSuite "Waku Noise":
       plaintext == decryptedCiphertext
 
   test "ChaChaPoly Encryption/Decryption: random strings":
-
     let cipherState = randomChaChaPolyCipherState(rng[])
 
     # We encrypt/decrypt random strings
     var plaintext: string
-    for _ in 1..rand(1..128):
+    for _ in 1 .. rand(1 .. 128):
       add(plaintext, char(rand(int('A') .. int('z'))))
 
     let
@@ -67,7 +62,6 @@ procSuite "Waku Noise":
       plaintext.toBytes() == decryptedCiphertext
 
   test "Noise public keys: encrypt and decrypt a public key":
-
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let
@@ -79,7 +73,6 @@ procSuite "Waku Noise":
       noisePublicKey == decryptedPk
 
   test "Noise public keys: decrypt an unencrypted public key":
-
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let
@@ -90,7 +83,6 @@ procSuite "Waku Noise":
       noisePublicKey == decryptedPk
 
   test "Noise public keys: encrypt an encrypted public key":
-
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let
@@ -102,7 +94,6 @@ procSuite "Waku Noise":
       encryptedPk == encryptedPk2
 
   test "Noise public keys: encrypt, decrypt and decrypt a public key":
-
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let
@@ -115,32 +106,31 @@ procSuite "Waku Noise":
       decryptedPk == decryptedPk2
 
   test "Noise public keys: serialize and deserialize an unencrypted public key":
-
     let
       noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
       serializedNoisePublicKey: seq[byte] = serializeNoisePublicKey(noisePublicKey)
-      deserializedNoisePublicKey: NoisePublicKey = intoNoisePublicKey(serializedNoisePublicKey)
+      deserializedNoisePublicKey: NoisePublicKey =
+        intoNoisePublicKey(serializedNoisePublicKey)
 
     check:
       noisePublicKey == deserializedNoisePublicKey
 
   test "Noise public keys: encrypt, serialize, deserialize and decrypt a public key":
-
     let noisePublicKey: NoisePublicKey = genNoisePublicKey(rng[])
 
     let
       cs: ChaChaPolyCipherState = randomChaChaPolyCipherState(rng[])
       encryptedPk: NoisePublicKey = encryptNoisePublicKey(cs, noisePublicKey)
       serializedNoisePublicKey: seq[byte] = serializeNoisePublicKey(encryptedPk)
-      deserializedNoisePublicKey: NoisePublicKey = intoNoisePublicKey(serializedNoisePublicKey)
-      decryptedPk: NoisePublicKey = decryptNoisePublicKey(cs, deserializedNoisePublicKey)
+      deserializedNoisePublicKey: NoisePublicKey =
+        intoNoisePublicKey(serializedNoisePublicKey)
+      decryptedPk: NoisePublicKey =
+        decryptNoisePublicKey(cs, deserializedNoisePublicKey)
 
     check:
       noisePublicKey == decryptedPk
 
-
   test "PayloadV2: serialize/deserialize PayloadV2 to byte sequence":
-
     let
       payload2: PayloadV2 = randomPayloadV2(rng[])
       serializedPayload = serializePayloadV2(payload2)
@@ -154,9 +144,7 @@ procSuite "Waku Noise":
       deserializedPayload.isOk()
       payload2 == deserializedPayload.get()
 
-
   test "PayloadV2: Encode/Decode a Waku Message (version 2) to a PayloadV2":
-
     # We encode to a WakuMessage a random PayloadV2
     let
       payload2 = randomPayloadV2(rng[])
@@ -181,7 +169,6 @@ procSuite "Waku Noise":
       payload2 == decoded.get()
 
   test "Noise State Machine: Diffie-Hellman operation":
-
     #We generate random keypairs
     let
       aliceKey = genKeyPair(rng[])
@@ -197,13 +184,12 @@ procSuite "Waku Noise":
       dh1 == dh2
 
   test "Noise State Machine: Cipher State primitives":
-
     # We generate a random Cipher State, associated data ad and plaintext
     var
       cipherState: CipherState = randomCipherState(rng[])
       nonce: uint64 = uint64(rand(0 .. int.high))
-      ad: seq[byte] = randomSeqByte(rng[], rand(1..128))
-      plaintext: seq[byte] = randomSeqByte(rng[], rand(1..128))
+      ad: seq[byte] = randomSeqByte(rng[], rand(1 .. 128))
+      plaintext: seq[byte] = randomSeqByte(rng[], rand(1 .. 128))
 
     # We set the random nonce generated in the cipher state
     setNonce(cipherState, nonce)
@@ -230,7 +216,7 @@ procSuite "Waku Noise":
     setCipherStateKey(cipherState, EmptyKey)
     nonce = getNonce(cipherState)
 
-    plaintext = randomSeqByte(rng[], rand(1..128))
+    plaintext = randomSeqByte(rng[], rand(1 .. 128))
     ciphertext = encryptWithAd(cipherState, ad, plaintext)
 
     check:
@@ -242,7 +228,7 @@ procSuite "Waku Noise":
     nonce = getNonce(cipherState)
 
     # Note that we set ciphertext minimum length to 16 to not trigger checks on authentication tag length
-    ciphertext = randomSeqByte(rng[], rand(16..128))
+    ciphertext = randomSeqByte(rng[], rand(16 .. 128))
     plaintext = decryptWithAd(cipherState, ad, ciphertext)
 
     check:
@@ -255,10 +241,10 @@ procSuite "Waku Noise":
     # We generate a test Cipher State with nonce set to MaxNonce
     cipherState = randomCipherState(rng[])
     setNonce(cipherState, NonceMax)
-    plaintext = randomSeqByte(rng[], rand(1..128))
+    plaintext = randomSeqByte(rng[], rand(1 .. 128))
 
     # We test if encryption fails with a NoiseNonceMaxError error. Any subsequent encryption call over the Cipher State should fail similarly and leave the nonce unchanged
-    for _ in [1..5]:
+    for _ in [1 .. 5]:
       expect NoiseNonceMaxError:
         ciphertext = encryptWithAd(cipherState, ad, plaintext)
 
@@ -271,14 +257,14 @@ procSuite "Waku Noise":
     # To perform such test, we then need to encrypt a test plaintext using directly ChaChaPoly primitive
     cipherState = randomCipherState(rng[])
     setNonce(cipherState, NonceMax)
-    plaintext = randomSeqByte(rng[], rand(1..128))
+    plaintext = randomSeqByte(rng[], rand(1 .. 128))
 
     # We perform encryption using the Cipher State key, NonceMax and ad
     # By Noise specification the nonce is 8 bytes long out of the 12 bytes supported by ChaChaPoly, thus we copy the Little endian conversion of the nonce to a ChaChaPolyNonce
     var
       encNonce: ChaChaPolyNonce
       authorizationTag: ChaChaPolyTag
-    encNonce[4..<12] = toBytesLE(NonceMax)
+    encNonce[4 ..< 12] = toBytesLE(NonceMax)
     ChaChaPoly.encrypt(getKey(cipherState), encNonce, authorizationTag, plaintext, ad)
 
     # The output ciphertext is stored in the plaintext variable after ChaChaPoly.encrypt is called: we copy it along with the authorization tag.
@@ -289,7 +275,7 @@ procSuite "Waku Noise":
     # At this point ciphertext is a proper encryption of the original plaintext obtained with nonce equal to NonceMax
     # We can now test if decryption fails with a NoiseNonceMaxError error. Any subsequent decryption call over the Cipher State should fail similarly and leave the nonce unchanged
     # Note that decryptWithAd doesn't fail in decrypting the ciphertext (otherwise a NoiseDecryptTagError would have been triggered)
-    for _ in [1..5]:
+    for _ in [1 .. 5]:
       expect NoiseNonceMaxError:
         plaintext = decryptWithAd(cipherState, ad, ciphertext)
 
@@ -297,11 +283,10 @@ procSuite "Waku Noise":
         getNonce(cipherState) == NonceMax + 1
 
   test "Noise State Machine: Symmetric State primitives":
-
     # We select one supported handshake pattern and we initialize a symmetric state
     var
       hsPattern = NoiseHandshakePatterns["XX"]
-      symmetricState: SymmetricState =  SymmetricState.init(hsPattern)
+      symmetricState: SymmetricState = SymmetricState.init(hsPattern)
 
     # We get all the Symmetric State field
     # cs : Cipher State
@@ -321,7 +306,7 @@ procSuite "Waku Noise":
     ########################################
 
     # We generate a random byte sequence and execute a mixHash over it
-    mixHash(symmetricState, randomSeqByte(rng[], rand(1..128)))
+    mixHash(symmetricState, randomSeqByte(rng[], rand(1 .. 128)))
 
     # mixHash changes only the handshake hash value of the Symmetric state
     check:
@@ -337,7 +322,7 @@ procSuite "Waku Noise":
     ########################################
 
     # We generate random input key material and we execute mixKey
-    var inputKeyMaterial = randomSeqByte(rng[], rand(1..128))
+    var inputKeyMaterial = randomSeqByte(rng[], rand(1 .. 128))
     mixKey(symmetricState, inputKeyMaterial)
 
     # mixKey changes the Symmetric State's chaining key and encryption key of the embedded Cipher State
@@ -358,7 +343,7 @@ procSuite "Waku Noise":
     ########################################
 
     # We generate random input key material and we execute mixKeyAndHash
-    inputKeyMaterial = randomSeqByte(rng[], rand(1..128))
+    inputKeyMaterial = randomSeqByte(rng[], rand(1 .. 128))
     mixKeyAndHash(symmetricState, inputKeyMaterial)
 
     # mixKeyAndHash executes a mixKey and a mixHash using the input key material
@@ -431,12 +416,12 @@ procSuite "Waku Noise":
       getKey(cs1) != getKey(cs2)
 
   test "Noise XX Handhshake and message encryption (extended test)":
-
     let hsPattern = NoiseHandshakePatterns["XX"]
 
     # We initialize Alice's and Bob's Handshake State
     let aliceStaticKey = genKeyPair(rng[])
-    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, initiator = true)
+    var aliceHS =
+      initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, initiator = true)
 
     let bobStaticKey = genKeyPair(rng[])
     var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey)
@@ -457,7 +442,8 @@ procSuite "Waku Noise":
 
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message
     # and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -489,7 +475,8 @@ procSuite "Waku Noise":
     sentTransportMessage = randomSeqByte(rng[], 32)
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -504,10 +491,14 @@ procSuite "Waku Noise":
     let prevAliceHS = aliceHS
     let prevBobHS = bobHS
 
-    let bobStep1 = stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
-    let aliceStep1 = stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep1.payload2).get()
-    let aliceStep2 = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
-    let bobStep2 = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep2.payload2).get()
+    let bobStep1 =
+      stepHandshake(rng[], bobHS, transportMessage = sentTransportMessage).get()
+    let aliceStep1 =
+      stepHandshake(rng[], aliceHS, readPayloadV2 = bobStep1.payload2).get()
+    let aliceStep2 =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    let bobStep2 =
+      stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep2.payload2).get()
 
     check:
       aliceStep1 == default(HandshakeStepResult)
@@ -534,12 +525,12 @@ procSuite "Waku Noise":
       readMessage: seq[byte]
       defaultMessageNametagBuffer: MessageNametagBuffer
 
-    for _ in 0..10:
-
+    for _ in 0 .. 10:
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
@@ -547,13 +538,13 @@ procSuite "Waku Noise":
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
 
   test "Noise XXpsk0 Handhshake and message encryption (short test)":
-
     let hsPattern = NoiseHandshakePatterns["XXpsk0"]
 
     # We generate a random psk
@@ -561,7 +552,9 @@ procSuite "Waku Noise":
 
     # We initialize Alice's and Bob's Handshake State
     let aliceStaticKey = genKeyPair(rng[])
-    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, psk = psk, initiator = true)
+    var aliceHS = initialize(
+      hsPattern = hsPattern, staticKey = aliceStaticKey, psk = psk, initiator = true
+    )
 
     let bobStaticKey = genKeyPair(rng[])
     var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, psk = psk)
@@ -582,7 +575,8 @@ procSuite "Waku Noise":
 
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message
     # and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -614,7 +608,8 @@ procSuite "Waku Noise":
     sentTransportMessage = randomSeqByte(rng[], 32)
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transportMessage alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -641,12 +636,12 @@ procSuite "Waku Noise":
       readMessage: seq[byte]
       defaultMessageNametagBuffer: MessageNametagBuffer
 
-    for _ in 0..10:
-
+    for _ in 0 .. 10:
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
@@ -654,13 +649,13 @@ procSuite "Waku Noise":
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
 
   test "Noise K1K1 Handhshake and message encryption (short test)":
-
     let hsPattern = NoiseHandshakePatterns["K1K1"]
 
     # We initialize Alice's and Bob's Handshake State
@@ -672,10 +667,21 @@ procSuite "Waku Noise":
     # <- s
     #   ...
     # So we define accordingly the sequence of the pre-message public keys
-    let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(aliceStaticKey)), toNoisePublicKey(getPublicKey(bobStaticKey))]
+    let preMessagePKs: seq[NoisePublicKey] =
+      @[
+        toNoisePublicKey(getPublicKey(aliceStaticKey)),
+        toNoisePublicKey(getPublicKey(bobStaticKey)),
+      ]
 
-    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
-    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    var aliceHS = initialize(
+      hsPattern = hsPattern,
+      staticKey = aliceStaticKey,
+      preMessagePKs = preMessagePKs,
+      initiator = true,
+    )
+    var bobHS = initialize(
+      hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs
+    )
 
     var
       sentTransportMessage: seq[byte]
@@ -693,7 +699,8 @@ procSuite "Waku Noise":
 
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message
     # and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -725,7 +732,8 @@ procSuite "Waku Noise":
     sentTransportMessage = randomSeqByte(rng[], 32)
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake_message and the (encrypted) transportMessage
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transportMessage alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -752,12 +760,12 @@ procSuite "Waku Noise":
       readMessage: seq[byte]
       defaultMessageNametagBuffer: MessageNametagBuffer
 
-    for _ in 0..10:
-
+    for _ in 0 .. 10:
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
@@ -765,14 +773,13 @@ procSuite "Waku Noise":
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
 
-
   test "Noise XK1 Handhshake and message encryption (short test)":
-
     let hsPattern = NoiseHandshakePatterns["XK1"]
 
     # We initialize Alice's and Bob's Handshake State
@@ -783,10 +790,18 @@ procSuite "Waku Noise":
     # <- s
     #   ...
     # So we define accordingly the sequence of the pre-message public keys
-    let preMessagePKs: seq[NoisePublicKey] = @[toNoisePublicKey(getPublicKey(bobStaticKey))]
+    let preMessagePKs: seq[NoisePublicKey] =
+      @[toNoisePublicKey(getPublicKey(bobStaticKey))]
 
-    var aliceHS = initialize(hsPattern = hsPattern, staticKey = aliceStaticKey, preMessagePKs = preMessagePKs, initiator = true)
-    var bobHS = initialize(hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs)
+    var aliceHS = initialize(
+      hsPattern = hsPattern,
+      staticKey = aliceStaticKey,
+      preMessagePKs = preMessagePKs,
+      initiator = true,
+    )
+    var bobHS = initialize(
+      hsPattern = hsPattern, staticKey = bobStaticKey, preMessagePKs = preMessagePKs
+    )
 
     var
       sentTransportMessage: seq[byte]
@@ -804,7 +819,8 @@ procSuite "Waku Noise":
 
     # By being the handshake initiator, Alice writes a Waku2 payload v2 containing her handshake message
     # and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -836,7 +852,8 @@ procSuite "Waku Noise":
     sentTransportMessage = randomSeqByte(rng[], 32)
 
     # Similarly as in first step, Alice writes a Waku2 payload containing the handshake message and the (encrypted) transport message
-    aliceStep = stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
+    aliceStep =
+      stepHandshake(rng[], aliceHS, transportMessage = sentTransportMessage).get()
 
     # Bob reads Alice's payloads, and returns the (decrypted) transport message Alice sent to him
     bobStep = stepHandshake(rng[], bobHS, readPayloadV2 = aliceStep.payload2).get()
@@ -863,12 +880,12 @@ procSuite "Waku Noise":
       readMessage: seq[byte]
       defaultMessageNametagBuffer: MessageNametagBuffer
 
-    for _ in 0..10:
-
+    for _ in 0 .. 10:
       # Alice writes to Bob
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(aliceHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(bobHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage
@@ -876,7 +893,8 @@ procSuite "Waku Noise":
       # Bob writes to Alice
       message = randomSeqByte(rng[], 32)
       payload2 = writeMessage(bobHSResult, message, defaultMessageNametagBuffer)
-      readMessage = readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
+      readMessage =
+        readMessage(aliceHSResult, payload2, defaultMessageNametagBuffer).get()
 
       check:
         message == readMessage

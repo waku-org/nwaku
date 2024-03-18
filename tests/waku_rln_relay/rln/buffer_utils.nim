@@ -5,7 +5,7 @@ proc `==`*(a: Buffer, b: seq[uint8]): bool =
     return false
 
   let bufferArray = cast[ptr UncheckedArray[uint8]](a.ptr)
-  for i in 0..<b.len:
+  for i in 0 ..< b.len:
     if bufferArray[i] != b[i]:
       return false
   return true

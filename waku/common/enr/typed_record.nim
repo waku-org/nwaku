@@ -3,34 +3,28 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
 import
-  std/options,
-  stew/results,
-  eth/keys as eth_keys,
-  libp2p/crypto/crypto as libp2p_crypto
+  std/options, stew/results, eth/keys as eth_keys, libp2p/crypto/crypto as libp2p_crypto
 
 import eth/p2p/discoveryv5/enr except TypedRecord, toTypedRecord
-
 
 ## ENR typed record
 
 # Record identity scheme
 
 type RecordId* {.pure.} = enum
-    V4
+  V4
 
 func toRecordId(id: string): EnrResult[RecordId] =
-  case id:
+  case id
   of "v4":
     ok(RecordId.V4)
   else:
     err("unknown identity scheme")
 
 func `$`*(id: RecordId): string =
-  case id:
+  case id
   of RecordId.V4: "v4"
-
 
 # Typed record
 
@@ -51,10 +45,9 @@ func toTyped*(record: Record): EnrResult[TypedRecord] =
   if idOpt.isNone():
     return err("missing id scheme field")
 
-  discard ? toRecordId(idOpt.get())
+  discard ?toRecordId(idOpt.get())
 
   ok(tr)
-
 
 # Typed record field accessors
 

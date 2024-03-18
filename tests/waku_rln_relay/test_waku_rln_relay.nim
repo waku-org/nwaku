@@ -1,4 +1,3 @@
-
 {.used.}
 
 import
@@ -20,18 +19,15 @@ import
   ./rln/waku_rln_relay_utils
 
 suite "Waku rln relay":
-
   test "key_gen Nim Wrappers":
-    let
-      merkleDepth: csize_t = 20
+    let merkleDepth: csize_t = 20
 
     let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
 
     # keysBufferPtr will hold the generated identity credential i.e., id trapdoor, nullifier, secret hash and commitment
-    var
-      keysBuffer: Buffer
+    var keysBuffer: Buffer
     let
       keysBufferPtr = addr(keysBuffer)
       done = key_gen(rlnInstance.get(), keysBufferPtr)
@@ -39,10 +35,10 @@ suite "Waku rln relay":
       # check whether the keys are generated successfully
       done
 
-    let generatedKeys = cast[ptr array[4*32, byte]](keysBufferPtr.`ptr`)[]
+    let generatedKeys = cast[ptr array[4 * 32, byte]](keysBufferPtr.`ptr`)[]
     check:
       # the id trapdoor, nullifier, secert hash and commitment together are 4*32 bytes
-      generatedKeys.len == 4*32
+      generatedKeys.len == 4 * 32
     debug "generated keys: ", generatedKeys
 
   test "membership Key Generation":
@@ -93,10 +89,10 @@ suite "Waku rln relay":
       getRootSuccessful2
       root2.len == 32
 
-    let rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
+    let rootValue1 = cast[ptr array[32, byte]](root1.`ptr`)
     let rootHex1 = rootValue1[].inHex
 
-    let rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
+    let rootValue2 = cast[ptr array[32, byte]](root2.`ptr`)
     let rootHex2 = rootValue2[].inHex
 
     # the two roots must be identical
@@ -146,7 +142,6 @@ suite "Waku rln relay":
       memberAdded
 
   test "getMember Nim wrapper":
-      # create an RLN instance which also includes an empty Merkle tree
     let rlnInstance = createRLNInstanceWrapper()
     require:
       rlnInstance.isOk()
@@ -244,9 +239,15 @@ suite "Waku rln relay":
       rlnInstance.isOk()
     let rln = rlnInstance.get()
     check:
-      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128,
-                                  chainId: 1155511,
-                                  contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
+      rln
+      .setMetadata(
+        RlnMetadata(
+          lastProcessedBlock: 128,
+          chainId: 1155511,
+          contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
+        )
+      )
+      .isOk()
 
   test "getMetadata rln utils":
     # create an RLN instance which also includes an empty Merkle tree
@@ -256,9 +257,15 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     require:
-      rln.setMetadata(RlnMetadata(lastProcessedBlock: 128,
-                                  chainId: 1155511,
-                                  contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155")).isOk()
+      rln
+      .setMetadata(
+        RlnMetadata(
+          lastProcessedBlock: 128,
+          chainId: 1155511,
+          contractAddress: "0x9c09146844c1326c2dbc41c451766c7138f88155",
+        )
+      )
+      .isOk()
 
     let metadataOpt = rln.getMetadata().valueOr:
       raiseAssert $error
@@ -335,21 +342,21 @@ suite "Waku rln relay":
       getRootSuccessful3
       root3.len == 32
 
-    let rootValue1 = cast[ptr array[32, byte]] (root1.`ptr`)
+    let rootValue1 = cast[ptr array[32, byte]](root1.`ptr`)
     let rootHex1 = rootValue1[].inHex
     debug "The initial root", rootHex1
 
-    let rootValue2 = cast[ptr array[32, byte]] (root2.`ptr`)
+    let rootValue2 = cast[ptr array[32, byte]](root2.`ptr`)
     let rootHex2 = rootValue2[].inHex
     debug "The root after insertion", rootHex2
 
-    let rootValue3 = cast[ptr array[32, byte]] (root3.`ptr`)
+    let rootValue3 = cast[ptr array[32, byte]](root3.`ptr`)
     let rootHex3 = rootValue3[].inHex
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
     check:
-      not(rootHex1 == rootHex2)
+      not (rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
@@ -384,7 +391,6 @@ suite "Waku rln relay":
       root2.isOk()
     let rootHex2 = root2.value().inHex()
 
-
     # delete the first member
     let deletedMemberIndex = MembershipIndex(0)
     let deletionSuccess = rln.removeMember(deletedMemberIndex)
@@ -397,14 +403,13 @@ suite "Waku rln relay":
       root3.isOk()
     let rootHex3 = root3.value().inHex()
 
-
     debug "The initial root", rootHex1
     debug "The root after insertion", rootHex2
     debug "The root after deletion", rootHex3
 
     # the root must change after the insertion
     check:
-      not(rootHex1 == rootHex2)
+      not (rootHex1 == rootHex2)
 
     ## The initial root of the tree (empty tree) must be identical to
     ## the root of the tree after one insertion followed by a deletion
@@ -426,8 +431,7 @@ suite "Waku rln relay":
     # prepare other inputs to the hash function
     let outputBuffer = default(Buffer)
 
-    let hashSuccess = sha256(unsafeAddr hashInputBuffer,
-                             unsafeAddr outputBuffer)
+    let hashSuccess = sha256(unsafeAddr hashInputBuffer, unsafeAddr outputBuffer)
     require:
       hashSuccess
     let outputArr = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
@@ -437,7 +441,7 @@ suite "Waku rln relay":
         outputArr.inHex()
 
     let
-      hashOutput = cast[ptr array[32, byte]] (outputBuffer.`ptr`)[]
+      hashOutput = cast[ptr array[32, byte]](outputBuffer.`ptr`)[]
       hashOutputHex = hashOutput.toHex()
 
     debug "hash output", hashOutputHex
@@ -467,8 +471,11 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     # prepare the input
-    let msg = @["126f4c026cd731979365f79bd345a46d673c5a3f6f588bdc718e6356d02b6fdc".toBytes(),
-                "1f0e5db2b69d599166ab16219a97b82b662085c93220382b39f9f911d3b943b1".toBytes()]
+    let msg =
+      @[
+        "126f4c026cd731979365f79bd345a46d673c5a3f6f588bdc718e6356d02b6fdc".toBytes(),
+        "1f0e5db2b69d599166ab16219a97b82b662085c93220382b39f9f911d3b943b1".toBytes(),
+      ]
 
     let hashRes = poseidon(msg)
 
@@ -519,14 +526,14 @@ suite "Waku rln relay":
 
     # create a Merkle tree
     when defined(rln_v2):
-      let rateCommitments = groupIDCommitments.mapIt(RateCommitment(idCommitment: it, 
-                                                                    userMessageLimit: 20))
+      let rateCommitments =
+        groupIDCommitments.mapIt(RateCommitment(idCommitment: it, userMessageLimit: 20))
       let leaves = rateCommitments.toLeaves().valueOr:
         raiseAssert $error
       let membersAdded = rln.insertMembers(0, leaves)
     else:
       let membersAdded = rln.insertMembers(0, groupIDCommitments)
-    
+
     assert membersAdded, "members should be added"
     let rawRoot = rln.getMerkleRoot().valueOr:
       raiseAssert $error
@@ -534,7 +541,8 @@ suite "Waku rln relay":
     let root = rawRoot.inHex()
 
     debug "groupIdCredentials", groupIdCredentials
-    debug "groupIDCommitments", groupIDCommitments = groupIDCommitments.mapIt(it.inHex())
+    debug "groupIDCommitments",
+      groupIDCommitments = groupIDCommitments.mapIt(it.inHex())
     debug "root", root
 
     check:
@@ -554,22 +562,31 @@ suite "Waku rln relay":
       rlnIdentifier: RlnIdentifier
 
     # populate fields with dummy values
-    for x in proof.mitems: x = 1
-    for x in merkleRoot.mitems: x = 2
-    for x in epoch.mitems: x = 3
-    for x in shareX.mitems: x = 4
-    for x in shareY.mitems: x = 5
-    for x in nullifier.mitems: x = 6
-    for x in rlnIdentifier.mitems: x = 7
+    for x in proof.mitems:
+      x = 1
+    for x in merkleRoot.mitems:
+      x = 2
+    for x in epoch.mitems:
+      x = 3
+    for x in shareX.mitems:
+      x = 4
+    for x in shareY.mitems:
+      x = 5
+    for x in nullifier.mitems:
+      x = 6
+    for x in rlnIdentifier.mitems:
+      x = 7
 
     let
-      rateLimitProof = RateLimitProof(proof: proof,
-                          merkleRoot: merkleRoot,
-                          epoch: epoch,
-                          shareX: shareX,
-                          shareY: shareY,
-                          nullifier: nullifier,
-                          rlnIdentifier: rlnIdentifier)
+      rateLimitProof = RateLimitProof(
+        proof: proof,
+        merkleRoot: merkleRoot,
+        epoch: epoch,
+        shareX: shareX,
+        shareY: shareY,
+        nullifier: nullifier,
+        rlnIdentifier: rlnIdentifier,
+      )
       protobuf = rateLimitProof.encode()
       decodednsp = RateLimitProof.init(protobuf.buffer)
 
@@ -586,8 +603,8 @@ suite "Waku rln relay":
       decodedEpoch = epochBytes.fromEpoch()
     check:
       epoch == decodedEpoch
-    debug "encoded and decode time", epoch = epoch, epochBytes = epochBytes,
-      decodedEpoch = decodedEpoch
+    debug "encoded and decode time",
+      epoch = epoch, epochBytes = epochBytes, decodedEpoch = decodedEpoch
 
   test "Epoch comparison, epoch1 > epoch2":
     # check edge cases
@@ -607,40 +624,42 @@ suite "Waku rln relay":
 
     #  create some dummy nullifiers and secret shares
     var nullifier1: Nullifier
-    for index, x in nullifier1.mpairs: nullifier1[index] = 1
+    for index, x in nullifier1.mpairs:
+      nullifier1[index] = 1
     var shareX1: MerkleNode
-    for index, x in shareX1.mpairs: shareX1[index] = 1
+    for index, x in shareX1.mpairs:
+      shareX1[index] = 1
     let shareY1 = shareX1
 
     var nullifier2: Nullifier
-    for index, x in nullifier2.mpairs: nullifier2[index] = 2
+    for index, x in nullifier2.mpairs:
+      nullifier2[index] = 2
     var shareX2: MerkleNode
-    for index, x in shareX2.mpairs: shareX2[index] = 2
+    for index, x in shareX2.mpairs:
+      shareX2[index] = 2
     let shareY2 = shareX2
 
     let nullifier3 = nullifier1
     var shareX3: MerkleNode
-    for index, x in shareX3.mpairs: shareX3[index] = 3
+    for index, x in shareX3.mpairs:
+      shareX3[index] = 3
     let shareY3 = shareX3
 
     proc encodeAndGetBuf(proof: RateLimitProof): seq[byte] =
       return proof.encode().buffer
 
     let
-      proof1 = RateLimitProof(epoch: epoch,
-                              nullifier: nullifier1,
-                              shareX: shareX1,
-                              shareY: shareY1)
+      proof1 = RateLimitProof(
+        epoch: epoch, nullifier: nullifier1, shareX: shareX1, shareY: shareY1
+      )
       wm1 = WakuMessage(proof: proof1.encodeAndGetBuf())
-      proof2 = RateLimitProof(epoch: epoch,
-                              nullifier: nullifier2,
-                              shareX: shareX2,
-                              shareY: shareY2)
+      proof2 = RateLimitProof(
+        epoch: epoch, nullifier: nullifier2, shareX: shareX2, shareY: shareY2
+      )
       wm2 = WakuMessage(proof: proof2.encodeAndGetBuf())
-      proof3 = RateLimitProof(epoch: epoch,
-                              nullifier: nullifier3,
-                              shareX: shareX3,
-                              shareY: shareY3)
+      proof3 = RateLimitProof(
+        epoch: epoch, nullifier: nullifier3, shareX: shareX3, shareY: shareY3
+      )
       wm3 = WakuMessage(proof: proof3.encodeAndGetBuf())
 
     # check whether hasDuplicate correctly finds records with the same nullifiers but different secret shares
@@ -662,7 +681,9 @@ suite "Waku rln relay":
     discard wakuRlnRelay.updateLog(epoch, proofMetadata2)
 
     #  proof3 has the same nullifier as proof1 but different secret shares, it should be detected as duplicate
-    let isDuplicate3 = wakuRlnRelay.hasDuplicate(epoch, proof3.extractMetadata().tryGet()).valueOr:
+    let isDuplicate3 = wakuRlnRelay.hasDuplicate(
+      epoch, proof3.extractMetadata().tryGet()
+    ).valueOr:
       raiseAssert $error
     # it is a duplicate
     assert isDuplicate3, "duplicate should be found"
@@ -671,16 +692,20 @@ suite "Waku rln relay":
     let index = MembershipIndex(5)
 
     when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
-                                        rlnRelayCredIndex: some(index),
-                                        rlnRelayUserMessageLimit: 1,
-                                        rlnEpochSizeSec: 1,
-                                        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
+      )
     else:
-      let wakuRlnConfig = WakuRlnConfig(rlnRelayDynamic: false,
-                                        rlnRelayCredIndex: some(index),
-                                        rlnEpochSizeSec: 1,
-                                        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"))
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
+      )
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
@@ -700,7 +725,7 @@ suite "Waku rln relay":
       raiseAssert $error
     wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
-    wakuRlnRelay.unsafeAppendRLNProof(wm3, time+float64(wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
+    wakuRlnRelay.unsafeAppendRLNProof(wm3, time + float64(wakuRlnRelay.rlnEpochSizeSec)).isOkOr:
       raiseAssert $error
 
     # validate messages
@@ -714,7 +739,6 @@ suite "Waku rln relay":
       # wm4 has no rln proof and should not be validated
       msgValidate4 = wakuRlnRelay.validateMessageAndUpdateLog(wm4, some(time))
 
-
     check:
       msgValidate1 == MessageValidationResult.Valid
       msgValidate2 == MessageValidationResult.Spam
@@ -726,31 +750,39 @@ suite "Waku rln relay":
     let index2 = MembershipIndex(6)
 
     when defined(rln_v2):
-      let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
-                                   rlnRelayCredIndex: some(index1),
-                                   rlnRelayUserMessageLimit: 1,
-                                   rlnEpochSizeSec: 1,
-                                   rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
+      let rlnConf1 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index1),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
+      )
     else:
-      let rlnConf1 = WakuRlnConfig(rlnRelayDynamic: false,
-                                  rlnRelayCredIndex: some(index1),
-                                  rlnEpochSizeSec: 1,
-                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"))
-          
+      let rlnConf1 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index1),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
+      )
+
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
     when defined(rln_v2):
-      let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
-                                   rlnRelayCredIndex: some(index2),
-                                   rlnRelayUserMessageLimit: 1,
-                                   rlnEpochSizeSec: 1,
-                                   rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+      let rlnConf2 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index2),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      )
     else:
-      let rlnConf2 = WakuRlnConfig(rlnRelayDynamic: false,
-                                  rlnRelayCredIndex: some(index2),
-                                  rlnEpochSizeSec: 1,
-                                  rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"))
+      let rlnConf2 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index2),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      )
     let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
     # get the current epoch time
@@ -761,7 +793,6 @@ suite "Waku rln relay":
       wm1 = WakuMessage(payload: "Valid message from sender 1".toBytes())
       # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "Valid message from sender 2".toBytes())
-
 
     wakuRlnRelay1.appendRLNProof(wm1, time).isOkOr:
       raiseAssert $error
@@ -831,8 +862,7 @@ suite "Waku rln relay":
 
     let keystoreMembership = KeystoreMembership(
       membershipContract: MembershipContract(
-        chainId: "5",
-        address: "0x0123456789012345678901234567890123456789"
+        chainId: "5", address: "0x0123456789012345678901234567890123456789"
       ),
       treeIndex: index,
       identityCredential: idCredential,
@@ -840,24 +870,30 @@ suite "Waku rln relay":
     let password = "%m0um0ucoW%"
 
     let filepath = "./testRLNCredentials.txt"
-    defer: removeFile(filepath)
+    defer:
+      removeFile(filepath)
 
     # Write RLN credentials
     require:
-      addMembershipCredentials(path = filepath,
-                               membership = keystoreMembership,
-                               password = password,
-                               appInfo = RLNAppInfo).isOk()
+      addMembershipCredentials(
+        path = filepath,
+        membership = keystoreMembership,
+        password = password,
+        appInfo = RLNAppInfo,
+      )
+      .isOk()
 
-    let readKeystoreRes = getMembershipCredentials(path = filepath,
-                                                         password = password,
-                                                         # here the query would not include
-                                                         # the identityCredential,
-                                                         # since it is not part of the query
-                                                         # but have used the same value
-                                                         # to avoid re-declaration
-                                                         query = keystoreMembership,
-                                                         appInfo = RLNAppInfo)
+    let readKeystoreRes = getMembershipCredentials(
+      path = filepath,
+      password = password,
+      # here the query would not include
+      # the identityCredential,
+      # since it is not part of the query
+      # but have used the same value
+      # to avoid re-declaration
+      query = keystoreMembership,
+      appInfo = RLNAppInfo,
+    )
     assert readKeystoreRes.isOk(), $readKeystoreRes.error
 
     # getMembershipCredentials returns the credential in the keystore which matches

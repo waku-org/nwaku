@@ -1,5 +1,3 @@
 {.used.}
 
-import
-  ./test_app,
-  ./test_validators
+import ./test_app, ./test_validators

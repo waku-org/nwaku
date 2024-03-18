@@ -1,5 +1,3 @@
-import
-  ./waku_lightpush/protocol
+import ./waku_lightpush/protocol
 
-export
-  protocol
+export protocol

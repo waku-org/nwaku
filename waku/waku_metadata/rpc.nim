@@ -3,21 +3,17 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options
+import std/options
 
-import
-  ../common/protobuf
+import ../common/protobuf
 
-type
-  WakuMetadataRequest* = object
-    clusterId*: Option[uint32]
-    shards*: seq[uint32]
+type WakuMetadataRequest* = object
+  clusterId*: Option[uint32]
+  shards*: seq[uint32]
 
-type
-  WakuMetadataResponse* = object
-    clusterId*: Option[uint32]
-    shards*: seq[uint32]
+type WakuMetadataResponse* = object
+  clusterId*: Option[uint32]
+  shards*: seq[uint32]
 
 proc encode*(rpc: WakuMetadataRequest): ProtoBuffer =
   var pb = initProtoBuffer()
@@ -85,6 +81,5 @@ proc decode*(T: type WakuMetadataResponse, buffer: seq[byte]): ProtoResult[T] =
   elif ?pb.getRepeatedField(2, shards):
     for shard in shards:
       rpc.shards.add(shard.uint32)
-
 
   ok(rpc)

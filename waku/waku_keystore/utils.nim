@@ -3,17 +3,18 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  json,
-  std/[os, sequtils]
+import json, std/[os, sequtils]
 
-import
-  ./keyfile,
-  ./protocol_types
+import ./keyfile, ./protocol_types
 
 # Checks if a JsonNode has all keys contained in "keys"
 proc hasKeys*(data: JsonNode, keys: openArray[string]): bool =
-  return all(keys, proc (key: string): bool = return data.hasKey(key))
+  return all(
+    keys,
+    proc(key: string): bool =
+      return data.hasKey(key)
+    ,
+  )
 
 # Safely saves a Keystore's JsonNode to disk.
 # If exists, the destination file is renamed with extension .bkp; the file is written at its destination and the .bkp file is removed if write is successful, otherwise is restored
@@ -22,15 +23,18 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
   if fileExists(path):
     try:
       moveFile(path, path & ".bkp")
-    except:  # TODO: Fix "BareExcept" warning
-      return err(AppKeystoreError(kind: KeystoreOsError,
-                                  msg: "could not backup keystore: " & getCurrentExceptionMsg()))
+    except: # TODO: Fix "BareExcept" warning
+      return err(
+        AppKeystoreError(
+          kind: KeystoreOsError,
+          msg: "could not backup keystore: " & getCurrentExceptionMsg(),
+        )
+      )
 
   # We save the updated json
   var f: File
   if not f.open(path, fmAppend):
-    return err(AppKeystoreError(kind: KeystoreOsError,
-                                msg: getCurrentExceptionMsg()))
+    return err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(path, {fpUserWrite, fpUserRead})
@@ -44,12 +48,20 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
         f.close()
         removeFile(path)
         moveFile(path & ".bkp", path)
-      except:  # TODO: Fix "BareExcept" warning
+      except: # TODO: Fix "BareExcept" warning
         # Unlucky, we just fail
-        return err(AppKeystoreError(kind: KeystoreOsError,
-                                    msg: "could not restore keystore backup: " & getCurrentExceptionMsg()))
-    return err(AppKeystoreError(kind: KeystoreOsError,
-                                msg: "could not write keystore: " & getCurrentExceptionMsg()))
+        return err(
+          AppKeystoreError(
+            kind: KeystoreOsError,
+            msg: "could not restore keystore backup: " & getCurrentExceptionMsg(),
+          )
+        )
+    return err(
+      AppKeystoreError(
+        kind: KeystoreOsError,
+        msg: "could not write keystore: " & getCurrentExceptionMsg(),
+      )
+    )
   finally:
     f.close()
 
@@ -58,7 +70,11 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
     try:
       removeFile(path & ".bkp")
     except CatchableError:
-      return err(AppKeystoreError(kind: KeystoreOsError,
-                                  msg: "could not remove keystore backup: " & getCurrentExceptionMsg()))
+      return err(
+        AppKeystoreError(
+          kind: KeystoreOsError,
+          msg: "could not remove keystore backup: " & getCurrentExceptionMsg(),
+        )
+      )
 
   return ok()

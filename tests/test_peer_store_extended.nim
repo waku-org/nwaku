@@ -14,7 +14,6 @@ import
   ../../waku/waku_node,
   ./testlib/wakucore
 
-
 suite "Extended nim-libp2p Peer Store":
   # Valid peerId missing the last digit. Useful for creating new peerIds
   # basePeerId & "1"
@@ -64,7 +63,8 @@ suite "Extended nim-libp2p Peer Store":
 
     # Peer3: Connected
     peerStore[AddressBook][p3] = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()]
-    peerStore[ProtoBook][p3] = @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+    peerStore[ProtoBook][p3] =
+      @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
     peerStore[KeyBook][p3] = generateEcdsaKeyPair().pubkey
     peerStore[AgentBook][p3] = "gowaku"
     peerStore[ProtoVersionBook][p3] = "protoVersion3"
@@ -180,7 +180,8 @@ suite "Extended nim-libp2p Peer Store":
       # Only p3 supports that protocol
       lpPeers.len == 1
       lpPeers.anyIt(it.peerId == p3)
-      lpPeers[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      lpPeers[0].protocols ==
+        @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
 
   test "peers() returns all StoredInfo matching a given protocolMatcher":
     # When
@@ -197,15 +198,20 @@ suite "Extended nim-libp2p Peer Store":
       pMatcherStorePeers.anyIt(it.peerId == p5)
 
     check:
-      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protocols == @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protocols == @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
-      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protocols == @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
-      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherStorePeers.filterIt(it.peerId == p1)[0].protocols ==
+        @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p2)[0].protocols ==
+        @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"]
+      pMatcherStorePeers.filterIt(it.peerId == p3)[0].protocols ==
+        @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"]
+      pMatcherStorePeers.filterIt(it.peerId == p5)[0].protocols ==
+        @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
     check:
       pMatcherSwapPeers.len == 1
       pMatcherSwapPeers.anyIt(it.peerId == p5)
-      pMatcherSwapPeers[0].protocols == @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
+      pMatcherSwapPeers[0].protocols ==
+        @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"]
 
   test "toRemotePeerInfo() converts a StoredInfo to a RemotePeerInfo":
     # Given

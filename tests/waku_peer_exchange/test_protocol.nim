@@ -22,7 +22,7 @@ import
     waku_relay/protocol,
     waku_relay,
     waku_core,
-    waku_core/message/codec
+    waku_core/message/codec,
   ],
   ../testlib/[wakucore, wakunode, simple_mock, assertions],
   ./utils.nim
@@ -37,86 +37,72 @@ suite "Waku Peer Exchange":
       ## Given (copied from test_waku_discv5.nim)
       let
         # todo: px flag
-        flags =
-          CapabilitiesBitfield.init(
-            lightpush = false, filter = false, store = false, relay = true
-          )
+        flags = CapabilitiesBitfield.init(
+          lightpush = false, filter = false, store = false, relay = true
+        )
         bindIp = parseIpAddress("0.0.0.0")
         extIp = parseIpAddress("127.0.0.1")
 
         nodeKey1 = generateSecp256k1Key()
         nodeTcpPort1 = Port(64010)
         nodeUdpPort1 = Port(9000)
-        node1 =
-          newTestWakuNode(
-            nodeKey1,
-            bindIp,
-            nodeTcpPort1,
-            some(extIp),
-            wakuFlags = some(flags),
-            discv5UdpPort = some(nodeUdpPort1),
-          )
+        node1 = newTestWakuNode(
+          nodeKey1,
+          bindIp,
+          nodeTcpPort1,
+          some(extIp),
+          wakuFlags = some(flags),
+          discv5UdpPort = some(nodeUdpPort1),
+        )
 
         nodeKey2 = generateSecp256k1Key()
         nodeTcpPort2 = Port(64012)
         nodeUdpPort2 = Port(9002)
-        node2 =
-          newTestWakuNode(
-            nodeKey2,
-            bindIp,
-            nodeTcpPort2,
-            some(extIp),
-            wakuFlags = some(flags),
-            discv5UdpPort = some(nodeUdpPort2),
-          )
+        node2 = newTestWakuNode(
+          nodeKey2,
+          bindIp,
+          nodeTcpPort2,
+          some(extIp),
+          wakuFlags = some(flags),
+          discv5UdpPort = some(nodeUdpPort2),
+        )
 
         nodeKey3 = generateSecp256k1Key()
         nodeTcpPort3 = Port(64014)
         nodeUdpPort3 = Port(9004)
-        node3 =
-          newTestWakuNode(
-            nodeKey3,
-            bindIp,
-            nodeTcpPort3,
-            some(extIp),
-            wakuFlags = some(flags),
-            discv5UdpPort = some(nodeUdpPort3),
-          )
+        node3 = newTestWakuNode(
+          nodeKey3,
+          bindIp,
+          nodeTcpPort3,
+          some(extIp),
+          wakuFlags = some(flags),
+          discv5UdpPort = some(nodeUdpPort3),
+        )
 
       # discv5
-      let
-        conf1 =
-          WakuDiscoveryV5Config(
-            discv5Config: none(DiscoveryConfig),
-            address: bindIp,
-            port: nodeUdpPort1,
-            privateKey: keys.PrivateKey(nodeKey1.skkey),
-            bootstrapRecords: @[],
-            autoupdateRecord: true,
-          )
+      let conf1 = WakuDiscoveryV5Config(
+        discv5Config: none(DiscoveryConfig),
+        address: bindIp,
+        port: nodeUdpPort1,
+        privateKey: keys.PrivateKey(nodeKey1.skkey),
+        bootstrapRecords: @[],
+        autoupdateRecord: true,
+      )
 
-      let
-        disc1 =
-          WakuDiscoveryV5.new(
-            node1.rng, conf1, some(node1.enr), some(node1.peerManager)
-          )
+      let disc1 =
+        WakuDiscoveryV5.new(node1.rng, conf1, some(node1.enr), some(node1.peerManager))
 
-      let
-        conf2 =
-          WakuDiscoveryV5Config(
-            discv5Config: none(DiscoveryConfig),
-            address: bindIp,
-            port: nodeUdpPort2,
-            privateKey: keys.PrivateKey(nodeKey2.skkey),
-            bootstrapRecords: @[disc1.protocol.getRecord()],
-            autoupdateRecord: true,
-          )
+      let conf2 = WakuDiscoveryV5Config(
+        discv5Config: none(DiscoveryConfig),
+        address: bindIp,
+        port: nodeUdpPort2,
+        privateKey: keys.PrivateKey(nodeKey2.skkey),
+        bootstrapRecords: @[disc1.protocol.getRecord()],
+        autoupdateRecord: true,
+      )
 
-      let
-        disc2 =
-          WakuDiscoveryV5.new(
-            node2.rng, conf2, some(node2.enr), some(node2.peerManager)
-          )
+      let disc2 =
+        WakuDiscoveryV5.new(node2.rng, conf2, some(node2.enr), some(node2.peerManager))
 
       await allFutures(node1.start(), node2.start(), node3.start())
       let resultDisc1StartRes = await disc1.start()
@@ -140,9 +126,8 @@ suite "Waku Peer Exchange":
       await node1.mountPeerExchange()
       await node3.mountPeerExchange()
 
-      let
-        dialResponse =
-          await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())
+      let dialResponse =
+        await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())
       let response = dialResponse.get()
 
       ## Then
@@ -166,11 +151,9 @@ suite "Waku Peer Exchange":
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Create connection
-      let
-        connOpt =
-          await node2.peerManager.dialPeer(
-            node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
-          )
+      let connOpt = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
       require:
         connOpt.isSome
 
@@ -189,9 +172,8 @@ suite "Waku Peer Exchange":
 
       # Request 2 peer from px. Test all request variants
       let response1 = await node2.wakuPeerExchange.request(2)
-      let
-        response2 =
-          await node2.wakuPeerExchange.request(2, node1.peerInfo.toRemotePeerInfo())
+      let response2 =
+        await node2.wakuPeerExchange.request(2, node1.peerInfo.toRemotePeerInfo())
       let response3 = await node2.wakuPeerExchange.request(2, connOpt.get())
 
       # Check the response or dont even continue
@@ -225,11 +207,9 @@ suite "Waku Peer Exchange":
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Create connection
-      let
-        connOpt =
-          await node2.peerManager.dialPeer(
-            node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
-          )
+      let connOpt = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
       require connOpt.isSome
 
       # Force closing the connection to simulate a failed peer
@@ -270,11 +250,9 @@ suite "Waku Peer Exchange":
       await allFutures([node1.mountPeerExchange(), node2.mountPeerExchange()])
 
       # Connect the nodes
-      let
-        dialResponse =
-          await node2.peerManager.dialPeer(
-            node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
-          )
+      let dialResponse = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
       assert dialResponse.isSome
 
       # Mock that we have discovered one enr
@@ -322,22 +300,18 @@ suite "Waku Peer Exchange":
 
     asyncTest "Connections are closed after response is sent":
       # Create 3 nodes
-      let
-        nodes =
-          toSeq(0..<3).mapIt(
-            newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
-          )
+      let nodes = toSeq(0 ..< 3).mapIt(
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+        )
 
       await allFutures(nodes.mapIt(it.start()))
       await allFutures(nodes.mapIt(it.mountPeerExchange()))
 
       # Multiple nodes request to node 0
-      for i in 1..<3:
-        let
-          resp =
-            await nodes[i].wakuPeerExchange.request(
-              2, nodes[0].switch.peerInfo.toRemotePeerInfo()
-            )
+      for i in 1 ..< 3:
+        let resp = await nodes[i].wakuPeerExchange.request(
+          2, nodes[0].switch.peerInfo.toRemotePeerInfo()
+        )
         require resp.isOk
 
       # Wait for streams to be closed
@@ -369,11 +343,9 @@ suite "Waku Peer Exchange":
       node1.wakuPeerExchange.enrCache.add(enr1)
 
       # Create connection
-      let
-        connOpt =
-          await node2.peerManager.dialPeer(
-            node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
-          )
+      let connOpt = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
       require connOpt.isSome
       let conn = connOpt.get()
 

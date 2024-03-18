@@ -1,8 +1,4 @@
-
-import
-  std/strutils,
-  stew/results,
-  regex
+import std/strutils, stew/results, regex
 
 proc parseMsgSize*(input: string): Result[uint64, string] =
   ## Parses size strings such as "1.2 KiB" or "3Kb" and returns the equivalent number of bytes
@@ -20,13 +16,15 @@ proc parseMsgSize*(input: string): Result[uint64, string] =
   try:
     value = parseFloat(input[m.captures[0]].replace(",", "."))
   except ValueError:
-    return err("invalid size in parseSize: " & getCurrentExceptionMsg() &
-               " error parsing: " & input[m.captures[0]] & " KKK : " & $m)
+    return err(
+      "invalid size in parseSize: " & getCurrentExceptionMsg() & " error parsing: " &
+        input[m.captures[0]] & " KKK : " & $m
+    )
 
   let units = input[m.captures[2]].toLowerAscii() # units is "kib", or "kb", or "b".
 
   var multiplier: float
-  case units:
+  case units
   of "kb":
     multiplier = 1000
   of "kib":

@@ -11,31 +11,30 @@ import
   presto/[route, client, common]
 
 import
-  ../../../common/base64,
-  ../../../waku_core,
-  ../relay/types as relay_types,
-  ../serdes
+  ../../../common/base64, ../../../waku_core, ../relay/types as relay_types, ../serdes
 
 export relay_types
 
 #### Types
 
 type PushRequest* = object
-      pubsubTopic*: Option[PubSubTopic]
-      message*: RelayWakuMessage
+  pubsubTopic*: Option[PubSubTopic]
+  message*: RelayWakuMessage
 
 #### Serialization and deserialization
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: PushRequest)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: PushRequest
+) {.raises: [IOError].} =
   writer.beginRecord()
   if value.pubsubTopic.isSome():
     writer.writeField("pubsubTopic", value.pubsubTopic.get())
   writer.writeField("message", value.message)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson], value: var PushRequest)
-  {.raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var PushRequest
+) {.raises: [SerializationError, IOError].} =
   var
     pubsubTopic = none(PubsubTopic)
     message = none(RelayWakuMessage)
@@ -44,8 +43,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var PushRequest)
   for fieldName in readObjectFields(reader):
     # Check for reapeated keys
     if keys.containsOrIncl(fieldName):
-      let err = try: fmt"Multiple `{fieldName}` fields found"
-                except CatchableError: "Multiple fields with the same name found"
+      let err =
+        try:
+          fmt"Multiple `{fieldName}` fields found"
+        except CatchableError:
+          "Multiple fields with the same name found"
       reader.raiseUnexpectedField(err, "PushRequest")
 
     case fieldName
@@ -60,6 +62,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var PushRequest)
     reader.raiseUnexpectedValue("Field `message` is missing")
 
   value = PushRequest(
-    pubsubTopic: if pubsubTopic.isNone() or pubsubTopic.get() == "": none(string) else: some(pubsubTopic.get()),
-    message: message.get()
+    pubsubTopic:
+      if pubsubTopic.isNone() or pubsubTopic.get() == "":
+        none(string)
+      else:
+        some(pubsubTopic.get())
+    ,
+    message: message.get(),
   )

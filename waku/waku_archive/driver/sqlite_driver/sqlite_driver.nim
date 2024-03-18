@@ -5,11 +5,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/options,
-  stew/[byteutils, results],
-  chronicles,
-  chronos
+import std/options, stew/[byteutils, results], chronicles, chronos
 import
   ../../../common/databases/db_sqlite,
   ../../../waku_core,
@@ -44,11 +40,10 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   return ok()
 
 type SqliteDriver* = ref object of ArchiveDriver
-    db: SqliteDatabase
-    insertStmt: SqliteStmt[InsertMessageParams, void]
+  db: SqliteDatabase
+  insertStmt: SqliteStmt[InsertMessageParams, void]
 
 proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
-
   # Database initialization
   let resInit = init(db)
   if resInit.isErr():
@@ -58,43 +53,47 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
   let insertStmt = db.prepareInsertMessageStmt()
   return ok(SqliteDriver(db: db, insertStmt: insertStmt))
 
-method put*(s: SqliteDriver,
-            pubsubTopic: PubsubTopic,
-            message: WakuMessage,
-            digest: MessageDigest,
-            messageHash: WakuMessageHash,
-            receivedTime: Timestamp):
-            Future[ArchiveDriverResult[void]] {.async.} =
+method put*(
+    s: SqliteDriver,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+    digest: MessageDigest,
+    messageHash: WakuMessageHash,
+    receivedTime: Timestamp,
+): Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
-  let res = s.insertStmt.exec((
-    @(digest.data),                # id
-    @(messageHash),                # messageHash
-    receivedTime,                  # storedAt
-    toBytes(message.contentTopic), # contentTopic
-    message.payload,               # payload
-    toBytes(pubsubTopic),          # pubsubTopic
-    int64(message.version),        # version
-    message.timestamp              # senderTimestamp
-  ))
+  let res = s.insertStmt.exec(
+    (
+      @(digest.data), # id
+      @(messageHash), # messageHash
+      receivedTime, # storedAt
+      toBytes(message.contentTopic), # contentTopic
+      message.payload, # payload
+      toBytes(pubsubTopic), # pubsubTopic
+      int64(message.version), # version
+      message.timestamp, # senderTimestamp
+    )
+  )
 
   return res
 
-method getAllMessages*(s: SqliteDriver):
-                       Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+method getAllMessages*(
+    s: SqliteDriver
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
   return s.db.selectAllMessages()
 
-method getMessages*(s: SqliteDriver,
-                    contentTopic = newSeq[ContentTopic](0),
-                    pubsubTopic = none(PubsubTopic),
-                    cursor = none(ArchiveCursor),
-                    startTime = none(Timestamp),
-                    endTime = none(Timestamp),
-                    hashes = newSeq[WakuMessageHash](0),
-                    maxPageSize = DefaultPageSize,
-                    ascendingOrder = true):
-                    Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-
+method getMessages*(
+    s: SqliteDriver,
+    contentTopic = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    hashes = newSeq[WakuMessageHash](0),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   let cursor = cursor.map(toDbCursor)
 
   let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
@@ -104,55 +103,52 @@ method getMessages*(s: SqliteDriver,
     startTime,
     endTime,
     hashes,
-    limit=maxPageSize,
-    ascending=ascendingOrder
+    limit = maxPageSize,
+    ascending = ascendingOrder,
   )
 
   return rowsRes
 
-method getMessagesCount*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
+method getMessagesCount*(
+    s: SqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getMessageCount()
 
-method getPagesCount*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
+method getPagesCount*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getPageCount()
 
-method getPagesSize*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
+method getPagesSize*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getPageSize()
 
-method getDatabaseSize*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[int64]] {.async.} =
+method getDatabaseSize*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getDatabaseSize()
 
-method performVacuum*(s: SqliteDriver):
-                         Future[ArchiveDriverResult[void]] {.async.} =
+method performVacuum*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.performSqliteVacuum()
 
-method getOldestMessageTimestamp*(s: SqliteDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
+method getOldestMessageTimestamp*(
+    s: SqliteDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return s.db.selectOldestReceiverTimestamp()
 
-method getNewestMessageTimestamp*(s: SqliteDriver):
-                                  Future[ArchiveDriverResult[Timestamp]] {.async.} =
+method getNewestMessageTimestamp*(
+    s: SqliteDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return s.db.selectnewestReceiverTimestamp()
 
-method deleteMessagesOlderThanTimestamp*(s: SqliteDriver,
-                                         ts: Timestamp):
-                                         Future[ArchiveDriverResult[void]] {.async.} =
+method deleteMessagesOlderThanTimestamp*(
+    s: SqliteDriver, ts: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.deleteMessagesOlderThanTimestamp(ts)
 
-method deleteOldestMessagesNotWithinLimit*(s: SqliteDriver,
-                                           limit: int):
-                                           Future[ArchiveDriverResult[void]] {.async.} =
+method deleteOldestMessagesNotWithinLimit*(
+    s: SqliteDriver, limit: int
+): Future[ArchiveDriverResult[void]] {.async.} =
   return s.db.deleteOldestMessagesNotWithinLimit(limit)
 
-method decreaseDatabaseSize*(driver: SqliteDriver,
-                             targetSizeInBytes: int64,
-                             forceRemoval: bool = false):
-                             Future[ArchiveDriverResult[void]] {.async.} =
-
+method decreaseDatabaseSize*(
+    driver: SqliteDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+): Future[ArchiveDriverResult[void]] {.async.} =
   ## To remove 20% of the outdated data from database
   const DeleteLimit = 0.80
 
@@ -178,13 +174,12 @@ method decreaseDatabaseSize*(driver: SqliteDriver,
   ## 80% of the total messages are to be kept, delete others
   let pageDeleteWindow = int(float(numMessages) * DeleteLimit)
 
-  (await driver.deleteOldestMessagesNotWithinLimit(limit=pageDeleteWindow)).isOkOr:
+  (await driver.deleteOldestMessagesNotWithinLimit(limit = pageDeleteWindow)).isOkOr:
     return err("deleting oldest messages failed: " & error)
 
   return ok()
 
-method close*(s: SqliteDriver):
-              Future[ArchiveDriverResult[void]] {.async.} =
+method close*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Close the database connection
   # Dispose statements
   s.insertStmt.dispose()
@@ -192,7 +187,7 @@ method close*(s: SqliteDriver):
   s.db.close()
   return ok()
 
-method existsTable*(s: SqliteDriver, tableName: string):
-                    Future[ArchiveDriverResult[bool]] {.async.} =
+method existsTable*(
+    s: SqliteDriver, tableName: string
+): Future[ArchiveDriverResult[bool]] {.async.} =
   return err("existsTable method not implemented in sqlite_driver")
-

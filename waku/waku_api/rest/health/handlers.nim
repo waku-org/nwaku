@@ -3,14 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronicles,
-  json_serialization,
-  presto/route
-import
-  ../../../waku_node,
-  ../responses,
-  ../serdes
+import chronicles, json_serialization, presto/route
+import ../../../waku_node, ../responses, ../serdes
 
 logScope:
   topics = "waku node rest health_api"
@@ -25,12 +19,11 @@ proc installHealthApiHandler*(router: var RestRouter, node: WakuNode) =
   ## TODO: Leter to extend it to a broader information about each subsystem state
   ## report. Rest response to change to JSON structure that can hold exact detailed 
   ## information.
-  
-  router.api(MethodGet, ROUTE_HEALTH) do () -> RestApiResponse:
 
+  router.api(MethodGet, ROUTE_HEALTH) do() -> RestApiResponse:
     let isReadyStateFut = node.isReady()
     if not await isReadyStateFut.withTimeout(FutIsReadyTimout):
-       return RestApiResponse.internalServerError("Health check timed out")
+      return RestApiResponse.internalServerError("Health check timed out")
 
     var msg = "Node is healthy"
     var status = Http200

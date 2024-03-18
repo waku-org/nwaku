@@ -9,8 +9,7 @@ import
   chronicles,
   chronos,
   libp2p/protocols/pubsub
-import
-  ../waku_core
+import ../waku_core
 
 logScope:
   topics = "waku node message_cache"
@@ -29,16 +28,12 @@ type MessageCache* = ref object
   capacity: int
 
 func `$`*(self: MessageCache): string =
-  "Messages: " & $self.messages.len &
-  " \nPubsubTopics: " & $self.pubsubTopics &
-  " \nContentTopics: " & $self.contentTopics &
-  " \nPubsubIndex: " & $self.pubsubIndex &
-  " \nContentIndex: " & $self.contentIndex
+  "Messages: " & $self.messages.len & " \nPubsubTopics: " & $self.pubsubTopics &
+    " \nContentTopics: " & $self.contentTopics & " \nPubsubIndex: " & $self.pubsubIndex &
+    " \nContentIndex: " & $self.contentIndex
 
-func init*(T: type MessageCache, capacity=DefaultMessageCacheCapacity): T =
-  MessageCache(
-    capacity: capacity
-  )
+func init*(T: type MessageCache, capacity = DefaultMessageCacheCapacity): T =
+  MessageCache(capacity: capacity)
 
 proc messagesCount*(self: MessageCache): int =
   self.messages.len
@@ -51,7 +46,7 @@ proc contentTopicCount*(self: MessageCache): int =
 
 proc pubsubSearch(self: MessageCache, pubsubTopic: PubsubTopic): Option[int] =
   # Return some with the index if found none otherwise.
-  
+
   for i, topic in self.pubsubTopics:
     if topic == pubsubTopic:
       return some(i)
@@ -60,7 +55,7 @@ proc pubsubSearch(self: MessageCache, pubsubTopic: PubsubTopic): Option[int] =
 
 proc contentSearch(self: MessageCache, contentTopic: ContentTopic): Option[int] =
   # Return some with the index if found none otherwise.
-  
+
   for i, topic in self.contentTopics:
     if topic == contentTopic:
       return some(i)
@@ -84,9 +79,9 @@ proc contentSubscribe*(self: MessageCache, contentTopic: ContentTopic) =
 proc removeMessage(self: MessageCache, idx: int) =
   # get last index because del() is a swap
   let lastIndex = self.messages.high
-  
+
   self.messages.del(idx)
-  
+
   # update indices
   var j = self.pubsubIndex.high
   while j > -1:
@@ -114,18 +109,20 @@ proc pubsubUnsubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
   let pubsubIdxOp = self.pubsubSearch(pubsubTopic)
 
   let pubsubIdx =
-    if pubsubIdxOp.isSome(): pubsubIdxOp.get()
-    else: return
+    if pubsubIdxOp.isSome():
+      pubsubIdxOp.get()
+    else:
+      return
 
   let lastIndex = self.pubsubTopics.high
   self.pubsubTopics.del(pubsubIdx)
-  
+
   var msgIndices = newSeq[int](0)
 
   var j = self.pubsubIndex.high
   while j > -1:
     let (pId, mId) = self.pubsubIndex[j]
-    
+
     if pId == pubsubIdx:
       # remove index for this topic
       self.pubsubIndex.del(j)
@@ -133,9 +130,9 @@ proc pubsubUnsubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
     elif pId == lastIndex:
       # swap the index because pubsubTopics.del() is a swap
       self.pubsubIndex[j] = (pubsubIdx, mId)
-    
+
     dec(j)
-  
+
   # check if messages on this pubsub topic are indexed by any content topic, if not remove them.
   for mId in msgIndices:
     if not self.contentIndex.anyIt(it.msgIdx == mId):
@@ -144,13 +141,15 @@ proc pubsubUnsubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
 proc contentUnsubscribe*(self: MessageCache, contentTopic: ContentTopic) =
   let contentIdxOP = self.contentSearch(contentTopic)
 
-  let contentIdx = 
-    if contentIdxOP.isSome(): contentIdxOP.get()
-    else: return
+  let contentIdx =
+    if contentIdxOP.isSome():
+      contentIdxOP.get()
+    else:
+      return
 
   let lastIndex = self.contentTopics.high
   self.contentTopics.del(contentIdx)
-  
+
   var msgIndices = newSeq[int](0)
 
   var j = self.contentIndex.high
@@ -164,7 +163,7 @@ proc contentUnsubscribe*(self: MessageCache, contentTopic: ContentTopic) =
     elif cId == lastIndex:
       # swap the indices because contentTopics.del() is a swap
       self.contentIndex[j] = (contentIdx, mId)
-    
+
     dec(j)
 
   # check if messages on this content topic are indexed by any pubsub topic, if not remove them.
@@ -179,13 +178,9 @@ proc reset*(self: MessageCache) =
   self.pubsubIndex.setLen(0)
   self.contentIndex.setLen(0)
 
-proc addMessage*(
-  self: MessageCache,
-  pubsubTopic: PubsubTopic,
-  msg: WakuMessage
-  ) =
+proc addMessage*(self: MessageCache, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   ## Idempotent message addition.
-  
+
   var oldestTime = int64.high
   var oldestMsg = int.high
   for i, message in self.messages.reversed:
@@ -193,8 +188,8 @@ proc addMessage*(
       return
 
     if message.timestamp < oldestTime:
-        oldestTime = message.timestamp
-        oldestMsg = i
+      oldestTime = message.timestamp
+      oldestMsg = i
 
   # reverse index
   oldestMsg = self.messages.high - oldestMsg
@@ -222,7 +217,7 @@ proc addMessage*(
   # add the message, make space if needed
   if self.messages.len >= self.capacity:
     self.removeMessage(oldestMsg)
- 
+
   let msgIdx = self.messages.len
   self.messages.add(msg)
 
@@ -230,10 +225,8 @@ proc addMessage*(
   self.contentIndex.add((contentIdx, msgIdx))
 
 proc getMessages*(
-  self: MessageCache,
-  pubsubTopic: PubsubTopic,
-  clear=false
-  ): Result[seq[WakuMessage], string] =
+    self: MessageCache, pubsubTopic: PubsubTopic, clear = false
+): Result[seq[WakuMessage], string] =
   ## Return all messages on this pubsub topic
 
   if self.pubsubTopics.len == 0:
@@ -243,7 +236,8 @@ proc getMessages*(
   let pubsubIdx =
     if pubsubIdxOp.isNone:
       return err("not subscribed to this pubsub topic")
-    else: pubsubIdxOp.get()
+    else:
+      pubsubIdxOp.get()
 
   let msgIndices = collect:
     for (pId, mId) in self.pubsubIndex:
@@ -255,14 +249,12 @@ proc getMessages*(
   if clear:
     for idx in msgIndices.reversed:
       self.removeMessage(idx)
-    
+
   return ok(messages)
 
 proc getAutoMessages*(
-  self: MessageCache,
-  contentTopic: ContentTopic,
-  clear=false
-  ): Result[seq[WakuMessage], string] =
+    self: MessageCache, contentTopic: ContentTopic, clear = false
+): Result[seq[WakuMessage], string] =
   ## Return all messages on this content topic
 
   if self.contentTopics.len == 0:
@@ -272,7 +264,8 @@ proc getAutoMessages*(
   let contentIdx =
     if contentIdxOp.isNone():
       return err("not subscribed to this content topic")
-    else: contentIdxOp.get()
+    else:
+      contentIdxOp.get()
 
   let msgIndices = collect:
     for (cId, mId) in self.contentIndex:
@@ -284,5 +277,5 @@ proc getAutoMessages*(
   if clear:
     for idx in msgIndices.reversed:
       self.removeMessage(idx)
-    
+
   return ok(messages)

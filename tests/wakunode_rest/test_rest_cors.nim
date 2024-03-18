@@ -20,9 +20,7 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
-type
-  TestResponseTuple = tuple[status: int, data: string, headers: HttpTable]
+type TestResponseTuple = tuple[status: int, data: string, headers: HttpTable]
 
 proc testWakuNode(): WakuNode =
   let
@@ -33,8 +31,9 @@ proc testWakuNode(): WakuNode =
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
-proc fetchWithHeader(request: HttpClientRequestRef): Future[TestResponseTuple]
-    {.async: (raises: [CancelledError, HttpError]).} =
+proc fetchWithHeader(
+    request: HttpClientRequestRef
+): Future[TestResponseTuple] {.async: (raises: [CancelledError, HttpError]).} =
   var response: HttpClientResponseRef
   try:
     response = await request.send()
@@ -45,50 +44,55 @@ proc fetchWithHeader(request: HttpClientRequestRef): Future[TestResponseTuple]
     response = nil
     return (status, buffer.bytesToString(), headers)
   except HttpError as exc:
-    if not(isNil(response)): await response.closeWait()
+    if not (isNil(response)):
+      await response.closeWait()
     assert false
   except CancelledError as exc:
-    if not(isNil(response)): await response.closeWait()
+    if not (isNil(response)):
+      await response.closeWait()
     assert false
 
 proc issueRequest(
-        address: HttpAddress,
-        reqOrigin: Option[string] = none(string)
-      ): Future[TestResponseTuple] {.async.} =
-
+    address: HttpAddress, reqOrigin: Option[string] = none(string)
+): Future[TestResponseTuple] {.async.} =
   var
     session = HttpSessionRef.new({HttpClientFlag.Http11Pipeline})
     data: TestResponseTuple
 
-  var originHeader : seq[HttpHeaderTuple]
+  var originHeader: seq[HttpHeaderTuple]
   if reqOrigin.isSome():
     originHeader.insert(("Origin", reqOrigin.get()))
 
-  var
-    request = HttpClientRequestRef.new(session,
-                                       address,
-                                       version = HttpVersion11,
-                                       headers = originHeader)
+  var request = HttpClientRequestRef.new(
+    session, address, version = HttpVersion11, headers = originHeader
+  )
   try:
     data = await request.fetchWithHeader()
   finally:
     await request.closeWait()
   return data
 
-proc checkResponse(response: TestResponseTuple,
-                   expectedStatus : int,
-                   expectedOrigin : Option[string]): bool =
+proc checkResponse(
+    response: TestResponseTuple, expectedStatus: int, expectedOrigin: Option[string]
+): bool =
   if response.status != expectedStatus:
-    echo(" -> check failed: expected status" & $expectedStatus &
-         " got " & $response.status)
+    echo(
+      " -> check failed: expected status" & $expectedStatus & " got " & $response.status
+    )
     return false
 
-  if not (expectedOrigin.isNone() or
-          (expectedOrigin.isSome() and
-           response.headers.contains("Access-Control-Allow-Origin") and
-           response.headers.getLastString("Access-Control-Allow-Origin") == expectedOrigin.get())):
-    echo(" -> check failed: expected origin " & $expectedOrigin & " got " &
-            response.headers.getLastString("Access-Control-Allow-Origin"))
+  if not (
+    expectedOrigin.isNone() or (
+      expectedOrigin.isSome() and
+      response.headers.contains("Access-Control-Allow-Origin") and
+      response.headers.getLastString("Access-Control-Allow-Origin") ==
+      expectedOrigin.get()
+    )
+  ):
+    echo(
+      " -> check failed: expected origin " & $expectedOrigin & " got " &
+        response.headers.getLastString("Access-Control-Allow-Origin")
+    )
     return false
 
   return true
@@ -102,10 +106,14 @@ suite "Waku v2 REST API CORS Handling":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = WakuRestServerRef.init(restAddress,
-                    restPort,
-                    allowedOrigin=some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*")
-                    ).tryGet()
+    let restServer = WakuRestServerRef
+      .init(
+        restAddress,
+        restPort,
+        allowedOrigin =
+          some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
+      )
+      .tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -150,10 +158,14 @@ suite "Waku v2 REST API CORS Handling":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = WakuRestServerRef.init(restAddress,
-                      restPort,
-                      allowedOrigin=some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*")
-                      ).tryGet()
+    let restServer = WakuRestServerRef
+      .init(
+        restAddress,
+        restPort,
+        allowedOrigin =
+          some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
+      )
+      .tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -201,10 +213,8 @@ suite "Waku v2 REST API CORS Handling":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = WakuRestServerRef.init(restAddress,
-                                            restPort,
-                                            allowedOrigin=some("*")
-                                            ).tryGet()
+    let restServer =
+      WakuRestServerRef.init(restAddress, restPort, allowedOrigin = some("*")).tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -249,10 +259,14 @@ suite "Waku v2 REST API CORS Handling":
 
     let restPort = Port(58001)
     let restAddress = parseIpAddress("0.0.0.0")
-    let restServer = WakuRestServerRef.init(restAddress,
-                      restPort,
-                      allowedOrigin=some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*")
-                      ).tryGet()
+    let restServer = WakuRestServerRef
+      .init(
+        restAddress,
+        restPort,
+        allowedOrigin =
+          some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
+      )
+      .tryGet()
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()

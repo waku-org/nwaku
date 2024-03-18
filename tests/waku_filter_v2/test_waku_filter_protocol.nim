@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options,sequtils,sets,strutils,tables],
+  std/[options, sequtils, sets, strutils, tables],
   testutils/unittests,
   chronos,
   chronicles,
@@ -28,17 +28,23 @@ proc generateRequestId(rng: ref HmacDrbgContext): string =
   hmacDrbgGenerate(rng[], bytes)
   return toHex(bytes)
 
-proc createRequest(filterSubscribeType: FilterSubscribeType, pubsubTopic = none(PubsubTopic), contentTopics = newSeq[ContentTopic]()): FilterSubscribeRequest =
+proc createRequest(
+    filterSubscribeType: FilterSubscribeType,
+    pubsubTopic = none(PubsubTopic),
+    contentTopics = newSeq[ContentTopic](),
+): FilterSubscribeRequest =
   let requestId = generateRequestId(rng)
 
   return FilterSubscribeRequest(
     requestId: requestId,
     filterSubscribeType: filterSubscribeType,
     pubsubTopic: pubsubTopic,
-    contentTopics: contentTopics
+    contentTopics: contentTopics,
   )
 
-proc getSubscribedContentTopics(wakuFilter: WakuFilter, peerId: PeerId): seq[ContentTopic] =
+proc getSubscribedContentTopics(
+    wakuFilter: WakuFilter, peerId: PeerId
+): seq[ContentTopic] =
   var contentTopics: seq[ContentTopic] = @[]
   let peersCreitera = wakuFilter.subscriptions.getPeerSubscriptions(peerId)
 
@@ -48,7 +54,6 @@ proc getSubscribedContentTopics(wakuFilter: WakuFilter, peerId: PeerId): seq[Con
   return contentTopics
 
 suite "Waku Filter - handling subscribe requests":
-
   asyncTest "simple subscribe and unsubscribe request":
     # Given
     let
@@ -58,12 +63,12 @@ suite "Waku Filter - handling subscribe requests":
       filterSubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       filterUnsubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = filterSubscribeRequest.pubsubTopic,
-        contentTopics = filterSubscribeRequest.contentTopics
+        contentTopics = filterSubscribeRequest.contentTopics,
       )
 
     # When
@@ -82,7 +87,8 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0
+        # peerId is removed from subscriptions
       response2.requestId == filterUnsubscribeRequest.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -97,11 +103,10 @@ suite "Waku Filter - handling subscribe requests":
       filterSubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic, nonDefaultContentTopic]
+        contentTopics = @[DefaultContentTopic, nonDefaultContentTopic],
       )
-      filterUnsubscribeAllRequest = createRequest(
-        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE_ALL
-      )
+      filterUnsubscribeAllRequest =
+        createRequest(filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE_ALL)
 
     # When
     let response = wakuFilter.handleSubscribeRequest(peerId, filterSubscribeRequest)
@@ -110,17 +115,22 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
-      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest.contentTopics)
+      unorderedCompare(
+        wakuFilter.getSubscribedContentTopics(peerId),
+        filterSubscribeRequest.contentTopics,
+      )
       response.requestId == filterSubscribeRequest.requestId
       response.statusCode == 200
       response.statusDesc.get() == "OK"
 
     # When
-    let response2 = wakuFilter.handleSubscribeRequest(peerId, filterUnsubscribeAllRequest)
+    let response2 =
+      wakuFilter.handleSubscribeRequest(peerId, filterUnsubscribeAllRequest)
 
     # Then
     check:
-      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0
+        # peerId is removed from subscriptions
       response2.requestId == filterUnsubscribeAllRequest.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -135,22 +145,22 @@ suite "Waku Filter - handling subscribe requests":
       filterSubscribeRequest1 = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       filterSubscribeRequest2 = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = filterSubscribeRequest1.pubsubTopic,
-        contentTopics = @[nonDefaultContentTopic]
+        contentTopics = @[nonDefaultContentTopic],
       )
       filterUnsubscribeRequest1 = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = filterSubscribeRequest1.pubsubTopic,
-        contentTopics = filterSubscribeRequest1.contentTopics
+        contentTopics = filterSubscribeRequest1.contentTopics,
       )
       filterUnsubscribeRequest2 = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = filterSubscribeRequest2.pubsubTopic,
-        contentTopics = filterSubscribeRequest2.contentTopics
+        contentTopics = filterSubscribeRequest2.contentTopics,
       )
 
     # When
@@ -160,7 +170,10 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
-      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest1.contentTopics)
+      unorderedCompare(
+        wakuFilter.getSubscribedContentTopics(peerId),
+        filterSubscribeRequest1.contentTopics,
+      )
       response1.requestId == filterSubscribeRequest1.requestId
       response1.statusCode == 200
       response1.statusDesc.get() == "OK"
@@ -172,9 +185,10 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 2
-      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId),
-                    filterSubscribeRequest1.contentTopics &
-                      filterSubscribeRequest2.contentTopics)
+      unorderedCompare(
+        wakuFilter.getSubscribedContentTopics(peerId),
+        filterSubscribeRequest1.contentTopics & filterSubscribeRequest2.contentTopics,
+      )
       response2.requestId == filterSubscribeRequest2.requestId
       response2.statusCode == 200
       response2.statusDesc.get() == "OK"
@@ -186,7 +200,10 @@ suite "Waku Filter - handling subscribe requests":
     check:
       wakuFilter.subscriptions.subscribedPeerCount() == 1
       wakuFilter.subscriptions.peersSubscribed[peerId].criteriaCount == 1
-      unorderedCompare(wakuFilter.getSubscribedContentTopics(peerId), filterSubscribeRequest2.contentTopics)
+      unorderedCompare(
+        wakuFilter.getSubscribedContentTopics(peerId),
+        filterSubscribeRequest2.contentTopics,
+      )
       response3.requestId == filterUnsubscribeRequest1.requestId
       response3.statusCode == 200
       response3.statusDesc.get() == "OK"
@@ -196,7 +213,8 @@ suite "Waku Filter - handling subscribe requests":
 
     # Then
     check:
-      wakuFilter.subscriptions.subscribedPeerCount() == 0 # peerId is removed from subscriptions
+      wakuFilter.subscriptions.subscribedPeerCount() == 0
+        # peerId is removed from subscriptions
       response4.requestId == filterUnsubscribeRequest2.requestId
       response4.statusCode == 200
       response4.statusDesc.get() == "OK"
@@ -217,12 +235,12 @@ suite "Waku Filter - handling subscribe requests":
       reqNoPubsubTopic = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = none(PubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       reqNoContentTopics = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[]
+        contentTopics = @[],
       )
       response1 = wakuFilter.handleSubscribeRequest(peerId, reqNoPubsubTopic)
       response2 = wakuFilter.handleSubscribeRequest(peerId, reqNoContentTopics)
@@ -233,18 +251,24 @@ suite "Waku Filter - handling subscribe requests":
       response2.requestId == reqNoContentTopics.requestId
       response1.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
       response2.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
-      response1.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
-      response2.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+      response1.statusDesc.get().contains(
+        "pubsubTopic and contentTopics must be specified"
+      )
+      response2.statusDesc.get().contains(
+        "pubsubTopic and contentTopics must be specified"
+      )
 
     ## Max content topics per request exceeded
 
     # When
     let
-      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(ContentTopic("/waku/2/content-$#/proto" % [$it]))
+      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(
+          ContentTopic("/waku/2/content-$#/proto" % [$it])
+        )
       reqTooManyContentTopics = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = contentTopics
+        contentTopics = contentTopics,
       )
       response3 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyContentTopics)
 
@@ -257,8 +281,9 @@ suite "Waku Filter - handling subscribe requests":
     ## Max filter criteria exceeded
 
     # When
-    let
-      filterCriteria = toSeq(1 .. MaxFilterCriteriaPerPeer).mapIt((DefaultPubsubTopic, ContentTopic("/waku/2/content-$#/proto" % [$it])))
+    let filterCriteria = toSeq(1 .. MaxFilterCriteriaPerPeer).mapIt(
+        (DefaultPubsubTopic, ContentTopic("/waku/2/content-$#/proto" % [$it]))
+      )
 
     discard wakuFilter.subscriptions.addSubscription(peerId, filterCriteria.toHashSet())
 
@@ -266,7 +291,7 @@ suite "Waku Filter - handling subscribe requests":
       reqTooManyFilterCriteria = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       response4 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyFilterCriteria)
 
@@ -274,7 +299,9 @@ suite "Waku Filter - handling subscribe requests":
     check:
       response4.requestId == reqTooManyFilterCriteria.requestId
       response4.statusCode == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE.uint32
-      response4.statusDesc.get().contains("peer has reached maximum number of filter criteria")
+      response4.statusDesc.get().contains(
+        "peer has reached maximum number of filter criteria"
+      )
 
     ## Max subscriptions exceeded
 
@@ -283,13 +310,15 @@ suite "Waku Filter - handling subscribe requests":
     wakuFilter.subscriptions.cleanUp()
 
     for _ in 1 .. MaxFilterPeers:
-      discard wakuFilter.subscriptions.addSubscription(PeerId.random().get(), @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet())
+      discard wakuFilter.subscriptions.addSubscription(
+        PeerId.random().get(), @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet()
+      )
 
     let
       reqTooManySubscriptions = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       response5 = wakuFilter.handleSubscribeRequest(peerId, reqTooManySubscriptions)
 
@@ -297,7 +326,9 @@ suite "Waku Filter - handling subscribe requests":
     check:
       response5.requestId == reqTooManySubscriptions.requestId
       response5.statusCode == FilterSubscribeErrorKind.SERVICE_UNAVAILABLE.uint32
-      response5.statusDesc.get().contains("node has reached maximum number of subscriptions")
+      response5.statusDesc.get().contains(
+        "node has reached maximum number of subscriptions"
+      )
 
   asyncTest "unsubscribe errors":
     ## Tests most common error paths while unsubscribing
@@ -315,12 +346,12 @@ suite "Waku Filter - handling subscribe requests":
       reqNoPubsubTopic = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = none(PubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       reqNoContentTopics = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[]
+        contentTopics = @[],
       )
       response1 = wakuFilter.handleSubscribeRequest(peerId, reqNoPubsubTopic)
       response2 = wakuFilter.handleSubscribeRequest(peerId, reqNoContentTopics)
@@ -331,18 +362,24 @@ suite "Waku Filter - handling subscribe requests":
       response2.requestId == reqNoContentTopics.requestId
       response1.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
       response2.statusCode == FilterSubscribeErrorKind.BAD_REQUEST.uint32
-      response1.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
-      response2.statusDesc.get().contains("pubsubTopic and contentTopics must be specified")
+      response1.statusDesc.get().contains(
+        "pubsubTopic and contentTopics must be specified"
+      )
+      response2.statusDesc.get().contains(
+        "pubsubTopic and contentTopics must be specified"
+      )
 
     ## Max content topics per request exceeded
 
     # When
     let
-      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(ContentTopic("/waku/2/content-$#/proto" % [$it]))
+      contentTopics = toSeq(1 .. MaxContentTopicsPerRequest + 1).mapIt(
+          ContentTopic("/waku/2/content-$#/proto" % [$it])
+        )
       reqTooManyContentTopics = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = contentTopics
+        contentTopics = contentTopics,
       )
       response3 = wakuFilter.handleSubscribeRequest(peerId, reqTooManyContentTopics)
 
@@ -359,7 +396,7 @@ suite "Waku Filter - handling subscribe requests":
       reqSubscriptionNotFound = createRequest(
         filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
       response4 = wakuFilter.handleSubscribeRequest(peerId, reqSubscriptionNotFound)
 
@@ -373,9 +410,8 @@ suite "Waku Filter - handling subscribe requests":
 
     # When
     let
-      reqUnsubscribeAll = createRequest(
-        filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE_ALL
-      )
+      reqUnsubscribeAll =
+        createRequest(filterSubscribeType = FilterSubscribeType.UNSUBSCRIBE_ALL)
       response5 = wakuFilter.handleSubscribeRequest(peerId, reqUnsubscribeAll)
 
     # Then
@@ -390,13 +426,12 @@ suite "Waku Filter - handling subscribe requests":
       switch = newStandardSwitch()
       wakuFilter = newTestWakuFilter(switch)
       peerId = PeerId.random().get()
-      pingRequest = createRequest(
-        filterSubscribeType = FilterSubscribeType.SUBSCRIBER_PING
-      )
+      pingRequest =
+        createRequest(filterSubscribeType = FilterSubscribeType.SUBSCRIBER_PING)
       filterSubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
 
     # When
@@ -423,7 +458,6 @@ suite "Waku Filter - handling subscribe requests":
       response3.statusDesc.get() == "OK"
 
 suite "Waku Filter - subscription maintenance":
-
   asyncTest "simple maintenance":
     # Given
     let
@@ -435,16 +469,19 @@ suite "Waku Filter - subscription maintenance":
       filterSubscribeRequest = createRequest(
         filterSubscribeType = FilterSubscribeType.SUBSCRIBE,
         pubsubTopic = some(DefaultPubsubTopic),
-        contentTopics = @[DefaultContentTopic]
+        contentTopics = @[DefaultContentTopic],
       )
 
     # When
     switch.peerStore[ProtoBook][peerId1] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId2] = @[WakuFilterPushCodec]
     switch.peerStore[ProtoBook][peerId3] = @[WakuFilterPushCodec]
-    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).statusCode == 200
-    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).statusCode == 200
-    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).statusCode == 200
+    require wakuFilter.handleSubscribeRequest(peerId1, filterSubscribeRequest).statusCode ==
+      200
+    require wakuFilter.handleSubscribeRequest(peerId2, filterSubscribeRequest).statusCode ==
+      200
+    require wakuFilter.handleSubscribeRequest(peerId3, filterSubscribeRequest).statusCode ==
+      200
 
     # Then
     check:

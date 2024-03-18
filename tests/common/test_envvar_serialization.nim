@@ -1,17 +1,14 @@
 {.used.}
 
-import
-  testutils/unittests
-import
-  ../../waku/common/envvar_serialization/utils
-
+import testutils/unittests
+import ../../waku/common/envvar_serialization/utils
 
 suite "nim-envvar-serialization - utils":
   test "construct env var key":
     ## Given
     let prefix = "some-prefix"
     let name = @["db-url"]
-    
+
     ## When
     let key = constructKey(prefix, name)
 

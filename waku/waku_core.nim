@@ -6,10 +6,4 @@ import
   ./waku_core/subscription,
   ./waku_core/multiaddrstr
 
-export
-  topics,
-  time,
-  message,
-  peers,
-  subscription,
-  multiaddrstr
+export topics, time, message, peers, subscription, multiaddrstr

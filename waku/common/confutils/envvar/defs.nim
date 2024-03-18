@@ -3,15 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+import confutils/defs as confutilsDefs
+import ../../envvar_serialization
 
-import
-  confutils/defs as confutilsDefs
-import
-  ../../envvar_serialization
-
-export
-  envvar_serialization, confutilsDefs
-
+export envvar_serialization, confutilsDefs
 
 template readConfutilsType(T: type) =
   template readValue*(r: var EnvvarReader, value: var T) =

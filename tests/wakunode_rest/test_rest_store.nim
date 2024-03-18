@@ -6,7 +6,8 @@ import
   chronicles,
   testutils/unittests,
   eth/keys,
-  presto, presto/client as presto_client,
+  presto,
+  presto/client as presto_client,
   libp2p/crypto/crypto
 import
   ../../../waku/waku_core/message,
@@ -32,12 +33,17 @@ import
 logScope:
   topics = "waku node rest store_api test"
 
-proc put(store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage): Future[Result[void, string]] =
+proc put(
+    store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage
+): Future[Result[void, string]] =
   let
     digest = waku_archive.computeDigest(message)
     msgHash = computeMessageHash(pubsubTopic, message)
-    receivedTime = if message.timestamp > 0: message.timestamp
-                  else: getNanosecondTime(getTime().toUnixFloat())
+    receivedTime =
+      if message.timestamp > 0:
+        message.timestamp
+      else:
+        getNanosecondTime(getTime().toUnixFloat())
 
   store.put(pubsubTopic, message, digest, msgHash, receivedTime)
 
@@ -55,12 +61,10 @@ proc testWakuNode(): WakuNode =
 # Beginning of the tests
 ################################################################################
 procSuite "Waku v2 Rest API - Store":
-
   asyncTest "MessageDigest <-> string conversions":
     # Validate MessageDigest conversion from a WakuMessage obj
     let wakuMsg = WakuMessage(
-      contentTopic: "Test content topic",
-      payload: @[byte('H'), byte('i'), byte('!')]
+      contentTopic: "Test content topic", payload: @[byte('H'), byte('i'), byte('!')]
     )
 
     let messageDigest = waku_store.computeDigest(wakuMsg)
@@ -103,39 +107,38 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 1, byte 2], ts=2),
-      fakeWakuMessage(@[byte 1], ts=3),
-      fakeWakuMessage(@[byte 1], ts=4),
-      fakeWakuMessage(@[byte 1], ts=5),
-      fakeWakuMessage(@[byte 1], ts=6),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("c2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("ct1"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 1, byte 2], ts = 2),
+        fakeWakuMessage(@[byte 1], ts = 3),
+        fakeWakuMessage(@[byte 1], ts = 4),
+        fakeWakuMessage(@[byte 1], ts = 5),
+        fakeWakuMessage(@[byte 1], ts = 6),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("c2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     # Apply filter by start and end timestamps
-    var response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(fullAddr),
-                        encodeUrl(DefaultPubsubTopic),
-                        "", # empty content topics. Don't filter by this field
-                        "3", # start time
-                        "6", # end time
-                        "", # sender time
-                        "", # store time
-                        "", # base64-encoded digest
-                        "", # empty implies default page size
-                        "true" # ascending
-          )
+    var response = await client.getStoreMessagesV1(
+      encodeUrl(fullAddr),
+      encodeUrl(DefaultPubsubTopic),
+      "", # empty content topics. Don't filter by this field
+      "3", # start time
+      "6", # end time
+      "", # sender time
+      "", # store time
+      "", # base64-encoded digest
+      "", # empty implies default page size
+      "true", # ascending
+    )
 
     check:
       response.status == 200
@@ -174,26 +177,26 @@ procSuite "Waku v2 Rest API - Store":
 
     # Now prime it with some history before tests
     let timeOrigin = wakucore.now()
-    let msgList = @[
-      fakeWakuMessage(@[byte 00], ts=ts(00, timeOrigin)),
-      fakeWakuMessage(@[byte 01], ts=ts(10, timeOrigin)),
-      fakeWakuMessage(@[byte 02], ts=ts(20, timeOrigin)),
-      fakeWakuMessage(@[byte 03], ts=ts(30, timeOrigin)),
-      fakeWakuMessage(@[byte 04], ts=ts(40, timeOrigin)),
-      fakeWakuMessage(@[byte 05], ts=ts(50, timeOrigin)),
-      fakeWakuMessage(@[byte 06], ts=ts(60, timeOrigin)),
-      fakeWakuMessage(@[byte 07], ts=ts(70, timeOrigin)),
-      fakeWakuMessage(@[byte 08], ts=ts(80, timeOrigin)),
-      fakeWakuMessage(@[byte 09], ts=ts(90, timeOrigin))
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 00], ts = ts(00, timeOrigin)),
+        fakeWakuMessage(@[byte 01], ts = ts(10, timeOrigin)),
+        fakeWakuMessage(@[byte 02], ts = ts(20, timeOrigin)),
+        fakeWakuMessage(@[byte 03], ts = ts(30, timeOrigin)),
+        fakeWakuMessage(@[byte 04], ts = ts(40, timeOrigin)),
+        fakeWakuMessage(@[byte 05], ts = ts(50, timeOrigin)),
+        fakeWakuMessage(@[byte 06], ts = ts(60, timeOrigin)),
+        fakeWakuMessage(@[byte 07], ts = ts(70, timeOrigin)),
+        fakeWakuMessage(@[byte 08], ts = ts(80, timeOrigin)),
+        fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     var pages = newSeq[seq[WakuMessage]](2)
 
@@ -203,23 +206,23 @@ procSuite "Waku v2 Rest API - Store":
     var reqStoreTime = Timestamp(0)
     var reqDigest = waku_store.MessageDigest()
 
-    for i in 0..<2:
-      let response =
-            await client.getStoreMessagesV1(
-                          encodeUrl(fullAddr),
-                          encodeUrl(reqPubsubTopic),
-                          "", # content topics. Empty ignores the field.
-                          "", # start time. Empty ignores the field.
-                          "", # end time. Empty ignores the field.
-                          encodeUrl($reqSenderTime), # sender time
-                          encodeUrl($reqStoreTime), # store time
-                          reqDigest.toRestStringMessageDigest(), # base64-encoded digest. Empty ignores the field.
-                          "7", # page size. Empty implies default page size.
-                          "true" # ascending
-            )
+    for i in 0 ..< 2:
+      let response = await client.getStoreMessagesV1(
+        encodeUrl(fullAddr),
+        encodeUrl(reqPubsubTopic),
+        "", # content topics. Empty ignores the field.
+        "", # start time. Empty ignores the field.
+        "", # end time. Empty ignores the field.
+        encodeUrl($reqSenderTime), # sender time
+        encodeUrl($reqStoreTime), # store time
+        reqDigest.toRestStringMessageDigest(),
+          # base64-encoded digest. Empty ignores the field.
+        "7", # page size. Empty implies default page size.
+        "true", # ascending
+      )
 
       var wakuMessages = newSeq[WakuMessage](0)
-      for j in 0..<response.data.messages.len:
+      for j in 0 ..< response.data.messages.len:
         wakuMessages.add(response.data.messages[j].toWakuMessage())
 
       pages[i] = wakuMessages
@@ -236,8 +239,8 @@ procSuite "Waku v2 Rest API - Store":
         $response.contentType == $MIMETYPE_JSON
 
     check:
-      pages[0] == msgList[0..6]
-      pages[1] == msgList[7..9]
+      pages[0] == msgList[0 .. 6]
+      pages[1] == msgList[7 .. 9]
 
     await restServer.stop()
     await restServer.closeWait()
@@ -271,25 +274,24 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("2"), ts=0),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("2"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     # Filtering by a known pubsub topic
-    var response =
-          await client.getStoreMessagesV1(
-                        encodeUrl($fullAddr),
-                        encodeUrl(DefaultPubsubTopic))
+    var response = await client.getStoreMessagesV1(
+      encodeUrl($fullAddr), encodeUrl(DefaultPubsubTopic)
+    )
 
     check:
       response.status == 200
@@ -304,10 +306,9 @@ procSuite "Waku v2 Rest API - Store":
       response.data.messages.len == 3
 
     # Receiving no messages by filtering with a random pubsub topic
-    response =
-          await client.getStoreMessagesV1(
-                        encodeUrl($fullAddr),
-                        encodeUrl("random pubsub topic"))
+    response = await client.getStoreMessagesV1(
+      encodeUrl($fullAddr), encodeUrl("random pubsub topic")
+    )
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -345,26 +346,25 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("ct1"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     # Filtering by a known pubsub topic.
     # We also pass the store-node address in the request.
-    var response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(fullAddr),
-                        encodeUrl(DefaultPubsubTopic))
+    var response = await client.getStoreMessagesV1(
+      encodeUrl(fullAddr), encodeUrl(DefaultPubsubTopic)
+    )
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -372,10 +372,7 @@ procSuite "Waku v2 Rest API - Store":
 
     # Get all the messages by specifying an empty pubsub topic
     # We also pass the store-node address in the request.
-    response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(fullAddr),
-                        encodeUrl(""))
+    response = await client.getStoreMessagesV1(encodeUrl(fullAddr), encodeUrl(""))
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -383,20 +380,18 @@ procSuite "Waku v2 Rest API - Store":
 
     # Receiving no messages by filtering with a random pubsub topic
     # We also pass the store-node address in the request.
-    response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(fullAddr),
-                        encodeUrl("random pubsub topic"))
+    response = await client.getStoreMessagesV1(
+      encodeUrl(fullAddr), encodeUrl("random pubsub topic")
+    )
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.messages.len == 0
 
     # Receiving 400 response if setting wrong store-node address
-    response =
-          await client.getStoreMessagesV1(
-                        encodeUrl("incorrect multi address format"),
-                        encodeUrl("random pubsub topic"))
+    response = await client.getStoreMessagesV1(
+      encodeUrl("incorrect multi address format"), encodeUrl("random pubsub topic")
+    )
     check:
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
@@ -436,26 +431,24 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("ct1"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     # Filtering by content topic
-    let response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(fullAddr),
-                        encodeUrl(DefaultPubsubTopic),
-                        encodeUrl("ct1,ct2"))
+    let response = await client.getStoreMessagesV1(
+      encodeUrl(fullAddr), encodeUrl(DefaultPubsubTopic), encodeUrl("ct1,ct2")
+    )
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -493,25 +486,23 @@ procSuite "Waku v2 Rest API - Store":
     peerSwitch.mount(node.wakuStore)
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("ct1"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
-    let fullAddr = $remotePeerInfo.addrs[0] &
-                  "/p2p/" & $remotePeerInfo.peerId
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
 
     # Sending no peer-store node address
     var response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(""),
-                        encodeUrl(DefaultPubsubTopic))
+      await client.getStoreMessagesV1(encodeUrl(""), encodeUrl(DefaultPubsubTopic))
     check:
       response.status == 412
       $response.contentType == $MIMETYPE_TEXT
@@ -519,14 +510,11 @@ procSuite "Waku v2 Rest API - Store":
       response.data.error_message.get == NoPeerNoDiscError.errobj.message
 
     # Now add the storenode from "config"
-    node.peerManager.addServicePeer(remotePeerInfo,
-                                    WakuStoreCodec)
+    node.peerManager.addServicePeer(remotePeerInfo, WakuStoreCodec)
 
     # Sending no peer-store node address
     response =
-          await client.getStoreMessagesV1(
-                        encodeUrl(""),
-                        encodeUrl(DefaultPubsubTopic))
+      await client.getStoreMessagesV1(encodeUrl(""), encodeUrl(DefaultPubsubTopic))
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -535,7 +523,6 @@ procSuite "Waku v2 Rest API - Store":
     await restServer.stop()
     await restServer.closeWait()
     await node.stop()
-
 
   asyncTest "retrieve historical messages from a self-store-node":
     ## This test aims to validate the correct message retrieval for a store-node which exposes
@@ -560,11 +547,14 @@ procSuite "Waku v2 Rest API - Store":
     await node.mountStore()
 
     # Now prime it with some history before tests
-    let msgList = @[
-      fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0, meta=(@[byte 8])),
-      fakeWakuMessage(@[byte 1], ts=1),
-      fakeWakuMessage(@[byte 9], contentTopic=ContentTopic("ct2"), ts=9)
-    ]
+    let msgList =
+      @[
+        fakeWakuMessage(
+          @[byte 0], contentTopic = ContentTopic("ct1"), ts = 0, meta = (@[byte 8])
+        ),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
+      ]
     for msg in msgList:
       require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
@@ -572,9 +562,7 @@ procSuite "Waku v2 Rest API - Store":
 
     # Filtering by a known pubsub topic.
     var response =
-          await client.getStoreMessagesV1(
-                        none[string](),
-                        encodeUrl(DefaultPubsubTopic))
+      await client.getStoreMessagesV1(none[string](), encodeUrl(DefaultPubsubTopic))
 
     check:
       response.status == 200
@@ -582,10 +570,7 @@ procSuite "Waku v2 Rest API - Store":
       response.data.messages.len == 3
 
     # Get all the messages by specifying an empty pubsub topic
-    response =
-          await client.getStoreMessagesV1(
-                        none[string](),
-                        encodeUrl(""))
+    response = await client.getStoreMessagesV1(none[string](), encodeUrl(""))
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
@@ -593,16 +578,13 @@ procSuite "Waku v2 Rest API - Store":
 
     # Receiving no messages by filtering with a random pubsub topic
     response =
-          await client.getStoreMessagesV1(
-                        none[string](),
-                        encodeUrl("random pubsub topic"))
+      await client.getStoreMessagesV1(none[string](), encodeUrl("random pubsub topic"))
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
       response.data.messages.len == 0
 
   asyncTest "correct message fields are returned":
-
     # Given
     let node = testWakuNode()
     await node.start()
@@ -624,16 +606,16 @@ procSuite "Waku v2 Rest API - Store":
     await node.mountStore()
 
     # Now prime it with some history before tests
-    let msg = fakeWakuMessage(@[byte 0], contentTopic=ContentTopic("ct1"), ts=0, meta=(@[byte 8]))
+    let msg = fakeWakuMessage(
+      @[byte 0], contentTopic = ContentTopic("ct1"), ts = 0, meta = (@[byte 8])
+    )
     require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     # Filtering by a known pubsub topic.
     var response =
-          await client.getStoreMessagesV1(
-                        none[string](),
-                        encodeUrl(DefaultPubsubTopic))
+      await client.getStoreMessagesV1(none[string](), encodeUrl(DefaultPubsubTopic))
 
     check:
       response.status == 200

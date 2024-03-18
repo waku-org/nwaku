@@ -32,12 +32,10 @@ proc logConfig(conf: WakuNodeConf) =
     lightpush = conf.lightpush,
     peerExchange = conf.peerExchange
 
-  info "Configuration. Network",
-    cluster = conf.clusterId,
-    maxPeers = conf.maxRelayPeers
+  info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
 
   for shard in conf.pubsubTopics:
-    info "Configuration. Shards", shard=shard
+    info "Configuration. Shards", shard = shard
 
   for i in conf.discv5BootstrapNodes:
     info "Configuration. Bootstrap nodes", node = i
@@ -123,7 +121,7 @@ when isMainModule:
 
     wakunode2.setupMonitoringAndExternalInterfaces().isOkOr:
       error "Starting monitoring and external interfaces failed", error = error
-      quit(QuitFailure) 
+      quit(QuitFailure)
 
     debug "Setting up shutdown hooks"
     ## Setup shutdown hooks for this process.

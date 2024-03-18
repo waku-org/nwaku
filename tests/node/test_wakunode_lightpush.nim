@@ -21,7 +21,7 @@ import
     waku_lightpush/common,
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
-    waku_lightpush/rpc
+    waku_lightpush/rpc,
   ],
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
 
@@ -40,12 +40,11 @@ suite "Waku Lightpush - End To End":
 
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
-    handler =
-      proc(
+    handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-      ): Future[WakuLightPushResult[void]] {.async.} =
-          handlerFuture.complete((pubsubTopic, message))
-          return ok()
+    ): Future[WakuLightPushResult[void]] {.async.} =
+      handlerFuture.complete((pubsubTopic, message))
+      return ok()
 
     let
       serverKey = generateSecp256k1Key()
@@ -72,19 +71,14 @@ suite "Waku Lightpush - End To End":
   suite "Assessment of Message Relaying Mechanisms":
     asyncTest "Via 11/WAKU2-RELAY from Relay/Full Node":
       # Given a light lightpush client
-      let
-        lightpushClient =
-          newTestWakuNode(
-            generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0)
-          )
+      let lightpushClient =
+        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
       lightpushClient.mountLightpushClient()
 
       # When the client publishes a message
-      let
-        publishResponse =
-          await lightpushClient.lightpushPublish(
-            some(pubsubTopic), message, serverRemotePeerInfo
-          )
+      let publishResponse = await lightpushClient.lightpushPublish(
+        some(pubsubTopic), message, serverRemotePeerInfo
+      )
 
       if not publishResponse.isOk():
         echo "Publish failed: ", publishResponse.error()

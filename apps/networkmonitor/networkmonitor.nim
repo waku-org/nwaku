@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables,strutils,times,sequtils],
+  std/[tables, strutils, times, sequtils],
   stew/results,
   stew/shims/net,
   chronicles,
@@ -44,19 +44,22 @@ const AvgPingWindow = 10.0
 
 const git_version* {.strdefine.} = "n/a"
 
-proc setDiscoveredPeersCapabilities(
-  routingTableNodes: seq[Node]) =
+proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
   for capability in @[Relay, Store, Filter, Lightpush]:
-    let nOfNodesWithCapability = routingTableNodes.countIt(it.record.supportsCapability(capability))
-    info "capabilities as per ENR waku flag", capability=capability, amount=nOfNodesWithCapability
-    networkmonitor_peer_type_as_per_enr.set(int64(nOfNodesWithCapability), labelValues = [$capability])
+    let nOfNodesWithCapability =
+      routingTableNodes.countIt(it.record.supportsCapability(capability))
+    info "capabilities as per ENR waku flag",
+      capability = capability, amount = nOfNodesWithCapability
+    networkmonitor_peer_type_as_per_enr.set(
+      int64(nOfNodesWithCapability), labelValues = [$capability]
+    )
 
 proc analyzePeer(
-      customPeerInfo: CustomPeerInfoRef,
-      peerInfo: RemotePeerInfo,
-      node: WakuNode,
-      timeout: chronos.Duration
-    ): Future[Result[string, string]] {.async.} =
+    customPeerInfo: CustomPeerInfoRef,
+    peerInfo: RemotePeerInfo,
+    node: WakuNode,
+    timeout: chronos.Duration,
+): Future[Result[string, string]] {.async.} =
   var pingDelay: chronos.Duration
 
   proc ping(): Future[Result[void, string]] {.async, gcsafe.} =
@@ -64,12 +67,11 @@ proc analyzePeer(
       let conn = await node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
       pingDelay = await node.libp2pPing.ping(conn)
       return ok()
-
     except CatchableError:
       var msg = getCurrentExceptionMsg()
       if msg == "Future operation cancelled!":
         msg = "timedout"
-      warn "failed to ping the peer", peer=peerInfo, err=msg
+      warn "failed to ping the peer", peer = peerInfo, err = msg
 
       customPeerInfo.connError = msg
       return err("could not ping peer: " & msg)
@@ -81,36 +83,44 @@ proc analyzePeer(
     return err(customPeerInfo.connError)
 
   customPeerInfo.connError = ""
-  info "successfully pinged peer", peer=peerInfo, duration=pingDelay.millis
+  info "successfully pinged peer", peer = peerInfo, duration = pingDelay.millis
   networkmonitor_peer_ping.observe(pingDelay.millis)
 
   if customPeerInfo.avgPingDuration == 0.millis:
     customPeerInfo.avgPingDuration = pingDelay
 
   # TODO: check why the calculation ends up losing precision
-  customPeerInfo.avgPingDuration = int64((float64(customPeerInfo.avgPingDuration.millis) * (AvgPingWindow - 1.0) + float64(pingDelay.millis)) / AvgPingWindow).millis
+  customPeerInfo.avgPingDuration = int64(
+    (
+      float64(customPeerInfo.avgPingDuration.millis) * (AvgPingWindow - 1.0) +
+      float64(pingDelay.millis)
+    ) / AvgPingWindow
+  ).millis
   customPeerInfo.lastPingDuration = pingDelay
 
   return ok(customPeerInfo.peerId)
 
 proc shouldReconnect(customPeerInfo: CustomPeerInfoRef): bool =
-  let reconnetIntervalCheck = getTime().toUnix() >= customPeerInfo.lastTimeConnected + ReconnectTime
+  let reconnetIntervalCheck =
+    getTime().toUnix() >= customPeerInfo.lastTimeConnected + ReconnectTime
   var retriesCheck = customPeerInfo.retries < MaxConnectionRetries
 
-  if not retriesCheck and getTime().toUnix() >= customPeerInfo.lastTimeConnected + ResetRetriesAfter:
+  if not retriesCheck and
+      getTime().toUnix() >= customPeerInfo.lastTimeConnected + ResetRetriesAfter:
     customPeerInfo.retries = 0
     retriesCheck = true
-    info "resetting retries counter", peerId=customPeerInfo.peerId
+    info "resetting retries counter", peerId = customPeerInfo.peerId
 
   return reconnetIntervalCheck and retriesCheck
 
 # TODO: Split in discover, connect
-proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
-                              node: WakuNode,
-                              timeout: chronos.Duration,
-                              restClient: RestClientRef,
-                              allPeers: CustomPeersTableRef) {.async.} =
-
+proc setConnectedPeersMetrics(
+    discoveredNodes: seq[Node],
+    node: WakuNode,
+    timeout: chronos.Duration,
+    restClient: RestClientRef,
+    allPeers: CustomPeersTableRef,
+) {.async.} =
   let currentTime = getTime().toUnix()
 
   var newPeers = 0
@@ -122,18 +132,18 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
   for discNode in discoveredNodes:
     let typedRecord = discNode.record.toTypedRecord()
     if not typedRecord.isOk():
-      warn "could not convert record to typed record", record=discNode.record
+      warn "could not convert record to typed record", record = discNode.record
       continue
 
     let secp256k1 = typedRecord.get().secp256k1
     if not secp256k1.isSome():
-      warn "could not get secp256k1 key", typedRecord=typedRecord.get()
+      warn "could not get secp256k1 key", typedRecord = typedRecord.get()
       continue
 
     let peerRes = toRemotePeerInfo(discNode.record)
 
-    let peerInfo = peerRes.valueOr():
-      warn "error converting record to remote peer info", record=discNode.record
+    let peerInfo = peerRes.valueOr:
+      warn "error converting record to remote peer info", record = discNode.record
       continue
 
     # create new entry if new peerId found
@@ -143,7 +153,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
       allPeers[peerId] = CustomPeerInfoRef(peerId: peerId)
       newPeers += 1
     else:
-      info "already seen", peerId=peerId
+      info "already seen", peerId = peerId
 
     let customPeerInfo = allPeers[peerId]
 
@@ -153,7 +163,7 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     customPeerInfo.discovered += 1
 
     if not typedRecord.get().ip.isSome():
-      warn "ip field is not set", record=typedRecord.get()
+      warn "ip field is not set", record = typedRecord.get()
       continue
 
     let ip = $typedRecord.get().ip.get().join(".")
@@ -162,7 +172,8 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     # try to ping the peer
     if shouldReconnect(customPeerInfo):
       if customPeerInfo.retries > 0:
-        warn "trying to dial failed peer again", peerId=peerId, retry=customPeerInfo.retries
+        warn "trying to dial failed peer again",
+          peerId = peerId, retry = customPeerInfo.retries
       analyzeFuts.add(analyzePeer(customPeerInfo, peerInfo, node, timeout))
 
   # Wait for all connection attempts to finish
@@ -170,16 +181,16 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
 
   for peerIdFut in analyzedPeers:
     let peerIdRes = await peerIdFut
-    let peerIdStr = peerIdRes.valueOr():
+    let peerIdStr = peerIdRes.valueOr:
       continue
 
     successfulConnections += 1
-    let peerId = PeerId.init(peerIdStr).valueOr():
-      warn "failed to parse peerId", peerId=peerIdStr
+    let peerId = PeerId.init(peerIdStr).valueOr:
+      warn "failed to parse peerId", peerId = peerIdStr
       continue
     var customPeerInfo = allPeers[peerIdStr]
 
-    debug "connected to peer", peer=customPeerInfo[]
+    debug "connected to peer", peer = customPeerInfo[]
 
     # after connection, get supported protocols
     let lp2pPeerStore = node.switch.peerStore
@@ -191,9 +202,9 @@ proc setConnectedPeersMetrics(discoveredNodes: seq[Node],
     let nodeUserAgent = lp2pPeerStore[AgentBook][peerId]
     customPeerInfo.userAgent = nodeUserAgent
 
-  info "number of newly discovered peers", amount=newPeers
+  info "number of newly discovered peers", amount = newPeers
   # inform the total connections that we did in this round
-  info "number of successful connections", amount=successfulConnections
+  info "number of successful connections", amount = successfulConnections
 
 proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe.} =
   var allProtocols: Table[string, int]
@@ -207,8 +218,9 @@ proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe.} =
       for protocol in peerInfo.supportedProtocols:
         allProtocols[protocol] = allProtocols.mgetOrPut(protocol, 0) + 1
 
-    # store available user-agents in the network
-      allAgentStrings[peerInfo.userAgent] = allAgentStrings.mgetOrPut(peerInfo.userAgent, 0) + 1
+      # store available user-agents in the network
+      allAgentStrings[peerInfo.userAgent] =
+        allAgentStrings.mgetOrPut(peerInfo.userAgent, 0) + 1
 
       if peerInfo.country != "":
         countries[peerInfo.country] = countries.mgetOrPut(peerInfo.country, 0) + 1
@@ -219,25 +231,32 @@ proc updateMetrics(allPeersRef: CustomPeersTableRef) {.gcsafe.} =
 
   networkmonitor_peer_count.set(int64(connectedPeers), labelValues = ["true"])
   networkmonitor_peer_count.set(int64(failedPeers), labelValues = ["false"])
-   # update count on each protocol
+    # update count on each protocol
   for protocol in allProtocols.keys():
     let countOfProtocols = allProtocols.mgetOrPut(protocol, 0)
-    networkmonitor_peer_type_as_per_protocol.set(int64(countOfProtocols), labelValues = [protocol])
-    info "supported protocols in the network", protocol=protocol, count=countOfProtocols
+    networkmonitor_peer_type_as_per_protocol.set(
+      int64(countOfProtocols), labelValues = [protocol]
+    )
+    info "supported protocols in the network",
+      protocol = protocol, count = countOfProtocols
 
   # update count on each user-agent
   for userAgent in allAgentStrings.keys():
     let countOfUserAgent = allAgentStrings.mgetOrPut(userAgent, 0)
-    networkmonitor_peer_user_agents.set(int64(countOfUserAgent), labelValues = [userAgent])
-    info "user agents participating in the network", userAgent=userAgent, count=countOfUserAgent
+    networkmonitor_peer_user_agents.set(
+      int64(countOfUserAgent), labelValues = [userAgent]
+    )
+    info "user agents participating in the network",
+      userAgent = userAgent, count = countOfUserAgent
 
   for country in countries.keys():
     let peerCount = countries.mgetOrPut(country, 0)
     networkmonitor_peer_country_count.set(int64(peerCount), labelValues = [country])
-    info "number of peers per country", country=country, count=peerCount
+    info "number of peers per country", country = country, count = peerCount
 
-proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
-                        restClient: RestClientRef) {.async.} =
+proc populateInfoFromIp(
+    allPeersRef: CustomPeersTableRef, restClient: RestClientRef
+) {.async.} =
   for peer in allPeersRef.keys():
     if allPeersRef[peer].country != "" and allPeersRef[peer].city != "":
       continue
@@ -252,7 +271,7 @@ proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
       let response = await restClient.ipToLocation(allPeersRef[peer].ip)
       location = response.data
     except CatchableError:
-      warn "could not get location", ip=allPeersRef[peer].ip
+      warn "could not get location", ip = allPeersRef[peer].ip
       continue
     allPeersRef[peer].country = location.country
     allPeersRef[peer].city = location.city
@@ -260,12 +279,13 @@ proc populateInfoFromIp(allPeersRef: CustomPeersTableRef,
 # TODO: Split in discovery, connections, and ip2location
 # crawls the network discovering peers and trying to connect to them
 # metrics are processed and exposed
-proc crawlNetwork(node: WakuNode,
-                  wakuDiscv5: WakuDiscoveryV5,
-                  restClient: RestClientRef,
-                  conf: NetworkMonitorConf,
-                  allPeersRef: CustomPeersTableRef) {.async.} =
-
+proc crawlNetwork(
+    node: WakuNode,
+    wakuDiscv5: WakuDiscoveryV5,
+    restClient: RestClientRef,
+    conf: NetworkMonitorConf,
+    allPeersRef: CustomPeersTableRef,
+) {.async.} =
   let crawlInterval = conf.refreshInterval * 1000
   while true:
     let startTime = Moment.now()
@@ -281,7 +301,9 @@ proc crawlNetwork(node: WakuNode,
     # tries to connect to all newly discovered nodes
     # and populates metrics related to peers we could connect
     # note random discovered nodes can be already known
-    await setConnectedPeersMetrics(discoveredNodes, node, conf.timeout, restClient, allPeersRef)
+    await setConnectedPeersMetrics(
+      discoveredNodes, node, conf.timeout, restClient, allPeersRef
+    )
 
     updateMetrics(allPeersRef)
 
@@ -291,7 +313,7 @@ proc crawlNetwork(node: WakuNode,
     let totalNodes = flatNodes.len
     let seenNodes = flatNodes.countIt(it.seen)
 
-    info "discovered nodes: ", total=totalNodes, seen=seenNodes
+    info "discovered nodes: ", total = totalNodes, seen = seenNodes
 
     # Notes:
     # we dont run ipMajorityLoop
@@ -299,14 +321,16 @@ proc crawlNetwork(node: WakuNode,
     let endTime = Moment.now()
     let elapsed = (endTime - startTime).nanos
 
-    info "crawl duration", time=elapsed.millis
+    info "crawl duration", time = elapsed.millis
 
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
-proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]): Result[seq[RemotePeerInfo], string] =
+proc retrieveDynamicBootstrapNodes(
+    dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
+): Result[seq[RemotePeerInfo], string] =
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url=dnsDiscoveryUrl
+    debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
 
     var nameServers: seq[TransportAddress]
     for ip in dnsDiscoveryNameServers:
@@ -315,24 +339,29 @@ proc retrieveDynamicBootstrapNodes(dnsDiscovery: bool, dnsDiscoveryUrl: string, 
     let dnsResolver = DnsResolver.new(nameServers)
 
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain=domain
+      trace "resolving", domain = domain
       let resolved = await dnsResolver.resolveTxt(domain)
       return resolved[0] # Use only first answer
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
     if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers()
-        .mapErr(proc (e: cstring): string = $e)
+      return wakuDnsDiscovery.get().findPeers().mapErr(
+          proc(e: cstring): string =
+            $e
+        )
     else:
       warn "Failed to init Waku DNS discovery"
 
   debug "No method for retrieving dynamic bootstrap nodes specified."
   ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
 
-proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], string] =
+proc getBootstrapFromDiscDns(
+    conf: NetworkMonitorConf
+): Result[seq[enr.Record], string] =
   try:
     let dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
-    let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
+    let dynamicBootstrapNodesRes =
+      retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
     if not dynamicBootstrapNodesRes.isOk():
       error("failed discovering peers from DNS")
     let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
@@ -345,22 +374,28 @@ proc getBootstrapFromDiscDns(conf: NetworkMonitorConf): Result[seq[enr.Record], 
         let
           enr = n.enr.get()
           tenrRes = enr.toTypedRecord()
-        if tenrRes.isOk() and (tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()):
+        if tenrRes.isOk() and (
+          tenrRes.get().udp.isSome() or tenrRes.get().udp6.isSome()
+        ):
           discv5BootstrapEnrs.add(enr)
     return ok(discv5BootstrapEnrs)
   except CatchableError:
     error("failed discovering peers from DNS")
 
-proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV5), string] =
-  let bindIp = try:
-    parseIpAddress("0.0.0.0")
-  except CatchableError:
-    return err("could not start node: " & getCurrentExceptionMsg())
+proc initAndStartApp(
+    conf: NetworkMonitorConf
+): Result[(WakuNode, WakuDiscoveryV5), string] =
+  let bindIp =
+    try:
+      parseIpAddress("0.0.0.0")
+    except CatchableError:
+      return err("could not start node: " & getCurrentExceptionMsg())
 
-  let extIp = try:
-    parseIpAddress("127.0.0.1")
-  except CatchableError:
-    return err("could not start node: " & getCurrentExceptionMsg())
+  let extIp =
+    try:
+      parseIpAddress("127.0.0.1")
+    except CatchableError:
+      return err("could not start node: " & getCurrentExceptionMsg())
 
   let
     # some hardcoded parameters
@@ -368,34 +403,33 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
     key = crypto.PrivateKey.random(Secp256k1, rng[])[]
     nodeTcpPort = Port(60000)
     nodeUdpPort = Port(9000)
-    flags = CapabilitiesBitfield.init(lightpush = false, filter = false, store = false, relay = true)
+    flags = CapabilitiesBitfield.init(
+      lightpush = false, filter = false, store = false, relay = true
+    )
 
   var builder = EnrBuilder.init(key)
 
   builder.withIpAddressAndPorts(
-      ipAddr = some(extIp),
-      tcpPort = some(nodeTcpPort),
-      udpPort = some(nodeUdpPort),
+    ipAddr = some(extIp), tcpPort = some(nodeTcpPort), udpPort = some(nodeUdpPort)
   )
   builder.withWakuCapabilities(flags)
   let addShardedTopics = builder.withShardedTopics(conf.pubsubTopics)
   if addShardedTopics.isErr():
-    error "failed to add sharded topics to ENR", error=addShardedTopics.error
+    error "failed to add sharded topics to ENR", error = addShardedTopics.error
     return err($addShardedTopics.error)
 
   let recordRes = builder.build()
   let record =
     if recordRes.isErr():
       return err("cannot build record: " & $recordRes.error)
-    else: recordRes.get()
+    else:
+      recordRes.get()
 
   var nodeBuilder = WakuNodeBuilder.init()
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
-  nodeBuilder.withPeerManagerConfig(
-    maxRelayPeers = none(int),
-    shardAware = true)
+  nodeBuilder.withPeerManagerConfig(maxRelayPeers = none(int), shardAware = true)
   let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
   if res.isErr():
     return err("node building error" & $res.error)
@@ -404,7 +438,8 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
   let node =
     if nodeRes.isErr():
       return err("node building error" & $res.error)
-    else: nodeRes.get()
+    else:
+      nodeRes.get()
 
   var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
   if discv5BootstrapEnrsRes.isErr():
@@ -422,7 +457,7 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
     port: nodeUdpPort,
     privateKey: keys.PrivateKey(key.skkey),
     bootstrapRecords: discv5BootstrapEnrs,
-    autoupdateRecord: false
+    autoupdateRecord: false,
   )
 
   let wakuDiscv5 = WakuDiscoveryV5.new(node.rng, discv5Conf, some(record))
@@ -434,15 +469,17 @@ proc initAndStartApp(conf: NetworkMonitorConf): Result[(WakuNode, WakuDiscoveryV
 
   ok((node, wakuDiscv5))
 
-proc startRestApiServer(conf: NetworkMonitorConf,
-                        allPeersInfo: CustomPeersTableRef,
-                        numMessagesPerContentTopic: ContentTopicMessageTableRef
-                        ): Result[void, string] =
+proc startRestApiServer(
+    conf: NetworkMonitorConf,
+    allPeersInfo: CustomPeersTableRef,
+    numMessagesPerContentTopic: ContentTopicMessageTableRef,
+): Result[void, string] =
   try:
-    let serverAddress = initTAddress(conf.metricsRestAddress & ":" & $conf.metricsRestPort)
+    let serverAddress =
+      initTAddress(conf.metricsRestAddress & ":" & $conf.metricsRestPort)
     proc validate(pattern: string, value: string): int =
-      if pattern.startsWith("{") and pattern.endsWith("}"): 0
-      else: 1
+      if pattern.startsWith("{") and pattern.endsWith("}"): 0 else: 1
+
     var router = RestRouter.init(validate)
     router.installHandler(allPeersInfo, numMessagesPerContentTopic)
     var sres = RestServerRef.new(router, serverAddress)
@@ -454,13 +491,16 @@ proc startRestApiServer(conf: NetworkMonitorConf,
 
 # handles rx of messages over a topic (see subscribe)
 # counts the number of messages per content topic
-proc subscribeAndHandleMessages(node: WakuNode,
-                                pubsubTopic: PubsubTopic,
-                                msgPerContentTopic: ContentTopicMessageTableRef) =
-
+proc subscribeAndHandleMessages(
+    node: WakuNode,
+    pubsubTopic: PubsubTopic,
+    msgPerContentTopic: ContentTopicMessageTableRef,
+) =
   # handle function
-  proc handler(pubsubTopic: PubsubTopic, msg: WakuMessage): Future[void] {.async, gcsafe.} =
-    trace "rx message", pubsubTopic=pubsubTopic, contentTopic=msg.contentTopic
+  proc handler(
+      pubsubTopic: PubsubTopic, msg: WakuMessage
+  ): Future[void] {.async, gcsafe.} =
+    trace "rx message", pubsubTopic = pubsubTopic, contentTopic = msg.contentTopic
 
     # If we reach a table limit size, remove c topics with the least messages.
     let tableSize = 100
@@ -482,11 +522,11 @@ when isMainModule:
   {.pop.}
   let confRes = NetworkMonitorConf.loadConfig()
   if confRes.isErr():
-    error "could not load cli variables", err=confRes.error
+    error "could not load cli variables", err = confRes.error
     quit(1)
 
   var conf = confRes.get()
-  info "cli flags", conf=conf
+  info "cli flags", conf = conf
 
   if conf.clusterId == 1:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
@@ -509,22 +549,23 @@ when isMainModule:
 
   # start metrics server
   if conf.metricsServer:
-    let res = startMetricsServer(conf.metricsServerAddress, Port(conf.metricsServerPort))
+    let res =
+      startMetricsServer(conf.metricsServerAddress, Port(conf.metricsServerPort))
     if res.isErr():
-      error "could not start metrics server", err=res.error
+      error "could not start metrics server", err = res.error
       quit(1)
 
   # start rest server for custom metrics
   let res = startRestApiServer(conf, allPeersInfo, msgPerContentTopic)
   if res.isErr():
-    error "could not start rest api server", err=res.error
+    error "could not start rest api server", err = res.error
     quit(1)
 
   # create a rest client
-  let clientRest = RestClientRef.new(url="http://ip-api.com",
-                                     connectTimeout=ctime.seconds(2))
+  let clientRest =
+    RestClientRef.new(url = "http://ip-api.com", connectTimeout = ctime.seconds(2))
   if clientRest.isErr():
-    error "could not start rest api client", err=res.error
+    error "could not start rest api client", err = res.error
     quit(1)
   let restClient = clientRest.get()
 
@@ -540,7 +581,6 @@ when isMainModule:
   waitFor node.mountLibp2pPing()
 
   if conf.rlnRelayEthContractAddress != "":
-
     let rlnConf = WakuRlnConfig(
       rlnRelayDynamic: conf.rlnRelayDynamic,
       rlnRelayCredIndex: some(uint(0)),
@@ -549,17 +589,17 @@ when isMainModule:
       rlnRelayCredPath: "",
       rlnRelayCredPassword: "",
       rlnRelayTreePath: conf.rlnRelayTreePath,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec
+      rlnEpochSizeSec: conf.rlnEpochSizeSec,
     )
 
     try:
       waitFor node.mountRlnRelay(rlnConf)
     except CatchableError:
-      error "failed to setup RLN", err=getCurrentExceptionMsg()
+      error "failed to setup RLN", err = getCurrentExceptionMsg()
       quit 1
 
   node.mountMetadata(conf.clusterId).isOkOr:
-    error "failed to mount waku metadata protocol: ", err=error
+    error "failed to mount waku metadata protocol: ", err = error
     quit 1
 
   for pubsubTopic in conf.pubsubTopics:

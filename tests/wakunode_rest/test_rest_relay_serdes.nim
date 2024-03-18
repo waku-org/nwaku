@@ -1,28 +1,23 @@
 {.used.}
 
-import
-  stew/[results, byteutils],
-  chronicles,
-  unittest2,
-  json_serialization
+import stew/[results, byteutils], chronicles, unittest2, json_serialization
 import
   ../../waku/common/base64,
   ../../waku/waku_api/rest/serdes,
   ../../waku/waku_api/rest/relay/types,
   ../../waku/waku_core
 
-
-
 suite "Waku v2 Rest API - Relay - serialization":
-
   suite "RelayWakuMessage - decode":
     test "optional fields are not provided":
       # Given
       let payload = base64.encode("MESSAGE")
-      let jsonBytes = toBytes("{\"payload\":\"" & $payload & "\",\"contentTopic\":\"some/topic\"}")
+      let jsonBytes =
+        toBytes("{\"payload\":\"" & $payload & "\",\"contentTopic\":\"some/topic\"}")
 
       # When
-      let res = decodeFromJsonBytes(RelayWakuMessage, jsonBytes, requireAllFields = true)
+      let res =
+        decodeFromJsonBytes(RelayWakuMessage, jsonBytes, requireAllFields = true)
 
       # Then
       require(res.isOk())
@@ -43,7 +38,7 @@ suite "Waku v2 Rest API - Relay - serialization":
         contentTopic: none(ContentTopic),
         version: none(Natural),
         timestamp: none(int64),
-        ephemeral: none(bool)
+        ephemeral: none(bool),
       )
 
       # When

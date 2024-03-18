@@ -9,12 +9,9 @@ import
   stew/shims/net,
   eth/keys,
   libp2p/crypto/crypto
-import
-  ../common/enr
+import ../common/enr
 
-const
-  CapabilitiesEnrField* = "waku2"
-
+const CapabilitiesEnrField* = "waku2"
 
 type
   ## 8-bit flag field to indicate Waku node capabilities.
@@ -24,20 +21,23 @@ type
 
   ## See: https://rfc.vac.dev/spec/31/#waku2-enr-key
   ## each enum numbers maps to a bit (where 0 is the LSB)
-  Capabilities*{.pure.} = enum
-    Relay = 0,
-    Store = 1,
-    Filter = 2,
+  Capabilities* {.pure.} = enum
+    Relay = 0
+    Store = 1
+    Filter = 2
     Lightpush = 3
-
 
 func init*(T: type CapabilitiesBitfield, lightpush, filter, store, relay: bool): T =
   ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
   var bitfield: uint8
-  if relay: bitfield.setBit(0)
-  if store: bitfield.setBit(1)
-  if filter: bitfield.setBit(2)
-  if lightpush: bitfield.setBit(3)
+  if relay:
+    bitfield.setBit(0)
+  if store:
+    bitfield.setBit(1)
+  if filter:
+    bitfield.setBit(2)
+  if lightpush:
+    bitfield.setBit(3)
   CapabilitiesBitfield(bitfield)
 
 func init*(T: type CapabilitiesBitfield, caps: varargs[Capabilities]): T =
@@ -54,8 +54,9 @@ proc supportsCapability*(bitfield: CapabilitiesBitfield, cap: Capabilities): boo
   testBit(bitfield.uint8, ord(cap))
 
 func toCapabilities*(bitfield: CapabilitiesBitfield): seq[Capabilities] =
-  toSeq(Capabilities.low..Capabilities.high).filterIt(supportsCapability(bitfield, it))
-
+  toSeq(Capabilities.low .. Capabilities.high).filterIt(
+    supportsCapability(bitfield, it)
+  )
 
 # ENR builder extension
 
@@ -67,7 +68,6 @@ proc withWakuCapabilities*(builder: var EnrBuilder, caps: varargs[Capabilities])
 
 proc withWakuCapabilities*(builder: var EnrBuilder, caps: openArray[Capabilities]) =
   withWakuCapabilities(builder, CapabilitiesBitfield.init(@caps))
-
 
 # ENR record accessors (e.g., Record, TypedRecord, etc.)
 
