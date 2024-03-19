@@ -147,6 +147,12 @@ suite "Waku RlnRelay - End to End":
           "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
 
     # FIXME: fails on macos
+    #[
+      Unhandled defect: 
+      /Users/runner/work/nwaku/nwaku/tests/waku_node/test_wakunode_relay_rln.nim(59, 18) 
+      `appendRlnProofResult.isOk()` could not get new message id to generate an rln proof: NonceLimitReached: Nonce limit reached.
+      Please wait for the next epoch. requested nonce: 0 & nonceLimit: 0 [AssertionDefect]
+    ]#
     asyncTest "Pubsub topics subscribed before mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -186,6 +192,11 @@ suite "Waku RlnRelay - End to End":
         not isCompleted2
 
     # FIXME: fails on macos
+    #[
+      Unhandled defect: /Users/runner/work/nwaku/nwaku/tests/waku_node/test_wakunode_relay_rln.nim(59, 18)
+      `appendRlnProofResult.isOk()` could not get new message id to generate an rln proof: NonceLimitReached: Nonce limit reached. 
+      Please wait for the next epoch. requested nonce: 0 & nonceLimit: 0 [AssertionDefect]
+    ]#
     asyncTest "Pubsub topics subscribed after mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln without subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[])
@@ -223,6 +234,11 @@ suite "Waku RlnRelay - End to End":
 
   suite "Analysis of Bandwith Limitations":
     # FIXME: fails on macos
+    #[
+      Unhandled defect: 
+      /Users/runner/work/nwaku/nwaku/tests/waku_node/test_wakunode_relay_rln.nim(279, 15) 
+      `client.wakuRlnRelay.appendRLNProof(message1b, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 0)).isOk()`  [AssertionDefect]
+    ]#
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])
@@ -310,6 +326,11 @@ suite "Waku RlnRelay - End to End":
       check not await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
 
     # FIXME: fails on macos
+    #[
+      Unhandled defect: 
+      /Users/runner/work/nwaku/nwaku/tests/waku_node/test_wakunode_relay_rln.nim(365, 15) 
+      `client.wakuRlnRelay.appendRLNProof(message151kibPlus, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 3)).isOk()`  [AssertionDefect]
+    ]#
     asyncTest "Invalid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithRln(1.uint, @[pubsubTopic])

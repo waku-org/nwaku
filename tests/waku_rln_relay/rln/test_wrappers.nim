@@ -96,6 +96,11 @@ suite "membershipKeyGen":
 suite "RlnConfig":
   suite "createRLNInstance":
     # FIXME: fails on macos
+    #[
+      Unhandled defect: 
+      /Users/runner/work/nwaku/nwaku/tests/waku_rln_relay/rln/test_wrappers.nim(109, 22) 
+      `rlnRes.isOk()` error in parameters 
+    ]#
     test "ok":
       # When we create the RLN instance
       let rlnRes: RLNResult = createRLNInstance(15, "my.db")
