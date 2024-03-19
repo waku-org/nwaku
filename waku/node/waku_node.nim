@@ -605,6 +605,8 @@ proc filterSubscribe*(
       contentTopics = contentTopics,
       peer = remotePeer.peerId
 
+    when (contentTopics is ContentTopic):
+      let contentTopics = @[contentTopics]
     let subRes = await node.wakuFilterClient.subscribe(
       remotePeer, pubsubTopic.get(), contentTopics
     )

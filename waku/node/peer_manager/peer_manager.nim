@@ -10,7 +10,9 @@ import
   metrics,
   libp2p/multistream,
   libp2p/muxers/muxer,
-  libp2p/nameresolving/nameresolver
+  libp2p/nameresolving/nameresolver,
+  libp2p/peerstore
+
 import
   ../../common/nimchronos,
   ../../common/enr,
@@ -369,7 +371,10 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
         $clusterId
       break guardClauses
 
-    if not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it)):
+    if (
+      pm.peerStore.hasPeer(peerId, WakuRelayCodec) and
+      not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
+    ):
       reason = "no shards in common"
       break guardClauses
 
