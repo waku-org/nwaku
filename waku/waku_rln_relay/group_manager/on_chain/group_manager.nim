@@ -127,6 +127,17 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
+# This template is used for async calls that if failed after 3 retries will
+# affect the state of the system.
+template enhancedRetryWrapper(
+    g: OnchainGroupManager, res: auto, errStr: string, body: untyped
+): auto =
+  retryWrapper(res, 
+               RetryStrategy(shouldRetry: true, retryDelay: 1000.millis, retryCount: 10), 
+               errStr, 
+               g.onFatalErrorAction):
+    body
+
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
@@ -451,7 +462,7 @@ proc getRawEvents(
   let rlnContract = g.rlnContract.get()
 
   var events: JsonNode
-  g.retryWrapper(events, "Failed to get the events"):
+  g.enhancedRetryWrapper(events, "Failed to get the events"):
     await rlnContract.getJsonLogs(
       MemberRegistered,
       fromBlock = some(fromBlock.blockId()),
@@ -560,7 +571,7 @@ proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
 
     while g.blockFetchingActive:
       var retCb: bool
-      g.retryWrapper(retCb, "Failed to run the interval block fetching loop"):
+      g.enhancedRetryWrapper(retCb, "Failed to run the interval block fetching loop"):
         await cb()
       await sleepAsync(interval)
 
@@ -573,7 +584,7 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
   let ethRpc = g.ethRpc.get()
   proc wrappedCb(): Future[bool] {.async, gcsafe.} =
     var latestBlock: BlockNumber
-    g.retryWrapper(latestBlock, "Failed to get the latest block number"):
+    g.enhancedRetryWrapper(latestBlock, "Failed to get the latest block number"):
       cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
 
     if latestBlock <= g.latestProcessedBlock:
@@ -582,7 +593,7 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     # inc by 1 to prevent double processing
     let fromBlock = g.latestProcessedBlock + 1
     var handleBlockRes: bool
-    g.retryWrapper(handleBlockRes, "Failed to handle new block"):
+    g.enhancedRetryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
     return true
 
@@ -621,7 +632,7 @@ proc startOnchainSync(
     # chunk events
     while true:
       var currentLatestBlock: BlockNumber
-      g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
+      g.enhancedRetryWrapper(currentLatestBlock, "Failed to get the latest block number"):
         cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
       if fromBlock >= currentLatestBlock:
         break
@@ -629,7 +640,7 @@ proc startOnchainSync(
       let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
       var handleBlockRes: bool
-      g.retryWrapper(handleBlockRes, "Failed to handle old blocks"):
+      g.enhancedRetryWrapper(handleBlockRes, "Failed to handle old blocks"):
         await g.getAndHandleEvents(fromBlock, toBlock)
       fromBlock = toBlock + 1
   except CatchableError:
