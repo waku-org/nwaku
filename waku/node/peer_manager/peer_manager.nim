@@ -696,7 +696,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     asyncSpawn(pm.switch.disconnect(p))
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
-  let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let maxConnections = pm.switch.connManager.inSema.size
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
   let inPeersTarget = maxConnections - pm.outRelayPeersTarget
@@ -710,10 +710,23 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
   let notConnectedPeers =
     pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
-  let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
-  let numPeersToConnect = min(outsideBackoffPeers.len, MaxParallelDials)
 
-  await pm.connectToNodes(outsideBackoffPeers[0 ..< numPeersToConnect])
+  var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
+
+  shuffle(outsideBackoffPeers)
+
+  var index = 0
+  var numPendingConnReqs = outsideBackoffPeers.len
+    ## number of outstanding connection requests
+
+  while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:
+    let numPeersToConnect = min(numPendingConnReqs, MaxParallelDials)
+    await pm.connectToNodes(outsideBackoffPeers[index ..< (index + numPeersToConnect)])
+
+    (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+
+    index += numPeersToConnect
+    numPendingConnReqs -= numPeersToConnect
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
