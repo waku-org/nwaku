@@ -47,7 +47,7 @@ randomize()
 
 const
   # TODO: Make configurable
-  DefaultDialTimeout = chronos.seconds(10)
+  DefaultDialTimeout* = chronos.seconds(10)
 
   # Max attempts before removing the peer
   MaxFailedAttempts = 5
