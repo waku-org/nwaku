@@ -5,18 +5,14 @@ else:
 
 from os import DirSep
 
-import
-   std/[strutils],
-   chronicles,
-   std/options,
-   stew/[results, byteutils],
-   confutils
-import
-  ../waku_core/message
+import std/[strutils], chronicles, std/options, stew/[results, byteutils], confutils
+import ../waku_core/message
 
-const negentropyPath = currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep & "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
+const negentropyPath =
+  currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep &
+  "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
-{.link: negentropyPath & "libnegentropy.so".} 
+{.link: negentropyPath & "libnegentropy.so".}
 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
@@ -49,7 +45,7 @@ proc toBuffer*(x: openArray[byte]): Buffer =
   let output = Buffer(`ptr`: cast[ptr uint8](baseAddr), len: uint64(temp.len))
   return output
 
-proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[byte] =
+proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)): seq[byte] =
   var bufLen: uint64
   if isNone(len):
     bufLen = buffer.len
@@ -57,80 +53,97 @@ proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)):seq[b
     bufLen = len.get()
   if bufLen == 0:
     return @[]
-  debug "length of buffer is",len=bufLen
+  debug "length of buffer is", len = bufLen
   let bytes = newSeq[byte](bufLen)
   copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
   return bytes
 
 proc toBufferSeq(buffLen: uint, buffPtr: ptr Buffer): seq[Buffer] =
-    var uncheckedArr = cast[ptr UncheckedArray[Buffer]](buffPtr)
-    var mySequence = newSeq[Buffer](buffLen)
-    for i in 0..buffLen-1:
-        mySequence[i] = uncheckedArr[i]
-    return mySequence
+  var uncheckedArr = cast[ptr UncheckedArray[Buffer]](buffPtr)
+  var mySequence = newSeq[Buffer](buffLen)
+  for i in 0 .. buffLen - 1:
+    mySequence[i] = uncheckedArr[i]
+  return mySequence
 
 ### Storage ###
 
-type
-  Storage* = distinct pointer
+type Storage* = distinct pointer
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L27
-proc storage_init(db_path:cstring, name: cstring): Storage{. header: NEGENTROPY_HEADER, importc: "storage_new".}
+proc storage_init(
+  db_path: cstring, name: cstring
+): Storage {.header: NEGENTROPY_HEADER, importc: "storage_new".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L41
-proc raw_insert(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
+proc raw_insert(
+  storage: Storage, timestamp: uint64, id: ptr Buffer
+): bool {.header: NEGENTROPY_HEADER, importc: "storage_insert".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L43
-proc raw_erase(storage: Storage, timestamp: uint64, id: ptr Buffer): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
+proc raw_erase(
+  storage: Storage, timestamp: uint64, id: ptr Buffer
+): bool {.header: NEGENTROPY_HEADER, importc: "storage_erase".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L29
-proc free(storage: Storage){.header: NEGENTROPY_HEADER, importc: "storage_delete".}
+proc free(storage: Storage) {.header: NEGENTROPY_HEADER, importc: "storage_delete".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L31
-proc size*(storage: Storage):cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
+proc size*(
+  storage: Storage
+): cint {.header: NEGENTROPY_HEADER, importc: "storage_size".}
 
 ### Negentropy ###
 
-type
-  Negentropy* = distinct pointer
+type Negentropy* = distinct pointer
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L33
-proc constructNegentropy(storage: Storage, frameSizeLimit: uint64): Negentropy {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
+proc constructNegentropy(
+  storage: Storage, frameSizeLimit: uint64
+): Negentropy {.header: NEGENTROPY_HEADER, importc: "negentropy_new".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L37
-proc raw_initiate(negentropy: Negentropy, r: ptr BindingResult): int  {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
+proc raw_initiate(
+  negentropy: Negentropy, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "negentropy_initiate".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L39
-proc raw_setInitiator(negentropy: Negentropy) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
+proc raw_setInitiator(
+  negentropy: Negentropy
+) {.header: NEGENTROPY_HEADER, importc: "negentropy_setinitiator".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L45
-proc raw_reconcile(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
+proc raw_reconcile(
+  negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L35
-proc free(negentropy: Negentropy){.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
+proc free(
+  negentropy: Negentropy
+) {.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L51
-proc raw_reconcile_with_ids(negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult):int{.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
+proc raw_reconcile_with_ids(
+  negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L53
-proc free_result(r: ptr BindingResult){.header: NEGENTROPY_HEADER, importc: "free_result".}
+proc free_result(
+  r: ptr BindingResult
+) {.header: NEGENTROPY_HEADER, importc: "free_result".}
 
 ### Wrappings ###
 
-type
-  NegentropyPayload* = distinct seq[byte]
+type NegentropyPayload* = distinct seq[byte]
 
-proc `==` *(a : Storage, b : pointer):bool{.borrow.}
-
+proc `==`*(a: Storage, b: pointer): bool {.borrow.}
 
 proc new*(T: type Storage): Result[T, string] =
   #TODO db name and path
   let storage = storage_init("", "")
 
-#[ TODO: Uncomment once we move to lmdb   
+  #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
     return err("storage initialization failed") ]#
-
   return ok(storage)
 
 proc delete*(storage: Storage) =
@@ -138,7 +151,7 @@ proc delete*(storage: Storage) =
 
 proc erase*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, string] =
   let cString = toBuffer(hash)
-  
+
   let res = raw_erase(storage, uint64(id), cString.unsafeAddr)
 
   #TODO error handling once we move to lmdb
@@ -152,7 +165,7 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
   var buffer = toBuffer(hash)
   var bufPtr = addr(buffer)
   let res = raw_insert(storage, uint64(id), bufPtr)
-  
+
   #TODO error handling once we move to lmdb
 
   if res:
@@ -160,9 +173,11 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
   else:
     return err("insert error")
 
-proc `==` *(a : Negentropy, b : pointer):bool{.borrow.}
+proc `==`*(a: Negentropy, b: pointer): bool {.borrow.}
 
-proc new*(T: type Negentropy, storage: Storage, frameSizeLimit: uint64): Result[T, string] =
+proc new*(
+    T: type Negentropy, storage: Storage, frameSizeLimit: uint64
+): Result[T, string] =
   let negentropy = constructNegentropy(storage, frameSizeLimit)
   if negentropy == nil:
     return err("negentropy initialization failed due to lower framesize")
@@ -178,86 +193,86 @@ proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
 
   let ret = raw_initiate(negentropy, myResultPtr)
   if ret < 0 or myResultPtr == nil:
-    error "negentropy initiate failed with code ", code=ret
+    error "negentropy initiate failed with code ", code = ret
     return err("negentropy already initiated!")
   let bytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
   free_result(myResultPtr)
-  debug "received return from initiate", len=myResultPtr.output.len
-  
+  debug "received return from initiate", len = myResultPtr.output.len
+
   return ok(NegentropyPayload(bytes))
 
 proc setInitiator*(negentropy: Negentropy) =
   raw_setInitiator(negentropy)
 
 proc serverReconcile*(
-  negentropy: Negentropy,
-  query: NegentropyPayload,
-  ): Result[NegentropyPayload, string] =
+    negentropy: Negentropy, query: NegentropyPayload
+): Result[NegentropyPayload, string] =
   ## Server response to a negentropy payload.
   ## Always return an answer.
-  
+
   let queryBuf = toBuffer(seq[byte](query))
   var queryBufPtr = queryBuf.unsafeAddr #TODO: Figure out why addr(buffer) throws error
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
   let ret = raw_reconcile(negentropy, queryBufPtr, myResultPtr)
-  if ret < 0 :
-    error "raw_reconcile failed with code ", code=ret
+  if ret < 0:
+    error "raw_reconcile failed with code ", code = ret
     return err($myResultPtr.error)
-  debug "received return from raw_reconcile", len=myResultPtr.output.len
+  debug "received return from raw_reconcile", len = myResultPtr.output.len
 
   let outputBytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
-  debug "outputBytes len", len=outputBytes.len
+  debug "outputBytes len", len = outputBytes.len
   free_result(myResultPtr)
 
   return ok(NegentropyPayload(outputBytes))
 
 proc clientReconcile*(
-  negentropy: Negentropy,
-  query: NegentropyPayload,
-  haveIds: var seq[WakuMessageHash],
-  needIds: var seq[WakuMessageHash],
-  ): Result[Option[NegentropyPayload], string] =
+    negentropy: Negentropy,
+    query: NegentropyPayload,
+    haveIds: var seq[WakuMessageHash],
+    needIds: var seq[WakuMessageHash],
+): Result[Option[NegentropyPayload], string] =
   ## Client response to a negentropy payload.
   ## May return an answer, if not the sync session done.
-  
+
   let cQuery = toBuffer(seq[byte](query))
-  
+
   var myResult {.noinit.}: BindingResult = BindingResult()
   myResult.have_ids_len = 0
   myResult.need_ids_len = 0
   var myResultPtr = addr myResult
 
   let ret = raw_reconcile_with_ids(negentropy, cQuery.unsafeAddr, myResultPtr)
-  if ret < 0 :
-    error "raw_reconcile failed with code ", code=ret
+  if ret < 0:
+    error "raw_reconcile failed with code ", code = ret
     return err($myResultPtr.error)
 
   let output = BufferToBytes(addr myResult.output)
 
-  var 
-    have_hashes: seq[Buffer]  
-    need_hashes: seq[Buffer] 
+  var
+    have_hashes: seq[Buffer]
+    need_hashes: seq[Buffer]
 
   if myResult.have_ids_len > 0:
     have_hashes = toBufferSeq(myResult.have_ids_len, myResult.have_ids)
   if myResult.need_ids_len > 0:
     need_hashes = toBufferSeq(myResult.need_ids_len, myResult.need_ids)
 
-  debug "have and need hashes ",have_count=have_hashes.len, need_count=need_hashes.len
+  debug "have and need hashes ",
+    have_count = have_hashes.len, need_count = need_hashes.len
 
-  for i in 0..have_hashes.len - 1:
+  for i in 0 .. have_hashes.len - 1:
     var hash = toWakuMessageHash(have_hashes[i])
-    debug "have hashes ", index=i, hash=hash.to0xHex()
+    debug "have hashes ", index = i, hash = hash.to0xHex()
     haveIds.add(hash)
 
-  for i in 0..need_hashes.len - 1:
+  for i in 0 .. need_hashes.len - 1:
     var hash = toWakuMessageHash(need_hashes[i])
-    debug "need hashes ", index=i, hash=hash.to0xHex()
+    debug "need hashes ", index = i, hash = hash.to0xHex()
     needIds.add(hash)
 
-  debug "return " , output=output, len = output.len
+  debug "return ", output = output, len = output.len
 
   free_result(myResultPtr)
 
