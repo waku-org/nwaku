@@ -11,7 +11,7 @@ procSuite "Waku Protobufs":
   # TODO: Missing test coverage in many encode/decode protobuf functions
 
   test "WakuMetadataResponse":
-    let res = WakuMetadataResponse(clusterId: some(7), shards: @[10, 23, 33])
+    let res = WakuMetadataResponse(clusterId: some(7.uint32), shards: @[10, 23, 33])
 
     let buffer = res.encode()
 
@@ -22,7 +22,7 @@ procSuite "Waku Protobufs":
       decodedBuff.get().shards == res.shards
 
   test "WakuMetadataRequest":
-    let req = WakuMetadataRequest(clusterId: some(5), shards: @[100, 2, 0])
+    let req = WakuMetadataRequest(clusterId: some(5.uint32), shards: @[100, 2, 0])
 
     let buffer = req.encode()
 
