@@ -147,7 +147,7 @@ suite "Waku Filter - End to End":
       asyncTest "Subscribing to an empty content topic":
         # When subscribing to an empty content topic
         let subscribeResponse = await wakuFilterClient.subscribe(
-          serverRemotePeerInfo, pubsubTopic, @[]
+          serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]()
         )
 
         # Then the subscription is not successful
@@ -1781,7 +1781,7 @@ suite "Waku Filter - End to End":
 
         # When unsubscribing from an empty content topic
         let unsubscribeResponse = await wakuFilterClient.unsubscribe(
-          serverRemotePeerInfo, pubsubTopic, @[]
+          serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]()
         )
 
         # Then the unsubscription is not successful
