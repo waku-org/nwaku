@@ -20,7 +20,7 @@ jobs:
   build-docker-image:
     strategy:
       matrix:
-        rln_v2: [true, false]
+        rln_v2: [false, false]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
