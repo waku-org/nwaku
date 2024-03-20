@@ -4,24 +4,14 @@ import
 import
   ../waku_core
 
+# Exactly following the RFC:
+# https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/73
+
 type
-  EligibilityProofType* {.pure.} = enum
-    # Indicates the type of eligibility proof
-    NONE = uint32(0)
-    TX_ID = uint32(1)
 
   EligibilityProof* = object
-    proofType*: EligibilityProofType
-    proof*: string # or bytes?
-
-  DummyRequest* = object
-    requestId*: string
-    eligibilityProof*: Option[EligibilityProof]
+    proof*: Option[seq[byte]]
 
   EligibilityStatus* = object
-    statusCode*: uint32
-    statusDesc*: string # should descripiton be optional?
-
-  DummyResponse* = object
-    requestId*: string
-    eligibilityStatus*: Option[EligibilityStatus]
+    statusCode*: Option[uint32]
+    statusDesc*: Option[string]

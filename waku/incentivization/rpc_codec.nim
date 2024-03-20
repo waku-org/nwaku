@@ -6,76 +6,58 @@ import
   ./rpc
 
 
-proc encode*(rpc: DummyRequest): ProtoBuffer = 
+# Codec for EligibilityProof
+
+proc encode*(epRpc: EligibilityProof): ProtoBuffer = 
   var pb = initProtoBuffer()
-
-  pb.write3(1, rpc.requestId)
-
-  if rpc.eligibilityProof.isSome:
-    let ep = rpc.eligibilityProof.get()
-    pb.write3(2, uint32(ord(ep.proofType)))
-    pb.write3(3, ep.proof)
+  if epRpc.proof.isSome:
+    let proof = epRpc.proof.get()
+    pb.write3(1, proof)
   else:
-    pb.write3(2, uint32(ord(EligibilityProofType.NONE)))
-
+    # there is no proof
+    discard
   pb
 
-proc decode*(T: type DummyRequest, buffer: seq[byte]): ProtobufResult[T] = 
+proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] = 
   let pb = initProtoBuffer(buffer)
-  var rpc = DummyRequest()
-
-  if not ?pb.getField(1, rpc.requestId):
-    return err(ProtobufError.missingRequiredField("request_id"))
-
-  var eligibilityProofType: uint32
-  var eligibilityProof: EligibilityProof
-  if not ?pb.getField(2, eligibilityProofType):
-    eligibilityProof.proofType = EligibilityProofType.NONE
-  elif eligibilityProofType == uint32(EligibilityProofType.NONE):
-    eligibilityProof.proofType = EligibilityProofType.NONE
+  var epRpc = EligibilityProof()
+  var proof = newSeq[byte]()
+  if not ?pb.getField(1, proof):
+    epRpc.proof = none(seq[byte])
   else:
-    eligibilityProof.proofType = EligibilityProofType(eligibilityProofType)
-
-  var proof: string
-  if not ?pb.getField(3, proof):
-    return err(ProtobufError.missingRequiredField("proof"))
-  else:
-    eligibilityProof.proof = proof
-    rpc.eligibilityProof = some(eligibilityProof)
-
-  ok(rpc)
+    epRpc.proof = some(proof)
+  ok(epRpc)
 
 
-proc encode*(rpc: DummyResponse): ProtoBuffer = 
+# Codec for EligibilityStatus
+
+proc encode*(esRpc: EligibilityStatus): ProtoBuffer = 
   var pb = initProtoBuffer()
-
-  pb.write3(1, rpc.requestId)
-
-  if rpc.eligibilityStatus.isSome:
-    let es = rpc.eligibilityStatus.get()
-    pb.write3(2, es.statusCode)
-    pb.write3(3, es.statusDesc)
-
+  if esRpc.statusCode.isSome:
+    pb.write3(1, esRpc.statusCode.get())
+  if esRpc.statusDesc.isSome:
+    pb.write3(2, esRpc.statusDesc.get())
   pb
 
-
-proc decode*(T: type DummyResponse, buffer: seq[byte]): ProtobufResult[T] = 
+proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] = 
   let pb = initProtoBuffer(buffer)
-  var rpc = DummyResponse()
+  var esRpc = EligibilityStatus()
+  # status code
+  # TODO: write this more concisely: ternary operator, default values?
+  # something like this, if hasField by field number existed:
+  #esRpc.statusCode = pb.hasField(1) ? some(pb.getField(1)) : none(uint32)
+  # the same applies to the EligibilityProof's decode
+  var code = uint32(0)
+  if not ?pb.getField(1, code):
+    esRpc.statusCode = none(uint32)
+  else:
+    esRpc.statusCode = some(code)
+  # status description
+  var description = ""
+  if not ?pb.getField(2, description):
+    esRpc.statusDesc = none(string)
+  else:
+    esRpc.statusDesc = some(description)
+  ok(esRpc)
+  
 
-  if not ?pb.getField(1, rpc.requestId):
-    return err(ProtobufError.missingRequiredField("request_id"))
-
-  var code: uint32
-  var desc: string
-  var eligibilityStatus: EligibilityStatus
-  if ?pb.getField(2, code):
-    eligibilityStatus.statusCode = code
-    if ?pb.getField(3, desc):
-      eligibilityStatus.statusDesc = desc
-    else:
-      # assuming description is not optional
-      return err(ProtobufError.missingRequiredField("status_desc"))
-    rpc.eligibilityStatus = some(eligibilityStatus)
-
-  ok(rpc)
