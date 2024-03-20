@@ -270,7 +270,7 @@ suite "Waku RlnRelay - End to End":
           WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       let appendRlnProof1 = client.wakuRlnRelay.appendRLNProof(
-        messag - e1b, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 0)
+        message1b, epoch + float(client.wakuRlnRelay.rlnEpochSizeSec * 0)
       )
       assertResultOk appendRlnProof1
       let appendRlnProof2 = client.wakuRlnRelay.appendRLNProof(
