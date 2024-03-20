@@ -239,7 +239,7 @@ procSuite "WakuNode - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-	  await server.wakuArchive.handleMessage(pubsubTopic, msg)
+	    await server.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
     server.wakuFilterClient.registerPushHandler(filterHandler)
@@ -275,8 +275,6 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
-
-    echo "Test finished"
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup
