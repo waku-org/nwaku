@@ -49,7 +49,7 @@ jobs:
         id: build
         run: |
 
-          make RLN_V2=${{matrix.rln_v2}} -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
+          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
 
           SHORT_REF=$(git rev-parse --short HEAD)
 
