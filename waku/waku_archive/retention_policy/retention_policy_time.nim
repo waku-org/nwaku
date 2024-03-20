@@ -3,35 +3,23 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  std/times,
-  stew/results,
-  chronicles,
-  chronos
-import
-  ../../waku_core,
-  ../driver,
-  ../retention_policy
+import std/times, stew/results, chronicles, chronos
+import ../../waku_core, ../driver, ../retention_policy
 
 logScope:
   topics = "waku archive retention_policy"
 
-
 const DefaultRetentionTime*: int64 = 30.days.seconds
 
-
 type TimeRetentionPolicy* = ref object of RetentionPolicy
-      retentionTime: chronos.Duration
+  retentionTime: chronos.Duration
 
+proc new*(T: type TimeRetentionPolicy, retentionTime = DefaultRetentionTime): T =
+  TimeRetentionPolicy(retentionTime: retentionTime.seconds)
 
-proc new*(T: type TimeRetentionPolicy, retentionTime=DefaultRetentionTime): T =
-  TimeRetentionPolicy(
-    retentionTime: retentionTime.seconds
-  )
-
-method execute*(p: TimeRetentionPolicy,
-                driver: ArchiveDriver):
-                Future[RetentionPolicyResult[void]] {.async.} =
+method execute*(
+    p: TimeRetentionPolicy, driver: ArchiveDriver
+): Future[RetentionPolicyResult[void]] {.async.} =
   ## Delete messages that exceed the retention time by 10% and more (batch delete for efficiency)
 
   let omtRes = await driver.getOldestMessageTimestamp()
@@ -45,7 +33,7 @@ method execute*(p: TimeRetentionPolicy,
   if thresholdTimestamp <= omtRes.value:
     return ok()
 
-  let res = await driver.deleteMessagesOlderThanTimestamp(ts=retentionTimestamp)
+  let res = await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)
   if res.isErr():
     return err("failed to delete oldest messages: " & res.error)
 

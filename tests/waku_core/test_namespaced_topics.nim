@@ -1,14 +1,9 @@
 {.used.}
 
-import
-  std/options,
-  stew/results,
-  testutils/unittests
-import
-  ../../../waku/waku_core/topics
+import std/options, stew/results, testutils/unittests
+import ../../../waku/waku_core/topics
 
 suite "Waku Message - Content topics namespacing":
-
   test "Stringify namespaced content topic":
     ## Given
     var ns = NsContentTopic()
@@ -89,7 +84,8 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
+      err.cause ==
+        "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
 
   test "Parse content topic string - Invalid string: missing encoding part":
     ## Given
@@ -104,7 +100,8 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
+      err.cause ==
+        "Invalid content topic structure. Expected either /<application>/<version>/<topic-name>/<encoding> or /<gen>/<application>/<version>/<topic-name>/<encoding>"
 
   test "Parse content topic string - Invalid string: wrong extra parts":
     ## Given
@@ -137,7 +134,6 @@ suite "Waku Message - Content topics namespacing":
       err.cause == "generation should be a numeric value"
 
 suite "Waku Message - Pub-sub topics namespacing":
-
   test "Stringify named sharding pub-sub topic":
     ## Given
     var ns = NsPubsubTopic.named("waku-dev")
@@ -151,7 +147,7 @@ suite "Waku Message - Pub-sub topics namespacing":
 
   test "Stringify static sharding pub-sub topic":
     ## Given
-    var ns = NsPubsubTopic.staticSharding(clusterId=0, shardId=2)
+    var ns = NsPubsubTopic.staticSharding(clusterId = 0, shardId = 2)
 
     ## When
     let topic = $ns

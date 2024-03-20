@@ -1,11 +1,5 @@
-
-import
-  std/options
-import
-  chronos,
-  chronicles,
-  stew/results,
-  stew/shims/net
+import std/options
+import chronos, chronicles, stew/results, stew/shims/net
 import
   ../../../../waku/common/enr/builder,
   ../../../../waku/waku_enr/capabilities,
@@ -24,25 +18,22 @@ import
   ../../../../waku/waku_relay/protocol,
   ../../../../waku/waku_store,
   ../../../../waku/factory/builder,
-  ../../../events/[json_message_event,json_base_event],
+  ../../../events/[json_message_event, json_base_event],
   ../../../alloc,
   ../../config
 
-type
-  NodeLifecycleMsgType* = enum
-    CREATE_NODE
-    START_NODE
-    STOP_NODE
+type NodeLifecycleMsgType* = enum
+  CREATE_NODE
+  START_NODE
+  STOP_NODE
 
-type
-  NodeLifecycleRequest* = object
-    operation: NodeLifecycleMsgType
-    configJson: cstring ## Only used in 'CREATE_NODE' operation
+type NodeLifecycleRequest* = object
+  operation: NodeLifecycleMsgType
+  configJson: cstring ## Only used in 'CREATE_NODE' operation
 
-proc createShared*(T: type NodeLifecycleRequest,
-                   op: NodeLifecycleMsgType,
-                   configJson: cstring = ""): ptr type T =
-
+proc createShared*(
+    T: type NodeLifecycleRequest, op: NodeLifecycleMsgType, configJson: cstring = ""
+): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].configJson = configJson.alloc()
@@ -52,14 +43,15 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self[].configJson)
   deallocShared(self)
 
-proc configureStore(node: WakuNode,
-                    storeNode: string,
-                    storeRetentionPolicy: string,
-                    storeDbUrl: string,
-                    storeVacuum: bool,
-                    storeDbMigration: bool,
-                    storeMaxNumDbConnections: int):
-                    Future[Result[void, string]] {.async.} =
+proc configureStore(
+    node: WakuNode,
+    storeNode: string,
+    storeRetentionPolicy: string,
+    storeDbUrl: string,
+    storeVacuum: bool,
+    storeDbMigration: bool,
+    storeMaxNumDbConnections: int,
+): Future[Result[void, string]] {.async.} =
   ## This snippet is extracted/duplicated from the app.nim file
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
@@ -70,11 +62,10 @@ proc configureStore(node: WakuNode,
     discard
 
   # Archive setup
-  let archiveDriverRes = await ArchiveDriver.new(storeDbUrl,
-                                                 storeVacuum,
-                                                 storeDbMigration,
-                                                 storeMaxNumDbConnections,
-                                                 onFatalErrorAction)
+  let archiveDriverRes = await ArchiveDriver.new(
+    storeDbUrl, storeVacuum, storeDbMigration, storeMaxNumDbConnections,
+    onFatalErrorAction,
+  )
   if archiveDriverRes.isErr():
     return err("failed to setup archive driver: " & archiveDriverRes.error)
 
@@ -82,8 +73,7 @@ proc configureStore(node: WakuNode,
   if retPolicyRes.isErr():
     return err("failed to create retention policy: " & retPolicyRes.error)
 
-  let mountArcRes = node.mountArchive(archiveDriverRes.get(),
-                                      retPolicyRes.get())
+  let mountArcRes = node.mountArchive(archiveDriverRes.get(), retPolicyRes.get())
   if mountArcRes.isErr():
     return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
@@ -103,12 +93,9 @@ proc configureStore(node: WakuNode,
 
   return ok()
 
-proc createNode(configJson: cstring):
-                Future[Result[WakuNode, string]] {.async.} =
-
+proc createNode(configJson: cstring): Future[Result[WakuNode, string]] {.async.} =
   var privateKey: PrivateKey
-  var netConfig = NetConfig.init(parseIpAddress("127.0.0.1"),
-                                 Port(60000'u16)).value
+  var netConfig = NetConfig.init(parseIpAddress("127.0.0.1"), Port(60000'u16)).value
   ## relay
   var relay: bool
   var topics = @[""]
@@ -125,19 +112,21 @@ proc createNode(configJson: cstring):
   var errorResp: string
 
   try:
-    if not parseConfig($configJson,
-                      privateKey,
-                      netConfig,
-                      relay,
-                      topics,
-                      store,
-                      storeNode,
-                      storeRetentionPolicy,
-                      storeDbUrl,
-                      storeVacuum,
-                      storeDbMigration,
-                      storeMaxNumDbConnections,
-                      errorResp):
+    if not parseConfig(
+      $configJson,
+      privateKey,
+      netConfig,
+      relay,
+      topics,
+      store,
+      storeNode,
+      storeRetentionPolicy,
+      storeDbUrl,
+      storeVacuum,
+      storeDbMigration,
+      storeMaxNumDbConnections,
+      errorResp,
+    ):
       return err(errorResp)
   except Exception:
     return err("exception calling parseConfig: " & getCurrentExceptionMsg())
@@ -145,9 +134,7 @@ proc createNode(configJson: cstring):
   var enrBuilder = EnrBuilder.init(privateKey)
 
   enrBuilder.withIpAddressAndPorts(
-    netConfig.enrIp,
-    netConfig.enrPort,
-    netConfig.discv5UdpPort
+    netConfig.enrIp, netConfig.enrPort, netConfig.discv5UdpPort
   )
 
   if netConfig.wakuFlags.isSome():
@@ -165,8 +152,8 @@ proc createNode(configJson: cstring):
     if recordRes.isErr():
       let msg = "Error building enr record: " & $recordRes.error
       return err(msg)
-
-    else: recordRes.get()
+    else:
+      recordRes.get()
 
   ## TODO: make the next const configurable from 'configJson'.
   const MAX_CONNECTIONS = 50.int
@@ -176,9 +163,7 @@ proc createNode(configJson: cstring):
   builder.withNodeKey(privateKey)
   builder.withRecord(record)
   builder.withNetworkConfiguration(netConfig)
-  builder.withSwitchConfiguration(
-    maxConnections = some(MAX_CONNECTIONS)
-  )
+  builder.withSwitchConfiguration(maxConnections = some(MAX_CONNECTIONS))
 
   let wakuNodeRes = builder.build()
   if wakuNodeRes.isErr():
@@ -192,36 +177,35 @@ proc createNode(configJson: cstring):
     newNode.peerManager.start()
 
   if store:
-    (await newNode.configureStore(storeNode,
-                                  storeRetentionPolicy,
-                                  storeDbUrl,
-                                  storeVacuum,
-                                  storeDbMigration,
-                                  storeMaxNumDbConnections)).isOkOr:
+    (
+      await newNode.configureStore(
+        storeNode, storeRetentionPolicy, storeDbUrl, storeVacuum, storeDbMigration,
+        storeMaxNumDbConnections,
+      )
+    ).isOkOr:
       return err("error configuring store: " & $error)
 
   return ok(newNode)
 
-proc process*(self: ptr NodeLifecycleRequest,
-              node: ptr WakuNode): Future[Result[string, string]] {.async.} =
+proc process*(
+    self: ptr NodeLifecycleRequest, node: ptr WakuNode
+): Future[Result[string, string]] {.async.} =
+  defer:
+    destroyShared(self)
 
-  defer: destroyShared(self)
+  case self.operation
+  of CREATE_NODE:
+    let newNodeRes = await createNode(self.configJson)
+    if newNodeRes.isErr():
+      return err(newNodeRes.error)
 
-  case self.operation:
-    of CREATE_NODE:
-      let newNodeRes = await createNode(self.configJson)
-      if newNodeRes.isErr():
-        return err(newNodeRes.error)
-
-      node[] = newNodeRes.get()
-
-    of START_NODE:
-      await node[].start()
-
-    of STOP_NODE:
-      try:
-        await node[].stop()
-      except Exception:
-        return err("exception stopping node: " & getCurrentExceptionMsg())
+    node[] = newNodeRes.get()
+  of START_NODE:
+    await node[].start()
+  of STOP_NODE:
+    try:
+      await node[].stop()
+    except Exception:
+      return err("exception stopping node: " & getCurrentExceptionMsg())
 
   return ok("")

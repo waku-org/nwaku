@@ -1,10 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  testutils/unittests,
-  eth/p2p/discoveryv5/enr,
-  libp2p/crypto/crypto
+import std/options, testutils/unittests, eth/p2p/discoveryv5/enr, libp2p/crypto/crypto
 import
   ../../waku/common/databases/db_sqlite,
   ../../waku/node/peer_manager/peer_manager,
@@ -12,9 +8,7 @@ import
   ../../waku/waku_enr,
   ./testlib/wakucore
 
-
 suite "Peer Storage":
-
   test "Store, replace and retrieve from persistent peer storage":
     let
       database = SqliteDatabase.new(":memory:").tryGet()
@@ -28,22 +22,24 @@ suite "Peer Storage":
       connectedness = Connectedness.CanConnect
       disconn = 999999
       topics = @["/waku/2/rs/2/0", "/waku/2/rs/2/1"]
-    
+
     # Create ENR
     var enrBuilder = EnrBuilder.init(peerKey)
     enrBuilder.withShardedTopics(topics).expect("Valid topics")
     let record = enrBuilder.build().expect("Valid record")
 
     let stored = RemotePeerInfo(
-        peerId: peer.peerId,
-        addrs: @[peerLoc],
-        enr: some(record),
-        protocols: @[peerProto],
-        publicKey: peerKey.getPublicKey().tryGet(),
-        connectedness: connectedness,
-        disconnectTime: disconn)
+      peerId: peer.peerId,
+      addrs: @[peerLoc],
+      enr: some(record),
+      protocols: @[peerProto],
+      publicKey: peerKey.getPublicKey().tryGet(),
+      connectedness: connectedness,
+      disconnectTime: disconn,
+    )
 
-    defer: storage.close()
+    defer:
+      storage.close()
 
     # Test insert and retrieve
 
@@ -69,9 +65,10 @@ suite "Peer Storage":
       resStoredInfo.publicKey == peerKey.getPublicKey().tryGet()
       resStoredInfo.connectedness == connectedness
       resStoredInfo.disconnectTime == disconn
-    
+
     assert resStoredInfo.enr.isSome(), "The ENR info wasn't properly stored"
-    check: resStoredInfo.enr.get() == record
+    check:
+      resStoredInfo.enr.get() == record
 
     # Test replace and retrieve (update an existing entry)
     stored.connectedness = CannotConnect

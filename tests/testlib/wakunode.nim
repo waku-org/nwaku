@@ -18,7 +18,6 @@ import
   ../../../waku/factory/builder,
   ./common
 
-
 # Waku node
 
 proc defaultTestWakuNodeConf*(): WakuNodeConf =
@@ -36,38 +35,41 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     clusterId: 1.uint32,
     topics: @["/waku/2/rs/1/0"],
     relay: true,
-    storeMessageDbUrl: "sqlite://store.sqlite3"
+    storeMessageDbUrl: "sqlite://store.sqlite3",
   )
 
-proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
-                      bindIp: IpAddress,
-                      bindPort: Port,
-                      extIp = none(IpAddress),
-                      extPort = none(Port),
-                      extMultiAddrs = newSeq[MultiAddress](),
-                      peerStorage: PeerStorage = nil,
-                      maxConnections = builders.MaxConnections,
-                      wsBindPort: Port = (Port)8000,
-                      wsEnabled: bool = false,
-                      wssEnabled: bool = false,
-                      secureKey: string = "",
-                      secureCert: string = "",
-                      wakuFlags = none(CapabilitiesBitfield),
-                      nameResolver: NameResolver = nil,
-                      sendSignedPeerRecord = false,
-                      dns4DomainName = none(string),
-                      discv5UdpPort = none(Port),
-                      agentString = none(string),
-                      clusterId: uint32 = 1.uint32,
-                      topics: seq[string] = @["/waku/2/rs/1/0"],
-                      peerStoreCapacity = none(int)): WakuNode =
-
+proc newTestWakuNode*(
+    nodeKey: crypto.PrivateKey,
+    bindIp: IpAddress,
+    bindPort: Port,
+    extIp = none(IpAddress),
+    extPort = none(Port),
+    extMultiAddrs = newSeq[MultiAddress](),
+    peerStorage: PeerStorage = nil,
+    maxConnections = builders.MaxConnections,
+    wsBindPort: Port = (Port) 8000,
+    wsEnabled: bool = false,
+    wssEnabled: bool = false,
+    secureKey: string = "",
+    secureCert: string = "",
+    wakuFlags = none(CapabilitiesBitfield),
+    nameResolver: NameResolver = nil,
+    sendSignedPeerRecord = false,
+    dns4DomainName = none(string),
+    discv5UdpPort = none(Port),
+    agentString = none(string),
+    clusterId: uint32 = 1.uint32,
+    topics: seq[string] = @["/waku/2/rs/1/0"],
+    peerStoreCapacity = none(int),
+): WakuNode =
   var resolvedExtIp = extIp
 
   # Update extPort to default value if it's missing and there's an extIp or a DNS domain
   let extPort =
-    if (extIp.isSome() or dns4DomainName.isSome()) and extPort.isNone(): some(Port(60000))
-    else: extPort
+    if (extIp.isSome() or dns4DomainName.isSome()) and extPort.isNone():
+      some(Port(60000))
+    else:
+      extPort
 
   var conf = defaultTestWakuNodeConf()
 
@@ -78,7 +80,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     # If there's an error resolving the IP, an exception is thrown and test fails
     let dns = (waitFor dnsResolve(dns4DomainName.get(), conf)).valueOr:
       raise newException(Defect, error)
-    
+
     resolvedExtIp = some(parseIpAddress(dns))
 
   let netConf = NetConfig.init(
@@ -103,9 +105,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     raise newException(Defect, "Invalid record: " & error)
 
   enrBuilder.withIpAddressAndPorts(
-      ipAddr = netConf.enrIp,
-      tcpPort = netConf.enrPort,
-      udpPort = netConf.discv5UdpPort,
+    ipAddr = netConf.enrIp, tcpPort = netConf.enrPort, udpPort = netConf.discv5UdpPort
   )
 
   enrBuilder.withMultiaddrs(netConf.enrMultiaddrs)
@@ -114,7 +114,7 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     enrBuilder.withWakuCapabilities(netConf.wakuFlags.get())
 
   let record = enrBuilder.build().valueOr:
-      raise newException(Defect, "Invalid record: " & $error)
+    raise newException(Defect, "Invalid record: " & $error)
 
   var builder = WakuNodeBuilder.init()
   builder.withRng(rng())
@@ -126,10 +126,19 @@ proc newTestWakuNode*(nodeKey: crypto.PrivateKey,
     maxConnections = some(maxConnections),
     nameResolver = nameResolver,
     sendSignedPeerRecord = sendSignedPeerRecord,
-    secureKey = if secureKey != "": some(secureKey) else: none(string),
-    secureCert = if secureCert != "": some(secureCert) else: none(string),
+    secureKey =
+      if secureKey != "":
+        some(secureKey)
+      else:
+        none(string)
+    ,
+    secureCert =
+      if secureCert != "":
+        some(secureCert)
+      else:
+        none(string)
+    ,
     agentString = agentString,
-
   )
 
   return builder.build().get()

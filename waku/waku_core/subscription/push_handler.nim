@@ -3,11 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronos
+import chronos
 
-import
-  ../topics,
-  ../message
+import ../topics, ../message
 
-type FilterPushHandler* = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.}
+type FilterPushHandler* =
+  proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async, gcsafe, closure.}

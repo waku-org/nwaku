@@ -39,126 +39,154 @@ const ROUTE_FILTER_SUBSCRIPTIONS* = "/filter/v2/subscriptions"
 
 const ROUTE_FILTER_ALL_SUBSCRIPTIONS* = "/filter/v2/subscriptions/all"
 
-func decodeRequestBody[T](contentBody: Option[ContentBody]) : Result[T, RestApiResponse] =
+func decodeRequestBody[T](
+    contentBody: Option[ContentBody]
+): Result[T, RestApiResponse] =
   if contentBody.isNone():
     return err(RestApiResponse.badRequest("Missing content body"))
 
   let reqBodyContentType = MediaType.init($contentBody.get().contentType)
   if reqBodyContentType != MIMETYPE_JSON:
-    return err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
+    return
+      err(RestApiResponse.badRequest("Wrong Content-Type, expected application/json"))
 
   let reqBodyData = contentBody.get().data
 
   let requestResult = decodeFromJsonBytes(T, reqBodyData)
   if requestResult.isErr():
-    return err(RestApiResponse.badRequest("Invalid content body, could not decode. " &
-                                          $requestResult.error))
+    return err(
+      RestApiResponse.badRequest(
+        "Invalid content body, could not decode. " & $requestResult.error
+      )
+    )
 
   return ok(requestResult.get())
 
-proc getErrorCause(err: filter_protocol_type.FilterSubscribeError): string =
+proc getStatusDesc(protocolClientRes: filter_protocol_type.FilterSubscribeResult): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
+  if protocolClientRes.isOk:
+    return "OK"
 
-  case err.kind:
+  let err = protocolClientRes.error
+  case err.kind
   of FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
     err.address
   of FilterSubscribeErrorKind.BAD_RESPONSE, FilterSubscribeErrorKind.BAD_REQUEST,
-     FilterSubscribeErrorKind.NOT_FOUND, FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
+      FilterSubscribeErrorKind.NOT_FOUND, FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
     err.cause
   of FilterSubscribeErrorKind.UNKNOWN:
     "UNKNOWN"
 
-proc convertResponse(T: type FilterSubscriptionResponse, requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeResult): T =
+proc convertResponse(
+    T: type FilterSubscriptionResponse,
+    requestId: string,
+    protocolClientRes: filter_protocol_type.FilterSubscribeResult,
+): T =
   ## Properly convert filter protocol's response to rest response
-
-  if protocolClientRes.isErr():
-    return FilterSubscriptionResponse(
-              requestId: requestId,
-              statusCode: uint32(protocolClientRes.error().kind),
-              statusDesc: getErrorCause(protocolClientRes.error())
-            )
-  else:
-    return FilterSubscriptionResponse(
-              requestId: requestId,
-              statusCode: 0,
-              statusDesc: ""
-            )
-
-proc convertResponse(T: type FilterSubscriptionResponse, requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeError): T =
-  ## Properly convert filter protocol's response to rest response in case of error
-
   return FilterSubscriptionResponse(
-            requestId: requestId,
-            statusCode: uint32(protocolClientRes.kind),
-            statusDesc: $protocolClientRes
-          )
+    requestId: requestId,
+    statusDesc: getStatusDesc(protocolClientRes),
+  )
 
-proc convertErrorKindToHttpStatus(kind: filter_protocol_type.FilterSubscribeErrorKind): HttpCode =
+proc convertResponse(
+    T: type FilterSubscriptionResponse,
+    requestId: string,
+    protocolClientRes: filter_protocol_type.FilterSubscribeError,
+): T =
+  ## Properly convert filter protocol's response to rest response in case of error
+  return FilterSubscriptionResponse(
+    requestId: requestId,
+    statusDesc: $protocolClientRes,
+  )
+
+proc convertErrorKindToHttpStatus(
+    kind: filter_protocol_type.FilterSubscribeErrorKind
+): HttpCode =
   ## Filter protocol's error code is not directly convertible to HttpCodes hence this converter
 
-  case kind:
-    of filter_protocol_type.FilterSubscribeErrorKind.UNKNOWN:
-      return Http200
-    of filter_protocol_type.FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
-      return Http504 #gateway timout
-    of filter_protocol_type.FilterSubscribeErrorKind.BAD_RESPONSE:
-      return Http500 # internal server error
-    of filter_protocol_type.FilterSubscribeErrorKind.BAD_REQUEST:
-      return Http400
-    of filter_protocol_type.FilterSubscribeErrorKind.NOT_FOUND:
-      return Http404
-    of filter_protocol_type.FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
-      return Http503
-    else:
-      return Http500
+  case kind
+  of filter_protocol_type.FilterSubscribeErrorKind.UNKNOWN:
+    return Http200
+  of filter_protocol_type.FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
+    return Http504 #gateway timout
+  of filter_protocol_type.FilterSubscribeErrorKind.BAD_RESPONSE:
+    return Http500 # internal server error
+  of filter_protocol_type.FilterSubscribeErrorKind.BAD_REQUEST:
+    return Http400
+  of filter_protocol_type.FilterSubscribeErrorKind.NOT_FOUND:
+    return Http404
+  of filter_protocol_type.FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
+    return Http503
+  else:
+    return Http500
 
-proc makeRestResponse(requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeResult): RestApiResponse =
-  let filterSubscriptionResponse = FilterSubscriptionResponse.convertResponse(requestId, protocolClientRes)
+proc makeRestResponse(
+    requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeResult
+): RestApiResponse =
+  let filterSubscriptionResponse =
+    FilterSubscriptionResponse.convertResponse(requestId, protocolClientRes)
 
-  var httpStatus : HttpCode = Http200
+  var httpStatus: HttpCode = Http200
 
   if protocolClientRes.isErr():
-    httpStatus = convertErrorKindToHttpStatus(protocolClientRes.error().kind) # TODO: convert status codes!
+    httpStatus = convertErrorKindToHttpStatus(protocolClientRes.error().kind)
+      # TODO: convert status codes!
 
-  let resp = RestApiResponse.jsonResponse(filterSubscriptionResponse, status=httpStatus)
+  let resp =
+    RestApiResponse.jsonResponse(filterSubscriptionResponse, status = httpStatus)
 
   if resp.isErr():
-    error "An error ocurred while building the json respose: ", error=resp.error
-    return RestApiResponse.internalServerError(fmt("An error ocurred while building the json respose: {resp.error}"))
+    error "An error ocurred while building the json respose: ", error = resp.error
+    return RestApiResponse.internalServerError(
+      fmt("An error ocurred while building the json respose: {resp.error}")
+    )
 
   return resp.get()
 
-proc makeRestResponse(requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeError): RestApiResponse =
-  let filterSubscriptionResponse = FilterSubscriptionResponse.convertResponse(requestId, protocolClientRes)
+proc makeRestResponse(
+    requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeError
+): RestApiResponse =
+  let filterSubscriptionResponse =
+    FilterSubscriptionResponse.convertResponse(requestId, protocolClientRes)
 
-  let httpStatus = convertErrorKindToHttpStatus(protocolClientRes.kind) # TODO: convert status codes!
+  let httpStatus = convertErrorKindToHttpStatus(protocolClientRes.kind)
+    # TODO: convert status codes!
 
-  let resp = RestApiResponse.jsonResponse(filterSubscriptionResponse, status=httpStatus)
+  let resp =
+    RestApiResponse.jsonResponse(filterSubscriptionResponse, status = httpStatus)
 
   if resp.isErr():
-    error "An error ocurred while building the json respose: ", error=resp.error
-    return RestApiResponse.internalServerError(fmt("An error ocurred while building the json respose: {resp.error}"))
+    error "An error ocurred while building the json respose: ", error = resp.error
+    return RestApiResponse.internalServerError(
+      fmt("An error ocurred while building the json respose: {resp.error}")
+    )
 
   return resp.get()
 
 const NoPeerNoDiscoError = FilterSubscribeError.serviceUnavailable(
-  "No suitable service peer & no discovery method")
+  "No suitable service peer & no discovery method"
+)
 
-const NoPeerNoneFoundError = FilterSubscribeError.serviceUnavailable(
-  "No suitable service peer & none discovered")
+const NoPeerNoneFoundError =
+  FilterSubscribeError.serviceUnavailable("No suitable service peer & none discovered")
 
 proc filterPostPutSubscriptionRequestHandler(
-  node: WakuNode,
-  contentBody: Option[ContentBody],
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ): Future[RestApiResponse] {.async.} =
+    node: WakuNode,
+    contentBody: Option[ContentBody],
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+): Future[RestApiResponse] {.async.} =
   ## handles any filter subscription requests, adds or modifies.
 
   let decodedBody = decodeRequestBody[FilterSubscribeRequest](contentBody)
 
   if decodedBody.isErr():
-    return makeRestResponse("unknown", FilterSubscribeError.badRequest(fmt("Failed to decode request: {decodedBody.error}")))
+    return makeRestResponse(
+      "unknown",
+      FilterSubscribeError.badRequest(
+        fmt("Failed to decode request: {decodedBody.error}")
+      ),
+    )
 
   let req: FilterSubscribeRequest = decodedBody.value()
 
@@ -176,7 +204,10 @@ proc filterPostPutSubscriptionRequestHandler(
 
   if not await subFut.withTimeout(futTimeoutForSubscriptionProcessing):
     error "Failed to subscribe to contentFilters do to timeout!"
-    return makeRestResponse(req.requestId, FilterSubscribeError.serviceUnavailable("Subscription request timed out"))
+    return makeRestResponse(
+      req.requestId,
+      FilterSubscribeError.serviceUnavailable("Subscription request timed out"),
+    )
 
   # Successfully subscribed to all content filters
   for cTopic in req.contentFilters:
@@ -185,44 +216,58 @@ proc filterPostPutSubscriptionRequestHandler(
   return makeRestResponse(req.requestId, subFut.read())
 
 proc installFilterPostSubscriptionsHandler(
-  router: var RestRouter,
-  node: WakuNode,
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-  router.api(MethodPost, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodPost, ROUTE_FILTER_SUBSCRIPTIONS) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a pubsubTopic
     debug "post", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
-    return await filterPostPutSubscriptionRequestHandler(node, contentBody, cache, discHandler)
+    return await filterPostPutSubscriptionRequestHandler(
+      node, contentBody, cache, discHandler
+    )
 
 proc installFilterPutSubscriptionsHandler(
-  router: var RestRouter,
-  node: WakuNode,
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-  router.api(MethodPut, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodPut, ROUTE_FILTER_SUBSCRIPTIONS) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
     ## Modifies a subscribtion of a node to a list of contentTopics of a pubsubTopic
     debug "put", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
-    return await filterPostPutSubscriptionRequestHandler(node, contentBody, cache, discHandler)
+    return await filterPostPutSubscriptionRequestHandler(
+      node, contentBody, cache, discHandler
+    )
 
 proc installFilterDeleteSubscriptionsHandler(
-  router: var RestRouter,
-  node: WakuNode,
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-  router.api(MethodDelete, ROUTE_FILTER_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodDelete, ROUTE_FILTER_SUBSCRIPTIONS) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_SUBSCRIPTIONS, contentBody
 
     let decodedBody = decodeRequestBody[FilterUnsubscribeRequest](contentBody)
 
     if decodedBody.isErr():
-      return makeRestResponse("unknown",
-                FilterSubscribeError.badRequest(fmt("Failed to decode request: {decodedBody.error}")))
+      return makeRestResponse(
+        "unknown",
+        FilterSubscribeError.badRequest(
+          fmt("Failed to decode request: {decodedBody.error}")
+        ),
+      )
 
     let req: FilterUnsubscribeRequest = decodedBody.value()
 
@@ -240,9 +285,12 @@ proc installFilterDeleteSubscriptionsHandler(
 
     if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to unsubscribe from contentFilters due to timeout!"
-      return makeRestResponse(req.requestId,
-                FilterSubscribeError.serviceUnavailable(
-                            "Failed to unsubscribe from contentFilters due to timeout!"))
+      return makeRestResponse(
+        req.requestId,
+        FilterSubscribeError.serviceUnavailable(
+          "Failed to unsubscribe from contentFilters due to timeout!"
+        ),
+      )
 
     # Successfully subscribed to all content filters
     for cTopic in req.contentFilters:
@@ -252,20 +300,26 @@ proc installFilterDeleteSubscriptionsHandler(
     return makeRestResponse(req.requestId, unsubFut.read())
 
 proc installFilterDeleteAllSubscriptionsHandler(
-  router: var RestRouter,
-  node: WakuNode,
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-  router.api(MethodDelete, ROUTE_FILTER_ALL_SUBSCRIPTIONS) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodDelete, ROUTE_FILTER_ALL_SUBSCRIPTIONS) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
     ## Subscribes a node to a list of contentTopics of a PubSub topic
     debug "delete", ROUTE_FILTER_ALL_SUBSCRIPTIONS, contentBody
 
     let decodedBody = decodeRequestBody[FilterUnsubscribeAllRequest](contentBody)
 
     if decodedBody.isErr():
-      return makeRestResponse("unknown",
-                FilterSubscribeError.badRequest(fmt("Failed to decode request: {decodedBody.error}")))
+      return makeRestResponse(
+        "unknown",
+        FilterSubscribeError.badRequest(
+          fmt("Failed to decode request: {decodedBody.error}")
+        ),
+      )
 
     let req: FilterUnsubscribeAllRequest = decodedBody.value()
 
@@ -283,9 +337,12 @@ proc installFilterDeleteAllSubscriptionsHandler(
 
     if not await unsubFut.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to unsubscribe from contentFilters due to timeout!"
-      return makeRestResponse(req.requestId,
-                FilterSubscribeError.serviceUnavailable(
-                            "Failed to unsubscribe from all contentFilters due to timeout!"))
+      return makeRestResponse(
+        req.requestId,
+        FilterSubscribeError.serviceUnavailable(
+          "Failed to unsubscribe from all contentFilters due to timeout!"
+        ),
+      )
 
     cache.reset()
 
@@ -295,11 +352,13 @@ proc installFilterDeleteAllSubscriptionsHandler(
 const ROUTE_FILTER_SUBSCRIBER_PING* = "/filter/v2/subscriptions/{requestId}"
 
 proc installFilterPingSubscriberHandler(
-  router: var RestRouter,
-  node: WakuNode,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-  router.api(MethodGet, ROUTE_FILTER_SUBSCRIBER_PING) do (requestId: string) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodGet, ROUTE_FILTER_SUBSCRIBER_PING) do(
+    requestId: string
+  ) -> RestApiResponse:
     ## Checks if a node has valid subscription or not.
     debug "get", ROUTE_FILTER_SUBSCRIBER_PING, requestId
 
@@ -317,54 +376,57 @@ proc installFilterPingSubscriberHandler(
 
     if not await pingFutRes.withTimeout(futTimeoutForSubscriptionProcessing):
       error "Failed to ping filter service peer due to timeout!"
-      return makeRestResponse(requestId.get(),
-                FilterSubscribeError.serviceUnavailable("Ping timed out"))
+      return makeRestResponse(
+        requestId.get(), FilterSubscribeError.serviceUnavailable("Ping timed out")
+      )
 
     return makeRestResponse(requestId.get(), pingFutRes.read())
 
 const ROUTE_FILTER_MESSAGES* = "/filter/v2/messages/{contentTopic}"
 
-proc installFilterGetMessagesHandler(router: var RestRouter,
-                                     node: WakuNode,
-                                     cache: MessageCache) =
-
-
-  let pushHandler : FilterPushHandler = proc (pubsubTopic: PubsubTopic,
-                                              msg: WakuMessage)
-                                              {.async, gcsafe, closure.} =
+proc installFilterGetMessagesHandler(
+    router: var RestRouter, node: WakuNode, cache: MessageCache
+) =
+  let pushHandler: FilterPushHandler = proc(
+      pubsubTopic: PubsubTopic, msg: WakuMessage
+  ) {.async, gcsafe, closure.} =
     cache.addMessage(pubsubTopic, msg)
 
   node.wakuFilterClient.registerPushHandler(pushHandler)
 
-  router.api(MethodGet, ROUTE_FILTER_MESSAGES) do (contentTopic: string) -> RestApiResponse:
+  router.api(MethodGet, ROUTE_FILTER_MESSAGES) do(
+    contentTopic: string
+  ) -> RestApiResponse:
     ## Returns all WakuMessages received on a specified content topic since the
     ## last time this method was called
     ## TODO: ability to specify a return message limit, maybe use cursor to control paging response.
-    debug "get", ROUTE_FILTER_MESSAGES, contentTopic=contentTopic
+    debug "get", ROUTE_FILTER_MESSAGES, contentTopic = contentTopic
 
     if contentTopic.isErr():
       return RestApiResponse.badRequest("Missing contentTopic")
 
     let contentTopic = contentTopic.get()
 
-    let msgRes = cache.getAutoMessages(contentTopic, clear=true)
+    let msgRes = cache.getAutoMessages(contentTopic, clear = true)
     if msgRes.isErr():
       return RestApiResponse.badRequest("Not subscribed to topic: " & contentTopic)
 
     let data = FilterGetMessagesResponse(msgRes.get().map(toFilterWakuMessage))
-    let resp = RestApiResponse.jsonResponse(data, status=Http200)
+    let resp = RestApiResponse.jsonResponse(data, status = Http200)
     if resp.isErr():
-      error "An error ocurred while building the json respose: ", error=resp.error
-      return RestApiResponse.internalServerError("An error ocurred while building the json respose")
+      error "An error ocurred while building the json respose: ", error = resp.error
+      return RestApiResponse.internalServerError(
+        "An error ocurred while building the json respose"
+      )
 
     return resp.get()
 
 proc installFilterRestApiHandlers*(
-  router: var RestRouter,
-  node: WakuNode,
-  cache: MessageCache,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
+    router: var RestRouter,
+    node: WakuNode,
+    cache: MessageCache,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
   installFilterPingSubscriberHandler(router, node, discHandler)
   installFilterPostSubscriptionsHandler(router, node, cache, discHandler)
   installFilterPutSubscriptionsHandler(router, node, cache, discHandler)

@@ -13,9 +13,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-type
-  LogFormat* = enum
-    TEXT, JSON
+type LogFormat* = enum
+  TEXT
+  JSON
 
 ## Utils
 
@@ -39,7 +39,7 @@ proc stripAnsi(v: string): string =
           if c2 != '[':
             break
         else:
-          if c2 in {'0'..'9'} + {';'}:
+          if c2 in {'0' .. '9'} + {';'}:
             discard # keep looking
           elif c2 == 'm':
             i = x + 1
@@ -63,15 +63,15 @@ proc writeAndFlush(f: File, s: LogOutputStr) =
   except CatchableError:
     logLoggingFailure(cstring(s), getCurrentException())
 
-
 ## Setup
 
 proc setupLogLevel*(level: LogLevel) =
   # TODO: Support per topic level configuratio
   topics_registry.setLogLevel(level)
 
-proc setupLogFormat*(format: LogFormat, color=true) =
-  proc noOutputWriter(logLevel: LogLevel, msg: LogOutputStr) = discard
+proc setupLogFormat*(format: LogFormat, color = true) =
+  proc noOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
+    discard
 
   proc stdoutOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
     writeAndFlush(io.stdout, msg)
@@ -79,19 +79,18 @@ proc setupLogFormat*(format: LogFormat, color=true) =
   proc stdoutNoColorOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
     writeAndFlush(io.stdout, stripAnsi(msg))
 
-
   when defaultChroniclesStream.outputs.type.arity == 2:
-    case format:
+    case format
     of LogFormat.Text:
-      defaultChroniclesStream.outputs[0].writer = if color: stdoutOutputWriter
-                                                  else: stdoutNoColorOutputWriter
+      defaultChroniclesStream.outputs[0].writer =
+        if color: stdoutOutputWriter else: stdoutNoColorOutputWriter
       defaultChroniclesStream.outputs[1].writer = noOutputWriter
-
     of LogFormat.Json:
       defaultChroniclesStream.outputs[0].writer = noOutputWriter
       defaultChroniclesStream.outputs[1].writer = stdoutOutputWriter
-
   else:
-    {.warning:
-      "the present module should be compiled with '-d:chronicles_default_output_device=dynamic' " &
-      "and '-d:chronicles_sinks=\"textlines,json\"' options" .}
+    {.
+      warning:
+        "the present module should be compiled with '-d:chronicles_default_output_device=dynamic' " &
+        "and '-d:chronicles_sinks=\"textlines,json\"' options"
+    .}

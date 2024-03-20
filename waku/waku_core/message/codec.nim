@@ -7,13 +7,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-
-import
-  ../../common/protobuf,
-  ../topics,
-  ../time,
-  ./message
-
+import ../../common/protobuf, ../topics, ../time, ./message
 
 proc encode*(message: WakuMessage): ProtoBuffer =
   var buf = initProtoBuffer()
@@ -29,11 +23,9 @@ proc encode*(message: WakuMessage): ProtoBuffer =
 
   buf
 
-
 proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
   var msg = WakuMessage()
   let pb = initProtoBuffer(buffer)
-
 
   var payload: seq[byte]
   if not ?pb.getField(1, payload):
@@ -41,13 +33,11 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
   else:
     msg.payload = payload
 
-
   var topic: ContentTopic
   if not ?pb.getField(2, topic):
     return err(ProtobufError.missingRequiredField("content_topic"))
   else:
     msg.contentTopic = topic
-
 
   var version: uint32
   if not ?pb.getField(3, version):
@@ -55,13 +45,11 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
   else:
     msg.version = version
 
-
   var timestamp: zint64
   if not ?pb.getField(10, timestamp):
     msg.timestamp = Timestamp(0)
   else:
     msg.timestamp = Timestamp(timestamp)
-
 
   var meta: seq[byte]
   if not ?pb.getField(11, meta):
@@ -72,14 +60,12 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
 
     msg.meta = meta
 
-
   # this is part of https://rfc.vac.dev/spec/17/ spec
   var proof: seq[byte]
   if not ?pb.getField(21, proof):
     msg.proof = @[]
   else:
     msg.proof = proof
-
 
   var ephemeral: uint
   if not ?pb.getField(31, ephemeral):

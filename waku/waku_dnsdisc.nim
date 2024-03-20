@@ -21,8 +21,7 @@ import
   libp2p/multiaddress,
   libp2p/peerid,
   dnsdisc/client
-import
-  ./waku_core
+import ./waku_core
 
 export client
 
@@ -32,17 +31,16 @@ declarePublicGauge waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"
 logScope:
   topics = "waku dnsdisc"
 
-type
-  WakuDnsDiscovery* = object
-    client*: Client
-    resolver*: Resolver
+type WakuDnsDiscovery* = object
+  client*: Client
+  resolver*: Resolver
 
 #####################
 # DNS Discovery API #
 #####################
 
 proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
-  debug "Empty resolver called", domain=domain
+  debug "Empty resolver called", domain = domain
   return ""
 
 proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring] =
@@ -53,7 +51,8 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring]
   # Synchronise client tree using configured resolver
   var tree: Tree
   try:
-    tree = wdd.client.getTree(wdd.resolver)  # @TODO: this is currently a blocking operation to not violate memory safety
+    tree = wdd.client.getTree(wdd.resolver)
+      # @TODO: this is currently a blocking operation to not violate memory safety
   except Exception:
     error "Failed to synchronise client tree"
     waku_dnsdisc_errors.inc(labelValues = ["tree_sync_failure"])
@@ -62,7 +61,7 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring]
   let discoveredEnr = wdd.client.getNodeRecords()
 
   if discoveredEnr.len > 0:
-    info "Successfully discovered ENR", count=discoveredEnr.len
+    info "Successfully discovered ENR", count = discoveredEnr.len
   else:
     trace "No ENR retrieved from client tree"
 
@@ -75,24 +74,24 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring]
     if res.isOk():
       discoveredNodes.add(res.get())
     else:
-      error "Failed to convert ENR to peer info", enr= $enr, err=res.error()
+      error "Failed to convert ENR to peer info", enr = $enr, err = res.error()
       waku_dnsdisc_errors.inc(labelValues = ["peer_info_failure"])
 
   if discoveredNodes.len > 0:
-    info "Successfully discovered nodes", count=discoveredNodes.len
+    info "Successfully discovered nodes", count = discoveredNodes.len
     waku_dnsdisc_discovered.inc(discoveredNodes.len.int64)
 
   return ok(discoveredNodes)
 
-proc init*(T: type WakuDnsDiscovery,
-           locationUrl: string,
-           resolver: Resolver): Result[T, cstring] =
+proc init*(
+    T: type WakuDnsDiscovery, locationUrl: string, resolver: Resolver
+): Result[T, cstring] =
   ## Initialise Waku peer discovery via DNS
 
-  debug "init WakuDnsDiscovery", locationUrl=locationUrl
+  debug "init WakuDnsDiscovery", locationUrl = locationUrl
 
   let
-    client = ? Client.init(locationUrl)
+    client = ?Client.init(locationUrl)
     wakuDnsDisc = WakuDnsDiscovery(client: client, resolver: resolver)
 
   debug "init success"

@@ -6,15 +6,8 @@ import
   testutils/unittests,
   chronicles,
   chronos,
-  libp2p/protocols/pubsub/[
-      pubsub,
-      gossipsub
-  ],
-  libp2p/[
-    multihash,
-    stream/connection,
-    switch
-  ],
+  libp2p/protocols/pubsub/[pubsub, gossipsub],
+  libp2p/[multihash, stream/connection, switch],
   ./crypto_utils,
   std/json
 
@@ -24,18 +17,11 @@ import
     waku_relay/protocol,
     waku_relay,
     waku_core,
-    waku_core/message/codec
+    waku_core/message/codec,
   ],
-  ../testlib/[
-    wakucore,
-    testasync,
-    testutils,
-    futures,
-    sequtils
-  ],
+  ../testlib/[wakucore, testasync, testutils, futures, sequtils],
   ./utils,
   ../resources/payloads
-
 
 suite "Waku Relay":
   var messageSeq {.threadvar.}: seq[(PubsubTopic, WakuMessage)]
@@ -59,7 +45,7 @@ suite "Waku Relay":
     messageSeq = @[]
     handlerFuture = newPushHandlerFuture()
     simpleFutureHandler = proc(
-      topic: PubsubTopic, msg: WakuMessage
+        topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, closure, gcsafe.} =
       messageSeq.add((topic, msg))
       handlerFuture.complete((topic, msg))
@@ -109,10 +95,10 @@ suite "Waku Relay":
       check:
         topic == pubsubTopic
         msg == wakuMessage
-    
+
     asyncTest "Pubsub Topic Subscription (Network Size: 2, only one subscribed)":
       # Given a second node connected to the first one
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
 
@@ -121,7 +107,9 @@ suite "Waku Relay":
       check await peerManager.connectRelay(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       # When subscribing the second node to the Pubsub Topic
@@ -149,7 +137,7 @@ suite "Waku Relay":
       check:
         otherTopic1 == pubsubTopic
         otherMessage1 == fromOtherWakuMessage
-      
+
       # When publishing a message in the other node
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
@@ -160,18 +148,18 @@ suite "Waku Relay":
       check:
         not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-      
+
       let (otherTopic2, otherMessage2) = otherHandlerFuture.read()
       check:
         otherTopic2 == pubsubTopic
         otherMessage2 == fromNodeWakuMessage
-      
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
     asyncTest "Pubsub Topic Subscription (Network Size: 2, both subscribed to same pubsub topic)":
       # Given a second node connected to the first one
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
 
@@ -180,7 +168,9 @@ suite "Waku Relay":
       check await peerManager.connectRelay(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       # When subscribing both nodes to the same Pubsub Topic
@@ -205,7 +195,7 @@ suite "Waku Relay":
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
 
-      let 
+      let
         (topic1, message1) = handlerFuture.read()
         (otherTopic1, otherMessage1) = otherHandlerFuture.read()
       check:
@@ -213,7 +203,7 @@ suite "Waku Relay":
         message1 == fromOtherWakuMessage
         otherTopic1 == pubsubTopic
         otherMessage1 == fromOtherWakuMessage
-      
+
       # When publishing a message in the other node
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
@@ -225,8 +215,8 @@ suite "Waku Relay":
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-      
-      let 
+
+      let
         (topic2, message2) = handlerFuture.read()
         (otherTopic2, otherMessage2) = otherHandlerFuture.read()
       check:
@@ -234,7 +224,7 @@ suite "Waku Relay":
         message2 == fromNodeWakuMessage
         otherTopic2 == pubsubTopic
         otherMessage2 == fromNodeWakuMessage
-      
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
@@ -251,8 +241,11 @@ suite "Waku Relay":
 
       # Given the subscription is refreshed
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
+
       discard node.subscribe(pubsubTopic, otherSimpleFutureHandler)
       check:
         node.isSubscribed(pubsubTopic)
@@ -275,7 +268,7 @@ suite "Waku Relay":
       # Given a simple validator
       var validatorFuture = newBoolFuture()
       let len4Validator = proc(
-        pubsubTopic: string, message: WakuMessage
+          pubsubTopic: string, message: WakuMessage
       ): Future[ValidationResult] {.async.} =
         if message.payload.len() == 8:
           validatorFuture.complete(true)
@@ -285,7 +278,7 @@ suite "Waku Relay":
           return ValidationResult.Reject
 
       # And a second node connected to the first one
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
 
@@ -294,7 +287,9 @@ suite "Waku Relay":
       check await peerManager.connectRelay(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       otherNode.addValidator(len4Validator)
@@ -318,7 +313,7 @@ suite "Waku Relay":
 
       # Then the validator is ran in the other node, and fails
       # Not run in the self node
-      check: 
+      check:
         await validatorFuture.withTimeout(FUTURE_TIMEOUT)
         validatorFuture.read() == false
 
@@ -344,7 +339,7 @@ suite "Waku Relay":
 
       # Then the validator is ran in the other node, and succeeds
       # Not run in the self node
-      check: 
+      check:
         await validatorFuture.withTimeout(FUTURE_TIMEOUT)
         validatorFuture.read() == true
 
@@ -359,7 +354,7 @@ suite "Waku Relay":
         msg2 == wakuMessage2
         otherTopic2 == pubsubTopic
         otherMsg2 == wakuMessage2
-      
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
@@ -373,7 +368,7 @@ suite "Waku Relay":
 
     asyncTest "Message encryption/decryption":
       # Given a second node connected to the first one, both subscribed to the same Pubsub Topic
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
 
@@ -382,7 +377,9 @@ suite "Waku Relay":
       check await peerManager.connectRelay(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
@@ -392,7 +389,7 @@ suite "Waku Relay":
         node.subscribedTopics == pubsubTopicSeq
         otherNode.isSubscribed(pubsubTopic)
         otherNode.subscribedTopics == pubsubTopicSeq
-      
+
       await sleepAsync(500.millis)
 
       # Given some crypto info
@@ -404,7 +401,7 @@ suite "Waku Relay":
       let encodedText = cfbEncode(key, iv, data)
       let encodedWakuMessage = fakeWakuMessage(encodedText, pubsubTopic)
       discard await node.publish(pubsubTopic, encodedWakuMessage)
-      
+
       # Then the message is published in both nodes
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -416,9 +413,9 @@ suite "Waku Relay":
         msg1 == encodedWakuMessage
         otherTopic1 == pubsubTopic
         otherMsg1 == encodedWakuMessage
-      
+
       # When decoding the message
-      let 
+      let
         decodedText = cfbDecode(key, iv, msg1.payload)
         otherDecodedText = cfbDecode(key, iv, otherMsg1.payload)
 
@@ -426,7 +423,7 @@ suite "Waku Relay":
       check:
         decodedText.toString() == data
         otherDecodedText.toString() == data
-      
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
@@ -437,7 +434,7 @@ suite "Waku Relay":
         pubsubTopicC = "pubsub-topic-c"
 
       # Given two other nodes connected to the first one
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherPeerManager = PeerManager.new(otherSwitch)
         otherNode = await newTestWakuRelay(otherSwitch)
@@ -445,9 +442,14 @@ suite "Waku Relay":
         anotherPeerManager = PeerManager.new(anotherSwitch)
         anotherNode = await newTestWakuRelay(anotherSwitch)
 
-      await allFutures(otherSwitch.start(), otherNode.start(), anotherSwitch.start(), anotherNode.start())
+      await allFutures(
+        otherSwitch.start(),
+        otherNode.start(),
+        anotherSwitch.start(),
+        anotherNode.start(),
+      )
 
-      let 
+      let
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
         anotherRemotePeerInfo = anotherSwitch.peerInfo.toRemotePeerInfo()
@@ -459,29 +461,39 @@ suite "Waku Relay":
 
       # Given the first node is subscribed to two pubsub topics
       var handlerFuture2 = newPushHandlerFuture()
-      proc simpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc simpleFutureHandler2(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         handlerFuture2.complete((topic, message))
-      
+
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       discard node.subscribe(pubsubTopicB, simpleFutureHandler2)
 
       # Given the other nodes are subscribed to two pubsub topics
       var otherHandlerFuture1 = newPushHandlerFuture()
-      proc otherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler1(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture1.complete((topic, message))
-      
+
       var otherHandlerFuture2 = newPushHandlerFuture()
-      proc otherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler2(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture2.complete((topic, message))
-      
+
       var anotherHandlerFuture1 = newPushHandlerFuture()
-      proc anotherSimpleFutureHandler1(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc anotherSimpleFutureHandler1(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         anotherHandlerFuture1.complete((topic, message))
-      
+
       var anotherHandlerFuture2 = newPushHandlerFuture()
-      proc anotherSimpleFutureHandler2(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc anotherSimpleFutureHandler2(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         anotherHandlerFuture2.complete((topic, message))
-      
+
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler1)
       discard otherNode.subscribe(pubsubTopicC, otherSimpleFutureHandler2)
       discard anotherNode.subscribe(pubsubTopicB, anotherSimpleFutureHandler1)
@@ -489,7 +501,7 @@ suite "Waku Relay":
       await sleepAsync(500.millis)
 
       # When publishing a message in node for each of the pubsub topics
-      let 
+      let
         fromNodeWakuMessage1 = fakeWakuMessage("fromNode1")
         fromNodeWakuMessage2 = fakeWakuMessage("fromNode2")
         fromNodeWakuMessage3 = fakeWakuMessage("fromNode3")
@@ -545,7 +557,7 @@ suite "Waku Relay":
       anotherHandlerFuture1 = newPushHandlerFuture()
       anotherHandlerFuture2 = newPushHandlerFuture()
 
-      let 
+      let
         fromNodeWakuMessage4 = fakeWakuMessage("fromNode4")
         fromNodeWakuMessage5 = fakeWakuMessage("fromNode5")
         fromNodeWakuMessage6 = fakeWakuMessage("fromNode6")
@@ -569,7 +581,7 @@ suite "Waku Relay":
         (topic4, msg4) = handlerFuture2.read()
         (otherTopic3, otherMsg3) = otherHandlerFuture1.read()
         (otherTopic4, otherMsg4) = otherHandlerFuture2.read()
-      
+
       check:
         topic3 == pubsubTopic
         msg3 == fromNodeWakuMessage4
@@ -588,11 +600,11 @@ suite "Waku Relay":
       anotherHandlerFuture1 = newPushHandlerFuture()
       anotherHandlerFuture2 = newPushHandlerFuture()
 
-      let 
+      let
         fromAnotherNodeWakuMessage1 = fakeWakuMessage("fromAnotherNode1")
         fromAnotherNodeWakuMessage2 = fakeWakuMessage("fromAnotherNode2")
         fromAnotherNodeWakuMessage3 = fakeWakuMessage("fromAnotherNode3")
-      
+
       discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage1)
       discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage2)
       discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage3)
@@ -606,11 +618,11 @@ suite "Waku Relay":
         not await otherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
         await anotherHandlerFuture1.withTimeout(FUTURE_TIMEOUT)
         await anotherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
-      
+
       let
         (anotherTopic3, anotherMsg3) = anotherHandlerFuture1.read()
         (anotherTopic4, anotherMsg4) = anotherHandlerFuture2.read()
-      
+
       check:
         anotherTopic3 == pubsubTopicB
         anotherMsg3 == fromAnotherNodeWakuMessage2
@@ -625,11 +637,11 @@ suite "Waku Relay":
       anotherHandlerFuture1 = newPushHandlerFuture()
       anotherHandlerFuture2 = newPushHandlerFuture()
 
-      let 
+      let
         fromOtherNodeWakuMessage1 = fakeWakuMessage("fromOtherNode1")
         fromOtherNodeWakuMessage2 = fakeWakuMessage("fromOtherNode2")
         fromOtherNodeWakuMessage3 = fakeWakuMessage("fromOtherNode3")
-      
+
       discard await otherNode.publish(pubsubTopic, fromOtherNodeWakuMessage1)
       discard await otherNode.publish(pubsubTopicB, fromOtherNodeWakuMessage2)
       discard await otherNode.publish(pubsubTopicC, fromOtherNodeWakuMessage3)
@@ -643,13 +655,13 @@ suite "Waku Relay":
         await otherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
         not await anotherHandlerFuture1.withTimeout(FUTURE_TIMEOUT)
         not await anotherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
-      
+
       let
         (topic5, msg5) = handlerFuture.read()
         (topic6, msg6) = handlerFuture2.read()
         (otherTopic5, otherMsg5) = otherHandlerFuture1.read()
         (otherTopic6, otherMsg6) = otherHandlerFuture2.read()
-      
+
       check:
         topic5 == pubsubTopic
         msg5 == fromOtherNodeWakuMessage1
@@ -674,11 +686,11 @@ suite "Waku Relay":
       anotherHandlerFuture1 = newPushHandlerFuture()
       anotherHandlerFuture2 = newPushHandlerFuture()
 
-      let 
+      let
         fromAnotherNodeWakuMessage4 = fakeWakuMessage("fromAnotherNode4")
         fromAnotherNodeWakuMessage5 = fakeWakuMessage("fromAnotherNode5")
         fromAnotherNodeWakuMessage6 = fakeWakuMessage("fromAnotherNode6")
-      
+
       discard await anotherNode.publish(pubsubTopic, fromAnotherNodeWakuMessage4)
       discard await anotherNode.publish(pubsubTopicB, fromAnotherNodeWakuMessage5)
       discard await anotherNode.publish(pubsubTopicC, fromAnotherNodeWakuMessage6)
@@ -693,14 +705,14 @@ suite "Waku Relay":
         await otherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
         await anotherHandlerFuture1.withTimeout(FUTURE_TIMEOUT)
         await anotherHandlerFuture2.withTimeout(FUTURE_TIMEOUT)
-      
+
       let
         (topic7, msg7) = handlerFuture.read()
         (otherTopic7, otherMsg7) = otherHandlerFuture1.read()
         (otherTopic8, otherMsg8) = otherHandlerFuture2.read()
         (anotherTopic7, anotherMsg7) = anotherHandlerFuture1.read()
         (anotherTopic8, anotherMsg8) = anotherHandlerFuture2.read()
-      
+
       check:
         topic7 == pubsubTopic
         msg7 == fromAnotherNodeWakuMessage4
@@ -714,17 +726,20 @@ suite "Waku Relay":
         anotherMsg8 == fromAnotherNodeWakuMessage6
 
       # Finally stop the other nodes
-      await allFutures(otherSwitch.stop(), otherNode.stop(), anotherSwitch.stop(), anotherNode.stop())
+      await allFutures(
+        otherSwitch.stop(), otherNode.stop(), anotherSwitch.stop(), anotherNode.stop()
+      )
 
   suite "Unsubscribe":
     asyncTest "Without Subscription":
       # Given an external topic handler
-      let 
+      let
         otherSwitch = newTestSwitch()
         otherNode = await newTestWakuRelay(otherSwitch)
       await allFutures(otherSwitch.start(), otherNode.start())
-      let otherTopicHandler: TopicHandler = otherNode.subscribe(pubsubTopic, simpleFutureHandler)
-      
+      let otherTopicHandler: TopicHandler =
+        otherNode.subscribe(pubsubTopic, simpleFutureHandler)
+
       # Given a node without a subscription
       check:
         node.subscribedTopics == []
@@ -735,7 +750,7 @@ suite "Waku Relay":
       # Then the node is still not subscribed
       check:
         node.subscribedTopics == []
-      
+
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
@@ -755,14 +770,14 @@ suite "Waku Relay":
       let pubsubTopicB = "pubsub-topic-b"
 
       # Given a node subscribed to multiple pubsub topics
-      let 
+      let
         topicHandler = node.subscribe(pubsubTopic, simpleFutureHandler)
         topicHandlerB = node.subscribe(pubsubTopicB, simpleFutureHandler)
       check node.subscribedTopics == @[pubsubTopic, pubsubTopicB]
 
       # When unsubscribing from one of the pubsub topics
       node.unsubscribe(pubsubTopic, topicHandler)
-      
+
       # Then the node is still subscribed to the other pubsub topic
       check node.subscribedTopics == @[pubsubTopicB]
 
@@ -779,7 +794,7 @@ suite "Waku Relay":
 
       # When unsubscribing from all pubsub topics
       node.unsubscribeAll(pubsubTopic)
-      
+
       # Then the node is still not subscribed
       check node.subscribedTopics == []
 
@@ -802,15 +817,15 @@ suite "Waku Relay":
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       discard node.subscribe(pubsubTopicB, simpleFutureHandler)
-        
+
       check node.subscribedTopics == @[pubsubTopic, pubsubTopicB]
 
       # When unsubscribing all handlers from pubsubTopic
       node.unsubscribeAll(pubsubTopic)
-      
+
       # Then the node doesn't have pubsubTopic handlers
       check node.subscribedTopics == @[pubsubTopicB]
-      
+
       # When unsubscribing all handlers from pubsubTopicB
       node.unsubscribeAll(pubsubTopicB)
 
@@ -830,7 +845,9 @@ suite "Waku Relay":
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
@@ -838,26 +855,28 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
-      
+
       await sleepAsync(500.millis)
-      
+
       # Given some payloads
       let
         JSON_DICTIONARY = getSampleJsonDictionary()
         JSON_LIST = getSampleJsonList()
 
       # Given some valid messages
-      let 
-        msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHABETIC)
-        msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHANUMERIC)
-        msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=ALPHANUMERIC_SPECIAL)
-        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=EMOJI)
-        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=CODE)
-        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=QUERY)
-        msg7 = fakeWakuMessage(contentTopic=contentTopic, payload=($JSON_DICTIONARY))
-        msg8 = fakeWakuMessage(contentTopic=contentTopic, payload=($JSON_LIST))
-        msg9 = fakeWakuMessage(contentTopic=contentTopic, payload=TEXT_SMALL)
-        msg10 = fakeWakuMessage(contentTopic=contentTopic, payload=TEXT_LARGE)
+      let
+        msg1 = fakeWakuMessage(contentTopic = contentTopic, payload = ALPHABETIC)
+        msg2 = fakeWakuMessage(contentTopic = contentTopic, payload = ALPHANUMERIC)
+        msg3 =
+          fakeWakuMessage(contentTopic = contentTopic, payload = ALPHANUMERIC_SPECIAL)
+        msg4 = fakeWakuMessage(contentTopic = contentTopic, payload = EMOJI)
+        msg5 = fakeWakuMessage(contentTopic = contentTopic, payload = CODE)
+        msg6 = fakeWakuMessage(contentTopic = contentTopic, payload = QUERY)
+        msg7 =
+          fakeWakuMessage(contentTopic = contentTopic, payload = ($JSON_DICTIONARY))
+        msg8 = fakeWakuMessage(contentTopic = contentTopic, payload = ($JSON_LIST))
+        msg9 = fakeWakuMessage(contentTopic = contentTopic, payload = TEXT_SMALL)
+        msg10 = fakeWakuMessage(contentTopic = contentTopic, payload = TEXT_LARGE)
 
       # When sending the alphabetic message
       discard await node.publish(pubsubTopic, msg1)
@@ -957,7 +976,7 @@ suite "Waku Relay":
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg9)
-      
+
       # Then the message is received in both nodes
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -979,7 +998,7 @@ suite "Waku Relay":
 
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
-    
+
     asyncTest "Valid Payload Sizes":
       # Given a second node connected to the first one
       let
@@ -992,7 +1011,9 @@ suite "Waku Relay":
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
@@ -1000,22 +1021,36 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
-      
+
       await sleepAsync(500.millis)
 
       # Given some valid payloads
       let
         msgWithoutPayload =
-              fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(0))
+          fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(0))
         sizeEmptyMsg = uint64(msgWithoutPayload.encode().buffer.len)
 
       let
-        msg1 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(1024)) # 1KiB
-        msg2 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(10*1024)) # 10KiB 
-        msg3 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(100*1024)) # 100KiB
-        msg4 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 38)) # Max Size (Inclusive Limit)
-        msg5 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 37)) # Max Size (Exclusive Limit)
-        msg6 = fakeWakuMessage(contentTopic=contentTopic, payload=getByteSequence(MaxWakuMessageSize)) # MaxWakuMessageSize -> Out of Max Size
+        msg1 =
+          fakeWakuMessage(contentTopic = contentTopic, payload = getByteSequence(1024))
+          # 1KiB
+        msg2 = fakeWakuMessage(
+          contentTopic = contentTopic, payload = getByteSequence(10 * 1024)
+        ) # 10KiB 
+        msg3 = fakeWakuMessage(
+          contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
+        ) # 100KiB
+        msg4 = fakeWakuMessage(
+          contentTopic = contentTopic,
+          payload = getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 38),
+        ) # Max Size (Inclusive Limit)
+        msg5 = fakeWakuMessage(
+          contentTopic = contentTopic,
+          payload = getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 37),
+        ) # Max Size (Exclusive Limit)
+        msg6 = fakeWakuMessage(
+          contentTopic = contentTopic, payload = getByteSequence(MaxWakuMessageSize)
+        ) # MaxWakuMessageSize -> Out of Max Size
 
       # Notice that the message is wrapped with more data in https://github.com/status-im/nim-libp2p/blob/3011ba4326fa55220a758838835797ff322619fc/libp2p/protocols/pubsub/gossipsub.nim#L627-L632
       # And therefore, we need to substract a hard-coded values above (for msg4 & msg5), obtained empirically,
@@ -1049,7 +1084,7 @@ suite "Waku Relay":
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg3)
-      
+
       # Then the message is received in both nodes
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -1108,13 +1143,17 @@ suite "Waku Relay":
       # Create a different handler than the default to include messages in a seq
       var thisHandlerFuture = newPushHandlerFuture()
       var thisMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
-      proc thisSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc thisSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         thisMessageSeq.add((topic, message))
         thisHandlerFuture.complete((topic, message))
 
       var otherHandlerFuture = newPushHandlerFuture()
       var otherMessageSeq: seq[(PubsubTopic, WakuMessage)] = @[]
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherMessageSeq.add((topic, message))
         otherHandlerFuture.complete((topic, message))
 
@@ -1131,7 +1170,7 @@ suite "Waku Relay":
         msg2 = fakeWakuMessage("msg2", pubsubTopic)
         msg3 = fakeWakuMessage("msg3", pubsubTopic)
         msg4 = fakeWakuMessage("msg4", pubsubTopic)
-      
+
       discard await node.publish(pubsubTopic, msg1)
       check await thisHandlerFuture.withTimeout(FUTURE_TIMEOUT)
       check await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -1151,19 +1190,21 @@ suite "Waku Relay":
 
       check:
         await thisHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-        thisMessageSeq == @[
-          (pubsubTopic, msg1),
-          (pubsubTopic, msg2),
-          (pubsubTopic, msg3),
-          (pubsubTopic, msg4)
-        ]
+        thisMessageSeq ==
+          @[
+            (pubsubTopic, msg1),
+            (pubsubTopic, msg2),
+            (pubsubTopic, msg3),
+            (pubsubTopic, msg4),
+          ]
         await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
-        otherMessageSeq == @[
-          (pubsubTopic, msg1),
-          (pubsubTopic, msg2),
-          (pubsubTopic, msg3),
-          (pubsubTopic, msg4)
-        ]
+        otherMessageSeq ==
+          @[
+            (pubsubTopic, msg1),
+            (pubsubTopic, msg2),
+            (pubsubTopic, msg3),
+            (pubsubTopic, msg4),
+          ]
 
       # Finally stop the other node
       await allFutures(otherSwitch.stop(), otherNode.stop())
@@ -1177,7 +1218,7 @@ suite "Waku Relay":
         otherNode = await newTestWakuRelay(otherSwitch)
 
       await allFutures(otherSwitch.start(), otherNode.start())
-      let 
+      let
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
 
@@ -1185,7 +1226,9 @@ suite "Waku Relay":
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
@@ -1234,7 +1277,7 @@ suite "Waku Relay":
       otherHandlerFuture = newPushHandlerFuture()
       let msg3 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await node.publish(pubsubTopic, msg3)
-      
+
       # Then the message is received in both nodes
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -1247,7 +1290,7 @@ suite "Waku Relay":
       otherHandlerFuture = newPushHandlerFuture()
       let msg4 = fakeWakuMessage(testMessage, pubsubTopic)
       discard await otherNode.publish(pubsubTopic, msg4)
-      
+
       # Then the message is received in both nodes
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
@@ -1266,7 +1309,7 @@ suite "Waku Relay":
         otherNode = await newTestWakuRelay(otherSwitch)
 
       await allFutures(otherSwitch.start(), otherNode.start())
-      let 
+      let
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
 
@@ -1274,7 +1317,9 @@ suite "Waku Relay":
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
-      proc otherSimpleFutureHandler(topic: PubsubTopic, message: WakuMessage) {.async, gcsafe.} =
+      proc otherSimpleFutureHandler(
+          topic: PubsubTopic, message: WakuMessage
+      ) {.async, gcsafe.} =
         otherHandlerFuture.complete((topic, message))
 
       discard otherNode.subscribe(pubsubTopic, otherSimpleFutureHandler)
@@ -1282,7 +1327,7 @@ suite "Waku Relay":
       check:
         node.subscribedTopics == pubsubTopicSeq
         otherNode.subscribedTopics == pubsubTopicSeq
-      
+
       await sleepAsync(500.millis)
 
       # Given other node is stopped without unsubscribing

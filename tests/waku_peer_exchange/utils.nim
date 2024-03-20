@@ -18,7 +18,7 @@ import
     waku_peer_exchange/rpc,
     waku_peer_exchange/protocol,
     node/peer_manager,
-    waku_core
+    waku_core,
   ],
   ../testlib/[futures, wakucore, assertions]
 

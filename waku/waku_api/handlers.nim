@@ -3,26 +3,21 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronos,
-  chronicles,
-  std/[options, sequtils],
-  stew/results
-import
-  ../waku_discv5,
-  ../waku_relay,
-  ../waku_core,
-  ./message_cache
+import chronos, chronicles, std/[options, sequtils], stew/results
+import ../waku_discv5, ../waku_relay, ../waku_core, ./message_cache
 
 ### Discovery
 
-type DiscoveryHandler* = proc(): Future[Result[Option[RemotePeerInfo], string]] {.async, closure.}
+type DiscoveryHandler* =
+  proc(): Future[Result[Option[RemotePeerInfo], string]] {.async, closure.}
 
-proc defaultDiscoveryHandler*(discv5: WakuDiscoveryV5, cap: Capabilities): DiscoveryHandler =
+proc defaultDiscoveryHandler*(
+    discv5: WakuDiscoveryV5, cap: Capabilities
+): DiscoveryHandler =
   proc(): Future[Result[Option[RemotePeerInfo], string]] {.async, closure.} =
     #Discv5 is already filtering peers by shards no need to pass a predicate.
     let findPeers = discv5.findRandomPeers()
-    
+
     if not await findPeers.withTimeout(60.seconds):
       return err("discovery process timed out!")
 

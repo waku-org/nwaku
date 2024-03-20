@@ -3,8 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  stew/results
+import stew/results
 
 const
   WakuFilterSubscribeCodec* = "/vac/waku/filter-subscribe/2.0.0-beta1"
@@ -31,33 +30,35 @@ type
   FilterSubscribeResult* = Result[void, FilterSubscribeError]
 
 # Convenience functions
-proc peerDialFailure*(T: type FilterSubscribeError, address: string): FilterSubscribeError =
+proc peerDialFailure*(
+    T: type FilterSubscribeError, address: string
+): FilterSubscribeError =
   FilterSubscribeError(
-    kind: FilterSubscribeErrorKind.PEER_DIAL_FAILURE,
-    address: address)
+    kind: FilterSubscribeErrorKind.PEER_DIAL_FAILURE, address: address
+  )
 
-proc badResponse*(T: type FilterSubscribeError, cause = "bad response"): FilterSubscribeError =
-  FilterSubscribeError(
-    kind: FilterSubscribeErrorKind.BAD_RESPONSE,
-    cause: cause)
+proc badResponse*(
+    T: type FilterSubscribeError, cause = "bad response"
+): FilterSubscribeError =
+  FilterSubscribeError(kind: FilterSubscribeErrorKind.BAD_RESPONSE, cause: cause)
 
-proc badRequest*(T: type FilterSubscribeError, cause = "bad request"): FilterSubscribeError =
-  FilterSubscribeError(
-    kind: FilterSubscribeErrorKind.BAD_REQUEST,
-    cause: cause)
+proc badRequest*(
+    T: type FilterSubscribeError, cause = "bad request"
+): FilterSubscribeError =
+  FilterSubscribeError(kind: FilterSubscribeErrorKind.BAD_REQUEST, cause: cause)
 
-proc notFound*(T: type FilterSubscribeError, cause = "peer has no subscriptions"): FilterSubscribeError =
-  FilterSubscribeError(
-    kind: FilterSubscribeErrorKind.NOT_FOUND,
-    cause: cause)
+proc notFound*(
+    T: type FilterSubscribeError, cause = "peer has no subscriptions"
+): FilterSubscribeError =
+  FilterSubscribeError(kind: FilterSubscribeErrorKind.NOT_FOUND, cause: cause)
 
-proc serviceUnavailable*(T: type FilterSubscribeError, cause = "service unavailable"): FilterSubscribeError =
-  FilterSubscribeError(
-    kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE,
-    cause: cause)
+proc serviceUnavailable*(
+    T: type FilterSubscribeError, cause = "service unavailable"
+): FilterSubscribeError =
+  FilterSubscribeError(kind: FilterSubscribeErrorKind.SERVICE_UNAVAILABLE, cause: cause)
 
 proc parse*(T: type FilterSubscribeErrorKind, kind: uint32): T =
-  case kind:
+  case kind
   of 000, 200, 300, 400, 404, 503:
     FilterSubscribeErrorKind(kind)
   else:
@@ -65,21 +66,16 @@ proc parse*(T: type FilterSubscribeErrorKind, kind: uint32): T =
 
 proc parse*(T: type FilterSubscribeError, kind: uint32, cause = "", address = ""): T =
   let kind = FilterSubscribeErrorKind.parse(kind)
-  case kind:
+  case kind
   of PEER_DIAL_FAILURE:
-    FilterSubscribeError(
-      kind: kind,
-      address: address)
+    FilterSubscribeError(kind: kind, address: address)
   of BAD_RESPONSE, BAD_REQUEST, NOT_FOUND, SERVICE_UNAVAILABLE:
-    FilterSubscribeError(
-      kind: kind,
-      cause: cause)
+    FilterSubscribeError(kind: kind, cause: cause)
   else:
-    FilterSubscribeError(
-      kind: kind)
+    FilterSubscribeError(kind: kind)
 
 proc `$`*(err: FilterSubscribeError): string =
-  case err.kind:
+  case err.kind
   of FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
     "PEER_DIAL_FAILURE: " & err.address
   of FilterSubscribeErrorKind.BAD_RESPONSE:

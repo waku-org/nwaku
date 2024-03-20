@@ -1,24 +1,14 @@
 {.used.}
 
-import
-  std/options,
-  chronos,
-  chronicles,
-  libp2p/crypto/crypto
+import std/options, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[
-    node/peer_manager,
-    waku_core,
-    waku_store,
-    waku_store/client,
-  ],
-  ../testlib/[
-    common,
-    wakucore
-  ]
+  ../../../waku/[node/peer_manager, waku_core, waku_store, waku_store/client],
+  ../testlib/[common, wakucore]
 
-proc newTestWakuStore*(switch: Switch, handler: HistoryQueryHandler): Future[WakuStore] {.async.} =
+proc newTestWakuStore*(
+    switch: Switch, handler: HistoryQueryHandler
+): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     proto = WakuStore.new(peerManager, rng, handler)
@@ -32,11 +22,12 @@ proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient =
   let peerManager = PeerManager.new(switch)
   WakuStoreClient.new(peerManager, rng)
 
-
-proc computeHistoryCursor*(pubsubTopic: PubsubTopic, message: WakuMessage): HistoryCursor =
+proc computeHistoryCursor*(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+): HistoryCursor =
   HistoryCursor(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
-    digest: waku_store.computeDigest(message)
+    digest: waku_store.computeDigest(message),
   )

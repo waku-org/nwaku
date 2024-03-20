@@ -1,9 +1,6 @@
 {.used.}
 
-import
-  std/options,
-  testutils/unittests,
-  chronos
+import std/options, testutils/unittests, chronos
 import
   ../../../waku/common/protobuf,
   ../../../waku/common/paging,
@@ -13,13 +10,12 @@ import
   ../testlib/common,
   ../testlib/wakucore
 
-
-
 procSuite "Waku Store - RPC codec":
-
   test "PagingIndexRPC protobuf codec":
     ## Given
-    let index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
+    let index = PagingIndexRPC.compute(
+      fakeWakuMessage(), receivedTime = ts(), pubsubTopic = DefaultPubsubTopic
+    )
 
     ## When
     let encodedIndex = index.encode()
@@ -53,8 +49,14 @@ procSuite "Waku Store - RPC codec":
   test "PagingInfoRPC protobuf codec":
     ## Given
     let
-      index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.FORWARD))
+      index = PagingIndexRPC.compute(
+        fakeWakuMessage(), receivedTime = ts(), pubsubTopic = DefaultPubsubTopic
+      )
+      pagingInfo = PagingInfoRPC(
+        pageSize: some(1'u64),
+        cursor: some(index),
+        direction: some(PagingDirection.FORWARD),
+      )
 
     ## When
     let pb = pagingInfo.encode()
@@ -88,13 +90,23 @@ procSuite "Waku Store - RPC codec":
   test "HistoryQueryRPC protobuf codec":
     ## Given
     let
-      index = PagingIndexRPC.compute(fakeWakuMessage(), receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.BACKWARD))
+      index = PagingIndexRPC.compute(
+        fakeWakuMessage(), receivedTime = ts(), pubsubTopic = DefaultPubsubTopic
+      )
+      pagingInfo = PagingInfoRPC(
+        pageSize: some(1'u64),
+        cursor: some(index),
+        direction: some(PagingDirection.BACKWARD),
+      )
       query = HistoryQueryRPC(
-        contentFilters: @[HistoryContentFilterRPC(contentTopic: DefaultContentTopic), HistoryContentFilterRPC(contentTopic: DefaultContentTopic)],
+        contentFilters:
+          @[
+            HistoryContentFilterRPC(contentTopic: DefaultContentTopic),
+            HistoryContentFilterRPC(contentTopic: DefaultContentTopic),
+          ],
         pagingInfo: some(pagingInfo),
         startTime: some(Timestamp(10)),
-        endTime: some(Timestamp(11))
+        endTime: some(Timestamp(11)),
       )
 
     ## When
@@ -129,9 +141,19 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let
       message = fakeWakuMessage()
-      index = PagingIndexRPC.compute(message, receivedTime=ts(), pubsubTopic=DefaultPubsubTopic)
-      pagingInfo = PagingInfoRPC(pageSize: some(1'u64), cursor: some(index), direction: some(PagingDirection.BACKWARD))
-      res = HistoryResponseRPC(messages: @[message], pagingInfo: some(pagingInfo), error: HistoryResponseErrorRPC.INVALID_CURSOR)
+      index = PagingIndexRPC.compute(
+        message, receivedTime = ts(), pubsubTopic = DefaultPubsubTopic
+      )
+      pagingInfo = PagingInfoRPC(
+        pageSize: some(1'u64),
+        cursor: some(index),
+        direction: some(PagingDirection.BACKWARD),
+      )
+      res = HistoryResponseRPC(
+        messages: @[message],
+        pagingInfo: some(pagingInfo),
+        error: HistoryResponseErrorRPC.INVALID_CURSOR,
+      )
 
     ## When
     let pb = res.encode()

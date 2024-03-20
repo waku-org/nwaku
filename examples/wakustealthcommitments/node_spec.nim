@@ -15,19 +15,8 @@ import
   libp2p/crypto/crypto
 
 export
-  networks_config,
-  app,
-  logging,
-  options, 
-  strutils, 
-  os, 
-  sequtils,
-  stewNet,
-  chronicles,
-  chronos,
-  metrics,
-  libbacktrace,
-  crypto
+  networks_config, app, logging, options, strutils, os, sequtils, stewNet, chronicles,
+  chronos, metrics, libbacktrace, crypto
 
 proc setup*(): App =
   const versionString = "version / git commit hash: " & app.git_version

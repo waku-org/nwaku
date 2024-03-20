@@ -3,18 +3,14 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  stew/results
-import
-  ../waku_core,
-  ../waku_noise/noise_types,
-  ../waku_noise/noise_utils
-
+import stew/results
+import ../waku_core, ../waku_noise/noise_types, ../waku_noise/noise_utils
 
 # Decodes a WakuMessage to a PayloadV2
 # Currently, this is just a wrapper over deserializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
-proc decodePayloadV2*(message: WakuMessage): Result[PayloadV2, cstring]
-  {.raises: [NoiseMalformedHandshake, NoisePublicKeyError].} =
+proc decodePayloadV2*(
+    message: WakuMessage
+): Result[PayloadV2, cstring] {.raises: [NoiseMalformedHandshake, NoisePublicKeyError].} =
   # We check message version (only 2 is supported in this proc)
   case message.version
   of 2:
@@ -27,18 +23,21 @@ proc decodePayloadV2*(message: WakuMessage): Result[PayloadV2, cstring]
   else:
     return err("Wrong message version while decoding payload")
 
-
 # Encodes a PayloadV2 to a WakuMessage
 # Currently, this is just a wrapper over serializePayloadV2 and encryption/decryption is done on top (no KeyInfo)
-proc encodePayloadV2*(payload2: PayloadV2, contentTopic: ContentTopic = default(ContentTopic)): Result[WakuMessage, cstring]
-  {.raises: [NoiseMalformedHandshake, NoisePublicKeyError].} =
-
+proc encodePayloadV2*(
+    payload2: PayloadV2, contentTopic: ContentTopic = default(ContentTopic)
+): Result[WakuMessage, cstring] {.
+    raises: [NoiseMalformedHandshake, NoisePublicKeyError]
+.} =
   # We attempt to encode the PayloadV2
   let serializedPayload2 = serializePayloadV2(payload2)
   if not serializedPayload2.isOk():
     return err("Failed to encode PayloadV2")
 
   # If successful, we create and return a WakuMessage
-  let msg = WakuMessage(payload: serializedPayload2.get(), version: 2, contentTopic: contentTopic)
+  let msg = WakuMessage(
+    payload: serializedPayload2.get(), version: 2, contentTopic: contentTopic
+  )
 
   return ok(msg)

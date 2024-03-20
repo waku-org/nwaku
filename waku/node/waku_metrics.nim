@@ -3,14 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronicles,
-  chronos,
-  metrics,
-  metrics/chronos_httpserver
+import chronicles, chronos, metrics, metrics/chronos_httpserver
 import
   ../waku_rln_relay/protocol_metrics as rln_metrics,
-
   ../utils/collector,
   ./peer_manager,
   ./waku_node
@@ -30,13 +25,13 @@ proc startMetricsLog*() =
 
   logMetrics = CallbackFunc(
     proc(udata: pointer) {.gcsafe.} =
-
       # TODO: libp2p_pubsub_peers is not public, so we need to make this either
       # public in libp2p or do our own peer counting after all.
 
       # track cumulative values
       let freshErrorCount = parseAndAccumulate(waku_node_errors, cumulativeErrors)
-      let freshConnCount = parseAndAccumulate(waku_node_conns_initiated, cumulativeConns)
+      let freshConnCount =
+        parseAndAccumulate(waku_node_conns_initiated, cumulativeConns)
 
       let totalMessages = collectorAsF64(waku_node_messages)
       let storePeers = collectorAsF64(waku_store_peers)

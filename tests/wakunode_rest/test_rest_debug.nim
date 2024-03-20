@@ -10,7 +10,8 @@ import
   libp2p/crypto/crypto
 import
   ../../waku/waku_node,
-  ../../waku/node/waku_node as waku_node2,  # TODO: Remove after moving `git_version` to the app code.
+  ../../waku/node/waku_node as waku_node2,
+    # TODO: Remove after moving `git_version` to the app code.
   ../../waku/waku_api/rest/server,
   ../../waku/waku_api/rest/client,
   ../../waku/waku_api/rest/responses,
@@ -20,7 +21,6 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-
 proc testWakuNode(): WakuNode =
   let
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
@@ -29,7 +29,6 @@ proc testWakuNode(): WakuNode =
     port = Port(58000)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
-
 
 suite "Waku v2 REST API - Debug":
   asyncTest "Get node info - GET /debug/v1/info":
@@ -53,7 +52,8 @@ suite "Waku v2 REST API - Debug":
     check:
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
-      response.data.listenAddresses == @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
+      response.data.listenAddresses ==
+        @[$node.switch.peerInfo.addrs[^1] & "/p2p/" & $node.switch.peerInfo.peerId]
 
     await restServer.stop()
     await restServer.closeWait()

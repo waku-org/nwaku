@@ -8,65 +8,65 @@ import
   json_serialization,
   json_serialization/std/options,
   json_serialization/lexer
-import
-  ../serdes
+import ../serdes
 
 #### Types
 
-type
-  ProtocolState* = object
-    protocol*: string
-    connected*: bool
+type ProtocolState* = object
+  protocol*: string
+  connected*: bool
 
-type
-  WakuPeer* = object
-    multiaddr*: string
-    protocols*: seq[ProtocolState]
+type WakuPeer* = object
+  multiaddr*: string
+  protocols*: seq[ProtocolState]
 
 type WakuPeers* = seq[WakuPeer]
 
-type
-  FilterTopic* = object
-    pubsubTopic*: string
-    contentTopic*: string 
+type FilterTopic* = object
+  pubsubTopic*: string
+  contentTopic*: string
 
-type
-  FilterSubscription* = object
-    peerId*: string
-    filterCriteria*: seq[FilterTopic]
+type FilterSubscription* = object
+  peerId*: string
+  filterCriteria*: seq[FilterTopic]
 
 #### Serialization and deserialization
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: ProtocolState)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: ProtocolState
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("protocol", value.protocol)
   writer.writeField("connected", value.connected)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: WakuPeer)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: WakuPeer
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("multiaddr", value.multiaddr)
   writer.writeField("protocols", value.protocols)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterTopic)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterTopic
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("pubsubTopic", value.pubsubTopic)
   writer.writeField("contentTopic", value.contentTopic)
   writer.endRecord()
 
-proc writeValue*(writer: var JsonWriter[RestJson], value: FilterSubscription)
-  {.raises: [IOError].} =
+proc writeValue*(
+    writer: var JsonWriter[RestJson], value: FilterSubscription
+) {.raises: [IOError].} =
   writer.beginRecord()
   writer.writeField("peerId", value.peerId)
   writer.writeField("filterCriteria", value.filterCriteria)
   writer.endRecord()
 
-proc readValue*(reader: var JsonReader[RestJson], value: var ProtocolState)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var ProtocolState
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     protocol: Option[string]
     connected: Option[bool]
@@ -79,7 +79,9 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ProtocolState)
       protocol = some(reader.readValue(string))
     of "connected":
       if connected.isSome():
-        reader.raiseUnexpectedField("Multiple `connected` fields found", "ProtocolState")
+        reader.raiseUnexpectedField(
+          "Multiple `connected` fields found", "ProtocolState"
+        )
       connected = some(reader.readValue(bool))
     else:
       unrecognizedFieldWarning()
@@ -90,13 +92,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var ProtocolState)
   if protocol.isNone():
     reader.raiseUnexpectedValue("Field `protocol` is missing")
 
-  value = ProtocolState(
-      protocol: protocol.get(),
-      connected: connected.get()
-    )
+  value = ProtocolState(protocol: protocol.get(), connected: connected.get())
 
-proc readValue*(reader: var JsonReader[RestJson], value: var WakuPeer)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var WakuPeer
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     multiaddr: Option[string]
     protocols: Option[seq[ProtocolState]]
@@ -120,13 +120,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var WakuPeer)
   if protocols.isNone():
     reader.raiseUnexpectedValue("Field `protocols` are missing")
 
-  value = WakuPeer(
-      multiaddr: multiaddr.get(),
-      protocols: protocols.get()
-    )
+  value = WakuPeer(multiaddr: multiaddr.get(), protocols: protocols.get())
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterTopic)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterTopic
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     pubsubTopic: Option[string]
     contentTopic: Option[string]
@@ -135,11 +133,15 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterTopic)
     case fieldName
     of "pubsubTopic":
       if pubsubTopic.isSome():
-        reader.raiseUnexpectedField("Multiple `pubsubTopic` fields found", "FilterTopic")
+        reader.raiseUnexpectedField(
+          "Multiple `pubsubTopic` fields found", "FilterTopic"
+        )
       pubsubTopic = some(reader.readValue(string))
     of "contentTopic":
       if contentTopic.isSome():
-        reader.raiseUnexpectedField("Multiple `contentTopic` fields found", "FilterTopic")
+        reader.raiseUnexpectedField(
+          "Multiple `contentTopic` fields found", "FilterTopic"
+        )
       contentTopic = some(reader.readValue(string))
     else:
       unrecognizedFieldWarning()
@@ -150,13 +152,11 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterTopic)
   if contentTopic.isNone():
     reader.raiseUnexpectedValue("Field `contentTopic` are missing")
 
-  value = FilterTopic(
-      pubsubTopic: pubsubTopic.get(),
-      contentTopic: contentTopic.get()
-    )
+  value = FilterTopic(pubsubTopic: pubsubTopic.get(), contentTopic: contentTopic.get())
 
-proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscription)
-  {.gcsafe, raises: [SerializationError, IOError].} =
+proc readValue*(
+    reader: var JsonReader[RestJson], value: var FilterSubscription
+) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     peerId: Option[string]
     filterCriteria: Option[seq[FilterTopic]]
@@ -165,11 +165,15 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscription)
     case fieldName
     of "peerId":
       if peerId.isSome():
-        reader.raiseUnexpectedField("Multiple `peerId` fields found", "FilterSubscription")
+        reader.raiseUnexpectedField(
+          "Multiple `peerId` fields found", "FilterSubscription"
+        )
       peerId = some(reader.readValue(string))
     of "filterCriteria":
       if filterCriteria.isSome():
-        reader.raiseUnexpectedField("Multiple `filterCriteria` fields found", "FilterSubscription")
+        reader.raiseUnexpectedField(
+          "Multiple `filterCriteria` fields found", "FilterSubscription"
+        )
       filterCriteria = some(reader.readValue(seq[FilterTopic]))
     else:
       unrecognizedFieldWarning()
@@ -180,10 +184,7 @@ proc readValue*(reader: var JsonReader[RestJson], value: var FilterSubscription)
   if filterCriteria.isNone():
     reader.raiseUnexpectedValue("Field `filterCriteria` are missing")
 
-  value = FilterSubscription(
-      peerId: peerId.get(),
-      filterCriteria: filterCriteria.get()
-    )
+  value = FilterSubscription(peerId: peerId.get(), filterCriteria: filterCriteria.get())
 
 ## Utility for populating WakuPeers and ProtocolState
 func `==`*(a, b: ProtocolState): bool {.inline.} =
@@ -196,21 +197,13 @@ func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr
 
 proc add*(peers: var WakuPeers, multiaddr: string, protocol: string, connected: bool) =
-  var
-    peer: WakuPeer = WakuPeer(
-            multiaddr: multiaddr,
-            protocols: @[ProtocolState(
-                          protocol: protocol,
-                          connected: connected
-                        )]
-          )
+  var peer: WakuPeer = WakuPeer(
+    multiaddr: multiaddr,
+    protocols: @[ProtocolState(protocol: protocol, connected: connected)],
+  )
   let idx = peers.find(peer)
 
   if idx < 0:
     peers.add(peer)
   else:
-    peers[idx].protocols.add(ProtocolState(
-                          protocol: protocol,
-                          connected: connected
-                        ))
-
+    peers[idx].protocols.add(ProtocolState(protocol: protocol, connected: connected))

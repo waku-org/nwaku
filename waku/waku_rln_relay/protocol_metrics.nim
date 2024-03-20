@@ -11,8 +11,7 @@ import
   ./constants,
   ../utils/collector
 
-export
-  metrics
+export metrics
 
 logScope:
   topics = "waku rln_relay"
@@ -22,31 +21,57 @@ func generateBucketsForHistogram*(length: int): seq[float64] =
   let numberOfBuckets = 5
   let stepSize = length / numberOfBuckets
   var buckets: seq[float64]
-  for i in 1..numberOfBuckets:
+  for i in 1 .. numberOfBuckets:
     buckets.add(stepSize * i.toFloat())
   return buckets
 
-declarePublicCounter(waku_rln_messages_total, "number of messages published on the rln content topic")
+declarePublicCounter(
+  waku_rln_messages_total, "number of messages published on the rln content topic"
+)
 declarePublicCounter(waku_rln_spam_messages_total, "number of spam messages detected")
-declarePublicCounter(waku_rln_invalid_messages_total, "number of invalid messages detected", ["type"])
+declarePublicCounter(
+  waku_rln_invalid_messages_total, "number of invalid messages detected", ["type"]
+)
 # This metric will be useful in detecting the index of the root in the acceptable window of roots
-declarePublicHistogram(identifier = waku_rln_valid_messages_total,
+declarePublicHistogram(
+  identifier = waku_rln_valid_messages_total,
   help = "number of valid messages with their roots tracked",
-  buckets = generateBucketsForHistogram(AcceptableRootWindowSize))
-declarePublicCounter(waku_rln_errors_total, "number of errors detected while operating the rln relay", ["type"])
-declarePublicCounter(waku_rln_proof_verification_total, "number of times the rln proofs are verified")
+  buckets = generateBucketsForHistogram(AcceptableRootWindowSize),
+)
+declarePublicCounter(
+  waku_rln_errors_total,
+  "number of errors detected while operating the rln relay",
+  ["type"],
+)
+declarePublicCounter(
+  waku_rln_proof_verification_total, "number of times the rln proofs are verified"
+)
 # this is a gauge so that we can set it based on the events we receive
-declarePublicGauge(waku_rln_number_registered_memberships, "number of registered and active rln memberships")
+declarePublicGauge(
+  waku_rln_number_registered_memberships,
+  "number of registered and active rln memberships",
+)
 
 # Timing metrics
-declarePublicGauge(waku_rln_proof_verification_duration_seconds, "time taken to verify a proof")
-declarePublicGauge(waku_rln_proof_generation_duration_seconds, "time taken to generate a proof")
-declarePublicGauge(waku_rln_instance_creation_duration_seconds, "time taken to create an rln instance")
-declarePublicGauge(waku_rln_membership_insertion_duration_seconds, "time taken to insert a new member into the local merkle tree")
-declarePublicGauge(waku_rln_membership_credentials_import_duration_seconds, "time taken to import membership credentials")
+declarePublicGauge(
+  waku_rln_proof_verification_duration_seconds, "time taken to verify a proof"
+)
+declarePublicGauge(
+  waku_rln_proof_generation_duration_seconds, "time taken to generate a proof"
+)
+declarePublicGauge(
+  waku_rln_instance_creation_duration_seconds, "time taken to create an rln instance"
+)
+declarePublicGauge(
+  waku_rln_membership_insertion_duration_seconds,
+  "time taken to insert a new member into the local merkle tree",
+)
+declarePublicGauge(
+  waku_rln_membership_credentials_import_duration_seconds,
+  "time taken to import membership credentials",
+)
 
-type
-  RLNMetricsLogger = proc() {.gcsafe, raises: [Defect].}
+type RLNMetricsLogger = proc() {.gcsafe, raises: [Defect].}
 
 proc getRlnMetricsLogger*(): RLNMetricsLogger =
   var logMetrics: RLNMetricsLogger
@@ -60,20 +85,17 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
 
   logMetrics = proc() =
     {.gcsafe.}:
-
-      let freshErrorCount = parseAndAccumulate(waku_rln_errors_total,
-                                               cumulativeErrors)
-      let freshMsgCount = parseAndAccumulate(waku_rln_messages_total,
-                                             cumulativeMessages)
-      let freshSpamCount = parseAndAccumulate(waku_rln_spam_messages_total,
-                                              cumulativeSpamMessages)
-      let freshInvalidMsgCount = parseAndAccumulate(waku_rln_invalid_messages_total,
-                                                    cumulativeInvalidMessages)
-      let freshValidMsgCount = parseAndAccumulate(waku_rln_valid_messages_total,
-                                                  cumulativeValidMessages)
-      let freshProofCount = parseAndAccumulate(waku_rln_proof_verification_total,
-                                               cumulativeProofs)
-
+      let freshErrorCount = parseAndAccumulate(waku_rln_errors_total, cumulativeErrors)
+      let freshMsgCount =
+        parseAndAccumulate(waku_rln_messages_total, cumulativeMessages)
+      let freshSpamCount =
+        parseAndAccumulate(waku_rln_spam_messages_total, cumulativeSpamMessages)
+      let freshInvalidMsgCount =
+        parseAndAccumulate(waku_rln_invalid_messages_total, cumulativeInvalidMessages)
+      let freshValidMsgCount =
+        parseAndAccumulate(waku_rln_valid_messages_total, cumulativeValidMessages)
+      let freshProofCount =
+        parseAndAccumulate(waku_rln_proof_verification_total, cumulativeProofs)
 
       info "Total messages", count = freshMsgCount
       info "Total spam messages", count = freshSpamCount
@@ -82,4 +104,3 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
       info "Total errors", count = freshErrorCount
       info "Total proofs verified", count = freshProofCount
   return logMetrics
-

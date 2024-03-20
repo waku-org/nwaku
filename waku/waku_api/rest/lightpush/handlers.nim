@@ -29,23 +29,24 @@ logScope:
 
 const futTimeoutForPushRequestProcessing* = 5.seconds
 
-const NoPeerNoDiscoError = RestApiResponse.serviceUnavailable(
-  "No suitable service peer & no discovery method")
+const NoPeerNoDiscoError =
+  RestApiResponse.serviceUnavailable("No suitable service peer & no discovery method")
 
-const NoPeerNoneFoundError = RestApiResponse.serviceUnavailable(
-  "No suitable service peer & none discovered")
+const NoPeerNoneFoundError =
+  RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
 #### Request handlers
 
 const ROUTE_LIGHTPUSH* = "/lightpush/v1/message"
 
 proc installLightPushRequestHandler*(
-  router: var RestRouter,
-  node: WakuNode,
-  discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-  ) =
-
-  router.api(MethodPost, ROUTE_LIGHTPUSH) do (contentBody: Option[ContentBody]) -> RestApiResponse:
+    router: var RestRouter,
+    node: WakuNode,
+    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
+) =
+  router.api(MethodPost, ROUTE_LIGHTPUSH) do(
+    contentBody: Option[ContentBody]
+  ) -> RestApiResponse:
     ## Send a request to push a waku message
     debug "post", ROUTE_LIGHTPUSH, contentBody
 

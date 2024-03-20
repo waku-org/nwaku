@@ -13,7 +13,7 @@ proc alloc*(str: string): cstring =
   ## There should be the corresponding manual deallocation with deallocShared !
   var ret = cast[cstring](allocShared(str.len + 1))
   let s = cast[seq[char]](str)
-  for i in 0..<str.len:
+  for i in 0 ..< str.len:
     ret[i] = s[i]
   ret[str.len] = '\0'
   return ret
@@ -32,6 +32,6 @@ proc toSeq*[T](s: SharedSeq[T]): seq[T] =
   ## Creates a seq[T] from a SharedSeq[T]. No explicit dealloc is required
   ## as req[T] is a GC managed type.
   var ret = newSeq[T]()
-  for i in 0..<s.len:
+  for i in 0 ..< s.len:
     ret.add(s.data[i])
   return ret

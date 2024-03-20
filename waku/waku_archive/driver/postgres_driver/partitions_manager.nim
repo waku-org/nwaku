@@ -1,15 +1,11 @@
-
 ## This module is aimed to handle the creation and truncation of partition tables
 ## in order to limit the space occupied in disk by the database.
 ##
 ## The created partitions are referenced by the 'storedAt' field.
 ##
 
-import
-  std/deques
-import
-  chronos,
-  chronicles
+import std/deques
+import chronos, chronicles
 
 logScope:
   topics = "waku archive partitions_manager"
@@ -23,14 +19,15 @@ type
     timeRange: TimeRange
 
   PartitionManager* = ref object
-    partitions: Deque[Partition] # FIFO of partition table names. The first is the oldest partition
+    partitions: Deque[Partition]
+      # FIFO of partition table names. The first is the oldest partition
 
 proc new*(T: type PartitionManager): T =
   return PartitionManager()
 
-proc getPartitionFromDateTime*(self: PartitionManager,
-                               targetMoment: int64):
-                               Result[Partition, string] =
+proc getPartitionFromDateTime*(
+    self: PartitionManager, targetMoment: int64
+): Result[Partition, string] =
   ## Returns the partition name that might store a message containing the passed timestamp.
   ## In order words, it simply returns the partition name which contains the given timestamp.
   ## targetMoment - represents the time of interest, measured in seconds since epoch.
@@ -63,10 +60,9 @@ proc getOldestPartition*(self: PartitionManager): Result[Partition, string] =
   let oldestPartition = self.partitions.peekFirst
   return ok(oldestPartition)
 
-proc addPartitionInfo*(self: PartitionManager,
-                       partitionName: string,
-                       beginning: int64,
-                       `end`: int64) =
+proc addPartitionInfo*(
+    self: PartitionManager, partitionName: string, beginning: int64, `end`: int64
+) =
   ## The given partition range has seconds resolution.
   ## We just store information of the new added partition merely to keep track of it.
   let partitionInfo = Partition(name: partitionName, timeRange: (beginning, `end`))
@@ -91,8 +87,7 @@ proc containsMoment*(partition: Partition, time: int64): bool =
   ## Returns true if the given moment is contained within the partition window,
   ## 'false' otherwise.
   ## time - number of seconds since epoch
-  if partition.timeRange.beginning <= time and
-     time < partition.timeRange.`end`:
+  if partition.timeRange.beginning <= time and time < partition.timeRange.`end`:
     return true
 
   return false
@@ -102,4 +97,3 @@ proc getName*(partition: Partition): string =
 
 func `==`*(a, b: Partition): bool {.inline.} =
   return a.name == b.name
-

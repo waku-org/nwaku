@@ -1,6 +1,10 @@
-proc getContentTopic*(applicationName: string, applicationVersion: int, contentTopicName: string, encoding: string): string =
+proc getContentTopic*(
+    applicationName: string,
+    applicationVersion: int,
+    contentTopicName: string,
+    encoding: string,
+): string =
   return "/$applicationName/$applicationVersion/$contentTopicName/$enconding"
-
 
 const
   CURRENT* = getContentTopic("application", 1, "content-topic", "proto")
