@@ -187,9 +187,6 @@ when defined(rln_v2):
       await g.registerCb.get()(membersSeq)
 
     g.validRootBuffer = g.slideRootQueue()
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
 
 else:
   method atomicBatch*(
@@ -218,9 +215,6 @@ else:
       await g.registerCb.get()(membersSeq)
 
     g.validRootBuffer = g.slideRootQueue()
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
 
 when defined(rln_v2):
   method register*(
@@ -616,7 +610,7 @@ proc startOnchainSync(
   let ethRpc = g.ethRpc.get()
 
   # static block chunk size
-  let blockChunkSize = 2_000
+  let blockChunkSize = 20_000
 
   var fromBlock =
     if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
