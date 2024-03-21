@@ -16,6 +16,9 @@ const negentropyPath =
 
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
+logScope:
+  topics = "waku sync"
+
 type Buffer* = object
   len*: uint64
   `ptr`*: ptr uint8
@@ -53,7 +56,7 @@ proc BufferToBytes(buffer: ptr Buffer, len: Option[uint64] = none(uint64)): seq[
     bufLen = len.get()
   if bufLen == 0:
     return @[]
-  debug "length of buffer is", len = bufLen
+  trace "length of buffer is", len = bufLen
   let bytes = newSeq[byte](bufLen)
   copyMem(bytes[0].unsafeAddr, buffer.ptr, bufLen)
   return bytes
@@ -176,9 +179,9 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
 proc `==`*(a: Negentropy, b: pointer): bool {.borrow.}
 
 proc new*(
-    T: type Negentropy, storage: Storage, frameSizeLimit: uint64
+    T: type Negentropy, storage: Storage, frameSizeLimit: int
 ): Result[T, string] =
-  let negentropy = constructNegentropy(storage, frameSizeLimit)
+  let negentropy = constructNegentropy(storage, uint64(frameSizeLimit))
   if negentropy == nil:
     return err("negentropy initialization failed due to lower framesize")
   return ok(negentropy)
@@ -197,7 +200,7 @@ proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
     return err("negentropy already initiated!")
   let bytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
   free_result(myResultPtr)
-  debug "received return from initiate", len = myResultPtr.output.len
+  trace "received return from initiate", len = myResultPtr.output.len
 
   return ok(NegentropyPayload(bytes))
 
@@ -219,10 +222,10 @@ proc serverReconcile*(
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
     return err($myResultPtr.error)
-  debug "received return from raw_reconcile", len = myResultPtr.output.len
+  trace "received return from raw_reconcile", len = myResultPtr.output.len
 
   let outputBytes: seq[byte] = BufferToBytes(addr(myResultPtr.output))
-  debug "outputBytes len", len = outputBytes.len
+  trace "outputBytes len", len = outputBytes.len
   free_result(myResultPtr)
 
   return ok(NegentropyPayload(outputBytes))
@@ -259,20 +262,20 @@ proc clientReconcile*(
   if myResult.need_ids_len > 0:
     need_hashes = toBufferSeq(myResult.need_ids_len, myResult.need_ids)
 
-  debug "have and need hashes ",
+  trace "have and need hashes ",
     have_count = have_hashes.len, need_count = need_hashes.len
 
   for i in 0 .. have_hashes.len - 1:
     var hash = toWakuMessageHash(have_hashes[i])
-    debug "have hashes ", index = i, hash = hash.to0xHex()
+    trace "have hashes ", index = i, hash = hash.to0xHex()
     haveIds.add(hash)
 
   for i in 0 .. need_hashes.len - 1:
     var hash = toWakuMessageHash(need_hashes[i])
-    debug "need hashes ", index = i, hash = hash.to0xHex()
+    trace "need hashes ", index = i, hash = hash.to0xHex()
     needIds.add(hash)
 
-  debug "return ", output = output, len = output.len
+  trace "return ", output = output, len = output.len
 
   free_result(myResultPtr)
 

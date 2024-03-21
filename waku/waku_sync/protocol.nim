@@ -29,13 +29,12 @@ const DefaultFrameSize = 153600 # using a random number for now
 const DefaultSyncInterval = 60.minutes
 
 type
-  #TODO maybe add the remote peer info?
-  WakuSyncCallback* =
-    proc(hashes: seq[WakuMessageHash]) {.async: (raises: []), closure, gcsafe.}
+  WakuSyncCallback* = proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.
+    async: (raises: []), closure, gcsafe
+  .}
 
   WakuSync* = ref object of LPProtocol
     storage: Storage
-    negentropy: Negentropy
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: Duration
@@ -47,40 +46,30 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
     return
 
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
-  debug "inserting message into storage ", hash = msgHash
+  trace "inserting message into storage ", hash = msgHash
 
   if self.storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
-proc serverReconciliation(
-    self: WakuSync, payload: NegentropyPayload
-): Result[NegentropyPayload, string] =
-  return self.negentropy.serverReconcile(payload)
-
-proc clientReconciliation(
-    self: WakuSync,
-    negentropy: Negentropy,
-    payload: NegentropyPayload,
-    haveHashes: var seq[WakuMessageHash],
-    needHashes: var seq[WakuMessageHash],
-): Result[Option[NegentropyPayload], string] =
-  return negentropy.clientReconcile(payload, haveHashes, needHashes)
-
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let negentropy = Negentropy.new(self.storage, DefaultFrameSize).valueOr:
+  let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
     return err(error)
+
   defer:
     negentropy.delete()
 
   let payload = negentropy.initiate().valueOr:
     return err(error)
 
-  debug "sending request to server", payload = toHex(seq[byte](payload))
+  debug "sync session initialized"
 
   let writeRes = catch:
     await conn.writeLP(seq[byte](payload))
+
+  trace "request sent to server", payload = toHex(seq[byte](payload))
+
   if writeRes.isErr():
     return err(writeRes.error.msg)
 
@@ -95,13 +84,11 @@ proc request(
     let buffer: seq[byte] = readRes.valueOr:
       return err(error.msg)
 
-    debug "Received Sync request from peer", payload = toHex(buffer)
+    trace "Received Sync request from peer", payload = toHex(buffer)
 
     let request = NegentropyPayload(buffer)
 
-    let responseOpt = self.clientReconciliation(
-      negentropy, request, haveHashes, needHashes
-    ).valueOr:
+    let responseOpt = negentropy.clientReconcile(request, haveHashes, needHashes).valueOr:
       return err(error)
 
     let response = responseOpt.valueOr:
@@ -109,17 +96,19 @@ proc request(
       await conn.close()
       break
 
-    debug "Sending Sync response to peer", payload = toHex(seq[byte](response))
+    trace "Sending Sync response to peer", payload = toHex(seq[byte](response))
 
     let writeRes = catch:
       await conn.writeLP(seq[byte](response))
+
     if writeRes.isErr():
       return err(writeRes.error.msg)
+
   return ok(needHashes)
 
 proc sync*(
     self: WakuSync
-): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
+): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async, gcsafe.} =
   let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
     return err("No suitable peer found for sync")
 
@@ -129,7 +118,7 @@ proc sync*(
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     return err("Sync request error: " & error)
 
-  ok(hashes)
+  return ok((hashes, peer))
 
 proc sync*(
     self: WakuSync, peer: RemotePeerInfo
@@ -140,11 +129,19 @@ proc sync*(
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     return err("Sync request error: " & error)
 
-  ok(hashes)
+  return ok(hashes)
 
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    # Not sure if this works as I think it does...
+    debug "sync session requested"
+
+    let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
+      error "Negentropy initialization error", error = error
+      return
+
+    defer:
+      negentropy.delete()
+
     while not conn.isClosed:
       let requestRes = catch:
         await conn.readLp(self.maxFrameSize)
@@ -155,7 +152,7 @@ proc initProtocolHandler(self: WakuSync) =
 
       let request = NegentropyPayload(buffer)
 
-      let response = self.serverReconciliation(request).valueOr:
+      let response = negentropy.serverReconcile(request).valueOr:
         error "Reconciliation error", error = error
         return
 
@@ -164,6 +161,8 @@ proc initProtocolHandler(self: WakuSync) =
       if writeRes.isErr():
         error "Connection write error", error = writeRes.error.msg
         return
+
+    debug "sync session ended"
 
   self.handler = handle
   self.codec = WakuSyncCodec
@@ -178,12 +177,9 @@ proc new*(
   let storage = Storage.new().valueOr:
     error "storage creation failed"
     return nil
-  let negentropy = Negentropy.new(storage, uint64(maxFrameSize)).valueOr:
-    error "negentropy creation failed"
-    return nil
+
   let sync = WakuSync(
     storage: storage,
-    negentropy: negentropy,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
@@ -200,14 +196,14 @@ proc periodicSync(self: WakuSync) {.async.} =
   while true:
     await sleepAsync(self.syncInterval)
 
-    let hashes = (await self.sync()).valueOr:
+    let (hashes, peer) = (await self.sync()).valueOr:
       error "periodic sync error", error = error
       continue
 
     let callback = self.callback.valueOr:
       continue
 
-    await callback(hashes)
+    await callback(hashes, peer)
 
 proc start*(self: WakuSync) =
   self.started = true
