@@ -319,3 +319,97 @@ procSuite "WakuNode - Store":
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
+
+  test "Store protocol queries does not violate request rate limitation":
+    ## Setup
+    let
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+
+    waitFor allFutures(client.start(), server.start())
+
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    waitFor server.mountStore((4, 1.seconds))
+
+    client.mountStoreClient()
+
+    ## Given
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    let requestProc = proc() {.async.} =
+      let queryRes = waitFor client.query(req, peer = serverPeer)
+
+      check queryRes.isOk()
+
+      let response = queryRes.get()
+      check:
+        response.messages == msgListA
+
+    for count in 0 ..< 4:
+      waitFor requestProc()
+      waitFor sleepAsync(20.millis)
+
+    waitFor sleepAsync(1.seconds)
+
+    for count in 0 ..< 4:
+      waitFor requestProc()
+      waitFor sleepAsync(20.millis)
+
+    # Cleanup
+    waitFor allFutures(client.stop(), server.stop())
+
+  test "Store protocol queries overrun request rate limitation":
+    ## Setup
+    let
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+
+    waitFor allFutures(client.start(), server.start())
+
+    let mountArchiveRes = server.mountArchive(archiveA)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    waitFor server.mountStore((3, 500.millis))
+
+    client.mountStoreClient()
+
+    ## Given
+    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
+    let serverPeer = server.peerInfo.toRemotePeerInfo()
+
+    let successProc = proc() {.async.} =
+      let queryRes = waitFor client.query(req, peer = serverPeer)
+
+      check queryRes.isOk()
+
+      let response = queryRes.get()
+      check:
+        response.messages == msgListA
+
+    let failsProc = proc() {.async.} =
+      let queryRes = waitFor client.query(req, peer = serverPeer)
+
+      check queryRes.isErr()
+      check queryRes.error == "TOO_MANY_REQUESTS"
+
+    for count in 0 ..< 3:
+      waitFor successProc()
+      waitFor sleepAsync(20.millis)
+
+    waitFor failsProc()
+
+    waitFor sleepAsync(500.millis)
+
+    for count in 0 ..< 3:
+      waitFor successProc()
+      waitFor sleepAsync(20.millis)
+
+    # Cleanup
+    waitFor allFutures(client.stop(), server.stop())
