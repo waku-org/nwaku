@@ -245,6 +245,7 @@ proc getPartitionsList(
                           JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
                           JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
                           WHERE parent.relname='messages'
+                          ORDER BY partition_name ASC
                           """,
       newSeq[string](0),
       rowCallback,
