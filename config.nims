@@ -51,8 +51,9 @@ elif defined(macosx) and defined(arm64):
   switch("passC", "-mcpu=apple-m1")
   switch("passL", "-mcpu=apple-m1")
 else:
-  switch("passC", "-march=native")
-  switch("passL", "-march=native")
+  if not defined(android):
+    switch("passC", "-march=native")
+    switch("passL", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
@@ -92,3 +93,28 @@ switch("warning", "ObservableStores:off")
 # Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
 switch("warning", "LockLevel:off")
 
+if defined(android):
+  var clang = ""
+  var cincludes = ""
+  var ndk_home = getEnv("ANDROID_NDK_HOME") & "/toolchains/llvm/prebuilt/linux-x86_64"
+  var sysroot = ndk_home & "/sysroot"
+
+  if defined(amd64):
+    clang = "x86_64-linux-android30-clang"
+    cincludes = sysroot & "/usr/include/x86_64-linux-android"
+  elif defined(i386):
+    clang = "i686-linux-android30-clang"
+    cincludes = sysroot & "/usr/include/i686-linux-android"
+  elif defined(arm64):
+    clang = "aarch64-linux-android30-clang"
+    cincludes = sysroot & "/usr/include/aarch64-linux-android"
+  elif defined(arm):
+    clang = "armv7a-linux-androideabi30-clang"
+    cincludes = sysroot & "/usr/include/armv7a-linux-android"
+
+  switch("clang.path", ndk_home & "/bin")
+  switch("clang.exe", clang)
+  switch("clang.linkerexe", clang)
+  switch("passC", "--sysroot=" & sysRoot)
+  switch("passL", "--sysroot=" & sysRoot)
+  switch("cincludes", sysRoot & "/usr/include/")

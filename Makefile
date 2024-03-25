@@ -290,6 +290,12 @@ else
 		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
+libwaku-android: | build deps librln
+ifndef ANDROID_NDK_HOME
+		$(error ANDROID_NDK_HOME is not set)
+endif
+		$(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
+
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
 		cc -o "build/$@" \
