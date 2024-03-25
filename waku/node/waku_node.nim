@@ -153,7 +153,7 @@ proc new*(
 
   info "Initializing networking", addrs = $netConfig.announcedAddresses
 
-  let queue = newAsyncEventQueue[SubscriptionEvent](30)
+  let queue = newAsyncEventQueue[SubscriptionEvent](0)
 
   let node = WakuNode(
     peerManager: peerManager,
