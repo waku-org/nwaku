@@ -131,7 +131,7 @@ clean: | clean-libbacktrace
 ##################
 ##     RLN      ##
 ##################
-.PHONY: librln
+.PHONY: librln-env librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
@@ -150,13 +150,14 @@ $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
-
-librln: | $(LIBRLN_FILE)
-	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
+librln-env:
+	$(eval NIM_PARAMS += --passL:-lm)
 ifeq ($(RLN_V2),true)
 	$(eval NIM_PARAMS += -d:rln_v2)
 endif
 
+librln: | $(LIBRLN_FILE) librln-env
+	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE))
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -289,6 +290,64 @@ else
 		echo -e $(BUILD_MSG) "build/$@.so" && \
 		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
+
+################
+## Mobile Bindings ##
+################
+.PHONY: libwaku-android \
+				libwaku-android-precheck \
+				libwaku-android-arm64 \
+				libwaku-android-amd64 \
+				libwaku-android-x86 \
+				libwaku-android-arm \
+				rebuild-nat-libs \
+				build-libwaku-for-android-arch
+
+ANDROID_TARGET ?= 30
+ANDROID_TOOLCHAIN_DIR ?= $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64
+
+rebuild-nat-libs: | clean-cross nat-libs
+
+libwaku-android-precheck:
+ifndef ANDROID_NDK_HOME
+		$(error ANDROID_NDK_HOME is not set)
+endif
+
+build-libwaku-for-android-arch:
+	$(MAKE) rebuild-nat-libs CC=$(ANDROID_TOOLCHAIN_DIR)/bin/$(ANDROID_COMPILER) && \
+	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(CROSS_TARGET) $(ABIDIR) && \
+	CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_ARCH=$(ANDROID_ARCH) ANDROID_COMPILER=$(ANDROID_COMPILER) ANDROID_TOOLCHAIN_DIR=$(ANDROID_TOOLCHAIN_DIR) $(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
+
+libwaku-android-arm64: ANDROID_ARCH=aarch64-linux-android
+libwaku-android-arm64: CPU=arm64
+libwaku-android-arm64: ABIDIR=arm64-v8a
+libwaku-android-arm64: | libwaku-android-precheck build deps librln-env
+	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+
+libwaku-android-amd64: ANDROID_ARCH=x86_64-linux-android
+libwaku-android-amd64: CPU=amd64
+libwaku-android-amd64: ABIDIR=x86_64
+libwaku-android-amd64: | libwaku-android-precheck build deps librln-env
+	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+
+libwaku-android-x86: ANDROID_ARCH=i686-linux-android
+libwaku-android-x86: CPU=i386
+libwaku-android-x86: ABIDIR=x86
+libwaku-android-x86: | libwaku-android-precheck build deps clean-cross nat-libs librln-env
+	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+
+libwaku-android-arm: ANDROID_ARCH=armv7a-linux-androideabi
+libwaku-android-arm: CPU=arm
+libwaku-android-arm: ABIDIR=armeabi-v7a
+libwaku-android-arm: | libwaku-android-precheck build deps clean-cross nat-libs librln-env
+# cross-rs target architecture name does not match the one used in android
+	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=armv7-linux-androideabi CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+
+libwaku-android:
+	$(MAKE) libwaku-android-amd64
+	$(MAKE) libwaku-android-arm64
+	$(MAKE) libwaku-android-x86
+	$(MAKE) libwaku-android-arm
 
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
