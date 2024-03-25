@@ -19,7 +19,6 @@ import
   ../waku_dnsdisc,
   ../waku_archive,
   ../waku_store,
-  ../waku_filter,
   ../waku_filter_v2,
   ../waku_peer_exchange,
   ../node/peer_manager,
@@ -278,12 +277,6 @@ proc setupProtocols(
   # Filter setup. NOTE Must be mounted after relay
   if conf.filter:
     try:
-      await mountLegacyFilter(node, filterTimeout = chronos.seconds(conf.filterTimeout))
-    except CatchableError:
-      return
-        err("failed to mount waku legacy filter protocol: " & getCurrentExceptionMsg())
-
-    try:
       await mountFilter(
         node,
         subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
@@ -298,7 +291,6 @@ proc setupProtocols(
     if filterNode.isOk():
       try:
         await node.mountFilterClient()
-        node.peerManager.addServicePeer(filterNode.value, WakuLegacyFilterCodec)
         node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
       except CatchableError:
         return err(

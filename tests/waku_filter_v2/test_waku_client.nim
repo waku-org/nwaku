@@ -10,8 +10,8 @@ import
   libp2p/peerstore
 
 import
-  ../../../waku/[node/peer_manager, waku_core, waku_filter/rpc_codec],
-  ../../../waku/waku_filter_v2/[common, client, subscriptions, protocol],
+  ../../../waku/[node/peer_manager, waku_core],
+  ../../../waku/waku_filter_v2/[common, client, subscriptions, protocol, rpc_codec],
   ../testlib/[wakucore, testasync, testutils, futures, sequtils],
   ./waku_filter_utils,
   ../resources/payloads
@@ -127,7 +127,7 @@ suite "Waku Filter - End to End":
       asyncTest "Subscribing to an empty content topic":
         # When subscribing to an empty content topic
         let subscribeResponse =
-          await wakuFilterClient.subscribe(serverRemotePeerInfo, pubsubTopic, @[])
+          await wakuFilterClient.subscribe(serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]())
 
         # Then the subscription is not successful
         check:
@@ -1839,7 +1839,7 @@ suite "Waku Filter - End to End":
 
         # When unsubscribing from an empty content topic
         let unsubscribeResponse =
-          await wakuFilterClient.unsubscribe(serverRemotePeerInfo, pubsubTopic, @[])
+          await wakuFilterClient.unsubscribe(serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]())
 
         # Then the unsubscription is not successful
         check:
@@ -2076,10 +2076,10 @@ suite "Waku Filter - End to End":
             contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
           ) # 100KiB
           msg4 = fakeWakuMessage(
-            contentTopic = contentTopic, payload = getByteSequence(MaxRpcSize - 1024)
+            contentTopic = contentTopic, payload = getByteSequence(MaxPushSize - 1024)
           ) # Max Size (Inclusive Limit)
           msg5 = fakeWakuMessage(
-            contentTopic = contentTopic, payload = getByteSequence(MaxRpcSize)
+            contentTopic = contentTopic, payload = getByteSequence(MaxPushSize)
           ) # Max Size (Exclusive Limit)
 
         # When sending the 1KiB message
@@ -2114,7 +2114,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic3 == pubsubTopic
           pushedMsg3 == msg3
 
-        # When sending the MaxRpcSize - 1024B message
+        # When sending the MaxPushSize - 1024B message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg4)
 
@@ -2125,7 +2125,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic4 == pubsubTopic
           pushedMsg4 == msg4
 
-        # When sending the MaxRpcSize message
+        # When sending the MaxPushSize message
         pushHandlerFuture = newPushHandlerFuture() # Clear previous future
         await wakuFilter.handleMessage(pubsubTopic, msg5)
 
