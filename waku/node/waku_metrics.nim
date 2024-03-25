@@ -5,7 +5,6 @@ else:
 
 import chronicles, chronos, metrics, metrics/chronos_httpserver
 import
-  ../waku_filter/protocol_metrics as filter_metrics,
   ../waku_rln_relay/protocol_metrics as rln_metrics,
   ../utils/collector,
   ./peer_manager,
@@ -39,7 +38,6 @@ proc startMetricsLog*() =
       let pxPeers = collectorAsF64(waku_px_peers)
       let lightpushPeers = collectorAsF64(waku_lightpush_peers)
       let filterPeers = collectorAsF64(waku_filter_peers)
-      let filterSubscribers = collectorAsF64(waku_legacy_filter_subscribers)
 
       info "Total connections initiated", count = $freshConnCount
       info "Total messages", count = totalMessages
@@ -47,7 +45,6 @@ proc startMetricsLog*() =
       info "Total peer exchange peers", count = pxPeers
       info "Total lightpush peers", count = lightpushPeers
       info "Total filter peers", count = filterPeers
-      info "Total active filter subscriptions", count = filterSubscribers
       info "Total errors", count = $freshErrorCount
 
       # Start protocol specific metrics logging

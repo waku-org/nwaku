@@ -17,11 +17,13 @@ import
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
+  ../../../waku/waku_core/subscription,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
+  ../../../waku/waku_filter_v2,
+  ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_store,
-  ../../../waku/waku_filter,
   ../../../waku/waku_node,
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
@@ -217,7 +219,6 @@ procSuite "WakuNode - Store":
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
-    waitFor filterSource.mountLegacyFilter()
     let driver = newSqliteArchiveDriver()
 
     let mountArchiveRes = server.mountArchive(driver)
@@ -238,19 +239,19 @@ procSuite "WakuNode - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
+      await server.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
-    waitFor server.legacyFilterSubscribe(
+    server.wakuFilterClient.registerPushHandler(filterHandler)
+    let resp = waitFor server.filterSubscribe(
       some(DefaultPubsubTopic),
       DefaultContentTopic,
-      filterHandler,
       peer = filterSourcePeer,
     )
 
     waitFor sleepAsync(100.millis)
 
-    # Send filter push message to server from source node
-    waitFor filterSource.wakuFilterLegacy.handleMessage(DefaultPubsubTopic, message)
+    waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
 
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)

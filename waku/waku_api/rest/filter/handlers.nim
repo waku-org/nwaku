@@ -16,7 +16,6 @@ import
   ../../../waku_core,
   ../../../waku_node,
   ../../../node/peer_manager,
-  ../../../waku_filter,
   ../../../waku_filter_v2,
   ../../../waku_filter_v2/client as filter_protocol_client,
   ../../../waku_filter_v2/common as filter_protocol_type,
