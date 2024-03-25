@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[tables, strutils, times, sequtils],
+  std/[tables, strutils, times, sequtils, random],
   stew/results,
   stew/shims/net,
   chronicles,
@@ -27,6 +27,7 @@ import
   ../../waku/waku_enr,
   ../../waku/waku_discv5,
   ../../waku/waku_dnsdisc,
+  ../../waku/waku_relay,
   ../../waku/waku_rln_relay,
   ../../waku/factory/builder,
   ../wakunode2/networks_config,
@@ -41,6 +42,7 @@ const ReconnectTime = 60
 const MaxConnectionRetries = 5
 const ResetRetriesAfter = 1200
 const AvgPingWindow = 10.0
+const MaxConnectedPeers = 150
 
 const git_version* {.strdefine.} = "n/a"
 
@@ -127,6 +129,16 @@ proc setConnectedPeersMetrics(
   var successfulConnections = 0
 
   var analyzeFuts: seq[Future[Result[string, string]]]
+
+  var (inConns, outConns) = node.peer_manager.connectedPeers(WakuRelayCodec)
+  info "connected peers", inConns=inConns.len, outConns=outConns.len
+
+  shuffle(outConns)
+
+  if outConns.len >= toInt(MaxConnectedPeers/2):
+    for p in outConns[0 ..< toInt(outConns.len/2)]:
+      trace "Pruning Peer", Peer = $p
+      asyncSpawn(node.switch.disconnect(p))
 
   # iterate all newly discovered nodes
   for discNode in discoveredNodes:
@@ -429,7 +441,8 @@ proc initAndStartApp(
 
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
-  nodeBuilder.withPeerManagerConfig(maxRelayPeers = none(int), shardAware = true)
+  nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
+  nodeBuilder.withPeerManagerConfig(maxRelayPeers = some(20), shardAware = true)
   let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
   if res.isErr():
     return err("node building error" & $res.error)
