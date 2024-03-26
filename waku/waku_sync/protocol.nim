@@ -19,13 +19,12 @@ import
   ../waku_core,
   ../waku_enr,
   ../node/peer_manager/peer_manager,
-  ./raw_bindings
+  ./raw_bindings,
+  ./common
 
 logScope:
   topics = "waku sync"
 
-const WakuSyncCodec* = "/vac/waku/sync/1.0.0"
-const DefaultFrameSize = 153600 # using a random number for now
 const DefaultSyncInterval = 60.minutes
 
 type
