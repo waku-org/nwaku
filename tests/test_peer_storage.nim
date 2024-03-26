@@ -21,11 +21,11 @@ suite "Peer Storage":
       peerProto = "/waku/2/default-waku/codec"
       connectedness = Connectedness.CanConnect
       disconn = 999999
-      topics = @["/waku/2/rs/2/0", "/waku/2/rs/2/1"]
+      pubsubTopics = @["/waku/2/rs/2/0", "/waku/2/rs/2/1"]
 
     # Create ENR
     var enrBuilder = EnrBuilder.init(peerKey)
-    enrBuilder.withShardedTopics(topics).expect("Valid topics")
+    enrBuilder.withShardedTopics(pubsubTopics).expect("Valid topics")
     let record = enrBuilder.build().expect("Valid record")
 
     let stored = RemotePeerInfo(

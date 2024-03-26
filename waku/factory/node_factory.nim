@@ -140,15 +140,9 @@ proc setupProtocols(
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let pubsubTopics =
-      if conf.pubsubTopics.len > 0 or conf.contentTopics.len > 0:
-        # TODO autoshard content topics only once.
-        # Already checked for errors in app.init
-        let shards =
-          conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
-        conf.pubsubTopics & shards
-      else:
-        conf.topics
+    let shards =
+      conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
+    let pubsubTopics = conf.pubsubTopics & shards
 
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
