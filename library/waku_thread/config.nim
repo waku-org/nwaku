@@ -143,11 +143,11 @@ proc parseStore(
   return true
 
 proc parseTopics(jsonNode: JsonNode, conf: var WakuNodeConf) =
-  if jsonNode.contains("topics"):
-    for topic in jsonNode["topics"].items:
-      conf.topics.add(topic.getStr())
+  if jsonNode.contains("pubsubTopics"):
+    for topic in jsonNode["pubsubTopics"].items:
+      conf.pubsubTopics.add(topic.getStr())
   else:
-    conf.topics = @["/waku/2/default-waku/proto"]
+    conf.pubsubTopics = @["/waku/2/default-waku/proto"]
 
 proc parseConfig*(
     configNodeJson: string,

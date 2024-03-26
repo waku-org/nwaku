@@ -33,7 +33,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     maxConnections: 50,
     maxMessageSize: "1024 KiB",
     clusterId: 1.uint32,
-    topics: @["/waku/2/rs/1/0"],
+    pubsubTopics: @["/waku/2/rs/1/0"],
     relay: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
   )
@@ -59,7 +59,7 @@ proc newTestWakuNode*(
     discv5UdpPort = none(Port),
     agentString = none(string),
     clusterId: uint32 = 1.uint32,
-    topics: seq[string] = @["/waku/2/rs/1/0"],
+    pubsubTopics: seq[string] = @["/waku/2/rs/1/0"],
     peerStoreCapacity = none(int),
 ): WakuNode =
   var resolvedExtIp = extIp
@@ -74,7 +74,7 @@ proc newTestWakuNode*(
   var conf = defaultTestWakuNodeConf()
 
   conf.clusterId = clusterId
-  conf.topics = topics
+  conf.pubsubTopics = pubsubTopics
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
@@ -101,7 +101,7 @@ proc newTestWakuNode*(
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
-  enrBuilder.withShardedTopics(topics).isOkOr:
+  enrBuilder.withShardedTopics(pubsubTopics).isOkOr:
     raise newException(Defect, "Invalid record: " & error)
 
   enrBuilder.withIpAddressAndPorts(
