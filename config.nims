@@ -73,7 +73,7 @@ switch("define", "withoutPCRE")
 
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
-if not defined(macosx):
+if not defined(macosx) and not defined(android):
   # add debugging symbols and original files and line numbers
   --debugger:native
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
