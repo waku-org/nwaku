@@ -131,7 +131,7 @@ clean: | clean-libbacktrace
 ##################
 ##     RLN      ##
 ##################
-.PHONY: librln
+.PHONY: librln librln-android
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
@@ -157,6 +157,13 @@ ifeq ($(RLN_V2),true)
 	$(eval NIM_PARAMS += -d:rln_v2)
 endif
 
+librln-android:
+	$(eval NIM_PARAMS += --passL:-lm)
+ifeq ($(RLN_V2),true)
+	$(eval NIM_PARAMS += -d:rln_v2)
+endif
+	echo -e $(BUILD_MSG) "$@" && \
+	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION)
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -290,7 +297,12 @@ else
 		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
-libwaku-android: | build deps librln
+################
+## Mobile Bindings ##
+################
+.PHONY: libwaku-android
+
+libwaku-android: | build deps librln-android
 ifndef ANDROID_NDK_HOME
 		$(error ANDROID_NDK_HOME is not set)
 endif
