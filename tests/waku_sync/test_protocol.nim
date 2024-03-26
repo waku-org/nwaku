@@ -105,6 +105,9 @@ suite "Waku Sync - Protocol Tests":
     check:
       hashes.value.len == 0
 
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
   asyncTest "sync 2 nodes empty client full server":
     ## Setup
     let
@@ -141,6 +144,9 @@ suite "Waku Sync - Protocol Tests":
       computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2) in hashes.value
       computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg3) in hashes.value
 
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
   asyncTest "sync 2 nodes full client empty server":
     ## Setup
     let
@@ -173,6 +179,9 @@ suite "Waku Sync - Protocol Tests":
     require (hashes.isOk())
     check:
       hashes.value.len == 0
+
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "sync 2 nodes different hashes":
     ## Setup
@@ -213,6 +222,9 @@ suite "Waku Sync - Protocol Tests":
     check:
       hashes.value.len == 0
 
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
   asyncTest "sync 2 nodes same hashes":
     ## Setup
     let
@@ -244,6 +256,9 @@ suite "Waku Sync - Protocol Tests":
     assert hashes.isOk(), $hashes.error
     check:
       hashes.value.len == 0
+
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "sync 2 nodes 100K msgs":
     ## Setup
@@ -284,6 +299,9 @@ suite "Waku Sync - Protocol Tests":
     check:
       hashes.value.len == 1
       hashes.value[0] == computeMessageHash(DefaultPubsubTopic, diffMsg)
+
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "sync 2 nodes 100K msgs 10K diffs":
     ## Setup
@@ -336,6 +354,9 @@ suite "Waku Sync - Protocol Tests":
       hashes.value.len == diffCount
       #TODO: Check if all diffHashes are there in needHashes        
 
+    await allFutures(server.stop(), client.stop())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
   asyncTest "sync 3 nodes 2 client 1 server":
     ## Setup
     let
@@ -385,6 +406,9 @@ suite "Waku Sync - Protocol Tests":
       hashes2.value.len == int(msgCount / 2)
 
       #TODO: Check if all diffHashes are there in needHashes
+
+    await allFutures(server.stop(), client1.stop(), client2.stop())
+    await allFutures(serverSwitch.stop(), client1Switch.stop(), client2Switch.stop())
 
   asyncTest "sync 6 nodes varying sync diffs":
     ## Setup
@@ -491,6 +515,9 @@ suite "Waku Sync - Protocol Tests":
       hashes5.value.len == 10000
       #TODO: Check if all diffHashes are there in needHashes
 
+    await allFutures(server.stop(), client1.stop(), client2.stop(), client3.stop(), client4.stop(), client5.stop())
+    await allFutures(serverSwitch.stop(), client1Switch.stop(), client2Switch.stop(), client3Switch.stop(), client4Switch.stop(), client5Switch.stop())
+
   asyncTest "sync 3 nodes cyclic":
     let
       node1Switch = newTestSwitch()
@@ -549,3 +576,6 @@ suite "Waku Sync - Protocol Tests":
       hashes1.get()[0] == hash2
       hashes2.get()[0] == hash3
       hashes3.get()[0] == hash1
+
+    await allFutures(node1.stop(), node2.stop(), node3.stop())
+    await allFutures(node1Switch.stop(), node2Switch.stop(), node3Switch.stop())

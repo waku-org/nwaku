@@ -149,7 +149,7 @@ proc initProtocolHandler(self: WakuSync) =
       let buffer = requestRes.valueOr:
         error "Connection reading error", error = error.msg
         return
-
+      #TODO: Once we receive needHashes or endOfSync, we should close this stream.
       let request = NegentropyPayload(buffer)
 
       let response = negentropy.serverReconcile(request).valueOr:
