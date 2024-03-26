@@ -35,9 +35,9 @@ suite "Peer Manager":
       # Given two nodes with the same shardId
       let
         server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, topics = @[shardTopic0])
+          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
         client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, topics = @[shardTopic1])
+          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1])
 
       # And both mount metadata and filter
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -68,9 +68,9 @@ suite "Peer Manager":
       # Given two nodes with the same shardId
       let
         server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, topics = @[shardTopic0])
+          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
         client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, topics = @[shardTopic0])
+          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -99,9 +99,9 @@ suite "Peer Manager":
       # Given two nodes with different shardIds
       let
         server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, topics = @[shardTopic0])
+          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
         client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, topics = @[shardTopic1])
+          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1])
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
