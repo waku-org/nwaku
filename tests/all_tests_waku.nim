@@ -42,7 +42,8 @@ import
   ./waku_filter_v2/test_all,
   ./waku_peer_exchange/test_all,
   ./waku_lightpush/test_all,
-  ./waku_relay/test_all
+  ./waku_relay/test_all,
+  ./incentivization/test_all
 
 import
   # Waku v2 tests
