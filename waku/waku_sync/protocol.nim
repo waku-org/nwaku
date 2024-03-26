@@ -63,7 +63,7 @@ proc request(
   let payload = negentropy.initiate().valueOr:
     return err(error)
 
-  debug "sync session initialized"
+  debug "Client sync session initialized", remotePeer = conn.peerId
 
   let writeRes = catch:
     await conn.writeLP(seq[byte](payload))
@@ -92,7 +92,7 @@ proc request(
       return err(error)
 
     let response = responseOpt.valueOr:
-      debug "Closing connection, sync session is done"
+      debug "Closing connection, client sync session is done"
       await conn.close()
       break
 
@@ -133,7 +133,7 @@ proc sync*(
 
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    debug "sync session requested"
+    debug "Server sync session requested", remotePeer = $conn.peerId
 
     let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
       error "Negentropy initialization error", error = error
@@ -147,22 +147,25 @@ proc initProtocolHandler(self: WakuSync) =
         await conn.readLp(self.maxFrameSize)
 
       let buffer = requestRes.valueOr:
-        error "Connection reading error", error = error.msg
-        return
+        if error.name != $LPStreamRemoteClosedError or error.name != $LPStreamClosedError:
+          debug "Connection reading error", error = error.msg
+
+        break
+
       #TODO: Once we receive needHashes or endOfSync, we should close this stream.
       let request = NegentropyPayload(buffer)
 
       let response = negentropy.serverReconcile(request).valueOr:
         error "Reconciliation error", error = error
-        return
+        break
 
       let writeRes = catch:
         await conn.writeLP(seq[byte](response))
       if writeRes.isErr():
         error "Connection write error", error = writeRes.error.msg
-        return
+        break
 
-    debug "sync session ended"
+    debug "Server sync session ended"
 
   self.handler = handle
   self.codec = WakuSyncCodec
