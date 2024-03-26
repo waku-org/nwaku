@@ -23,7 +23,7 @@ suite "Waku Incentivization Eligibility Codec":
     
     asyncTest "encode eligibility status":
       let esRpc = EligibilityStatus(
-        statusCode: some(uint32(200)),
+        statusCode: uint32(200),
         statusDesc: some("OK")
       )
       let encoded = encode(esRpc)

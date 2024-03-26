@@ -4,7 +4,7 @@ import
 import
   ../waku_core
 
-# Exactly following the RFC:
+# Implementing the RFC:
 # https://github.com/vacp2p/rfc/tree/master/content/docs/rfcs/73
 
 type
@@ -13,5 +13,5 @@ type
     proofOfPayment*: Option[seq[byte]]
 
   EligibilityStatus* = object
-    statusCode*: Option[uint32]
+    statusCode*: uint32
     statusDesc*: Option[string]

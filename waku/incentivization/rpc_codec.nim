@@ -33,8 +33,7 @@ proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] =
 
 proc encode*(esRpc: EligibilityStatus): ProtoBuffer = 
   var pb = initProtoBuffer()
-  if esRpc.statusCode.isSome():
-    pb.write3(1, esRpc.statusCode.get())
+  pb.write3(1, esRpc.statusCode)
   if esRpc.statusDesc.isSome():
     pb.write3(2, esRpc.statusDesc.get())
   pb
@@ -45,9 +44,10 @@ proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] =
   # status code
   var code = uint32(0)
   if not ?pb.getField(1, code):
-    esRpc.statusCode = none(uint32)
+    # status code is mandatory
+    return err(ProtobufError.missingRequiredField("status_code"))
   else:
-    esRpc.statusCode = some(code)
+    esRpc.statusCode = code
   # status description
   var description = ""
   if not ?pb.getField(2, description):
