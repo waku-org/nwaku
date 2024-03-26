@@ -10,7 +10,7 @@ import
 type
 
   EligibilityProof* = object
-    proof*: Option[seq[byte]]
+    proofOfPayment*: Option[seq[byte]]
 
   EligibilityStatus* = object
     statusCode*: Option[uint32]

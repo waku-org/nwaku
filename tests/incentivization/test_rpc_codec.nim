@@ -14,8 +14,8 @@ import
 suite "Waku Incentivization Eligibility Codec":
 
     asyncTest "encode eligibility proof":
-      var byteSequence: seq[byte] = @[1, 2, 3]
-      let epRpc = EligibilityProof(proof: some(byteSequence))
+      var byteSequence: seq[byte] = @[1, 2, 3, 4, 5, 6, 7, 8]
+      let epRpc = EligibilityProof(proofOfPayment: some(byteSequence))
       let encoded = encode(epRpc)
       let decoded = EligibilityProof.decode(encoded.buffer).get()
       check:
