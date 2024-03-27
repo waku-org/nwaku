@@ -452,14 +452,14 @@ proc mount(
       nonceManager:
         NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
       rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap: uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)),
+      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
       onFatalErrorAction: conf.onFatalErrorAction,
     )
   else:
     return WakuRLNRelay(
       groupManager: groupManager,
       rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap: uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)),
+      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
       onFatalErrorAction: conf.onFatalErrorAction,
     )
 
