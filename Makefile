@@ -333,13 +333,13 @@ libwaku-android-amd64: | libwaku-android-precheck build deps librln-env
 libwaku-android-x86: ANDROID_ARCH=i686-linux-android
 libwaku-android-x86: CPU=i386
 libwaku-android-x86: ABIDIR=x86
-libwaku-android-x86: | libwaku-android-precheck build deps clean-cross nat-libs librln-env
+libwaku-android-x86: | libwaku-android-precheck build deps librln-env
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 
 libwaku-android-arm: ANDROID_ARCH=armv7a-linux-androideabi
 libwaku-android-arm: CPU=arm
 libwaku-android-arm: ABIDIR=armeabi-v7a
-libwaku-android-arm: | libwaku-android-precheck build deps clean-cross nat-libs librln-env
+libwaku-android-arm: | libwaku-android-precheck build deps librln-env
 # cross-rs target architecture name does not match the one used in android
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=armv7-linux-androideabi CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 

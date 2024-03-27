@@ -136,5 +136,4 @@ task libWakuAndroid, "Build the mobile bindings for Android":
   let srcDir = "./library"
   let extraParams = "-d:chronicles_log_level=ERROR"
   buildMobileAndroid srcDir, extraParams
-  # "arm",   "armeabi-v7a"
-  # "i386",  "x86"
+
