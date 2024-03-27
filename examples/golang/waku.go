@@ -7,7 +7,7 @@ package main
 	#include <stdio.h>
 	#include <stdlib.h>
 
-	extern void MyEventCallback(int ret, char* msg, size_t len, void* userData);
+	extern void globalEventCallback(int ret, char* msg, size_t len, void* userData);
 
 	typedef struct {
 		int ret;
@@ -89,10 +89,20 @@ package main
 		WAKU_CALL(waku_version(ctx, (WakuCallBack) callback, resp));
 	}
 
-	void cGoWakuSetEventCallback(void* ctx, void* resp) {
-		// We should pass a resp != NULL in this case to overcome
-		// the 'if isNil(ctx[].eventUserData)' check in libwaku.nim
-		waku_set_event_callback(ctx, (WakuCallBack) MyEventCallback, resp);
+	void cGoWakuSetEventCallback(void* ctx) {
+		// The 'globalEventCallback' Go function is shared amongst all possible WakuNode instances.
+
+		// Given that the 'globalEventCallback' is shared, we pass again the
+		// ctx instance but in this case is needed to pick up the correct method
+		// that will handle the event.
+
+		// In other words, for every call the libwaku makes to globalEventCallback,
+		// the 'userData' parameter will bring the context of the node that registered
+		// that globalEventCallback.
+
+		// This technique is needed because cgo only allows to export Go functions and not methods.
+
+		waku_set_event_callback(ctx, (WakuCallBack) globalEventCallback, ctx);
 	}
 
 	void cGoWakuContentTopic(void* ctx,
@@ -262,23 +272,21 @@ func (self *WakuNode) WakuVersion() (string, error) {
 	return "", errors.New(errMsg)
 }
 
-//export MyEventCallback
-func MyEventCallback(callerRet C.int, msg *C.char, len C.size_t, userData unsafe.Pointer) {
+//export globalEventCallback
+func globalEventCallback(callerRet C.int, msg *C.char, len C.size_t, userData unsafe.Pointer) {
+	// This is shared among all Golang instances
+
+	self := WakuNode{ctx: userData}
+	self.MyEventCallback(callerRet, msg, len)
+}
+
+func (self *WakuNode) MyEventCallback(callerRet C.int, msg *C.char, len C.size_t) {
 	fmt.Println("Event received:", C.GoStringN(msg, C.int(len)))
 }
 
-func (self *WakuNode) WakuSetEventCallback() error {
-	var resp = C.allocResp()
-	// Notice that we are not releasing the `resp` memory in this case
-	// because we leave it available to all the upcoming events
-	C.cGoWakuSetEventCallback(self.ctx, resp)
-
-	if C.getRet(resp) == C.RET_OK {
-		return nil
-	}
-
-	return errors.New("error WakuSetEventCallback: " +
-		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp))))
+func (self *WakuNode) WakuSetEventCallback() {
+	// Notice that the events for self node are handled by the 'MyEventCallback' method
+	C.cGoWakuSetEventCallback(self.ctx)
 }
 
 func (self *WakuNode) FormatContentTopic(
@@ -447,11 +455,7 @@ func main() {
 		return
 	}
 
-	err = node.WakuSetEventCallback()
-	if err != nil {
-		fmt.Println("Error happened:", err.Error())
-		return
-	}
+	node.WakuSetEventCallback()
 
 	defaultPubsubTopic, err := node.WakuDefaultPubsubTopic()
 	if err != nil {
