@@ -63,10 +63,31 @@ proc createNode(configJson: cstring): Future[Result[WakuNode, string]] {.async.}
     return err("exception calling parseConfig: " & getCurrentExceptionMsg())
 
   # TODO: figure out how to extract default values from the config pragma
-  conf.clusterId = 0
   conf.nat = "any"
   conf.maxConnections = 50.uint16
   conf.maxMessageSize = default_values.DefaultMaxWakuMessageSizeStr
+
+  # The Waku Network config (cluster-id=1)
+  if conf.clusterId == 1:
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    if len(conf.shards) != 0:
+      conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+    else:
+      conf.pubsubTopics = twnClusterConf.pubsubTopics
+
+    # Override configuration
+    conf.maxMessageSize = twnClusterConf.maxMessageSize
+    conf.clusterId = twnClusterConf.clusterId
+    conf.rlnRelay = twnClusterConf.rlnRelay
+    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+    conf.discv5Discovery = twnClusterConf.discv5Discovery
+    conf.discv5BootstrapNodes =
+      conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+
 
   let nodeRes = setupNode(conf).valueOr():
     error "Failed setting up node", error = error

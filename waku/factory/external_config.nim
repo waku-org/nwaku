@@ -31,7 +31,7 @@ type ProtectedTopic* = object
 
 type ShardIdx = distinct uint16
 
-type EthRpcUrl = distinct string
+type EthRpcUrl* = distinct string
 
 type StartUpCommand* = enum
   noCommand # default, runs waku

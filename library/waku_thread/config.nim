@@ -1,4 +1,5 @@
 import std/[json, strformat, options]
+import std/sequtils
 import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
@@ -6,6 +7,7 @@ import
   ../../waku/waku_enr/capabilities,
   ../../waku/common/utils/nat,
   ../../waku/factory/external_config,
+  ../../waku/waku_core/message/default_values,
   ../../waku/node/waku_node,
   ../../waku/node/config,
   ../events/json_base_event
@@ -82,6 +84,20 @@ proc parseRelay(jsonNode: JsonNode, conf: var WakuNodeConf, errorResp: var strin
 
   return true
 
+proc parseClusterId(jsonNode: JsonNode, conf: var WakuNodeConf, errorResp: var string): bool =
+  if not jsonNode.contains("relay"):
+    errorResp = "relay attribute is required"
+    return false
+
+  if jsonNode.contains("clusterId"):
+    if jsonNode["clusterId"].kind != JsonNodeKind.JInt:
+      errorResp = "The clusterId config param should be an int"
+      return false
+    else:
+      conf.clusterId = uint32(jsonNode["clusterId"].getInt())
+
+  return true
+
 proc parseStore(
     jsonNode: JsonNode,
     conf: var WakuNodeConf,
@@ -149,6 +165,29 @@ proc parseTopics(jsonNode: JsonNode, conf: var WakuNodeConf) =
   else:
     conf.pubsubTopics = @["/waku/2/default-waku/proto"]
 
+proc parseRLNRelay(jsonNode: JsonNode, conf: var WakuNodeConf, errorResp: var string): bool =
+  if not jsonNode.contains("rln-relay"):
+    return true
+
+  let jsonNode = jsonNode["rln-relay"]
+  if not jsonNode.contains("enabled"):
+    errorResp = "rlnRelay.enabled attribute is required"
+    return false
+
+  conf.rlnRelay = jsonNode["enabled"].getBool()
+  conf.rlnRelayCredPath = jsonNode{"cred-password"}.getStr()
+  conf.rlnRelayEthClientAddress = EthRpcUrl.parseCmdArg(jsonNode{"eth-client-address"}.getStr("http://localhost:8540"))
+  conf.rlnRelayEthContractAddress = jsonNode{"eth-contract-address"}.getStr()
+  conf.rlnRelayCredPassword = jsonNode{"cred-password"}.getStr()
+  conf.rlnRelayUserMessageLimit = uint64(jsonNode{"user-message-limit"}.getInt(1))
+  conf.rlnEpochSizeSec = uint64(jsonNode{"epoch-sec"}.getInt(1))
+  conf.rlnRelayCredIndex = some(uint(jsonNode{"membership-index"}.getInt()))
+  conf.rlnRelayDynamic = jsonNode{"dynamic"}.getBool()
+  conf.rlnRelayTreePath = jsonNode{"tree-path"}.getStr()
+  conf.rlnRelayBandwidthThreshold = jsonNode{"bandwidth-threshold"}.getInt()
+
+  return true
+
 proc parseConfig*(
     configNodeJson: string,
     conf: var WakuNodeConf,
@@ -199,6 +238,14 @@ proc parseConfig*(
     errorResp = "Exception calling parseRelay: " & getCurrentExceptionMsg()
     return false
 
+  # clusterId
+  try:
+    if not parseClusterId(jsonNode, conf, errorResp):
+      return false
+  except Exception, KeyError:
+    errorResp = "Exception calling parseClusterId: " & getCurrentExceptionMsg()
+    return false
+
   # topics
   try:
     parseTopics(jsonNode, conf)
@@ -212,6 +259,14 @@ proc parseConfig*(
       return false
   except Exception, KeyError:
     errorResp = "Exception calling parseStore: " & getCurrentExceptionMsg()
+    return false
+
+  # rln
+  try:
+    if not parseRLNRelay(jsonNode, conf, errorResp):
+      return false
+  except Exception, KeyError:
+    errorResp = "Exception calling parseRLNRelay: " & getCurrentExceptionMsg()
     return false
 
   return true
