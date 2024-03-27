@@ -420,7 +420,7 @@ procSuite "Peer Manager":
         ValidIpAddress.init("0.0.0.0"),
         Port(0),
         clusterId = clusterId3,
-        topics = @["/waku/2/rs/3/0"],
+        pubsubTopics = @["/waku/2/rs/3/0"],
       )
 
       # same network
@@ -429,14 +429,14 @@ procSuite "Peer Manager":
         ValidIpAddress.init("0.0.0.0"),
         Port(0),
         clusterId = clusterId4,
-        topics = @["/waku/2/rs/4/0"],
+        pubsubTopics = @["/waku/2/rs/4/0"],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         Port(0),
         clusterId = clusterId4,
-        topics = @["/waku/2/rs/4/0"],
+        pubsubTopics = @["/waku/2/rs/4/0"],
       )
 
     node1.mountMetadata(clusterId3).expect("Mounted Waku Metadata")

@@ -32,7 +32,7 @@ proc enrConfiguration*(
   let shards: seq[uint16] =
     # no shards configured
     if conf.shards.len == 0:
-      toSeq(0 ..< conf.topics.len).mapIt(uint16(it))
+      toSeq(0 ..< conf.pubsubTopics.len).mapIt(uint16(it))
     # some shards configured
     else:
       toSeq(conf.shards.mapIt(uint16(it)))
