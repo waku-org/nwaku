@@ -8,7 +8,7 @@ import std/times, metrics
 type Timestamp* = int64 # A nanosecond precision timestamp
 
 proc getNanosecondTime*(timeInSeconds: int64 | float64): Timestamp =
-  let ns = Timestamp(timeInSeconds * 1_000_000_000)
+  let ns = Timestamp(timeInSeconds) * Timestamp(1_000_000_000)
   return ns
 
 proc nowInUnixFloat(): float =
