@@ -99,11 +99,6 @@ if defined(android):
   var sysroot = ndk_home & "/sysroot"
   var cincludes = sysroot & "/usr/include/" & getEnv("ANDROID_ARCH")
 
-#  elif defined(i386):
- #   cincludes = sysroot & "/usr/include/i686-linux-android"
-#  elif defined(arm):
-   # cincludes = sysroot & "/usr/include/armv7a-linux-android"
-
   switch("clang.path", ndk_home & "/bin")
   switch("clang.exe", clang)
   switch("clang.linkerexe", clang)
