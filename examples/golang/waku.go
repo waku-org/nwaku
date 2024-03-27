@@ -317,10 +317,9 @@ func main() {
 	fmt.Println("Default pubsub topic:", WakuDefaultPubsubTopic(ctx))
 	fmt.Println("Listen addresses:", WakuListenAddresses(ctx))
 	
-	for {
-		// A simple wait to let the Waku node to run.
-		// Notice that the Waku node runs in a separate thread.
-		time.Sleep(time.Second)
-	}
+        // Wait for a SIGINT or SIGTERM signal
+        ch := make(chan os.Signal, 1)
+        signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+        <-ch
 }
 
