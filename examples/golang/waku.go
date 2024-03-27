@@ -164,7 +164,6 @@ package main
 import "C"
 
 import (
-	"runtime"
 	"time"
 	"fmt"
 	"unsafe"
@@ -296,8 +295,6 @@ func WakuListenAddresses(ctx unsafe.Pointer) string {
 }
 
 func main() {
-	runtime.LockOSThread()
-
 	config := `{
 		"host": "0.0.0.0",
 		"port": 30304,
