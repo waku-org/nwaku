@@ -157,13 +157,6 @@ ifeq ($(RLN_V2),true)
 	$(eval NIM_PARAMS += -d:rln_v2)
 endif
 
-librln-android:
-	$(eval NIM_PARAMS += --passL:-lm)
-ifeq ($(RLN_V2),true)
-	$(eval NIM_PARAMS += -d:rln_v2)
-endif
-	echo -e $(BUILD_MSG) "$@" && \
-	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION)
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -300,13 +293,42 @@ endif
 ################
 ## Mobile Bindings ##
 ################
-.PHONY: libwaku-android
+.PHONY: libwaku-android libwaku-build
 
-libwaku-android: | build deps librln-android
+libwaku-android-presetup:
 ifndef ANDROID_NDK_HOME
 		$(error ANDROID_NDK_HOME is not set)
 endif
-		$(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
+
+ANDROID_TARGET ?= 30
+ANDROID_TOOLCHAIN_DIR ?= $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64
+
+libwaku-android-arm64: ANDROID_ARCH=aarch64-linux-android
+libwaku-android-arm64: CPU=arm64
+libwaku-android-arm64: ABIDIR=arm64-v8a
+libwaku-android-arm64: ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+libwaku-android-arm64: CC=$(ANDROID_TOOLCHAIN_DIR)/bin/$(ANDROID_COMPILER)
+libwaku-android-arm64: | libwaku-android-presetup clean-cross build deps nat-libs librln-android
+libwaku-android-arm64:
+	CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_ARCH=$(ANDROID_ARCH) ANDROID_COMPILER=$(ANDROID_COMPILER) ANDROID_TOOLCHAIN_DIR=$(ANDROID_TOOLCHAIN_DIR) $(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
+
+libwaku-android-amd64: ANDROID_ARCH=x86_64-linux-android
+libwaku-android-amd64: CPU=amd64
+libwaku-android-amd64: ABIDIR=x86_64
+libwaku-android-amd64: ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
+libwaku-android-amd64: CC=$(ANDROID_TOOLCHAIN_DIR)/bin/$(ANDROID_COMPILER)
+libwaku-android-amd64: | libwaku-android-presetup clean-cross build deps nat-libs librln-android
+libwaku-android-amd64:
+	CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_ARCH=$(ANDROID_ARCH) ANDROID_COMPILER=$(ANDROID_COMPILER) ANDROID_TOOLCHAIN_DIR=$(ANDROID_TOOLCHAIN_DIR) $(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
+
+librln-android:
+	$(eval NIM_PARAMS += --passL:-lm)
+ifeq ($(RLN_V2),true)
+	$(eval NIM_PARAMS += -d:rln_v2)
+endif
+	echo -e $(BUILD_MSG) "$@" && \
+	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(ANDROID_ARCH) $(ABIDIR)
+
 
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \

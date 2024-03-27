@@ -94,23 +94,15 @@ switch("warning", "ObservableStores:off")
 switch("warning", "LockLevel:off")
 
 if defined(android):
-  var clang = ""
-  var cincludes = ""
-  var ndk_home = getEnv("ANDROID_NDK_HOME") & "/toolchains/llvm/prebuilt/linux-x86_64"
+  var clang = getEnv("ANDROID_COMPILER")
+  var ndk_home = getEnv("ANDROID_TOOLCHAIN_DIR")
   var sysroot = ndk_home & "/sysroot"
+  var cincludes = sysroot & "/usr/include/" & getEnv("ANDROID_ARCH")
 
-  if defined(amd64):
-    clang = "x86_64-linux-android30-clang"
-    cincludes = sysroot & "/usr/include/x86_64-linux-android"
-  elif defined(i386):
-    clang = "i686-linux-android30-clang"
-    cincludes = sysroot & "/usr/include/i686-linux-android"
-  elif defined(arm64):
-    clang = "aarch64-linux-android30-clang"
-    cincludes = sysroot & "/usr/include/aarch64-linux-android"
-  elif defined(arm):
-    clang = "armv7a-linux-androideabi30-clang"
-    cincludes = sysroot & "/usr/include/armv7a-linux-android"
+#  elif defined(i386):
+ #   cincludes = sysroot & "/usr/include/i686-linux-android"
+#  elif defined(arm):
+   # cincludes = sysroot & "/usr/include/armv7a-linux-android"
 
   switch("clang.path", ndk_home & "/bin")
   switch("clang.exe", clang)
