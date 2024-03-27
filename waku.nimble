@@ -58,7 +58,7 @@ proc buildMobileAndroid(srcDir = ".", params = "") =
   for i in 2..<paramCount():
     extra_params &= " " & paramStr(i)
 
-  exec "nim c" & " --out:" & outDir & "/libwaku.so --threads:on --app:lib --opt:size --noMain --header --passL:-L" & outdir & " --cpu:" & cpu & " --os:android -d:androidNDK " & extra_params & " " & srcDir & "/libwaku.nim"
+  exec "nim c" & " --out:" & outDir & "/libwaku.so --threads:on --app:lib --opt:size --noMain -d:chronicles_sinks=textlines[dynamic] --header --passL:-L" & outdir & " --passL:-lrln --passL:-llog --cpu:" & cpu & " --os:android -d:androidNDK " & extra_params & " " & srcDir & "/libwaku.nim"
 
 proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`

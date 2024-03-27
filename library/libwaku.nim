@@ -2,7 +2,10 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-import std/[json, strformat, strutils]
+if defined(linux):
+  {.passl: "-Wl,-soname,libwaku.so"}
+
+import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
 import chronicles, chronos
 import
   ../../waku/common/base64,
@@ -39,6 +42,17 @@ const RET_MISSING_CALLBACK: cint = 2
 ################################################################################
 ### Not-exported components
 
+
+template foreignThreadGc(body: untyped) =
+  when declared(setupForeignThreadGc):
+    setupForeignThreadGc()
+
+  body
+
+  when declared(tearDownForeignThreadGc):
+    tearDownForeignThreadGc()
+
+
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
@@ -54,47 +68,80 @@ proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
 
     try:
       let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      cast[WakuCallBack](ctx[].eventCallback)(
-        RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-      )
+      foreignThreadGc:
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+        )
     except Exception, CatchableError:
       let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-      cast[WakuCallBack](ctx[].eventCallback)(
-        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-      )
+      foreignThreadGc:
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+        )
 
 ### End of not-exported components
 ################################################################################
 
 ################################################################################
+### Library setup
+
+# Every Nim library must have this function called - the name is derived from
+# the `--nimMainPrefix` command line option
+proc NimMain() {.importc.}
+
+# To control when the library has been initialized
+var initialized: Atomic[bool]
+
+if defined(android):
+  # Redirect chronicles to Android System logs
+  when compiles(defaultChroniclesStream.outputs[0].writer):
+    defaultChroniclesStream.outputs[0].writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [].} =
+        echo logLevel, msg
+
+
+### End of library setup
+################################################################################
+
+################################################################################
 ### Exported procs
+proc waku_setup() {.dynlib, exportc.} =
+  NimMain()
+  if not initialized.load:
+    initialized.store(true)
+
+    # TODO: ask Ivan what is nimGC_setStackBottom for
+    when declared(nimGC_setStackBottom):
+      var locals {.volatile, noinit.}: pointer
+      locals = addr(locals)
+      nimGC_setStackBottom(locals)
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
 ): pointer {.dynlib, exportc, cdecl.} =
   ## Creates a new instance of the WakuNode.
-
   if isNil(callback):
     echo "error: missing callback in waku_new"
     return nil
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
   var ctx = waku_thread.createWakuThread().valueOr:
-    let msg = "Error in createWakuThread: " & $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    foreignThreadGc:
+      let msg = "Error in createWakuThread: " & $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
 
   ctx.userData = userData
 
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
-    ctx,
-    RequestType.LIFECYCLE,
-    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
-  )
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return nil
+  waku_thread.sendRequestToWakuThread(
+     ctx,
+     RequestType.LIFECYCLE,
+     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
+  ).isOkOr:
+    foreignThreadGc:
+      let msg = $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+      return nil
 
   return ctx
 
@@ -105,9 +152,10 @@ proc waku_destroy(
     return RET_MISSING_CALLBACK
 
   waku_thread.stopWakuThread(ctx).isOkOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
+    foreignThreadGc:
+      let msg = $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+      return RET_ERR
 
   return RET_OK
 
@@ -119,12 +167,13 @@ proc waku_version(
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
-  callback(
-    RET_OK,
-    cast[ptr cchar](WakuNodeVersionString),
-    cast[csize_t](len(WakuNodeVersionString)),
-    userData,
-  )
+  foreignThreadGc:
+    callback(
+      RET_OK,
+      cast[ptr cchar](WakuNodeVersionString),
+      cast[csize_t](len(WakuNodeVersionString)),
+      userData,
+    )
 
   return RET_OK
 
