@@ -131,7 +131,7 @@ clean: | clean-libbacktrace
 ##################
 ##     RLN      ##
 ##################
-.PHONY: librln-env librln
+.PHONY: librln-env librln shouldUseRLNV2
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
@@ -150,14 +150,13 @@ $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
-librln-env:
-	$(eval NIM_PARAMS += --passL:-lm)
+shouldUseRLNV2:
 ifeq ($(RLN_V2),true)
 	$(eval NIM_PARAMS += -d:rln_v2)
 endif
 
-librln: | $(LIBRLN_FILE) librln-env
-	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE))
+librln: | $(LIBRLN_FILE) shouldUseRLNV2
+	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
 
 clean-librln:
 	cargo clean --manifest-path vendor/zerokit/rln/Cargo.toml
@@ -308,14 +307,14 @@ ANDROID_TOOLCHAIN_DIR ?= $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_
 
 rebuild-nat-libs: | clean-cross nat-libs
 
-libwaku-android-precheck:
+libwaku-android-precheck: shouldUseRLNV2
 ifndef ANDROID_NDK_HOME
 		$(error ANDROID_NDK_HOME is not set)
 endif
 
 build-libwaku-for-android-arch:
 	$(MAKE) rebuild-nat-libs CC=$(ANDROID_TOOLCHAIN_DIR)/bin/$(ANDROID_COMPILER) && \
-	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(CROSS_TARGET) $(ABIDIR) &&
+	./scripts/build_rln_android.sh $(CURDIR)/build $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(CROSS_TARGET) $(ABIDIR) && \
 	CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_ARCH=$(ANDROID_ARCH) ANDROID_COMPILER=$(ANDROID_COMPILER) ANDROID_TOOLCHAIN_DIR=$(ANDROID_TOOLCHAIN_DIR) $(ENV_SCRIPT) nim libWakuAndroid $(NIM_PARAMS) waku.nims
 
 libwaku-android-arm64: ANDROID_ARCH=aarch64-linux-android
