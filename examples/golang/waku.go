@@ -10,52 +10,52 @@ package main
 	extern void MyEventCallback(int ret, char* msg, size_t len, void* userData);
 
 	typedef struct {
+		int ret;
 		char* msg;
 		size_t len;
-	} MyString;
+	} Resp;
 
-	void* allocMyString() {
-		return calloc(1, sizeof(MyString));
+	void* allocResp() {
+		return calloc(1, sizeof(Resp));
 	}
 
-	void freeMyString(void* str) {
-		if (str != NULL) {
-			free(str);
+	void freeResp(void* resp) {
+		if (resp != NULL) {
+			free(resp);
 		}
 	}
 
-	char* getMyCharPtr(void* myStr) {
-		if (myStr == NULL) {
+	char* getMyCharPtr(void* resp) {
+		if (resp == NULL) {
 			return NULL;
 		}
-		MyString* m = (MyString*) myStr;
+		Resp* m = (Resp*) resp;
 		return m->msg;
 	}
 
-	size_t getMyCharLen(void* myStr) {
-		if (myStr == NULL) {
+	size_t getMyCharLen(void* resp) {
+		if (resp == NULL) {
 			return 0;
 		}
-		MyString* m = (MyString*) myStr;
+		Resp* m = (Resp*) resp;
 		return m->len;
 	}
 
-	// myStr must be set != NULL in case interest on retrieving data from the callback
-	void callback(int ret, char* msg, size_t len, void* myStr) {
-		if (ret != RET_OK) {
-			char* m = calloc(len + 1, sizeof(char));
-			snprintf(m, len + 1, "%s", msg);
-			printf("error in callback: %s\n", m);
-			fflush(stdout);
-			free(m);
-			exit(-1);
+	int getRet(void* resp) {
+		if (resp == NULL) {
+			return 0;
 		}
-		else { // ret == RET_OK
-			if (myStr != NULL) {
-				MyString* m = (MyString*) myStr;
-				m->msg = msg;
-				m->len = len;
-			}
+		Resp* m = (Resp*) resp;
+		return m->ret;
+	}
+
+	// resp must be set != NULL in case interest on retrieving data from the callback
+	void callback(int ret, char* msg, size_t len, void* resp) {
+		if (resp != NULL) {
+			Resp* m = (Resp*) resp;
+			m->ret = ret;
+			m->msg = msg;
+			m->len = len;
 		}
 	}
 
@@ -68,31 +68,31 @@ package main
 		}                                                                            \
 	} while (0)
 
-	void* cGoWakuNew(const char* configJson) {
+	void* cGoWakuNew(const char* configJson, void* resp) {
 		// We pass NULL because we are not interested in retrieving data from this callback
-		return waku_new(configJson, (WakuCallBack) callback, NULL);
+		return waku_new(configJson, (WakuCallBack) callback, resp);
 	}
 
-	void cGoWakuStart(void* ctx) {
-		WAKU_CALL(waku_start(ctx, (WakuCallBack) callback, NULL));
+	void cGoWakuStart(void* ctx, void* resp) {
+		WAKU_CALL(waku_start(ctx, (WakuCallBack) callback, resp));
 	}
 
-	void cGoWakuStop(void* ctx) {
-		WAKU_CALL(waku_stop(ctx, (WakuCallBack) callback, NULL));
+	void cGoWakuStop(void* ctx, void* resp) {
+		WAKU_CALL(waku_stop(ctx, (WakuCallBack) callback, resp));
 	}
 
-	void cGoWakuDestroy(void* ctx) {
-		WAKU_CALL(waku_destroy(ctx, (WakuCallBack) callback, NULL));
+	void cGoWakuDestroy(void* ctx, void* resp) {
+		WAKU_CALL(waku_destroy(ctx, (WakuCallBack) callback, resp));
 	}
 
-	void cGoWakuVersion(void* ctx, void* myStr) {
-		WAKU_CALL(waku_version(ctx, (WakuCallBack) callback, myStr));
+	void cGoWakuVersion(void* ctx, void* resp) {
+		WAKU_CALL(waku_version(ctx, (WakuCallBack) callback, resp));
 	}
 
-	void cGoWakuSetEventCallback(void* ctx, void* myStr) {
-		// We should pass a myStr != NULL in this case to overcome
+	void cGoWakuSetEventCallback(void* ctx, void* resp) {
+		// We should pass a resp != NULL in this case to overcome
 		// the 'if isNil(ctx[].eventUserData)' check in libwaku.nim
-		waku_set_event_callback(ctx, (WakuCallBack) MyEventCallback, myStr);
+		waku_set_event_callback(ctx, (WakuCallBack) MyEventCallback, resp);
 	}
 
 	void cGoWakuContentTopic(void* ctx,
@@ -100,7 +100,7 @@ package main
 							int appVersion,
 							char* contentTopicName,
 							char* encoding,
-							void* myStr) {
+							void* resp) {
 
 		WAKU_CALL( waku_content_topic(ctx,
 							appName,
@@ -108,91 +108,158 @@ package main
 							contentTopicName,
 							encoding,
 							(WakuCallBack) callback,
-							myStr) );
+							resp) );
 	}
 
-	void cGoWakuPubsubTopic(void* ctx, char* topicName, void* myStr) {
-		WAKU_CALL( waku_pubsub_topic(ctx, topicName, (WakuCallBack) callback, myStr) );
+	void cGoWakuPubsubTopic(void* ctx, char* topicName, void* resp) {
+		WAKU_CALL( waku_pubsub_topic(ctx, topicName, (WakuCallBack) callback, resp) );
 	}
 
-	void cGoWakuDefaultPubsubTopic(void* ctx, void* myStr) {
-		WAKU_CALL (waku_default_pubsub_topic(ctx, (WakuCallBack) callback, myStr));
+	void cGoWakuDefaultPubsubTopic(void* ctx, void* resp) {
+		WAKU_CALL (waku_default_pubsub_topic(ctx, (WakuCallBack) callback, resp));
 	}
 
 	void cGoWakuRelayPublish(void* ctx,
                        const char* pubSubTopic,
                        const char* jsonWakuMessage,
-                       int timeoutMs) {
+                       int timeoutMs,
+					   void* resp) {
 
 		WAKU_CALL (waku_relay_publish(ctx,
                        pubSubTopic,
                        jsonWakuMessage,
                        timeoutMs,
                        (WakuCallBack) callback,
-                       NULL));
+                       resp));
 	}
 
-	void cGoWakuRelaySubscribe(void* ctx, char* pubSubTopic) {
+	void cGoWakuRelaySubscribe(void* ctx, char* pubSubTopic, void* resp) {
 
 		WAKU_CALL ( waku_relay_subscribe(ctx,
 							pubSubTopic,
 							(WakuCallBack) callback,
-							NULL) );
+							resp) );
 	}
 
-	void cGoWakuRelayUnsubscribe(void* ctx, char* pubSubTopic) {
+	void cGoWakuRelayUnsubscribe(void* ctx, char* pubSubTopic, void* resp) {
 
 		WAKU_CALL ( waku_relay_unsubscribe(ctx,
 							pubSubTopic,
 							(WakuCallBack) callback,
-							NULL) );
+							resp) );
 	}
 
-	void cGoWakuConnect(void* ctx, char* peerMultiAddr, int timeoutMs) {
+	void cGoWakuConnect(void* ctx, char* peerMultiAddr, int timeoutMs, void* resp) {
 		WAKU_CALL( waku_connect(ctx,
 						peerMultiAddr,
 						timeoutMs,
 						(WakuCallBack) callback,
-						NULL) );
+						resp) );
 	}
 
-	void cGoWakuListenAddresses(void* ctx, void* myStr) {
-		WAKU_CALL (waku_listen_addresses(ctx, (WakuCallBack) callback, myStr) );
+	void cGoWakuListenAddresses(void* ctx, void* resp) {
+		WAKU_CALL (waku_listen_addresses(ctx, (WakuCallBack) callback, resp) );
 	}
 
 */
 import "C"
 
 import (
-	"time"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"unsafe"
 )
 
-func WakuNew(jsonConfig string) unsafe.Pointer {
-	return C.cGoWakuNew(C.CString(jsonConfig))
+type WakuMessageHash = string
+type WakuPubsubTopic = string
+type WakuContentTopic = string
+
+type WakuConfig struct {
+	Host        string `json:"host,omitempty"`
+	Port        int    `json:"port,omitempty"`
+	NodeKey     string `json:"key,omitempty"`
+	EnableRelay bool   `json:"relay"`
 }
 
-func WakuStart(ctx unsafe.Pointer) {
-	C.cGoWakuStart(ctx)
+type WakuNode struct {
+	ctx unsafe.Pointer
 }
 
-func WakuStop(ctx unsafe.Pointer) {
-	C.cGoWakuStop(ctx)
+func WakuNew(config WakuConfig) (*WakuNode, error) {
+	jsonConfig, err := json.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+
+	var cJsonConfig = C.CString(string(jsonConfig))
+	var resp = C.allocResp()
+
+	defer C.free(unsafe.Pointer(cJsonConfig))
+	defer C.freeResp(resp)
+
+	ctx := C.cGoWakuNew(cJsonConfig, resp)
+	if C.getRet(resp) == C.RET_OK {
+		return &WakuNode{ctx: ctx}, nil
+	}
+
+	errMsg := "error WakuNew: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return nil, errors.New(errMsg)
 }
 
-func WakuDestroy(ctx unsafe.Pointer) {
-	C.cGoWakuDestroy(ctx)
+func (self *WakuNode) WakuStart() error {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuStart(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuStart: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
 }
 
-func WakuVersion(ctx unsafe.Pointer) string {
-	var str = C.allocMyString()
-	defer C.freeMyString(str)
+func (self *WakuNode) WakuStop() error {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuStop(self.ctx, resp)
 
-	C.cGoWakuVersion(ctx, str)
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuStop: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
+}
 
-	var version = C.GoStringN(C.getMyCharPtr(str), C.int(C.getMyCharLen(str)))
-    return version
+func (self *WakuNode) WakuDestroy() error {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuDestroy(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuDestroy: " + C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
+}
+
+func (self *WakuNode) WakuVersion() (string, error) {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+
+	C.cGoWakuVersion(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		var version = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return version, nil
+	}
+
+	errMsg := "error WakuVersion: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return "", errors.New(errMsg)
 }
 
 //export MyEventCallback
@@ -200,126 +267,263 @@ func MyEventCallback(callerRet C.int, msg *C.char, len C.size_t, userData unsafe
 	fmt.Println("Event received:", C.GoStringN(msg, C.int(len)))
 }
 
-func WakuSetEventCallback(ctx unsafe.Pointer) {
-	var str = C.allocMyString()
-	// Notice that we are not releasing the `str` memory in this case
-	// because we leave it available to the upcoming events
-	C.cGoWakuSetEventCallback(ctx, str)
+func (self *WakuNode) WakuSetEventCallback() error {
+	var resp = C.allocResp()
+	// Notice that we are not releasing the `resp` memory in this case
+	// because we leave it available to all the upcoming events
+	C.cGoWakuSetEventCallback(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+
+	return errors.New("error WakuSetEventCallback: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp))))
 }
 
-func WakuContentTopic(ctx unsafe.Pointer,
-					  appName string,
-					  appVersion int,
-					  contentTopicName string,
-					  encoding string) string {
+func (self *WakuNode) FormatContentTopic(
+	appName string,
+	appVersion int,
+	contentTopicName string,
+	encoding string) (WakuContentTopic, error) {
+
 	var cAppName = C.CString(appName)
 	var cContentTopicName = C.CString(contentTopicName)
 	var cEncoding = C.CString(encoding)
-	var str = C.allocMyString()
+	var resp = C.allocResp()
 
 	defer C.free(unsafe.Pointer(cAppName))
 	defer C.free(unsafe.Pointer(cContentTopicName))
 	defer C.free(unsafe.Pointer(cEncoding))
-	defer C.freeMyString(str)
+	defer C.freeResp(resp)
 
-	C.cGoWakuContentTopic(ctx, 
-						cAppName,
-						C.int(appVersion),
-						cContentTopicName,
-						cEncoding,
-						str)
+	C.cGoWakuContentTopic(self.ctx,
+		cAppName,
+		C.int(appVersion),
+		cContentTopicName,
+		cEncoding,
+		resp)
 
-	var contentTopic = C.GoStringN(C.getMyCharPtr(str), C.int(C.getMyCharLen(str)))
-    return contentTopic
+	if C.getRet(resp) == C.RET_OK {
+		var contentTopic = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return contentTopic, nil
+	}
+
+	errMsg := "error FormatContentTopic: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+
+	return "", errors.New(errMsg)
 }
 
-func WakuPubsubTopic(ctx unsafe.Pointer, topicName string) string {
+func (self *WakuNode) FormatPubsubTopic(topicName string) (WakuPubsubTopic, error) {
 	var cTopicName = C.CString(topicName)
-	var str = C.allocMyString()
+	var resp = C.allocResp()
 
 	defer C.free(unsafe.Pointer(cTopicName))
-	defer C.freeMyString(str)
+	defer C.freeResp(resp)
 
-	C.cGoWakuPubsubTopic(ctx, cTopicName, str)
+	C.cGoWakuPubsubTopic(self.ctx, cTopicName, resp)
+	if C.getRet(resp) == C.RET_OK {
+		var pubsubTopic = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return pubsubTopic, nil
+	}
 
-	var pubsubTopic = C.GoStringN(C.getMyCharPtr(str), C.int(C.getMyCharLen(str)))
-    return pubsubTopic
+	errMsg := "error FormatPubsubTopic: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+
+	return "", errors.New(errMsg)
 }
 
-func WakuDefaultPubsubTopic(ctx unsafe.Pointer) string {
-	var str = C.allocMyString()
-	defer C.freeMyString(str)
-	C.cGoWakuDefaultPubsubTopic(ctx, str)
-	var defaultPubsubTopic = C.GoStringN(C.getMyCharPtr(str), C.int(C.getMyCharLen(str)))
-    return defaultPubsubTopic
+func (self *WakuNode) WakuDefaultPubsubTopic() (WakuPubsubTopic, error) {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuDefaultPubsubTopic(self.ctx, resp)
+	if C.getRet(resp) == C.RET_OK {
+		var defaultPubsubTopic = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return defaultPubsubTopic, nil
+	}
+
+	errMsg := "error WakuDefaultPubsubTopic: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+
+	return "", errors.New(errMsg)
 }
 
-func WakuRelayPublish(ctx unsafe.Pointer,
-					pubsubTopic string,
-					message string,
-					timeoutMs int) {
+func (self *WakuNode) WakuRelayPublish(
+	pubsubTopic string,
+	message string,
+	timeoutMs int) (WakuMessageHash, error) {
+
 	var cPubsubTopic = C.CString(pubsubTopic)
 	var msg = C.CString(message)
+	var resp = C.allocResp()
 
+	defer C.freeResp(resp)
 	defer C.free(unsafe.Pointer(cPubsubTopic))
 	defer C.free(unsafe.Pointer(msg))
 
-	C.cGoWakuRelayPublish(ctx, cPubsubTopic, msg, C.int(timeoutMs))
+	C.cGoWakuRelayPublish(self.ctx, cPubsubTopic, msg, C.int(timeoutMs), resp)
+	if C.getRet(resp) == C.RET_OK {
+		msgHash := C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return msgHash, nil
+	}
+	errMsg := "error WakuRelayPublish: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return "", errors.New(errMsg)
 }
 
-func WakuRelaySubscribe(ctx unsafe.Pointer, pubsubTopic string) {
+func (self *WakuNode) WakuRelaySubscribe(pubsubTopic string) error {
+	var resp = C.allocResp()
 	var cPubsubTopic = C.CString(pubsubTopic)
+
+	defer C.freeResp(resp)
 	defer C.free(unsafe.Pointer(cPubsubTopic))
-	C.cGoWakuRelaySubscribe(ctx, cPubsubTopic)
+	C.cGoWakuRelaySubscribe(self.ctx, cPubsubTopic, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuRelaySubscribe: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
 }
 
-func WakuRelayUnsubscribe(ctx unsafe.Pointer, pubsubTopic string) {
+func (self *WakuNode) WakuRelayUnsubscribe(pubsubTopic string) error {
+	var resp = C.allocResp()
 	var cPubsubTopic = C.CString(pubsubTopic)
+	defer C.freeResp(resp)
 	defer C.free(unsafe.Pointer(cPubsubTopic))
-	C.cGoWakuRelayUnsubscribe(ctx, cPubsubTopic)
+	C.cGoWakuRelayUnsubscribe(self.ctx, cPubsubTopic, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuRelayUnsubscribe: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
 }
 
-func WakuConnect(ctx unsafe.Pointer, peerMultiAddr string, timeoutMs int) {
+func (self *WakuNode) WakuConnect(peerMultiAddr string, timeoutMs int) error {
+	var resp = C.allocResp()
 	var cPeerMultiAddr = C.CString(peerMultiAddr)
+	defer C.freeResp(resp)
 	defer C.free(unsafe.Pointer(cPeerMultiAddr))
 
-	C.cGoWakuConnect(ctx, cPeerMultiAddr, C.int(timeoutMs))
+	C.cGoWakuConnect(self.ctx, cPeerMultiAddr, C.int(timeoutMs), resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		return nil
+	}
+	errMsg := "error WakuConnect: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return errors.New(errMsg)
 }
 
-func WakuListenAddresses(ctx unsafe.Pointer) string {
-	var str = C.allocMyString()
-	defer C.freeMyString(str)
-	C.cGoWakuListenAddresses(ctx, str)
-	var listenAddresses = C.GoStringN(C.getMyCharPtr(str), C.int(C.getMyCharLen(str)))
-    return listenAddresses
+func (self *WakuNode) WakuListenAddresses() (string, error) {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuListenAddresses(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		var listenAddresses = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return listenAddresses, nil
+	}
+	errMsg := "error WakuListenAddresses: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return "", errors.New(errMsg)
 }
 
 func main() {
-	config := `{
-		"host": "0.0.0.0",
-		"port": 30304,
-		"key": "11d0dcea28e86f81937a3bd1163473c7fbc0a0db54fd72914849bc47bdf78710",
-		"relay": true
-	}`
+	config := WakuConfig{
+		Host:        "0.0.0.0",
+		Port:        30304,
+		NodeKey:     "11d0dcea28e86f81937a3bd1163473c7fbc0a0db54fd72914849bc47bdf78710",
+		EnableRelay: true,
+	}
 
-	ctx := WakuNew(config)
-	WakuSetEventCallback(ctx)
-	WakuRelaySubscribe(ctx, WakuDefaultPubsubTopic(ctx))
-	WakuConnect(ctx,
+	node, err := WakuNew(config)
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	err = node.WakuSetEventCallback()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	defaultPubsubTopic, err := node.WakuDefaultPubsubTopic()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	err = node.WakuRelaySubscribe(defaultPubsubTopic)
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	err = node.WakuConnect(
 		// tries to connect to a localhost node with key: 0d714a1fada214dead6dc9c7274585eca0ff292451866e7d6d677dc818e8ccd2
 		"/ip4/0.0.0.0/tcp/60000/p2p/16Uiu2HAmVFXtAfSj4EiR7mL2KvL4EE2wztuQgUSBoj2Jx2KeXFLN",
 		10000)
-	WakuStart(ctx)
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
 
-	fmt.Println("Version:", WakuVersion(ctx))
-	fmt.Println("Custom content topic:", WakuContentTopic(ctx, "appName", 1, "cTopicName", "enc"))
-	fmt.Println("Custom pubsub topic:", WakuPubsubTopic(ctx, "my-ctopic"))
-	fmt.Println("Default pubsub topic:", WakuDefaultPubsubTopic(ctx))
-	fmt.Println("Listen addresses:", WakuListenAddresses(ctx))
-	
-        // Wait for a SIGINT or SIGTERM signal
-        ch := make(chan os.Signal, 1)
-        signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
-        <-ch
+	err = node.WakuStart()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	version, err := node.WakuVersion()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	formattedContentTopic, err := node.FormatContentTopic("appName", 1, "cTopicName", "enc")
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	formattedPubsubTopic, err := node.FormatPubsubTopic("my-ctopic")
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	listenAddresses, err := node.WakuListenAddresses()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	fmt.Println("Version:", version)
+	fmt.Println("Custom content topic:", formattedContentTopic)
+	fmt.Println("Custom pubsub topic:", formattedPubsubTopic)
+	fmt.Println("Default pubsub topic:", defaultPubsubTopic)
+	fmt.Println("Listen addresses:", listenAddresses)
+
+	// Wait for a SIGINT or SIGTERM signal
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	<-ch
+
+	err = node.WakuStop()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
+	err = node.WakuDestroy()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
 }
-
