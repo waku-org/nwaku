@@ -51,8 +51,9 @@ elif defined(macosx) and defined(arm64):
   switch("passC", "-mcpu=apple-m1")
   switch("passL", "-mcpu=apple-m1")
 else:
-  switch("passC", "-march=native")
-  switch("passL", "-march=native")
+  if not defined(android):
+    switch("passC", "-march=native")
+    switch("passL", "-march=native")
   if defined(windows):
     # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
     # ("-fno-asynchronous-unwind-tables" breaks Nim's exception raising, sometimes)
@@ -72,7 +73,7 @@ switch("define", "withoutPCRE")
 
 # the default open files limit is too low on macOS (512), breaking the
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
-if not defined(macosx):
+if not defined(macosx) and not defined(android):
   # add debugging symbols and original files and line numbers
   --debugger:native
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
@@ -92,3 +93,15 @@ switch("warning", "ObservableStores:off")
 # Too many false positives for "Warning: method has lock level <unknown>, but another method has 0 [LockLevel]"
 switch("warning", "LockLevel:off")
 
+if defined(android):
+  var clang = getEnv("ANDROID_COMPILER")
+  var ndk_home = getEnv("ANDROID_TOOLCHAIN_DIR")
+  var sysroot = ndk_home & "/sysroot"
+  var cincludes = sysroot & "/usr/include/" & getEnv("ANDROID_ARCH")
+
+  switch("clang.path", ndk_home & "/bin")
+  switch("clang.exe", clang)
+  switch("clang.linkerexe", clang)
+  switch("passC", "--sysroot=" & sysRoot)
+  switch("passL", "--sysroot=" & sysRoot)
+  switch("cincludes", sysRoot & "/usr/include/")

@@ -46,6 +46,20 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
   else:
     exec "nim c" & " --out:build/" & name & ".so --threads:on --app:lib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
 
+proc buildMobileAndroid(srcDir = ".", params = "") =
+  let cpu = getEnv("CPU")
+  let abiDir = getEnv("ABIDIR")
+
+  let outDir = "build/android/" & abiDir
+  if not dirExists outDir:
+    mkDir outDir
+
+  var extra_params = params
+  for i in 2..<paramCount():
+    extra_params &= " " & paramStr(i)
+
+  exec "nim c" & " --out:" & outDir & "/libwaku.so --threads:on --app:lib --opt:size --noMain --header --passL:-L" & outdir & " --passL:-lrln --passL:-llog --cpu:" & cpu & " --os:android -d:androidNDK " & extra_params & " " & srcDir & "/libwaku.nim"
+
 proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
   # I expect compiler flag to be overridden, however it stays with whatever is
@@ -110,3 +124,10 @@ task libwakuStatic, "Build the cbindings waku node library":
 task libwakuDynamic, "Build the cbindings waku node library":
   let name = "libwaku"
   buildLibrary name, "library/", "-d:chronicles_log_level=ERROR", "dynamic"
+
+### Mobile Android
+task libWakuAndroid, "Build the mobile bindings for Android":
+  let srcDir = "./library"
+  let extraParams = "-d:chronicles_log_level=ERROR"
+  buildMobileAndroid srcDir, extraParams
+
