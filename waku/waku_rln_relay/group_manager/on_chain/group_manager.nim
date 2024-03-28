@@ -111,6 +111,7 @@ type
     validRootBuffer*: Deque[MerkleNode]
     # interval loop to shut down gracefully
     blockFetchingActive*: bool
+    blockChunkSize*: int
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -447,7 +448,6 @@ proc getRawEvents(
 ): Future[JsonNode] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-  let ethRpc = g.ethRpc.get()
   let rlnContract = g.rlnContract.get()
 
   var events: JsonNode
@@ -605,7 +605,7 @@ proc startOnchainSync(
   let ethRpc = g.ethRpc.get()
 
   # static block chunk size
-  let blockChunkSize = 2_000
+  let blockChunkSize = g.blockChunkSize
 
   var fromBlock =
     if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
@@ -705,7 +705,7 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if not existsFile(g.keystorePath.get()):
+    if not fileExists(g.keystorePath.get()):
       error "File provided as keystore path does not exist", path = g.keystorePath.get()
       raise newException(CatchableError, "missing keystore")
 
@@ -767,12 +767,25 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     await rlnContract.MEMBERSHIP_DEPOSIT().call()
   g.membershipFee = some(membershipFee)
 
+  var leavesSetOnChain: Uint256
+  g.retryWrapper(leavesSetOnChain, "Failed to get the leaves set"):
+    await rlnContract.idCommitmentIndex().call()
+
   var deployedBlockNumber: Uint256
   g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number"):
     await rlnContract.deployedBlockNumber().call()
   debug "using rln storage", deployedBlockNumber, rlnContractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
+
+  if leavesSetOnChain <= 10_000:
+    var currentBlock: BlockNumber
+    g.retryWrapper(currentBlock, "Failed to get the current block number"):
+      cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
+    g.blockChunkSize = int(currentBlock - g.rlnContractDeployedBlockNumber)
+    info "less than 10k leaves set onchain, blockChunkSize may be increased", leavesSetOnChain = leavesSetOnChain, blockChunkSize = g.blockChunkSize
+  else:
+    g.blockChunkSize = 10_000
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
