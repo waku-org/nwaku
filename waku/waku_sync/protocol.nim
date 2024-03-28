@@ -20,7 +20,8 @@ import
   ../waku_enr,
   ../node/peer_manager/peer_manager,
   ./raw_bindings,
-  ./common
+  ./common,
+  ./storage
 
 logScope:
   topics = "waku sync"
@@ -33,7 +34,7 @@ type
   .}
 
   WakuSync* = ref object of LPProtocol
-    storage: Storage
+    storageMgr: StorageManager
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: Duration
@@ -46,14 +47,18 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
   trace "inserting message into storage ", hash = msgHash
-
-  if self.storage.insert(msg.timestamp, msgHash).isErr():
+  let storage = storageMgr.retrieveStorage(msg.timestamp).valueOr:
+    error "failed to ingess message"
+  if storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
+  #Use latest storage to sync??, Need to rethink
+  let storage = self.storageMgr.getRecentStorage().valueOr:
+    return err(error)
+  let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
     return err(error)
 
   defer:
@@ -133,8 +138,11 @@ proc sync*(
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     debug "Server sync session requested", remotePeer = $conn.peerId
-
-    let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
+    #TODO: Find matching storage based on sync range and continue??
+    let storage = self.storageMgr.getRecentStorage().valueOr:
+      error "could not find latest storage"
+      return
+    let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
       error "Negentropy initialization error", error = error
       return
 
@@ -176,9 +184,7 @@ proc new*(
     syncInterval: Duration = DefaultSyncInterval,
     callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
 ): T =
-  let storage = Storage.new().valueOr:
-    error "storage creation failed"
-    return nil
+  let storageMgr = StorageManager()
 
   let sync = WakuSync(
     storage: storage,
