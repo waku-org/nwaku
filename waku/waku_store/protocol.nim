@@ -17,8 +17,7 @@ import
   libp2p/protobuf/minprotobuf,
   libp2p/stream/connection,
   metrics
-import
-  ../waku_core, ../node/peer_manager, ./common, ./rpc, ./rpc_codec, ./protocol_metrics
+import ../waku_core, ../node/peer_manager, ./common, ./rpc_codec, ./protocol_metrics
 
 logScope:
   topics = "waku store"
@@ -26,86 +25,88 @@ logScope:
 const MaxMessageTimestampVariance* = getNanoSecondTime(20)
   # 20 seconds maximum allowable sender timestamp "drift"
 
-type HistoryQueryHandler* =
-  proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.}
+type StoreQueryRequestHandler* =
+  proc(req: StoreQueryRequest): Future[StoreQueryResult] {.async, gcsafe.}
 
 type WakuStore* = ref object of LPProtocol
   peerManager: PeerManager
   rng: ref rand.HmacDrbgContext
-  queryHandler*: HistoryQueryHandler
+  requestHandler*: StoreQueryRequestHandler
 
 ## Protocol
 
-proc initProtocolHandler(ws: WakuStore) =
-  proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(MaxRpcSize.int)
+proc handleQueryRequest*(
+    self: WakuStore, requestor: PeerId, raw_request: seq[byte]
+): Future[seq[byte]] {.async.} =
+  var res = StoreQueryResponse()
 
-    let decodeRes = HistoryRPC.decode(buf)
-    if decodeRes.isErr():
-      error "failed to decode rpc", peerId = $conn.peerId
-      waku_store_errors.inc(labelValues = [decodeRpcFailure])
-      # TODO: Return (BAD_REQUEST, cause: "decode rpc failed")
+  let req = StoreQueryRequest.decode(raw_request).valueOr:
+    error "failed to decode rpc", peerId = requestor
+    waku_store_errors.inc(labelValues = [decodeRpcFailure])
+
+    res.statusCode = uint32(ErrorCode.BAD_REQUEST)
+    res.statusDesc = "decode rpc failed"
+
+    return res.encode().buffer
+
+  let requestId = req.requestId
+
+  info "received store query request",
+    peerId = requestor, requestId = requestId, request = req
+  waku_store_queries.inc()
+
+  let queryResult = await self.requestHandler(req)
+
+  res = queryResult.valueOr:
+    error "store query failed",
+      peerId = requestor, requestId = requestId, error = queryResult.error
+
+    res.statusCode = uint32(queryResult.error.kind)
+    res.statusDesc = $queryResult.error
+
+    return res.encode().buffer
+
+  res.requestId = requestId
+  res.statusCode = 200
+
+  info "sending store query response",
+    peerId = requestor, requestId = requestId, messages = res.messages.len
+
+  return res.encode().buffer
+
+proc initProtocolHandler(self: WakuStore) =
+  proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    let readRes = catch:
+      await conn.readLp(MaxRpcSize.int)
+
+    let reqBuf = readRes.valueOr:
+      error "Connection read error", error = error.msg
       return
 
-    let reqRpc = decodeRes.value
+    let resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
 
-    if reqRpc.query.isNone():
-      error "empty query rpc", peerId = $conn.peerId, requestId = reqRpc.requestId
-      waku_store_errors.inc(labelValues = [emptyRpcQueryFailure])
-      # TODO: Return (BAD_REQUEST, cause: "empty query")
+    let writeRes = catch:
+      await conn.writeLp(resBuf)
+
+    if writeRes.isErr():
+      error "Connection write error", error = writeRes.error.msg
       return
 
-    let
-      requestId = reqRpc.requestId
-      request = reqRpc.query.get().toAPI()
-
-    info "received history query",
-      peerId = conn.peerId, requestId = requestId, query = request
-    waku_store_queries.inc()
-
-    var responseRes: HistoryResult
-    try:
-      responseRes = await ws.queryHandler(request)
-    except Exception:
-      error "history query failed",
-        peerId = $conn.peerId, requestId = requestId, error = getCurrentExceptionMsg()
-
-      let error = HistoryError(kind: HistoryErrorKind.UNKNOWN).toRPC()
-      let response = HistoryResponseRPC(error: error)
-      let rpc = HistoryRPC(requestId: requestId, response: some(response))
-      await conn.writeLp(rpc.encode().buffer)
-      return
-
-    if responseRes.isErr():
-      error "history query failed",
-        peerId = $conn.peerId, requestId = requestId, error = responseRes.error
-
-      let response = responseRes.toRPC()
-      let rpc = HistoryRPC(requestId: requestId, response: some(response))
-      await conn.writeLp(rpc.encode().buffer)
-      return
-
-    let response = responseRes.toRPC()
-
-    info "sending history response",
-      peerId = conn.peerId, requestId = requestId, messages = response.messages.len
-
-    let rpc = HistoryRPC(requestId: requestId, response: some(response))
-    await conn.writeLp(rpc.encode().buffer)
-
-  ws.handler = handler
-  ws.codec = WakuStoreCodec
+  self.handler = handler
+  self.codec = WakuStoreCodec
 
 proc new*(
     T: type WakuStore,
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
-    queryHandler: HistoryQueryHandler,
+    requestHandler: StoreQueryRequestHandler,
 ): T =
-  # Raise a defect if history query handler is nil
-  if queryHandler.isNil():
+  if requestHandler.isNil(): # TODO use an Option instead ???
     raise newException(NilAccessDefect, "history query handler is nil")
 
-  let ws = WakuStore(rng: rng, peerManager: peerManager, queryHandler: queryHandler)
-  ws.initProtocolHandler()
-  ws
+  let store =
+    WakuStore(rng: rng, peerManager: peerManager, requestHandler: requestHandler)
+
+  store.initProtocolHandler()
+
+  return store

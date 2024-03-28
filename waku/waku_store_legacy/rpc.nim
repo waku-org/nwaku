@@ -15,7 +15,7 @@ type PagingIndexRPC* = object
   pubsubTopic*: PubsubTopic
   senderTime*: Timestamp # the time at which the message is generated
   receiverTime*: Timestamp
-  digest*: MessageDigest # calculated over payload and content topic
+  digest*: common.MessageDigest # calculated over payload and content topic
 
 proc `==`*(x, y: PagingIndexRPC): bool =
   ## receiverTime plays no role in index equality

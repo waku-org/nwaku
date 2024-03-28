@@ -19,16 +19,10 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../../waku/common/utils/nat,
-  ../../waku/common/utils/parse_size_units,
-  ../../waku/common/databases/db_sqlite,
-  ../../waku/waku_archive/driver/builder,
-  ../../waku/waku_archive/retention_policy/builder,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
-  ../../waku/node/peer_manager/peer_store/waku_peer_storage,
   ../../waku/waku_api/message_cache,
   ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
@@ -37,13 +31,13 @@ import
   ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
   ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
+  ../../waku/waku_api/rest/legacy_store/handlers as rest_legacy_store_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
   ../../waku/waku_archive,
   ../../waku/waku_dnsdisc,
   ../../waku/waku_enr/sharding,
   ../../waku/waku_discv5,
-  ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
   ../../waku/waku_lightpush/common,
@@ -366,9 +360,7 @@ proc startRestServer(
       "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
-  if conf.filternode  != "" and
-     app.node.wakuFilterClient != nil:
-
+  if conf.filternode != "" and app.node.wakuFilterClient != nil:
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =
@@ -391,7 +383,11 @@ proc startRestServer(
     else:
       none(DiscoveryHandler)
 
-  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
+  rest_store_api.installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
+
+  rest_legacy_store_api.installStoreApiHandlers(
+    server.router, app.node, storeDiscoHandler
+  )
 
   ## Light push API
   if conf.lightpushnode != "" and app.node.wakuLightpushClient != nil:

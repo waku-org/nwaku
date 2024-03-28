@@ -7,10 +7,8 @@ import
     common/paging,
     node/peer_manager,
     waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_store/client,
-    waku_store/common,
+    waku_store_legacy,
+    waku_store_legacy/client,
   ],
   ../testlib/[common, wakucore],
   ./store_utils
@@ -28,25 +26,21 @@ suite "Waku Store - query handler":
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
     let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
-    let hash = computeMessageHash(DefaultPubsubTopic, msg)
-    let kv = WakuMessageKeyValue(messageHash: hash, message: msg)
 
-    var queryHandlerFut = newFuture[(StoreQueryRequest)]()
+    var queryHandlerFut = newFuture[(HistoryQuery)]()
 
     let queryHandler = proc(
-        req: StoreQueryRequest
-    ): Future[StoreQueryResult] {.async, gcsafe.} =
-      var request = req
-      request.requestId = "" # Must remove the id for equality
-      queryHandlerFut.complete(request)
-      return ok(StoreQueryResponse(messages: @[kv]))
+        req: HistoryQuery
+    ): Future[HistoryResult] {.async, gcsafe.} =
+      queryHandlerFut.complete(req)
+      return ok(HistoryResponse(messages: @[msg]))
 
     let
       server = await newTestWakuStore(serverSwitch, handler = queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = StoreQueryRequest(
-      contentTopics: @[DefaultContentTopic], paginationForward: PagingDirection.FORWARD
+    let req = HistoryQuery(
+      contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD
     )
 
     ## When
@@ -64,7 +58,7 @@ suite "Waku Store - query handler":
     let response = queryRes.tryGet()
     check:
       response.messages.len == 1
-      response.messages == @[kv]
+      response.messages == @[msg]
 
     ## Cleanup
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
@@ -80,21 +74,19 @@ suite "Waku Store - query handler":
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
-    var queryHandlerFut = newFuture[(StoreQueryRequest)]()
+    var queryHandlerFut = newFuture[(HistoryQuery)]()
     let queryHandler = proc(
-        req: StoreQueryRequest
-    ): Future[StoreQueryResult] {.async, gcsafe.} =
-      var request = req
-      request.requestId = "" # Must remove the id for equality
-      queryHandlerFut.complete(request)
-      return err(StoreError(kind: ErrorCode.BAD_REQUEST))
+        req: HistoryQuery
+    ): Future[HistoryResult] {.async, gcsafe.} =
+      queryHandlerFut.complete(req)
+      return err(HistoryError(kind: HistoryErrorKind.BAD_REQUEST))
 
     let
       server = await newTestWakuStore(serverSwitch, handler = queryhandler)
       client = newTestWakuStoreClient(clientSwitch)
 
-    let req = StoreQueryRequest(
-      contentTopics: @[DefaultContentTopic], paginationForward: PagingDirection.FORWARD
+    let req = HistoryQuery(
+      contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD
     )
 
     ## When
@@ -111,7 +103,7 @@ suite "Waku Store - query handler":
 
     let error = queryRes.tryError()
     check:
-      error.kind == ErrorCode.BAD_REQUEST
+      error.kind == HistoryErrorKind.BAD_REQUEST
 
     ## Cleanup
     await allFutures(serverSwitch.stop(), clientSwitch.stop())

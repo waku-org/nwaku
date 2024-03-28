@@ -52,8 +52,10 @@ proc toIndex*(index: ArchiveCursor): Index =
 proc `==`*(x, y: Index): bool =
   ## receiverTime plays no role in index equality
   return
-    (x.senderTime == y.senderTime) and (x.digest == y.digest) and
-    (x.pubsubTopic == y.pubsubTopic)
+    (
+      (x.senderTime == y.senderTime) and (x.digest == y.digest) and
+      (x.pubsubTopic == y.pubsubTopic)
+    ) or (x.hash == y.hash) # this applies to store v3 queries only
 
 proc cmp*(x, y: Index): int =
   ## compares x and y
