@@ -5,7 +5,7 @@ else:
 
 from os import DirSep
 
-import std/[strutils], chronicles, std/options, stew/[results, byteutils], confutils
+import std/[strutils], chronicles, std/options, stew/results, confutils
 import ../waku_core/message
 
 const negentropyPath =

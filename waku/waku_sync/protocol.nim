@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
+  std/[options, times],
   stew/results,
   chronicles,
   chronos,
@@ -21,12 +21,13 @@ import
   ../node/peer_manager/peer_manager,
   ./raw_bindings,
   ./common,
-  ./storage
+  ./storage_manager
 
 logScope:
   topics = "waku sync"
 
-const DefaultSyncInterval = 60.minutes
+const DefaultSyncInterval: timer.Duration = Hour
+const DefaultFrameSize = 153600
 
 type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.
@@ -34,10 +35,10 @@ type
   .}
 
   WakuSync* = ref object of LPProtocol
-    storageMgr: StorageManager
+    storageMgr: WakuSyncStorageManager
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
-    syncInterval: Duration
+    syncInterval: timer.Duration
     callback: Option[WakuSyncCallback]
     periodicSyncFut: Future[void]
 
@@ -47,8 +48,12 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
   trace "inserting message into storage ", hash = msgHash
-  let storage = storageMgr.retrieveStorage(msg.timestamp).valueOr:
-    error "failed to ingess message"
+  let storageOpt = self.storageMgr.retrieveStorage(msg.timestamp).valueOr:
+    error "failed to ingess message as could not retrieve storage"
+    return
+  let storage = storageOpt.valueOr:
+    error "failed to ingess message as could not retrieve storage"
+    return
   if storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
@@ -56,8 +61,11 @@ proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   #Use latest storage to sync??, Need to rethink
-  let storage = self.storageMgr.getRecentStorage().valueOr:
+  let storageOpt = self.storageMgr.retrieveStorage(times.getTime().toUnix()).valueOr:
     return err(error)
+  let storage = storageOpt.valueOr:
+    error "failed to handle request as could not retrieve recent storage"
+    return
   let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
     return err(error)
 
@@ -139,7 +147,11 @@ proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     debug "Server sync session requested", remotePeer = $conn.peerId
     #TODO: Find matching storage based on sync range and continue??
-    let storage = self.storageMgr.getRecentStorage().valueOr:
+    #TODO: Return error rather than closing stream abruptly?
+    let storageOpt = self.storageMgr.getRecentStorage().valueOr:
+      error "could not find latest storage"
+      return
+    let storage = storageOpt.valueOr:
       error "could not find latest storage"
       return
     let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
@@ -181,13 +193,13 @@ proc new*(
     T: type WakuSync,
     peerManager: PeerManager,
     maxFrameSize: int = DefaultFrameSize,
-    syncInterval: Duration = DefaultSyncInterval,
+    syncInterval: timer.Duration = DefaultSyncInterval,
     callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
 ): T =
-  let storageMgr = StorageManager()
+  let storageMgr = WakuSyncStorageManager.new()
 
   let sync = WakuSync(
-    storage: storage,
+    storageMgr: storageMgr,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
@@ -215,11 +227,13 @@ proc periodicSync(self: WakuSync) {.async.} =
 
 proc start*(self: WakuSync) =
   self.started = true
-  if self.syncInterval > 0.seconds: # start periodic-sync only if interval is set.
+  if self.syncInterval > ZeroDuration:
+    # start periodic-sync only if interval is set.
     self.periodicSyncFut = self.periodicSync()
 
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()
 
-proc storageSize*(self: WakuSync): int =
-  return self.storage.size()
+#[ TODO:Fetch from storageManager??
+ proc storageSize*(self: WakuSync): int =
+  return self.storage.size() ]#
