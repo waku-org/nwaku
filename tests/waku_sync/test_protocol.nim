@@ -260,7 +260,7 @@ suite "Waku Sync":
           client5.ingessMessage(DefaultPubsubTopic, msg)
         server.ingessMessage(DefaultPubsubTopic, msg)
         i = i + 1
-      info "client2 storage size", size = client2.storageSize()
+      #info "client2 storage size", size = client2.storageSize()
 
       var timeBefore = cpuTime()
       let hashes1 = await client.sync(serverPeerInfo)
