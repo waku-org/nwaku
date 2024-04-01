@@ -52,7 +52,12 @@ proc deleteOldestStorage*(self: WakuSyncStorageManager) =
 proc retrieveStorage*(
     self: WakuSyncStorageManager, time: Timestamp
 ): Result[Option[Storage], string] =
-  var timestamp: Timestamp = timestampInSeconds(time)
+  var timestamp: Timestamp
+  if time == 0:
+    timestamp = timestampInSeconds(getNowInNanosecondTime())
+    debug "timestamp not provided, using now to fetch storage", timestamp = timestamp
+  else:
+    timestamp = timestampInSeconds(time)
   let tsTime = times.fromUnix(timestamp)
   let dateTime = times.format(tsTime, "yyyyMMddHH", utc())
 

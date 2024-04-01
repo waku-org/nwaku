@@ -151,7 +151,7 @@ proc initProtocolHandler(self: WakuSync) =
     debug "Server sync session requested", remotePeer = $conn.peerId
     #TODO: Find matching storage based on sync range and continue??
     #TODO: Return error rather than closing stream abruptly?
-    let storageOpt = self.storageMgr.retrieveStorage(getNowInNanosecondTime()).valueOr:
+    let storageOpt = self.storageMgr.retrieveStorage(0).valueOr:
       error "could not find latest storage"
       return
     let storage = storageOpt.valueOr:

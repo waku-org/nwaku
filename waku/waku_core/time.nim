@@ -35,7 +35,7 @@ template nanosecondTime*(collector: Gauge, body: untyped) =
 
 proc timestampInSeconds*(time: Timestamp): Timestamp =
   let timeStr = $time
-  var timestamp: Timestamp
+  var timestamp: Timestamp = time
 
   if timeStr.len() > 16:
     timestamp = Timestamp(time div Timestamp(1_000_000_000))
