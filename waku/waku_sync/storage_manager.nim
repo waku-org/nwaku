@@ -5,7 +5,7 @@ else:
 
 import std/[times, tables, options], chronicles, chronos, stew/results
 
-import ./raw_bindings
+import ./raw_bindings, ../waku_core/time
 
 logScope:
   topics = "waku sync"
@@ -50,11 +50,12 @@ proc deleteOldestStorage*(self: WakuSyncStorageManager) =
     delete(storageToDelete)
 
 proc retrieveStorage*(
-    self: WakuSyncStorageManager, time: int64
+    self: WakuSyncStorageManager, time: Timestamp
 ): Result[Option[Storage], string] =
-  let unixf = times.fromUnixFloat(float(time))
+  var timestamp: Timestamp = timestampInSeconds(time)
+  let tsTime = times.fromUnix(timestamp)
+  let dateTime = times.format(tsTime, "yyyyMMddHH", utc())
 
-  let dateTime = times.format(unixf, "yyyyMMddHH")
   var storage: Storage = self.storages.getOrDefault(dateTime)
   if storage == nil:
     #create a new storage
@@ -65,6 +66,7 @@ proc retrieveStorage*(
       #Need to delete oldest storage at this point, but what if that is being synced?
       self.deleteOldestStorage()
       info "number of storages reached, deleting the oldest"
+    info "creating a new storage for ", time = dateTime
     storage = Storage.new().valueOr:
       error "storage creation failed"
       return err(error)

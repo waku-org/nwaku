@@ -118,6 +118,27 @@ suite "Waku Sync":
       check:
         hashes.value.len == 0
 
+    #[     asyncTest "sync 2 nodes duplicate hashes":
+      let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
+      let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
+
+      server.ingessMessage(DefaultPubsubTopic, msg1)
+      server.ingessMessage(DefaultPubsubTopic, msg1)
+      client.ingessMessage(DefaultPubsubTopic, msg1)
+      server.ingessMessage(DefaultPubsubTopic, msg2)
+
+      var hashes = await client.sync(serverPeerInfo)
+      require (hashes.isOk())
+      check:
+        hashes.value.len == 1
+        #hashes.value[0] == computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
+      #Assuming message is fetched from peer
+      client.ingessMessage(DefaultPubsubTopic, msg2)
+      sleep(1000)
+      hashes = await client.sync(serverPeerInfo)
+      require (hashes.isOk())
+      check:
+        hashes.value.len == 0 ]#
     asyncTest "sync 2 nodes same hashes":
       let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)

@@ -45,15 +45,18 @@ type
 proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     return
-
+  #TODO: Do we need to check if this message has already been ingessed? 
+  # because what if messages is received via gossip and sync as well?
+  # Might 2 entries to be inserted into storage which is inefficient.
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
-  trace "inserting message into storage ", hash = msgHash
   let storageOpt = self.storageMgr.retrieveStorage(msg.timestamp).valueOr:
     error "failed to ingess message as could not retrieve storage"
     return
   let storage = storageOpt.valueOr:
     error "failed to ingess message as could not retrieve storage"
     return
+  info "inserting message into storage ", hash = msgHash, timestamp = msg.timestamp
+
   if storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
@@ -148,7 +151,7 @@ proc initProtocolHandler(self: WakuSync) =
     debug "Server sync session requested", remotePeer = $conn.peerId
     #TODO: Find matching storage based on sync range and continue??
     #TODO: Return error rather than closing stream abruptly?
-    let storageOpt = self.storageMgr.getRecentStorage().valueOr:
+    let storageOpt = self.storageMgr.retrieveStorage(getNowInNanosecondTime()).valueOr:
       error "could not find latest storage"
       return
     let storage = storageOpt.valueOr:
