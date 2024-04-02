@@ -31,12 +31,6 @@ proc getRecentStorage*(self: WakuSyncStorageManager): Result[Option[Storage], st
 
   return ok(some(storageToFetch))
 
-proc deleteStorage*(self: WakuSyncStorageManager, time: string) =
-  var storageToDelete: Storage
-
-  if self.storages.pop(time, storageToDelete):
-    delete(storageToDelete)
-
 proc deleteOldestStorage*(self: WakuSyncStorageManager) =
   var storageToDelete: Storage
   var time: string
