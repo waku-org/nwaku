@@ -126,8 +126,8 @@ proc sync*(
 ): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async, gcsafe.} =
   let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
     return err("No suitable peer found for sync")
-
-  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let connOpt = await self.peerManager.dialPeer(peer, WakuSyncCodec)
+  let conn: Connection = connOpt.valueOr:
     return err("Cannot establish sync connection")
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
@@ -138,7 +138,8 @@ proc sync*(
 proc sync*(
     self: WakuSync, peer: RemotePeerInfo
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let connOpt = await self.peerManager.dialPeer(peer, WakuSyncCodec)
+  let conn: Connection = connOpt.valueOr:
     return err("Cannot establish sync connection")
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:

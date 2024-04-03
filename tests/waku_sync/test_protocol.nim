@@ -12,7 +12,7 @@ import
 from std/os import sleep
 
 import
-  ../../../waku/[
+  ../../waku/[
     common/paging,
     node/peer_manager,
     waku_core,
