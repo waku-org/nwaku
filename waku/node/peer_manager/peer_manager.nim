@@ -850,7 +850,7 @@ proc prunePeerStore*(pm: PeerManager) =
       continue
 
     for shard in rs.shardIds:
-      peersByShard.mgetOrPut(shard, @[peer]).add(peer)
+      peersByShard.mgetOrPut(shard, @[]).add(peer)
 
   # prune not connected peers without shard
   for peer in shardlessPeers:
