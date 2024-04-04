@@ -21,6 +21,7 @@ import
   ../node/peer_manager/peer_manager,
   ./raw_bindings,
   ./common,
+  ./session,
   ./storage_manager
 
 logScope:
@@ -63,63 +64,16 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  #Use latest storage to sync??, Need to rethink
-  let storageOpt = self.storageMgr.retrieveStorage(times.getTime().toUnix()).valueOr:
+  let syncSession = SyncSession(
+    sessType: SyncSessionType.CLIENT,
+    curState: SyncSessionState.INIT,
+    frameSize: DefaultFrameSize,
+    rangeStart: 0, #TODO: Pass start of this hour??
+    rangeEnd: times.getTime().toUnix(),
+  )
+  let hashes = (await syncSession.HandleClientSession(conn, self.storageMgr)).valueOr:
     return err(error)
-  let storage = storageOpt.valueOr:
-    error "failed to handle request as could not retrieve recent storage"
-    return
-  let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
-    return err(error)
-
-  defer:
-    negentropy.delete()
-
-  let payload = negentropy.initiate().valueOr:
-    return err(error)
-
-  debug "Client sync session initialized", remotePeer = conn.peerId
-
-  let writeRes = catch:
-    await conn.writeLP(seq[byte](payload))
-
-  trace "request sent to server", payload = toHex(seq[byte](payload))
-
-  if writeRes.isErr():
-    return err(writeRes.error.msg)
-
-  var
-    haveHashes: seq[WakuMessageHash] # What to do with haves ???
-    needHashes: seq[WakuMessageHash]
-
-  while true:
-    let readRes = catch:
-      await conn.readLp(self.maxFrameSize)
-
-    let buffer: seq[byte] = readRes.valueOr:
-      return err(error.msg)
-
-    trace "Received Sync request from peer", payload = toHex(buffer)
-
-    let request = NegentropyPayload(buffer)
-
-    let responseOpt = negentropy.clientReconcile(request, haveHashes, needHashes).valueOr:
-      return err(error)
-
-    let response = responseOpt.valueOr:
-      debug "Closing connection, client sync session is done"
-      await conn.close()
-      break
-
-    trace "Sending Sync response to peer", payload = toHex(seq[byte](response))
-
-    let writeRes = catch:
-      await conn.writeLP(seq[byte](response))
-
-    if writeRes.isErr():
-      return err(writeRes.error.msg)
-
-  return ok(needHashes)
+  return ok(hashes)
 
 proc sync*(
     self: WakuSync
@@ -149,44 +103,16 @@ proc sync*(
 
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    let syncSession = SyncSession(
+      sessType: SyncSessionType.SERVER,
+      curState: SyncSessionState.INIT,
+      frameSize: DefaultFrameSize,
+      rangeStart: 0, #TODO: Pass start of this hour??
+      rangeEnd: 0,
+    )
     debug "Server sync session requested", remotePeer = $conn.peerId
-    #TODO: Find matching storage based on sync range and continue??
-    #TODO: Return error rather than closing stream abruptly?
-    let storageOpt = self.storageMgr.retrieveStorage(0).valueOr:
-      error "could not find latest storage"
-      return
-    let storage = storageOpt.valueOr:
-      error "could not find latest storage"
-      return
-    let negentropy = Negentropy.new(storage, self.maxFrameSize).valueOr:
-      error "Negentropy initialization error", error = error
-      return
 
-    defer:
-      negentropy.delete()
-
-    while not conn.isClosed:
-      let requestRes = catch:
-        await conn.readLp(self.maxFrameSize)
-
-      let buffer = requestRes.valueOr:
-        if error.name != $LPStreamRemoteClosedError or error.name != $LPStreamClosedError:
-          debug "Connection reading error", error = error.msg
-
-        break
-
-      #TODO: Once we receive needHashes or endOfSync, we should close this stream.
-      let request = NegentropyPayload(buffer)
-
-      let response = negentropy.serverReconcile(request).valueOr:
-        error "Reconciliation error", error = error
-        break
-
-      let writeRes = catch:
-        await conn.writeLP(seq[byte](response))
-      if writeRes.isErr():
-        error "Connection write error", error = writeRes.error.msg
-        break
+    await syncSession.HandleServerSession(conn, self.storageMgr)
 
     debug "Server sync session ended"
 
