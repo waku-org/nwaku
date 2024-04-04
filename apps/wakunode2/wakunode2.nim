@@ -87,26 +87,34 @@ when isMainModule:
   of inspectRlnDb:
     doInspectRlnDb(conf)
   of noCommand:
-    # The Waku Network config (cluster-id=1)
-    if conf.clusterId == 1:
-      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-      if len(conf.shards) != 0:
-        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-      else:
-        conf.pubsubTopics = twnClusterConf.pubsubTopics
+    case conf.clusterId
+      # cluster-id=0
+      of 0:
+        let clusterZeroConf = ClusterConf.ClusterZeroConf()
+        conf.pubsubTopics = clusterZeroConf.pubsubTopics
+        # TODO: Write some template to "merge" the configs
+      # cluster-id=1 (aka The Waku Network)
+      of 1:
+        let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+        if len(conf.shards) != 0:
+          conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+        else:
+          conf.pubsubTopics = twnClusterConf.pubsubTopics
 
-      # Override configuration
-      conf.maxMessageSize = twnClusterConf.maxMessageSize
-      conf.clusterId = twnClusterConf.clusterId
-      conf.rlnRelay = twnClusterConf.rlnRelay
-      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-      conf.discv5Discovery = twnClusterConf.discv5Discovery
-      conf.discv5BootstrapNodes =
-        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+        # Override configuration
+        conf.maxMessageSize = twnClusterConf.maxMessageSize
+        conf.clusterId = twnClusterConf.clusterId
+        conf.rlnRelay = twnClusterConf.rlnRelay
+        conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+        conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+        conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+        conf.discv5Discovery = twnClusterConf.discv5Discovery
+        conf.discv5BootstrapNodes =
+          conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+        conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+        conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+      else:
+        discard
 
     info "Running nwaku node", version = app.git_version
     logConfig(conf)
