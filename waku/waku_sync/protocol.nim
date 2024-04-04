@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/options,
+  std/[options, times],
   stew/results,
   chronicles,
   chronos,
@@ -20,12 +20,15 @@ import
   ../waku_enr,
   ../node/peer_manager/peer_manager,
   ./raw_bindings,
-  ./common
+  ./common,
+  ./session,
+  ./storage_manager
 
 logScope:
   topics = "waku sync"
 
-const DefaultSyncInterval = 60.minutes
+const DefaultSyncInterval: timer.Duration = Hour
+const DefaultFrameSize = 153600
 
 type
   WakuSyncCallback* = proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.
@@ -33,85 +36,52 @@ type
   .}
 
   WakuSync* = ref object of LPProtocol
-    storage: Storage
+    storageMgr: WakuSyncStorageManager
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
-    syncInterval: Duration
+    syncInterval: timer.Duration
     callback: Option[WakuSyncCallback]
     periodicSyncFut: Future[void]
 
 proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     return
-
+  #TODO: Do we need to check if this message has already been ingessed? 
+  # because what if messages is received via gossip and sync as well?
+  # Might 2 entries to be inserted into storage which is inefficient.
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
-  trace "inserting message into storage ", hash = msgHash
+  let storageOpt = self.storageMgr.retrieveStorage(msg.timestamp).valueOr:
+    error "failed to ingess message as could not retrieve storage"
+    return
+  let storage = storageOpt.valueOr:
+    error "failed to ingess message as could not retrieve storage"
+    return
+  info "inserting message into storage ", hash = msgHash, timestamp = msg.timestamp
 
-  if self.storage.insert(msg.timestamp, msgHash).isErr():
+  if storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
+  let syncSession = SyncSession(
+    sessType: SyncSessionType.CLIENT,
+    curState: SyncSessionState.INIT,
+    frameSize: DefaultFrameSize,
+    rangeStart: 0, #TODO: Pass start of this hour??
+    rangeEnd: times.getTime().toUnix(),
+  )
+  let hashes = (await syncSession.HandleClientSession(conn, self.storageMgr)).valueOr:
     return err(error)
-
-  defer:
-    negentropy.delete()
-
-  let payload = negentropy.initiate().valueOr:
-    return err(error)
-
-  debug "Client sync session initialized", remotePeer = conn.peerId
-
-  let writeRes = catch:
-    await conn.writeLP(seq[byte](payload))
-
-  trace "request sent to server", payload = toHex(seq[byte](payload))
-
-  if writeRes.isErr():
-    return err(writeRes.error.msg)
-
-  var
-    haveHashes: seq[WakuMessageHash] # What to do with haves ???
-    needHashes: seq[WakuMessageHash]
-
-  while true:
-    let readRes = catch:
-      await conn.readLp(self.maxFrameSize)
-
-    let buffer: seq[byte] = readRes.valueOr:
-      return err(error.msg)
-
-    trace "Received Sync request from peer", payload = toHex(buffer)
-
-    let request = NegentropyPayload(buffer)
-
-    let responseOpt = negentropy.clientReconcile(request, haveHashes, needHashes).valueOr:
-      return err(error)
-
-    let response = responseOpt.valueOr:
-      debug "Closing connection, client sync session is done"
-      await conn.close()
-      break
-
-    trace "Sending Sync response to peer", payload = toHex(seq[byte](response))
-
-    let writeRes = catch:
-      await conn.writeLP(seq[byte](response))
-
-    if writeRes.isErr():
-      return err(writeRes.error.msg)
-
-  return ok(needHashes)
+  return ok(hashes)
 
 proc sync*(
     self: WakuSync
 ): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async, gcsafe.} =
   let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
     return err("No suitable peer found for sync")
-
-  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let connOpt = await self.peerManager.dialPeer(peer, WakuSyncCodec)
+  let conn: Connection = connOpt.valueOr:
     return err("Cannot establish sync connection")
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
@@ -122,7 +92,8 @@ proc sync*(
 proc sync*(
     self: WakuSync, peer: RemotePeerInfo
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let conn: Connection = (await self.peerManager.dialPeer(peer, WakuSyncCodec)).valueOr:
+  let connOpt = await self.peerManager.dialPeer(peer, WakuSyncCodec)
+  let conn: Connection = connOpt.valueOr:
     return err("Cannot establish sync connection")
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
@@ -132,37 +103,16 @@ proc sync*(
 
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+    let syncSession = SyncSession(
+      sessType: SyncSessionType.SERVER,
+      curState: SyncSessionState.INIT,
+      frameSize: DefaultFrameSize,
+      rangeStart: 0, #TODO: Pass start of this hour??
+      rangeEnd: 0,
+    )
     debug "Server sync session requested", remotePeer = $conn.peerId
 
-    let negentropy = Negentropy.new(self.storage, self.maxFrameSize).valueOr:
-      error "Negentropy initialization error", error = error
-      return
-
-    defer:
-      negentropy.delete()
-
-    while not conn.isClosed:
-      let requestRes = catch:
-        await conn.readLp(self.maxFrameSize)
-
-      let buffer = requestRes.valueOr:
-        if error.name != $LPStreamRemoteClosedError or error.name != $LPStreamClosedError:
-          debug "Connection reading error", error = error.msg
-
-        break
-
-      #TODO: Once we receive needHashes or endOfSync, we should close this stream.
-      let request = NegentropyPayload(buffer)
-
-      let response = negentropy.serverReconcile(request).valueOr:
-        error "Reconciliation error", error = error
-        break
-
-      let writeRes = catch:
-        await conn.writeLP(seq[byte](response))
-      if writeRes.isErr():
-        error "Connection write error", error = writeRes.error.msg
-        break
+    await syncSession.HandleServerSession(conn, self.storageMgr)
 
     debug "Server sync session ended"
 
@@ -173,15 +123,13 @@ proc new*(
     T: type WakuSync,
     peerManager: PeerManager,
     maxFrameSize: int = DefaultFrameSize,
-    syncInterval: Duration = DefaultSyncInterval,
+    syncInterval: timer.Duration = DefaultSyncInterval,
     callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
 ): T =
-  let storage = Storage.new().valueOr:
-    error "storage creation failed"
-    return nil
+  let storageMgr = WakuSyncStorageManager.new()
 
   let sync = WakuSync(
-    storage: storage,
+    storageMgr: storageMgr,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
@@ -209,11 +157,13 @@ proc periodicSync(self: WakuSync) {.async.} =
 
 proc start*(self: WakuSync) =
   self.started = true
-  if self.syncInterval > 0.seconds: # start periodic-sync only if interval is set.
+  if self.syncInterval > ZeroDuration:
+    # start periodic-sync only if interval is set.
     self.periodicSyncFut = self.periodicSync()
 
 proc stopWait*(self: WakuSync) {.async.} =
   await self.periodicSyncFut.cancelAndWait()
 
-proc storageSize*(self: WakuSync): int =
-  return self.storage.size()
+#[ TODO:Fetch from storageManager??
+ proc storageSize*(self: WakuSync): int =
+  return self.storage.size() ]#

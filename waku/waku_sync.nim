@@ -3,8 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  ./waku_sync/protocol
+import ./waku_sync/protocol, ./waku_sync/common
 
-export
-  protocol
+export common, protocol

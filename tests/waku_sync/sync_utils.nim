@@ -1,23 +1,13 @@
 {.used.}
 
-import
-  std/options,
-  chronos,
-  chronicles,
-  libp2p/crypto/crypto
+import std/options, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[
-    node/peer_manager,
-    waku_core,
-    waku_sync,
-  ],
-  ../testlib/[
-    common,
-    wakucore
-  ]
+  ../../../waku/[node/peer_manager, waku_core, waku_sync], ../testlib/[common, wakucore]
 
-proc newTestWakuSync*(switch: Switch, handler: WakuSyncCallback): Future[WakuSync] {.async.} =
+proc newTestWakuSync*(
+    switch: Switch, handler: WakuSyncCallback
+): Future[WakuSync] {.async.} =
   const DefaultFrameSize = 153600
   let
     peerManager = PeerManager.new(switch)
