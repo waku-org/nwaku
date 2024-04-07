@@ -17,6 +17,10 @@ COPY . .
 # Ran separately from 'make' to avoid re-doing
 RUN git submodule update --init --recursive
 
+# Temporary workaround to overcome building issues with zerokit
+RUN rm -r ./vendor/zerokit/semaphore
+RUN sed -i.bak -e '23,25d;5d' ./vendor/zerokit/Cargo.toml
+
 # Slowest build step for the sake of caching layers
 RUN make -j$(nproc) deps QUICK_AND_DIRTY_COMPILER=1 ${NIM_COMMIT}
 
