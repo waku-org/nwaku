@@ -1,5 +1,5 @@
 import
-  std/[tables, sequtils, option],
+  std/[tables, sequtils, options],
   stew/byteutils,
   stew/shims/net,
   chronicles,
