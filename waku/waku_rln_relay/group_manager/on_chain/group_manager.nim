@@ -597,6 +597,19 @@ proc startListeningToEvents(
   let newBlockCallback = g.getNewBlockCallback()
   g.runInInterval(newBlockCallback, DefaultBlockPollRate)
 
+proc batchAwaitBlockHandlingFuture(
+    g: OnchainGroupManager, futs: seq[Future[bool]]
+): Future[void] {.async: (raises: [Exception]).} =
+  for fut in futs:
+    try:
+      var handleBlockRes: bool
+      g.retryWrapper(handleBlockRes, "Failed to handle block"):
+        await fut
+    except CatchableError:
+      raise newException(
+        CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
+      )
+
 proc startOnchainSync(
     g: OnchainGroupManager
 ): Future[void] {.async: (raises: [Exception]).} =
@@ -608,6 +621,8 @@ proc startOnchainSync(
   let blockChunkSize = 2_000
   # delay between rpc calls to not overload the rate limit
   let rpcDelay = 200.milliseconds
+  # max number of futures to run concurrently
+  let maxFutures = 10
 
   var fromBlock =
     if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
@@ -641,16 +656,10 @@ proc startOnchainSync(
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
       await sleepAsync(rpcDelay)
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
+      if futs.len >= maxFutures:
+        await g.batchAwaitBlockHandlingFuture(futs)
+        futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
-    for fut in futs:
-      try:
-        var handleBlockRes: bool
-        g.retryWrapper(handleBlockRes, "Failed to handle block"):
-          await fut
-      except CatchableError:
-        raise newException(
-          CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
-        )
   except CatchableError:
     raise newException(
       CatchableError,
