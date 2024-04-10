@@ -230,6 +230,10 @@ networkmonitor: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
+networkspammer: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim networkspammer $(NIM_PARAMS) waku.nims
+
 
 ###################
 ## Documentation ##

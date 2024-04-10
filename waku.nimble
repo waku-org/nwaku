@@ -74,6 +74,10 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/"
 
+task networkspammer, "Build network spammer tool":
+  let name = "networkspammer"
+  buildBinary name, "apps/networkspammer/"
+
 task rln_db_inspector, "Build the rln db inspector":
   let name = "rln_db_inspector"
   buildBinary name, "tools/rln_db_inspector/"
