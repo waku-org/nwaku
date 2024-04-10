@@ -45,7 +45,9 @@ proc queryRowReceiverTimestampCallback(
   let storedAt = sqlite3_column_int64(s, storedAtCol)
   return Timestamp(storedAt)
 
-proc queryRowPubsubTopicCallback(s: ptr sqlite3_stmt, pubsubTopicCol: cint): PubsubTopic =
+proc queryRowPubsubTopicCallback(
+    s: ptr sqlite3_stmt, pubsubTopicCol: cint
+): PubsubTopic =
   let
     pubsubTopicPointer =
       cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, pubsubTopicCol))
@@ -127,9 +129,8 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   return ok()
 
 ## Insert message
-type InsertMessageParams* = (
-  seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp
-)
+type InsertMessageParams* =
+  (seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
   return
@@ -342,7 +343,7 @@ proc whereClause(
 
   return combineClauses(
     cursorClause, pubsubTopicClause, contentTopicClause, startTimeClause, endTimeClause,
-    hashesClause
+    hashesClause,
   )
 
 proc selectMessagesWithLimitQuery(

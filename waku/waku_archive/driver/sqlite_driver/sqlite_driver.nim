@@ -109,7 +109,9 @@ method getMessages*(
 
   return rowsRes
 
-method getMessagesCount*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
+method getMessagesCount*(
+    s: SqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async.} =
   return s.db.getMessageCount()
 
 method getPagesCount*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
