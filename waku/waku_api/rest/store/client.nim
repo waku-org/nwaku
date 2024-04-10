@@ -3,8 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronicles, json_serialization, json_serialization/std/options, presto/[route, client]
+import json_serialization, json_serialization/std/options, presto/[route, client]
 import ../../../waku_store/common, ../serdes, ../responses, ./types
 
 export types
