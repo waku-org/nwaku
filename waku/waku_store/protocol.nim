@@ -70,10 +70,10 @@ proc initProtocolHandler(ws: WakuStore) =
       let response = HistoryResponseRPC(error: error)
       let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(response))
       await conn.writeLp(rpc.encode().buffer)
-      waku_service_requests_rejected.inc(labelValues = ["Lightpush"])
+      waku_service_requests_rejected.inc(labelValues = ["Store"])
       return
 
-    waku_service_requests.inc(labelValues = ["Lightpush"])
+    waku_service_requests.inc(labelValues = ["Store"])
 
     let
       requestId = reqRpc.requestId
