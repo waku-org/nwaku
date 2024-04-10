@@ -8,9 +8,6 @@ import ../../../waku_store/common, ../serdes, ../responses, ./types
 
 export types
 
-logScope:
-  topics = "waku node rest store_api"
-
 proc decodeBytes*(
     t: typedesc[StoreResponseRest],
     data: openArray[byte],
