@@ -140,7 +140,7 @@ proc writeValue*(
   writer.beginRecord()
   writer.writeField("payload", $value.payload)
   if value.contentTopic.isSome():
-    writer.writeField("content_topic", value.contentTopic.get())
+    writer.writeField("contentTopic", value.contentTopic.get())
   if value.version.isSome():
     writer.writeField("version", value.version.get())
   if value.timestamp.isSome():
