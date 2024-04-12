@@ -3,11 +3,15 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import json_serialization, json_serialization/std/options, presto/[route, client]
+import
+  chronicles, json_serialization, json_serialization/std/options, presto/[route, client]
 import
   ../../../waku_store/common, ../../../common/base64, ../serdes, ../responses, ./types
 
 export types
+
+logScope:
+  topics = "waku node rest store_api"
 
 proc decodeBytes*(
     t: typedesc[StoreResponseRest],
