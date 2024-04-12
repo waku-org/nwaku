@@ -1,7 +1,5 @@
 # BUILD NIM APP ----------------------------------------------------------------
-
-# alpine:edge supports building rust binaries, alpine:3.16 doesn't for some reason
-FROM alpine@sha256:3e44438281baf26907675b99c9a4a421c4d4a57c954120327e703aa8329086bd  AS nim-build
+FROM rust:1.77.1-alpine3.18  AS nim-build
 
 ARG NIMFLAGS
 ARG MAKE_TARGET=wakunode2
@@ -9,7 +7,7 @@ ARG NIM_COMMIT
 ARG LOG_LEVEL=TRACE
 
 # Get build tools and required header files
-RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq rust cargo
+RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq
 
 WORKDIR /app
 COPY . .
@@ -29,7 +27,7 @@ RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="
 
 # PRODUCTION IMAGE -------------------------------------------------------------
 
-FROM alpine:3.16 as prod
+FROM alpine:3.18 as prod
 
 ARG MAKE_TARGET=wakunode2
 
@@ -66,7 +64,7 @@ CMD ["--help"]
 # DEBUG IMAGE ------------------------------------------------------------------
 
 # Build debug tools: heaptrack
-FROM alpine:3.16 AS heaptrack-build
+FROM alpine:3.18 AS heaptrack-build
 
 RUN apk update
 RUN apk add -- gdb git g++ make cmake zlib-dev boost-dev libunwind-dev
