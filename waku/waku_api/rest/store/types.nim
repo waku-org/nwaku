@@ -176,7 +176,7 @@ proc readValue*(
     case fieldName
     of "payload":
       payload = some(reader.readValue(Base64String))
-    of "content_topic":
+    of "contentTopic":
       contentTopic = some(reader.readValue(ContentTopic))
     of "version":
       version = some(reader.readValue(uint32))
