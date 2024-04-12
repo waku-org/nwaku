@@ -656,7 +656,7 @@ proc startOnchainSync(
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
       await sleepAsync(rpcDelay)
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
-      if futs.len >= maxFutures:
+      if futs.len >= maxFutures or toBlock == currentLatestBlock:
         await g.batchAwaitBlockHandlingFuture(futs)
         futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
