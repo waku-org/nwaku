@@ -43,7 +43,7 @@ jobs:
     name: docker-build-${{ matrix.os }}-rln-v2-${{ matrix.rln_v2 }}
     outputs:
       image: ${{ steps.build.outputs.image }}
-    steps:      
+    steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
