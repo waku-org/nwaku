@@ -6,7 +6,8 @@ import
   eth/keys as eth_keys
 
 import
-  ../../../waku/[waku_core/topics, waku_enr, waku_discv5], ../testlib/[common, wakucore]
+  ../../../waku/[waku_core/topics, waku_enr, node/discovery_manager/waku_discv5],
+  ../testlib/[common, wakucore]
 
 proc newTestDiscv5*(
     privKey: libp2p_keys.PrivateKey,
