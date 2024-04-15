@@ -4,6 +4,7 @@ import ../../../waku/[waku_core/message, waku_store, waku_store_legacy]
 
 const
   FUTURE_TIMEOUT* = 1.seconds
+  FUTURE_TIMEOUT_MEDIUM* = 5.seconds
   FUTURE_TIMEOUT_LONG* = 10.seconds
   FUTURE_TIMEOUT_SHORT* = 100.milliseconds
 
