@@ -39,7 +39,7 @@ import
   ../../waku/waku_lightpush/rpc,
   ../../waku/waku_enr,
   ../../waku/waku_store,
-  ../../waku/waku_dnsdisc,
+  ../../waku/node/discovery_manager/waku_dnsdisc,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
@@ -523,7 +523,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       if msg.contentTopic == chat.contentTopic:
         chat.printReceivedMessage(msg)
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler)))
+    node.subscribe(
+      (kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler))
+    )
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"
