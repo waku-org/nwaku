@@ -528,7 +528,7 @@ proc subscribeAndHandleMessages(
     else:
       msgPerContentTopic[msg.contentTopic] = 1
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler)))
 
 when isMainModule:
   # known issue: confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError

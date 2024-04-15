@@ -57,11 +57,15 @@ Ensure all items in this list are ticked:
     ```
 
 1. Once the release-candidate has been validated, create a final release tag and push it.
+We also need to merge release branch back to master as a final step.
 
     ```
     git checkout release/v0.1.0
     git tag -as v0.1.0 -m "Initial release."
     git push origin v0.1.0
+    git switch master
+    git pull
+    git merge release/v0.1.0
     ```
 
 1. Create a [Github release](https://github.com/waku-org/nwaku/releases) from the release tag.

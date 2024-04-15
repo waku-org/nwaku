@@ -16,7 +16,8 @@ import
   ../../../waku/waku_node,
   ../../../waku/waku_enr,
   ../../../waku/waku_discv5,
-  ../../../waku/factory/builder
+  ../../../waku/factory/builder,
+  ../../../waku/waku_relay
 
 # An accesible bootstrap node. See waku.sandbox fleets.status.im
 const bootstrapNode =
@@ -115,7 +116,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         contentTopic = msg.contentTopic,
         timestamp = msg.timestamp
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler)))
 
 when isMainModule:
   let rng = crypto.newRng()
