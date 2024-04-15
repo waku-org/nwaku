@@ -9,7 +9,7 @@ import
 logScope:
   topics = "waku archive migration"
 
-const SchemaVersion* = 2 # increase this when there is an update in the database schema
+const SchemaVersion* = 3 # increase this when there is an update in the database schema
 
 proc breakIntoStatements*(script: string): seq[string] =
   ## Given a full migration script, that can potentially contain a list
