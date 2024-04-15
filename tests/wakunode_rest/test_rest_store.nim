@@ -743,8 +743,6 @@ procSuite "Waku v2 Rest API - Store":
       encodeUrl($reqStoreTime), # store time
       reqDigest.toRestStringMessageDigest(),
         # base64-encoded digest. Empty ignores the field.
-      "5", # page size. Empty implies default page size.
-      "true", # ascending
     )
 
     check:

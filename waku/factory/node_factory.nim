@@ -27,7 +27,8 @@ import
   ../waku_lightpush/common,
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
-  ../common/utils/parse_size_units
+  ../common/utils/parse_size_units,
+  ../common/ratelimit
 
 ## Peer persistence
 
@@ -241,7 +242,9 @@ proc setupProtocols(
 
     # Store setup
     try:
-      await mountStore(node)
+      let rateLimitSetting: RateLimitSetting =
+        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
+      await mountStore(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
@@ -256,7 +259,9 @@ proc setupProtocols(
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:
-      await mountLightPush(node)
+      let rateLimitSetting: RateLimitSetting =
+        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
+      await mountLightPush(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 

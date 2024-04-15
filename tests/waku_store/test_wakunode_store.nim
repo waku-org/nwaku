@@ -244,9 +244,7 @@ procSuite "WakuNode - Store":
 
     server.wakuFilterClient.registerPushHandler(filterHandler)
     let resp = waitFor server.filterSubscribe(
-      some(DefaultPubsubTopic),
-      DefaultContentTopic,
-      peer = filterSourcePeer,
+      some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
     )
 
     waitFor sleepAsync(100.millis)
@@ -333,7 +331,7 @@ procSuite "WakuNode - Store":
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    waitFor server.mountStore((4, 1.seconds))
+    waitFor server.mountStore((4, 500.millis))
 
     client.mountStoreClient()
 
@@ -344,7 +342,7 @@ procSuite "WakuNode - Store":
     let requestProc = proc() {.async.} =
       let queryRes = waitFor client.query(req, peer = serverPeer)
 
-      check queryRes.isOk()
+      assert queryRes.isOk(), queryRes.error
 
       let response = queryRes.get()
       check:
@@ -354,7 +352,7 @@ procSuite "WakuNode - Store":
       waitFor requestProc()
       waitFor sleepAsync(20.millis)
 
-    waitFor sleepAsync(1.seconds)
+    waitFor sleepAsync(500.millis)
 
     for count in 0 ..< 4:
       waitFor requestProc()

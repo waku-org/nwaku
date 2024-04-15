@@ -57,9 +57,8 @@ suite "Rate limited push service":
 
       check await handlerFuture.withTimeout(50.millis)
 
-      check:
-        requestRes.isOk()
-        handlerFuture.finished()
+      assert requestRes.isOk(), requestRes.error
+      check handlerFuture.finished()
 
       let (handledMessagePubsubTopic, handledMessage) = handlerFuture.read()
 
@@ -105,7 +104,7 @@ suite "Rate limited push service":
 
     let
       server =
-        await newTestWakuLightpushNode(serverSwitch, handler, some((3, 1000.millis)))
+        await newTestWakuLightpushNode(serverSwitch, handler, some((3, 500.millis)))
       client = newTestWakuLightpushClient(clientSwitch)
 
     let serverPeerId = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -143,7 +142,7 @@ suite "Rate limited push service":
 
     await rejectProc()
 
-    await sleepAsync(1000.millis)
+    await sleepAsync(500.millis)
 
     ## next one shall succeed due to the rate limit time window has passed
     await successProc()
