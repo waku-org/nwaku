@@ -41,11 +41,11 @@ import
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
   ../waku_enr,
-  ../waku_dnsdisc,
   ../waku_peer_exchange,
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
+  ./discovery_manager/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -446,8 +446,7 @@ proc filterHandleMessage*(
     node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage
 ) {.async.} =
   if node.wakuFilter.isNil():
-    error "cannot handle filter message",
-      error = "waku filter is required"
+    error "cannot handle filter message", error = "waku filter is required"
     return
 
   await node.wakuFilter.handleMessage(pubsubTopic, message)
@@ -546,7 +545,7 @@ proc filterSubscribe*(
 proc filterUnsubscribe*(
     node: WakuNode,
     pubsubTopic: Option[PubsubTopic],
-    contentTopics: ContentTopic|seq[ContentTopic],
+    contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
 ): Future[FilterSubscribeResult] {.async, gcsafe, raises: [Defect, ValueError].} =
   ## Unsubscribe from a content filter V2".

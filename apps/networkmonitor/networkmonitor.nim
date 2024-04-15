@@ -25,8 +25,8 @@ import
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
   ../../waku/waku_enr,
-  ../../waku/waku_discv5,
-  ../../waku/waku_dnsdisc,
+  ../../waku/node/discovery_manager/waku_discv5,
+  ../../waku/node/discovery_manager/waku_dnsdisc,
   ../../waku/waku_relay,
   ../../waku/waku_rln_relay,
   ../../waku/factory/builder,
@@ -131,12 +131,12 @@ proc setConnectedPeersMetrics(
   var analyzeFuts: seq[Future[Result[string, string]]]
 
   var (inConns, outConns) = node.peer_manager.connectedPeers(WakuRelayCodec)
-  info "connected peers", inConns=inConns.len, outConns=outConns.len
+  info "connected peers", inConns = inConns.len, outConns = outConns.len
 
   shuffle(outConns)
 
-  if outConns.len >= toInt(MaxConnectedPeers/2):
-    for p in outConns[0 ..< toInt(outConns.len/2)]:
+  if outConns.len >= toInt(MaxConnectedPeers / 2):
+    for p in outConns[0 ..< toInt(outConns.len / 2)]:
       trace "Pruning Peer", Peer = $p
       asyncSpawn(node.switch.disconnect(p))
 

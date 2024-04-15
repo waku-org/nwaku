@@ -15,7 +15,7 @@ import
 import
   ../../../waku/[
     waku_node,
-    waku_discv5,
+    node/discovery_manager/waku_discv5,
     waku_peer_exchange,
     node/peer_manager,
     waku_relay/protocol,

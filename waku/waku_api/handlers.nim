@@ -4,7 +4,8 @@ else:
   {.push raises: [].}
 
 import chronos, chronicles, std/[options, sequtils], stew/results
-import ../waku_discv5, ../waku_relay, ../waku_core, ./message_cache
+import
+  ../node/discovery_manager/waku_discv5, ../waku_relay, ../waku_core, ./message_cache
 
 ### Discovery
 

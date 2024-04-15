@@ -13,7 +13,7 @@ import
 import
   ../../waku/node/peer_manager,
   ../../waku/waku_node,
-  ../../waku/waku_dnsdisc,
+  ../../waku/node/discovery_manager/waku_dnsdisc,
   ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode

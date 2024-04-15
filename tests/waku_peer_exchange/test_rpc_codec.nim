@@ -12,13 +12,12 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  ../../../waku/
-    [
-      node/peer_manager,
-      waku_discv5,
-      waku_peer_exchange/rpc,
-      waku_peer_exchange/rpc_codec,
-    ],
+  ../../../waku/[
+    node/peer_manager,
+    node/discovery_manager/waku_discv5,
+    waku_peer_exchange/rpc,
+    waku_peer_exchange/rpc_codec,
+  ],
   ../testlib/[wakucore]
 
 suite "Peer Exchange RPC":
