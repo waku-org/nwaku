@@ -18,7 +18,14 @@ import
   libp2p/stream/connection,
   metrics
 import
-  ../waku_core, ../node/peer_manager, ./common, ./rpc, ./rpc_codec, ./protocol_metrics
+  ../waku_core,
+  ../node/peer_manager,
+  ./common,
+  ./rpc,
+  ./rpc_codec,
+  ./protocol_metrics,
+  ../common/ratelimit,
+  ../common/waku_service_metrics
 
 logScope:
   topics = "waku store"
@@ -33,6 +40,7 @@ type WakuStore* = ref object of LPProtocol
   peerManager: PeerManager
   rng: ref rand.HmacDrbgContext
   queryHandler*: HistoryQueryHandler
+  requestRateLimiter*: Option[TokenBucket]
 
 ## Protocol
 
@@ -54,6 +62,18 @@ proc initProtocolHandler(ws: WakuStore) =
       waku_store_errors.inc(labelValues = [emptyRpcQueryFailure])
       # TODO: Return (BAD_REQUEST, cause: "empty query")
       return
+
+    if ws.requestRateLimiter.isSome() and not ws.requestRateLimiter.get().tryConsume(1):
+      trace "store query request rejected due rate limit exceeded",
+        peerId = $conn.peerId, requestId = reqRpc.requestId
+      let error = HistoryError(kind: HistoryErrorKind.TOO_MANY_REQUESTS).toRPC()
+      let response = HistoryResponseRPC(error: error)
+      let rpc = HistoryRPC(requestId: reqRpc.requestId, response: some(response))
+      await conn.writeLp(rpc.encode().buffer)
+      waku_service_requests_rejected.inc(labelValues = ["Store"])
+      return
+
+    waku_service_requests.inc(labelValues = ["Store"])
 
     let
       requestId = reqRpc.requestId
@@ -101,11 +121,17 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     queryHandler: HistoryQueryHandler,
+    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   # Raise a defect if history query handler is nil
   if queryHandler.isNil():
     raise newException(NilAccessDefect, "history query handler is nil")
 
-  let ws = WakuStore(rng: rng, peerManager: peerManager, queryHandler: queryHandler)
+  let ws = WakuStore(
+    rng: rng,
+    peerManager: peerManager,
+    queryHandler: queryHandler,
+    requestRateLimiter: newTokenBucket(rateLimitSetting),
+  )
   ws.initProtocolHandler()
   ws
