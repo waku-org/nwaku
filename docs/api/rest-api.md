@@ -17,16 +17,9 @@ This API is divided in different _namespaces_ which group a set of resources:
 ### API Specification
 
 The HTTP REST API has been designed following the OpenAPI 3.0.3 standard specification format.
-The OpenAPI specification files can be found here:
+The OpenAPI specification files can be found in the [Waku Node REST API Reference](https://waku-org.github.io/waku-rest-api/) repository.
 
-| Namespace | OpenAPI file |
-------------|--------------
-| `/debug` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/debug/openapi.yaml) |
-| `/relay` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/relay/openapi.yaml) |
-| `/store` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/store/openapi.yaml) |
-| `/filter` | [openapi.yaml](https://github.com/waku-org/nwaku/blob/master/waku/v2/node/rest/filter/openapi.yaml) |
-
-The OpenAPI files can be analysed online with [Redocly](https://redocly.github.io/redoc/)
+You can also use [hosted OpenAPI UI](https://waku-org.github.io/waku-rest-api/) to explore and execute the calls locally.
 
 Check the [OpenAPI Tools](https://openapi.tools/) site for the right tool for you (e.g. REST API client generator)
 
