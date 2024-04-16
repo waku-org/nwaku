@@ -1,3 +1,55 @@
+## v0.27.0 (2024-04-16)
+
+### Features
+
+- Added simple, configurable rate limit for lightpush and store-query ([#2390](https://github.com/waku-org/nwaku/issues/2390)) ([a00f350c](https://github.com/waku-org/nwaku/commit/a00f350c))
+- examples/golang/waku.go add new example ([#2559](https://github.com/waku-org/nwaku/issues/2559)) ([8d66a548](https://github.com/waku-org/nwaku/commit/8d66a548))
+- **c-bindings:** rln relay ([#2544](https://github.com/waku-org/nwaku/issues/2544)) ([2aa835e3](https://github.com/waku-org/nwaku/commit/2aa835e3))
+- **incentivization:** add codec for eligibility proof and status ([#2419](https://github.com/waku-org/nwaku/issues/2419)) ([65530264](https://github.com/waku-org/nwaku/commit/65530264))
+- **rest:** add support to ephemeral field ([#2525](https://github.com/waku-org/nwaku/issues/2525)) ([c734f60d](https://github.com/waku-org/nwaku/commit/c734f60d))
+- archive update for store v3 ([#2451](https://github.com/waku-org/nwaku/issues/2451)) ([505479b8](https://github.com/waku-org/nwaku/commit/505479b8))
+- **c-bindings:** add function to dealloc nodes ([#2499](https://github.com/waku-org/nwaku/issues/2499)) ([8341864d](https://github.com/waku-org/nwaku/commit/8341864d))
+
+### Bug Fixes
+
+- **rln-relay:** reduce sync time ([#2577](https://github.com/waku-org/nwaku/issues/2577)) ([480a62fa](https://github.com/waku-org/nwaku/commit/480a62fa))
+- rest store: content_topic -> contentTopic in the response ([#2584](https://github.com/waku-org/nwaku/issues/2584)) ([d2578553](https://github.com/waku-org/nwaku/commit/d2578553))
+- **c-bindings:** rln credential path key ([#2564](https://github.com/waku-org/nwaku/issues/2564)) ([3d752b11](https://github.com/waku-org/nwaku/commit/3d752b11))
+- cluster-id 0 disc5 issue ([#2562](https://github.com/waku-org/nwaku/issues/2562)) ([a76c9587](https://github.com/waku-org/nwaku/commit/a76c9587))
+- regex for rpc endpoint ([#2563](https://github.com/waku-org/nwaku/issues/2563)) ([c87545d5](https://github.com/waku-org/nwaku/commit/c87545d5))
+- **rln:** set a minimum epoch gap ([#2555](https://github.com/waku-org/nwaku/issues/2555)) ([b5e4795f](https://github.com/waku-org/nwaku/commit/b5e4795f))
+- fix regresion + remove deprecated flag ([#2556](https://github.com/waku-org/nwaku/issues/2556)) ([47ad0fb0](https://github.com/waku-org/nwaku/commit/47ad0fb0))
+- **networkmanager:** regularly disconnect from random peers ([#2553](https://github.com/waku-org/nwaku/issues/2553)) ([70c53fc0](https://github.com/waku-org/nwaku/commit/70c53fc0))
+- remove subscription queue limit ([#2551](https://github.com/waku-org/nwaku/issues/2551)) ([94ff5eab](https://github.com/waku-org/nwaku/commit/94ff5eab))
+- peer_manager - extend the number of connection requests to known peers ([#2534](https://github.com/waku-org/nwaku/issues/2534)) ([2173fe22](https://github.com/waku-org/nwaku/commit/2173fe22))
+- **2491:** Fix metadata protocol disconnecting light nodes ([#2533](https://github.com/waku-org/nwaku/issues/2533)) ([33774fad](https://github.com/waku-org/nwaku/commit/33774fad))
+- **rest:** filter/v2/subscriptions response ([#2529](https://github.com/waku-org/nwaku/issues/2529)) ([7aea2d4f](https://github.com/waku-org/nwaku/commit/7aea2d4f))
+- **store:** retention policy regex ([#2532](https://github.com/waku-org/nwaku/issues/2532)) ([23a291b3](https://github.com/waku-org/nwaku/commit/23a291b3))
+- enable autosharding in any cluster ([#2505](https://github.com/waku-org/nwaku/issues/2505)) ([5a225809](https://github.com/waku-org/nwaku/commit/5a225809))
+- introduce new field for shards in metadata protocol ([#2511](https://github.com/waku-org/nwaku/issues/2511)) ([f9f92b7d](https://github.com/waku-org/nwaku/commit/f9f92b7d))
+- **rln-relay:** handle empty metadata returned by getMetadata proc ([#2516](https://github.com/waku-org/nwaku/issues/2516)) ([1274b15d](https://github.com/waku-org/nwaku/commit/1274b15d))
+
+### Changes
+
+- adding migration script adding i_query index ([#2578](https://github.com/waku-org/nwaku/issues/2578)) ([4117fe65](https://github.com/waku-org/nwaku/commit/4117fe65))
+- bumping chronicles version ([#2583](https://github.com/waku-org/nwaku/issues/2583)) ([a04e0d99](https://github.com/waku-org/nwaku/commit/a04e0d99))
+- add ARM64 support for Linux/MacOS ([#2580](https://github.com/waku-org/nwaku/issues/2580)) ([269139cf](https://github.com/waku-org/nwaku/commit/269139cf))
+- **rln:** update submodule + rln patch version ([#2574](https://github.com/waku-org/nwaku/issues/2574)) ([24f6fed8](https://github.com/waku-org/nwaku/commit/24f6fed8))
+- bumping dependencies for 0.27.0 ([#2572](https://github.com/waku-org/nwaku/issues/2572)) ([f68ac792](https://github.com/waku-org/nwaku/commit/f68ac792))
+- **c-bindings:** node initialization ([#2547](https://github.com/waku-org/nwaku/issues/2547)) ([6d0f6d82](https://github.com/waku-org/nwaku/commit/6d0f6d82))
+- remove deprecated legacy filter protocol ([#2507](https://github.com/waku-org/nwaku/issues/2507)) ([e8613172](https://github.com/waku-org/nwaku/commit/e8613172))
+- switch wakuv2 to waku fleet ([#2519](https://github.com/waku-org/nwaku/issues/2519)) ([18a05359](https://github.com/waku-org/nwaku/commit/18a05359))
+- create nph.md ([#2536](https://github.com/waku-org/nwaku/issues/2536)) ([a576e624](https://github.com/waku-org/nwaku/commit/a576e624))
+- Better postgres duplicate insert ([#2535](https://github.com/waku-org/nwaku/issues/2535)) ([693a1778](https://github.com/waku-org/nwaku/commit/693a1778))
+- add 150 kB to msg size histogram metric ([#2430](https://github.com/waku-org/nwaku/issues/2430)) ([2c1391d3](https://github.com/waku-org/nwaku/commit/2c1391d3))
+- content_script_version_2: add simple protection and rename messages_backup if exists ([#2531](https://github.com/waku-org/nwaku/issues/2531)) ([c6c376b5](https://github.com/waku-org/nwaku/commit/c6c376b5))
+- **vendor:** update nim-libp2p path ([#2527](https://github.com/waku-org/nwaku/issues/2527)) ([3c823756](https://github.com/waku-org/nwaku/commit/3c823756))
+- adding node factory tests ([#2524](https://github.com/waku-org/nwaku/issues/2524)) ([a1b3e090](https://github.com/waku-org/nwaku/commit/a1b3e090))
+- factory cleanup ([#2523](https://github.com/waku-org/nwaku/issues/2523)) ([8d7eb3a6](https://github.com/waku-org/nwaku/commit/8d7eb3a6))
+- **rln-relay-v2:** wakunode testing + improvements ([#2501](https://github.com/waku-org/nwaku/issues/2501)) ([059cb975](https://github.com/waku-org/nwaku/commit/059cb975))
+- update CHANGELOG for v0.26.0 release ([#2518](https://github.com/waku-org/nwaku/issues/2518)) ([097cb362](https://github.com/waku-org/nwaku/commit/097cb362))
+- migrating logic from wakunode2.nim to node_factory.nim ([#2504](https://github.com/waku-org/nwaku/issues/2504)) ([dcc88ee0](https://github.com/waku-org/nwaku/commit/dcc88ee0))
+
 ## v0.26.0 (2024-03-07)
 
 > **Note:**
