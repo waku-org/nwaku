@@ -1,4 +1,18 @@
-## v0.27.0 (2024-04-16)
+## v0.27.0 (2024-04-19)
+
+>  **Note:**
+
+>  - Filter v1 protocol and its REST-API access have been deprecated.
+>  - A new field of the `WakuMetadataRequest` protobuf for shards was introduced. The old shards field (2) will be deprecated in 2 releases time
+> - CLI flags `--requestRateLimit` and `requestRatePeriod` have been added for rate limiting configuration. 
+
+## What's Changed
+
+Release highlights:
+
+* Introduced configurable rate limiting for lightpush and store requests
+* Sync time has been considerably reduced for node initialization
+* Significant refactors were made to node initialization and `WakuArchive` logic as work towards C-bindings and Store V3 features
 
 ### Features
 
@@ -49,6 +63,17 @@
 - **rln-relay-v2:** wakunode testing + improvements ([#2501](https://github.com/waku-org/nwaku/issues/2501)) ([059cb975](https://github.com/waku-org/nwaku/commit/059cb975))
 - update CHANGELOG for v0.26.0 release ([#2518](https://github.com/waku-org/nwaku/issues/2518)) ([097cb362](https://github.com/waku-org/nwaku/commit/097cb362))
 - migrating logic from wakunode2.nim to node_factory.nim ([#2504](https://github.com/waku-org/nwaku/issues/2504)) ([dcc88ee0](https://github.com/waku-org/nwaku/commit/dcc88ee0))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
 ## v0.26.0 (2024-03-07)
 
