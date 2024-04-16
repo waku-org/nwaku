@@ -650,6 +650,7 @@ suite "Peer Manager":
             serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
 
 suite "Handling Connections on Different Networks":
+  # TODO: Implement after discv5 and peer manager's interaction is understood
   proc buildNode(
       tcpPort: uint16,
       udpPort: uint16,
@@ -680,96 +681,10 @@ suite "Handling Connections on Different Networks":
 
     (node, record)
 
-  xasyncTest "Same cluster but different shard":
+  asyncTest "Same cluster but different shard":
     # peer 1 is on cluster x - shard a  ; peer 2 is on cluster x - shard b
-
-    # # Given two extra clients
-    # let
-    #   peer1Key = generateSecp256k1Key()
-    #   peer2Key = generateSecp256k1Key()
-    #   listenIp = ValidIpAddress.init("0.0.0.0")
-    #   listenPort = Port(0)
-    #   tcpPort1 = 61500u16
-    #   tcpPort2 = 61501u16
-    #   udpPort1 = 9000u16
-    #   udpPort2 = 9001u16
-    #   peer1 = newTestWakuNode(
-    #     peer1Key, listenIp, listenPort, pubsubTopics = @["/waku/2/rs/1/0"], discv5UdpPort = some(Port(udpPort1))
-    #   )
-    #   peer2 = newTestWakuNode(
-    #     peer2Key, listenIp, listenPort, pubsubTopics = @["/waku/2/rs/1/0"], discv5UdpPort = some(Port(udpPort2))
-    #   )
-
-    # await peer1.mountRelay()
-    # await peer2.mountRelay()
-    # await allFutures(peer1.start(), peer2.start())
-    # let
-    #   wakuDiscv5n1 = newTestDiscv5(
-    #     peer1Key,
-    #     "0.0.0.0",
-    #     tcpPort1,
-    #     udpPort1,
-    #     peer1.enr,
-    #     peerManager = some(peer1.peerManager),
-    #   )
-    #   wakuDiscv5n2 = newTestDiscv5(
-    #     peer2Key,
-    #     "0.0.0.0",
-    #     tcpPort2,
-    #     udpPort2,
-    #     peer2.enr,
-    #     peerManager = some(peer2.peerManager),
-    #   )
-    # waitFor allFutures(wakuDiscv5n1.start(), wakuDiscv5n2.start())
-
-    # await sleepAsync(1.seconds)
-
-    #####
-
-    # Given 3 nodes
-    let
-      (node1, record1) = buildNode(
-        tcpPort = 61500u16,
-        udpPort = 9000u16,
-        indices = @[0u64, 0u64, 1u64, 0u64, 0u64],
-        recordFlags = some(CapabilitiesBitField.init(Capabilities.Relay)),
-      )
-      (node2, record2) = buildNode(
-        tcpPort = 61502u16,
-        udpPort = 9002u16,
-        indices = @[0u64, 0u64, 1u64, 0u64, 0u64],
-        recordFlags = some(CapabilitiesBitField.init(Capabilities.Relay)),
-      )
-      (node3, record3) = buildNode(
-        tcpPort = 61504u16,
-        udpPort = 9004u16,
-        indices = @[0u64, 0u64, 1u64, 0u64, 0u64],
-        recordFlags = some(CapabilitiesBitField.init(Capabilities.Relay)),
-          #, bootstrapRecords = @[record1, record2]
-      )
-
-    let res1 = await node1.start()
-    assertResultOk res1
-
-    let res2 = await node2.start()
-    assertResultOk res2
-
-    let res3 = await node3.start()
-    assertResultOk res3
-
-    await sleepAsync(1.seconds)
-
-    #####
-
-    let peers = await node3.findRandomPeers()
-    echo peers
-
-    # check:
-    #   node1.peerManager.peerStore.peers().len == 1
-    #   node2.peerManager.peerStore.peers().len == 1
-    #   node3.peerManager.peerStore.peers().len == 1
-
-    await allFutures(node1.stop(), node2.stop(), node3.stop())
+    # todo: Implement after discv5 and peer manager's interaction is understood
+    discard
 
   xasyncTest "Different cluster but same shard":
     # peer 1 is on cluster x - shard a  ; peer 2 is on cluster y - shard a
@@ -797,7 +712,7 @@ suite "Persistence Check":
     # Cleanup previous existing db
     cleanupDb()
 
-    # Given an on-disk peer db exists, with a peer in it
+    # Given an on-disk peer db exists, with a peer in it; and two connected nodes
     let
       clientPeerStorage = newTestWakuPeerStorage(some(baseDbPath))
       serverKey = generateSecp256k1Key()
