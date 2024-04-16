@@ -62,6 +62,7 @@ type
     ## the state of its request
     NONE = uint32(0)
     INVALID_CURSOR = uint32(1)
+    TOO_MANY_REQUESTS = uint32(429)
     SERVICE_UNAVAILABLE = uint32(503)
 
   HistoryResponseRPC* = object
@@ -76,7 +77,7 @@ type
 
 proc parse*(T: type HistoryResponseErrorRPC, kind: uint32): T =
   case kind
-  of 0, 1, 503:
+  of 0, 1, 429, 503:
     HistoryResponseErrorRPC(kind)
   else:
     # TODO: Improve error variants/move to satus codes
@@ -169,6 +170,8 @@ proc toRPC*(err: HistoryError): HistoryResponseErrorRPC =
   of HistoryErrorKind.BAD_REQUEST:
     # TODO: Respond aksi with the reason
     HistoryResponseErrorRPC.INVALID_CURSOR
+  of HistoryErrorKind.TOO_MANY_REQUESTS:
+    HistoryResponseErrorRPC.TOO_MANY_REQUESTS
   of HistoryErrorKind.SERVICE_UNAVAILABLE:
     HistoryResponseErrorRPC.SERVICE_UNAVAILABLE
   else:
@@ -179,6 +182,8 @@ proc toAPI*(err: HistoryResponseErrorRPC): HistoryError =
   case err
   of HistoryResponseErrorRPC.INVALID_CURSOR:
     HistoryError(kind: HistoryErrorKind.BAD_REQUEST, cause: "invalid cursor")
+  of HistoryResponseErrorRPC.TOO_MANY_REQUESTS:
+    HistoryError(kind: HistoryErrorKind.TOO_MANY_REQUESTS)
   of HistoryResponseErrorRPC.SERVICE_UNAVAILABLE:
     HistoryError(kind: HistoryErrorKind.SERVICE_UNAVAILABLE)
   else:
