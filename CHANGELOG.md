@@ -4,7 +4,7 @@
 
 >  - Filter v1 protocol and its REST-API access have been deprecated.
 >  - A new field of the `WakuMetadataRequest` protobuf for shards was introduced. The old shards field (2) will be deprecated in 2 releases time
-> - CLI flags `--requestRateLimit` and `requestRatePeriod` have been added for rate limiting configuration. 
+>  - CLI flags `--requestRateLimit` and `--requestRatePeriod` have been added for rate limiting configuration. Period is measured in seconds. Limits are measured per protocol per period of time. Over limit will result in TOO_MANY_REQUEST (429) response.
 
 ## What's Changed
 
