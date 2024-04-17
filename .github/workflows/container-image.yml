@@ -16,6 +16,8 @@ env:
   MAKEFLAGS: "-j${NPROC}"
   NIMFLAGS: "--parallelBuild:${NPROC}"
 
+# This workflow should not run for outside contributors
+# If org secrets are not available, we'll avoid building and publishing the docker image and we'll pass the workflow
 jobs:
   build-docker-image:
     strategy:
@@ -29,15 +31,30 @@ jobs:
     outputs:
       image: ${{ steps.build.outputs.image }}
     steps:
+      - name: Check secrets
+        id: secrets
+        continue-on-error: true
+        run: |
+          if [[ -z "$QUAY_PASSWORD" || -z "$QUAY_USER" ]]; then
+            echo "User does not have access to secrets, skipping workflow"
+            exit 1
+          fi
+        env:
+          QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
+          QUAY_USER: ${{ secrets.QUAY_USER }}
+      
       - name: Checkout code
+        if: ${{ steps.secrets.outcome == 'success' }}
         uses: actions/checkout@v3
 
       - name: Get submodules hash
         id: submodules
+        if: ${{ steps.secrets.outcome == 'success' }}
         run: |
           echo "hash=$(git submodule status | awk '{print $1}' | sort | shasum -a 256 | sed 's/[ -]*//g')" >> $GITHUB_OUTPUT
 
       - name: Cache submodules
+        if: ${{ steps.secrets.outcome == 'success' }}
         uses: actions/cache@v3
         with:
           path: |
@@ -47,6 +64,7 @@ jobs:
 
       - name: Build binaries
         id: build
+        if: ${{ steps.secrets.outcome == 'success' }}
         run: |
 
           make RLN_V2=${{matrix.rln_v2}} -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
@@ -69,7 +87,7 @@ jobs:
 
       - name: Comment PR
         uses: thollander/actions-comment-pull-request@v2
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' && steps.secrets.outcome == 'success' }}
         with:
           message: |
             You can find the image built from this PR at
