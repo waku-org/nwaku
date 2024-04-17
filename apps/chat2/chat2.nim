@@ -39,7 +39,7 @@ import
   ../../waku/waku_lightpush/rpc,
   ../../waku/waku_enr,
   ../../waku/waku_store,
-  ../../waku/node/discovery_manager/waku_dnsdisc,
+  ../../waku/discovery/waku_dnsdisc,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
