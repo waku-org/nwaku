@@ -14,7 +14,7 @@ import
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
-import ./node/peer_manager/peer_manager, ./waku_core, ./waku_enr
+import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
 
 export protocol, waku_enr
 
