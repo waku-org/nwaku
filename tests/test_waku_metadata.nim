@@ -17,7 +17,7 @@ import
   ../../waku/waku_node,
   ../../waku/waku_core/topics,
   ../../waku/node/peer_manager,
-  ../../waku/node/discovery_manager/waku_discv5,
+  ../../waku/discovery/waku_discv5,
   ../../waku/waku_metadata,
   ./testlib/wakucore,
   ./testlib/wakunode

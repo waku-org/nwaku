@@ -12,8 +12,7 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
   libp2p/transports/wstransport
-import
-  ../waku_enr, ../node/discovery_manager/waku_discv5, ../waku_node, ../node/peer_manager
+import ../waku_enr, ../discovery/waku_discv5, ../waku_node, ../node/peer_manager
 
 type
   WakuNodeBuilder* = object # General

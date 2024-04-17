@@ -45,7 +45,7 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ./discovery_manager/waku_dnsdisc,
+  ../discovery/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]

@@ -15,17 +15,13 @@ type DiscoveryManager* = object
 #[
     TODO: in future PRs we will have:
 
-    WakuNode* = ref object
-        peerManager*: PeerManager
-        discManager*: DiscoveryManager  <-- we will add this
-        ...
-
     App* = object
         version: string
         conf: WakuNodeConf
         rng: ref HmacDrbgContext
         key: crypto.PrivateKey
 
+        ## in future PRs, the following two items will be encapsulated by 'DiscoveryManager'
         wakuDiscv5: Option[WakuDiscoveryV5]         <-- this will get removed
         dynamicBootstrapNodes: seq[RemotePeerInfo]  <-- this will get removed
 

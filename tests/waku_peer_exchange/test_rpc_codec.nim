@@ -14,7 +14,7 @@ import
 import
   ../../../waku/[
     node/peer_manager,
-    node/discovery_manager/waku_discv5,
+    discovery/waku_discv5,
     waku_peer_exchange/rpc,
     waku_peer_exchange/rpc_codec,
   ],

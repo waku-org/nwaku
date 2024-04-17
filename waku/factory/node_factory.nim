@@ -16,7 +16,7 @@ import
   ../waku_node,
   ../waku_core,
   ../waku_rln_relay,
-  ../node/discovery_manager/waku_dnsdisc,
+  ../discovery/waku_dnsdisc,
   ../waku_archive,
   ../waku_store,
   ../waku_filter_v2,

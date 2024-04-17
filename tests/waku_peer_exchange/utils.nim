@@ -13,7 +13,7 @@ import
 import
   ../../../waku/[
     waku_node,
-    node/discovery_manager/waku_discv5,
+    discovery/waku_discv5,
     waku_peer_exchange,
     waku_peer_exchange/rpc,
     waku_peer_exchange/protocol,
