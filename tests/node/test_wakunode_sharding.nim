@@ -144,7 +144,7 @@ suite "Sharding":
 
       let
         serverHandler = server.subscribeToContentTopicWithHandler(contentTopicShort)
-        clientHandler = client.subscribeToContentTopicWithHandler(contentTopicShort)
+        clientHandler = client.subscribeToContentTopicWithHandler(contentTopicFull)
 
       await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
 
@@ -166,7 +166,7 @@ suite "Sharding":
       clientHandler.reset()
       discard await server.publish(
         some(pubsubTopic),
-        WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopicShort),
+        WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopicFull),
       )
       let
         serverResult2 = await serverHandler.waitForResult(FUTURE_TIMEOUT)
@@ -177,7 +177,46 @@ suite "Sharding":
       assertResultOk(clientResult2)
 
     asyncTest "Exclusion of Irrelevant Autosharded Topics":
-      discard
+      let
+        contentTopic1 = "/toychat/2/huilong/proto"
+        contentTopic2 = "/0/toychat2/2/huilong/proto"
+        pubsubTopic1 = "/waku/2/rs/0/58355"
+        pubsubTopic2 = "/waku/2/rs/0/23286"
+          # Automatically generated from the contentTopic above
+
+      let
+        serverHandler = server.subscribeToContentTopicWithHandler(contentTopic1)
+        clientHandler = client.subscribeToContentTopicWithHandler(contentTopic2)
+
+      await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
+
+      # When the server publishes a message
+      discard await server.publish(
+        some(pubsubTopic1),
+        WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic1),
+      )
+      let
+        serverResult1 = await serverHandler.waitForResult(FUTURE_TIMEOUT)
+        clientResult1 = await clientHandler.waitForResult(FUTURE_TIMEOUT)
+
+      # Then the client receives the message
+      assertResultOk(serverResult1)
+      check clientResult1.isErr()
+
+      # When the client publishes a message
+      serverHandler.reset()
+      clientHandler.reset()
+      discard await client.publish(
+        some(pubsubTopic2),
+        WakuMessage(payload: "message1".toBytes(), contentTopic: contentTopic2),
+      )
+      let
+        serverResult2 = await serverHandler.waitForResult(FUTURE_TIMEOUT_LONG)
+        clientResult2 = await clientHandler.waitForResult(FUTURE_TIMEOUT_LONG)
+
+      # Then the server receives the message
+      assertResultOk(clientResult2)
+      check serverResult2.isErr()
 
   suite "Application Layer Integration":
     suite "App Protocol Compatibility":
