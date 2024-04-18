@@ -58,12 +58,13 @@ proc setupRelayWithRln*(
   await node.mountRelay(pubsubTopics)
   await setupRln(node, identifier)
 
-proc subs*(node: WakuNode, contentTopic: string): Future[bool] =
+proc subscribeToContentTopicWithHandler*(
+    node: WakuNode, contentTopic: string
+): Future[bool] =
   var completionFut = newFuture[bool]()
   proc relayHandler(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
-    echo "\n\n\n------------------> TOPIC: ", topic
     if topic == topic:
       completionFut.complete(true)
 
