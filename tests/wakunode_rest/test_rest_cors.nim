@@ -86,7 +86,9 @@ proc checkResponse(
       expectedOrigin.isSome() and
       response.headers.contains("Access-Control-Allow-Origin") and
       response.headers.getLastString("Access-Control-Allow-Origin") ==
-      expectedOrigin.get()
+        expectedOrigin.get() and
+      response.headers.contains("Access-Control-Allow-Headers") and
+      response.headers.getLastString("Access-Control-Allow-Headers") == "Content-Type"
     )
   ):
     echo(
