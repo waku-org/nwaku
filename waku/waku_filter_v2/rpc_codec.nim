@@ -7,10 +7,10 @@ import std/options
 import ../common/protobuf, ../waku_core, ./rpc
 
 const
-  MaxSubscribeSize* = 10 * MaxWakuMessageSize + 64 * 1024
+  DefaultMaxSubscribeSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024
     # We add a 64kB safety buffer for protocol overhead
-  MaxSubscribeResponseSize* = 64 * 1024 # Responses are small. 64kB safety buffer.
-  MaxPushSize* = 10 * MaxWakuMessageSize + 64 * 1024
+  DefaultMaxSubscribeResponseSize* = 64 * 1024 # Responses are small. 64kB safety buffer.
+  DefaultMaxPushSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024
     # We add a 64kB safety buffer for protocol overhead
 
 proc encode*(rpc: FilterSubscribeRequest): ProtoBuffer =

@@ -388,7 +388,7 @@ proc mountRelay*(
     node: WakuNode,
     pubsubTopics: seq[string] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
-    maxMessageSize = int(MaxWakuMessageSize),
+    maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
     error "wakuRelay already mounted, skipping"
@@ -793,7 +793,9 @@ when defined(waku_exp_store_resume):
 ## Waku lightpush
 
 proc mountLightPush*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+    node: WakuNode,
+    rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
+    maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async.} =
   info "mounting light push"
 
@@ -818,8 +820,9 @@ proc mountLightPush*(
       return ok()
 
   debug "mounting lightpush with relay"
-  node.wakuLightPush =
-    WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
+  node.wakuLightPush = WakuLightPush.new(
+    node.peerManager, node.rng, pushHandler, some(rateLimit), maxMessageSize
+  )
 
   if node.started:
     # Node has started already. Let's start lightpush too.

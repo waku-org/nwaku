@@ -46,7 +46,7 @@ type WakuStore* = ref object of LPProtocol
 
 proc initProtocolHandler(ws: WakuStore) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(MaxRpcSize.int)
+    let buf = await conn.readLp(DefaultMaxRpcSize.int)
 
     let decodeRes = HistoryRPC.decode(buf)
     if decodeRes.isErr():

@@ -49,7 +49,9 @@ proc sendHistoryQueryRPC(
   let reqRpc = HistoryRPC(requestId: generateRequestId(w.rng), query: some(req.toRPC()))
   await connection.writeLP(reqRpc.encode().buffer)
 
-  let buf = await connection.readLp(MaxRpcSize.int)
+  #TODO: I see a challenge here, if storeNode uses a different MaxRPCSize this read will fail.
+  # Need to find a workaround for this.
+  let buf = await connection.readLp(DefaultMaxRpcSize.int)
   let respDecodeRes = HistoryRPC.decode(buf)
   if respDecodeRes.isErr():
     waku_store_errors.inc(labelValues = [decodeRpcFailure])

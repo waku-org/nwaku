@@ -209,11 +209,11 @@ suite "Waku Lightpush Client":
         ) # 100KiB
         message4 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxRpcSize - overheadBytes - 1),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - overheadBytes - 1),
         ) # Inclusive Limit
         message5 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxRpcSize - overheadBytes),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - overheadBytes),
         ) # Exclusive Limit
 
       # When publishing the 1KiB payload

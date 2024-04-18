@@ -6,8 +6,11 @@ else:
 import std/options
 import ../common/protobuf, ../waku_core, ./rpc
 
-const MaxRpcSize* = MaxWakuMessageSize + 64 * 1024
+proc calculateRPCSize*(msgSize: int): int =
   # We add a 64kB safety buffer for protocol overhead
+  return msgSize + 64 * 1024
+
+const DefaultMaxRpcSize* = -1
 
 proc encode*(rpc: PushRequest): ProtoBuffer =
   var pb = initProtoBuffer()

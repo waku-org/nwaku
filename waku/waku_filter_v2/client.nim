@@ -41,7 +41,7 @@ proc sendSubscribeRequest(
   # TODO: this can raise an exception
   await connection.writeLP(filterSubscribeRequest.encode().buffer)
 
-  let respBuf = await connection.readLp(MaxSubscribeResponseSize)
+  let respBuf = await connection.readLp(DefaultMaxSubscribeResponseSize)
   let respDecodeRes = FilterSubscribeResponse.decode(respBuf)
   if respDecodeRes.isErr():
     trace "Failed to decode filter subscribe response", servicePeer
@@ -79,7 +79,7 @@ proc subscribe*(
     wfc: WakuFilterClient,
     servicePeer: RemotePeerInfo,
     pubsubTopic: PubsubTopic,
-    contentTopics: ContentTopic|seq[ContentTopic],
+    contentTopics: ContentTopic | seq[ContentTopic],
 ): Future[FilterSubscribeResult] {.async.} =
   var contentTopicSeq: seq[ContentTopic]
   when contentTopics is seq[ContentTopic]:
@@ -98,14 +98,14 @@ proc unsubscribe*(
     wfc: WakuFilterClient,
     servicePeer: RemotePeerInfo,
     pubsubTopic: PubsubTopic,
-    contentTopics: ContentTopic|seq[ContentTopic],
+    contentTopics: ContentTopic | seq[ContentTopic],
 ): Future[FilterSubscribeResult] {.async.} =
   var contentTopicSeq: seq[ContentTopic]
   when contentTopics is seq[ContentTopic]:
     contentTopicSeq = contentTopics
   else:
     contentTopicSeq = @[contentTopics]
-  
+
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.unsubscribe(
     requestId = requestId, pubsubTopic = pubsubTopic, contentTopics = contentTopicSeq
@@ -127,7 +127,7 @@ proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
 
 proc initProtocolHandler(wfc: WakuFilterClient) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(int(MaxPushSize))
+    let buf = await conn.readLp(int(DefaultMaxPushSize))
 
     let decodeRes = MessagePush.decode(buf)
     if decodeRes.isErr():
