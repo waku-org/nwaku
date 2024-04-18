@@ -60,13 +60,13 @@ suite "Waku Relay":
     pubsubTopicSeq = @[pubsubTopic]
     wakuMessage = fakeWakuMessage(testMessage, pubsubTopic)
 
-    await allFutures(switch.start(), node.start())
+    await allFutures(switch.start())
 
     remotePeerInfo = switch.peerInfo.toRemotePeerInfo()
     peerId = remotePeerInfo.peerId
 
   asyncTeardown:
-    await allFutures(switch.stop(), node.stop())
+    await allFutures(switch.stop())
 
   suite "Subscribe":
     asyncTest "Publish without Subscription":
@@ -1210,14 +1210,14 @@ suite "Waku Relay":
       await allFutures(otherSwitch.stop(), otherNode.stop())
 
   suite "Security and Privacy":
-    xasyncTest "Relay can receive messages after reboot and reconnect":
+    asyncTest "Relay can receive messages after reboot and reconnect":
       # Given a second node connected to the first one
       let
         otherSwitch = newTestSwitch()
         otherPeerManager = PeerManager.new(otherSwitch)
         otherNode = await newTestWakuRelay(otherSwitch)
 
-      await allFutures(otherSwitch.start(), otherNode.start())
+      await otherSwitch.start()
       let
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
@@ -1239,8 +1239,11 @@ suite "Waku Relay":
       await sleepAsync(500.millis)
 
       # Given other node is stopped and restarted
-      await allFutures(otherSwitch.stop(), otherNode.stop())
-      await allFutures(otherSwitch.start(), otherNode.start())
+      await otherSwitch.stop()
+      await otherSwitch.start()
+
+      check await peerManager.connectRelay(otherRemotePeerInfo)
+
       # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectRelay, as below
       # check await otherPeerManager.connectRelay(otherRemotePeerInfo)
 
@@ -1269,8 +1272,9 @@ suite "Waku Relay":
         (pubsubTopic, msg2) == otherHandlerFuture.read()
 
       # Given node is stopped and restarted
-      await allFutures(switch.stop(), node.stop())
-      await allFutures(switch.start(), node.start())
+      await switch.stop()
+      await switch.start()
+      check await peerManager.connectRelay(otherRemotePeerInfo)
 
       # When sending a message from node
       handlerFuture = newPushHandlerFuture()
