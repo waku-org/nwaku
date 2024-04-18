@@ -61,7 +61,6 @@ const TopicParameters = TopicParams(
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
-  explicit = true,
   pruneBackoff = chronos.minutes(1),
   unsubscribeBackoff = chronos.seconds(5),
   floodPublish = true,
