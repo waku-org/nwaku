@@ -30,7 +30,7 @@ import
   ../../waku/waku_relay,
   ../../waku/waku_rln_relay,
   ../../waku/factory/builder,
-  ../wakunode2/networks_config,
+  ../../waku/factory/networks_config,
   ./networkmonitor_metrics,
   ./networkmonitor_config,
   ./networkmonitor_utils
