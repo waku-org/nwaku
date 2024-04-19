@@ -22,7 +22,7 @@ import
   ../../../../waku/waku_store,
   ../../../../waku/factory/builder,
   ../../../../waku/factory/node_factory,
-  ../../../apps/wakunode2/networks_config,
+  ../../../../waku/factory/networks_config,
   ../../../events/[json_message_event, json_base_event],
   ../../../alloc,
   ../../config
