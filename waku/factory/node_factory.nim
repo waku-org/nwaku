@@ -140,14 +140,13 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  #if none of the protos are enabled, still parsing this..but its ok i guess.
-  let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
-    return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
-
   if conf.relay:
     let shards =
       conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
     let pubsubTopics = conf.pubsubTopics & shards
+
+    let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
+      return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
 
     debug "Setting max message size", num_bytes = parsedMaxMsgSize
 
@@ -262,7 +261,7 @@ proc setupProtocols(
     try:
       let rateLimitSetting: RateLimitSetting =
         (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-      await mountLightPush(node, rateLimitSetting, int(parsedMaxMsgSize))
+      await mountLightPush(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 

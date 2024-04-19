@@ -25,7 +25,6 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: Option[TokenBucket]
-  maxRPCSize*: int
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -80,7 +79,7 @@ proc handleRequest*(
 
 proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
-    let buffer = await conn.readLp(wl.maxRpcSize)
+    let buffer = await conn.readLp(DefaultMaxRpcSize)
     let rpc = await handleRequest(wl, conn.peerId, buffer)
     await conn.writeLp(rpc.encode().buffer)
 
@@ -93,14 +92,12 @@ proc new*(
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
-    maxMessageSize = int(DefaultMaxWakuMessageSize),
 ): T =
   let wl = WakuLightPush(
     rng: rng,
     peerManager: peerManager,
     pushHandler: pushHandler,
     requestRateLimiter: newTokenBucket(rateLimitSetting),
-    maxRPCSize: calculateRPCSize(maxMessageSize),
   )
   wl.initProtocolHandler()
   return wl

@@ -793,9 +793,7 @@ when defined(waku_exp_store_resume):
 ## Waku lightpush
 
 proc mountLightPush*(
-    node: WakuNode,
-    rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
-    maxMessageSize = int(DefaultMaxWakuMessageSize),
+    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
   info "mounting light push"
 
@@ -820,9 +818,8 @@ proc mountLightPush*(
       return ok()
 
   debug "mounting lightpush with relay"
-  node.wakuLightPush = WakuLightPush.new(
-    node.peerManager, node.rng, pushHandler, some(rateLimit), maxMessageSize
-  )
+  node.wakuLightPush =
+    WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
 
   if node.started:
     # Node has started already. Let's start lightpush too.
