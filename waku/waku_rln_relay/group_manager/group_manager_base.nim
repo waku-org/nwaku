@@ -40,18 +40,15 @@ type GroupManager* = ref object of RootObj
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
-method init*(g: GroupManager): Future[void] {.base, async.} =
-  raise
-    newException(CatchableError, "init proc for " & $g.type & " is not implemented yet")
+method init*(g: GroupManager): Future[GroupManagerResult[void]] {.base, async.} =
+  return err("init proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to start the group sync process
 # It should be used to sync the group state with the rest of the group members
 method startGroupSync*(
     g: GroupManager
-): Future[void] {.base, async: (raises: [Exception]).} =
-  raise newException(
-    CatchableError, "startGroupSync proc for " & $g.type & " is not implemented yet"
-  )
+): Future[GroupManagerResult[void]] {.base, async.} =
+  return err("startGroupSync proc for " & $g.type & " is not implemented yet")
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user may or may not have the identity secret to this commitment

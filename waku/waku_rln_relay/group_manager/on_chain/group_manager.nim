@@ -121,11 +121,26 @@ template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
 
-template retryWrapper(
-    g: OnchainGroupManager, res: auto, errStr: string, body: untyped
-): auto =
-  retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
-    body
+proc resultifiedInitGuard(g: OnchainGroupManager): GroupManagerResult[void] =
+  try:
+    initializedGuard(g)
+    return ok()
+  except CatchableError:
+    return err("OnchainGroupManager is not initialized")
+
+proc retryWrapper[T](
+    g: OnchainGroupManager, fut: Future[T], errStr: string
+): Future[T] {.async.} =
+  return await retryWrapper(RetryStrategy.new(), errStr, g.onFatalErrorAction, fut)
+
+proc resultifiedRetryWrapper[T](
+    g: OnchainGroupManager, fut: Future[T], errStr: string
+): Future[RlnRelayResult[T]] {.async.} =
+  try:
+    return
+      ok(await retryWrapper(RetryStrategy.new(), errStr, g.onFatalErrorAction, fut))
+  except CatchableError:
+    return err(errStr & ": " & getCurrentExceptionMsg())
 
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
   try:
@@ -314,24 +329,24 @@ else:
     let registryContract = g.registryContract.get()
     let membershipFee = g.membershipFee.get()
 
-    var gasPrice: int
-    g.retryWrapper(gasPrice, "Failed to get gas price"):
-      int(await ethRpc.provider.eth_gasPrice()) * 2
+    let gasPrice =
+      int(
+        await g.retryWrapper(ethRpc.provider.eth_gasPrice(), "Failed to get gas price")
+      ) * 2
     let idCommitment = credentials.idCommitment.toUInt256()
 
-    var txHash: TxHash
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member",
       idCommitment = idCommitment, storageIndex = storageIndex
-    g.retryWrapper(txHash, "Failed to register the member"):
-      await registryContract.register(storageIndex, idCommitment).send(
-        gasPrice = gasPrice
-      )
+    let txHash = await g.retryWrapper(
+      registryContract.register(storageIndex, idCommitment).send(gasPrice = gasPrice),
+      "Failed to register the member",
+    )
 
     # wait for the transaction to be mined
-    var tsReceipt: ReceiptObject
-    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
-      await ethRpc.getMinedTransactionReceipt(txHash)
+    let tsReceipt = await g.retryWrapper(
+      ethRpc.getMinedTransactionReceipt(txHash), "Failed to get the transaction receipt"
+    )
     debug "registration transaction mined", txHash = txHash
     g.registrationTxHash = some(txHash)
     # the receipt topic holds the hash of signature of the raised events
@@ -450,14 +465,17 @@ proc getRawEvents(
   let ethRpc = g.ethRpc.get()
   let rlnContract = g.rlnContract.get()
 
-  var events: JsonNode
-  g.retryWrapper(events, "Failed to get the events"):
-    await rlnContract.getJsonLogs(
-      MemberRegistered,
-      fromBlock = some(fromBlock.blockId()),
-      toBlock = some(toBlock.blockId()),
+  try:
+    return await g.retryWrapper(
+      rlnContract.getJsonLogs(
+        MemberRegistered,
+        fromBlock = some(fromBlock.blockId()),
+        toBlock = some(toBlock.blockId()),
+      ),
+      "Failed to get the events",
     )
-  return events
+  except CatchableError:
+    raise newException(CatchableError, "failed to get the events")
 
 proc getBlockTable(
     g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
@@ -532,7 +550,7 @@ proc handleRemovedEvents(
 
 proc getAndHandleEvents(
     g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
-): Future[bool] {.async: (raises: [Exception]).} =
+): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
   try:
@@ -550,8 +568,6 @@ proc getAndHandleEvents(
   else:
     trace "rln metadata persisted", blockNumber = g.latestProcessedBlock
 
-  return true
-
 proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
   g.blockFetchingActive = false
 
@@ -559,9 +575,7 @@ proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
     g.blockFetchingActive = true
 
     while g.blockFetchingActive:
-      var retCb: bool
-      g.retryWrapper(retCb, "Failed to run the interval block fetching loop"):
-        await cb()
+      await g.retryWrapper(cb(), "Failed to run the interval block fetching loop")
       await sleepAsync(interval)
 
   # using asyncSpawn is OK here since
@@ -571,20 +585,19 @@ proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
 
 proc getNewBlockCallback(g: OnchainGroupManager): proc =
   let ethRpc = g.ethRpc.get()
-  proc wrappedCb(): Future[bool] {.async, gcsafe.} =
-    var latestBlock: BlockNumber
-    g.retryWrapper(latestBlock, "Failed to get the latest block number"):
-      cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
+  proc wrappedCb(): Future[void] {.async, gcsafe.} =
+    let latestBlock = cast[BlockNumber](await g.retryWrapper(
+      ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
+    ))
 
     if latestBlock <= g.latestProcessedBlock:
       return
     # get logs from the last block
     # inc by 1 to prevent double processing
     let fromBlock = g.latestProcessedBlock + 1
-    var handleBlockRes: bool
-    g.retryWrapper(handleBlockRes, "Failed to handle new block"):
-      await g.getAndHandleEvents(fromBlock, latestBlock)
-    return true
+    await g.retryWrapper(
+      g.getAndHandleEvents(fromBlock, latestBlock), "Failed to handle new block"
+    )
 
   return wrappedCb
 
@@ -598,13 +611,11 @@ proc startListeningToEvents(
   g.runInInterval(newBlockCallback, DefaultBlockPollRate)
 
 proc batchAwaitBlockHandlingFuture(
-    g: OnchainGroupManager, futs: seq[Future[bool]]
+    g: OnchainGroupManager, futs: seq[Future[void]]
 ): Future[void] {.async: (raises: [Exception]).} =
   for fut in futs:
     try:
-      var handleBlockRes: bool
-      g.retryWrapper(handleBlockRes, "Failed to handle block"):
-        await fut
+      await g.retryWrapper(fut, "Failed to handle block")
     except CatchableError:
       raise newException(
         CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
@@ -633,11 +644,11 @@ proc startOnchainSync(
         blockNumber = g.rlnContractDeployedBlockNumber
       g.rlnContractDeployedBlockNumber
 
-  var futs = newSeq[Future[bool]]()
-  var currentLatestBlock: BlockNumber
-  g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
-    cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
-  
+  var futs = newSeq[Future[void]]()
+  var currentLatestBlock = cast[BlockNumber](await g.retryWrapper(
+    ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
+  ))
+
   try:
     # we always want to sync from last processed block => latest
     # chunk events
@@ -646,11 +657,11 @@ proc startOnchainSync(
       # then fetch the new toBlock
       if fromBlock >= currentLatestBlock:
         break
-      
+
       if fromBlock + blockChunkSize.uint > currentLatestBlock.uint:
-        g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
-          cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
-      
+        currentLatestBlock = cast[BlockNumber](await g.retryWrapper(
+          ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
+        ))
 
       let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
@@ -658,7 +669,7 @@ proc startOnchainSync(
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
         await g.batchAwaitBlockHandlingFuture(futs)
-        futs = newSeq[Future[bool]]()
+        futs = newSeq[Future[void]]()
       fromBlock = toBlock + 1
   except CatchableError:
     raise newException(
@@ -676,17 +687,14 @@ proc startOnchainSync(
 
 method startGroupSync*(
     g: OnchainGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+): Future[GroupManagerResult[void]] {.async.} =
+  ?resultifiedInitGuard(g)
   # Get archive history
   try:
     await startOnchainSync(g)
-  except CatchableError:
-    raise newException(
-      CatchableError,
-      "failed to start onchain sync service: " & getCurrentExceptionMsg(),
-    )
-  return
+    return ok()
+  except CatchableError, Exception:
+    return err("failed to start group sync: " & getCurrentExceptionMsg())
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
@@ -694,23 +702,28 @@ method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-method init*(g: OnchainGroupManager): Future[void] {.async.} =
-  var ethRpc: Web3
+method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
-  g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
-    await newWeb3(g.ethClientUrl)
+  let ethRpc = (
+    await g.resultifiedRetryWrapper(
+      newWeb3(g.ethClientUrl), "Failed to connect to the Ethereum client"
+    )
+  ).valueOr:
+    return err("failed to connect to the Ethereum client: " & $error)
   # Set the chain id
-  var chainId: Quantity
-  g.retryWrapper(chainId, "Failed to get the chain id"):
-    await ethRpc.provider.eth_chainId()
+  let chainId = (
+    await g.resultifiedRetryWrapper(
+      ethRpc.provider.eth_chainId(), "Failed to get the chain id"
+    )
+  ).valueOr:
+    return err("failed to get the chain id: " & $error)
   g.chainId = some(chainId)
 
   if g.ethPrivateKey.isSome():
     let pk = g.ethPrivateKey.get()
-    let pkParseRes = keys.PrivateKey.fromHex(pk)
-    if pkParseRes.isErr():
-      raise newException(ValueError, "could not parse the private key")
-    ethRpc.privateKey = some(pkParseRes.get())
+    let parsedPk = keys.PrivateKey.fromHex(pk).valueOr:
+      return err("failed to parse the private key" & ": " & $error)
+    ethRpc.privateKey = some(parsedPk)
     ethRpc.defaultAccount =
       ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
 
@@ -718,14 +731,21 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   let registryContract = ethRpc.contractSender(WakuRlnRegistry, registryAddress)
 
   # get the current storage index
-  var usingStorageIndex: Uint16
-  g.retryWrapper(usingStorageIndex, "Failed to get the storage index"):
-    await registryContract.usingStorageIndex().call()
+  let usingStorageIndex = (
+    await g.resultifiedRetryWrapper(
+      registryContract.usingStorageIndex().call(), "Failed to get the storage index"
+    )
+  ).valueOr:
+    return err("failed to get the storage index: " & $error)
 
   g.usingStorageIndex = some(usingStorageIndex)
-  var rlnContractAddress: Address
-  g.retryWrapper(rlnContractAddress, "Failed to get the rln contract address"):
-    await registryContract.storages(usingStorageIndex).call()
+  let rlnContractAddress = (
+    await g.resultifiedRetryWrapper(
+      registryContract.storages(usingStorageIndex).call(),
+      "Failed to get the rln contract address",
+    )
+  ).valueOr:
+    return err("failed to get the rln contract address: " & $error)
   let rlnContract = ethRpc.contractSender(RlnStorage, rlnContractAddress)
 
   g.ethRpc = some(ethRpc)
@@ -733,9 +753,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if not existsFile(g.keystorePath.get()):
+    if not fileExists(g.keystorePath.get()):
       error "File provided as keystore path does not exist", path = g.keystorePath.get()
-      raise newException(CatchableError, "missing keystore")
+      return err("File provided as keystore path does not exist")
 
     var keystoreQuery = KeystoreMembership(
       membershipContract:
@@ -744,17 +764,14 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     if g.membershipIndex.isSome():
       keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-      let keystoreCredRes = getMembershipCredentials(
+      let keystoreCred = getMembershipCredentials(
         path = g.keystorePath.get(),
         password = g.keystorePassword.get(),
         query = keystoreQuery,
         appInfo = RLNAppInfo,
-      )
-    if keystoreCredRes.isErr():
-      raise newException(
-        CatchableError, "could not parse the keystore: " & $keystoreCredRes.error
-      )
-    let keystoreCred = keystoreCredRes.get()
+      ).valueOr:
+        return err("failed to get the keystore credentials: " & $error)
+
     g.membershipIndex = some(keystoreCred.treeIndex)
     when defined(rln_v2):
       g.userMessageLimit = some(keystoreCred.userMessageLimit)
@@ -764,15 +781,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
       .call()
       if membershipExists == 0:
-        raise newException(
-          CatchableError, "the provided commitment does not have a membership"
-        )
+        return err("the commitment does not have a membership")
     except CatchableError:
-      raise newException(
-        CatchableError,
-        "could not check if the commitment exists on the contract: " &
-          getCurrentExceptionMsg(),
-      )
+      return err("failed to check if the commitment has a membership")
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
@@ -782,22 +793,29 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   elif metadataGetOptRes.get().isSome():
     let metadata = metadataGetOptRes.get().get()
     if metadata.chainId != uint64(g.chainId.get()):
-      raise newException(ValueError, "persisted data: chain id mismatch")
+      return err("persisted data: chain id mismatch")
 
     if metadata.contractAddress != g.ethContractAddress.toLower():
-      raise newException(ValueError, "persisted data: contract address mismatch")
+      return err("persisted data: contract address mismatch")
     g.latestProcessedBlock = metadata.lastProcessedBlock
     g.validRoots = metadata.validRoots.toDeque()
 
   # check if the contract exists by calling a static function
-  var membershipFee: Uint256
-  g.retryWrapper(membershipFee, "Failed to get the membership deposit"):
-    await rlnContract.MEMBERSHIP_DEPOSIT().call()
+  let membershipFee = (
+    await g.resultifiedRetryWrapper(
+      rlnContract.MEMBERSHIP_DEPOSIT().call(), "Failed to get the membership deposit"
+    )
+  ).valueOr:
+    return err("failed to get the membership deposit: " & $error)
   g.membershipFee = some(membershipFee)
 
-  var deployedBlockNumber: Uint256
-  g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number"):
-    await rlnContract.deployedBlockNumber().call()
+  let deployedBlockNumber = (
+    await g.resultifiedRetryWrapper(
+      rlnContract.deployedBlockNumber().call(),
+      "Failed to get the deployed block number",
+    )
+  ).valueOr:
+    return err("failed to get the deployed block number: " & $error)
   debug "using rln storage", deployedBlockNumber, rlnContractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
@@ -807,9 +825,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
     info "reconnecting with the Ethereum client, and restarting group sync",
       fromBlock = fromBlock
-    var newEthRpc: Web3
-    g.retryWrapper(newEthRpc, "Failed to reconnect with the Ethereum client"):
-      await newWeb3(g.ethClientUrl)
+    let newEthRpc = await g.retryWrapper(
+      newWeb3(g.ethClientUrl), "Failed to reconnect with the Ethereum client"
+    )
     newEthRpc.ondisconnect = ethRpc.ondisconnect
     g.ethRpc = some(newEthRpc)
 
@@ -826,6 +844,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
 
+  return ok()
+
 method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
   g.blockFetchingActive = false
 
@@ -841,9 +861,9 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
 proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async, gcsafe.} =
   let ethRpc = g.ethRpc.get()
 
-  var syncing: JsonNode
-  g.retryWrapper(syncing, "Failed to get the syncing status"):
-    await ethRpc.provider.eth_syncing()
+  let syncing = await g.retryWrapper(
+    ethRpc.provider.eth_syncing(), "Failed to get the syncing status"
+  )
   return syncing.getBool()
 
 method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
@@ -852,9 +872,9 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
   if g.ethRpc.isNone():
     return false
 
-  var currentBlock: BlockNumber
-  g.retryWrapper(currentBlock, "Failed to get the current block number"):
-    cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
+  let currentBlock = cast[BlockNumber](await g.retryWrapper(
+    g.ethRpc.get().provider.eth_blockNumber(), "Failed to get the current block number"
+  ))
 
   if g.latestProcessedBlock < currentBlock:
     return false

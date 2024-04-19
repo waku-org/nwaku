@@ -273,7 +273,7 @@ proc validateMessageAndUpdateLog*(
   ## validates the message and updates the log to prevent double messaging
   ## in future messages
 
-  let result = rlnPeer.validateMessage(msg, timeOption)
+  let isValidMessage = rlnPeer.validateMessage(msg, timeOption)
 
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
@@ -288,7 +288,7 @@ proc validateMessageAndUpdateLog*(
   # insert the message to the log (never errors)
   discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
-  return result
+  return isValidMessage
 
 proc toRLNSignal*(wakumessage: WakuMessage): seq[byte] =
   ## it is a utility proc that prepares the `data` parameter of the proof generation procedure i.e., `proofGen`  that resides in the current module
@@ -397,23 +397,22 @@ proc generateRlnValidator*(
 
 proc mount(
     conf: WakuRlnConfig, registrationHandler = none(RegistrationHandler)
-): Future[WakuRlnRelay] {.async: (raises: [Exception]).} =
+): Future[RlnRelayResult[WakuRlnRelay]] {.async.} =
   var
     groupManager: GroupManager
     wakuRlnRelay: WakuRLNRelay
   # create an RLN instance
-  let rlnInstanceRes = createRLNInstance(tree_path = conf.rlnRelayTreePath)
-  if rlnInstanceRes.isErr():
-    raise newException(CatchableError, "RLN instance creation failed")
-  let rlnInstance = rlnInstanceRes.get()
+  let rlnInstance = createRLNInstance(tree_path = conf.rlnRelayTreePath).valueOr:
+    return err("could not create RLN instance: " & $error)
+
   if not conf.rlnRelayDynamic:
     # static setup
-    let parsedGroupKeysRes = StaticGroupKeys.toIdentityCredentials()
-    if parsedGroupKeysRes.isErr():
-      raise newException(ValueError, "Static group keys are not valid")
+    let parsedGroupKeys = StaticGroupKeys.toIdentityCredentials().valueOr:
+      return err("could not parse static group keys: " & $error)
+
     groupManager = StaticGroupManager(
       groupSize: StaticGroupSize,
-      groupKeys: parsedGroupKeysRes.get(),
+      groupKeys: parsedGroupKeys,
       membershipIndex: conf.rlnRelayCredIndex,
       rlnInstance: rlnInstance,
       onFatalErrorAction: conf.onFatalErrorAction,
@@ -442,25 +441,33 @@ proc mount(
     )
 
   # Initialize the groupManager
-  await groupManager.init()
+  (await groupManager.init()).isOkOr:
+    return err("could not initialize the group manager: " & $error)
   # Start the group sync
-  await groupManager.startGroupSync()
+  (await groupManager.startGroupSync()).isOkOr:
+    return err("could not start the group sync: " & $error)
 
   when defined(rln_v2):
-    return WakuRLNRelay(
-      groupManager: groupManager,
-      nonceManager:
-        NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
-      onFatalErrorAction: conf.onFatalErrorAction,
+    return ok(
+      WakuRLNRelay(
+        groupManager: groupManager,
+        nonceManager:
+          NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+        rlnMaxEpochGap:
+          max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+        onFatalErrorAction: conf.onFatalErrorAction,
+      )
     )
   else:
-    return WakuRLNRelay(
-      groupManager: groupManager,
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
-      onFatalErrorAction: conf.onFatalErrorAction,
+    return ok(
+      WakuRLNRelay(
+        groupManager: groupManager,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+        rlnMaxEpochGap:
+          max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+        onFatalErrorAction: conf.onFatalErrorAction,
+      )
     )
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
@@ -486,7 +493,6 @@ proc new*(
   ## The rln-relay protocol can be mounted in two modes: on-chain and off-chain.
   ## Returns an error if the rln-relay protocol could not be mounted.
   try:
-    let rlnRelay = await mount(conf, registrationHandler)
-    return ok(rlnRelay)
-  except:
-    return err("exception in new WakuRlnRelay: " & getCurrentExceptionMsg())
+    return await mount(conf, registrationHandler)
+  except CatchableError:
+    return err("could not mount the rln-relay protocol: " & getCurrentExceptionMsg())

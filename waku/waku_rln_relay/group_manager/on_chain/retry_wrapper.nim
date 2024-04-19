@@ -1,5 +1,6 @@
 import ../../../common/error_handling
 import chronos
+import results
 
 type RetryStrategy* = object
   shouldRetry*: bool
@@ -9,21 +10,19 @@ type RetryStrategy* = object
 proc new*(T: type RetryStrategy): RetryStrategy =
   return RetryStrategy(shouldRetry: true, retryDelay: 1000.millis, retryCount: 3)
 
-template retryWrapper*(
-    res: auto,
+proc retryWrapper*[T](
     retryStrategy: RetryStrategy,
     errStr: string,
     errCallback: OnFatalErrorHandler = nil,
-    body: untyped,
-): auto =
+    fut: Future[T],
+): Future[T] {.async.} =
   var retryCount = retryStrategy.retryCount
   var shouldRetry = retryStrategy.shouldRetry
   var exceptionMessage = ""
 
   while shouldRetry and retryCount > 0:
     try:
-      res = body
-      shouldRetry = false
+      return await fut
     except:
       retryCount -= 1
       exceptionMessage = getCurrentExceptionMsg()
