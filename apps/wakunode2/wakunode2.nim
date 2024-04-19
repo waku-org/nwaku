@@ -17,8 +17,8 @@ import
   ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
   ../../waku/factory/external_config,
-  ./networks_config,
-  ./app
+  ../../waku/factory/networks_config,
+  ../../waku/factory/app
 
 logScope:
   topics = "wakunode main"
