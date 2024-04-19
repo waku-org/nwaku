@@ -272,26 +272,28 @@ when defined(rln_v2):
     let registryContract = g.registryContract.get()
     let membershipFee = g.membershipFee.get()
 
-    var gasPrice: int
-    g.retryWrapper(gasPrice, "Failed to get gas price"):
-      int(await ethRpc.provider.eth_gasPrice()) * 2
+    let gasPrice =
+      int(
+        await g.retryWrapper(ethRpc.provider.eth_gasPrice(), "Failed to get gas price")
+      ) * 2
     let idCommitment = identityCredential.idCommitment.toUInt256()
 
-    var txHash: TxHash
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member",
       idCommitment = idCommitment,
       storageIndex = storageIndex,
       userMessageLimit = userMessageLimit
-    g.retryWrapper(txHash, "Failed to register the member"):
-      await registryContract
-      .register(storageIndex, idCommitment, u256(userMessageLimit))
-      .send(gasPrice = gasPrice)
+    let txHash = await g.retryWrapper(
+      registryContract.register(storageIndex, idCommitment, u256(userMessageLimit)).send(
+        gasPrice = gasPrice
+      ),
+      "Failed to register the member",
+    )
 
     # wait for the transaction to be mined
-    var tsReceipt: ReceiptObject
-    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
-      await ethRpc.getMinedTransactionReceipt(txHash)
+    let tsReceipt = await g.retryWrapper(
+      ethRpc.getMinedTransactionReceipt(txHash), "Failed to get the transaction receipt"
+    )
     debug "registration transaction mined", txHash = txHash
     g.registrationTxHash = some(txHash)
     # the receipt topic holds the hash of signature of the raised events
