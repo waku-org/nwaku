@@ -11,7 +11,7 @@ import
   ../common/nimchronos,
   ../node/peer_manager,
   ../waku_core,
-  ../waku_discv5,
+  ../discovery/waku_discv5,
   ./rpc,
   ./rpc_codec
 

@@ -12,7 +12,7 @@ import
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
-  ../../../waku/waku_discv5,
+  ../../../waku/discovery/waku_discv5,
   ../../../waku/factory/external_config,
   ../../../waku/factory/internal_config,
   ../../../waku/factory/builder,

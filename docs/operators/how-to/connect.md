@@ -2,7 +2,7 @@
 
 *Note that this tutorial describes how to **configure** a node to connect to other peers before running the node.
 For connecting a running node to existing peers,
-see the [JSON-RPC API](https://rfc.vac.dev/spec/16/).*
+see the [WAKU REST API reference](https://waku-org.github.io/waku-rest-api/#post-/admin/v1/peers).*
 
 There are currently three options.
 Note that each of these options can be used in combination with any of the other two.
