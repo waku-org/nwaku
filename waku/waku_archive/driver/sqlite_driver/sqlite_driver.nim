@@ -72,6 +72,7 @@ method put*(
       toBytes(pubsubTopic), # pubsubTopic
       int64(message.version), # version
       message.timestamp, # senderTimestamp
+      message.meta, # meta
     )
   )
 
