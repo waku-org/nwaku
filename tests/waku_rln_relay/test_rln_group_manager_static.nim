@@ -30,12 +30,11 @@ proc generateCredentials(rlnInstance: ptr RLN, n: int): seq[IdentityCredential] 
 
 suite "Static group manager":
   setup:
-    let rlnInstanceRes =
-      createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_static"))
-    require:
-      rlnInstanceRes.isOk()
+    let rlnInstance = createRlnInstance(
+      tree_path = genTempPath("rln_tree", "group_manager_static")
+    ).valueOr:
+      raiseAssert $error
 
-    let rlnInstance = rlnInstanceRes.get()
     let credentials = generateCredentials(rlnInstance, 10)
 
     let manager {.used.} = StaticGroupManager(
@@ -46,16 +45,14 @@ suite "Static group manager":
     )
 
   asyncTest "should initialize successfully":
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
-    await manager.init()
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
+
     check:
       manager.idCredentials.isSome()
       manager.groupKeys.len == 10
@@ -66,16 +63,14 @@ suite "Static group manager":
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
 
   asyncTest "startGroupSync: should start group sync":
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
     require:
       manager.validRoots.len() == 1
       manager.rlnInstance.getMerkleRoot().get() == manager.validRoots[0]
 
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = StaticGroupManager(
@@ -84,13 +79,9 @@ suite "Static group manager":
       groupKeys: @[],
       rlnInstance: rlnInstance,
     )
-    try:
-      await manager.startGroupSync()
-    except ValueError:
-      assert true
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+
+    (await manager.startGroupSync()).isErrOr:
+      raiseAssert "StartGroupSync: expected error"
 
   asyncTest "register: should guard against uninitialized state":
     let manager = StaticGroupManager(
@@ -117,17 +108,14 @@ suite "Static group manager":
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "register: should register successfully":
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
     try:
       when defined(rln_v2):
         await manager.register(
@@ -139,10 +127,8 @@ suite "Static group manager":
         await manager.register(idCommitment)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
     check:
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
       manager.latestIndex == 10
@@ -171,8 +157,10 @@ suite "Static group manager":
 
     try:
       manager.onRegister(callback)
-      await manager.init()
-      await manager.startGroupSync()
+      (await manager.init()).isOkOr:
+        raiseAssert $error
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
       when defined(rln_v2):
         await manager.register(
           RateCommitment(
@@ -199,25 +187,21 @@ suite "Static group manager":
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
   asyncTest "withdraw: should withdraw successfully":
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
     let idSecretHash = credentials[0].idSecretHash
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
+
     try:
       await manager.withdraw(idSecretHash)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
     check:
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
 
@@ -245,8 +229,10 @@ suite "Static group manager":
 
     try:
       manager.onWithdraw(callback)
-      await manager.init()
-      await manager.startGroupSync()
+      (await manager.init()).isOkOr:
+        raiseAssert $error
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
 
       await manager.withdraw(idSecretHash)
     except Exception, CatchableError:

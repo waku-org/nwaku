@@ -10,6 +10,13 @@ template initializedGuard*(g: StaticGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "StaticGroupManager is not initialized")
 
+proc resultifiedInitGuard(g: StaticGroupManager): GroupManagerResult[void] =
+  try:
+    initializedGuard(g)
+    return ok()
+  except CatchableError:
+    return err("StaticGroupManager is not initialized")
+
 method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} =
   let
     groupSize = g.groupSize
@@ -56,9 +63,10 @@ method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} 
 
 method startGroupSync*(
     g: StaticGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+): Future[GroupManagerResult[void]] {.async.} =
+  ?g.resultifiedInitGuard()
   # No-op
+  return ok()
 
 when defined(rln_v2):
   method register*(
