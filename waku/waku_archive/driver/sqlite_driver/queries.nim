@@ -133,8 +133,17 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   return ok()
 
 ## Insert message
-type InsertMessageParams* =
-  (seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
+type InsertMessageParams* = (
+  seq[byte],
+  seq[byte],
+  Timestamp,
+  seq[byte],
+  seq[byte],
+  seq[byte],
+  int64,
+  Timestamp,
+  seq[byte],
+)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
   return
