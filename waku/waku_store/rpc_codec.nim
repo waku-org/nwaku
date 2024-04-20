@@ -6,8 +6,7 @@ else:
 import std/options, nimcrypto/hash
 import ../common/[protobuf, paging], ../waku_core, ./common, ./rpc
 
-const MaxRpcSize* = MaxPageSize * MaxWakuMessageSize + 64 * 1024
-  # We add a 64kB safety buffer for protocol overhead
+const DefaultMaxRpcSize* = -1
 
 ## Pagination
 
