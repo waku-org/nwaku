@@ -43,6 +43,9 @@ suite "Waku Lightpush Client":
     handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
     ): Future[WakuLightPushResult[void]] {.async.} =
+      let msgLen = message.encode().buffer.len
+      if msgLen > int(DefaultMaxWakuMessageSize) + 64 * 1024:
+        return err("length greater than maxMessageSize")
       handlerFuture.complete((pubsubTopic, message))
       return ok()
 
@@ -209,11 +212,11 @@ suite "Waku Lightpush Client":
         ) # 100KiB
         message4 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxRpcSize - overheadBytes - 1),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - overheadBytes - 1),
         ) # Inclusive Limit
         message5 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxRpcSize - overheadBytes),
+          payload = getByteSequence(DefaultMaxWakuMessageSize + 64 * 1024),
         ) # Exclusive Limit
 
       # When publishing the 1KiB payload

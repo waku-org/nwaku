@@ -39,7 +39,7 @@ proc sendPushRequest(
 
   var buffer: seq[byte]
   try:
-    buffer = await connection.readLp(MaxRpcSize.int)
+    buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
     return err("Exception reading: " & getCurrentExceptionMsg())
 

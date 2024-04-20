@@ -249,7 +249,7 @@ proc initProtocolHandler(wf: WakuFilter) =
   proc handler(conn: Connection, proto: string) {.async.} =
     trace "filter subscribe request handler triggered", peerId = conn.peerId
 
-    let buf = await conn.readLp(int(MaxSubscribeSize))
+    let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
 
     let decodeRes = FilterSubscribeRequest.decode(buf)
     if decodeRes.isErr():
