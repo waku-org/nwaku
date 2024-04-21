@@ -29,16 +29,8 @@ import
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
   ../../waku/node/peer_manager/peer_store/waku_peer_storage,
-  ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
-  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
-  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
-  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
-  ../../waku/waku_api/rest/store/handlers as rest_store_api,
-  ../../waku/waku_api/rest/health/handlers as rest_health_api,
-  ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
+  ../../waku/waku_api/rest/builder as rest_server_builder,
   ../../waku/waku_archive,
   ../../waku/discovery/waku_dnsdisc,
   ../../waku/discovery/waku_discv5,
@@ -70,8 +62,8 @@ type
 
     node: WakuNode
 
-    restServer: Option[WakuRestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
+    restServer: WakuRestServerRef
 
   AppResult*[T] = Result[T, string]
 
@@ -83,7 +75,7 @@ func version*(app: App): string =
 
 ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
-proc retrieveDynamicBootstrapNodes*(
+proc retrieveDynamicBootstrapNodes(
     dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
 ): Result[seq[RemotePeerInfo], string] =
   if dnsDiscovery and dnsDiscoveryUrl != "":
@@ -281,136 +273,6 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(
-    app: App, address: IpAddress, port: Port, conf: WakuNodeConf
-): AppResult[WakuRestServerRef] =
-  # Used to register api endpoints that are not currently installed as keys,
-  # values are holding error messages to be returned to the client
-  var notInstalledTab: Table[string, string] = initTable[string, string]()
-
-  let requestErrorHandler: RestRequestErrorHandler = proc(
-      error: RestRequestError, request: HttpRequestRef
-  ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
-    try:
-      case error
-      of RestRequestError.Invalid:
-        return await request.respond(Http400, "Invalid request", HttpTable.init())
-      of RestRequestError.NotFound:
-        let paths = request.rawPath.split("/")
-        let rootPath =
-          if len(paths) > 1:
-            paths[1]
-          else:
-            ""
-        notInstalledTab.withValue(rootPath, errMsg):
-          return await request.respond(Http404, errMsg[], HttpTable.init())
-        do:
-          return await request.respond(
-            Http400,
-            "Bad request initiated. Invalid path or method used.",
-            HttpTable.init(),
-          )
-      of RestRequestError.InvalidContentBody:
-        return await request.respond(Http400, "Invalid content body", HttpTable.init())
-      of RestRequestError.InvalidContentType:
-        return await request.respond(Http400, "Invalid content type", HttpTable.init())
-      of RestRequestError.Unexpected:
-        return defaultResponse()
-    except HttpWriteError:
-      error "Failed to write response to client", error = getCurrentExceptionMsg()
-      discard
-
-    return defaultResponse()
-
-  let allowedOrigin =
-    if len(conf.restAllowOrigin) > 0:
-      some(conf.restAllowOrigin.join(","))
-    else:
-      none(string)
-
-  let server =
-    ?newRestHttpServer(
-      address,
-      port,
-      allowedOrigin = allowedOrigin,
-      requestErrorHandler = requestErrorHandler,
-    )
-
-  ## Admin REST API
-  if conf.restAdmin:
-    installAdminApiHandlers(server.router, app.node)
-
-  ## Debug REST API
-  installDebugApiHandlers(server.router, app.node)
-
-  ## Health REST API
-  installHealthApiHandler(server.router, app.node)
-
-  ## Relay REST API
-  if conf.relay:
-    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
-
-    let handler = messageCacheHandler(cache)
-
-    for pubsubTopic in conf.pubsubTopics:
-      cache.pubsubSubscribe(pubsubTopic)
-      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
-
-    for contentTopic in conf.contentTopics:
-      cache.contentSubscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
-
-    installRelayApiHandlers(server.router, app.node, cache)
-  else:
-    notInstalledTab["relay"] =
-      "/relay endpoints are not available. Please check your configuration: --relay"
-
-  ## Filter REST API
-  if conf.filternode != "" and app.node.wakuFilterClient != nil:
-    let filterCache = MessageCache.init()
-
-    let filterDiscoHandler =
-      if app.wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
-      else:
-        none(DiscoveryHandler)
-
-    rest_filter_api.installFilterRestApiHandlers(
-      server.router, app.node, filterCache, filterDiscoHandler
-    )
-  else:
-    notInstalledTab["filter"] =
-      "/filter endpoints are not available. Please check your configuration: --filternode"
-
-  ## Store REST API
-  let storeDiscoHandler =
-    if app.wakuDiscv5.isSome():
-      some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
-    else:
-      none(DiscoveryHandler)
-
-  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
-
-  ## Light push API
-  if conf.lightpushnode != "" and app.node.wakuLightpushClient != nil:
-    let lightDiscoHandler =
-      if app.wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
-      else:
-        none(DiscoveryHandler)
-
-    rest_lightpush_api.installLightPushRequestHandler(
-      server.router, app.node, lightDiscoHandler
-    )
-  else:
-    notInstalledTab["lightpush"] =
-      "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
-
-  server.start()
-  info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
-
-  ok(server)
-
 proc startMetricsServer(
     serverIp: IpAddress, serverPort: Port
 ): AppResult[MetricsHttpServerRef] =
@@ -429,20 +291,16 @@ proc startMetricsServer(
   info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
   ok(server)
 
-proc startMetricsLogging(): AppResult[void] =
-  startMetricsLog()
-  ok()
-
 proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
   if app.conf.rest:
-    let startRestServerRes = startRestServer(
-      app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf
-    )
-    if startRestServerRes.isErr():
-      error "Starting REST server failed. Continuing in current state.",
-        error = startRestServerRes.error
-    else:
-      app.restServer = some(startRestServerRes.value)
+    app.restServer = rest_server_builder.startRestServer(
+      app.node,
+      app.wakuDiscV5,
+      app.conf.restAddress,
+      Port(app.conf.restPort + app.conf.portsShift),
+      app.conf,
+    ).valueOr:
+      return err("Starting REST server failed. Continuing in current state: " & $error)
 
   if app.conf.metricsServer:
     let startMetricsServerRes = startMetricsServer(
@@ -456,18 +314,15 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
       app.metricsServer = some(startMetricsServerRes.value)
 
   if app.conf.metricsLogging:
-    let startMetricsLoggingRes = startMetricsLogging()
-    if startMetricsLoggingRes.isErr():
-      error "Starting metrics console logging failed. Continuing in current state.",
-        error = startMetricsLoggingRes.error
+    startMetricsLog()
 
   ok()
 
 # App shutdown
 
 proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
-  if app.restServer.isSome():
-    await app.restServer.get().stop()
+  if app.conf.rest:
+    await app.restServer.stop()
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()
