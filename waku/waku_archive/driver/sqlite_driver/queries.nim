@@ -87,7 +87,7 @@ proc createTableQuery(table: string): SqlQueryStr =
   "CREATE TABLE IF NOT EXISTS " & table & " (" & " pubsubTopic BLOB NOT NULL," &
     " contentTopic BLOB NOT NULL," & " payload BLOB," & " version INTEGER NOT NULL," &
     " timestamp INTEGER NOT NULL," & " id BLOB," & " messageHash BLOB," &
-    " storedAt INTEGER NOT NULL," & " meta BLOB" &
+    " storedAt INTEGER NOT NULL," & " meta BLOB," &
     " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" & ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
