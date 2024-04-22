@@ -29,7 +29,7 @@ logScope:
 const
   # We add a 64kB safety buffer for protocol overhead.
   # 10x-multiplier also for safety
-  MaxRpcSize* = 10 * MaxWakuMessageSize + 64 * 1024
+  DefaultMaxRpcSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024
     # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
   MaxPeersCacheSize = 60
   CacheRefreshInterval = 15.minutes
@@ -61,7 +61,7 @@ proc request*(
   var error: string
   try:
     await conn.writeLP(rpc.encode().buffer)
-    buffer = await conn.readLp(MaxRpcSize.int)
+    buffer = await conn.readLp(DefaultMaxRpcSize.int)
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
     error = $exc.msg
@@ -153,7 +153,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var buffer: seq[byte]
     try:
-      buffer = await conn.readLp(MaxRpcSize.int)
+      buffer = await conn.readLp(DefaultMaxRpcSize.int)
     except CatchableError as exc:
       waku_px_errors.inc(labelValues = [exc.msg])
       return

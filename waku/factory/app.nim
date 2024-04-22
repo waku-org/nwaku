@@ -155,7 +155,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
 
 ## Setup DiscoveryV5
 
-proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
+proc setupDiscoveryV5(app: App): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     app.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
 

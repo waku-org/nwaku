@@ -596,7 +596,7 @@ suite "Waku v2 Rest API - Relay":
     let response = await client.relayPostMessagesV1(
       DefaultPubsubTopic,
       RelayWakuMessage(
-        payload: base64.encode(getByteSequence(MaxWakuMessageSize)),
+        payload: base64.encode(getByteSequence(DefaultMaxWakuMessageSize)),
           # Message will be bigger than the max size
         contentTopic: some(DefaultContentTopic),
         timestamp: some(int64(2022)),
@@ -608,7 +608,7 @@ suite "Waku v2 Rest API - Relay":
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data ==
-        fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
+        fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()
@@ -657,7 +657,7 @@ suite "Waku v2 Rest API - Relay":
     # When
     let response = await client.relayPostAutoMessagesV1(
       RelayWakuMessage(
-        payload: base64.encode(getByteSequence(MaxWakuMessageSize)),
+        payload: base64.encode(getByteSequence(DefaultMaxWakuMessageSize)),
           # Message will be bigger than the max size
         contentTopic: some(DefaultContentTopic),
         timestamp: some(int64(2022)),
@@ -669,7 +669,7 @@ suite "Waku v2 Rest API - Relay":
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data ==
-        fmt"Failed to publish: Message size exceeded maximum of {MaxWakuMessageSize} bytes"
+        fmt"Failed to publish: Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
 
     await restServer.stop()
     await restServer.closeWait()

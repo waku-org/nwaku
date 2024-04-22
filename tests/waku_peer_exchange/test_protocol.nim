@@ -354,7 +354,7 @@ suite "Waku Peer Exchange":
 
       var buffer: seq[byte]
       await conn.writeLP(rpc.encode().buffer)
-      buffer = await conn.readLp(MaxRpcSize.int)
+      buffer = await conn.readLp(DefaultMaxRpcSize.int)
 
       # Decode the response
       let decodedBuff = PeerExchangeRpc.decode(buffer)

@@ -1042,14 +1042,15 @@ suite "Waku Relay":
         ) # 100KiB
         msg4 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 38),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 38),
         ) # Max Size (Inclusive Limit)
         msg5 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(MaxWakuMessageSize - sizeEmptyMsg - 37),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 37),
         ) # Max Size (Exclusive Limit)
         msg6 = fakeWakuMessage(
-          contentTopic = contentTopic, payload = getByteSequence(MaxWakuMessageSize)
+          contentTopic = contentTopic,
+          payload = getByteSequence(DefaultMaxWakuMessageSize),
         ) # MaxWakuMessageSize -> Out of Max Size
 
       # Notice that the message is wrapped with more data in https://github.com/status-im/nim-libp2p/blob/3011ba4326fa55220a758838835797ff322619fc/libp2p/protocols/pubsub/gossipsub.nim#L627-L632
@@ -1092,7 +1093,7 @@ suite "Waku Relay":
         (pubsubTopic, msg3) == handlerFuture.read()
         (pubsubTopic, msg3) == otherHandlerFuture.read()
 
-      # When sending the 'MaxWakuMessageSize - sizeEmptyMsg - 38' message
+      # When sending the 'DefaultMaxWakuMessageSize - sizeEmptyMsg - 38' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg4)
@@ -1104,7 +1105,7 @@ suite "Waku Relay":
         (pubsubTopic, msg4) == handlerFuture.read()
         (pubsubTopic, msg4) == otherHandlerFuture.read()
 
-      # When sending the 'MaxWakuMessageSize - sizeEmptyMsg - 37' message
+      # When sending the 'DefaultMaxWakuMessageSize - sizeEmptyMsg - 37' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg5)
@@ -1115,7 +1116,7 @@ suite "Waku Relay":
         not await otherHandlerFuture.withTimeout(FUTURE_TIMEOUT)
         (pubsubTopic, msg5) == handlerFuture.read()
 
-      # When sending the 'MaxWakuMessageSize' message
+      # When sending the 'DefaultMaxWakuMessageSize' message
       handlerFuture = newPushHandlerFuture()
       otherHandlerFuture = newPushHandlerFuture()
       discard await node.publish(pubsubTopic, msg6)

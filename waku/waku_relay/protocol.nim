@@ -151,7 +151,7 @@ proc initProtocolHandler(w: WakuRelay) =
   w.codec = WakuRelayCodec
 
 proc new*(
-    T: type WakuRelay, switch: Switch, maxMessageSize = int(MaxWakuMessageSize)
+    T: type WakuRelay, switch: Switch, maxMessageSize = int(DefaultMaxWakuMessageSize)
 ): WakuRelayResult[T] =
   ## maxMessageSize: max num bytes that are allowed for the WakuMessage
 

@@ -79,7 +79,7 @@ proc handleRequest*(
 
 proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
-    let buffer = await conn.readLp(MaxRpcSize.int)
+    let buffer = await conn.readLp(DefaultMaxRpcSize)
     let rpc = await handleRequest(wl, conn.peerId, buffer)
     await conn.writeLp(rpc.encode().buffer)
 

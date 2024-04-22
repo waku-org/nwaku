@@ -46,6 +46,9 @@ const ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC* = "/relay/v1/auto/messages"
 proc installRelayApiHandlers*(
     router: var RestRouter, node: WakuNode, cache: MessageCache
 ) =
+  router.api(MethodOptions, ROUTE_RELAY_SUBSCRIPTIONSV1) do() -> RestApiResponse:
+    return RestApiResponse.ok()
+
   router.api(MethodPost, ROUTE_RELAY_SUBSCRIPTIONSV1) do(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
@@ -90,6 +93,11 @@ proc installRelayApiHandlers*(
       node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
 
     # Successfully unsubscribed from all requested topics
+    return RestApiResponse.ok()
+
+  router.api(MethodOptions, ROUTE_RELAY_MESSAGESV1) do(
+    pubsubTopic: string
+  ) -> RestApiResponse:
     return RestApiResponse.ok()
 
   router.api(MethodGet, ROUTE_RELAY_MESSAGESV1) do(
@@ -166,6 +174,9 @@ proc installRelayApiHandlers*(
 
   # Autosharding API
 
+  router.api(MethodOptions, ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1) do() -> RestApiResponse:
+    return RestApiResponse.ok()
+
   router.api(MethodPost, ROUTE_RELAY_AUTO_SUBSCRIPTIONSV1) do(
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
@@ -203,6 +214,11 @@ proc installRelayApiHandlers*(
 
     return RestApiResponse.ok()
 
+  router.api(MethodOptions, ROUTE_RELAY_AUTO_MESSAGESV1) do(
+    contentTopic: string
+  ) -> RestApiResponse:
+    return RestApiResponse.ok()
+
   router.api(MethodGet, ROUTE_RELAY_AUTO_MESSAGESV1) do(
     contentTopic: string
   ) -> RestApiResponse:
@@ -223,6 +239,9 @@ proc installRelayApiHandlers*(
     return RestApiResponse.jsonResponse(data, status = Http200).valueOr:
       debug "An error ocurred while building the json respose", error = error
       return RestApiResponse.internalServerError($error)
+
+  router.api(MethodOptions, ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC) do() -> RestApiResponse:
+    return RestApiResponse.ok()
 
   router.api(MethodPost, ROUTE_RELAY_AUTO_MESSAGESV1_NO_TOPIC) do(
     contentBody: Option[ContentBody]

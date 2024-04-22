@@ -93,12 +93,14 @@ proc originMiddlewareProc(
       if origin.len == 1:
         if self.everyOriginAllowed:
           response.addHeader("Access-Control-Allow-Origin", "*")
+          response.addHeader("Access-Control-Allow-Headers", "Content-Type")
         elif self.originsMatch(origin[0]):
           # The Vary: Origin header to must be set to prevent
           # potential cache poisoning attacks:
           # https://textslashplain.com/2018/08/02/cors-and-vary/
           response.addHeader("Vary", "Origin")
           response.addHeader("Access-Control-Allow-Origin", origin[0])
+          response.addHeader("Access-Control-Allow-Headers", "Content-Type")
         else:
           return await request.respond(Http403, "Origin not allowed")
       elif origin.len == 0:
