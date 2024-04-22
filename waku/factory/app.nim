@@ -40,9 +40,9 @@ import
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
   ../../waku/waku_archive,
-  ../../waku/waku_dnsdisc,
+  ../../waku/discovery/waku_dnsdisc,
+  ../../waku/discovery/waku_discv5,
   ../../waku/waku_enr/sharding,
-  ../../waku/waku_discv5,
   ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
@@ -155,7 +155,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
 
 ## Setup DiscoveryV5
 
-proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
+proc setupDiscoveryV5(app: App): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     app.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
 
@@ -366,9 +366,7 @@ proc startRestServer(
       "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
-  if conf.filternode  != "" and
-     app.node.wakuFilterClient != nil:
-
+  if conf.filternode != "" and app.node.wakuFilterClient != nil:
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =

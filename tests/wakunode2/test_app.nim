@@ -11,7 +11,7 @@ import
   libp2p/switch
 import ../testlib/common, ../testlib/wakucore, ../testlib/wakunode
 
-include ../../apps/wakunode2/app
+include ../../waku/factory/app
 
 suite "Wakunode2 - App":
   test "compilation version should be reported":

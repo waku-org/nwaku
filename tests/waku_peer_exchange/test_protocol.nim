@@ -13,7 +13,7 @@ import
   ../../../waku/[
     waku_node,
     node/peer_manager,
-    waku_discv5,
+    discovery/waku_discv5,
     waku_peer_exchange,
     waku_peer_exchange/rpc,
     waku_peer_exchange/rpc_codec,
@@ -354,7 +354,7 @@ suite "Waku Peer Exchange":
 
       var buffer: seq[byte]
       await conn.writeLP(rpc.encode().buffer)
-      buffer = await conn.readLp(MaxRpcSize.int)
+      buffer = await conn.readLp(DefaultMaxRpcSize.int)
 
       # Decode the response
       let decodedBuff = PeerExchangeRpc.decode(buffer)

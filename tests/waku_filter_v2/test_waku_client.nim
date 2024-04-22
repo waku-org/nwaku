@@ -126,8 +126,9 @@ suite "Waku Filter - End to End":
 
       asyncTest "Subscribing to an empty content topic":
         # When subscribing to an empty content topic
-        let subscribeResponse =
-          await wakuFilterClient.subscribe(serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]())
+        let subscribeResponse = await wakuFilterClient.subscribe(
+          serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]()
+        )
 
         # Then the subscription is not successful
         check:
@@ -1838,8 +1839,9 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
         # When unsubscribing from an empty content topic
-        let unsubscribeResponse =
-          await wakuFilterClient.unsubscribe(serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]())
+        let unsubscribeResponse = await wakuFilterClient.unsubscribe(
+          serverRemotePeerInfo, pubsubTopic, newSeq[ContentTopic]()
+        )
 
         # Then the unsubscription is not successful
         check:
@@ -2076,10 +2078,11 @@ suite "Waku Filter - End to End":
             contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
           ) # 100KiB
           msg4 = fakeWakuMessage(
-            contentTopic = contentTopic, payload = getByteSequence(MaxPushSize - 1024)
+            contentTopic = contentTopic,
+            payload = getByteSequence(DefaultMaxPushSize - 1024),
           ) # Max Size (Inclusive Limit)
           msg5 = fakeWakuMessage(
-            contentTopic = contentTopic, payload = getByteSequence(MaxPushSize)
+            contentTopic = contentTopic, payload = getByteSequence(DefaultMaxPushSize)
           ) # Max Size (Exclusive Limit)
 
         # When sending the 1KiB message
