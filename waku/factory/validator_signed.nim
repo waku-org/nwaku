@@ -34,7 +34,7 @@ proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.timestamp.uint64.toBytes(Endianness.littleEndian))
-  ctx.update(msg.meta)
+  # ctx.update(msg.meta) meta is not included in the message hash, as the signature goes in the meta field
   ctx.update(
     if msg.ephemeral:
       @[1.byte]
