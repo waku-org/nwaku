@@ -18,7 +18,7 @@ import
     node/peer_manager,
     node/waku_node,
     waku_enr/sharding,
-    waku_discv5,
+    discovery/waku_discv5,
     waku_filter_v2/common,
     waku_relay/protocol,
   ],

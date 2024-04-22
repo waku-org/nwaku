@@ -105,8 +105,7 @@ procSuite "Peer Manager":
     let nonExistentPeer = nonExistentPeerRes.value
 
     # Dial non-existent peer from node1
-    let conn1 =
-      await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuStoreCodec)
+    let conn1 = await nodes[0].peerManager.dialPeer(nonExistentPeer, WakuStoreCodec)
     check:
       conn1.isNone()
 
@@ -410,16 +409,13 @@ procSuite "Peer Manager":
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
   asyncTest "Peer manager drops conections to peers on different networks":
-    let clusterId3 = 3.uint32
-    let clusterId4 = 4.uint32
-
     let
+      port = Port(0)
       # different network
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
-        Port(0),
-        clusterId = clusterId3,
+        port,
         pubsubTopics = @["/waku/2/rs/3/0"],
       )
 
@@ -427,21 +423,19 @@ procSuite "Peer Manager":
       node2 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
-        Port(0),
-        clusterId = clusterId4,
+        port,
         pubsubTopics = @["/waku/2/rs/4/0"],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
-        Port(0),
-        clusterId = clusterId4,
+        port,
         pubsubTopics = @["/waku/2/rs/4/0"],
       )
 
-    node1.mountMetadata(clusterId3).expect("Mounted Waku Metadata")
-    node2.mountMetadata(clusterId4).expect("Mounted Waku Metadata")
-    node3.mountMetadata(clusterId4).expect("Mounted Waku Metadata")
+    node1.mountMetadata(3).expect("Mounted Waku Metadata")
+    node2.mountMetadata(4).expect("Mounted Waku Metadata")
+    node3.mountMetadata(4).expect("Mounted Waku Metadata")
 
     # Start nodes
     await allFutures([node1.start(), node2.start(), node3.start()])
