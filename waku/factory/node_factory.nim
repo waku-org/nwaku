@@ -113,12 +113,11 @@ proc setupProtocols(
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
-
-  node.mountMetadata(conf.clusterId).isOkOr:
-    return err("failed to mount waku metadata protocol: " & error)
-
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
-    return err("failed to mount waku sharding: " & error)
+  if conf.clusterId != 0:
+    node.mountMetadata(conf.clusterId).isOkOr:
+      return err("failed to mount waku metadata protocol: " & error)
+    node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+      return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
   var peerExchangeHandler = none(RoutingRecordsHandler)
