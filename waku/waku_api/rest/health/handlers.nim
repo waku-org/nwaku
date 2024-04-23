@@ -11,14 +11,14 @@ logScope:
 
 const ROUTE_HEALTH* = "/health"
 
-const FitHealthReportTimeout = 5.seconds
+const FutHealthReportTimeout = 5.seconds
 
 proc installHealthApiHandler*(
     router: var RestRouter, nodeHealthMonitor: WakuNodeHealthMonitor
 ) =
   router.api(MethodGet, ROUTE_HEALTH) do() -> RestApiResponse:
     let healthReportFut = nodeHealthMonitor.getNodeHealthReport()
-    if not await healthReportFut.withTimeout(FitHealthReportTimeout):
+    if not await healthReportFut.withTimeout(FutHealthReportTimeout):
       return RestApiResponse.internalServerError("Health check timed out")
 
     var msg = ""
