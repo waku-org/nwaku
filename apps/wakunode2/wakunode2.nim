@@ -19,7 +19,8 @@ import
   ../../waku/factory/external_config,
   ../../waku/factory/networks_config,
   ../../waku/factory/app,
-  ../../waku/node/health_monitor
+  ../../waku/node/health_monitor,
+  ../../waku/waku_api/rest/builder as rest_server_builder
 
 logScope:
   topics = "wakunode main"
@@ -127,9 +128,10 @@ when isMainModule:
     nodeHealthMonitor = WakuNodeHealthMonitor()
     nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-    let restServerRes = startRestServerEsentials(nodeHealthMonitor, conf)
-    if restServerRes.isErr():
-      error "Starting REST server failed.", error = $restServerRes.error()
+    let restServer = rest_server_builder.startRestServerEsentials(
+      nodeHealthMonitor, conf
+    ).valueOr:
+      error "Starting esential REST server failed.", error = $error
       quit(QuitFailure)
 
     var wakunode2 = App.init(conf).valueOr:
@@ -142,10 +144,13 @@ when isMainModule:
       error "Starting app failed", error = error
       quit(QuitFailure)
 
-    if conf.rest and not restServerRes.isErr():
-      wakunode2.restServer = restServerRes.value
+    rest_server_builder.startRestServerProtocolSupport(
+      restServer, wakunode2.node, wakunode2.wakuDiscv5, conf
+    ).isOkOr:
+      error "Starting protocols support REST server failed.", error = $error
+      quit(QuitFailure)
 
-    wakunode2.setupMonitoringAndExternalInterfaces().isOkOr:
+    wakunode2.startMetricsServerAndLogging().isOkOr:
       error "Starting monitoring and external interfaces failed", error = error
       quit(QuitFailure)
 
