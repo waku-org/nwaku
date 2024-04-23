@@ -19,16 +19,11 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../../waku/common/utils/nat,
-  ../../waku/common/utils/parse_size_units,
-  ../../waku/common/databases/db_sqlite,
-  ../../waku/waku_archive/driver/builder,
-  ../../waku/waku_archive/retention_policy/builder,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
-  ../../waku/node/peer_manager/peer_store/waku_peer_storage,
+  ../../waku/node/health_monitor,
   ../../waku/waku_api/message_cache,
   ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
@@ -43,10 +38,8 @@ import
   ../../waku/discovery/waku_dnsdisc,
   ../../waku/discovery/waku_discv5,
   ../../waku/waku_enr/sharding,
-  ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
-  ../../waku/waku_lightpush/common,
   ../../waku/waku_filter_v2,
   ../../waku/factory/node_factory,
   ../../waku/factory/internal_config,
@@ -70,7 +63,7 @@ type
 
     node: WakuNode
 
-    restServer: Option[WakuRestServerRef]
+    restServer*: Option[WakuRestServerRef]
     metricsServer: Option[MetricsHttpServerRef]
 
   AppResult*[T] = Result[T, string]
@@ -155,7 +148,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
 
 ## Setup DiscoveryV5
 
-proc setupDiscoveryV5(app: App): WakuDiscoveryV5 =
+proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     app.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
 
@@ -281,12 +274,19 @@ proc startApp*(app: var App): AppResult[void] =
 
 ## Monitoring and external interfaces
 
-proc startRestServer(
-    app: App, address: IpAddress, port: Port, conf: WakuNodeConf
-): AppResult[WakuRestServerRef] =
-  # Used to register api endpoints that are not currently installed as keys,
-  # values are holding error messages to be returned to the client
-  var notInstalledTab: Table[string, string] = initTable[string, string]()
+# Used to register api endpoints that are not currently installed as keys,
+# values are holding error messages to be returned to the client
+# NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
+# It will always be called from main thread anyway.
+# Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
+var restServerNotInstalledTab {.threadvar.}: TableRef[string, string]
+restServerNotInstalledTab = newTable[string, string]()
+
+proc startRestServerEsentials*(
+    nodeHealthMonitor: WakuNodeHealthMonitor, conf: WakuNodeConf
+): AppResult[Option[WakuRestServerRef]] =
+  if not conf.rest:
+    return ok(none(WakuRestServerRef))
 
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef
@@ -302,7 +302,7 @@ proc startRestServer(
             paths[1]
           else:
             ""
-        notInstalledTab.withValue(rootPath, errMsg):
+        restServerNotInstalledTab[].withValue(rootPath, errMsg):
           return await request.respond(Http404, errMsg[], HttpTable.init())
         do:
           return await request.respond(
@@ -328,6 +328,8 @@ proc startRestServer(
     else:
       none(string)
 
+  let address = conf.restAddress
+  let port = Port(conf.restPort + conf.portsShift)
   let server =
     ?newRestHttpServer(
       address,
@@ -336,37 +338,64 @@ proc startRestServer(
       requestErrorHandler = requestErrorHandler,
     )
 
+  ## Health REST API
+  installHealthApiHandler(server.router, nodeHealthMonitor)
+
+  restServerNotInstalledTab["admin"] =
+    "/admin endpoints are not available while initializing."
+  restServerNotInstalledTab["debug"] =
+    "/debug endpoints are not available while initializing."
+  restServerNotInstalledTab["relay"] =
+    "/relay endpoints are not available while initializing."
+  restServerNotInstalledTab["filter"] =
+    "/filter endpoints are not available while initializing."
+  restServerNotInstalledTab["lightpush"] =
+    "/lightpush endpoints are not available while initializing."
+  restServerNotInstalledTab["store"] =
+    "/store endpoints are not available while initializing."
+
+  server.start()
+  info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
+
+  ok(some(server))
+
+proc startRestServerProtocolSupport(app: var App): AppResult[void] =
+  if not app.conf.rest or app.restServer.isNone():
+    ## Maybe we don't need rest server at all, so it is ok.
+    return ok()
+
+  var router = app.restServer.get().router
   ## Admin REST API
-  if conf.restAdmin:
-    installAdminApiHandlers(server.router, app.node)
+  if app.conf.restAdmin:
+    installAdminApiHandlers(router, app.node)
+  else:
+    restServerNotInstalledTab["admin"] =
+      "/admin endpoints are not available. Please check your configuration: --rest-admin=true"
 
   ## Debug REST API
-  installDebugApiHandlers(server.router, app.node)
-
-  ## Health REST API
-  installHealthApiHandler(server.router, app.node)
+  installDebugApiHandlers(router, app.node)
 
   ## Relay REST API
-  if conf.relay:
-    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
+  if app.conf.relay:
+    let cache = MessageCache.init(int(app.conf.restRelayCacheCapacity))
 
     let handler = messageCacheHandler(cache)
 
-    for pubsubTopic in conf.pubsubTopics:
+    for pubsubTopic in app.conf.pubsubTopics:
       cache.pubsubSubscribe(pubsubTopic)
       app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 
-    for contentTopic in conf.contentTopics:
+    for contentTopic in app.conf.contentTopics:
       cache.contentSubscribe(contentTopic)
       app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
 
-    installRelayApiHandlers(server.router, app.node, cache)
+    installRelayApiHandlers(router, app.node, cache)
   else:
-    notInstalledTab["relay"] =
+    restServerNotInstalledTab["relay"] =
       "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
-  if conf.filternode != "" and app.node.wakuFilterClient != nil:
+  if app.conf.filternode != "" and app.node.wakuFilterClient != nil:
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =
@@ -376,10 +405,10 @@ proc startRestServer(
         none(DiscoveryHandler)
 
     rest_filter_api.installFilterRestApiHandlers(
-      server.router, app.node, filterCache, filterDiscoHandler
+      router, app.node, filterCache, filterDiscoHandler
     )
   else:
-    notInstalledTab["filter"] =
+    restServerNotInstalledTab["filter"] =
       "/filter endpoints are not available. Please check your configuration: --filternode"
 
   ## Store REST API
@@ -389,10 +418,10 @@ proc startRestServer(
     else:
       none(DiscoveryHandler)
 
-  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
+  installStoreApiHandlers(router, app.node, storeDiscoHandler)
 
   ## Light push API
-  if conf.lightpushnode != "" and app.node.wakuLightpushClient != nil:
+  if app.conf.lightpushnode != "" and app.node.wakuLightpushClient != nil:
     let lightDiscoHandler =
       if app.wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
@@ -400,16 +429,14 @@ proc startRestServer(
         none(DiscoveryHandler)
 
     rest_lightpush_api.installLightPushRequestHandler(
-      server.router, app.node, lightDiscoHandler
+      router, app.node, lightDiscoHandler
     )
   else:
-    notInstalledTab["lightpush"] =
+    restServerNotInstalledTab["lightpush"] =
       "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
 
-  server.start()
-  info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
-
-  ok(server)
+  info "REST services are installed"
+  ok()
 
 proc startMetricsServer(
     serverIp: IpAddress, serverPort: Port
@@ -434,15 +461,11 @@ proc startMetricsLogging(): AppResult[void] =
   ok()
 
 proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
-  if app.conf.rest:
-    let startRestServerRes = startRestServer(
-      app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf
-    )
-    if startRestServerRes.isErr():
-      error "Starting REST server failed. Continuing in current state.",
-        error = startRestServerRes.error
-    else:
-      app.restServer = some(startRestServerRes.value)
+  if app.conf.rest and app.restServer.isSome():
+    let restProtocolSupportRes = startRestServerProtocolSupport(app)
+    if restProtocolSupportRes.isErr():
+      error "Starting REST server protocol support failed. Continuing in current state.",
+        error = restProtocolSupportRes.error
 
   if app.conf.metricsServer:
     let startMetricsServerRes = startMetricsServer(
