@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[options, sequtils, strutils, tables], chronos
+import std/[options], chronos
 
 import waku_node, ../waku_rln_relay
 
