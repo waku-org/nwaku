@@ -409,9 +409,7 @@ type WakuNodeConf* = object
 
     ## REST HTTP config
     rest* {.
-      desc: "Enable Waku REST HTTP server: true|false",
-      defaultValue: false,
-      name: "rest"
+      desc: "Enable Waku REST HTTP server: true|false", defaultValue: true, name: "rest"
     .}: bool
 
     restAddress* {.
