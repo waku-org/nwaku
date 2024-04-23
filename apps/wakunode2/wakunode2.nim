@@ -144,11 +144,12 @@ when isMainModule:
       error "Starting app failed", error = error
       quit(QuitFailure)
 
-    rest_server_builder.startRestServerProtocolSupport(
-      restServer, wakunode2.node, wakunode2.wakuDiscv5, conf
-    ).isOkOr:
-      error "Starting protocols support REST server failed.", error = $error
-      quit(QuitFailure)
+    if conf.rest:
+      rest_server_builder.startRestServerProtocolSupport(
+        restServer, wakunode2.node, wakunode2.wakuDiscv5, conf
+      ).isOkOr:
+        error "Starting protocols support REST server failed.", error = $error
+        quit(QuitFailure)
 
     wakunode2.startMetricsServerAndLogging().isOkOr:
       error "Starting monitoring and external interfaces failed", error = error
