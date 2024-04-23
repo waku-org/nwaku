@@ -4,33 +4,36 @@ else:
   {.push raises: [].}
 
 import chronicles, json_serialization, presto/route
-import ../../../waku_node, ../responses, ../serdes
+import ../../../waku_node, ../responses, ../serdes, ./types
 
 logScope:
   topics = "waku node rest health_api"
 
 const ROUTE_HEALTH* = "/health"
 
-const FutIsReadyTimout = 5.seconds
+const FutHealthReportTimeout = 5.seconds
 
-proc installHealthApiHandler*(router: var RestRouter, node: WakuNode) =
-  ## /health endpoint provides information about node readiness to caller.
-  ## Currently it is restricted to checking RLN (if mounted) proper setup
-  ## TODO: Leter to extend it to a broader information about each subsystem state
-  ## report. Rest response to change to JSON structure that can hold exact detailed 
-  ## information.
-
+proc installHealthApiHandler*(
+    router: var RestRouter, nodeHealthMonitor: WakuNodeHealthMonitor
+) =
   router.api(MethodGet, ROUTE_HEALTH) do() -> RestApiResponse:
-    let isReadyStateFut = node.isReady()
-    if not await isReadyStateFut.withTimeout(FutIsReadyTimout):
+    let healthReportFut = nodeHealthMonitor.getNodeHealthReport()
+    if not await healthReportFut.withTimeout(FutHealthReportTimeout):
       return RestApiResponse.internalServerError("Health check timed out")
 
-    var msg = "Node is healthy"
+    var msg = ""
     var status = Http200
 
     try:
-      if not isReadyStateFut.read():
-        msg = "Node is not ready"
+      if healthReportFut.completed():
+        let healthReport = healthReportFut.read()
+        return RestApiResponse.jsonResponse(healthReport, Http200).valueOr:
+          debug "An error ocurred while building the json healthReport response",
+            error = error
+          return
+            RestApiResponse.internalServerError("Failed to serialize health report")
+      else:
+        msg = "Health check failed"
         status = Http503
     except:
       msg = "exception reading state: " & getCurrentExceptionMsg()

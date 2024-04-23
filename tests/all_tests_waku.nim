@@ -77,7 +77,8 @@ import
   ./wakunode_rest/test_rest_filter,
   ./wakunode_rest/test_rest_lightpush,
   ./wakunode_rest/test_rest_admin,
-  ./wakunode_rest/test_rest_cors
+  ./wakunode_rest/test_rest_cors,
+  ./wakunode_rest/test_rest_health
 
 import ./waku_rln_relay/test_all
 
