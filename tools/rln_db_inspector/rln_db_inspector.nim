@@ -41,7 +41,7 @@ proc doInspectRlnDb*(conf: WakuNodeConf) =
   var index: uint = 0
   var hits: uint = 0
   var zeroLeafIndices: seq[uint] = @[]
-  var assumeEmptyAfter: uint = 0
+  var assumeEmptyAfter: uint = 10
   while true:
     let leaf = rlnInstance.getMember(index).valueOr:
       error "failure while getting RLN leaf", error
