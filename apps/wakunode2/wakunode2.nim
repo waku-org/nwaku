@@ -129,8 +129,8 @@ when isMainModule:
 
     let restServerRes = startRestServerEsentials(nodeHealthMonitor, conf)
     if restServerRes.isErr():
-      error "Starting REST server failed. . Continuing in current state.",
-        error = $restServerRes.error()
+      error "Starting REST server failed.", error = $restServerRes.error()
+      quit(QuitFailure)
 
     var wakunode2 = App.init(conf).valueOr:
       error "App initialization failed", error = error
