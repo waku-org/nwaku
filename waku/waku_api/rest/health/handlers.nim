@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import chronicles, json_serialization, presto/route
-import ../../../waku_node, ../responses, ../serdes
+import ../../../waku_node, ../responses, ../serdes, ./types
 
 logScope:
   topics = "waku node rest health_api"
@@ -27,7 +27,11 @@ proc installHealthApiHandler*(
     try:
       if healthReportFut.completed():
         let healthReport = healthReportFut.read()
-        msg = $healthReport
+        return RestApiResponse.jsonResponse(healthReport, Http200).valueOr:
+          debug "An error ocurred while building the json healthReport response",
+            error = error
+          return
+            RestApiResponse.internalServerError("Failed to serialize health report")
       else:
         msg = "Health check failed"
         status = Http503
