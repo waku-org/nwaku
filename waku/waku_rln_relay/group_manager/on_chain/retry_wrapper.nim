@@ -8,7 +8,7 @@ type RetryStrategy* = object
   retryCount*: uint
 
 proc new*(T: type RetryStrategy): RetryStrategy =
-  return RetryStrategy(shouldRetry: true, retryDelay: 1000.millis, retryCount: 3)
+  return RetryStrategy(shouldRetry: true, retryDelay: 4000.millis, retryCount: 15)
 
 proc retryWrapper*[T](
     retryStrategy: RetryStrategy,
