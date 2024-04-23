@@ -1,8 +1,9 @@
 {.pragma: exported, exportc, cdecl, raises: [].}
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
+{.passl: "-Wl,-soname,libwaku.so"}
 
-import std/[json, sequtils, times, strformat, options, atomics, strutils]
+import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
 import chronicles, chronos
 import
   ../../waku/common/base64,
@@ -67,13 +68,51 @@ proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
 ################################################################################
 
 ################################################################################
+### Library setup
+
+# Every Nim library must have this function called - the name is derived from
+# the `--nimMainPrefix` command line option
+proc NimMain() {.importc.}
+
+# To control when the library has been initialized
+var initialized: Atomic[bool]
+
+proc initDispatcher() {.thread.} =
+  ## Begins a never ending global dispatcher poll loop.
+  ## Raises different exceptions depending on the platform.
+  while initialized.load:
+    poll()
+
+### End of library setup
+################################################################################
+
+
+################################################################################
 ### Exported procs
+proc waku_hello() {.dynlib, exportc.} =
+  NimMain()
+  if not initialized.load:
+    initialized.store(true)
+
+    when declared(setupForeignThreadGc):
+      setupForeignThreadGc()
+
+    when declared(nimGC_setStackBottom):
+      var locals {.volatile, noinit.}: pointer
+      locals = addr(locals)
+      nimGC_setStackBottom(locals)
+
+    var t: Thread[void]
+    createThread(t, initDispatcher)
+    sleep(500) # TODO: the dispatcher must be running before any async operation is executed. Is there a way to avoid this sleep?
+
+proc waku_bye() {.dynlib, exportc.} =
+  tearDownForeignThreadGc()
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
 ): pointer {.dynlib, exportc, cdecl.} =
   ## Creates a new instance of the WakuNode.
-
   if isNil(callback):
     echo "error: missing callback in waku_new"
     return nil
@@ -85,17 +124,19 @@ proc waku_new(
     return nil
 
   ctx.userData = userData
-
+  echo "======================= WAKU_CREATE_NODE!"
   let sendReqRes = waku_thread.sendRequestToWakuThread(
-    ctx,
-    RequestType.LIFECYCLE,
-    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
+     ctx,
+     RequestType.LIFECYCLE,
+     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
   )
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return nil
-
+  # echo "======================= REQUEST SENT"
+  # if sendReqRes.isErr():
+  #   let msg = $sendReqRes.error
+  #   echo "======================= ERROR SENDING REQUEST"
+  #   callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  #   return nil
+  # echo "======================= SUCCESS SENDING REQUEST"
   return ctx
 
 proc waku_destroy(
