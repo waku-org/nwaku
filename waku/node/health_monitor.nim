@@ -62,7 +62,7 @@ const FutIsReadyTimout = 5.seconds
 proc getNodeHealthReport*(hm: WakuNodeHealthMonitor): Future[HealthReport] {.async.} =
   result.nodeHealth = hm.nodeHealth
 
-  if hm.node.isSome(): ## and not hm.node.get().wakuRlnRelay == nil:
+  if hm.node.isSome() and hm.node.get().wakuRlnRelay != nil:
     let getRlnRelayHealth = proc(): Future[HealthStatus] {.async.} =
       let isReadyStateFut = hm.node.get().wakuRlnRelay.isReady()
       if not await isReadyStateFut.withTimeout(FutIsReadyTimout):
