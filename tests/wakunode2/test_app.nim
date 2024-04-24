@@ -51,7 +51,7 @@ suite "Wakunode2 - App initialization":
     wakunode2.startApp().isOkOr:
       raiseAssert error
 
-    let mountRes = wakunode2.setupMonitoringAndExternalInterfaces()
+    let mountRes = wakunode2.startMetricsServerAndLogging()
     assert mountRes.isOk(), mountRes.error
 
     ## Then
