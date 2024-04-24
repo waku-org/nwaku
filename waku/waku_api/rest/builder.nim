@@ -35,6 +35,9 @@ restServerNotInstalledTab = newTable[string, string]()
 proc startRestServerEsentials*(
     nodeHealthMonitor: WakuNodeHealthMonitor, conf: WakuNodeConf
 ): Result[WakuRestServerRef, string] =
+  if not conf.rest:
+    return
+
   let requestErrorHandler: RestRequestErrorHandler = proc(
       error: RestRequestError, request: HttpRequestRef
   ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
@@ -112,6 +115,9 @@ proc startRestServerProtocolSupport*(
     wakuDiscv5: Option[WakuDiscoveryV5],
     conf: WakuNodeConf,
 ): Result[void, string] =
+  if not conf.rest:
+    return
+
   var router = restServer.router
   ## Admin REST API
   if conf.restAdmin:
