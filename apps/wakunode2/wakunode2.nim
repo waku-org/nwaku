@@ -138,6 +138,8 @@ when isMainModule:
       error "App initialization failed", error = error
       quit(QuitFailure)
 
+    wakunode2.restServer = restServer
+
     nodeHealthMonitor.setNode(wakunode2.node)
 
     wakunode2.startApp().isOkOr:
