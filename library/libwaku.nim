@@ -1,7 +1,9 @@
 {.pragma: exported, exportc, cdecl, raises: [].}
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
-{.passl: "-Wl,-soname,libwaku.so"}
+
+if defined(linux):
+  {.passl: "-Wl,-soname,libwaku.so"}
 
 import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
 import chronicles, chronos
@@ -40,6 +42,17 @@ const RET_MISSING_CALLBACK: cint = 2
 ################################################################################
 ### Not-exported components
 
+
+template foreignThreadGc(body: untyped) =
+  when declared(setupForeignThreadGc):
+    setupForeignThreadGc()
+
+  body
+
+  when declared(tearDownForeignThreadGc):
+    tearDownForeignThreadGc()
+
+
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
@@ -55,14 +68,16 @@ proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
 
     try:
       let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      cast[WakuCallBack](ctx[].eventCallback)(
-        RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-      )
+      foreignThreadGc:
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+        )
     except Exception, CatchableError:
       let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-      cast[WakuCallBack](ctx[].eventCallback)(
-        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-      )
+      foreignThreadGc:
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+        )
 
 ### End of not-exported components
 ################################################################################
@@ -77,37 +92,29 @@ proc NimMain() {.importc.}
 # To control when the library has been initialized
 var initialized: Atomic[bool]
 
-proc initDispatcher() {.thread.} =
-  ## Begins a never ending global dispatcher poll loop.
-  ## Raises different exceptions depending on the platform.
-  while initialized.load:
-    poll()
+if defined(android):
+  # Redirect chronicles to Android System logs
+  when compiles(defaultChroniclesStream.outputs[0].writer):
+    defaultChroniclesStream.outputs[0].writer =
+      proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [].} =
+        echo logLevel, msg
+
 
 ### End of library setup
 ################################################################################
 
-
 ################################################################################
 ### Exported procs
-proc waku_hello() {.dynlib, exportc.} =
+proc waku_setup() {.dynlib, exportc.} =
   NimMain()
   if not initialized.load:
     initialized.store(true)
 
-    when declared(setupForeignThreadGc):
-      setupForeignThreadGc()
-
+    # TODO: ask Ivan what is nimGC_setStackBottom for
     when declared(nimGC_setStackBottom):
       var locals {.volatile, noinit.}: pointer
       locals = addr(locals)
       nimGC_setStackBottom(locals)
-
-    var t: Thread[void]
-    createThread(t, initDispatcher)
-    sleep(500) # TODO: the dispatcher must be running before any async operation is executed. Is there a way to avoid this sleep?
-
-proc waku_bye() {.dynlib, exportc.} =
-  tearDownForeignThreadGc()
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
@@ -119,24 +126,23 @@ proc waku_new(
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
   var ctx = waku_thread.createWakuThread().valueOr:
-    let msg = "Error in createWakuThread: " & $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    foreignThreadGc:
+      let msg = "Error in createWakuThread: " & $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
 
   ctx.userData = userData
-  echo "======================= WAKU_CREATE_NODE!"
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+
+  waku_thread.sendRequestToWakuThread(
      ctx,
      RequestType.LIFECYCLE,
      NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
-  )
-  # echo "======================= REQUEST SENT"
-  # if sendReqRes.isErr():
-  #   let msg = $sendReqRes.error
-  #   echo "======================= ERROR SENDING REQUEST"
-  #   callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  #   return nil
-  # echo "======================= SUCCESS SENDING REQUEST"
+  ).isOkOr:
+    foreignThreadGc:
+      let msg = $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+      return nil
+
   return ctx
 
 proc waku_destroy(
@@ -146,9 +152,10 @@ proc waku_destroy(
     return RET_MISSING_CALLBACK
 
   waku_thread.stopWakuThread(ctx).isOkOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
+    foreignThreadGc:
+      let msg = $error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+      return RET_ERR
 
   return RET_OK
 
@@ -160,12 +167,13 @@ proc waku_version(
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
-  callback(
-    RET_OK,
-    cast[ptr cchar](WakuNodeVersionString),
-    cast[csize_t](len(WakuNodeVersionString)),
-    userData,
-  )
+  foreignThreadGc:
+    callback(
+      RET_OK,
+      cast[ptr cchar](WakuNodeVersionString),
+      cast[csize_t](len(WakuNodeVersionString)),
+      userData,
+    )
 
   return RET_OK
 
