@@ -18,6 +18,7 @@ import
   ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
   ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
   ../../waku/waku_api/rest/store/handlers as rest_store_api,
+  ../../waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
   ../../waku/waku_api/rest/health/handlers as rest_health_api,
   ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
   ../../waku/waku_core/topics
@@ -172,7 +173,8 @@ proc startRestServerProtocolSupport*(
     else:
       none(DiscoveryHandler)
 
-  installStoreApiHandlers(router, node, storeDiscoHandler)
+  rest_store_api.installStoreApiHandlers(router, node, storeDiscoHandler)
+  rest_store_legacy_api.installStoreApiHandlers(router, node, storeDiscoHandler)
 
   ## Light push API
   if conf.lightpushnode != "" and node.wakuLightpushClient != nil:

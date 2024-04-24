@@ -23,16 +23,8 @@ proc new*(
   WakuStoreClient(peerManager: peerManager, rng: rng)
 
 proc sendStoreRequest(
-    self: WakuStoreClient, request: StoreQueryRequest, peer: RemotePeerInfo
+    self: WakuStoreClient, request: StoreQueryRequest, connection: Connection
 ): Future[StoreQueryResult] {.async, gcsafe.} =
-  if request.paginationCursor.isSome() and request.paginationCursor.get() == EmptyCursor:
-    return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: "invalid cursor"))
-
-  let connection = (await self.peerManager.dialPeer(peer, WakuStoreCodec)).valueOr:
-    waku_store_errors.inc(labelValues = [dialFailure])
-
-    return err(StoreError(kind: ErrorCode.PEER_DIAL_FAILURE, address: $peer))
-
   var req = request
 
   req.requestId = generateRequestId(self.rng)
@@ -59,6 +51,14 @@ proc sendStoreRequest(
   return ok(res)
 
 proc query*(
-    self: WakuStoreClient, req: StoreQueryRequest, peer: RemotePeerInfo
+    self: WakuStoreClient, request: StoreQueryRequest, peer: RemotePeerInfo
 ): Future[StoreQueryResult] {.async, gcsafe.} =
-  return await self.sendStoreRequest(req, peer)
+  if request.paginationCursor.isSome() and request.paginationCursor.get() == EmptyCursor:
+    return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: "invalid cursor"))
+
+  let connection = (await self.peerManager.dialPeer(peer, WakuStoreCodec)).valueOr:
+    waku_store_errors.inc(labelValues = [dialFailure])
+
+    return err(StoreError(kind: ErrorCode.PEER_DIAL_FAILURE, address: $peer))
+
+  return await self.sendStoreRequest(request, connection)
