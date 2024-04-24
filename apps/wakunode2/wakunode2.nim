@@ -18,7 +18,8 @@ import
   ../../waku/common/logging,
   ../../waku/factory/external_config,
   ../../waku/factory/networks_config,
-  ../../waku/factory/app
+  ../../waku/factory/app,
+  ../../waku/node/health_monitor
 
 logScope:
   topics = "wakunode main"
@@ -88,54 +89,74 @@ when isMainModule:
     doInspectRlnDb(conf)
   of noCommand:
     case conf.clusterId
-      # cluster-id=0
-      of 0:
-        let clusterZeroConf = ClusterConf.ClusterZeroConf()
-        conf.pubsubTopics = clusterZeroConf.pubsubTopics
-        # TODO: Write some template to "merge" the configs
-      # cluster-id=1 (aka The Waku Network)
-      of 1:
-        let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-        if len(conf.shards) != 0:
-          conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-        else:
-          conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-        # Override configuration
-        conf.maxMessageSize = twnClusterConf.maxMessageSize
-        conf.clusterId = twnClusterConf.clusterId
-        conf.rlnRelay = twnClusterConf.rlnRelay
-        conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-        conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-        conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-        conf.discv5Discovery = twnClusterConf.discv5Discovery
-        conf.discv5BootstrapNodes =
-          conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-        conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-        conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    # cluster-id=0
+    of 0:
+      let clusterZeroConf = ClusterConf.ClusterZeroConf()
+      conf.pubsubTopics = clusterZeroConf.pubsubTopics
+      # TODO: Write some template to "merge" the configs
+    # cluster-id=1 (aka The Waku Network)
+    of 1:
+      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+      if len(conf.shards) != 0:
+        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
       else:
-        discard
+        conf.pubsubTopics = twnClusterConf.pubsubTopics
+
+      # Override configuration
+      conf.maxMessageSize = twnClusterConf.maxMessageSize
+      conf.clusterId = twnClusterConf.clusterId
+      conf.rlnRelay = twnClusterConf.rlnRelay
+      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+      conf.discv5Discovery = twnClusterConf.discv5Discovery
+      conf.discv5BootstrapNodes =
+        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    else:
+      discard
 
     info "Running nwaku node", version = app.git_version
     logConfig(conf)
+
+    # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
+    # It will always be called from main thread anyway.
+    # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
+    var nodeHealthMonitor {.threadvar.}: WakuNodeHealthMonitor
+    nodeHealthMonitor = WakuNodeHealthMonitor()
+    nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
+
+    let restServerRes = startRestServerEsentials(nodeHealthMonitor, conf)
+    if restServerRes.isErr():
+      error "Starting REST server failed.", error = $restServerRes.error()
+      quit(QuitFailure)
 
     var wakunode2 = App.init(conf).valueOr:
       error "App initialization failed", error = error
       quit(QuitFailure)
 
+    nodeHealthMonitor.setNode(wakunode2.node)
+
     wakunode2.startApp().isOkOr:
       error "Starting app failed", error = error
       quit(QuitFailure)
 
+    if conf.rest and not restServerRes.isErr():
+      wakunode2.restServer = restServerRes.value
+
     wakunode2.setupMonitoringAndExternalInterfaces().isOkOr:
       error "Starting monitoring and external interfaces failed", error = error
       quit(QuitFailure)
+
+    nodeHealthMonitor.setOverallHealth(HealthStatus.READY)
 
     debug "Setting up shutdown hooks"
     ## Setup shutdown hooks for this process.
     ## Stop node gracefully on shutdown.
 
     proc asyncStopper(node: App) {.async: (raises: [Exception]).} =
+      nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
       await node.stop()
       quit(QuitSuccess)
 
