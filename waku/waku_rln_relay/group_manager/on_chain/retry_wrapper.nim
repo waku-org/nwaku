@@ -13,7 +13,7 @@ template retryWrapper*(
     res: auto,
     retryStrategy: RetryStrategy,
     errStr: string,
-    errCallback: OnFatalErrorHandler = nil,
+    errCallback: OnFatalErrorHandler,
     body: untyped,
 ): auto =
   var retryCount = retryStrategy.retryCount
@@ -29,10 +29,5 @@ template retryWrapper*(
       exceptionMessage = getCurrentExceptionMsg()
       await sleepAsync(retryStrategy.retryDelay)
   if shouldRetry:
-    if errCallback == nil:
-      raise newException(
-        CatchableError, errStr & " errCallback == nil: " & exceptionMessage
-      )
-    else:
-      errCallback(errStr & ": " & exceptionMessage)
-      return
+    errCallback(errStr & ": " & exceptionMessage)
+    return

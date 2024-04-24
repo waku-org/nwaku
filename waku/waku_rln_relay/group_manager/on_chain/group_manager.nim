@@ -637,7 +637,7 @@ proc startOnchainSync(
   var currentLatestBlock: BlockNumber
   g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
     cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
-  
+
   try:
     # we always want to sync from last processed block => latest
     # chunk events
@@ -646,11 +646,10 @@ proc startOnchainSync(
       # then fetch the new toBlock
       if fromBlock >= currentLatestBlock:
         break
-      
+
       if fromBlock + blockChunkSize.uint > currentLatestBlock.uint:
         g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
           cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
-      
 
       let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
