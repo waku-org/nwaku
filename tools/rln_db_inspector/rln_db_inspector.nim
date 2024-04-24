@@ -38,4 +38,29 @@ proc doInspectRlnDb*(conf: WakuNodeConf) =
     contractAddress = metadata.contractAddress,
     validRoots = metadata.validRoots.mapIt(it.inHex())
 
+  var index: uint = 0
+  var hits: uint = 0
+  var zeroLeafIndices: seq[uint] = @[]
+  var assumeEmptyAfter: uint = 10
+  while true:
+    let leaf = rlnInstance.getMember(index).valueOr:
+      error "failure while getting RLN leaf", error
+      quit(1)
+
+    if leaf.inHex() == "0000000000000000000000000000000000000000000000000000000000000000":
+      zeroLeafIndices.add(index)
+      hits = hits + 1
+    else:
+      hits = 0
+
+    if hits > assumeEmptyAfter:
+      info "reached end of RLN tree", index = index - assumeEmptyAfter
+      # remove zeroLeafIndices that are not at the end of the tree
+      zeroLeafIndices = zeroLeafIndices.filterIt(it < index - assumeEmptyAfter)
+      break
+
+    index = index + 1
+
+  info "zero leaf indices", zeroLeafIndices
+
   quit(0)
