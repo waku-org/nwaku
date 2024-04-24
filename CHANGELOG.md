@@ -67,11 +67,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -148,11 +148,11 @@ The Waku v1 implementation has been removed from this repository and can be foun
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -211,11 +211,11 @@ The Waku v1 implementation has been removed from this repository and can be foun
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -263,11 +263,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -286,11 +286,11 @@ This is a patch release that is fully backwards-compatible with release `v0.23.0
 It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -360,11 +360,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -420,11 +420,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
-| [`66/WAKU2-METADATA`](https://rfc.vac.dev/spec/66/) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -446,10 +446,10 @@ This is a patch release that is fully backwards-compatible with release `v0.21.0
 It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -467,10 +467,10 @@ This is a patch release that is fully backwards-compatible with release `v0.21.0
 It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -490,10 +490,10 @@ This is a patch release that is fully backwards-compatible with release `v0.21.0
 It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -504,7 +504,7 @@ The Waku v1 implementation has been removed from this repository and can be foun
 ## What's Changed
 
 Release highlights:
-* Implemented a req/resp [protocol](https://rfc.vac.dev/spec/66/) that provides information about the node's medatadata
+* Implemented a req/resp [protocol](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) that provides information about the node's medatadata
 * Added REST APIs for Filter v2 and Lightpush protocols' services
 * Ported /admin endpoint to REST
 * Added a size-based retention policy for the user to set a limit for SQLite storage used
@@ -565,10 +565,10 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -662,10 +662,10 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -758,10 +758,10 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
@@ -826,10 +826,10 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -847,7 +847,7 @@ The `--topics` config option has been deprecated to unify the configuration styl
 
 Release highlights:
 * New REST API for Waku Store protocol.
-* New Filter protocol implentation. See [12/WAKU2-FILTER](https://rfc.vac.dev/spec/12/).
+* New Filter protocol implentation. See [12/WAKU2-FILTER](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md).
 * Initial C bindings support.
 * Support for Heaptrack to investigate memory utilization ([tutorial](https://github.com/waku-org/nwaku/blob/master/docs/tutorial/heaptrack.md)).
 
@@ -942,10 +942,10 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -965,8 +965,8 @@ Release highlights:
 ### Features
 
 - Integrated a new group manager for RLN-protected relay [1496](https://github.com/waku-org/nwaku/pull/1496)
-- Added application-defined meta attribute to Waku Message according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#message-attributes) [1581](https://github.com/waku-org/nwaku/pull/1581)
-- Implemented deterministic hashing scheme for Waku Messages according to RFC [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/#deterministic-message-hashing) [1586](https://github.com/waku-org/nwaku/pull/1586)
+- Added application-defined meta attribute to Waku Message according to RFC [14/WAKU2-MESSAGE](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/14/message.md#message-attributes) [1581](https://github.com/waku-org/nwaku/pull/1581)
+- Implemented deterministic hashing scheme for Waku Messages according to RFC [14/WAKU2-MESSAGE](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/14/message.md#deterministic-message-hashing) [1586](https://github.com/waku-org/nwaku/pull/1586)
 
 ### Changes
 
@@ -980,7 +980,7 @@ Release highlights:
 - Use base64 URL-safe encoding for noise [1569](https://github.com/waku-org/nwaku/pull/1569)
 - Various general improvements to RLN implementation [1585](https://github.com/waku-org/nwaku/pull/1585) [1587](https://github.com/waku-org/nwaku/pull/1587)
 - Started on implementation for new and improved filter protocol [1584](https://github.com/waku-org/nwaku/pull/1584)
-- Updated pubsub and content topic namespacing to reflect latest changes in RFC [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/) [1589](https://github.com/waku-org/nwaku/pull/1589)
+- Updated pubsub and content topic namespacing to reflect latest changes in RFC [23/WAKU2-TOPICS](https://github.com/vacp2p/rfc-index/blob/main/waku/informational/23/topics.md) [1589](https://github.com/waku-org/nwaku/pull/1589)
 - Unified internal peer data models [1597](https://github.com/waku-org/nwaku/pull/1597)
 - Improved internal implementation of Waku ENR encoding and decoding [1598](https://github.com/waku-org/nwaku/pull/1598) [1599](https://github.com/waku-org/nwaku/pull/1599)
 - Underlying dependency for RLN implementation now loaded as a static library [1578](https://github.com/waku-org/nwaku/pull/1578)
@@ -995,11 +995,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1044,11 +1044,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1071,8 +1071,8 @@ Release highlights:
 ### Changes
 
 - Zerokit RLN library now statically linked.
-- Use extended key generation in Zerokit API to comply with [32/RLN](https://rfc.vac.dev/spec/32/).
-- Re-enable root validation in [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Use extended key generation in Zerokit API to comply with [32/RLN](https://github.com/vacp2p/rfc-index/blob/main/vac/32/rln-v1.md).
+- Re-enable root validation in [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - [Network monitoring tool](https://github.com/status-im/nwaku/tree/2336522d7f478337237a5a4ec8c5702fb4babc7d/tools#networkmonitor) now supports DNS discovery.
 - Added [dashboard](https://github.com/waku-org/nwaku/blob/3e0e1cb2398297fca761aa74f52d32fa837d556c/metrics/waku-network-monitor-dashboard.json) for network monitoring.
 - Continued refactoring of several protocol implementations to improve maintainability and readability.
@@ -1109,11 +1109,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1139,7 +1139,7 @@ Release highlights:
 ### Changes
 
 - Removed support for Kilic's RLN library (obsolete).
-- Improved logging for [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Improved logging for [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - Connection to eth node for RLN now more stable, maintains state and logs failures.
 - Waku apps and tools now moved to their own subdirectory.
 - Continued refactoring of several protocol implementations to improve maintainability and readability.
@@ -1147,11 +1147,11 @@ Release highlights:
 - Added metrics dashboard for RLN spam protection.
 - Github CI test workflows are now run selectively, based on the content of a PR.
 - Improved reliability of CI runs and added email notifications.
-- Discv5 discovery loop now triggered to fill a [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/) peer list cache asynchronously.
+- Discv5 discovery loop now triggered to fill a [34/WAKU2-PEER-EXCHANGE](https://github.com/waku-org/specs/blob/master/standards/core/peer-exchange.md) peer list cache asynchronously.
 - Upgraded to Nim v1.6.6.
 - Cleaned up compiler warnings on unused imports.
 - Improved exception handling and annotation.
-- [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) no longer enabled by default on nwaku nodes.
+- [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) no longer enabled by default on nwaku nodes.
 - Merkle tree roots for RLN membership changes now on a per-block basis to allow poorly connected peers to operate within a window of acceptable roots.
 
 ### Fixes
@@ -1161,7 +1161,7 @@ Release highlights:
 - Fixed store cursors being retrieved incorrectly (truncated) from DB. [#1263](https://github.com/status-im/nwaku/pull/1263)
 - Fixed message indexed by store cursor being excluded from history query results. [#1263](https://github.com/status-im/nwaku/pull/1263)
 - Fixed log-level configuration being ignored by the nwaku node. [#1272](https://github.com/status-im/nwaku/pull/1272)
-- Fixed incorrect error message when failing to set [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/) peer. [#1298](https://github.com/status-im/nwaku/pull/1298)
+- Fixed incorrect error message when failing to set [34/WAKU2-PEER-EXCHANGE](https://github.com/waku-org/specs/blob/master/standards/core/peer-exchange.md) peer. [#1298](https://github.com/status-im/nwaku/pull/1298)
 - Fixed and replaced deprecated `TaintedString` type. [#1326](https://github.com/status-im/nwaku/pull/1326)
 - Fixed and replaced unreliable regex library and usage. [#1327](https://github.com/status-im/nwaku/pull/1327) [#1328](https://github.com/status-im/nwaku/pull/1328)
 - Fixed and replaced deprecated `ganache-cli` node package with `ganache` for RLN onchain tests. Added graceful daemon termination. [#1347](https://github.com/status-im/nwaku/pull/1347)
@@ -1179,11 +1179,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1199,17 +1199,17 @@ The full list of changes is below.
 
 ### Features
 
-- Default support for [Zerokit](https://github.com/vacp2p/zerokit) version of [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Default support for [Zerokit](https://github.com/vacp2p/zerokit) version of [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - Added Filter REST API OpenAPI specification.
-- Added POC implementation for [43/WAKU2-DEVICE-PAIRING](https://rfc.vac.dev/spec/43/).
-- [14/WAKU2-MESSAGE](https://rfc.vac.dev/spec/14/) can now be marked as `ephemeral` to prevent them from being stored.
-- Support for [34/WAKU2-PEER-EXCHANGE](https://rfc.vac.dev/spec/34/).
+- Added POC implementation for [43/WAKU2-DEVICE-PAIRING](https://github.com/waku-org/specs/blob/master/standards/application/device-pairing.md).
+- [14/WAKU2-MESSAGE](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/14/message.md) can now be marked as `ephemeral` to prevent them from being stored.
+- Support for [34/WAKU2-PEER-EXCHANGE](https://github.com/waku-org/specs/blob/master/standards/core/peer-exchange.md).
 
 ### Changes
 
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now handles on-chain transaction errors.
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now validates the Merkle tree root against a window of acceptable roots.
-- Added metrics for [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation now handles on-chain transaction errors.
+- [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation now validates the Merkle tree root against a window of acceptable roots.
+- Added metrics for [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - Continued refactoring of several protocol implementations to improve maintainability and readability.
 - Cleaned up nwaku imports and dependencies.
 - Refactored and organised nwaku unit tests.
@@ -1230,7 +1230,7 @@ The full list of changes is below.
 ### Fixes
 
 - Fixed nwaku unnecessary sleep when no dynamic bootstrap nodes retrieved.
-- Fixed [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) not working from browser-based clients due to nwaku peer manager failing to reuse existing connection.
+- Fixed [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) not working from browser-based clients due to nwaku peer manager failing to reuse existing connection.
 - Waku Message payload now correctly encoded as base64 in the Relay REST API.
 - Fixed handling of bindParam(uint32) in sqlite.
 - `chat2` application now correctly selects a random store node on startup.
@@ -1248,11 +1248,11 @@ The full list of changes is below.
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1267,20 +1267,20 @@ The full list of changes is below.
 
 ### Features
 
-- Support for on-chain group membership management in the [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Support for on-chain group membership management in the [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - Integrated HTTP REST API for external access to some `wakunode2` functionality:
   - Debug REST API exposes debug information about a `wakunode2`.
-  - Relay REST API allows basic pub/sub functionality according to [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/).
-- [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation now adds padding to ChaChaPoly encryptions to increase security and reduce metadata leakage.
+  - Relay REST API allows basic pub/sub functionality according to [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md).
+- [`35/WAKU2-NOISE`](https://github.com/waku-org/specs/blob/master/standards/application/noise.md) implementation now adds padding to ChaChaPoly encryptions to increase security and reduce metadata leakage.
 
 ### Changes
 
 - Significantly improved the SQLite-only historical message `store` query performance.
 - Refactored several protocol implementations to improve maintainability and readability.
-- Major code reorganization for the [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) implementation to improve maintainability. This will also make the `store` extensible to support multiple implementations.
+- Major code reorganization for the [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) implementation to improve maintainability. This will also make the `store` extensible to support multiple implementations.
 - Disabled compiler log colors when running in a CI environment.
-- Refactored [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) implementation into smaller submodules.
-- [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) implementation can now optionally be compiled with [Zerokit RLN](https://github.com/vacp2p/zerokit/tree/64f508363946b15ac6c52f8b59d8a739a33313ec/rln). Previously only [Kilic's RLN](https://github.com/kilic/rln/tree/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43) was supported.
+- Refactored [`35/WAKU2-NOISE`](https://github.com/waku-org/specs/blob/master/standards/application/noise.md) implementation into smaller submodules.
+- [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) implementation can now optionally be compiled with [Zerokit RLN](https://github.com/vacp2p/zerokit/tree/64f508363946b15ac6c52f8b59d8a739a33313ec/rln). Previously only [Kilic's RLN](https://github.com/kilic/rln/tree/7ac74183f8b69b399e3bc96c1ae8ab61c026dc43) was supported.
 
 ### Fixes
 
@@ -1297,11 +1297,11 @@ The full list of changes is below.
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1315,7 +1315,7 @@ Release highlights:
 
 ### Features
 
-- Support for [`35/WAKU2-NOISE`](https://rfc.vac.dev/spec/35/) handshakes as key exchange protocols.
+- Support for [`35/WAKU2-NOISE`](https://github.com/waku-org/specs/blob/master/standards/application/noise.md) handshakes as key exchange protocols.
 - Support for TOML config files via `--config-file=<path/to/config.toml>`.
 - Support for `--version` command. This prints the current tagged version (or compiled commit hash, if not on a version).
 - Support for running `store` protocol from a `filter` client, storing only the filtered messages.
@@ -1326,7 +1326,7 @@ Release highlights:
 
 - Added index on `receiverTimestamp` in the SQLite `store` to improve query performance.
 - GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now disabled by default. This is a more secure option.
-- Progress towards dynamic group management for the [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation.
+- Progress towards dynamic group management for the [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation.
 - Nodes with `--keep-alive` enabled now sends more regular pings to keep connections more reliably alive.
 - Disabled `swap` protocol by default.
 - Reduced unnecessary and confusing logging, especially during startup.
@@ -1351,11 +1351,11 @@ Release highlights:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1363,7 +1363,7 @@ The Waku v1 implementation is stable but not under active development.
 
 Release highlights:
 
-- Support for Peer Exchange (PX) when a peer prunes a [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) mesh due to oversubscription. This can significantly increase mesh stability.
+- Support for Peer Exchange (PX) when a peer prunes a [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) mesh due to oversubscription. This can significantly increase mesh stability.
 - Improved start-up times through managing the size of the underlying persistent message storage.
 - New websocket connections are no longer blocked due to parsing failures in other connections.
 
@@ -1371,7 +1371,7 @@ The full list of changes is below.
 
 ### Features
 
-- Support for bootstrapping [`33/WAKU-DISCV5`](https://rfc.vac.dev/spec/33) via [DNS discovery](https://rfc.vac.dev/spec/10/#discovery-methods)
+- Support for bootstrapping [`33/WAKU-DISCV5`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/33/discv5.md) via [DNS discovery](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/10/waku2.md#discovery-methods)
 - Support for GossipSub [Peer Exchange](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange)
 
 ### Changes
@@ -1398,18 +1398,18 @@ The full list of changes is below.
 ### Docs
 
 - Added [RAM requirements](https://github.com/status-im/nim-waku/tree/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/waku/v2#wakunode) to `wakunode2` build instructions
-- Added [tutorial](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/docs/tutorial/rln-chat2-live-testnet.md) on communicating with waku2 test fleets via the chat2 `toy-chat` application in spam-protected mode using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/).
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/docs/tutorial/rln-chat2-live-testnet.md) on communicating with waku2 test fleets via the chat2 `toy-chat` application in spam-protected mode using [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md).
 - Added a [section on bug reporting](https://github.com/status-im/nim-waku/blob/ee96705c7fbe4063b780ac43b7edee2f6c4e351b/README.md#bugs-questions--features) to `wakunode2` README
 - Fixed broken links in the [JSON-RPC API Tutorial](https://github.com/status-im/nim-waku/blob/5ceef37e15a15c52cbc589f0b366018e81a958ef/docs/tutorial/jsonrpc-api.md)
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1417,7 +1417,7 @@ The Waku v1 implementation is stable but not under active development.
 
 Release highlights:
 
-- Working demonstration and integration of [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) in the Waku v2 `toy-chat` application
+- Working demonstration and integration of [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) in the Waku v2 `toy-chat` application
 - Beta support for ambient peer discovery using [a version of Discovery v5](https://github.com/vacp2p/rfc/pull/487)
 - A fix for the issue that caused a `store` node to run out of memory after serving a number of historical queries
 - Ability to configure a `dns4` domain name for a node and resolve other dns-based `multiaddrs`
@@ -1426,8 +1426,8 @@ The full list of changes is below.
 
 ### Features
 
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
-- [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) integrated into chat2 `toy-chat` (available under the `rln` compiler flag)
+- [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) implementation now supports spam-protection for a specific combination of `pubsubTopic` and `contentTopic` (available under the `rln` compiler flag).
+- [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) integrated into chat2 `toy-chat` (available under the `rln` compiler flag)
 - Added support for resolving dns-based `multiaddrs`
 - A Waku v2 node can now be configured with a domain name and `dns4` `multiaddr`
 - Support for ambient peer discovery using [`33/WAKU-DISCV5`](https://github.com/vacp2p/rfc/pull/487)
@@ -1439,7 +1439,7 @@ The full list of changes is below.
 - Introduced a `Timestamp` type (currently an alias for int64).
 - All timestamps changed to nanosecond resolution.
 - `timestamp` field number in WakuMessage object changed from `4` to `10`
-- [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) identifier updated to `/vac/waku/store/2.0.0-beta4`
+- [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) identifier updated to `/vac/waku/store/2.0.0-beta4`
 - `toy-chat` application now uses DNS discovery to connect to existing fleets
 
 ### Fixes
@@ -1452,17 +1452,17 @@ The full list of changes is below.
 - Documented [use of domain certificates](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#enabling-websocket) for secure websockets
 - Documented [how to configure a `dns4` domain name](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#using-dns-discovery-to-connect-to-existing-nodes) for a node
 - Clarified [use of DNS discovery](https://github.com/status-im/nim-waku/tree/2972a5003568848164033da3fe0d7f52a3d54824/waku/v2#using-dns-discovery-to-connect-to-existing-nodes) and provided current URLs for discoverable fleet nodes
-- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/rln-chat2-local-test.md) on using [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) with the chat2 `toy-chat` application
-- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/bridge.md) on how to configure and a use a [`15/WAKU-BRIDGE`](https://rfc.vac.dev/spec/15/)
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/rln-chat2-local-test.md) on using [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) with the chat2 `toy-chat` application
+- Added [tutorial](https://github.com/status-im/nim-waku/blob/2972a5003568848164033da3fe0d7f52a3d54824/docs/tutorial/bridge.md) on how to configure and a use a [`15/WAKU-BRIDGE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/15/bridge.md)
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta4` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1487,7 +1487,7 @@ The full list of changes is below.
 - The WakuInfo `listenStr` is deprecated and replaced with a sequence of `listenAddresses` to accommodate multiple transports
 - Removed cached `peerInfo` on local node. Rely on underlying libp2p switch instead
 - Metrics: added counters for protocol messages
-- Waku v2 node discovery now supports [`31/WAKU2-ENR`](https://rfc.vac.dev/spec/31/)
+- Waku v2 node discovery now supports [`31/WAKU2-ENR`](https://github.com/waku-org/specs/blob/master/standards/core/enr.md)
 - resuming the history via `resume` now takes the answers of all peers in `peerList` into consideration and consolidates them into one deduplicated list
 
 ### Fixes
@@ -1502,12 +1502,12 @@ The full list of changes is below.
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN-RELAY`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`17/WAKU-RLN-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1531,13 +1531,13 @@ The full list of changes is below.
 
 - Pagination of historical queries are now simplified
 - GossipSub [prune backoff period](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) is now the recommended 1 minute
-- Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://rfc.vac.dev/spec/23/)
+- Bridge now uses content topic format according to [23/WAKU2-TOPICS](https://github.com/vacp2p/rfc-index/blob/main/waku/informational/23/topics.md)
 - Better internal differentiation between local and remote peer info
 - Maximum number of libp2p connections is now configurable
 - `udp-port` CLI option has been removed for binaries where it's not used
 - Waku v2 now supports unsecure WebSockets
 - Waku v2 now supports larger message sizes of up to 1 Mb by default
-- Further experimental development of [RLN for spam protection](https://rfc.vac.dev/spec/17/).
+- Further experimental development of [RLN for spam protection](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md).
 These changes are disabled by default under a compiler flag. Changes include:
   - Per-message rate limit proof defined
   - RLN proof generation and verification integrated into Waku v2
@@ -1560,12 +1560,12 @@ These changes are disabled by default under a compiler flag. Changes include:
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`17/WAKU-RLN`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1579,12 +1579,12 @@ This is a patch release that is fully backwards-compatible with release `v0.5`.
 It supports the same [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`17/WAKU-RLN`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1604,7 +1604,7 @@ This release contains the following:
 - Added support for stable version of `relay` protocol, with protocol ID `/vac/waku/relay/2.0.0`.
 - Added optional `timestamp` to `WakuRelayMessage`.
 - Removed `PCRE` as a prerequisite for building Waku v1 and Waku v2.
-- Improved [`swap`](https://rfc.vac.dev/spec/18/) metrics.
+- Improved [`swap`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) metrics.
 
 #### General refactoring
 - Refactored modules according to [Nim best practices](https://hackmd.io/1imOGULZRsed2HpgmzGleA).
@@ -1622,21 +1622,21 @@ This release contains the following:
   - Renamed the `timestamp` column to `receiverTimestamp` and changes its type to `REAL`.
 
 #### API
-- Added optional `timestamp` to [`WakuRelayMessage`](https://rfc.vac.dev/spec/16/#wakurelaymessage) on JSON-RPC API.
+- Added optional `timestamp` to [`WakuRelayMessage`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/16/rpc.md) on JSON-RPC API.
 
 ### Fixes
-- Conversion between topics for the Waku v1 <-> v2 bridge now follows the [RFC recommendation](https://rfc.vac.dev/spec/23/).
-- Fixed field order of `HistoryResponse` protobuf message: the field numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://rfc.vac.dev/spec/13/) specs.
+- Conversion between topics for the Waku v1 <-> v2 bridge now follows the [RFC recommendation](https://github.com/vacp2p/rfc-index/blob/main/waku/informational/23/topics.md).
+- Fixed field order of `HistoryResponse` protobuf message: the field numbers of the `HistoryResponse` are shifted up by one to match up the [13/WAKU2-STORE](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) specs.
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `stable` | `/vac/waku/relay/2.0.0` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`17/WAKU-RLN`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1646,20 +1646,20 @@ This release contains the following:
 
 ### Features
 
-- Initial [`toy-chat` implementation](https://rfc.vac.dev/spec/22/)
+- Initial [`toy-chat` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/informational/22/toy-chat.md)
 
 ### Changes
 
 - The [toy-chat application](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md) can now perform `lightpush` and request content-filtered messages from remote peers.
 - The [toy-chat application](https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md) now uses default content topic `/toy-chat/2/huilong/proto`
 - Improve `toy-chat` [briding to matterbridge]((https://github.com/status-im/nim-waku/blob/master/docs/tutorial/chat2.md#bridge-messages-between-chat2-and-matterbridge))
-- Improve [`swap`](https://rfc.vac.dev/spec/18/) logging and enable soft mode by default
+- Improve [`swap`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) logging and enable soft mode by default
 - Content topics are no longer in a redundant nested structure
 - Improve error handling
 
 #### API
 
-- [JSON-RPC Store API](https://rfc.vac.dev/spec/16): Added an optional time-based query to filter historical messages.
+- [JSON-RPC Store API](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/16/rpc.md): Added an optional time-based query to filter historical messages.
 - [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): Added `resume` method.
 
 ### Fixes
@@ -1667,16 +1667,16 @@ This release contains the following:
 - Connections between nodes no longer become unstable due to keep-alive errors if mesh grows large
 - Re-enable `lightpush` tests and fix Windows CI failure
 
-The [Waku v2 suite of protocols](https://rfc.vac.dev/) are still in a raw/draft state.
+The [Waku v2 suite of protocols](https://github.com/waku-org/specs) are still in a raw/draft state.
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`17/WAKU-RLN`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `draft` | `/vac/waku/swap/2.0.0-beta1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 
 The Waku v1 implementation is stable but not under active development.
 
@@ -1686,11 +1686,11 @@ This release contains the following:
 
 ### Features
 
-- Start of [`RLN relay` implementation](https://rfc.vac.dev/spec/17/)
-- Start of [`swap` implementation](https://rfc.vac.dev/spec/18/)
-- Start of [fault-tolerant `store` implementation](https://rfc.vac.dev/spec/21/)
-- Initial [`bridge` implementation](https://rfc.vac.dev/spec/15/) between Waku v1 and v2 protocols
-- Initial [`lightpush` implementation](https://rfc.vac.dev/spec/19/)
+- Start of [`RLN relay` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md)
+- Start of [`swap` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md)
+- Start of [fault-tolerant `store` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/application/21/fault-tolerant-store.md)
+- Initial [`bridge` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/15/bridge.md) between Waku v1 and v2 protocols
+- Initial [`lightpush` implementation](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md)
 - A peer manager for `relay`, `filter`, `store` and `swap` peers
 - Persistent storage for peers: A node with this feature enabled will now attempt to reconnect to `relay` peers after a restart. It will respect the gossipsub [PRUNE backoff](https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#prune-backoff-and-peer-exchange) period before attempting to do so.
 - `--persist-peers` CLI option to persist peers in local storage
@@ -1703,9 +1703,9 @@ This release contains the following:
 #### General refactoring
 
 - Split out `waku_types` types into the right place; create `utils` folder.
-- Change type of `contentTopic` in [`ContentFilter`](https://rfc.vac.dev/spec/12/#protobuf) to `string`.
-- Replace sequence of `contentTopics` in [`ContentFilter`](https://rfc.vac.dev/spec/12/#protobuf) with a single `contentTopic`.
-- Add `timestamp` field to [`WakuMessage`](https://rfc.vac.dev/spec/14/#payloads).
+- Change type of `contentTopic` in [`ContentFilter`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md#protobuf) to `string`.
+- Replace sequence of `contentTopics` in [`ContentFilter`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md#protobuf) with a single `contentTopic`.
+- Add `timestamp` field to [`WakuMessage`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/14/message.md#payloads).
 - Ensure CLI config parameters use a consistent naming scheme. Summary of changes [here](https://github.com/status-im/nim-waku/pull/543).
 
 #### Docs
@@ -1724,10 +1724,10 @@ Several clarifications and additions aimed at contributors, including
 
 #### API
 
-- [JSON-RPC Admin API](https://rfc.vac.dev/spec/16): Added a [`post` method](https://rfc.vac.dev/spec/16/#post_waku_v2_admin_v1_peers) to connect to peers on an ad-hoc basis.
+- [JSON-RPC Admin API](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/16/rpc.md): Added a [`post` method](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/16/rpc.md#post_waku_v2_admin_v1_peers) to connect to peers on an ad-hoc basis.
 - [Nim API](https://github.com/status-im/nim-waku/blob/master/docs/api/v2/node.md): PubSub topic `subscribe` and `unsubscribe` no longer returns a future (removed `async` designation).
-- [`HistoryQuery`](https://rfc.vac.dev/spec/13/#historyquery): Added  `pubsubTopic` field. Message history can now be filtered and queried based on the `pubsubTopic`.
-- [`HistoryQuery`](https://rfc.vac.dev/spec/13/#historyquery): Added support for querying a time window by specifying start and end times.
+- [`HistoryQuery`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md#historyquery): Added  `pubsubTopic` field. Message history can now be filtered and queried based on the `pubsubTopic`.
+- [`HistoryQuery`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md#historyquery): Added support for querying a time window by specifying start and end times.
 
 ### Fixes
 
@@ -1735,16 +1735,16 @@ Several clarifications and additions aimed at contributors, including
 - Content filtering now works on any PubSub topic and not just the `waku` default.
 - Nodes can now mount protocols without supporting `relay` as a capability
 
-The [Waku v2 suite of protocols](https://rfc.vac.dev/) are still in a raw/draft state.
+The [Waku v2 suite of protocols](https://github.com/waku-org/specs) are still in a raw/draft state.
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
 | ---: | :---: | :--- |
-| [`17/WAKU-RLN`](https://rfc.vac.dev/spec/17/) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
-| [`18/WAKU2-SWAP`](https://rfc.vac.dev/spec/18/) | `raw` | `/vac/waku/swap/2.0.0-alpha1` |
-| [`19/WAKU2-LIGHTPUSH`](https://rfc.vac.dev/spec/19/) | `raw` | `/vac/waku/lightpush/2.0.0-alpha1` |
-| [`11/WAKU2-RELAY`](https://rfc.vac.dev/spec/11/) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
-| [`12/WAKU2-FILTER`](https://rfc.vac.dev/spec/12/) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
-| [`13/WAKU2-STORE`](https://rfc.vac.dev/spec/13/) | `draft` | `/vac/waku/store/2.0.0-beta3` |
+| [`17/WAKU-RLN`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/17/rln-relay.md) | `raw` | `/vac/waku/waku-rln-relay/2.0.0-alpha1` |
+| [`18/WAKU2-SWAP`](https://github.com/vacp2p/rfc-index/blob/main/waku/deprecated/18/swap.md) | `raw` | `/vac/waku/swap/2.0.0-alpha1` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `raw` | `/vac/waku/lightpush/2.0.0-alpha1` |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `draft` | `/vac/waku/relay/2.0.0-beta2` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta3` |
 
 The Waku v1 implementation is stable but not under active development.
 
