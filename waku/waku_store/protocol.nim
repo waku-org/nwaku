@@ -91,6 +91,7 @@ proc handleQueryRequest*(
 
   res.requestId = requestId
   res.statusCode = 200
+  res.statusDesc = "OK"
 
   info "sending store query response",
     peerId = requestor, requestId = requestId, messages = res.messages.len
