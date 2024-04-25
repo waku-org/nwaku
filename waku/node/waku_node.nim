@@ -832,6 +832,7 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   var res = StoreQueryResponse()
 
   res.statusCode = 200
+  res.statusDesc = "OK"
   res.messages = response.hashes.zip(response.messages).mapIt(
       WakuMessageKeyValue(messageHash: it[0], message: it[1])
     )
