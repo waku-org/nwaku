@@ -3,256 +3,208 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/options, nimcrypto/hash
-import ../common/[protobuf, paging], ../waku_core, ./common, ./rpc
+import std/options, stew/arrayops, nimcrypto/hash
+import ../common/[protobuf, paging], ../waku_core, ./common
 
 const DefaultMaxRpcSize* = -1
 
-## Pagination
+### Request ###
 
-proc encode*(index: PagingIndexRPC): ProtoBuffer =
-  ## Encode an Index object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
+proc encode*(req: StoreQueryRequest): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  pb.write3(1, index.digest.data)
-  pb.write3(2, zint64(index.receiverTime))
-  pb.write3(3, zint64(index.senderTime))
-  pb.write3(4, index.pubsubTopic)
-  pb.finish3()
+  pb.write3(1, req.requestId)
+  pb.write3(2, req.includeData)
 
-  pb
+  pb.write3(3, req.pubsubTopic)
 
-proc decode*(T: type PagingIndexRPC, buffer: seq[byte]): ProtobufResult[T] =
-  ## creates and returns an Index object out of buffer
-  var rpc = PagingIndexRPC()
-  let pb = initProtoBuffer(buffer)
+  for contentTopic in req.contentTopics:
+    pb.write3(4, contentTopic)
 
-  var data: seq[byte]
-  if not ?pb.getField(1, data):
-    return err(ProtobufError.missingRequiredField("digest"))
-  else:
-    var digest = MessageDigest()
-    for count, b in data:
-      digest.data[count] = b
-
-    rpc.digest = digest
-
-  var receiverTime: zint64
-  if not ?pb.getField(2, receiverTime):
-    return err(ProtobufError.missingRequiredField("receiver_time"))
-  else:
-    rpc.receiverTime = int64(receiverTime)
-
-  var senderTime: zint64
-  if not ?pb.getField(3, senderTime):
-    return err(ProtobufError.missingRequiredField("sender_time"))
-  else:
-    rpc.senderTime = int64(senderTime)
-
-  var pubsubTopic: string
-  if not ?pb.getField(4, pubsubTopic):
-    return err(ProtobufError.missingRequiredField("pubsub_topic"))
-  else:
-    rpc.pubsubTopic = pubsubTopic
-
-  ok(rpc)
-
-proc encode*(rpc: PagingInfoRPC): ProtoBuffer =
-  ## Encodes a PagingInfo object into a ProtoBuffer
-  ## returns the resultant ProtoBuffer
-  var pb = initProtoBuffer()
-
-  pb.write3(1, rpc.pageSize)
-  pb.write3(2, rpc.cursor.map(encode))
-  pb.write3(
-    3,
-    rpc.direction.map(
-      proc(d: PagingDirection): uint32 =
-        uint32(ord(d))
-    ),
-  )
-  pb.finish3()
-
-  pb
-
-proc decode*(T: type PagingInfoRPC, buffer: seq[byte]): ProtobufResult[T] =
-  ## creates and returns a PagingInfo object out of buffer
-  var rpc = PagingInfoRPC()
-  let pb = initProtoBuffer(buffer)
-
-  var pageSize: uint64
-  if not ?pb.getField(1, pageSize):
-    rpc.pageSize = none(uint64)
-  else:
-    rpc.pageSize = some(pageSize)
-
-  var cursorBuffer: seq[byte]
-  if not ?pb.getField(2, cursorBuffer):
-    rpc.cursor = none(PagingIndexRPC)
-  else:
-    let cursor = ?PagingIndexRPC.decode(cursorBuffer)
-    rpc.cursor = some(cursor)
-
-  var direction: uint32
-  if not ?pb.getField(3, direction):
-    rpc.direction = none(PagingDirection)
-  else:
-    rpc.direction = some(PagingDirection(direction))
-
-  ok(rpc)
-
-## Wire protocol
-
-proc encode*(rpc: HistoryContentFilterRPC): ProtoBuffer =
-  var pb = initProtoBuffer()
-
-  pb.write3(1, rpc.contentTopic)
-  pb.finish3()
-
-  pb
-
-proc decode*(T: type HistoryContentFilterRPC, buffer: seq[byte]): ProtobufResult[T] =
-  let pb = initProtoBuffer(buffer)
-
-  var contentTopic: ContentTopic
-  if not ?pb.getField(1, contentTopic):
-    return err(ProtobufError.missingRequiredField("content_topic"))
-  ok(HistoryContentFilterRPC(contentTopic: contentTopic))
-
-proc encode*(rpc: HistoryQueryRPC): ProtoBuffer =
-  var pb = initProtoBuffer()
-  pb.write3(2, rpc.pubsubTopic)
-
-  for filter in rpc.contentFilters:
-    pb.write3(3, filter.encode())
-
-  pb.write3(4, rpc.pagingInfo.map(encode))
   pb.write3(
     5,
-    rpc.startTime.map(
+    req.startTime.map(
       proc(time: int64): zint64 =
         zint64(time)
     ),
   )
   pb.write3(
     6,
-    rpc.endTime.map(
+    req.endTime.map(
       proc(time: int64): zint64 =
         zint64(time)
     ),
   )
+
+  for hash in req.messagehashes:
+    pb.write3(7, hash)
+
+  pb.write3(8, req.paginationCursor)
+  pb.write3(9, uint32(req.paginationForward))
+  pb.write3(10, req.paginationLimit)
+
   pb.finish3()
 
-  pb
+  return pb
 
-proc decode*(T: type HistoryQueryRPC, buffer: seq[byte]): ProtobufResult[T] =
-  var rpc = HistoryQueryRPC()
+proc decode*(
+    T: type StoreQueryRequest, buffer: seq[byte]
+): ProtobufResult[StoreQueryRequest] =
+  var req = StoreQueryRequest()
   let pb = initProtoBuffer(buffer)
 
+  if not ?pb.getField(1, req.requestId):
+    return err(ProtobufError.missingRequiredField("request_id"))
+
+  var inclData: uint
+  if not ?pb.getField(2, inclData):
+    req.includeData = false
+  else:
+    req.includeData = inclData == 1
+
   var pubsubTopic: string
-  if not ?pb.getField(2, pubsubTopic):
-    rpc.pubsubTopic = none(string)
+  if not ?pb.getField(3, pubsubTopic):
+    req.pubsubTopic = none(string)
   else:
-    rpc.pubsubTopic = some(pubsubTopic)
+    req.pubsubTopic = some(pubsubTopic)
 
-  var buffs: seq[seq[byte]]
-  if not ?pb.getRepeatedField(3, buffs):
-    rpc.contentFilters = @[]
+  var topics: seq[string]
+  if not ?pb.getRepeatedField(4, topics):
+    req.contentTopics = @[]
   else:
-    for pb in buffs:
-      let filter = ?HistoryContentFilterRPC.decode(pb)
-      rpc.contentFilters.add(filter)
+    req.contentTopics = topics
 
-  var pagingInfoBuffer: seq[byte]
-  if not ?pb.getField(4, pagingInfoBuffer):
-    rpc.pagingInfo = none(PagingInfoRPC)
+  var start: zint64
+  if not ?pb.getField(5, start):
+    req.startTime = none(Timestamp)
   else:
-    let pagingInfo = ?PagingInfoRPC.decode(pagingInfoBuffer)
-    rpc.pagingInfo = some(pagingInfo)
-
-  var startTime: zint64
-  if not ?pb.getField(5, startTime):
-    rpc.startTime = none(int64)
-  else:
-    rpc.startTime = some(int64(startTime))
+    req.startTime = some(Timestamp(int64(start)))
 
   var endTime: zint64
   if not ?pb.getField(6, endTime):
-    rpc.endTime = none(int64)
+    req.endTime = none(Timestamp)
   else:
-    rpc.endTime = some(int64(endTime))
+    req.endTime = some(Timestamp(int64(endTime)))
 
-  ok(rpc)
+  var buffer: seq[seq[byte]]
+  if not ?pb.getRepeatedField(7, buffer):
+    req.messageHashes = @[]
+  else:
+    req.messageHashes = newSeqOfCap[WakuMessageHash](buffer.len)
+    for buf in buffer:
+      var hash: WakuMessageHash
+      discard copyFrom[byte](hash, buf)
+      req.messageHashes.add(hash)
 
-proc encode*(response: HistoryResponseRPC): ProtoBuffer =
+  var cursor: seq[byte]
+  if not ?pb.getField(8, cursor):
+    req.paginationCursor = none(WakuMessageHash)
+  else:
+    var hash: WakuMessageHash
+    discard copyFrom[byte](hash, cursor)
+    req.paginationCursor = some(hash)
+
+  var paging: uint32
+  if not ?pb.getField(9, paging):
+    req.paginationForward = PagingDirection.default()
+  else:
+    req.paginationForward = PagingDirection(paging)
+
+  var limit: uint64
+  if not ?pb.getField(10, limit):
+    req.paginationLimit = none(uint64)
+  else:
+    req.paginationLimit = some(limit)
+
+  return ok(req)
+
+### Response ###
+
+proc encode*(keyValue: WakuMessageKeyValue): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  for rpc in response.messages:
-    pb.write3(2, rpc.encode())
+  pb.write3(1, keyValue.messageHash)
+  pb.write3(2, keyValue.message.encode())
 
-  pb.write3(3, response.pagingInfo.map(encode))
-  pb.write3(4, uint32(ord(response.error)))
   pb.finish3()
 
-  pb
+  return pb
 
-proc decode*(T: type HistoryResponseRPC, buffer: seq[byte]): ProtobufResult[T] =
-  var rpc = HistoryResponseRPC()
-  let pb = initProtoBuffer(buffer)
-
-  var messages: seq[seq[byte]]
-  if ?pb.getRepeatedField(2, messages):
-    for pb in messages:
-      let message = ?WakuMessage.decode(pb)
-      rpc.messages.add(message)
-  else:
-    rpc.messages = @[]
-
-  var pagingInfoBuffer: seq[byte]
-  if ?pb.getField(3, pagingInfoBuffer):
-    let pagingInfo = ?PagingInfoRPC.decode(pagingInfoBuffer)
-    rpc.pagingInfo = some(pagingInfo)
-  else:
-    rpc.pagingInfo = none(PagingInfoRPC)
-
-  var error: uint32
-  if not ?pb.getField(4, error):
-    return err(ProtobufError.missingRequiredField("error"))
-  else:
-    rpc.error = HistoryResponseErrorRPC.parse(error)
-
-  ok(rpc)
-
-proc encode*(rpc: HistoryRPC): ProtoBuffer =
+proc encode*(res: StoreQueryResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  pb.write3(1, rpc.requestId)
-  pb.write3(2, rpc.query.map(encode))
-  pb.write3(3, rpc.response.map(encode))
+  pb.write3(1, res.requestId)
+
+  pb.write3(2, res.statusCode)
+  pb.write3(3, res.statusDesc)
+
+  for msg in res.messages:
+    pb.write3(4, msg.encode())
+
+  pb.write3(5, res.paginationCursor)
+
   pb.finish3()
 
-  pb
+  return pb
 
-proc decode*(T: type HistoryRPC, buffer: seq[byte]): ProtobufResult[T] =
-  var rpc = HistoryRPC()
+proc decode*(
+    T: type WakuMessageKeyValue, buffer: seq[byte]
+): ProtobufResult[WakuMessageKeyValue] =
+  var keyValue = WakuMessageKeyValue()
   let pb = initProtoBuffer(buffer)
 
-  if not ?pb.getField(1, rpc.requestId):
+  var buf: seq[byte]
+  if not ?pb.getField(1, buf):
+    return err(ProtobufError.missingRequiredField("message_hash"))
+  else:
+    var hash: WakuMessageHash
+    discard copyFrom[byte](hash, buf)
+    keyValue.messagehash = hash
+
+  var proto: ProtoBuffer
+  if not ?pb.getField(2, proto):
+    return err(ProtobufError.missingRequiredField("message"))
+  else:
+    keyValue.message = ?WakuMessage.decode(proto.buffer)
+
+  return ok(keyValue)
+
+proc decode*(
+    T: type StoreQueryResponse, buffer: seq[byte]
+): ProtobufResult[StoreQueryResponse] =
+  var res = StoreQueryResponse()
+  let pb = initProtoBuffer(buffer)
+
+  if not ?pb.getField(1, res.requestId):
     return err(ProtobufError.missingRequiredField("request_id"))
 
-  var queryBuffer: seq[byte]
-  if not ?pb.getField(2, queryBuffer):
-    rpc.query = none(HistoryQueryRPC)
+  var code: uint32
+  if not ?pb.getField(2, code):
+    return err(ProtobufError.missingRequiredField("status_code"))
   else:
-    let query = ?HistoryQueryRPC.decode(queryBuffer)
-    rpc.query = some(query)
+    res.statusCode = code
 
-  var responseBuffer: seq[byte]
-  if not ?pb.getField(3, responseBuffer):
-    rpc.response = none(HistoryResponseRPC)
+  var desc: string
+  if not ?pb.getField(3, desc):
+    return err(ProtobufError.missingRequiredField("status_desc"))
   else:
-    let response = ?HistoryResponseRPC.decode(responseBuffer)
-    rpc.response = some(response)
+    res.statusDesc = desc
 
-  ok(rpc)
+  var buffer: seq[seq[byte]]
+  if not ?pb.getRepeatedField(4, buffer):
+    res.messages = @[]
+  else:
+    res.messages = newSeqOfCap[WakuMessageKeyValue](buffer.len)
+    for buf in buffer:
+      let msg = ?WakuMessageKeyValue.decode(buf)
+      res.messages.add(msg)
+
+  var cursor: seq[byte]
+  if not ?pb.getField(5, cursor):
+    res.paginationCursor = none(WakuMessageHash)
+  else:
+    var hash: WakuMessageHash
+    discard copyFrom[byte](hash, cursor)
+    res.paginationCursor = some(hash)
+
+  return ok(res)
