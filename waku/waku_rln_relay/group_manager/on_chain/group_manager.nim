@@ -557,6 +557,8 @@ proc getAndHandleEvents(
   else:
     trace "rln metadata persisted", blockNumber = g.latestProcessedBlock
 
+  return true
+
 proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
   g.blockFetchingActive = false
 
