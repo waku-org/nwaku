@@ -21,29 +21,27 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-      - uses: actions/checkout@v3
-        name: Checkout code
-        id: checkout
-      - uses: dorny/paths-filter@v2
-        id: filter
-        with:
-          filters: |
-            common:
-            - '.github/workflows/**'
-            - 'vendor/**'
-            - 'Makefile'
-            - 'waku.nimble'
-            - 'library/**'
-
-            v2:
-            - 'waku/**'
-            - 'apps/**'
-            - 'tools/**'
-            - 'tests/all_tests_v2.nim'
-            - 'tests/**'
-
-            docker:
-            - 'docker/**'
+    - uses: actions/checkout@v3
+      name: Checkout code
+      id: checkout
+    - uses: dorny/paths-filter@v2
+      id: filter
+      with:
+        filters: |
+          common:
+          - '.github/workflows/**'
+          - 'vendor/**'
+          - 'Makefile'
+          - 'waku.nimble'
+          - 'library/**'
+          v2:
+          - 'waku/**'
+          - 'apps/**'
+          - 'tools/**'
+          - 'tests/all_tests_v2.nim'
+          - 'tests/**'
+          docker:
+          - 'docker/**'
 
     outputs:
       common: ${{ steps.filter.outputs.common }}
