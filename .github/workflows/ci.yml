@@ -111,6 +111,11 @@ jobs:
 
       - name: Run tests
         run: |
+          if [ ${{ runner.os }} == "macOS" ]; then
+            brew unlink postgresql@14
+            brew link libpq --force
+          fi
+
           if [ ${{ runner.os }} == "Linux" ]; then
             sudo docker run --rm -d -e POSTGRES_PASSWORD=test123 -p 5432:5432 postgres:15.4-alpine3.18
           fi
