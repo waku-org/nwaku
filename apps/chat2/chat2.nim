@@ -45,7 +45,6 @@ import
   ../../waku/node/peer_manager,
   ../../waku/factory/builder,
   ../../waku/common/utils/nat,
-  ../../waku/waku_relay,
   ./config_chat2
 
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub
@@ -523,7 +522,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       if msg.contentTopic == chat.contentTopic:
         chat.printReceivedMessage(msg)
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler)))
+    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
 
     if conf.rlnRelay:
       info "WakuRLNRelay is enabled"

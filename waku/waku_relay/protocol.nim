@@ -60,58 +60,58 @@ const TopicParameters = TopicParams(
 )
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
-const GossipsubParameters = GossipSubParams.init(
-  explicit = true,
-  pruneBackoff = chronos.minutes(1),
-  unsubscribeBackoff = chronos.seconds(5),
-  floodPublish = true,
-  gossipFactor = 0.25,
-  d = 6,
-  dLow = 4,
-  dHigh = 8,
-  dScore = 6,
-  dOut = 3,
-  dLazy = 6,
-  heartbeatInterval = chronos.seconds(1),
-  historyLength = 6,
-  historyGossip = 3,
-  fanoutTTL = chronos.minutes(1),
-  seenTTL = chronos.minutes(2),
+const GossipsubParameters = GossipSubParams(
+  explicit: true,
+  pruneBackoff: chronos.minutes(1),
+  unsubscribeBackoff: chronos.seconds(5),
+  floodPublish: true,
+  gossipFactor: 0.25,
+  d: 6,
+  dLow: 4,
+  dHigh: 8,
+  dScore: 6,
+  dOut: 3,
+  dLazy: 6,
+  heartbeatInterval: chronos.seconds(1),
+  historyLength: 6,
+  historyGossip: 3,
+  fanoutTTL: chronos.minutes(1),
+  seenTTL: chronos.minutes(2),
 
   # no gossip is sent to peers below this score
-  gossipThreshold = -100,
+  gossipThreshold: -100,
 
   # no self-published msgs are sent to peers below this score
-  publishThreshold = -1000,
+  publishThreshold: -1000,
 
   # used to trigger disconnections + ignore peer if below this score
-  graylistThreshold = -10000,
+  graylistThreshold: -10000,
 
   # grafts better peers if the mesh median score drops below this. unset.
-  opportunisticGraftThreshold = 0,
+  opportunisticGraftThreshold: 0,
 
   # how often peer scoring is updated
-  decayInterval = chronos.seconds(12),
+  decayInterval: chronos.seconds(12),
 
   # below this we consider the parameter to be zero
-  decayToZero = 0.01,
+  decayToZero: 0.01,
 
   # remember peer score during x after it disconnects
-  retainScore = chronos.minutes(10),
+  retainScore: chronos.minutes(10),
 
   # p5: application specific, unset
-  appSpecificWeight = 0.0,
+  appSpecificWeight: 0.0,
 
   # p6: penalizes peers sharing more than threshold ips
-  ipColocationFactorWeight = -50.0,
-  ipColocationFactorThreshold = 5.0,
+  ipColocationFactorWeight: -50.0,
+  ipColocationFactorThreshold: 5.0,
 
   # p7: penalizes bad behaviour (weight and decay)
-  behaviourPenaltyWeight = -10.0,
-  behaviourPenaltyDecay = 0.986,
+  behaviourPenaltyWeight: -10.0,
+  behaviourPenaltyDecay: 0.986,
 
   # triggers disconnections of bad peers aka score <graylistThreshold
-  disconnectBadPeers = true,
+  disconnectBadPeers: true,
 )
 
 type
