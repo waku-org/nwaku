@@ -244,15 +244,15 @@ proc setupProtocols(
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
     # Store setup
+    let rateLimitSetting: RateLimitSetting =
+      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
     try:
-      let rateLimitSetting: RateLimitSetting =
-        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
       await mountStore(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
     try:
-      await mountLegacyStore(node)
+      await mountLegacyStore(node, rateLimitSetting)
     except CatchableError:
       return
         err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
