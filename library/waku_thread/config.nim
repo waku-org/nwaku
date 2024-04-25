@@ -175,7 +175,7 @@ proc parseRLNRelay(jsonNode: JsonNode, conf: var WakuNodeConf, errorResp: var st
     return false
 
   conf.rlnRelay = jsonNode["enabled"].getBool()
-  conf.rlnRelayCredPath = jsonNode{"cred-path"}.getStr()
+  conf.rlnRelayCredPath = jsonNode{"cred-password"}.getStr()
   conf.rlnRelayEthClientAddress = EthRpcUrl.parseCmdArg(jsonNode{"eth-client-address"}.getStr("http://localhost:8540"))
   conf.rlnRelayEthContractAddress = jsonNode{"eth-contract-address"}.getStr()
   conf.rlnRelayCredPassword = jsonNode{"cred-password"}.getStr()
