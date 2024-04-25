@@ -19,16 +19,11 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../../waku/common/utils/nat,
-  ../../waku/common/utils/parse_size_units,
-  ../../waku/common/databases/db_sqlite,
-  ../../waku/waku_archive/driver/builder,
-  ../../waku/waku_archive/retention_policy/builder,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
-  ../../waku/node/peer_manager/peer_store/waku_peer_storage,
+  ../../waku/node/health_monitor,
   ../../waku/waku_api/message_cache,
   ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
@@ -43,10 +38,8 @@ import
   ../../waku/discovery/waku_dnsdisc,
   ../../waku/discovery/waku_discv5,
   ../../waku/waku_enr/sharding,
-  ../../waku/waku_peer_exchange,
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
-  ../../waku/waku_lightpush/common,
   ../../waku/waku_filter_v2,
   ../../waku/factory/node_factory,
   ../../waku/factory/internal_config,
@@ -65,12 +58,12 @@ type
     rng: ref HmacDrbgContext
     key: crypto.PrivateKey
 
-    wakuDiscv5: Option[WakuDiscoveryV5]
+    wakuDiscv5*: Option[WakuDiscoveryV5]
     dynamicBootstrapNodes: seq[RemotePeerInfo]
 
     node: WakuNode
 
-    restServer: Option[WakuRestServerRef]
+    restServer*: WakuRestServerRef
     metricsServer: Option[MetricsHttpServerRef]
 
   AppResult*[T] = Result[T, string]
@@ -155,7 +148,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
 
 ## Setup DiscoveryV5
 
-proc setupDiscoveryV5(app: App): WakuDiscoveryV5 =
+proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
   let dynamicBootstrapEnrs =
     app.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
 
@@ -279,138 +272,6 @@ proc startApp*(app: var App): AppResult[void] =
 
   return ok()
 
-## Monitoring and external interfaces
-
-proc startRestServer(
-    app: App, address: IpAddress, port: Port, conf: WakuNodeConf
-): AppResult[WakuRestServerRef] =
-  # Used to register api endpoints that are not currently installed as keys,
-  # values are holding error messages to be returned to the client
-  var notInstalledTab: Table[string, string] = initTable[string, string]()
-
-  let requestErrorHandler: RestRequestErrorHandler = proc(
-      error: RestRequestError, request: HttpRequestRef
-  ): Future[HttpResponseRef] {.async: (raises: [CancelledError]).} =
-    try:
-      case error
-      of RestRequestError.Invalid:
-        return await request.respond(Http400, "Invalid request", HttpTable.init())
-      of RestRequestError.NotFound:
-        let paths = request.rawPath.split("/")
-        let rootPath =
-          if len(paths) > 1:
-            paths[1]
-          else:
-            ""
-        notInstalledTab.withValue(rootPath, errMsg):
-          return await request.respond(Http404, errMsg[], HttpTable.init())
-        do:
-          return await request.respond(
-            Http400,
-            "Bad request initiated. Invalid path or method used.",
-            HttpTable.init(),
-          )
-      of RestRequestError.InvalidContentBody:
-        return await request.respond(Http400, "Invalid content body", HttpTable.init())
-      of RestRequestError.InvalidContentType:
-        return await request.respond(Http400, "Invalid content type", HttpTable.init())
-      of RestRequestError.Unexpected:
-        return defaultResponse()
-    except HttpWriteError:
-      error "Failed to write response to client", error = getCurrentExceptionMsg()
-      discard
-
-    return defaultResponse()
-
-  let allowedOrigin =
-    if len(conf.restAllowOrigin) > 0:
-      some(conf.restAllowOrigin.join(","))
-    else:
-      none(string)
-
-  let server =
-    ?newRestHttpServer(
-      address,
-      port,
-      allowedOrigin = allowedOrigin,
-      requestErrorHandler = requestErrorHandler,
-    )
-
-  ## Admin REST API
-  if conf.restAdmin:
-    installAdminApiHandlers(server.router, app.node)
-
-  ## Debug REST API
-  installDebugApiHandlers(server.router, app.node)
-
-  ## Health REST API
-  installHealthApiHandler(server.router, app.node)
-
-  ## Relay REST API
-  if conf.relay:
-    let cache = MessageCache.init(int(conf.restRelayCacheCapacity))
-
-    let handler = messageCacheHandler(cache)
-
-    for pubsubTopic in conf.pubsubTopics:
-      cache.pubsubSubscribe(pubsubTopic)
-      app.node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
-
-    for contentTopic in conf.contentTopics:
-      cache.contentSubscribe(contentTopic)
-      app.node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
-
-    installRelayApiHandlers(server.router, app.node, cache)
-  else:
-    notInstalledTab["relay"] =
-      "/relay endpoints are not available. Please check your configuration: --relay"
-
-  ## Filter REST API
-  if conf.filternode != "" and app.node.wakuFilterClient != nil:
-    let filterCache = MessageCache.init()
-
-    let filterDiscoHandler =
-      if app.wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Filter))
-      else:
-        none(DiscoveryHandler)
-
-    rest_filter_api.installFilterRestApiHandlers(
-      server.router, app.node, filterCache, filterDiscoHandler
-    )
-  else:
-    notInstalledTab["filter"] =
-      "/filter endpoints are not available. Please check your configuration: --filternode"
-
-  ## Store REST API
-  let storeDiscoHandler =
-    if app.wakuDiscv5.isSome():
-      some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Store))
-    else:
-      none(DiscoveryHandler)
-
-  installStoreApiHandlers(server.router, app.node, storeDiscoHandler)
-
-  ## Light push API
-  if conf.lightpushnode != "" and app.node.wakuLightpushClient != nil:
-    let lightDiscoHandler =
-      if app.wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(app.wakuDiscv5.get(), Lightpush))
-      else:
-        none(DiscoveryHandler)
-
-    rest_lightpush_api.installLightPushRequestHandler(
-      server.router, app.node, lightDiscoHandler
-    )
-  else:
-    notInstalledTab["lightpush"] =
-      "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
-
-  server.start()
-  info "Starting REST HTTP server", url = "http://" & $address & ":" & $port & "/"
-
-  ok(server)
-
 proc startMetricsServer(
     serverIp: IpAddress, serverPort: Port
 ): AppResult[MetricsHttpServerRef] =
@@ -433,17 +294,7 @@ proc startMetricsLogging(): AppResult[void] =
   startMetricsLog()
   ok()
 
-proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
-  if app.conf.rest:
-    let startRestServerRes = startRestServer(
-      app, app.conf.restAddress, Port(app.conf.restPort + app.conf.portsShift), app.conf
-    )
-    if startRestServerRes.isErr():
-      error "Starting REST server failed. Continuing in current state.",
-        error = startRestServerRes.error
-    else:
-      app.restServer = some(startRestServerRes.value)
-
+proc startMetricsServerAndLogging*(app: var App): AppResult[void] =
   if app.conf.metricsServer:
     let startMetricsServerRes = startMetricsServer(
       app.conf.metricsServerAddress,
@@ -466,8 +317,8 @@ proc setupMonitoringAndExternalInterfaces*(app: var App): AppResult[void] =
 # App shutdown
 
 proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
-  if app.restServer.isSome():
-    await app.restServer.get().stop()
+  if app.conf.rest:
+    await app.restServer.stop()
 
   if app.metricsServer.isSome():
     await app.metricsServer.get().stop()

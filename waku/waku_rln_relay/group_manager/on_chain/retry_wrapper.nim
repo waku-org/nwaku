@@ -10,12 +10,12 @@ type RetryStrategy* = object
 proc new*(T: type RetryStrategy): RetryStrategy =
   return RetryStrategy(shouldRetry: true, retryDelay: 4000.millis, retryCount: 15)
 
-proc retryWrapper*[T](
+template retryWrapper*(
     retryStrategy: RetryStrategy,
     errStr: string,
-    errCallback: OnFatalErrorHandler = nil,
-    fut: Future[T],
-): Future[T] {.async.} =
+    errCallback: OnFatalErrorHandler,
+    body: untyped,
+): auto =
   var retryCount = retryStrategy.retryCount
   var shouldRetry = retryStrategy.shouldRetry
   var exceptionMessage = ""
@@ -28,10 +28,5 @@ proc retryWrapper*[T](
       exceptionMessage = getCurrentExceptionMsg()
       await sleepAsync(retryStrategy.retryDelay)
   if shouldRetry:
-    if errCallback == nil:
-      raise newException(
-        CatchableError, errStr & " errCallback == nil: " & exceptionMessage
-      )
-    else:
-      errCallback(errStr & ": " & exceptionMessage)
-      return
+    errCallback(errStr & ": " & exceptionMessage)
+    return

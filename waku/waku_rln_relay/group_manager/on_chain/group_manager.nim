@@ -128,10 +128,11 @@ proc resultifiedInitGuard(g: OnchainGroupManager): GroupManagerResult[void] =
   except CatchableError:
     return err("OnchainGroupManager is not initialized")
 
-proc retryWrapper[T](
-    g: OnchainGroupManager, fut: Future[T], errStr: string
-): Future[T] {.async.} =
-  return await retryWrapper(RetryStrategy.new(), errStr, g.onFatalErrorAction, fut)
+template retryWrapper(
+    g: OnchainGroupManager, res: auto, errStr: string, body: untyped
+): auto =
+  retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
+    body
 
 proc resultifiedRetryWrapper[T](
     g: OnchainGroupManager, fut: Future[T], errStr: string
@@ -272,10 +273,9 @@ when defined(rln_v2):
     let registryContract = g.registryContract.get()
     let membershipFee = g.membershipFee.get()
 
-    let gasPrice =
-      int(
-        await g.retryWrapper(ethRpc.provider.eth_gasPrice(), "Failed to get gas price")
-      ) * 2
+    var gasPrice: int
+    g.retryWrapper(gasPrice, "Failed to get gas price"):
+      int(await ethRpc.provider.eth_gasPrice()) * 2
     let idCommitment = identityCredential.idCommitment.toUInt256()
 
     let storageIndex = g.usingStorageIndex.get()
@@ -283,17 +283,16 @@ when defined(rln_v2):
       idCommitment = idCommitment,
       storageIndex = storageIndex,
       userMessageLimit = userMessageLimit
-    let txHash = await g.retryWrapper(
-      registryContract.register(storageIndex, idCommitment, u256(userMessageLimit)).send(
-        gasPrice = gasPrice
-      ),
-      "Failed to register the member",
-    )
+    var txHash: TxHash
+    g.retryWrapper(txHash, "Failed to register the member"):
+      await registryContract
+      .register(storageIndex, idCommitment, u256(userMessageLimit))
+      .send(gasPrice = gasPrice)
 
     # wait for the transaction to be mined
-    let tsReceipt = await g.retryWrapper(
-      ethRpc.getMinedTransactionReceipt(txHash), "Failed to get the transaction receipt"
-    )
+    var tsReceipt: ReceiptObject
+    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
+      await ethRpc.getMinedTransactionReceipt(txHash)
     debug "registration transaction mined", txHash = txHash
     g.registrationTxHash = some(txHash)
     # the receipt topic holds the hash of signature of the raised events
@@ -331,24 +330,24 @@ else:
     let registryContract = g.registryContract.get()
     let membershipFee = g.membershipFee.get()
 
-    let gasPrice =
-      int(
-        await g.retryWrapper(ethRpc.provider.eth_gasPrice(), "Failed to get gas price")
-      ) * 2
+    var gasPrice: int
+    g.retryWrapper(gasPrice, "Failed to get gas price"):
+      int(await ethRpc.provider.eth_gasPrice()) * 2
     let idCommitment = credentials.idCommitment.toUInt256()
 
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member",
       idCommitment = idCommitment, storageIndex = storageIndex
-    let txHash = await g.retryWrapper(
-      registryContract.register(storageIndex, idCommitment).send(gasPrice = gasPrice),
-      "Failed to register the member",
-    )
+    var txHash: TxHash
+    g.retryWrapper(txHash, "Failed to register the member"):
+      await registryContract.register(storageIndex, idCommitment).send(
+        gasPrice = gasPrice
+      )
 
     # wait for the transaction to be mined
-    let tsReceipt = await g.retryWrapper(
-      ethRpc.getMinedTransactionReceipt(txHash), "Failed to get the transaction receipt"
-    )
+    var tsReceipt: ReceiptObject
+    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
+      await ethRpc.getMinedTransactionReceipt(txHash)
     debug "registration transaction mined", txHash = txHash
     g.registrationTxHash = some(txHash)
     # the receipt topic holds the hash of signature of the raised events
@@ -467,17 +466,14 @@ proc getRawEvents(
   let ethRpc = g.ethRpc.get()
   let rlnContract = g.rlnContract.get()
 
-  try:
-    return await g.retryWrapper(
-      rlnContract.getJsonLogs(
-        MemberRegistered,
-        fromBlock = some(fromBlock.blockId()),
-        toBlock = some(toBlock.blockId()),
-      ),
-      "Failed to get the events",
+  var events: JsonNode
+  g.retryWrapper(events, "Failed to get the events"):
+    await rlnContract.getJsonLogs(
+      MemberRegistered,
+      fromBlock = some(fromBlock.blockId()),
+      toBlock = some(toBlock.blockId()),
     )
-  except CatchableError:
-    raise newException(CatchableError, "failed to get the events")
+  return events
 
 proc getBlockTable(
     g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
@@ -552,7 +548,7 @@ proc handleRemovedEvents(
 
 proc getAndHandleEvents(
     g: OnchainGroupManager, fromBlock: BlockNumber, toBlock: BlockNumber
-): Future[void] {.async: (raises: [Exception]).} =
+): Future[bool] {.async: (raises: [Exception]).} =
   initializedGuard(g)
   let blockTable = await g.getBlockTable(fromBlock, toBlock)
   try:
@@ -577,7 +573,9 @@ proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
     g.blockFetchingActive = true
 
     while g.blockFetchingActive:
-      await g.retryWrapper(cb(), "Failed to run the interval block fetching loop")
+      var retCb: bool
+      g.retryWrapper(retCb, "Failed to run the interval block fetching loop"):
+        await cb()
       await sleepAsync(interval)
 
   # using asyncSpawn is OK here since
@@ -587,19 +585,20 @@ proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
 
 proc getNewBlockCallback(g: OnchainGroupManager): proc =
   let ethRpc = g.ethRpc.get()
-  proc wrappedCb(): Future[void] {.async, gcsafe.} =
-    let latestBlock = cast[BlockNumber](await g.retryWrapper(
-      ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
-    ))
+  proc wrappedCb(): Future[bool] {.async, gcsafe.} =
+    var latestBlock: BlockNumber
+    g.retryWrapper(latestBlock, "Failed to get the latest block number"):
+      cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
 
     if latestBlock <= g.latestProcessedBlock:
       return
     # get logs from the last block
     # inc by 1 to prevent double processing
     let fromBlock = g.latestProcessedBlock + 1
-    await g.retryWrapper(
-      g.getAndHandleEvents(fromBlock, latestBlock), "Failed to handle new block"
-    )
+    var handleBlockRes: bool
+    g.retryWrapper(handleBlockRes, "Failed to handle new block"):
+      await g.getAndHandleEvents(fromBlock, latestBlock)
+    return handleBlockRes
 
   return wrappedCb
 
@@ -613,7 +612,7 @@ proc startListeningToEvents(
   g.runInInterval(newBlockCallback, DefaultBlockPollRate)
 
 proc batchAwaitBlockHandlingFuture(
-    g: OnchainGroupManager, futs: seq[Future[void]]
+    g: OnchainGroupManager, futs: seq[Future[bool]]
 ): Future[void] {.async: (raises: [Exception]).} =
   for fut in futs:
     try:
@@ -646,10 +645,10 @@ proc startOnchainSync(
         blockNumber = g.rlnContractDeployedBlockNumber
       g.rlnContractDeployedBlockNumber
 
-  var futs = newSeq[Future[void]]()
-  var currentLatestBlock = cast[BlockNumber](await g.retryWrapper(
-    ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
-  ))
+  var futs = newSeq[Future[bool]]()
+  var currentLatestBlock: BlockNumber
+  g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
+    cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
 
   try:
     # we always want to sync from last processed block => latest
@@ -661,9 +660,8 @@ proc startOnchainSync(
         break
 
       if fromBlock + blockChunkSize.uint > currentLatestBlock.uint:
-        currentLatestBlock = cast[BlockNumber](await g.retryWrapper(
-          ethRpc.provider.eth_blockNumber(), "Failed to get the latest block number"
-        ))
+        g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
+          cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
 
       let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
@@ -671,7 +669,7 @@ proc startOnchainSync(
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
         await g.batchAwaitBlockHandlingFuture(futs)
-        futs = newSeq[Future[void]]()
+        futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
   except CatchableError:
     raise newException(
@@ -706,6 +704,7 @@ method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
 
 method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
+  var ethRpc: Web3
   let ethRpc = (
     await g.resultifiedRetryWrapper(
       newWeb3(g.ethClientUrl), "Failed to connect to the Ethereum client"
