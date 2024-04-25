@@ -11,8 +11,7 @@ import
   libp2p/protocols/pubsub/pubsub
 import
   waku/[waku_core, waku_node, waku_rln_relay],
-  ../testlib/wakucore,
-  ../testlib/wakunode,
+  ../testlib/[wakucore, futures, wakunode],
   ./rln/waku_rln_relay_utils
 
 from std/times import epochTime
@@ -467,63 +466,68 @@ procSuite "WakuNode - RLN relay":
     await node3.stop()
 
   asyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
+    # Given two nodes
     let
-      # publisher node
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      pubsubTopicSeq = @[DefaultPubsubTopic]
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
-      # Relay node
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
-      # Subscriber
-      nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
+      epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
 
-      contentTopic = ContentTopic("/waku/2/default-content/proto")
-
-    # set up 2 nodes
-    # node1
-    await node1.mountRelay(@[DefaultPubsubTopic])
-
-    # mount rlnrelay in off-chain mode
-    let wakuRlnConfig1 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(1.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
-    )
-
+    # Given both nodes mount relay and rlnrelay
+    await node1.mountRelay(pubsubTopicSeq)
+    # Mount rlnrelay in node1 in off-chain mode
+    when defined(rln_v2):
+      let wakuRlnConfig1 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: epochSizeSec,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
+      )
+    else:
+      let wakuRlnConfig1 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: epochSizeSec,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
+      )
     await node1.mountRlnRelay(wakuRlnConfig1)
 
-    await node1.start()
-
-    # node 2
+    # Mount rlnrelay in node2 in off-chain mode
     await node2.mountRelay(@[DefaultPubsubTopic])
-
-    # mount rlnrelay in off-chain mode
-    let wakuRlnConfig2 = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(2.uint),
-      rlnRelayUserMessageLimit: 1,
-      rlnEpochSizeSec: 1,
-      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
-    )
-
+    # Mount rlnrelay in node2 in off-chain mode
+    when defined(rln_v2):
+      let wakuRlnConfig2 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(2.uint),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: epochSizeSec,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
+      )
+    else:
+      let wakuRlnConfig2 = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(2.uint),
+        rlnEpochSizeSec: epochSizeSec,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
+      )
     await node2.mountRlnRelay(wakuRlnConfig2)
 
-    await node2.start()
-
+    # Given the two nodes are started and connected
+    waitFor allFutures(node1.start(), node2.start())
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-    # get the current epoch time
-    let time = epochTime()
-    #  create some messages with rate limit proofs
+    # Given some messages
     var
       wm1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
-      # another message in the same epoch as wm1, it will break the messaging rate limit
       wm2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
-      #  wm3 points to the next epoch
       wm3 = WakuMessage(payload: "message 3".toBytes(), contentTopic: contentTopic)
+      wm4 = WakuMessage(payload: "message 4".toBytes(), contentTopic: contentTopic)
+      wm5 = WakuMessage(payload: "message 5".toBytes(), contentTopic: contentTopic)
+      wm6 = WakuMessage(payload: "message 6".toBytes(), contentTopic: contentTopic)
 
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
       raiseAssert $error
@@ -535,10 +539,14 @@ procSuite "WakuNode - RLN relay":
     ).isOkOr:
       raiseAssert $error
 
-    #  relay handler for node2
-    var completionFut1 = newFuture[bool]()
-    var completionFut2 = newFuture[bool]()
-    var completionFut3 = newFuture[bool]()
+    # And node2 mounts a relay handler that completes the respective future when a message is received
+    var
+      completionFut1 = newFuture[bool]()
+      completionFut2 = newFuture[bool]()
+      completionFut3 = newFuture[bool]()
+      completionFut4 = newFuture[bool]()
+      completionFut5 = newFuture[bool]()
+      completionFut6 = newFuture[bool]()
     proc relayHandler(
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
@@ -550,25 +558,71 @@ procSuite "WakuNode - RLN relay":
           completionFut2.complete(true)
         if msg == wm3:
           completionFut3.complete(true)
+        if msg == wm4:
+          completionFut4.complete(true)
+        if msg == wm5:
+          completionFut5.complete(true)
+        if msg == wm6:
+          completionFut6.complete(true)
 
-    # mount the relay handler for node2
     node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
-    await sleepAsync(2000.millis)
+    # await sleepAsync(duration)
 
+    # Given all messages have an rln proof and are published by the node 1
+    let publishSleepDuration: Duration = 5000.millis
+    let time = epochTime()
+
+    # Epoch 1
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
+      raiseAssert $error
+    # Message wm2 is published in the same epoch as wm1, so it'll be considered spam
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
+      raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm1)
     discard await node1.publish(some(DefaultPubsubTopic), wm2)
-    discard await node1.publish(some(DefaultPubsubTopic), wm3)
-
-    let
-      res1 = await completionFut1.withTimeout(10.seconds)
-      res2 = await completionFut2.withTimeout(10.seconds)
-      res3 = await completionFut3.withTimeout(10.seconds)
-
+    await sleepAsync(publishSleepDuration)
     check:
-      res1 == true
-      res2 == false
-      res3 == true
-      node2.wakuRlnRelay.nullifierLog.len() == 2
+      node1.wakuRlnRelay.nullifierLog.len() == 0
+      node2.wakuRlnRelay.nullifierLog.len() == 1
 
-    await node1.stop()
-    await node2.stop()
+    # Epoch 2
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, epochTime()).isOkOr:
+      raiseAssert $error
+    discard await node1.publish(some(DefaultPubsubTopic), wm3)
+    await sleepAsync(publishSleepDuration)
+
+    # Epoch 3
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, epochTime()).isOkOr:
+      raiseAssert $error
+    discard await node1.publish(some(DefaultPubsubTopic), wm4)
+    await sleepAsync(publishSleepDuration)
+
+    # Epoch 4
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, epochTime()).isOkOr:
+      raiseAssert $error
+    discard await node1.publish(some(DefaultPubsubTopic), wm5)
+    await sleepAsync(publishSleepDuration)
+    check:
+      node1.wakuRlnRelay.nullifierLog.len() == 0
+      node2.wakuRlnRelay.nullifierLog.len() == 4
+
+    # Epoch 5
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, epochTime()).isOkOr:
+      raiseAssert $error
+    discard await node1.publish(some(DefaultPubsubTopic), wm6)
+    await sleepAsync(publishSleepDuration)
+    check:
+      node1.wakuRlnRelay.nullifierLog.len() == 0
+      node2.wakuRlnRelay.nullifierLog.len() == 1
+
+    # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
+    # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
+    check:
+      (await completionFut1.waitForResult()).value() == true
+      (await completionFut2.waitForResult()).isErr()
+      (await completionFut3.waitForResult()).value() == true
+      (await completionFut4.waitForResult()).value() == true
+      (await completionFut5.waitForResult()).value() == true
+      (await completionFut6.waitForResult()).value() == true
+
+    waitFor allFutures(node1.stop(), node2.stop())
