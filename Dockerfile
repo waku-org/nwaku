@@ -14,9 +14,6 @@ RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq rust c
 WORKDIR /app
 COPY . .
 
-# workaround for alpine issue: https://github.com/alpinelinux/docker-alpine/issues/383
-RUN apk update && apk upgrade
-
 # Ran separately from 'make' to avoid re-doing
 RUN git submodule update --init --recursive
 
