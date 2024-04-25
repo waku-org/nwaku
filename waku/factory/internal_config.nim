@@ -33,12 +33,11 @@ proc enrConfiguration*(
     # no shards configured
     if conf.shards.len == 0:
       var shardsLocal = newSeq[uint16]()
-      for item in conf.pubsubTopics:
-        let pusubTopicRes = NsPubsubTopic.parseStaticSharding(item)
-        if pusubTopicRes.isOk():
-          shardsLocal.add(pusubTopicRes.get().shardId)
-        else:
-          error "failed to parse pubsubTopic", error = pusubTopicRes.error
+      let shardsRes = topicsToRelayShards(conf.pubsubTopics)
+      if shardsRes.isOk() and shardsRes.get().isSome():
+        shardsLocal = shardsRes.get().get().shardIds
+      else:
+        error "failed to parse pubsubTopic", error = shardsRes.error
       shardsLocal
 
     # some shards configured
