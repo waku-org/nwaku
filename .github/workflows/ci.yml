@@ -21,29 +21,29 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-    - uses: actions/checkout@v3
-      name: Checkout code
-      id: checkout
-    - uses: dorny/paths-filter@v2
-      id: filter
-      with:
-        filters: |
-          common:
-          - '.github/workflows/**'
-          - 'vendor/**'
-          - 'Makefile'
-          - 'waku.nimble'
-          - 'library/**'
+      - uses: actions/checkout@v3
+        name: Checkout code
+        id: checkout
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            common:
+            - '.github/workflows/**'
+            - 'vendor/**'
+            - 'Makefile'
+            - 'waku.nimble'
+            - 'library/**'
 
-          v2:
-          - 'waku/**'
-          - 'apps/**'
-          - 'tools/**'
-          - 'tests/all_tests_v2.nim'
-          - 'tests/**'
+            v2:
+            - 'waku/**'
+            - 'apps/**'
+            - 'tools/**'
+            - 'tests/all_tests_v2.nim'
+            - 'tests/**'
 
-          docker:
-          - 'docker/**'
+            docker:
+            - 'docker/**'
 
     outputs:
       common: ${{ steps.filter.outputs.common }}
@@ -55,7 +55,7 @@ jobs:
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
     strategy:
       matrix:
-        rln_version : [1, 2]
+        rln_version: [1, 2]
         os: [ubuntu-latest, macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -86,7 +86,7 @@ jobs:
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' }}
     strategy:
       matrix:
-        rln_version : [1, 2]
+        rln_version: [1, 2]
         os: [ubuntu-latest, macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -111,11 +111,6 @@ jobs:
 
       - name: Run tests
         run: |
-          if [ ${{ runner.os }} == "macOS" ]; then
-            brew unlink postgresql@14
-            brew link libpq --force
-          fi
-
           if [ ${{ runner.os }} == "Linux" ]; then
             sudo docker run --rm -d -e POSTGRES_PASSWORD=test123 -p 5432:5432 postgres:15.4-alpine3.18
           fi
