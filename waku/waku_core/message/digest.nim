@@ -11,6 +11,11 @@ import ../topics, ./message
 
 type WakuMessageHash* = array[32, byte]
 
+const EmptyWakuMessageHash*: WakuMessageHash = [
+  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0,
+]
+
 converter fromBytes*(array: openArray[byte]): WakuMessageHash =
   var hash: WakuMessageHash
   let copiedBytes = copyFrom(hash, array)

@@ -193,6 +193,74 @@ proc findMessages*(
 
   return ok(ArchiveResponse(hashes: hashes, messages: messages, cursor: cursor))
 
+proc findMessagesV2*(
+    self: WakuArchive, query: ArchiveQuery
+): Future[ArchiveResult] {.async, gcsafe.} =
+  ## Search the archive to return a single page of messages matching the query criteria
+
+  let maxPageSize =
+    if query.pageSize <= 0:
+      DefaultPageSize
+    else:
+      min(query.pageSize, MaxPageSize)
+
+  let isAscendingOrder = query.direction.into()
+
+  if query.contentTopics.len > 10:
+    return err(ArchiveError.invalidQuery("too many content topics"))
+
+  let queryStartTime = getTime().toUnixFloat()
+
+  let rows = (
+    await self.driver.getMessagesV2(
+      contentTopic = query.contentTopics,
+      pubsubTopic = query.pubsubTopic,
+      cursor = query.cursor,
+      startTime = query.startTime,
+      endTime = query.endTime,
+      maxPageSize = maxPageSize + 1,
+      ascendingOrder = isAscendingOrder,
+    )
+  ).valueOr:
+    return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))
+
+  let queryDuration = getTime().toUnixFloat() - queryStartTime
+  waku_archive_query_duration_seconds.observe(queryDuration)
+
+  var messages = newSeq[WakuMessage]()
+  var cursor = none(ArchiveCursor)
+
+  if rows.len == 0:
+    return ok(ArchiveResponse(messages: messages, cursor: cursor))
+
+  ## Messages
+  let pageSize = min(rows.len, int(maxPageSize))
+
+  messages = rows[0 ..< pageSize].mapIt(it[1])
+
+  ## Cursor
+  if rows.len > int(maxPageSize):
+    ## Build last message cursor
+    ## The cursor is built from the last message INCLUDED in the response
+    ## (i.e. the second last message in the rows list)
+
+    let (pubsubTopic, message, digest, storeTimestamp, _) = rows[^2]
+
+    cursor = some(
+      ArchiveCursor(
+        digest: MessageDigest.fromBytes(digest),
+        storeTime: storeTimestamp,
+        sendertime: message.timestamp,
+        pubsubTopic: pubsubTopic,
+      )
+    )
+
+  # All messages MUST be returned in chronological order
+  if not isAscendingOrder:
+    reverse(messages)
+
+  return ok(ArchiveResponse(messages: messages, cursor: cursor))
+
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
   debug "executing message retention policy"
 
