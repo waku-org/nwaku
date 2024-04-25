@@ -140,7 +140,7 @@ proc writeValue*(
   writer.beginRecord()
   writer.writeField("payload", $value.payload)
   if value.contentTopic.isSome():
-    writer.writeField("contentTopic", value.contentTopic.get())
+    writer.writeField("content_topic", value.contentTopic.get())
   if value.version.isSome():
     writer.writeField("version", value.version.get())
   if value.timestamp.isSome():
@@ -176,7 +176,7 @@ proc readValue*(
     case fieldName
     of "payload":
       payload = some(reader.readValue(Base64String))
-    of "contentTopic":
+    of "content_topic":
       contentTopic = some(reader.readValue(ContentTopic))
     of "version":
       version = some(reader.readValue(uint32))
