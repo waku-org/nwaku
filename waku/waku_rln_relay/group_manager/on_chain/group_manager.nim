@@ -134,15 +134,6 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
-proc resultifiedRetryWrapper[T](
-    g: OnchainGroupManager, fut: Future[T], errStr: string
-): Future[RlnRelayResult[T]] {.async.} =
-  try:
-    return
-      ok(await retryWrapper(RetryStrategy.new(), errStr, g.onFatalErrorAction, fut))
-  except CatchableError:
-    return err(errStr & ": " & getCurrentExceptionMsg())
-
 proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
