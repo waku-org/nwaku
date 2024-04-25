@@ -35,7 +35,7 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
 
   let resMsgIndex = createHistoryQueryIndex(db)
   if resMsgIndex.isErr():
-    return err("failed to create i_query index: " & resMsgIndex.error())
+    return err("failed to create i_msg index: " & resMsgIndex.error())
 
   return ok()
 
