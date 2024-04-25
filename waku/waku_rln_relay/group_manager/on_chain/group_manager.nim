@@ -604,13 +604,12 @@ proc startListeningToEvents(
 
 proc batchAwaitBlockHandlingFuture(
     g: OnchainGroupManager, futs: seq[Future[bool]]
-): Future[bool] {.async: (raises: [Exception]).} =
+): Future[void] {.async: (raises: [Exception]).} =
   for fut in futs:
     try:
-      var res: bool
-      g.retryWrapper(res, "Failed to handle block"):
+      var handleBlockRes: bool
+      g.retryWrapper(handleBlockRes, "Failed to handle block"):
         await fut
-      discard res
     except CatchableError:
       raise newException(
         CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
@@ -662,7 +661,7 @@ proc startOnchainSync(
       await sleepAsync(rpcDelay)
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
-        discard await g.batchAwaitBlockHandlingFuture(futs)
+        await g.batchAwaitBlockHandlingFuture(futs)
         futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
   except CatchableError:
