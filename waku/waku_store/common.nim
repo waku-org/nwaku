@@ -57,7 +57,6 @@ type
     UNKNOWN = uint32(000)
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
-    TOO_MANY_REQUESTS = uint32(429)
     SERVICE_UNAVAILABLE = uint32(503)
     PEER_DIAL_FAILURE = uint32(504)
 
@@ -74,7 +73,7 @@ type
 
 proc parse*(T: type HistoryErrorKind, kind: uint32): T =
   case kind
-  of 000, 200, 300, 400, 429, 503:
+  of 000, 200, 300, 400, 503:
     HistoryErrorKind(kind)
   else:
     HistoryErrorKind.UNKNOWN
@@ -87,8 +86,6 @@ proc `$`*(err: HistoryError): string =
     "BAD_RESPONSE: " & err.cause
   of HistoryErrorKind.BAD_REQUEST:
     "BAD_REQUEST: " & err.cause
-  of HistoryErrorKind.TOO_MANY_REQUESTS:
-    "TOO_MANY_REQUESTS"
   of HistoryErrorKind.SERVICE_UNAVAILABLE:
     "SERVICE_UNAVAILABLE"
   of HistoryErrorKind.UNKNOWN:

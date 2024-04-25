@@ -10,13 +10,11 @@ import
   ../testlib/[common, wakucore]
 
 proc newTestWakuLightpushNode*(
-    switch: Switch,
-    handler: PushMessageHandler,
-    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
+    switch: Switch, handler: PushMessageHandler
 ): Future[WakuLightPush] {.async.} =
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuLightPush.new(peerManager, rng, handler, rateLimitSetting)
+    proto = WakuLightPush.new(peerManager, rng, handler)
 
   await proto.start()
   switch.mount(proto)

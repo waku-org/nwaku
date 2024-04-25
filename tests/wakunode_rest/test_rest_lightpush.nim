@@ -22,10 +22,8 @@ import
   ../../waku/waku_api/rest/lightpush/handlers as lightpush_api,
   ../../waku/waku_api/rest/lightpush/client as lightpush_api_client,
   ../../waku/waku_relay,
-  ../../waku/common/ratelimit,
   ../testlib/wakucore,
-  ../testlib/wakunode,
-  ../testlib/testutils
+  ../testlib/wakunode
 
 proc testWakuNode(): WakuNode =
   let
@@ -43,9 +41,7 @@ type RestLightPushTest = object
   restServer: WakuRestServerRef
   client: RestClientRef
 
-proc init(
-    T: type RestLightPushTest, rateLimit: RateLimitSetting = (0, 0.millis)
-): Future[T] {.async.} =
+proc init(T: type RestLightPushTest): Future[T] {.async.} =
   var testSetup = RestLightPushTest()
   testSetup.serviceNode = testWakuNode()
   testSetup.pushNode = testWakuNode()
@@ -59,7 +55,7 @@ proc init(
 
   await testSetup.consumerNode.mountRelay()
   await testSetup.serviceNode.mountRelay()
-  await testSetup.serviceNode.mountLightPush(rateLimit)
+  await testSetup.serviceNode.mountLightPush()
   testSetup.pushNode.mountLightPushClient()
 
   testSetup.serviceNode.peerManager.addServicePeer(
@@ -179,74 +175,6 @@ suite "Waku v2 Rest API - lightpush":
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data.startsWith("Invalid content body")
-
-    await restLightPushTest.shutdown()
-
-  # disabled due to this bug in nim-chronos https://github.com/status-im/nim-chronos/issues/500
-  xasyncTest "Request rate limit push message":
-    # Given
-    let budgetCap = 3
-    let tokenPeriod = 500.millis
-    let restLightPushTest = await RestLightPushTest.init((budgetCap, tokenPeriod))
-
-    restLightPushTest.consumerNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
-    restLightPushTest.serviceNode.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic)
-    )
-    require:
-      toSeq(restLightPushTest.serviceNode.wakuRelay.subscribedTopics).len == 1
-
-    # When
-    let pushProc = proc() {.async.} =
-      let message: RelayWakuMessage = fakeWakuMessage(
-          contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")
-        )
-        .toRelayWakuMessage()
-
-      let requestBody =
-        PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
-      let response = await restLightPushTest.client.sendPushRequest(requestBody)
-
-      echo "response", $response
-
-      # Then
-      check:
-        response.status == 200
-        $response.contentType == $MIMETYPE_TEXT
-
-    let pushRejectedProc = proc() {.async.} =
-      let message: RelayWakuMessage = fakeWakuMessage(
-          contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")
-        )
-        .toRelayWakuMessage()
-
-      let requestBody =
-        PushRequest(pubsubTopic: some(DefaultPubsubTopic), message: message)
-      let response = await restLightPushTest.client.sendPushRequest(requestBody)
-
-      echo "response", $response
-
-      # Then
-      check:
-        response.status == 429
-
-    await pushProc()
-    await pushProc()
-    await pushProc()
-    await pushRejectedProc()
-
-    await sleepAsync(tokenPeriod)
-
-    for runCnt in 0 ..< 3:
-      let startTime = Moment.now()
-      for sendCnt in 0 ..< budgetCap:
-        await pushProc()
-
-      let endTime = Moment.now()
-      let elapsed: Duration = (endTime - startTime)
-      await sleepAsync(tokenPeriod - elapsed)
 
     await restLightPushTest.shutdown()
 

@@ -18,4 +18,3 @@ const
   emptyRequestBodyFailure* = "empty_request_body_failure"
   emptyResponseBodyFailure* = "empty_response_body_failure"
   messagePushFailure* = "message_push_failure"
-  requestLimitReachedFailure* = "request_limit_reached_failure"

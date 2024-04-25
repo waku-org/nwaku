@@ -203,7 +203,7 @@ suite "Waku Lightpush Client":
           # 1KiB
         message2 = fakeWakuMessage(
           contentTopic = contentTopic, payload = getByteSequence(10 * 1024)
-        ) # 10KiB
+        ) # 10KiB 
         message3 = fakeWakuMessage(
           contentTopic = contentTopic, payload = getByteSequence(100 * 1024)
         ) # 100KiB

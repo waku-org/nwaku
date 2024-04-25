@@ -45,8 +45,7 @@ import
   ../waku_peer_exchange,
   ../waku_rln_relay,
   ./config,
-  ./peer_manager,
-  ../common/ratelimit
+  ./peer_manager
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -700,9 +699,7 @@ proc toHistoryResult*(res: ArchiveResult): HistoryResult =
       )
     )
 
-proc mountStore*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async, raises: [Defect, LPError].} =
+proc mountStore*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   info "mounting waku store protocol"
 
   if node.wakuArchive.isNil():
@@ -721,8 +718,7 @@ proc mountStore*(
     let response = await node.wakuArchive.findMessages(request)
     return response.toHistoryResult()
 
-  node.wakuStore =
-    WakuStore.new(node.peerManager, node.rng, queryHandler, some(rateLimit))
+  node.wakuStore = WakuStore.new(node.peerManager, node.rng, queryHandler)
 
   if node.started:
     # Node has started already. Let's start store too.
@@ -793,9 +789,7 @@ when defined(waku_exp_store_resume):
 
 ## Waku lightpush
 
-proc mountLightPush*(
-    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async.} =
+proc mountLightPush*(node: WakuNode) {.async.} =
   info "mounting light push"
 
   var pushHandler: PushMessageHandler
@@ -819,8 +813,7 @@ proc mountLightPush*(
       return ok()
 
   debug "mounting lightpush with relay"
-  node.wakuLightPush =
-    WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
+  node.wakuLightPush = WakuLightPush.new(node.peerManager, node.rng, pushHandler)
 
   if node.started:
     # Node has started already. Let's start lightpush too.

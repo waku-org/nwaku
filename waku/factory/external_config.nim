@@ -589,22 +589,6 @@ type WakuNodeConf* = object
       name: "websocket-secure-cert-path"
     .}: string
 
-    ## Rate limitation config
-    ## Currently default to switch of rate limit until become official
-    requestRateLimit* {.
-      desc:
-        "Number of requests to serve by each service in the specified period. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-limit"
-    .}: int
-
-    ## Currently default to switch of rate limit until become official
-    requestRatePeriod* {.
-      desc: "Period of request rate limitation in seconds. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-period"
-    .}: int64
-
 ## Parsing
 
 # NOTE: Keys are different in nim-libp2p

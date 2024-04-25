@@ -39,15 +39,9 @@ proc performHistoryQuery(
 
   let res = queryFut.read()
   if res.isErr():
-    const TooManyRequestErrorStr =
-      $HistoryError(kind: HistoryErrorKind.TOO_MANY_REQUESTS)
-    if res.error == TooManyRequestErrorStr:
-      debug "Request rate limmit reached on peer ", storePeer
-      return RestApiResponse.tooManyRequests("Request rate limmit reached")
-    else:
-      const msg = "Error occurred in queryFut.read()"
-      error msg, error = res.error
-      return RestApiResponse.internalServerError(fmt("{msg} [{res.error}]"))
+    const msg = "Error occurred in queryFut.read()"
+    error msg, error = res.error
+    return RestApiResponse.internalServerError(fmt("{msg} [{res.error}]"))
 
   let storeResp = res.value.toStoreResponseRest()
   let resp = RestApiResponse.jsonResponse(storeResp, status = Http200)

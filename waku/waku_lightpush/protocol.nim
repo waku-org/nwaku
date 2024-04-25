@@ -11,11 +11,7 @@ import
   ./common,
   ./rpc,
   ./rpc_codec,
-  ./protocol_metrics,
-  ../common/ratelimit,
-  ../common/waku_service_metrics
-
-export ratelimit
+  ./protocol_metrics
 
 logScope:
   topics = "waku lightpush"
@@ -24,7 +20,6 @@ type WakuLightPush* = ref object of LPProtocol
   rng*: ref rand.HmacDrbgContext
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
-  requestRateLimiter*: Option[TokenBucket]
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -32,7 +27,6 @@ proc handleRequest*(
   let reqDecodeRes = PushRPC.decode(buffer)
   var
     isSuccess = false
-    isRejectedDueRateLimit = false
     pushResponseInfo = ""
     requestId = ""
 
@@ -40,16 +34,7 @@ proc handleRequest*(
     pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
   elif reqDecodeRes.get().request.isNone():
     pushResponseInfo = emptyRequestBodyFailure
-  elif wl.requestRateLimiter.isSome() and not wl.requestRateLimiter.get().tryConsume(1):
-    isRejectedDueRateLimit = true
-    let pushRpcRequest = reqDecodeRes.get()
-    debug "lightpush request rejected due rate limit exceeded",
-      peerId = peerId, requestId = pushRpcRequest.requestId
-    pushResponseInfo = TooManyRequestsMessage
-    waku_service_requests_rejected.inc(labelValues = ["Lightpush"])
   else:
-    waku_service_requests.inc(labelValues = ["Lightpush"])
-
     let pushRpcRequest = reqDecodeRes.get()
 
     requestId = pushRpcRequest.requestId
@@ -70,7 +55,7 @@ proc handleRequest*(
     isSuccess = handleRes.isOk()
     pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
-  if not isSuccess and not isRejectedDueRateLimit:
+  if not isSuccess:
     waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
     error "failed to push message", error = pushResponseInfo
   let response = PushResponse(isSuccess: isSuccess, info: some(pushResponseInfo))
@@ -91,13 +76,7 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
-    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
-  let wl = WakuLightPush(
-    rng: rng,
-    peerManager: peerManager,
-    pushHandler: pushHandler,
-    requestRateLimiter: newTokenBucket(rateLimitSetting),
-  )
+  let wl = WakuLightPush(rng: rng, peerManager: peerManager, pushHandler: pushHandler)
   wl.initProtocolHandler()
   return wl

@@ -77,9 +77,6 @@ proc installLightPushRequestHandler*(
       return RestApiResponse.serviceUnavailable("Push request timed out")
 
     if subFut.value().isErr():
-      if subFut.value().error == TooManyRequestsMessage:
-        return RestApiResponse.tooManyRequests("Request rate limmit reached")
-
       return RestApiResponse.serviceUnavailable(
         fmt("Failed to request a message push: {subFut.value().error}")
       )
