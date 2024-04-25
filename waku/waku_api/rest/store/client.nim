@@ -5,8 +5,7 @@ else:
 
 import
   chronicles, json_serialization, json_serialization/std/options, presto/[route, client]
-import
-  ../../../waku_store/common, ../../../common/base64, ../serdes, ../responses, ./types
+import ../../../waku_store/common, ../serdes, ../responses, ./types
 
 export types
 
