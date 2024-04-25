@@ -22,8 +22,8 @@ type ClusterConf* = object
 proc ClusterZeroConf*(T: type ClusterConf): ClusterConf =
   return ClusterConf(
     clusterId: 0.uint32,
-    pubsubTopics: @["/waku/2/default-waku/proto"]
-    # TODO: Add more config such as bootstrap, etc
+    pubsubTopics: @["/waku/2/rs/0/5"] # TODO: Add more config such as bootstrap, etc
+    ,
   )
 
 # cluster-id=1 (aka The Waku Network)
