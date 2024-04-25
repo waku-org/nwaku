@@ -11,6 +11,7 @@ proc new*(T: type RetryStrategy): RetryStrategy =
   return RetryStrategy(shouldRetry: true, retryDelay: 4000.millis, retryCount: 15)
 
 template retryWrapper*(
+    res: auto,
     retryStrategy: RetryStrategy,
     errStr: string,
     errCallback: OnFatalErrorHandler,
@@ -22,7 +23,8 @@ template retryWrapper*(
 
   while shouldRetry and retryCount > 0:
     try:
-      return await fut
+      res = body
+      shouldRetry = false
     except:
       retryCount -= 1
       exceptionMessage = getCurrentExceptionMsg()

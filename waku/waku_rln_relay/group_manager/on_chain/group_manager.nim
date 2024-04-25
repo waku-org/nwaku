@@ -613,10 +613,13 @@ proc startListeningToEvents(
 
 proc batchAwaitBlockHandlingFuture(
     g: OnchainGroupManager, futs: seq[Future[bool]]
-): Future[void] {.async: (raises: [Exception]).} =
+): Future[bool] {.async: (raises: [Exception]).} =
   for fut in futs:
     try:
-      await g.retryWrapper(fut, "Failed to handle block")
+      var res: bool
+      g.retryWrapper(res, "Failed to handle block"):
+        await fut
+      discard res
     except CatchableError:
       raise newException(
         CatchableError, "could not fetch events from block: " & getCurrentExceptionMsg()
@@ -668,7 +671,7 @@ proc startOnchainSync(
       await sleepAsync(rpcDelay)
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
-        await g.batchAwaitBlockHandlingFuture(futs)
+        discard await g.batchAwaitBlockHandlingFuture(futs)
         futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
   except CatchableError:
@@ -705,19 +708,13 @@ method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
 method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
   var ethRpc: Web3
-  let ethRpc = (
-    await g.resultifiedRetryWrapper(
-      newWeb3(g.ethClientUrl), "Failed to connect to the Ethereum client"
-    )
-  ).valueOr:
-    return err("failed to connect to the Ethereum client: " & $error)
+  g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
+    await newWeb3(g.ethClientUrl)
+
   # Set the chain id
-  let chainId = (
-    await g.resultifiedRetryWrapper(
-      ethRpc.provider.eth_chainId(), "Failed to get the chain id"
-    )
-  ).valueOr:
-    return err("failed to get the chain id: " & $error)
+  var chainId: Quantity
+  g.retryWrapper(chainId, "Failed to get the chain id"):
+    await ethRpc.provider.eth_chainId()
   g.chainId = some(chainId)
 
   if g.ethPrivateKey.isSome():
@@ -732,21 +729,14 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   let registryContract = ethRpc.contractSender(WakuRlnRegistry, registryAddress)
 
   # get the current storage index
-  let usingStorageIndex = (
-    await g.resultifiedRetryWrapper(
-      registryContract.usingStorageIndex().call(), "Failed to get the storage index"
-    )
-  ).valueOr:
-    return err("failed to get the storage index: " & $error)
+  var usingStorageIndex: Uint16
+  g.retryWrapper(usingStorageIndex, "Failed to get the storage index"):
+    await registryContract.usingStorageIndex().call()
 
   g.usingStorageIndex = some(usingStorageIndex)
-  let rlnContractAddress = (
-    await g.resultifiedRetryWrapper(
-      registryContract.storages(usingStorageIndex).call(),
-      "Failed to get the rln contract address",
-    )
-  ).valueOr:
-    return err("failed to get the rln contract address: " & $error)
+  var rlnContractAddress: Address
+  g.retryWrapper(rlnContractAddress, "Failed to get the rln contract address"):
+    await registryContract.storages(usingStorageIndex).call()
   let rlnContract = ethRpc.contractSender(RlnStorage, rlnContractAddress)
 
   g.ethRpc = some(ethRpc)
@@ -802,21 +792,14 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.validRoots = metadata.validRoots.toDeque()
 
   # check if the contract exists by calling a static function
-  let membershipFee = (
-    await g.resultifiedRetryWrapper(
-      rlnContract.MEMBERSHIP_DEPOSIT().call(), "Failed to get the membership deposit"
-    )
-  ).valueOr:
-    return err("failed to get the membership deposit: " & $error)
+  var membershipFee: Uint256
+  g.retryWrapper(membershipFee, "Failed to get the membership deposit"):
+    await rlnContract.MEMBERSHIP_DEPOSIT().call()
   g.membershipFee = some(membershipFee)
 
-  let deployedBlockNumber = (
-    await g.resultifiedRetryWrapper(
-      rlnContract.deployedBlockNumber().call(),
-      "Failed to get the deployed block number",
-    )
-  ).valueOr:
-    return err("failed to get the deployed block number: " & $error)
+  var deployedBlockNumber: Uint256
+  g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number"):
+    await rlnContract.deployedBlockNumber().call()
   debug "using rln storage", deployedBlockNumber, rlnContractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
@@ -826,9 +809,9 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     let fromBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
     info "reconnecting with the Ethereum client, and restarting group sync",
       fromBlock = fromBlock
-    let newEthRpc = await g.retryWrapper(
-      newWeb3(g.ethClientUrl), "Failed to reconnect with the Ethereum client"
-    )
+    var newEthRpc: Web3
+    g.retryWrapper(newEthRpc, "Failed to reconnect with the Ethereum client"):
+      await newWeb3(g.ethClientUrl)
     newEthRpc.ondisconnect = ethRpc.ondisconnect
     g.ethRpc = some(newEthRpc)
 
@@ -862,9 +845,9 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
 proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async, gcsafe.} =
   let ethRpc = g.ethRpc.get()
 
-  let syncing = await g.retryWrapper(
-    ethRpc.provider.eth_syncing(), "Failed to get the syncing status"
-  )
+  var syncing: JsonNode
+  g.retryWrapper(syncing, "Failed to get the syncing status"):
+    await ethRpc.provider.eth_syncing()
   return syncing.getBool()
 
 method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
@@ -873,9 +856,9 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
   if g.ethRpc.isNone():
     return false
 
-  let currentBlock = cast[BlockNumber](await g.retryWrapper(
-    g.ethRpc.get().provider.eth_blockNumber(), "Failed to get the current block number"
-  ))
+  var currentBlock: BlockNumber
+  g.retryWrapper(currentBlock, "Failed to get the current block number"):
+    cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
 
   if g.latestProcessedBlock < currentBlock:
     return false
