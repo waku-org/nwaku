@@ -10,11 +10,35 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 import
-  waku/[waku_core, waku_node, waku_rln_relay],
+  ../../../waku/[waku_core, waku_node, waku_rln_relay],
   ../testlib/[wakucore, futures, wakunode],
   ./rln/waku_rln_relay_utils
 
 from std/times import epochTime
+
+proc buildWakuRlnConfig_versionAware(
+    credIndex: uint,
+    epochSizeSec: uint64,
+    treeFilename: string,
+    userMessageLimit: int = 1,
+): WakuRlnConfig =
+  let treePath = genTempPath("rln_tree", treeFilename)
+  # Off-chain
+  when defined(rln_v2):
+    return WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(credIndex.uint),
+      rlnRelayUserMessageLimit: userMessageLimit,
+      rlnEpochSizeSec: epochSizeSec,
+      rlnRelayTreePath: treePath,
+    )
+  else:
+    return WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(credIndex.uint),
+      rlnEpochSizeSec: epochSizeSec,
+      rlnRelayTreePath: treePath,
+    )
 
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
@@ -478,6 +502,7 @@ procSuite "WakuNode - RLN relay":
 
     # Given both nodes mount relay and rlnrelay
     await node1.mountRelay(pubsubTopicSeq)
+<<<<<<< HEAD
     # Mount rlnrelay in node1 in off-chain mode
     when defined(rln_v2):
       let wakuRlnConfig1 = WakuRlnConfig(
@@ -494,10 +519,14 @@ procSuite "WakuNode - RLN relay":
         rlnEpochSizeSec: epochSizeSec,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
       )
+=======
+    let wakuRlnConfig1 = buildWakuRlnConfig_versionAware(1, epochSizeSec, "wakunode_10")
+>>>>>>> 2cc06255 (Implement slashing (gossipsub score decrease) test.)
     await node1.mountRlnRelay(wakuRlnConfig1)
 
     # Mount rlnrelay in node2 in off-chain mode
     await node2.mountRelay(@[DefaultPubsubTopic])
+<<<<<<< HEAD
     # Mount rlnrelay in node2 in off-chain mode
     when defined(rln_v2):
       let wakuRlnConfig2 = WakuRlnConfig(
@@ -514,6 +543,9 @@ procSuite "WakuNode - RLN relay":
         rlnEpochSizeSec: epochSizeSec,
         rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
       )
+=======
+    let wakuRlnConfig2 = buildWakuRlnConfig_versionAware(2, epochSizeSec, "wakunode_11")
+>>>>>>> 2cc06255 (Implement slashing (gossipsub score decrease) test.)
     await node2.mountRlnRelay(wakuRlnConfig2)
 
     # Given the two nodes are started and connected
@@ -626,3 +658,59 @@ procSuite "WakuNode - RLN relay":
       (await completionFut6.waitForResult()).value() == true
 
     waitFor allFutures(node1.stop(), node2.stop())
+
+  asyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
+    # Given two nodes
+    let
+      contentTopic = ContentTopic("/waku/2/default-content/proto")
+      pubsubTopicSeq = @[DefaultPubsubTopic]
+      nodeKey1 = generateSecp256k1Key()
+      node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(0))
+      nodeKey2 = generateSecp256k1Key()
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
+      epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
+
+    # Given both nodes mount relay and rlnrelay
+    # Mount rlnrelay in node1 in off-chain mode
+    await node1.mountRelay(pubsubTopicSeq)
+    let wakuRlnConfig1 = buildWakuRlnConfig_versionAware(1, epochSizeSec, "wakunode_10")
+    await node1.mountRlnRelay(wakuRlnConfig1)
+
+    # Mount rlnrelay in node2 in off-chain mode
+    await node2.mountRelay(@[DefaultPubsubTopic])
+    let wakuRlnConfig2 = buildWakuRlnConfig_versionAware(2, epochSizeSec, "wakunode_11")
+    await node2.mountRlnRelay(wakuRlnConfig2)
+
+    # Given the two nodes are started and connected
+    waitFor allFutures(node1.start(), node2.start())
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+
+    # Given some messages with rln proofs
+    let time = epochTime()
+    var
+      msg1 = WakuMessage(payload: "message 1".toBytes(), contentTopic: contentTopic)
+      msg2 = WakuMessage(payload: "message 2".toBytes(), contentTopic: contentTopic)
+
+    node1.wakuRlnRelay.unsafeAppendRLNProof(msg1, time).isOkOr:
+      raiseAssert $error
+    # Message wm2 is published in the same epoch as wm1, so it'll be considered spam
+    node1.wakuRlnRelay.unsafeAppendRLNProof(msg2, time).isOkOr:
+      raiseAssert $error
+
+    # When publishing the first message (valid)
+    discard await node1.publish(some(DefaultPubsubTopic), msg1)
+    await sleepAsync(FUTURE_TIMEOUT_SCORING) # Wait for scoring
+
+    # Then the score of node2 should increase
+    check:
+      node1.wakuRelay.peerStats[node2.switch.peerInfo.peerId].score == 0.1
+      node2.wakuRelay.peerStats[node1.switch.peerInfo.peerId].score == 1.1
+
+    # When publishing the second message (spam)
+    discard await node1.publish(some(DefaultPubsubTopic), msg2)
+    await sleepAsync(FUTURE_TIMEOUT_SCORING)
+
+    # Then the score of node2 should decrease
+    check:
+      node1.wakuRelay.peerStats[node2.switch.peerInfo.peerId].score == 0.1
+      node2.wakuRelay.peerStats[node1.switch.peerInfo.peerId].score == -99.4
