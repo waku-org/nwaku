@@ -620,8 +620,9 @@ procSuite "Waku Rest API - Store v3":
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
     # Filtering by a known pubsub topic.
-    var response =
-      await client.getStoreMessagesV3(pubsubTopic = encodeUrl(DefaultPubsubTopic))
+    var response = await client.getStoreMessagesV3(
+      includeData = "true", pubsubTopic = encodeUrl(DefaultPubsubTopic)
+    )
 
     check:
       response.status == 200

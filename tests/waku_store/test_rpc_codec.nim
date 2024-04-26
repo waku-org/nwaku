@@ -14,7 +14,7 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let query = StoreQueryRequest(
       requestId: "0",
-      includeData: false,
+      includeData: true,
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
       startTime: some(Timestamp(10)),

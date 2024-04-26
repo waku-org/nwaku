@@ -183,7 +183,7 @@ procSuite "Waku Archive - find messages":
     waitFor archive.handleMessage("foo", msg2)
 
     ## Given
-    let req = ArchiveQuery(contentTopics: @[topic])
+    let req = ArchiveQuery(includeData: true, contentTopics: @[topic])
 
     ## When
     let queryRes = waitFor archive.findMessages(req)
@@ -218,7 +218,7 @@ procSuite "Waku Archive - find messages":
     waitFor archive.handleMessage("foo", msg3)
 
     ## Given
-    let req = ArchiveQuery(contentTopics: @[topic1, topic3])
+    let req = ArchiveQuery(includeData: true, contentTopics: @[topic1, topic3])
 
     ## When
     let queryRes = waitFor archive.findMessages(req)
@@ -283,7 +283,9 @@ procSuite "Waku Archive - find messages":
     ## Given
     # This query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)
     let req = ArchiveQuery(
-      pubsubTopic: some(pubsubTopic1), contentTopics: @[contentTopic1, contentTopic3]
+      includeData: true,
+      pubsubTopic: some(pubsubTopic1),
+      contentTopics: @[contentTopic1, contentTopic3],
     )
 
     ## When
@@ -349,7 +351,7 @@ procSuite "Waku Archive - find messages":
     waitFor archive.handleMessage(pubsubTopic, msg3)
 
     ## Given
-    let req = ArchiveQuery(pubsubTopic: some(pubsubTopic))
+    let req = ArchiveQuery(includeData: true, pubsubTopic: some(pubsubTopic))
 
     ## When
     let res = waitFor archive.findMessages(req)
@@ -367,7 +369,8 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with forward pagination":
     ## Given
-    let req = ArchiveQuery(pageSize: 4, direction: PagingDirection.FORWARD)
+    let req =
+      ArchiveQuery(includeData: true, pageSize: 4, direction: PagingDirection.FORWARD)
 
     ## When
     var nextReq = req # copy
@@ -400,7 +403,8 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with backward pagination":
     ## Given
-    let req = ArchiveQuery(pageSize: 4, direction: PagingDirection.BACKWARD)
+    let req =
+      ArchiveQuery(includeData: true, pageSize: 4, direction: PagingDirection.BACKWARD)
 
     ## When
     var nextReq = req # copy
@@ -463,7 +467,7 @@ procSuite "Waku Archive - find messages":
       ).isOk()
 
     ## Given
-    let req = ArchiveQuery(contentTopics: @[DefaultContentTopic])
+    let req = ArchiveQuery(includeData: true, contentTopics: @[DefaultContentTopic])
 
     ## When
     let res = waitFor archive.findMessages(req)
@@ -482,6 +486,7 @@ procSuite "Waku Archive - find messages":
   test "handle temporal history query with a valid time window":
     ## Given
     let req = ArchiveQuery(
+      includeData: true,
       contentTopics: @[ContentTopic("1")],
       startTime: some(ts(15, timeOrigin)),
       endTime: some(ts(55, timeOrigin)),

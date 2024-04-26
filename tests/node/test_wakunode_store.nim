@@ -63,6 +63,7 @@ suite "Waku Store - End to End - Sorted Archive":
     )
 
     storeQuery = StoreQueryRequest(
+      includeData: true,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
       paginationForward: PagingDirection.Forward,
@@ -102,6 +103,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
       # Given the next query
       var otherHistoryQuery = StoreQueryRequest(
+        includeData: true,
         pubsubTopic: some(pubsubTopic),
         contentTopics: contentTopicSeq,
         paginationCursor: queryResponse.get().paginationCursor,
@@ -130,6 +132,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
       # Given the next query
       var nextHistoryQuery = StoreQueryRequest(
+        includeData: true,
         paginationCursor: queryResponse.get().paginationCursor,
         pubsubTopic: some(pubsubTopic),
         contentTopics: contentTopicSeq,
@@ -159,6 +162,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (2/5)
         let historyQuery2 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse1.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -175,6 +179,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (3/5)
         let historyQuery3 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse2.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -191,6 +196,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (4/5)
         let historyQuery4 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse3.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -207,6 +213,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (5/5)
         let historyQuery5 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse4.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -234,6 +241,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (2/2)
         let historyQuery2 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse1.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -272,6 +280,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (2/3)
         let historyQuery2 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse1.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -288,6 +297,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (3/3)
         let historyQuery3 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse2.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -341,6 +351,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (2/2)
         let historyQuery2 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse1.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -385,6 +396,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given a query with default page size (1/2)
         storeQuery = StoreQueryRequest(
+          includeData: true,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
           paginationForward: PagingDirection.FORWARD,
@@ -399,6 +411,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # Given the next query (2/2)
         let historyQuery2 = StoreQueryRequest(
+          includeData: true,
           paginationCursor: queryResponse.get().paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -483,6 +496,7 @@ suite "Waku Store - End to End - Sorted Archive":
 
         # When making a history query to the second server node
         let otherHistoryQuery = StoreQueryRequest(
+          includeData: true,
           paginationCursor: paginationCursor,
           pubsubTopic: some(pubsubTopic),
           contentTopics: contentTopicSeq,
@@ -518,6 +532,7 @@ suite "Waku Store - End to End - Unsorted Archive":
     contentTopicSeq = @[contentTopic]
 
     storeQuery = StoreQueryRequest(
+      includeData: true,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
       paginationForward: PagingDirection.FORWARD,
@@ -598,6 +613,7 @@ suite "Waku Store - End to End - Unsorted Archive":
 
     # Given the next query
     var historyQuery2 = StoreQueryRequest(
+      includeData: true,
       paginationCursor: queryResponse.get().paginationCursor,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
@@ -730,6 +746,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
     contentTopicSeq = @[contentTopic]
 
     storeQuery = StoreQueryRequest(
+      includeData: true,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
       paginationForward: PagingDirection.FORWARD,
@@ -799,6 +816,7 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
 
     # Given the next query
     var historyQuery2 = StoreQueryRequest(
+      includeData: true,
       paginationCursor: queryResponse.get().paginationCursor,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
@@ -861,6 +879,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       @[contentTopic, contentTopicB, contentTopicC, contentTopicSpecials]
 
     storeQuery = StoreQueryRequest(
+      includeData: true,
       pubsubTopic: some(pubsubTopic),
       contentTopics: contentTopicSeq,
       paginationForward: PagingDirection.FORWARD,
@@ -961,6 +980,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       # Given the next query
       let historyQuery2 = StoreQueryRequest(
+        includeData: true,
         paginationCursor: queryResponse.get().paginationCursor,
         pubsubTopic: none(PubsubTopic),
         contentTopics: contentTopicSeq,
@@ -1028,6 +1048,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       # Given the next query
       let historyQuery2 = StoreQueryRequest(
+        includeData: true,
         paginationCursor: queryResponse.get().paginationCursor,
         pubsubTopic: none(PubsubTopic),
         contentTopics: contentTopicSeq,

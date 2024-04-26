@@ -835,9 +835,16 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
 
   res.statusCode = 200
   res.statusDesc = "OK"
-  res.messages = response.hashes.zip(response.messages).mapIt(
-      WakuMessageKeyValue(messageHash: it[0], message: it[1])
-    )
+
+  for i in 0 ..< response.hashes.len:
+    let hash = response.hashes[i]
+
+    let kv = store_common.WakuMessageKeyValue(messageHash: hash, message: WakuMessage())
+
+    res.messages.add(kv)
+
+  for i in 0 ..< response.messages.len:
+    res.messages[i].message = response.messages[i]
 
   if response.cursor.isSome():
     res.paginationCursor = some(response.cursor.get().hash)

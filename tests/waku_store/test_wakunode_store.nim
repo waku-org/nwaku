@@ -84,7 +84,8 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -119,6 +120,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
       paginationForward: PagingDirection.FORWARD,
       paginationLimit: some(uint64(7)),
@@ -174,6 +176,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
       paginationLimit: some(uint64(7)),
       paginationForward: PagingDirection.BACKWARD,
@@ -261,7 +264,8 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
 
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let res = waitFor client.query(req, serverPeer)
 
     ## Then
@@ -341,7 +345,8 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let requestProc = proc() {.async.} =
@@ -384,7 +389,8 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let successProc = proc() {.async.} =

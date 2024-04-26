@@ -56,11 +56,11 @@ proc decode*(
   if not ?pb.getField(1, req.requestId):
     return err(ProtobufError.missingRequiredField("request_id"))
 
-  var inclData: uint
+  var inclData: zint64
   if not ?pb.getField(2, inclData):
     req.includeData = false
   else:
-    req.includeData = inclData == 1
+    req.includeData = inclData == zint64(1)
 
   var pubsubTopic: string
   if not ?pb.getField(10, pubsubTopic):
