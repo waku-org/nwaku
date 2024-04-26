@@ -844,6 +844,7 @@ proc lightpushPublish*(
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality.
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
+    error "failed to publish message as lightpush not available"
     return err("Waku lightpush not available")
 
   let internalPublish = proc(
@@ -865,10 +866,6 @@ proc lightpushPublish*(
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
   if pubsubTopic.isSome():
-    debug "publishing message with lightpush",
-      pubsubTopic = pubsubTopic.get(),
-      contentTopic = message.contentTopic,
-      peer = peer.peerId
     return await internalPublish(node, pubsubTopic.get(), message, peer)
 
   let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
@@ -880,8 +877,6 @@ proc lightpushPublish*(
       topicMapRes.get()
 
   for pubsub, _ in topicMap.pairs: # There's only one pair anyway
-    debug "publishing message with lightpush",
-      pubsubTopic = pubsub, contentTopic = message.contentTopic, peer = peer.peerId
     return await internalPublish(node, $pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
@@ -896,7 +891,7 @@ proc lightpushPublish*(
 
   var peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo)
   if not node.wakuLightpushClient.isNil():
-    let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
+    peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
     if peerOpt.isNone():
       let msg = "no suitable remote peers"
       error "failed to publish message", msg = msg
