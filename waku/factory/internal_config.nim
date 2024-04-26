@@ -37,7 +37,8 @@ proc enrConfiguration*(
       if shardsRes.isOk() and shardsRes.get().isSome():
         shardsLocal = shardsRes.get().get().shardIds
       else:
-        error "failed to parse pubsubTopic", error = shardsRes.error
+        error "failed to parse pubsub topic, please format according to static shard specification",
+          error = shardsRes.error
       shardsLocal
 
     # some shards configured
