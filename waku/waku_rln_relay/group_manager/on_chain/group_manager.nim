@@ -121,6 +121,13 @@ template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
     raise newException(CatchableError, "OnchainGroupManager is not initialized")
 
+proc resultifiedInitGuard(g: OnchainGroupManager): GroupManagerResult[void] =
+  try:
+    initializedGuard(g)
+    return ok()
+  except CatchableError:
+    return err("OnchainGroupManager is not initialized")
+
 template retryWrapper(
     g: OnchainGroupManager, res: auto, errStr: string, body: untyped
 ): auto =
@@ -262,12 +269,12 @@ when defined(rln_v2):
       int(await ethRpc.provider.eth_gasPrice()) * 2
     let idCommitment = identityCredential.idCommitment.toUInt256()
 
-    var txHash: TxHash
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member",
       idCommitment = idCommitment,
       storageIndex = storageIndex,
       userMessageLimit = userMessageLimit
+    var txHash: TxHash
     g.retryWrapper(txHash, "Failed to register the member"):
       await registryContract
       .register(storageIndex, idCommitment, u256(userMessageLimit))
@@ -319,10 +326,10 @@ else:
       int(await ethRpc.provider.eth_gasPrice()) * 2
     let idCommitment = credentials.idCommitment.toUInt256()
 
-    var txHash: TxHash
     let storageIndex = g.usingStorageIndex.get()
     debug "registering the member",
       idCommitment = idCommitment, storageIndex = storageIndex
+    var txHash: TxHash
     g.retryWrapper(txHash, "Failed to register the member"):
       await registryContract.register(storageIndex, idCommitment).send(
         gasPrice = gasPrice
@@ -584,7 +591,7 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     var handleBlockRes: bool
     g.retryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
-    return true
+    return handleBlockRes
 
   return wrappedCb
 
@@ -675,17 +682,14 @@ proc startOnchainSync(
 
 method startGroupSync*(
     g: OnchainGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+): Future[GroupManagerResult[void]] {.async.} =
+  ?resultifiedInitGuard(g)
   # Get archive history
   try:
     await startOnchainSync(g)
-  except CatchableError:
-    raise newException(
-      CatchableError,
-      "failed to start onchain sync service: " & getCurrentExceptionMsg(),
-    )
-  return
+    return ok()
+  except CatchableError, Exception:
+    return err("failed to start group sync: " & getCurrentExceptionMsg())
 
 method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
   g.registerCb = some(cb)
@@ -693,11 +697,12 @@ method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-method init*(g: OnchainGroupManager): Future[void] {.async.} =
-  var ethRpc: Web3
+method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
+  var ethRpc: Web3
   g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
     await newWeb3(g.ethClientUrl)
+
   # Set the chain id
   var chainId: Quantity
   g.retryWrapper(chainId, "Failed to get the chain id"):
@@ -706,10 +711,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
 
   if g.ethPrivateKey.isSome():
     let pk = g.ethPrivateKey.get()
-    let pkParseRes = keys.PrivateKey.fromHex(pk)
-    if pkParseRes.isErr():
-      raise newException(ValueError, "could not parse the private key")
-    ethRpc.privateKey = some(pkParseRes.get())
+    let parsedPk = keys.PrivateKey.fromHex(pk).valueOr:
+      return err("failed to parse the private key" & ": " & $error)
+    ethRpc.privateKey = some(parsedPk)
     ethRpc.defaultAccount =
       ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
 
@@ -732,9 +736,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   g.registryContract = some(registryContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
-    if not existsFile(g.keystorePath.get()):
+    if not fileExists(g.keystorePath.get()):
       error "File provided as keystore path does not exist", path = g.keystorePath.get()
-      raise newException(CatchableError, "missing keystore")
+      return err("File provided as keystore path does not exist")
 
     var keystoreQuery = KeystoreMembership(
       membershipContract:
@@ -743,17 +747,14 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
     if g.membershipIndex.isSome():
       keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
     waku_rln_membership_credentials_import_duration_seconds.nanosecondTime:
-      let keystoreCredRes = getMembershipCredentials(
+      let keystoreCred = getMembershipCredentials(
         path = g.keystorePath.get(),
         password = g.keystorePassword.get(),
         query = keystoreQuery,
         appInfo = RLNAppInfo,
-      )
-    if keystoreCredRes.isErr():
-      raise newException(
-        CatchableError, "could not parse the keystore: " & $keystoreCredRes.error
-      )
-    let keystoreCred = keystoreCredRes.get()
+      ).valueOr:
+        return err("failed to get the keystore credentials: " & $error)
+
     g.membershipIndex = some(keystoreCred.treeIndex)
     when defined(rln_v2):
       g.userMessageLimit = some(keystoreCred.userMessageLimit)
@@ -763,15 +764,9 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
       .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
       .call()
       if membershipExists == 0:
-        raise newException(
-          CatchableError, "the provided commitment does not have a membership"
-        )
+        return err("the commitment does not have a membership")
     except CatchableError:
-      raise newException(
-        CatchableError,
-        "could not check if the commitment exists on the contract: " &
-          getCurrentExceptionMsg(),
-      )
+      return err("failed to check if the commitment has a membership")
 
     g.idCredentials = some(keystoreCred.identityCredential)
 
@@ -781,10 +776,10 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
   elif metadataGetOptRes.get().isSome():
     let metadata = metadataGetOptRes.get().get()
     if metadata.chainId != uint64(g.chainId.get()):
-      raise newException(ValueError, "persisted data: chain id mismatch")
+      return err("persisted data: chain id mismatch")
 
     if metadata.contractAddress != g.ethContractAddress.toLower():
-      raise newException(ValueError, "persisted data: contract address mismatch")
+      return err("persisted data: contract address mismatch")
     g.latestProcessedBlock = metadata.lastProcessedBlock
     g.validRoots = metadata.validRoots.toDeque()
 
@@ -824,6 +819,8 @@ method init*(g: OnchainGroupManager): Future[void] {.async.} =
 
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
+
+  return ok()
 
 method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
   g.blockFetchingActive = false

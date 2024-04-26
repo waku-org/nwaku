@@ -7,7 +7,7 @@ import
   std/[sequtils, strutils, algorithm],
   web3,
   chronicles,
-  stew/[arrayops, results, endians2],
+  stew/[arrayops, endians2],
   stint
 import ./constants, ./protocol_types
 import ../waku_keystore

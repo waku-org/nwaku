@@ -1,5 +1,6 @@
 import ../../../common/error_handling
 import chronos
+import results
 
 type RetryStrategy* = object
   shouldRetry*: bool

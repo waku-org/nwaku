@@ -4,8 +4,7 @@ import
   options,
   eth/keys,
   stew/[arrayops, byteutils, results, endians2],
-  std/[sequtils, strformat, strutils, tables],
-  nimcrypto/utils
+  std/[sequtils, strutils, tables]
 
 import ./rln_interface, ../conversion_utils, ../protocol_types, ../protocol_metrics
 import ../../waku_core, ../../waku_keystore
