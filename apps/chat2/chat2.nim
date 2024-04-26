@@ -38,8 +38,8 @@ import
   ../../waku/waku_lightpush/common,
   ../../waku/waku_lightpush/rpc,
   ../../waku/waku_enr,
-  ../../waku/waku_store,
   ../../waku/discovery/waku_dnsdisc,
+  ../../waku/waku_store_legacy,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
@@ -469,7 +469,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
 
-      node.mountStoreClient()
+      node.mountLegacyStoreClient()
       node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =

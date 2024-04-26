@@ -19,6 +19,9 @@ import
   ../discovery/waku_dnsdisc,
   ../waku_archive,
   ../waku_store,
+  ../waku_store/common as store_common,
+  ../waku_store_legacy,
+  ../waku_store_legacy/common as legacy_common,
   ../waku_filter_v2,
   ../waku_peer_exchange,
   ../node/peer_manager,
@@ -241,20 +244,34 @@ proc setupProtocols(
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
     # Store setup
+    let rateLimitSetting: RateLimitSetting =
+      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
     try:
-      let rateLimitSetting: RateLimitSetting =
-        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
       await mountStore(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
+
+    try:
+      await mountLegacyStore(node, rateLimitSetting)
+    except CatchableError:
+      return
+        err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
 
   mountStoreClient(node)
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
     if storeNode.isOk():
-      node.peerManager.addServicePeer(storeNode.value, WakuStoreCodec)
+      node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
     else:
       return err("failed to set node waku store peer: " & storeNode.error)
+
+  mountLegacyStoreClient(node)
+  if conf.storenode != "":
+    let storeNode = parsePeerInfo(conf.storenode)
+    if storeNode.isOk():
+      node.peerManager.addServicePeer(storeNode.value, legacy_common.WakuStoreCodec)
+    else:
+      return err("failed to set node waku legacy store peer: " & storeNode.error)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:
