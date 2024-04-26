@@ -14,7 +14,7 @@ const PgMigrationScripts* =
     MigrationScript(version: 1, scriptContent: ContentScriptVersion_1),
     MigrationScript(version: 2, scriptContent: ContentScriptVersion_2),
     MigrationScript(version: 3, scriptContent: ContentScriptVersion_3),
-    MigrationScript(version: 3, scriptContent: ContentScriptVersion_4),
+    MigrationScript(version: 4, scriptContent: ContentScriptVersion_4),
   ]
 
 proc getMigrationScripts*(currentVersion: int64, targetVersion: int64): seq[string] =
