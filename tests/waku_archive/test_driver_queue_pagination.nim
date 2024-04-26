@@ -24,6 +24,7 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
       receiverTime: Timestamp(i),
       senderTime: Timestamp(i),
       digest: MessageDigest(data: data),
+      hash: computeMessageHash(DefaultPubsubTopic, msg),
     )
 
     discard testQueueDriver.add(index, msg)

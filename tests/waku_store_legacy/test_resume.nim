@@ -13,8 +13,8 @@ import
   ../../waku/node/peer_manager,
   ../../waku/waku_core,
   ../../waku/waku_core/message/digest,
-  ../../waku/waku_store,
-  ../waku_store/store_utils,
+  ../../waku/waku_store_legacy,
+  ../waku_store_legacy/store_utils,
   ../waku_archive/archive_utils,
   ./testlib/common,
   ./testlib/switch
