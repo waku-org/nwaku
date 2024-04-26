@@ -476,7 +476,12 @@ proc selectMessagesByHistoryQueryWithLimit*(
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol = 3)
       message = queryRowWakuMessageCallback(
-        s, contentTopicCol = 1, payloadCol = 2, versionCol = 4, senderTimestampCol = 5
+        s,
+        contentTopicCol = 1,
+        payloadCol = 2,
+        versionCol = 4,
+        senderTimestampCol = 5,
+        metaCol = 8,
       )
       digest = queryRowDigestCallback(s, digestCol = 6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol = 0)
@@ -504,7 +509,7 @@ proc selectMessagesByHistoryQueryWithLimit*(
 proc selectMessageByHashQuery(): SqlQueryStr =
   var query: string
 
-  query = "SELECT contentTopic, payload, version, timestamp, messageHash"
+  query = "SELECT contentTopic, payload, version, timestamp, meta, messageHash"
   query &= " FROM " & DbTable
   query &= " WHERE messageHash = (?)"
 
@@ -674,7 +679,12 @@ proc selectMessagesByStoreQueryWithLimit*(
 
       proc queryRowCallback(s: ptr sqlite3_stmt) =
         wakuMessage = queryRowWakuMessageCallback(
-          s, contentTopicCol = 0, payloadCol = 1, versionCol = 2, senderTimestampCol = 3
+          s,
+          contentTopicCol = 0,
+          payloadCol = 1,
+          versionCol = 2,
+          senderTimestampCol = 3,
+          metaCol = 4,
         )
 
       let query = selectMessageByHashQuery()
