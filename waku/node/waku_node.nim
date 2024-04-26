@@ -839,12 +839,13 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   for i in 0 ..< response.hashes.len:
     let hash = response.hashes[i]
 
-    let kv = store_common.WakuMessageKeyValue(messageHash: hash, message: WakuMessage())
+    let kv =
+      store_common.WakuMessageKeyValue(messageHash: hash, message: none(WakuMessage))
 
     res.messages.add(kv)
 
   for i in 0 ..< response.messages.len:
-    res.messages[i].message = response.messages[i]
+    res.messages[i].message = some(response.messages[i])
 
   if response.cursor.isSome():
     res.paginationCursor = some(response.cursor.get().hash)

@@ -226,7 +226,8 @@ procSuite "Waku Rest API - Store v3":
 
       var wakuMessages = newSeq[WakuMessage](0)
       for j in 0 ..< response.data.messages.len:
-        wakuMessages.add(response.data.messages[j].message)
+        if response.data.messages[j].message.isSome():
+          wakuMessages.add(response.data.messages[j].message.get())
 
       pages[i] = wakuMessages
 
@@ -629,7 +630,7 @@ procSuite "Waku Rest API - Store v3":
       $response.contentType == $MIMETYPE_JSON
       response.data.messages.len == 1
 
-    let storeMessage = response.data.messages[0].message
+    let storeMessage = response.data.messages[0].message.get()
 
     check:
       storeMessage.payload == msg.payload
@@ -713,7 +714,8 @@ procSuite "Waku Rest API - Store v3":
 
       var wakuMessages = newSeq[WakuMessage](0)
       for j in 0 ..< response.data.messages.len:
-        wakuMessages.add(response.data.messages[j].message)
+        if response.data.messages[j].message.isSome():
+          wakuMessages.add(response.data.messages[j].message.get())
 
       pages[i] = wakuMessages
 
@@ -776,7 +778,8 @@ procSuite "Waku Rest API - Store v3":
 
     var wakuMessages = newSeq[WakuMessage](0)
     for j in 0 ..< response.data.messages.len:
-      wakuMessages.add(response.data.messages[j].message)
+      if response.data.messages[j].message.isSome():
+        wakuMessages.add(response.data.messages[j].message.get())
 
     check wakuMessages == msgList[6 .. 9]
 

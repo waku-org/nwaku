@@ -59,7 +59,9 @@ suite "Waku Store - End to End - Sorted Archive":
         fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
       ]
     archiveMessages = messages.mapIt(
-      WakuMessageKeyValue(messageHash: computeMessageHash(pubsubTopic, it), message: it)
+      WakuMessageKeyValue(
+        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+      )
     )
 
     storeQuery = StoreQueryRequest(
@@ -320,7 +322,7 @@ suite "Waku Store - End to End - Sorted Archive":
         let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
 
         let lastMessageTimestamp =
-          archiveMessages[archiveMessages.len - 1].message.timestamp
+          archiveMessages[archiveMessages.len - 1].message.get().timestamp
         var extraMessages: seq[WakuMessage] = @[]
         for i in 0 ..< missingMessagesAmount:
           let
@@ -335,7 +337,7 @@ suite "Waku Store - End to End - Sorted Archive":
           archiveMessages &
           extraMessages.mapIt(
             WakuMessageKeyValue(
-              messageHash: computeMessageHash(pubsubTopic, it), message: it
+              messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
             )
           )
 
@@ -375,7 +377,7 @@ suite "Waku Store - End to End - Sorted Archive":
         let missingMessagesAmount = archive.DefaultPageSize - currentStoreLen + 5
 
         let lastMessageTimestamp =
-          archiveMessages[archiveMessages.len - 1].message.timestamp
+          archiveMessages[archiveMessages.len - 1].message.get().timestamp
         var extraMessages: seq[WakuMessage] = @[]
         for i in 0 ..< missingMessagesAmount:
           let
@@ -390,7 +392,7 @@ suite "Waku Store - End to End - Sorted Archive":
           archiveMessages &
           extraMessages.mapIt(
             WakuMessageKeyValue(
-              messageHash: computeMessageHash(pubsubTopic, it), message: it
+              messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
             )
           )
 
@@ -470,8 +472,9 @@ suite "Waku Store - End to End - Sorted Archive":
       asyncTest "Cursor Reusability Across Nodes":
         # Given a different server node with the same archive
         let
-          otherArchiveDriverWithMessages =
-            newArchiveDriverWithMessages(pubsubTopic, archiveMessages.mapIt(it.message))
+          otherArchiveDriverWithMessages = newArchiveDriverWithMessages(
+            pubsubTopic, archiveMessages.mapIt(it.message.get())
+          )
           otherServerKey = generateSecp256k1Key()
           otherServer =
             newTestWakuNode(otherServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
@@ -554,7 +557,9 @@ suite "Waku Store - End to End - Unsorted Archive":
         fakeWakuMessage(@[byte 05], ts = ts(20, timeOrigin)),
       ]
     unsortedArchiveMessages = messages.mapIt(
-      WakuMessageKeyValue(messageHash: computeMessageHash(pubsubTopic, it), message: it)
+      WakuMessageKeyValue(
+        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+      )
     )
 
     let
@@ -590,17 +595,17 @@ suite "Waku Store - End to End - Unsorted Archive":
     check:
       queryResponse.get().messages.len == 5
 
-      queryResponse.get().messages[0].message.timestamp ==
-        queryResponse.get().messages[1].message.timestamp
+      queryResponse.get().messages[0].message.get().timestamp ==
+        queryResponse.get().messages[1].message.get().timestamp
 
-      queryResponse.get().messages[1].message.timestamp ==
-        queryResponse.get().messages[2].message.timestamp
+      queryResponse.get().messages[1].message.get().timestamp ==
+        queryResponse.get().messages[2].message.get().timestamp
 
-      queryResponse.get().messages[2].message.timestamp <
-        queryResponse.get().messages[3].message.timestamp
+      queryResponse.get().messages[2].message.get().timestamp <
+        queryResponse.get().messages[3].message.get().timestamp
 
-      queryResponse.get().messages[3].message.timestamp ==
-        queryResponse.get().messages[4].message.timestamp
+      queryResponse.get().messages[3].message.get().timestamp ==
+        queryResponse.get().messages[4].message.get().timestamp
 
       toHex(queryResponse.get().messages[0].messageHash) <
         toHex(queryResponse.get().messages[1].messageHash)
@@ -626,17 +631,17 @@ suite "Waku Store - End to End - Unsorted Archive":
 
     # Check the ordering
     check:
-      queryResponse2.get().messages[0].message.timestamp <
-        queryResponse2.get().messages[1].message.timestamp
+      queryResponse2.get().messages[0].message.get().timestamp <
+        queryResponse2.get().messages[1].message.get().timestamp
 
-      queryResponse2.get().messages[1].message.timestamp ==
-        queryResponse2.get().messages[2].message.timestamp
+      queryResponse2.get().messages[1].message.get().timestamp ==
+        queryResponse2.get().messages[2].message.get().timestamp
 
-      queryResponse2.get().messages[2].message.timestamp ==
-        queryResponse2.get().messages[3].message.timestamp
+      queryResponse2.get().messages[2].message.get().timestamp ==
+        queryResponse2.get().messages[3].message.get().timestamp
 
-      queryResponse2.get().messages[3].message.timestamp ==
-        queryResponse2.get().messages[4].message.timestamp
+      queryResponse2.get().messages[3].message.get().timestamp ==
+        queryResponse2.get().messages[4].message.get().timestamp
 
       toHex(queryResponse2.get().messages[1].messageHash) <
         toHex(queryResponse2.get().messages[2].messageHash)
@@ -667,11 +672,11 @@ suite "Waku Store - End to End - Unsorted Archive":
     check:
       queryResponse.get().messages.len == 3
 
-      queryResponse.get().messages[0].message.timestamp ==
-        queryResponse.get().messages[1].message.timestamp
+      queryResponse.get().messages[0].message.get().timestamp ==
+        queryResponse.get().messages[1].message.get().timestamp
 
-      queryResponse.get().messages[1].message.timestamp ==
-        queryResponse.get().messages[2].message.timestamp
+      queryResponse.get().messages[1].message.get().timestamp ==
+        queryResponse.get().messages[2].message.get().timestamp
 
       toHex(queryResponse.get().messages[0].messageHash) <
         toHex(queryResponse.get().messages[1].messageHash)
@@ -700,20 +705,20 @@ suite "Waku Store - End to End - Unsorted Archive":
     check:
       queryResponse.get().messages.len == 6
 
-      queryResponse.get().messages[0].message.timestamp ==
-        queryResponse.get().messages[1].message.timestamp
+      queryResponse.get().messages[0].message.get().timestamp ==
+        queryResponse.get().messages[1].message.get().timestamp
 
-      queryResponse.get().messages[1].message.timestamp <
-        queryResponse.get().messages[2].message.timestamp
+      queryResponse.get().messages[1].message.get().timestamp <
+        queryResponse.get().messages[2].message.get().timestamp
 
-      queryResponse.get().messages[2].message.timestamp ==
-        queryResponse.get().messages[3].message.timestamp
+      queryResponse.get().messages[2].message.get().timestamp ==
+        queryResponse.get().messages[3].message.get().timestamp
 
-      queryResponse.get().messages[3].message.timestamp ==
-        queryResponse.get().messages[4].message.timestamp
+      queryResponse.get().messages[3].message.get().timestamp ==
+        queryResponse.get().messages[4].message.get().timestamp
 
-      queryResponse.get().messages[4].message.timestamp ==
-        queryResponse.get().messages[5].message.timestamp
+      queryResponse.get().messages[4].message.get().timestamp ==
+        queryResponse.get().messages[5].message.get().timestamp
 
       toHex(queryResponse.get().messages[0].messageHash) <
         toHex(queryResponse.get().messages[1].messageHash)
@@ -767,7 +772,9 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
         fakeWakuMessage(@[byte 08]),
       ]
     unsortedArchiveMessages = messages.mapIt(
-      WakuMessageKeyValue(messageHash: computeMessageHash(pubsubTopic, it), message: it)
+      WakuMessageKeyValue(
+        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+      )
     )
 
     let
@@ -802,17 +809,17 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
     check:
       queryResponse.get().messages.len == 5
 
-      queryResponse.get().messages[0].message.timestamp <=
-        queryResponse.get().messages[1].message.timestamp
+      queryResponse.get().messages[0].message.get().timestamp <=
+        queryResponse.get().messages[1].message.get().timestamp
 
-      queryResponse.get().messages[1].message.timestamp <=
-        queryResponse.get().messages[2].message.timestamp
+      queryResponse.get().messages[1].message.get().timestamp <=
+        queryResponse.get().messages[2].message.get().timestamp
 
-      queryResponse.get().messages[2].message.timestamp <=
-        queryResponse.get().messages[3].message.timestamp
+      queryResponse.get().messages[2].message.get().timestamp <=
+        queryResponse.get().messages[3].message.get().timestamp
 
-      queryResponse.get().messages[3].message.timestamp <=
-        queryResponse.get().messages[4].message.timestamp
+      queryResponse.get().messages[3].message.get().timestamp <=
+        queryResponse.get().messages[4].message.get().timestamp
 
     # Given the next query
     var historyQuery2 = StoreQueryRequest(
@@ -838,17 +845,17 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
 
       queryResponse2.get().messages.len == 5
 
-      queryResponse2.get().messages[0].message.timestamp <=
-        queryResponse2.get().messages[1].message.timestamp
+      queryResponse2.get().messages[0].message.get().timestamp <=
+        queryResponse2.get().messages[1].message.get().timestamp
 
-      queryResponse2.get().messages[1].message.timestamp <=
-        queryResponse2.get().messages[2].message.timestamp
+      queryResponse2.get().messages[1].message.get().timestamp <=
+        queryResponse2.get().messages[2].message.get().timestamp
 
-      queryResponse2.get().messages[2].message.timestamp <=
-        queryResponse2.get().messages[3].message.timestamp
+      queryResponse2.get().messages[2].message.get().timestamp <=
+        queryResponse2.get().messages[3].message.get().timestamp
 
-      queryResponse2.get().messages[3].message.timestamp <=
-        queryResponse2.get().messages[4].message.timestamp
+      queryResponse2.get().messages[3].message.get().timestamp <=
+        queryResponse2.get().messages[4].message.get().timestamp
 
 suite "Waku Store - End to End - Archive with Multiple Topics":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -907,12 +914,14 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
       ]
 
     archiveMessages = messages.mapIt(
-      WakuMessageKeyValue(messageHash: computeMessageHash(pubsubTopic, it), message: it)
+      WakuMessageKeyValue(
+        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+      )
     )
 
     for i in 6 ..< 10:
       archiveMessages[i].messagehash =
-        computeMessageHash(pubsubTopicB, archiveMessages[i].message)
+        computeMessageHash(pubsubTopicB, archiveMessages[i].message.get())
 
     let
       serverKey = generateSecp256k1Key()
@@ -1265,7 +1274,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       let voluminousArchiveMessages = messages.mapIt(
         WakuMessageKeyValue(
-          messageHash: computeMessageHash(pubsubTopic, it), message: it
+          messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
         )
       )
 

@@ -49,18 +49,19 @@ procSuite "WakuNode - Store":
 
   let hashes = msgListA.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
-  let kvs =
-    zip(hashes, msgListA).mapIt(WakuMessageKeyValue(messageHash: it[0], message: it[1]))
+  let kvs = zip(hashes, msgListA).mapIt(
+      WakuMessageKeyValue(messageHash: it[0], message: some(it[1]))
+    )
 
   let archiveA = block:
     let driver = newSqliteArchiveDriver()
 
     for kv in kvs:
-      let msg_digest = computeDigest(kv.message)
+      let message = kv.message.get()
+      let msg_digest = computeDigest(message)
       require (
         waitFor driver.put(
-          DefaultPubsubTopic, kv.message, msg_digest, kv.messageHash,
-          kv.message.timestamp,
+          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
         )
       ).isOk()
 
@@ -274,7 +275,8 @@ procSuite "WakuNode - Store":
     let response = res.get()
     check:
       response.messages.len == 1
-      response.messages[0] == WakuMessageKeyValue(messageHash: hash, message: message)
+      response.messages[0] ==
+        WakuMessageKeyValue(messageHash: hash, message: some(message))
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
@@ -356,7 +358,7 @@ procSuite "WakuNode - Store":
 
       let response = queryRes.get()
       check:
-        response.messages.mapIt(it.message) == msgListA
+        response.messages.mapIt(it.message.get()) == msgListA
 
     for count in 0 ..< 4:
       waitFor requestProc()
@@ -399,7 +401,7 @@ procSuite "WakuNode - Store":
       check queryRes.isOk()
       let response = queryRes.get()
       check:
-        response.messages.mapIt(it.message) == msgListA
+        response.messages.mapIt(it.message.get()) == msgListA
 
     let failsProc = proc() {.async.} =
       let queryRes = waitFor client.query(req, peer = serverPeer)

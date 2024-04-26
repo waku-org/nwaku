@@ -124,7 +124,9 @@ proc encode*(keyValue: WakuMessageKeyValue): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, keyValue.messageHash)
-  pb.write3(2, keyValue.message.encode())
+
+  if keyValue.message.isSome():
+    pb.write3(2, keyValue.message.get().encode())
 
   pb.finish3()
 
@@ -163,9 +165,9 @@ proc decode*(
 
   var proto: ProtoBuffer
   if not ?pb.getField(2, proto):
-    return err(ProtobufError.missingRequiredField("message"))
+    keyValue.message = none(WakuMessage)
   else:
-    keyValue.message = ?WakuMessage.decode(proto.buffer)
+    keyValue.message = some(?WakuMessage.decode(proto.buffer))
 
   return ok(keyValue)
 
