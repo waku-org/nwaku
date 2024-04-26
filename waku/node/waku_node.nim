@@ -843,6 +843,9 @@ proc lightpushPublish*(
   ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality.
+  if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
+    return err("Waku lightpush not available")
+
   let internalPublish = proc(
       node: WakuNode,
       pubsubTopic: PubsubTopic,
@@ -860,9 +863,6 @@ proc lightpushPublish*(
       debug "publishing message with self hosted lightpush",
         pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
-
-  if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
-    return err("waku lightpush not available")
 
   if pubsubTopic.isSome():
     debug "publishing message with lightpush",

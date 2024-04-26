@@ -1,17 +1,16 @@
-##
-## This file is aimed to attend the requests that come directly
-## from the 'self' node. It is expected to attend the store requests that
-## come from REST-store endpoint when those requests don't indicate
-## any store-peer address.
-##
-## Notice that the REST-store requests normally assume that the REST
-## server is acting as a store-client. In this module, we allow that
-## such REST-store node can act as store-server as well by retrieving
-## its own stored messages. The typical use case for that is when
-## using `nwaku-compose`, which spawn a Waku node connected to a local
-## database, and the user is interested in retrieving the messages
-## stored by that local store node.
-##
+when (NimMajor, NimMinor) < (1, 4):
+  {.push raises: [Defect].}
+else:
+  {.push raises: [].}
+
+## Notice that the REST /lightpush requests normally assume that the node
+## is acting as a lightpush-client that will trigger the service provider node
+## to relay the message.
+## In this module, we allow that a lightpush service node (full node) can be
+## triggered directly through the  REST /lightpush endpoint.
+## The typical use case for that is when using `nwaku-compose`,
+## which spawn a full service Waku node
+## that could be used also as a lightpush client, helping testing and development.
 
 import stew/results, chronos, chronicles, std/options, metrics
 import

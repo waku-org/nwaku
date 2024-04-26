@@ -178,7 +178,7 @@ proc startRestServerProtocolSupport*(
   ## Install it either if lightpushnode (lightpush service node) is configured and client is mounted)
   ## or install it to be used with self-hosted lightpush service
   if (conf.lightpushnode != "" and node.wakuLightpushClient != nil) or
-      (conf.lightpush and node.wakuLightPush != nil):
+      (conf.lightpush and node.wakuLightPush != nil and node.wakuRelay != nil):
     let lightDiscoHandler =
       if wakuDiscv5.isSome():
         some(defaultDiscoveryHandler(wakuDiscv5.get(), Lightpush))
