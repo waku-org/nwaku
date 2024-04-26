@@ -43,6 +43,7 @@ type
     hash*: WakuMessageHash
 
   ArchiveQuery* = object
+    includeData*: bool
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
     cursor*: Option[ArchiveCursor]

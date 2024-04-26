@@ -808,6 +808,7 @@ when defined(waku_exp_store_resume):
 proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   var query = ArchiveQuery()
 
+  query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
   query.contentTopics = request.contentTopics
   query.startTime = request.startTime

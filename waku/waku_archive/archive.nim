@@ -133,6 +133,9 @@ proc findMessages*(
   if query.contentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
+  if query.cursor.isSome() and query.cursor.get().hash.len != 32:
+    return err(ArchiveError.invalidQuery("invalid cursor"))
+
   let queryStartTime = getTime().toUnixFloat()
 
   let rows = (
@@ -163,7 +166,9 @@ proc findMessages*(
   let pageSize = min(rows.len, int(maxPageSize))
 
   #TODO once store v2 is removed, unzip instead of 2x map
-  messages = rows[0 ..< pageSize].mapIt(it[1])
+  if query.includeData:
+    messages = rows[0 ..< pageSize].mapIt(it[1])
+
   hashes = rows[0 ..< pageSize].mapIt(it[4])
 
   ## Cursor
