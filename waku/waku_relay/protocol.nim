@@ -229,7 +229,7 @@ proc validateMessage*(
   let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
 
   if messageSizeBytes > w.maxMessageSize:
-    let message = fmt"message size exceeded maximum of {w.maxMessageSize} bytes"
+    let message = fmt"Message size exceeded maximum of {w.maxMessageSize} bytes"
     error "too large Waku message",
       msg_hash = msgHash,
       error = message,
