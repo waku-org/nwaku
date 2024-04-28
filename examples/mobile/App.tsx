@@ -24,6 +24,7 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
+import { NativeModules, Button } from 'react-native';
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -62,6 +63,44 @@ function App(): React.JSX.Element {
     backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
   };
 
+  const onClickSetup = async () => {
+    await NativeModules.WakuModule.setup();
+    alert('Waku lib setup complete');
+  };
+
+  var wakuPtr;
+
+  const onClickNew = async () => {
+    wakuPtr = await NativeModules.WakuModule.new();
+    alert("waku_new result: " + wakuPtr);
+  };
+
+  const onClickStart = async () => {
+    await NativeModules.WakuModule.start(wakuPtr);
+    alert("start executed succesfully");
+  };
+
+  const onClickVersion = async () => {
+    let version = await NativeModules.WakuModule.version(wakuPtr);
+    alert("version result: " + version);
+  };
+
+  const onClickStop = async () => {
+    await NativeModules.WakuModule.stop(wakuPtr);
+    alert("stopped!");
+  };
+
+  const onClickDestroy = async () => {
+    await NativeModules.WakuModule.destroy(wakuPtr);
+    alert("destroyed!");
+  };
+
+  const onClickConnect = async () => {
+    await NativeModules.WakuModule.connect(wakuPtr, "/ip4/127.0.0.1/tcp/48117/p2p/16Uiu2HAmVrsyU3y3pQYuSEyaqrBgevQeshp7YZsL8rY3nWb2yWD5", 0);
+    alert("connect!");
+  }
+
+
   return (
     <SafeAreaView style={backgroundStyle}>
       <StatusBar
@@ -71,25 +110,31 @@ function App(): React.JSX.Element {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         style={backgroundStyle}>
-        <Header />
         <View
           style={{
             backgroundColor: isDarkMode ? Colors.black : Colors.white,
           }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
+          <Section>
+            <Button title="Setup" color="#841584" onPress={onClickSetup} />
           </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
+          <Section>
+            <Button title="New" color="#841584" onPress={onClickNew} />
           </Section>
-          <Section title="Debug">
-            <DebugInstructions />
+          <Section>
+            <Button title="Start" color="#841584" onPress={onClickStart} />
           </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
+          <Section>
+            <Button title="Version" color="#841584" onPress={onClickVersion} />
           </Section>
-          <LearnMoreLinks />
+          <Section>
+            <Button title="Connect" color="#841584" onPress={onClickConnect} />
+          </Section>
+          <Section>
+            <Button title="Stop" color="#841584" onPress={onClickStop} />
+          </Section>
+          <Section>
+            <Button title="Destroy" color="#841584" onPress={onClickDestroy} />
+          </Section>
         </View>
       </ScrollView>
     </SafeAreaView>

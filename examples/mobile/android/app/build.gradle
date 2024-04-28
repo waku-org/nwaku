@@ -81,6 +81,17 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        ndk {
+            abiFilters "x86_64", "arm64-v8a", "armeabi-v7a", "x86"
+            moduleName "waku_jni"
+            ldLibs "log"
+            cFlags "-std=c99"
+        }
+    }
+    externalNativeBuild {
+        ndkBuild {
+            path file('src/main/jni/Android.mk')
+        }
     }
     signingConfigs {
         debug {
@@ -102,9 +113,19 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+
+    sourceSets {
+        main {
+            jniLibs {
+                srcDirs 'src/main/jniLibs'
+            }
+        }
+    }
 }
 
 dependencies {
+    implementation fileTree(dir: "libs", include: ["*.aar"])
+
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
 

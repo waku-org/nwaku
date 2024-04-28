@@ -7,6 +7,13 @@ import com.facebook.react.defaults.DefaultReactActivityDelegate
 
 class MainActivity : ReactActivity() {
 
+    companion object {
+        init {
+            System.loadLibrary("rln")
+            System.loadLibrary("waku")
+            System.loadLibrary("waku_jni");
+        }
+    }
   /**
    * Returns the name of the main component registered from JavaScript. This is used to schedule
    * rendering of the component.
