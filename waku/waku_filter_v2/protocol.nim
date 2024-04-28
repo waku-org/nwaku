@@ -156,7 +156,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
 
   if not wf.peerManager.peerStore.hasPeer(peer, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
-    trace "no addresses for peer", peer = peer
+    error "no addresses for peer", peer_id = shortLog(peer)
     return
 
   ## TODO: Check if dial is necessary always???
@@ -164,7 +164,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
   if conn.isNone():
     ## We do not remove this peer, but allow the underlying peer manager
     ## to do so if it is deemed necessary
-    trace "no connection to peer", peer = peer
+    error "no connection to peer", peer_id = shortLog(peer)
     return
 
   await conn.get().writeLp(buffer)
@@ -172,11 +172,12 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
 proc pushToPeers(
     wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush
 ) {.async.} =
-  debug "pushing message to subscribed peers",
+  info "pushing message to subscribed peers",
     pubsubTopic = messagePush.pubsubTopic,
     contentTopic = messagePush.wakuMessage.contentTopic,
-    peers = peers,
-    hash = messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
+    target_peer_ids = peers.mapIt(shortLog(it)),
+    msg_hash =
+      messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
   let bufferToPublish = messagePush.encode().buffer
 
@@ -210,7 +211,10 @@ const MessagePushTimeout = 20.seconds
 proc handleMessage*(
     wf: WakuFilter, pubsubTopic: PubsubTopic, message: WakuMessage
 ) {.async.} =
-  trace "handling message", pubsubTopic = pubsubTopic, message = message
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+
+  info "handling message",
+    pubsubTopic = pubsubTopic, message = message, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
 
@@ -219,7 +223,7 @@ proc handleMessage*(
     let subscribedPeers =
       wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
     if subscribedPeers.len == 0:
-      trace "no subscribed peers found",
+      info "no subscribed peers found",
         pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
       return
 
@@ -228,16 +232,20 @@ proc handleMessage*(
     if not await wf.pushToPeers(subscribedPeers, messagePush).withTimeout(
       MessagePushTimeout
     ):
-      debug "timed out pushing message to peers",
+      info "timed out pushing message to peers",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
-        hash = pubsubTopic.computeMessageHash(message).to0xHex()
+        msg_hash = msgHash,
+        numPeers = subscribedPeers.len,
+        target_peer_ids = subscribedPeers.mapIt(shortLog(it))
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
     else:
-      debug "pushed message succesfully to all subscribers",
+      info "pushed message succesfully to all subscribers",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
-        hash = pubsubTopic.computeMessageHash(message).to0xHex()
+        msg_hash = msgHash,
+        numPeers = subscribedPeers.len,
+        target_peer_ids = subscribedPeers.mapIt(shortLog(it))
 
   let
     handleMessageDuration = Moment.now() - handleMessageStartTime
@@ -247,14 +255,14 @@ proc handleMessage*(
 
 proc initProtocolHandler(wf: WakuFilter) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    trace "filter subscribe request handler triggered", peerId = conn.peerId
+    trace "filter subscribe request handler triggered", peer_id = shortLog(conn.peerId)
 
     let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
 
     let decodeRes = FilterSubscribeRequest.decode(buf)
     if decodeRes.isErr():
       error "Failed to decode filter subscribe request",
-        peerId = conn.peerId, err = decodeRes.error
+        peer_id = conn.peerId, err = decodeRes.error
       waku_filter_errors.inc(labelValues = [decodeRpcFailure])
       return
 
@@ -262,7 +270,8 @@ proc initProtocolHandler(wf: WakuFilter) =
 
     let response = wf.handleSubscribeRequest(conn.peerId, request)
 
-    debug "sending filter subscribe response", peerId = conn.peerId, response = response
+    info "sending filter subscribe response",
+      peer_id = shortLog(conn.peerId), response = response
 
     await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
     return
