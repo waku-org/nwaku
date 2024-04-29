@@ -37,7 +37,7 @@ proc enrConfiguration*(
       if shardsRes.isOk() and shardsRes.get().isSome():
         shardsLocal = shardsRes.get().get().shardIds
       elif not shardsRes.get().isNone():
-        info "No pubsub topics specified or pubsubtopic is of type Named sharding "
+        info "no pubsub topics specified or pubsubtopic is of type Named sharding "
       else:
         error "failed to parse pubsub topic, please format according to static shard specification",
           error = shardsRes.error
