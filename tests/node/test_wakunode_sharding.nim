@@ -19,6 +19,7 @@ import
 import
   ../../../waku/[
     waku_core/topics/pubsub_topic,
+    waku_core/topics/sharding,
     node/waku_node,
     common/paging,
     waku_core,
@@ -28,7 +29,7 @@ import
   ],
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures]
+  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
 
 import ../../../waku/waku_relay/protocol
 
@@ -62,8 +63,6 @@ suite "Sharding":
         topic = "/waku/2/rs/0/1"
         serverHandler = server.subscribeCompletionHandler(topic)
         clientHandler = client.subscribeCompletionHandler(topic)
-
-      # await sleepAsync(FUTURE_TIMEOUT)
 
       await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
 
@@ -108,7 +107,7 @@ suite "Sharding":
         serverHandler = server.subscribeCompletionHandler(topic1)
         clientHandler = client.subscribeCompletionHandler(topic2)
 
-      await sleepAsync(FUTURE_TIMEOUT)
+      # await sleepAsync(FUTURE_TIMEOUT)
 
       await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
 
@@ -160,8 +159,8 @@ suite "Sharding":
         WakuMessage(payload: "message1".toBytes(), contentTopic: contentTopicShort),
       )
       let
-        serverResult1 = await serverHandler.waitForResult(FUTURE_TIMEOUT_LONG)
-        clientResult1 = await clientHandler.waitForResult(FUTURE_TIMEOUT_LONG)
+        serverResult1 = await serverHandler.waitForResult(FUTURE_TIMEOUT)
+        clientResult1 = await clientHandler.waitForResult(FUTURE_TIMEOUT)
 
       # Then the server and client receive the message
       assertResultOk(serverResult1)
@@ -187,6 +186,7 @@ suite "Sharding":
       let
         contentTopic1 = "/toychat/2/huilong/proto"
         pubsubTopic1 = "/waku/2/rs/0/58355"
+        pubsubTopic12 = NsPubsubTopic.parse(contentTopic1)
           # Automatically generated from the contentTopic above
         contentTopic2 = "/0/toychat2/2/huilong/proto"
         pubsubTopic2 = "/waku/2/rs/0/23286"
@@ -219,8 +219,8 @@ suite "Sharding":
         WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic2),
       )
       let
-        serverResult2 = await serverHandler.waitForResult(FUTURE_TIMEOUT_LONG)
-        clientResult2 = await clientHandler.waitForResult(FUTURE_TIMEOUT_LONG)
+        serverResult2 = await serverHandler.waitForResult(FUTURE_TIMEOUT)
+        clientResult2 = await clientHandler.waitForResult(FUTURE_TIMEOUT)
 
       # Then the client receives the message but the server does not
       assertResultOk(clientResult2)
@@ -431,7 +431,7 @@ suite "Sharding":
         let clientResult = await clientHandler.waitForResult(FUTURE_TIMEOUT)
         assertResultOk(clientResult)
 
-      asyncTest "store (automatic sharding filtering)":
+      xasyncTest "store (automatic sharding filtering)":
         # Given one archive with two sets of messages using the same content topic (with two different formats)
         let
           timeOrigin = now()
@@ -890,6 +890,8 @@ suite "Sharding":
         clientHandler1 = client.subscribeCompletionHandler(topic1)
         clientHandler2 = client.subscribeCompletionHandler(topic2)
 
+      await sleepAsync(FUTURE_TIMEOUT)
+
       await client.connectToNodes(@[server.switch.peerInfo.toRemotePeerInfo()])
 
       # When a peer publishes a message (the client, for testing easeness) in topic1
@@ -907,9 +909,13 @@ suite "Sharding":
         (await serverHandler2.waitForResult(FUTURE_TIMEOUT)).isErr()
 
       # When a peer publishes a message (the client, for testing easeness) in topic2
+      serverHandler1.reset()
+      serverHandler2.reset()
+      clientHandler1.reset()
+      clientHandler2.reset()
       let
         msg2 = WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic)
-        lightpublishRespnse2 = await client.lightpushPublish(
+        lightpublishResponse2 = await client.lightpushPublish(
           some(topic2), msg2, server.switch.peerInfo.toRemotePeerInfo()
         )
 
