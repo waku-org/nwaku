@@ -20,6 +20,7 @@ import
   ../../waku/factory/networks_config,
   ../../waku/factory/app,
   ../../waku/node/health_monitor,
+  ../../waku/node/waku_metrics,
   ../../waku/waku_api/rest/builder as rest_server_builder
 
 logScope:
@@ -152,7 +153,7 @@ when isMainModule:
       error "Starting protocols support REST server failed.", error = $error
       quit(QuitFailure)
 
-    wakunode2.startMetricsServerAndLogging().isOkOr:
+    wakunode2.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
       error "Starting monitoring and external interfaces failed", error = error
       quit(QuitFailure)
 

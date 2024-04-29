@@ -8,7 +8,8 @@ import
   ../waku_rln_relay/protocol_metrics as rln_metrics,
   ../utils/collector,
   ./peer_manager,
-  ./waku_node
+  ./waku_node,
+  ../factory/external_config
 
 const LogInterval = 10.minutes
 
@@ -54,3 +55,35 @@ proc startMetricsLog*() =
   )
 
   discard setTimer(Moment.fromNow(LogInterval), logMetrics)
+
+proc startMetricsServer(
+    serverIp: IpAddress, serverPort: Port
+): Result[MetricsHttpServerRef, string] =
+  info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
+
+  let server = MetricsHttpServerRef.new($serverIp, serverPort).valueOr:
+    return err("metrics HTTP server start failed: " & $error)
+
+  try:
+    waitFor server.start()
+  except CatchableError:
+    return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
+
+  info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
+  return ok(server)
+
+proc startMetricsServerAndLogging*(
+    conf: WakuNodeConf
+): Result[MetricsHttpServerRef, string] =
+  var metricsServer: MetricsHttpServerRef
+  if conf.metricsServer:
+    metricsServer = startMetricsServer(
+      conf.metricsServerAddress, Port(conf.metricsServerPort + conf.portsShift)
+    ).valueOr:
+      return
+        err("Starting metrics server failed. Continuing in current state:" & $error)
+
+  if conf.metricsLogging:
+    startMetricsLog()
+
+  return ok(metricsServer)
