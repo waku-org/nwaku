@@ -149,7 +149,7 @@ proc insertMessageQuery(table: string): SqlQueryStr =
   return
     "INSERT INTO " & table &
     "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp, meta)" &
-    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = '' THEN NULL ELSE ? END);"
+    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
 
 proc prepareInsertMessageStmt*(
     db: SqliteDatabase
