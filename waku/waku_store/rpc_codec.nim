@@ -14,7 +14,7 @@ proc encode*(req: StoreQueryRequest): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, req.requestId)
-  pb.write3(2, req.includeData)
+  pb.write3(2, uint32(req.includeData))
 
   pb.write3(10, req.pubsubTopic)
 
@@ -56,11 +56,11 @@ proc decode*(
   if not ?pb.getField(1, req.requestId):
     return err(ProtobufError.missingRequiredField("request_id"))
 
-  var inclData: zint64
+  var inclData: uint32
   if not ?pb.getField(2, inclData):
     req.includeData = false
   else:
-    req.includeData = inclData == zint64(1)
+    req.includeData = bool(inclData)
 
   var pubsubTopic: string
   if not ?pb.getField(10, pubsubTopic):
