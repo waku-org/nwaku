@@ -172,12 +172,15 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
 proc pushToPeers(
     wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush
 ) {.async.} =
+  let targetPeerIds = peers.mapIt(shortLog(it))
+  let msgHash =
+    messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
+
   info "pushing message to subscribed peers",
     pubsubTopic = messagePush.pubsubTopic,
     contentTopic = messagePush.wakuMessage.contentTopic,
-    target_peer_ids = peers.mapIt(shortLog(it)),
-    msg_hash =
-      messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
+    target_peer_ids = targetPeerIds,
+    msg_hash = msgHash
 
   let bufferToPublish = messagePush.encode().buffer
 
