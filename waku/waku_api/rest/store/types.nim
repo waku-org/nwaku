@@ -72,7 +72,7 @@ proc writeValue*(
   writer.beginRecord()
 
   writer.writeField("payload", base64.encode(msg.payload))
-  writer.writeField("contentTopic", msg.contentTopic)
+  writer.writeField("content_topic", msg.contentTopic)
 
   if msg.meta.len > 0:
     writer.writeField("meta", base64.encode(msg.meta))
@@ -114,7 +114,7 @@ proc readValue*(
       let base64String = reader.readValue(Base64String)
       payload = base64.decode(base64String).valueOr:
         reader.raiseUnexpectedField("Failed decoding data", "payload")
-    of "contentTopic":
+    of "content_topic":
       contentTopic = reader.readValue(ContentTopic)
     of "version":
       version = reader.readValue(uint32)
