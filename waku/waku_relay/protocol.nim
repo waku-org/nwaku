@@ -214,7 +214,7 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
       let validatorRes = await validator(pubsubTopic, msg)
 
       if validatorRes != ValidationResult.Accept:
-        error "protocol generateOrderedValidator rejest waku validator",
+        error "protocol generateOrderedValidator reject waku validator",
           msg_hash = msgHash, pubsubTopic = pubsubTopic, validatorRes = validatorRes
 
         return validatorRes
