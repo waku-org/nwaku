@@ -235,7 +235,7 @@ proc handleMessage*(
     if not await wf.pushToPeers(subscribedPeers, messagePush).withTimeout(
       MessagePushTimeout
     ):
-      info "timed out pushing message to peers",
+      error "timed out pushing message to peers",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         msg_hash = msgHash,
