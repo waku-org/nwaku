@@ -140,6 +140,7 @@ proc findMessages*(
 
   let rows = (
     await self.driver.getMessages(
+      includeData = query.includeData,
       contentTopic = query.contentTopics,
       pubsubTopic = query.pubsubTopic,
       cursor = query.cursor,
@@ -166,6 +167,7 @@ proc findMessages*(
   let pageSize = min(rows.len, int(maxPageSize))
 
   #TODO once store v2 is removed, unzip instead of 2x map
+  #TODO once store v2 is removed, update driver to not return messages when not needed
   if query.includeData:
     messages = rows[0 ..< pageSize].mapIt(it[1])
 
@@ -200,7 +202,7 @@ proc findMessages*(
 
 proc findMessagesV2*(
     self: WakuArchive, query: ArchiveQuery
-): Future[ArchiveResult] {.async, gcsafe.} =
+): Future[ArchiveResult] {.async, deprecated, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
 
   let maxPageSize =

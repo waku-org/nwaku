@@ -377,7 +377,7 @@ proc getMessagesV2ArbitraryQuery(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
@@ -521,7 +521,7 @@ proc getMessagesV2PreparedStmt(
     endTime: Timestamp,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
   ##
@@ -591,6 +591,7 @@ proc getMessagesV2PreparedStmt(
 
 method getMessages*(
     s: PostgresDriver,
+    includeData = false,
     contentTopicSeq = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
@@ -631,7 +632,7 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
       endTime.isSome():
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
