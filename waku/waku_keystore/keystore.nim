@@ -45,7 +45,7 @@ proc loadAppKeystore*(
 ): KeystoreResult[JsonNode] =
   ## Load and decode JSON keystore from pathname
   var data: JsonNode
-  var matchingAppKeystore: JsonNode
+  var matchingAppKeystore = none(JsonNode)
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
@@ -83,7 +83,7 @@ proc loadAppKeystore*(
             data["version"].getStr() == appInfo.version:
           # We return the first json keystore that matches the passed app parameters
           # We assume a unique kesytore with such parameters is present in the file
-          matchingAppKeystore = data
+          matchingAppKeystore = some(data)
           break
       # TODO: we might continue rather than return for some of these errors
       except JsonParsingError:
@@ -101,7 +101,15 @@ proc loadAppKeystore*(
   except IOError:
     return err(AppKeystoreError(kind: KeystoreIoError, msg: getCurrentExceptionMsg()))
 
-  return ok(matchingAppKeystore)
+  if matchingAppKeystore.isNone():
+    return err(
+      AppKeystoreError(
+        kind: KeystoreJsonError,
+        msg:
+          "detected a keystore at the given path, but it does not match the search criteria. Are you using the correct keystore?",
+      )
+    )
+  return ok(matchingAppKeystore.get())
 
 # Adds a membership credential to the keystore matching the application, appIdentifier and version filters.
 proc addMembershipCredentials*(
