@@ -39,7 +39,7 @@ proc initializeNegentropy(
     self: SyncSession, storage: Storage, syncStartTime: int64, syncEndTime: int64
 ): Result[void, string] =
   #TODO Create a subrange
-  let subrange = SubRange.new(storage, syncStartTime, syncEndTime).valueOr:
+  let subrange = SubRange.new(storage, uint64(syncStartTime), uint64(syncEndTime)).valueOr:
     return err(error)
   let negentropy = NegentropySubrange.new(subrange, self.frameSize).valueOr:
     return err(error)

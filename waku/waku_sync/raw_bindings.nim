@@ -335,10 +335,10 @@ proc clientReconcile*(
 proc new*(
     T: type SubRange,
     storage: Storage,
-    startTime: int64 = 0,
-    endTime: int64, #TODO: Set default to MAX_UINT64
+    startTime: uint64 = uint64.low,
+    endTime: uint64 = uint64.high,
 ): Result[T, string] =
-  let subrange = subrange_init(storage, uint64(startTime), uint64(endTime))
+  let subrange = subrange_init(storage, startTime, endTime)
 
   #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
