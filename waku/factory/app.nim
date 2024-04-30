@@ -65,7 +65,7 @@ type
     node: WakuNode
 
     restServer*: WakuRestServerRef
-    metricsServer: Option[MetricsHttpServerRef]
+    metricsServer*: MetricsHttpServerRef
 
   AppResult*[T] = Result[T, string]
 
@@ -273,56 +273,14 @@ proc startApp*(app: var App): AppResult[void] =
 
   return ok()
 
-proc startMetricsServer(
-    serverIp: IpAddress, serverPort: Port
-): AppResult[MetricsHttpServerRef] =
-  info "Starting metrics HTTP server", serverIp = $serverIp, serverPort = $serverPort
-
-  let metricsServerRes = MetricsHttpServerRef.new($serverIp, serverPort)
-  if metricsServerRes.isErr():
-    return err("metrics HTTP server start failed: " & $metricsServerRes.error)
-
-  let server = metricsServerRes.value
-  try:
-    waitFor server.start()
-  except CatchableError:
-    return err("metrics HTTP server start failed: " & getCurrentExceptionMsg())
-
-  info "Metrics HTTP server started", serverIp = $serverIp, serverPort = $serverPort
-  ok(server)
-
-proc startMetricsLogging(): AppResult[void] =
-  startMetricsLog()
-  ok()
-
-proc startMetricsServerAndLogging*(app: var App): AppResult[void] =
-  if app.conf.metricsServer:
-    let startMetricsServerRes = startMetricsServer(
-      app.conf.metricsServerAddress,
-      Port(app.conf.metricsServerPort + app.conf.portsShift),
-    )
-    if startMetricsServerRes.isErr():
-      error "Starting metrics server failed. Continuing in current state.",
-        error = startMetricsServerRes.error
-    else:
-      app.metricsServer = some(startMetricsServerRes.value)
-
-  if app.conf.metricsLogging:
-    let startMetricsLoggingRes = startMetricsLogging()
-    if startMetricsLoggingRes.isErr():
-      error "Starting metrics console logging failed. Continuing in current state.",
-        error = startMetricsLoggingRes.error
-
-  ok()
-
 # App shutdown
 
 proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
-  if app.conf.rest:
+  if not app.restServer.isNil():
     await app.restServer.stop()
 
-  if app.metricsServer.isSome():
-    await app.metricsServer.get().stop()
+  if not app.metricsServer.isNil():
+    await app.metricsServer.stop()
 
   if app.wakuDiscv5.isSome():
     await app.wakuDiscv5.get().stop()
