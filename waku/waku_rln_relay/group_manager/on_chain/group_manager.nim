@@ -136,7 +136,7 @@ template retryWrapper(
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
-): RlnRelayResult[void] =
+): GroupManagerResult[void] =
   let normalizedBlock =
     if lastProcessedBlock.isSome():
       lastProcessedBlock.get()
@@ -586,8 +586,11 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     g.retryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
 
-    g.setMetadata().isOkOr:
-      error "failed to persist rln metadata", error = $error
+    # cannot use isOkOr here because results in a compile-time error that 
+    # shows the error is void for some reason
+    let setMetadataRes = g.setMetadata()
+    if setMetadataRes.isErr():
+      error "failed to persist rln metadata", error = setMetadataRes.error
 
     return handleBlockRes
 
