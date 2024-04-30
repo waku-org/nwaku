@@ -49,11 +49,11 @@ proc handleQueryRequest*(
   var res = StoreQueryResponse()
 
   let req = StoreQueryRequest.decode(raw_request).valueOr:
-    error "failed to decode rpc", peerId = requestor
+    error "failed to decode rpc", peerId = requestor, error = $error
     waku_store_errors.inc(labelValues = [decodeRpcFailure])
 
     res.statusCode = uint32(ErrorCode.BAD_REQUEST)
-    res.statusDesc = "decode rpc failed"
+    res.statusDesc = "decode rpc failed " & $error
 
     return res.encode().buffer
 
@@ -82,10 +82,10 @@ proc handleQueryRequest*(
 
   res = queryResult.valueOr:
     error "store query failed",
-      peerId = requestor, requestId = requestId, error = queryResult.error
+      peerId = requestor, requestId = requestId, error = $error
 
-    res.statusCode = uint32(queryResult.error.kind)
-    res.statusDesc = $queryResult.error
+    res.statusCode = uint32(error.kind)
+    res.statusDesc = $error
 
     return res.encode().buffer
 
