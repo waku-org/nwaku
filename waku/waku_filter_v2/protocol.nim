@@ -176,7 +176,7 @@ proc pushToPeers(
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
-  info "pushing message to subscribed peers",
+  debug "pushing message to subscribed peers",
     pubsubTopic = messagePush.pubsubTopic,
     contentTopic = messagePush.wakuMessage.contentTopic,
     target_peer_ids = targetPeerIds,
@@ -216,7 +216,7 @@ proc handleMessage*(
 ) {.async.} =
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  info "handling message",
+  debug "handling message",
     pubsubTopic = pubsubTopic, message = message, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
@@ -226,7 +226,7 @@ proc handleMessage*(
     let subscribedPeers =
       wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
     if subscribedPeers.len == 0:
-      info "no subscribed peers found",
+      debug "no subscribed peers found",
         pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
       return
 
@@ -243,7 +243,7 @@ proc handleMessage*(
         target_peer_ids = subscribedPeers.mapIt(shortLog(it))
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
     else:
-      info "pushed message succesfully to all subscribers",
+      debug "pushed message succesfully to all subscribers",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         msg_hash = msgHash,
@@ -273,7 +273,7 @@ proc initProtocolHandler(wf: WakuFilter) =
 
     let response = wf.handleSubscribeRequest(conn.peerId, request)
 
-    info "sending filter subscribe response",
+    debug "sending filter subscribe response",
       peer_id = shortLog(conn.peerId), response = response
 
     await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here

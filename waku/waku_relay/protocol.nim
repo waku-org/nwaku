@@ -201,12 +201,11 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
   ): Future[ValidationResult] {.async.} =
     # can be optimized by checking if the message is a WakuMessage without allocating memory
     # see nim-libp2p protobuf library
-    let msgRes = WakuMessage.decode(message.data)
-    if msgRes.isErr():
+    let msg = WakuMessage.decode(message.data).valueOr:
       error "protocol generateOrderedValidator reject decode error",
-        pubsubTopic = pubsubTopic, error = msgRes.error
+        pubsubTopic = pubsubTopic, error = $error
       return ValidationResult.Reject
-    let msg = msgRes.get()
+
     let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
 
     # now sequentially validate the message
@@ -220,6 +219,7 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
         return validatorRes
 
     return ValidationResult.Accept
+
   return wrappedValidator
 
 proc validateMessage*(
@@ -307,6 +307,6 @@ proc publish*(
   let data = message.encode().buffer
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  info "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
+  debug "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)

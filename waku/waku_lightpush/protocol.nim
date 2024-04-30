@@ -28,7 +28,7 @@ type WakuLightPush* = ref object of LPProtocol
 
 proc extractInfoFromReq(
     self: PushRPC
-): tuple[reqId: string, pubsubTopic: string, msgHash: string, message: WakuMessage] =
+): tuple[requestId: string, pubsubTopic: string, msgHash: string, message: WakuMessage] =
   ## Simply extract a tuple with the underlying data stored in `PushRPC`
 
   let requestId = self.requestId
@@ -70,7 +70,7 @@ proc handleRequest*(
 
     error "lightpush request rejected due rate limit exceeded",
       peer_id = peerId,
-      requestId = reqInfo.reqId,
+      requestId = reqInfo.requestId,
       pubsubTopic = reqInfo.pubsubTopic,
       msg_hash = reqInfo.msgHash
 
@@ -82,7 +82,7 @@ proc handleRequest*(
 
     let reqInfo = reqDecodeRes.get().extractInfoFromReq()
 
-    requestId = reqInfo.reqId
+    requestId = reqInfo.requestId
     pubsubTopic = reqInfo.pubsubTopic
     msgHash = reqInfo.msgHash
 
@@ -98,7 +98,7 @@ proc handleRequest*(
       pubsubTopic = pubsubTopic, msg_hash = msgHash, error = pushResponseInfo
 
   if isSuccess:
-    info "lightpush request processed correctly",
+    debug "lightpush request processed correctly",
       lightpush_client_peer_id = shortLog(peerId),
       requestId = requestId,
       pubsubTopic = pubsubTopic,

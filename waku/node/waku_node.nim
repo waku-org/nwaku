@@ -227,7 +227,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    info "waku.relay received",
+    debug "waku.relay received",
       my_peer_id = node.peerId,
       pubsubTopic = topic,
       msg_hash = topic.computeMessageHash(msg).to0xHex(),
@@ -914,7 +914,9 @@ proc mountLightPush*(
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        info "Lightpush request has not been published to any peers"
+        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+        debug "Lightpush request has not been published to any peers",
+          msg_hash = msgHash
 
       return ok()
 
@@ -955,7 +957,7 @@ proc lightpushPublish*(
   ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
     let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
     if not node.wakuLightpushClient.isNil():
-      info "publishing message with lightpush",
+      debug "publishing message with lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         target_peer_id = peer.peerId,
@@ -963,7 +965,7 @@ proc lightpushPublish*(
       return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
     if not node.wakuLightPush.isNil():
-      info "publishing message with self hosted lightpush",
+      debug "publishing message with self hosted lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         target_peer_id = peer.peerId,

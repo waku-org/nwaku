@@ -115,9 +115,9 @@ proc handleMessage*(
 
   (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
-    debug "failed to insert message", err = error
+    error "failed to insert message", error = error
 
-  info "message archived",
+  debug "message archived",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
