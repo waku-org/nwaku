@@ -586,9 +586,8 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     g.retryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
 
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
+    g.setMetadata().isOkOr:
+      error "failed to persist rln metadata", error = $error
 
     return handleBlockRes
 
@@ -663,9 +662,8 @@ proc startOnchainSync(
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
         await g.batchAwaitBlockHandlingFuture(futs)
-        let setMetadataRes = g.setMetadata(lastProcessedBlock = some(toBlock))
-        if setMetadataRes.isErr():
-          error "failed to persist rln metadata", error = setMetadataRes.error
+        g.setMetadata(lastProcessedBlock = some(toBlock)).isOkOr:
+          error "failed to persist rln metadata", error = $error
         futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
   except CatchableError:
