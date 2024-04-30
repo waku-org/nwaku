@@ -953,20 +953,21 @@ proc lightpushPublish*(
       message: WakuMessage,
       peer: RemotePeerInfo,
   ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+    let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
     if not node.wakuLightpushClient.isNil():
       info "publishing message with lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         target_peer_id = peer.peerId,
-        msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
+        msg_hash = msgHash
       return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
     if not node.wakuLightPush.isNil():
-      debug "publishing message with self hosted lightpush",
+      info "publishing message with self hosted lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         target_peer_id = peer.peerId,
-        msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
+        msg_hash = msgHash
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
   if pubsubTopic.isSome():
