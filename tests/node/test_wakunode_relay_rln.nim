@@ -1,9 +1,9 @@
 {.used.}
 
 import
-  std/[sequtils, tempfiles],
-  stew/byteutils,
+  std/tempfiles,
   stew/shims/net as stewNet,
+  stew/results,
   testutils/unittests,
   chronos,
   libp2p/switch,
@@ -12,15 +12,93 @@ import
 from std/times import epochTime
 
 import
-  waku/[node/waku_node, node/peer_manager, waku_core, waku_node, waku_rln_relay],
+  ../../../tools/rln_keystore_generator/rln_keystore_generator,
+  ../../../waku/[
+    node/waku_node,
+    node/peer_manager,
+    waku_core,
+    waku_node,
+    waku_rln_relay,
+    waku_rln_relay/rln,
+    waku_rln_relay/protocol_types,
+    waku_keystore/keystore,
+  ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../waku_relay/utils,
-  ../waku_rln_relay/test_rln_group_manager_onchain,
-  ../testlib/[wakucore, wakunode, testasync, futures],
-  ../resources/payloads
+  ../testlib/[wakucore, wakunode, testasync, futures, common],
+  ../resources/payloads,
+  ../waku_rln_relay/[utils_static, utils_onchain],
 
-suite "Waku RlnRelay - End to End":
+from ../../waku/waku_noise/noise_utils import randomSeqByte
+import os
+
+proc addFakeMemebershipToKeystore(
+    keystorePath: string,
+    appInfo: AppInfo,
+    rlnRelayEthContractAddress: string,
+    password: string,
+) =
+  # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
+  var
+    idTrapdoor = randomSeqByte(rng[], 32)
+    idNullifier = randomSeqByte(rng[], 32)
+    idSecretHash = randomSeqByte(rng[], 32)
+    idCommitment = randomSeqByte(rng[], 32)
+    idCredential = IdentityCredential(
+      idTrapdoor: idTrapdoor,
+      idNullifier: idNullifier,
+      idSecretHash: idSecretHash,
+      idCommitment: idCommitment,
+    )
+
+  var
+    contract = MembershipContract(chainId: "5", address: rlnRelayEthContractAddress)
+    index = MembershipIndex(1)
+
+  let
+    membershipCredential = KeystoreMembership(
+      membershipContract: contract, treeIndex: index, identityCredential: idCredential
+    )
+    keystoreRes = addMembershipCredentials(
+      path = keystorePath,
+      membership = membershipCredential,
+      password = password,
+      appInfo = appInfo,
+    )
+
+proc getWakuRlnConfigOnChain*(
+    keystorePath: string,
+    appInfo: AppInfo,
+    rlnRelayEthContractAddress: string,
+    password: string,
+    credIndex: uint,
+): WakuRlnConfig =
+  let
+    rlnInstance = createRlnInstance(
+        tree_path = genTempPath("rln_tree", "group_manager_onchain")
+      )
+      .expect("Couldn't create RLN instance")
+    creds = generateCredentials(rlnInstance)
+    keystoreRes = createAppKeystore(keystorePath, appInfo)
+
+  return WakuRlnConfig(
+    rlnRelayEthClientAddress: EthClient,
+    rlnRelayDynamic: true,
+    rlnRelayCredIndex: some(credIndex),
+    rlnRelayEthContractAddress: rlnRelayEthContractAddress,
+    rlnRelayCredPath: keystorePath,
+    rlnRelayCredPassword: password,
+    rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
+    rlnEpochSizeSec: 1,
+  )
+
+proc setupRelayWithOnChainRln*(
+    node: WakuNode, pubsubTopics: seq[string], wakuRlnConfig: WakuRlnConfig
+) {.async.} =
+  await node.mountRelay(pubsubTopics)
+  await node.mountRlnRelay(wakuRlnConfig)
+
+suite "Waku RlnRelay - End to End - Static":
   var
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
@@ -61,7 +139,7 @@ suite "Waku RlnRelay - End to End":
 
       # When RlnRelay is mounted
       let catchRes = catch:
-        await server.setupRln(1)
+        await server.setupStaticRln(1)
 
       # Then Relay and RLN are not mounted,and the process fails
       check:
@@ -72,8 +150,8 @@ suite "Waku RlnRelay - End to End":
 
     asyncTest "Pubsub topics subscribed before mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithStaticRln(1.uint, @[pubsubTopic])
+      await client.setupRelayWithStaticRln(2.uint, @[pubsubTopic])
       check:
         server.wakuRelay != nil
         server.wakuRlnRelay != nil
@@ -107,8 +185,8 @@ suite "Waku RlnRelay - End to End":
 
     asyncTest "Pubsub topics subscribed after mounting RlnRelay are added to it":
       # Given the node enables Relay and Rln without subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[])
-      await client.setupRelayWithRln(2.uint, @[])
+      await server.setupRelayWithStaticRln(1.uint, @[])
+      await client.setupRelayWithStaticRln(2.uint, @[])
 
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
@@ -167,8 +245,8 @@ suite "Waku RlnRelay - End to End":
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithStaticRln(1.uint, @[pubsubTopic])
+      await client.setupRelayWithStaticRln(2.uint, @[pubsubTopic])
 
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
@@ -261,8 +339,8 @@ suite "Waku RlnRelay - End to End":
 
     asyncTest "Invalid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
-      await server.setupRelayWithRln(1.uint, @[pubsubTopic])
-      await client.setupRelayWithRln(2.uint, @[pubsubTopic])
+      await server.setupRelayWithStaticRln(1.uint, @[pubsubTopic])
+      await client.setupRelayWithStaticRln(2.uint, @[pubsubTopic])
 
       # And the nodes are connected
       await client.connectToNodes(@[serverRemotePeerInfo])
@@ -302,3 +380,75 @@ suite "Waku RlnRelay - End to End":
 
       # Then the message is not relayed
       check not await completionFut.withTimeout(FUTURE_TIMEOUT_LONG)
+
+suite "Waku RlnRelay - End to End - OnChain":
+  let runAnvil {.used.} = runAnvil()
+
+  var
+    pubsubTopic {.threadvar.}: PubsubTopic
+    contentTopic {.threadvar.}: ContentTopic
+
+  var
+    server {.threadvar.}: WakuNode
+    client {.threadvar.}: WakuNode
+
+  var
+    serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    clientPeerId {.threadvar.}: PeerId
+
+  asyncSetup:
+    pubsubTopic = DefaultPubsubTopic
+    contentTopic = DefaultContentTopic
+
+    let
+      serverKey = generateSecp256k1Key()
+      clientKey = generateSecp256k1Key()
+
+    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    await allFutures(server.start(), client.start())
+
+    serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+    clientPeerId = client.switch.peerInfo.toRemotePeerInfo().peerId
+
+  asyncTeardown:
+    await allFutures(client.stop(), server.stop())
+
+  asyncTest "No valid contract":
+    let
+      invalidContractAddress = "0x0000000000000000000000000000000000000000"
+      keystorePath =
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+      appInfo = RlnAppInfo
+      password = "1234"
+      wakuRlnConfig1 = getWakuRlnConfigOnChain(
+        keystorePath, appInfo, invalidContractAddress, password, 1
+      )
+      wakuRlnConfig2 = getWakuRlnConfigOnChain(
+        keystorePath, appInfo, invalidContractAddress, password, 2
+      )
+
+    addFakeMemebershipToKeystore(
+      keystorePath, appInfo, invalidContractAddress, password
+    )
+
+    # Given the node enables Relay and Rln while subscribing to a pubsub topic
+    try:
+      await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+      assert false, "Relay should fail mounting when using an invalid contract"
+    except CatchableError:
+      assert true
+
+    try:
+      await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+      assert false, "Relay should fail mounting when using an invalid contract"
+    except CatchableError:
+      assert true
+
+  ################################
+  ## Terminating/removing Anvil
+  ################################
+
+  # We stop Anvil daemon
+  stopAnvil(runAnvil)

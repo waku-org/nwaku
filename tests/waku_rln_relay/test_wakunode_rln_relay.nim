@@ -502,50 +502,12 @@ procSuite "WakuNode - RLN relay":
 
     # Given both nodes mount relay and rlnrelay
     await node1.mountRelay(pubsubTopicSeq)
-<<<<<<< HEAD
-    # Mount rlnrelay in node1 in off-chain mode
-    when defined(rln_v2):
-      let wakuRlnConfig1 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: epochSizeSec,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
-      )
-    else:
-      let wakuRlnConfig1 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnEpochSizeSec: epochSizeSec,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_10"),
-      )
-=======
     let wakuRlnConfig1 = buildWakuRlnConfig_versionAware(1, epochSizeSec, "wakunode_10")
->>>>>>> 2cc06255 (Implement slashing (gossipsub score decrease) test.)
     await node1.mountRlnRelay(wakuRlnConfig1)
 
     # Mount rlnrelay in node2 in off-chain mode
     await node2.mountRelay(@[DefaultPubsubTopic])
-<<<<<<< HEAD
-    # Mount rlnrelay in node2 in off-chain mode
-    when defined(rln_v2):
-      let wakuRlnConfig2 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(2.uint),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: epochSizeSec,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
-      )
-    else:
-      let wakuRlnConfig2 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(2.uint),
-        rlnEpochSizeSec: epochSizeSec,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode_11"),
-      )
-=======
     let wakuRlnConfig2 = buildWakuRlnConfig_versionAware(2, epochSizeSec, "wakunode_11")
->>>>>>> 2cc06255 (Implement slashing (gossipsub score decrease) test.)
     await node2.mountRlnRelay(wakuRlnConfig2)
 
     # Given the two nodes are started and connected
