@@ -1217,6 +1217,9 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
+  ## By stopping the switch we are stopping all the underlying mounted protocols
+  await node.switch.stop()
+
   node.peerManager.stop()
 
   if not node.wakuRlnRelay.isNil():
@@ -1227,9 +1230,6 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuArchive.isNil():
     await node.wakuArchive.stopWait()
-
-  ## By stopping the switch we are stopping all the underlying mounted protocols
-  await node.switch.stop()
 
   node.started = false
 
