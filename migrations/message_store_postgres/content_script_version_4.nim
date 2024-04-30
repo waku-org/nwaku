@@ -17,33 +17,6 @@ CREATE TABLE IF NOT EXISTS messages (
    CONSTRAINT messageIndex PRIMARY KEY (messageHash, storedAt)
   ) PARTITION BY RANGE (storedAt);
 
-DO $$
-DECLARE
-     min_storedAt numeric;
-     max_storedAt numeric;
-     min_storedAtSeconds integer = 0;
-     max_storedAtSeconds integer = 0;
-     partition_name TEXT;
-     create_partition_stmt TEXT;
-BEGIN
-    SELECT MIN(storedAt) into min_storedAt
-    FROM messages_backup;
-
-    SELECT MAX(storedAt) into max_storedAt
-    FROM messages_backup;
-
-    min_storedAtSeconds := min_storedAt / 1000000000;
-    max_storedAtSeconds := max_storedAt / 1000000000;
-
-    partition_name := 'messages_' || min_storedAtSeconds || '_' || max_storedAtSeconds;
-    create_partition_stmt := 'CREATE TABLE ' || partition_name ||
-                            ' PARTITION OF messages FOR VALUES FROM (' ||
-                            min_storedAt || ') TO (' || (max_storedAt + 1) || ')';
-    IF min_storedAtSeconds > 0 AND max_storedAtSeconds > 0 THEN
-    	EXECUTE create_partition_stmt USING partition_name, min_storedAt, max_storedAt;
-    END IF;
-END $$;
-
 INSERT INTO messages (
                         pubsubTopic,
                         contentTopic,
