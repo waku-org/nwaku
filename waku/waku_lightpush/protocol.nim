@@ -38,15 +38,13 @@ proc handleRequest*(
 
   if reqDecodeRes.isErr():
     pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
-    # error "bad lightpush request", error = $reqDecodeRes.error
   elif reqDecodeRes.get().request.isNone():
     pushResponseInfo = emptyRequestBodyFailure
-    # error "lightpush request is none"
   elif wl.requestRateLimiter.isSome() and not wl.requestRateLimiter.get().tryConsume(1):
     isRejectedDueRateLimit = true
     let pushRpcRequest = reqDecodeRes.get()
-    # debug "lightpush request rejected due rate limit exceeded",
-    #   peerid = peerId, requestId = pushRpcRequest.requestId
+    debug "lightpush request rejected due rate limit exceeded",
+      peerId = peerId, requestId = pushRpcRequest.requestId
     pushResponseInfo = TooManyRequestsMessage
     waku_service_requests_rejected.inc(labelValues = ["Lightpush"])
   else:
@@ -62,25 +60,14 @@ proc handleRequest*(
       pubSubTopic = request.get().pubSubTopic
       message = request.get().message
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
-
-    # let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
-
-    # debug "lightpush request",
-    #   peerId = peerId,
-    #   requestId = requestId,
-    #   pubsubTopic = pubsubTopic,
-    #   msg_hash = msgHash
+    debug "push request",
+      peerId = peerId,
+      requestId = requestId,
+      pubsubTopic = pubsubTopic,
+      hash = pubsubTopic.computeMessageHash(message).to0xHex()
 
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
     isSuccess = handleRes.isOk()
-
-    # if isSuccess:
-    #   debug "lightpush request processed correctly",
-    #     lightpush_client_peer_id = shortLog(peerId),
-    #     requestId = requestId,
-    #     pubsubTopic = pubsubTopic,
-    #     msg_hash = msgHash
-
     pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
   if not isSuccess and not isRejectedDueRateLimit:
