@@ -36,7 +36,7 @@ type
   .}
 
   WakuSync* = ref object of LPProtocol
-    storageMgr: WakuSyncStorageManager
+    storage: Storage
     peerManager: PeerManager
     maxFrameSize: int # Not sure if this should be protocol defined or not...
     syncInterval: timer.Duration
@@ -50,15 +50,9 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   # because what if messages is received via gossip and sync as well?
   # Might 2 entries to be inserted into storage which is inefficient.
   let msgHash: WakuMessageHash = computeMessageHash(pubsubTopic, msg)
-  let storageOpt = self.storageMgr.retrieveStorage(msg.timestamp).valueOr:
-    error "failed to ingess message as could not retrieve storage"
-    return
-  let storage = storageOpt.valueOr:
-    error "failed to ingess message as could not retrieve storage"
-    return
   info "inserting message into storage ", hash = msgHash, timestamp = msg.timestamp
 
-  if storage.insert(msg.timestamp, msgHash).isErr():
+  if self.storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
 proc request(
@@ -71,7 +65,7 @@ proc request(
     rangeStart: 0, #TODO: Pass start of this hour??
     rangeEnd: times.getTime().toUnix(),
   )
-  let hashes = (await syncSession.HandleClientSession(conn, self.storageMgr)).valueOr:
+  let hashes = (await syncSession.HandleClientSession(conn, self.storage)).valueOr:
     return err(error)
   return ok(hashes)
 
@@ -112,7 +106,7 @@ proc initProtocolHandler(self: WakuSync) =
     )
     debug "Server sync session requested", remotePeer = $conn.peerId
 
-    await syncSession.HandleServerSession(conn, self.storageMgr)
+    await syncSession.HandleServerSession(conn, self.storage)
 
     debug "Server sync session ended"
 
@@ -126,10 +120,12 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
 ): T =
-  let storageMgr = WakuSyncStorageManager.new()
+  let storage = Storage.new().valueOr:
+    error "storage creation failed"
+    return
 
   let sync = WakuSync(
-    storageMgr: storageMgr,
+    storage: storage,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,

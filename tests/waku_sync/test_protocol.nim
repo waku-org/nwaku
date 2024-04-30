@@ -414,13 +414,6 @@ suite "Waku Sync":
       let s2 = s2Res.value
       assert s2Res.isOk(), $s2Res.error
 
-      let ng1Res = Negentropy.new(s1, 10000)
-      assert ng1Res.isOk(), $ng1Res.error
-      let ng1 = ng1Res.value
-      let ng2Res = Negentropy.new(s2, 10000)
-      assert ng2Res.isOk(), $ng2Res.error
-      let ng2 = ng2Res.value
-
       let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msgHash: WakuMessageHash =
         computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg1)
@@ -435,6 +428,21 @@ suite "Waku Sync":
 
       check:
         s2.insert(msg2.timestamp, msgHash2).isOk()
+
+      let subrange1Res = SubRange.new(s1, 0, int64.high)
+      assert subrange1Res.isOk(), $subrange1Res.error
+      let subrange1 = subrange1Res.value
+      let subrange2Res = SubRange.new(s2, 0, int64.high)
+      assert subrange2Res.isOk(), $subrange2Res.error
+
+      let subrange2 = subrange2Res.value
+
+      let ng1Res = NegentropySubRange.new(subrange1, 10000)
+      assert ng1Res.isOk(), $ng1Res.error
+      let ng1 = ng1Res.value
+      let ng2Res = NegentropySubRange.new(subrange2, 10000)
+      assert ng2Res.isOk(), $ng2Res.error
+      let ng2 = ng2Res.value
 
       let ng1_q1 = ng1.initiate()
       check:

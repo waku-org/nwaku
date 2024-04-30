@@ -25,7 +25,7 @@ type SyncSession* = ref object
   frameSize*: int
   rangeStart*: int64
   rangeEnd*: int64
-  negentropy*: Negentropy
+  negentropy*: NegentropySubRange
 
 #[
     Session State Machine
@@ -36,16 +36,12 @@ type SyncSession* = ref object
 ]#
 
 proc initializeNegentropy(
-    self: SyncSession, storageMgr: WakuSyncStorageManager
+    self: SyncSession, storage: Storage, syncStartTime: int64, syncEndTime: int64
 ): Result[void, string] =
-  #Use latest storage to sync??, Need to rethink
-  #Is this the best approach?? Maybe need to improve this.
-  let storageOpt = storageMgr.retrieveStorage(self.rangeEnd).valueOr:
+  #TODO Create a subrange
+  let subrange = SubRange.new(storage, syncStartTime, syncEndTime).valueOr:
     return err(error)
-  let storage = storageOpt.valueOr:
-    error "failed to handle request as could not retrieve recent storage"
-    return
-  let negentropy = Negentropy.new(storage, self.frameSize).valueOr:
+  let negentropy = NegentropySubrange.new(subrange, self.frameSize).valueOr:
     return err(error)
 
   self.negentropy = negentropy
@@ -53,9 +49,16 @@ proc initializeNegentropy(
   return ok()
 
 proc HandleClientSession*(
-    self: SyncSession, conn: Connection, storageMgr: WakuSyncStorageManager
+    self: SyncSession, conn: Connection, storage: Storage
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  if self.initializeNegentropy(storageMgr).isErr():
+  if self
+  .initializeNegentropy(
+    storage,
+    timestampInSeconds(getNowInNanosecondTime()),
+      # now , TODO: this needs to be tuned maybe consider 20 seconds jitter in network.
+    int64.high, #timestampInSeconds(getNowInNanosecondTime()) - 60 * 60, # 1 hour
+  )
+  .isErr():
     return
   defer:
     self.negentropy.delete()
@@ -106,11 +109,17 @@ proc HandleClientSession*(
   return ok(needHashes)
 
 proc HandleServerSession*(
-    self: SyncSession, conn: Connection, storageMgr: WakuSyncStorageManager
+    self: SyncSession, conn: Connection, storage: Storage
 ) {.async, gcsafe.} =
-  #TODO: Find matching storage based on sync range and continue??
+  #TODO: Pass sync time based on data in request??
   #TODO: Return error rather than closing stream abruptly?
-  if self.initializeNegentropy(storageMgr).isErr():
+  if self
+  .initializeNegentropy(
+    storage,
+    timestampInSeconds(getNowInNanosecondTime()),
+    int64.high, #timestampInSeconds(getNowInNanosecondTime()) - 60 * 60,
+  )
+  .isErr():
     return
   defer:
     self.negentropy.delete()

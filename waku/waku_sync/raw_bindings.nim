@@ -119,20 +119,66 @@ proc raw_reconcile(
   negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult
 ): int {.header: NEGENTROPY_HEADER, importc: "reconcile".}
 
-# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L35
-proc free(
-  negentropy: Negentropy
-) {.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
-
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L51
 proc raw_reconcile_with_ids(
   negentropy: Negentropy, query: ptr Buffer, r: ptr BindingResult
 ): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_no_cbk".}
 
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L35
+proc free(
+  negentropy: Negentropy
+) {.header: NEGENTROPY_HEADER, importc: "negentropy_delete".}
+
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L53
 proc free_result(
   r: ptr BindingResult
 ) {.header: NEGENTROPY_HEADER, importc: "free_result".}
+
+### SubRange ###
+
+type SubRange* = distinct pointer
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L57
+proc subrange_init(
+  storage: Storage, startTimestamp: uint64, endTimestamp: uint64
+): SubRange {.header: NEGENTROPY_HEADER, importc: "subrange_new".}
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L59
+proc free(subrange: SubRange) {.header: NEGENTROPY_HEADER, importc: "subrange_delete".}
+
+# https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L31
+proc size*(
+  subrange: SubRange
+): cint {.header: NEGENTROPY_HEADER, importc: "subrange_size".}
+
+### Negentropy with SubRange ###
+
+type NegentropySubRange* = distinct pointer
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L61
+proc constructNegentropyWithSubRange(
+  subrange: SubRange, frameSizeLimit: uint64
+): NegentropySubRange {.header: NEGENTROPY_HEADER, importc: "negentropy_subrange_new".}
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L65
+proc raw_initiate_subrange(
+  negentropy: NegentropySubRange, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "negentropy_subrange_initiate".}
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L67
+proc raw_reconcile_subrange(
+  negentropy: NegentropySubRange, query: ptr Buffer, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "reconcile_subrange".}
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L69
+proc raw_reconcile_with_ids_subrange(
+  negentropy: NegentropySubRange, query: ptr Buffer, r: ptr BindingResult
+): int {.header: NEGENTROPY_HEADER, importc: "reconcile_with_ids_subrange_no_cbk".}
+
+# https://github.com/waku-org/negentropy/blob/3044a30e4ba2e218aee6dee2ef5b4a4b6f144865/cpp/negentropy_wrapper.h#L63
+proc free(
+  negentropy: NegentropySubRange
+) {.header: NEGENTROPY_HEADER, importc: "negentropy_subrange_delete".}
 
 ### Wrappings ###
 
@@ -176,25 +222,25 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
   else:
     return err("insert error")
 
-proc `==`*(a: Negentropy, b: pointer): bool {.borrow.}
+proc `==`*(a: NegentropySubRange, b: pointer): bool {.borrow.}
 
 proc new*(
-    T: type Negentropy, storage: Storage, frameSizeLimit: int
+    T: type NegentropySubrange, subrange: SubRange, frameSizeLimit: int
 ): Result[T, string] =
-  let negentropy = constructNegentropy(storage, uint64(frameSizeLimit))
+  let negentropy = constructNegentropyWithSubRange(subrange, uint64(frameSizeLimit))
   if negentropy == nil:
     return err("negentropy initialization failed due to lower framesize")
   return ok(negentropy)
 
-proc delete*(negentropy: Negentropy) =
+proc delete*(negentropy: NegentropySubRange) =
   free(negentropy)
 
-proc initiate*(negentropy: Negentropy): Result[NegentropyPayload, string] =
+proc initiate*(negentropy: NegentropySubrange): Result[NegentropyPayload, string] =
   ## Client inititate a sync session with a server by sending a payload 
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
-  let ret = raw_initiate(negentropy, myResultPtr)
+  let ret = raw_initiate_subrange(negentropy, myResultPtr)
   if ret < 0 or myResultPtr == nil:
     error "negentropy initiate failed with code ", code = ret
     return err("negentropy already initiated!")
@@ -208,7 +254,7 @@ proc setInitiator*(negentropy: Negentropy) =
   raw_setInitiator(negentropy)
 
 proc serverReconcile*(
-    negentropy: Negentropy, query: NegentropyPayload
+    negentropy: NegentropySubrange, query: NegentropyPayload
 ): Result[NegentropyPayload, string] =
   ## Server response to a negentropy payload.
   ## Always return an answer.
@@ -218,7 +264,7 @@ proc serverReconcile*(
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
-  let ret = raw_reconcile(negentropy, queryBufPtr, myResultPtr)
+  let ret = raw_reconcile_subrange(negentropy, queryBufPtr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
     return err($myResultPtr.error)
@@ -231,7 +277,7 @@ proc serverReconcile*(
   return ok(NegentropyPayload(outputBytes))
 
 proc clientReconcile*(
-    negentropy: Negentropy,
+    negentropy: NegentropySubrange,
     query: NegentropyPayload,
     haveIds: var seq[WakuMessageHash],
     needIds: var seq[WakuMessageHash],
@@ -246,7 +292,7 @@ proc clientReconcile*(
   myResult.need_ids_len = 0
   var myResultPtr = addr myResult
 
-  let ret = raw_reconcile_with_ids(negentropy, cQuery.unsafeAddr, myResultPtr)
+  let ret = raw_reconcile_with_ids_subrange(negentropy, cQuery.unsafeAddr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
     return err($myResultPtr.error)
@@ -283,3 +329,21 @@ proc clientReconcile*(
     return ok(none(NegentropyPayload))
 
   return ok(some(NegentropyPayload(output)))
+
+### Subrange specific methods
+
+proc new*(
+    T: type SubRange,
+    storage: Storage,
+    startTime: int64 = 0,
+    endTime: int64, #TODO: Set default to MAX_UINT64
+): Result[T, string] =
+  let subrange = subrange_init(storage, uint64(startTime), uint64(endTime))
+
+  #[ TODO: Uncomment once we move to lmdb   
+  if storage == nil:
+    return err("storage initialization failed") ]#
+  return ok(subrange)
+
+proc delete*(subrange: SubRange) =
+  free(subrange)
