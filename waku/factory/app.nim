@@ -11,7 +11,6 @@ import
   libp2p/wire,
   libp2p/multicodec,
   libp2p/crypto/crypto,
-  libp2p/nameresolving/dnsresolver,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/peerid,
   eth/keys,
@@ -59,7 +58,7 @@ type
     rng: ref HmacDrbgContext
     key: crypto.PrivateKey
 
-    wakuDiscv5*: Option[WakuDiscoveryV5]
+    wakuDiscv5*: WakuDiscoveryV5
     dynamicBootstrapNodes: seq[RemotePeerInfo]
 
     node: WakuNode
@@ -75,38 +74,6 @@ func node*(app: App): WakuNode =
 func version*(app: App): string =
   app.version
 
-## Retrieve dynamic bootstrap nodes (DNS discovery)
-
-proc retrieveDynamicBootstrapNodes*(
-    dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
-): Result[seq[RemotePeerInfo], string] =
-  if dnsDiscovery and dnsDiscoveryUrl != "":
-    # DNS discovery
-    debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
-
-    var nameServers: seq[TransportAddress]
-    for ip in dnsDiscoveryNameServers:
-      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
-
-    let dnsResolver = DnsResolver.new(nameServers)
-
-    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
-      trace "resolving", domain = domain
-      let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
-
-    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
-    if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers().mapErr(
-          proc(e: cstring): string =
-            $e
-        )
-    else:
-      warn "Failed to init Waku DNS discovery"
-
-  debug "No method for retrieving dynamic bootstrap nodes specified."
-  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default
-
 ## Initialisation
 
 proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
@@ -121,7 +88,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
     confCopy.nodekey = some(keyRes.get())
 
   debug "Retrieve dynamic bootstrap nodes"
-  let dynamicBootstrapNodesRes = retrieveDynamicBootstrapNodes(
+  let dynamicBootstrapNodesRes = waku_dnsdisc.retrieveDynamicBootstrapNodes(
     confCopy.dnsDiscovery, confCopy.dnsDiscoveryUrl, confCopy.dnsDiscoveryNameServers
   )
   if dynamicBootstrapNodesRes.isErr():
@@ -146,43 +113,6 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
   )
 
   ok(app)
-
-## Setup DiscoveryV5
-
-proc setupDiscoveryV5*(app: App): WakuDiscoveryV5 =
-  let dynamicBootstrapEnrs =
-    app.dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
-
-  var discv5BootstrapEnrs: seq[enr.Record]
-
-  # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
-  for enrUri in app.conf.discv5BootstrapNodes:
-    addBootstrapNode(enrUri, discv5BootstrapEnrs)
-
-  discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
-
-  let discv5Config = DiscoveryConfig.init(
-    app.conf.discv5TableIpLimit, app.conf.discv5BucketIpLimit, app.conf.discv5BitsPerHop
-  )
-
-  let discv5UdpPort = Port(uint16(app.conf.discv5UdpPort) + app.conf.portsShift)
-
-  let discv5Conf = WakuDiscoveryV5Config(
-    discv5Config: some(discv5Config),
-    address: app.conf.listenAddress,
-    port: discv5UdpPort,
-    privateKey: keys.PrivateKey(app.key.skkey),
-    bootstrapRecords: discv5BootstrapEnrs,
-    autoupdateRecord: app.conf.discv5EnrAutoUpdate,
-  )
-
-  WakuDiscoveryV5.new(
-    app.rng,
-    discv5Conf,
-    some(app.node.enr),
-    some(app.node.peerManager),
-    app.node.topicSubscriptionQueue,
-  )
 
 proc getPorts(
     listenAddrs: seq[MultiAddress]
@@ -259,17 +189,13 @@ proc startApp*(app: var App): AppResult[void] =
 
   ## Discv5
   if app.conf.discv5Discovery:
-    app.wakuDiscV5 = some(app.setupDiscoveryV5())
+    app.wakuDiscV5 = waku_discv5.setupDiscoveryV5(
+      app.node.enr, app.node.peerManager, app.node.topicSubscriptionQueue, app.conf,
+      app.dynamicBootstrapNodes, app.rng, app.key,
+    )
 
-  if app.wakuDiscv5.isSome():
-    let wakuDiscv5 = app.wakuDiscv5.get()
-    let catchRes = catch:
-      (waitFor wakuDiscv5.start())
-    let startRes = catchRes.valueOr:
-      return err("failed to start waku discovery v5: " & catchRes.error.msg)
-
-    startRes.isOkOr:
-      return err("failed to start waku discovery v5: " & error)
+    (waitFor app.wakuDiscV5.start()).isOkOr:
+      return err("failed to start waku discovery v5: " & $error)
 
   return ok()
 
@@ -282,8 +208,8 @@ proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
   if not app.metricsServer.isNil():
     await app.metricsServer.stop()
 
-  if app.wakuDiscv5.isSome():
-    await app.wakuDiscv5.get().stop()
+  if not app.wakuDiscv5.isNil():
+    await app.wakuDiscv5.stop()
 
   if not app.node.isNil():
     await app.node.stop()

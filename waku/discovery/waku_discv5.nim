@@ -14,7 +14,11 @@ import
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/node,
   eth/p2p/discoveryv5/protocol
-import ../node/peer_manager/peer_manager, ../waku_core, ../waku_enr
+import
+  ../node/peer_manager/peer_manager,
+  ../waku_core,
+  ../waku_enr,
+  ../factory/external_config
 
 export protocol, waku_enr
 
@@ -244,7 +248,7 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
 
   wd.topicSubscriptionQueue.unregister(key)
 
-proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async.} =
+proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises: []).} =
   if wd.listening:
     return err("already listening")
 
@@ -313,3 +317,42 @@ proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]
     return
 
   bootstrapEnrs.add(enrRes.value)
+
+proc setupDiscoveryV5*(
+    myENR: enr.Record,
+    nodePeerManager: PeerManager,
+    nodeTopicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent],
+    conf: WakuNodeConf,
+    dynamicBootstrapNodes: seq[RemotePeerInfo],
+    rng: ref HmacDrbgContext,
+    key: crypto.PrivateKey,
+): WakuDiscoveryV5 =
+  let dynamicBootstrapEnrs =
+    dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
+
+  var discv5BootstrapEnrs: seq[enr.Record]
+
+  # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
+  for enrUri in conf.discv5BootstrapNodes:
+    addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
+  discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
+
+  let discv5Config = DiscoveryConfig.init(
+    conf.discv5TableIpLimit, conf.discv5BucketIpLimit, conf.discv5BitsPerHop
+  )
+
+  let discv5UdpPort = Port(uint16(conf.discv5UdpPort) + conf.portsShift)
+
+  let discv5Conf = WakuDiscoveryV5Config(
+    discv5Config: some(discv5Config),
+    address: conf.listenAddress,
+    port: discv5UdpPort,
+    privateKey: eth_keys.PrivateKey(key.skkey),
+    bootstrapRecords: discv5BootstrapEnrs,
+    autoupdateRecord: conf.discv5EnrAutoUpdate,
+  )
+
+  WakuDiscoveryV5.new(
+    rng, discv5Conf, some(myENR), some(nodePeerManager), nodeTopicSubscriptionQueue
+  )
