@@ -50,7 +50,6 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../discovery/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
