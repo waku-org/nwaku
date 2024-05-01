@@ -168,6 +168,7 @@ type
     KeystoreOsError = "keystore error: OS specific error"
     KeystoreIoError = "keystore error: IO specific error"
     KeystoreJsonKeyError = "keystore error: fields not present in JSON"
+    KeystoreJsonValueMismatchError = "keystore error: JSON value mismatch"
     KeystoreJsonError = "keystore error: JSON encoder/decoder error"
     KeystoreKeystoreDoesNotExist = "keystore error: file does not exist"
     KeystoreCreateKeystoreError = "Error while creating application keystore"
