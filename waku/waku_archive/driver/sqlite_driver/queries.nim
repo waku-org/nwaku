@@ -292,7 +292,7 @@ proc whereClausev2(
     startTime: Option[Timestamp],
     endTime: Option[Timestamp],
     ascending: bool,
-): Option[string] =
+): Option[string] {.deprecated.} =
   let cursorClause =
     if cursor:
       let comp = if ascending: ">" else: "<"
@@ -336,7 +336,7 @@ proc whereClausev2(
 
 proc selectMessagesWithLimitQueryv2(
     table: string, where: Option[string], limit: uint, ascending = true, v3 = false
-): SqlQueryStr =
+): SqlQueryStr {.deprecated.} =
   let order = if ascending: "ASC" else: "DESC"
 
   var query: string
@@ -369,7 +369,7 @@ proc execSelectMessagesV2WithLimitStmt(
     startTime: Option[Timestamp],
     endTime: Option[Timestamp],
     onRowCallback: DataProc,
-): DatabaseResult[void] =
+): DatabaseResult[void] {.deprecated.} =
   let s = RawStmtPtr(s)
 
   # Bind params
@@ -416,29 +416,6 @@ proc execSelectMessagesV2WithLimitStmt(
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 
-proc execSelectMessageByHash(
-    s: SqliteStmt, hash: WakuMessageHash, onRowCallback: DataProc
-): DatabaseResult[void] =
-  let s = RawStmtPtr(s)
-
-  checkErr bindParam(s, 1, toSeq(hash))
-
-  try:
-    while true:
-      let v = sqlite3_step(s)
-      case v
-      of SQLITE_ROW:
-        onRowCallback(s)
-      of SQLITE_DONE:
-        return ok()
-      else:
-        return err($sqlite3_errstr(v))
-  finally:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s)
-      # no errors possible                                                              
-
 proc selectMessagesByHistoryQueryWithLimit*(
     db: SqliteDatabase,
     contentTopic: seq[ContentTopic],
@@ -450,7 +427,7 @@ proc selectMessagesByHistoryQueryWithLimit*(
     ascending: bool,
 ): DatabaseResult[
     seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
-] =
+] {.deprecated.} =
   var messages: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)] =
     @[]
 
@@ -482,6 +459,28 @@ proc selectMessagesByHistoryQueryWithLimit*(
   return ok(messages)
 
 ### Store v3 ###
+
+proc execSelectMessageByHash(
+    s: SqliteStmt, hash: WakuMessageHash, onRowCallback: DataProc
+): DatabaseResult[void] =
+  let s = RawStmtPtr(s)
+
+  checkErr bindParam(s, 1, toSeq(hash))
+
+  try:
+    while true:
+      let v = sqlite3_step(s)
+      case v
+      of SQLITE_ROW:
+        onRowCallback(s)
+      of SQLITE_DONE:
+        return ok()
+      else:
+        return err($sqlite3_errstr(v))
+  finally:
+    # release implicit transaction
+    discard sqlite3_reset(s) # same return information as step
+    discard sqlite3_clear_bindings(s) # no errors possible  
 
 proc selectMessageByHashQuery(): SqlQueryStr =
   var query: string

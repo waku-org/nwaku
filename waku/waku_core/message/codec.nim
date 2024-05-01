@@ -18,7 +18,7 @@ proc encode*(message: WakuMessage): ProtoBuffer =
   buf.write3(10, zint64(message.timestamp))
   buf.write3(11, message.meta)
   buf.write3(21, message.proof)
-  buf.write3(31, message.ephemeral)
+  buf.write3(31, uint32(message.ephemeral))
   buf.finish3()
 
   buf
@@ -67,7 +67,7 @@ proc decode*(T: type WakuMessage, buffer: seq[byte]): ProtobufResult[T] =
   else:
     msg.proof = proof
 
-  var ephemeral: uint
+  var ephemeral: uint32
   if not ?pb.getField(31, ephemeral):
     msg.ephemeral = false
   else:

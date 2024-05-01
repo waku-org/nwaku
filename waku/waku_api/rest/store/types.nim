@@ -186,7 +186,9 @@ proc writeValue*(
   writer.beginRecord()
 
   writer.writeField("message_hash", value.messageHash)
-  writer.writeField("message", value.message)
+
+  if value.message.isSome():
+    writer.writeField("message", value.message.get())
 
   writer.endRecord()
 
@@ -217,10 +219,7 @@ proc readValue*(
   if messageHash.isNone():
     reader.raiseUnexpectedValue("Field `message_hash` is missing")
 
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
-
-  value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message.get())
+  value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message)
 
 ## StoreQueryResponse serde
 

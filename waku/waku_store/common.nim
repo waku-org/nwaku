@@ -37,7 +37,7 @@ type
 
   WakuMessageKeyValue* = object
     messageHash*: WakuMessageHash
-    message*: WakuMessage
+    message*: Option[WakuMessage]
 
   StoreQueryResponse* = object
     requestId*: string
