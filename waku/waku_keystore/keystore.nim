@@ -45,7 +45,6 @@ proc loadAppKeystore*(
 ): KeystoreResult[JsonNode] =
   ## Load and decode JSON keystore from pathname
   var data: JsonNode
-  var matchingAppKeystore: Option[JsonNode]
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
@@ -87,21 +86,30 @@ proc loadAppKeystore*(
         if data["application"].getStr() != appInfo.application:
           return err(
             AppKeystoreError(
-              kind: KeystoreJsonValueMismatchError, msg: "Application does not match"
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "Application does not match. Expected '" & appInfo.application &
+                "' but got '" & data["application"].getStr() & "'",
             )
           )
 
         if data["appIdentifier"].getStr() != appInfo.appIdentifier:
           return err(
             AppKeystoreError(
-              kind: KeystoreJsonValueMismatchError, msg: "AppIdentifier does not match"
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "AppIdentifier does not match. Expected '" & appInfo.appIdentifier &
+                "' but got '" & data["appIdentifier"].getStr() & "'",
             )
           )
 
         if data["version"].getStr() != appInfo.version:
           return err(
             AppKeystoreError(
-              kind: KeystoreJsonValueMismatchError, msg: "Version does not match"
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "Version does not match. Expected '" & appInfo.version & "' but got '" &
+                data["version"].getStr() & "'",
             )
           )
           # We return the first json keystore that matches the passed app parameters

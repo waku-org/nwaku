@@ -301,4 +301,5 @@ procSuite "Credentials test suite":
     check:
       recoveredCredentialsRes.isErr()
       recoveredCredentialsRes.error.kind == KeystoreJsonValueMismatchError
-      recoveredCredentialsRes.error.msg == "Application does not match"
+      recoveredCredentialsRes.error.msg ==
+        "Application does not match. Expected '_bad_test_' but got 'test'"
