@@ -227,10 +227,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    trace "waku.relay received",
-      peerId = node.peerId,
+    debug "waku.relay received",
+      my_peer_id = node.peerId,
       pubsubTopic = topic,
-      hash = topic.computeMessageHash(msg).to0xHex(),
+      msg_hash = topic.computeMessageHash(msg).to0xHex(),
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
 
@@ -914,7 +914,9 @@ proc mountLightPush*(
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        debug "Lightpush request has not been published to any peers"
+        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+        debug "Lightpush request has not been published to any peers",
+          msg_hash = msgHash
 
       return ok()
 
@@ -953,16 +955,21 @@ proc lightpushPublish*(
       message: WakuMessage,
       peer: RemotePeerInfo,
   ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+    let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
     if not node.wakuLightpushClient.isNil():
       debug "publishing message with lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
-        peer = peer.peerId
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
       return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
     if not node.wakuLightPush.isNil():
       debug "publishing message with self hosted lightpush",
-        pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
+        pubsubTopic = pubsubTopic,
+        contentTopic = message.contentTopic,
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
   if pubsubTopic.isSome():

@@ -9,7 +9,7 @@ else:
 
 import
   std/strformat,
-  stew/results,
+  stew/[results, byteutils],
   sequtils,
   chronos,
   chronicles,
@@ -201,38 +201,54 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
   ): Future[ValidationResult] {.async.} =
     # can be optimized by checking if the message is a WakuMessage without allocating memory
     # see nim-libp2p protobuf library
-    let msgRes = WakuMessage.decode(message.data)
-    if msgRes.isErr():
-      trace "protocol generateOrderedValidator reject decode error",
-        error = msgRes.error
+    let msg = WakuMessage.decode(message.data).valueOr:
+      error "protocol generateOrderedValidator reject decode error",
+        pubsubTopic = pubsubTopic, error = $error
       return ValidationResult.Reject
-    let msg = msgRes.get()
+
+    let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
 
     # now sequentially validate the message
     for (validator, _) in w.wakuValidators:
       let validatorRes = await validator(pubsubTopic, msg)
+
       if validatorRes != ValidationResult.Accept:
+        error "protocol generateOrderedValidator reject waku validator",
+          msg_hash = msgHash, pubsubTopic = pubsubTopic, validatorRes = validatorRes
+
         return validatorRes
+
     return ValidationResult.Accept
+
   return wrappedValidator
 
 proc validateMessage*(
     w: WakuRelay, pubsubTopic: string, msg: WakuMessage
 ): Future[Result[void, string]] {.async.} =
   let messageSizeBytes = msg.encode().buffer.len
+  let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
 
   if messageSizeBytes > w.maxMessageSize:
     let message = fmt"Message size exceeded maximum of {w.maxMessageSize} bytes"
-    debug "Invalid Waku Message", error = message
+    error "too large Waku message",
+      msg_hash = msgHash,
+      error = message,
+      messageSizeBytes = messageSizeBytes,
+      maxMessageSize = w.maxMessageSize
+
     return err(message)
 
   for (validator, message) in w.wakuValidators:
     let validatorRes = await validator(pubsubTopic, msg)
     if validatorRes != ValidationResult.Accept:
       if message.len > 0:
+        error "invalid Waku message", msg_hash = msgHash, error = message
         return err(message)
       else:
-        return err("Validator failed")
+        ## This should never happen
+        error "uncertain invalid Waku message", msg_hash = msgHash, error = message
+        return err("validator failed")
+
   return ok()
 
 proc subscribe*(
@@ -248,7 +264,7 @@ proc subscribe*(
     if decMsg.isErr():
       # fine if triggerSelf enabled, since validators are bypassed
       error "failed to decode WakuMessage, validator passed a wrong message",
-        error = decMsg.error
+        pubsubTopic = pubsubTopic, error = decMsg.error
       let fut = newFuture[void]()
       fut.complete()
       return fut
@@ -288,7 +304,9 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler)
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
 ): Future[int] {.async.} =
-  trace "publish", pubsubTopic = pubsubTopic
   let data = message.encode().buffer
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+
+  debug "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)

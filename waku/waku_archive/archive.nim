@@ -94,7 +94,9 @@ proc handleMessage*(
 
   let
     msgDigest = computeDigest(msg)
+    msgDigestHex = msgDigest.data.to0xHex()
     msgHash = computeMessageHash(pubsubTopic, msg)
+    msgHashHex = msgHash.to0xHex()
     msgTimestamp =
       if msg.timestamp > 0:
         msg.timestamp
@@ -102,18 +104,27 @@ proc handleMessage*(
         getNanosecondTime(getTime().toUnixFloat())
 
   trace "handling message",
+    msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     msgTimestamp = msg.timestamp,
     usedTimestamp = msgTimestamp,
-    digest = toHex(msgDigest.data),
-    messageHash = toHex(msgHash)
+    digest = msgDigestHex
 
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
-    debug "failed to insert message", err = error
+    error "failed to insert message", error = error
+
+  debug "message archived",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    msgTimestamp = msg.timestamp,
+    usedTimestamp = msgTimestamp,
+    digest = msgDigestHex
+
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
