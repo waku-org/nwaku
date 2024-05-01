@@ -134,7 +134,7 @@ proc findMessages*(
     return err(ArchiveError.invalidQuery("too many content topics"))
 
   if query.cursor.isSome() and query.cursor.get().hash.len != 32:
-    return err(ArchiveError.invalidQuery("invalid cursor"))
+    return err(ArchiveError.invalidQuery("invalid cursor hash length"))
 
   let queryStartTime = getTime().toUnixFloat()
 

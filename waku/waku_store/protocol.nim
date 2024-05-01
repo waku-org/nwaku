@@ -53,7 +53,7 @@ proc handleQueryRequest*(
     waku_store_errors.inc(labelValues = [decodeRpcFailure])
 
     res.statusCode = uint32(ErrorCode.BAD_REQUEST)
-    res.statusDesc = "decode rpc failed " & $error
+    res.statusDesc = "decoding rpc failed: " & $error
 
     return res.encode().buffer
 

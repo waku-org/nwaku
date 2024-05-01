@@ -43,7 +43,7 @@ type
     hash*: WakuMessageHash
 
   ArchiveQuery* = object
-    includeData*: bool
+    includeData*: bool # indicate if messages should be returned in addition to hashes.
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
     cursor*: Option[ArchiveCursor]

@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, times],
+  std/[options, times, sugar],
   stew/shims/net as stewNet,
   chronicles,
   testutils/unittests,
@@ -224,10 +224,10 @@ procSuite "Waku Rest API - Store v3":
         "7", # page size. Empty implies default page size.
       )
 
-      var wakuMessages = newSeq[WakuMessage](0)
-      for j in 0 ..< response.data.messages.len:
-        if response.data.messages[j].message.isSome():
-          wakuMessages.add(response.data.messages[j].message.get())
+      let wakuMessages = collect(newSeq):
+        for element in response.data.messages:
+          if element.message.isSome():
+            element.message.get()
 
       pages[i] = wakuMessages
 
@@ -712,10 +712,10 @@ procSuite "Waku Rest API - Store v3":
         "3", # page size. Empty implies default page size.
       )
 
-      var wakuMessages = newSeq[WakuMessage](0)
-      for j in 0 ..< response.data.messages.len:
-        if response.data.messages[j].message.isSome():
-          wakuMessages.add(response.data.messages[j].message.get())
+      let wakuMessages = collect(newSeq):
+        for element in response.data.messages:
+          if element.message.isSome():
+            element.message.get()
 
       pages[i] = wakuMessages
 
@@ -776,10 +776,10 @@ procSuite "Waku Rest API - Store v3":
       response.status == 200
       $response.contentType == $MIMETYPE_JSON
 
-    var wakuMessages = newSeq[WakuMessage](0)
-    for j in 0 ..< response.data.messages.len:
-      if response.data.messages[j].message.isSome():
-        wakuMessages.add(response.data.messages[j].message.get())
+    let wakuMessages = collect(newSeq):
+      for element in response.data.messages:
+        if element.message.isSome():
+          element.message.get()
 
     check wakuMessages == msgList[6 .. 9]
 
