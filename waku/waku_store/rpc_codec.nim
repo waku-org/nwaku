@@ -60,7 +60,7 @@ proc decode*(
   if not ?pb.getField(2, inclData):
     req.includeData = false
   else:
-    req.includeData = bool(inclData)
+    req.includeData = inclData > 0
 
   var pubsubTopic: string
   if not ?pb.getField(10, pubsubTopic):
