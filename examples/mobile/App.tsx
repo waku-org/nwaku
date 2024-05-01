@@ -1,3 +1,4 @@
+/* eslint-disable no-alert */
 /**
  * Sample React Native App
  * https://github.com/facebook/react-native
@@ -24,7 +25,7 @@ import {
   LearnMoreLinks,
   ReloadInstructions,
 } from 'react-native/Libraries/NewAppScreen';
-import { NativeModules, Button } from 'react-native';
+import {NativeModules, Button} from 'react-native';
 
 type SectionProps = PropsWithChildren<{
   title: string;
@@ -68,38 +69,62 @@ function App(): React.JSX.Element {
     alert('Waku lib setup complete');
   };
 
-  var wakuPtr;
+  var wakuPtr: Number;
 
   const onClickNew = async () => {
-    wakuPtr = await NativeModules.WakuModule.new();
-    alert("waku_new result: " + wakuPtr);
+    const config = {
+      host: '0.0.0.0',
+      port: 42342,
+      key: '1122334455667788990011223344556677889900112233445566778899000022',
+      relay: true,
+    };
+    wakuPtr = await NativeModules.WakuModule.new(config);
+    alert('waku_new result: ' + wakuPtr);
   };
 
   const onClickStart = async () => {
     await NativeModules.WakuModule.start(wakuPtr);
-    alert("start executed succesfully");
+    alert('start executed succesfully');
   };
 
   const onClickVersion = async () => {
     let version = await NativeModules.WakuModule.version(wakuPtr);
-    alert("version result: " + version);
+    alert('version result: ' + version);
+  };
+
+  const onClickListenAddresses = async () => {
+    let addresses = await NativeModules.WakuModule.listenAddresses(wakuPtr);
+    alert(addresses[0]);
   };
 
   const onClickStop = async () => {
     await NativeModules.WakuModule.stop(wakuPtr);
-    alert("stopped!");
+    alert('stopped!');
   };
 
   const onClickDestroy = async () => {
     await NativeModules.WakuModule.destroy(wakuPtr);
-    alert("destroyed!");
+    alert('destroyed!');
   };
 
   const onClickConnect = async () => {
-    await NativeModules.WakuModule.connect(wakuPtr, "/ip4/127.0.0.1/tcp/48117/p2p/16Uiu2HAmVrsyU3y3pQYuSEyaqrBgevQeshp7YZsL8rY3nWb2yWD5", 0);
-    alert("connect!");
-  }
+    let result = await NativeModules.WakuModule.connect(
+      wakuPtr,
+      '/ip4/127.0.0.1/tcp/48117/p2p/16Uiu2HAmVrsyU3y3pQYuSEyaqrBgevQeshp7YZsL8rY3nWb2yWD5',
+      0,
+    );
+    alert('connect: ' + result);
+  };
 
+  const onClickSubscribe = async () => {
+    await NativeModules.WakuModule.relaySubscribe(wakuPtr, 'test');
+    alert('subscribed to test');
+  };
+
+  const onClickUnsubscribe = async () => {
+    await NativeModules.WakuModule.relayUnsubscribe(wakuPtr, 'test');
+    alert('unsubscribed from test');
+  };
 
   return (
     <SafeAreaView style={backgroundStyle}>
@@ -127,7 +152,28 @@ function App(): React.JSX.Element {
             <Button title="Version" color="#841584" onPress={onClickVersion} />
           </Section>
           <Section>
+            <Button
+              title="ListenAddresses"
+              color="#841584"
+              onPress={onClickListenAddresses}
+            />
+          </Section>
+          <Section>
             <Button title="Connect" color="#841584" onPress={onClickConnect} />
+          </Section>
+          <Section>
+            <Button
+              title="Subscribe"
+              color="#841584"
+              onPress={onClickSubscribe}
+            />
+          </Section>
+          <Section>
+            <Button
+              title="Unsubscribe"
+              color="#841584"
+              onPress={onClickUnsubscribe}
+            />
           </Section>
           <Section>
             <Button title="Stop" color="#841584" onPress={onClickStop} />
