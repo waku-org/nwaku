@@ -168,7 +168,7 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
 
   return ok()
 
-proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
+proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: []).} =
   (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
     return err("error while calling startNode: " & $error)
 
