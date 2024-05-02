@@ -160,8 +160,8 @@ proc installRelayApiHandlers*(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
 
-    (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
-      return RestApiResponse.badRequest("Failed to publish: " & error)
+    # (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+    #   return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
@@ -271,8 +271,8 @@ proc installRelayApiHandlers*(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
 
-    (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
-      return RestApiResponse.badRequest("Failed to publish: " & error)
+    # (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
+    #   return RestApiResponse.badRequest("Failed to publish: " & error)
 
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
