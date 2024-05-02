@@ -34,6 +34,7 @@ import
 procSuite "WakuNode - Store":
   ## Fixtures
   let timeOrigin = now()
+  info "BBBBB"
   let msgListA =
     @[
       fakeWakuMessage(@[byte 00], ts = ts(00, timeOrigin)),
@@ -61,6 +62,7 @@ procSuite "WakuNode - Store":
     driver
 
   test "Store protocol returns expected messages":
+    info "BBBBB"
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -93,8 +95,10 @@ procSuite "WakuNode - Store":
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
+    info "BBBBB"
 
   test "Store node history response - forward pagination":
+    info "BBBBB"
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -124,7 +128,7 @@ procSuite "WakuNode - Store":
 
     var pages = newSeq[seq[WakuMessage]](2)
     var cursors = newSeq[Option[HistoryCursor]](2)
-
+    info "BBBBB"
     for i in 0 ..< 2:
       let res = waitFor client.query(nextReq, peer = serverPeer)
       require res.isOk()
@@ -148,8 +152,10 @@ procSuite "WakuNode - Store":
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
+    info "BBBBB"
 
   test "Store node history response - backward pagination":
+    info "BBBBB"
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -158,6 +164,7 @@ procSuite "WakuNode - Store":
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     waitFor allFutures(client.start(), server.start())
+    info "BBBBB"
 
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
@@ -203,8 +210,10 @@ procSuite "WakuNode - Store":
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
+    info "BBBBB"
 
   test "Store protocol returns expected message when relay is disabled and filter enabled":
+    info "BBBBB"
     ## See nwaku issue #937: 'Store: ability to decouple store from relay'
     ## Setup
     let
@@ -217,6 +226,7 @@ procSuite "WakuNode - Store":
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
     waitFor allFutures(client.start(), server.start(), filterSource.start())
+    info "BBBBB"
 
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
@@ -273,8 +283,10 @@ procSuite "WakuNode - Store":
 
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+    info "BBBBB"
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
+    info "BBBBB"
     ## Setup
     let
       serverKey = generateSecp256k1Key()
@@ -303,6 +315,7 @@ procSuite "WakuNode - Store":
       digest: waku_archive.MessageDigest(data: data),
     )
 
+    info "BBBBB"
     ## Given
     let req = HistoryQuery(contentTopics: @[DefaultContentTopic], cursor: some(cursor))
     let serverPeer = server.peerInfo.toRemotePeerInfo()
@@ -318,3 +331,4 @@ procSuite "WakuNode - Store":
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
+    info "BBBBB"

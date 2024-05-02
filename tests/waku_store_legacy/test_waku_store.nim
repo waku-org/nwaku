@@ -15,19 +15,25 @@ import
 
 suite "Waku Store - query handler":
   asyncTest "history query handler should be called":
+    info "BBBBB"
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
+    info "BBBBB"
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
+    info "BBBBB"
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+    info "BBBBB"
 
     let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
+    info "BBBBB"
 
     var queryHandlerFut = newFuture[(HistoryQuery)]()
+    info "BBBBB"
 
     let queryHandler = proc(
         req: HistoryQuery
@@ -62,14 +68,17 @@ suite "Waku Store - query handler":
 
     ## Cleanup
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
+    info "BBBBB"
 
   asyncTest "history query handler should be called and return an error":
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
+    info "BBBBB"
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
+    info "BBBBB"
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -107,3 +116,5 @@ suite "Waku Store - query handler":
 
     ## Cleanup
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
+    info "BBBBB"
