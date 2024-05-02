@@ -120,8 +120,6 @@ jobject to_jni_ptr(JNIEnv *env, cb_result *result, void *ptr) {
 // ============================================================================
 
 // JVM, required for executing JNI functions in a third party thread.
-// TODO: might be too much overhead to attach/detach per call, so maybe we
-// should do it as soon as wakuNew is started?. Measure this
 JavaVM *jvm;
 static jobject jClassLoader;
 static jmethodID jLoadClass;
@@ -143,7 +141,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
   JNIEnv *env = getEnv();
 
   jclass jLibraryClass =
-      (*env)->FindClass(env, "com/mobile/CallbackManagement");
+      (*env)->FindClass(env, "com/mobile/EventCallbackManager");
   jclass jClassRef = (*env)->GetObjectClass(env, jLibraryClass);
   jclass jClassLoaderClass = (*env)->FindClass(env, "java/lang/ClassLoader");
   jmethodID getClassLoader = (*env)->GetMethodID(
@@ -297,6 +295,7 @@ jobject Java_com_mobile_WakuModule_wakuRelayUnsubscribe(JNIEnv *env,
 void wk_callback(int callerRet, const char *msg, size_t len, void *userData) {
   cb_env *c = (cb_env *)userData;
 
+  // TODO: might be too much overhead to attach/detach per call?
   JNIEnv *env = c->env;
   JNIEnv *attachedEnv = NULL;
   if ((*jvm)->AttachCurrentThread(jvm, &attachedEnv, NULL) != JNI_OK) {
@@ -305,15 +304,19 @@ void wk_callback(int callerRet, const char *msg, size_t len, void *userData) {
     return;
   }
 
-  jclass clazz = loadClass(attachedEnv, "com/mobile/CallbackManagement");
+  jstring message = (*attachedEnv)->NewStringUTF(attachedEnv, msg);
+
+  jclass clazz = loadClass(attachedEnv, "com/mobile/EventCallbackManager");
 
   jmethodID methodID =
       (*attachedEnv)
-          ->GetStaticMethodID(attachedEnv, clazz, "myTopLevelFunction", "()V");
+          ->GetStaticMethodID(attachedEnv, clazz, "execEventCallback", "(JLjava/lang/String;)V");
 
-  (*attachedEnv)->CallStaticVoidMethod(attachedEnv, clazz, methodID);
+  (*attachedEnv)->CallStaticVoidMethod(attachedEnv, clazz, methodID, c->wakuPtr, message);
 
   (*attachedEnv)->DeleteLocalRef(attachedEnv, clazz);
+
+  (*attachedEnv)->DeleteLocalRef(attachedEnv, message);
 
   (*jvm)->DetachCurrentThread(jvm);
 }

@@ -1,26 +1,36 @@
 package com.mobile
 
-import android.util.Log
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
+import com.facebook.react.bridge.ReactContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.ReadableType
 import com.facebook.react.bridge.WritableNativeArray
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.gson.Gson
 import java.math.BigInteger
 import org.json.JSONArray
 
-class CallbackManagement {
+class EventCallbackManager {
   companion object {
+
+    lateinit var reactContext: ReactContext
+
     @JvmStatic
-    fun myTopLevelFunction() {
-      Log.d(
-          "CallbackManagement",
-          "TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST"
-      )
+    fun execEventCallback(wakuPtr: Long, evt: String) {
+      val params =
+          Arguments.createMap().apply {
+            putString("wakuPtr", wakuPtr.toString())
+            putString("event", evt)
+          }
+
+      reactContext
+          .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+          .emit("wakuEvent", params)
     }
   }
 }
@@ -76,6 +86,8 @@ class WakuPtr(val error: Boolean, val errorMessage: String, val ptr: Long)
 class WakuResult(val error: Boolean, val message: String)
 
 class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaModule(reactContext) {
+  var reactContext = reactContext
+
   override fun getName() = "WakuModule"
 
   external fun wakuSetup()
@@ -96,6 +108,10 @@ class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMo
   external fun wakuRelayUnsubscribe(ctx: Long, topic: String): WakuResult
   external fun wakuSetEventCallback(ctx: Long)
 
+  init {
+    EventCallbackManager.reactContext = reactContext
+  }
+
   @ReactMethod
   fun setup(promise: Promise) {
     wakuSetup()
@@ -109,6 +125,12 @@ class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMo
     if (response.error) {
       promise.reject("waku_new", response.errorMessage)
     } else {
+      // With this we just indicate to waku_ffi that we have registered a
+      // closure, for this wakuPtr. Later once a message is received the
+      // callback manager will receive both the wakuPtr and the message,
+      // and it will use these values to emit a JS event
+      wakuSetEventCallback(response.ptr)
+
       promise.resolve(BigInteger.valueOf(response.ptr).toString())
     }
   }
@@ -117,9 +139,6 @@ class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMo
   fun start(ctx: String, promise: Promise) {
     val wakuPtr = BigInteger(ctx).toLong()
     val response = wakuStart(wakuPtr)
-
-    wakuSetEventCallback(wakuPtr)
-
     if (response.error) {
       promise.reject("waku_start", response.message)
     } else {
@@ -223,5 +242,15 @@ class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMo
     } else {
       promise.resolve(null)
     }
+  }
+
+  @ReactMethod
+  fun addListener(eventName: String) {
+    // No impl required
+  }
+
+  @ReactMethod
+  fun removeListeners(count: Int) {
+    // No impl required
   }
 }
