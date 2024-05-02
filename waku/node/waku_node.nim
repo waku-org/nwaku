@@ -735,7 +735,7 @@ proc mountLegacyStore*(
     await node.wakuLegacyStore.start()
 
   node.switch.mount(
-    node.wakuLegacyStore, protocolMatcher(legacy_store_common.WakuStoreCodec)
+    node.wakuLegacyStore, protocolMatcher(legacy_store_common.WakuLegacyStoreCodec)
   )
 
 proc mountLegacyStoreClient*(node: WakuNode) =
@@ -771,7 +771,7 @@ proc query*(
   if node.wakuLegacyStoreClient.isNil():
     return err("waku legacy store client is nil")
 
-  let peerOpt = node.peerManager.selectPeer(legacy_store_common.WakuStoreCodec)
+  let peerOpt = node.peerManager.selectPeer(legacy_store_common.WakuLegacyStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
     return err("peer_not_found_failure")

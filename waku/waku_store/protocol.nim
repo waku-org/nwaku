@@ -43,7 +43,7 @@ type WakuStore* = ref object of LPProtocol
 
 ## Protocol
 
-proc handleQueryRequest*(
+proc handleQueryRequest(
     self: WakuStore, requestor: PeerId, raw_request: seq[byte]
 ): Future[seq[byte]] {.async.} =
   var res = StoreQueryResponse()
@@ -58,21 +58,6 @@ proc handleQueryRequest*(
     return res.encode().buffer
 
   let requestId = req.requestId
-
-  if self.requestRateLimiter.isSome() and not self.requestRateLimiter.get().tryConsume(
-    1
-  ):
-    debug "store query request rejected due rate limit exceeded",
-      peerId = $requestor, requestId = requestId
-
-    res.statusCode = uint32(ErrorCode.TOO_MANY_REQUESTS)
-    res.statusDesc = $ErrorCode.TOO_MANY_REQUESTS
-
-    waku_service_requests_rejected.inc(labelValues = ["Store"])
-
-    return res.encode().buffer
-
-  waku_service_requests.inc(labelValues = ["Store"])
 
   info "received store query request",
     peerId = requestor, requestId = requestId, request = req
@@ -99,15 +84,33 @@ proc handleQueryRequest*(
   return res.encode().buffer
 
 proc initProtocolHandler(self: WakuStore) =
+  let rejectReposnseBuffer = StoreQueryResponse(
+    ## We will not copy and decode RPC buffer from stream only for requestId
+    ## in reject case as it is comparably too expensive and opens possible
+    ## attack surface
+    requestId: "N/A",
+    statusCode: uint32(ErrorCode.TOO_MANY_REQUESTS),
+    statusDesc: $ErrorCode.TOO_MANY_REQUESTS,
+  ).encode().buffer
+
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
-    let readRes = catch:
-      await conn.readLp(DefaultMaxRpcSize.int)
+    var resBuf: seq[byte]
+    self.requestRateLimiter.checkUsageLimit(WakuStoreCodec, conn):
+      let readRes = catch:
+        await conn.readLp(DefaultMaxRpcSize.int)
 
-    let reqBuf = readRes.valueOr:
-      error "Connection read error", error = error.msg
-      return
+      let reqBuf = readRes.valueOr:
+        error "Connection read error", error = error.msg
+        return
 
-    let resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
+      waku_service_inbound_network_bytes.inc(
+        amount = reqBuf.len().int64, labelValues = [WakuStoreCodec]
+      )
+
+      resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
+    do:
+      debug "store query request rejected due rate limit exceeded", peerId = conn.peerId
+      resBuf = rejectReposnseBuffer
 
     let writeRes = catch:
       await conn.writeLp(resBuf)
@@ -115,6 +118,10 @@ proc initProtocolHandler(self: WakuStore) =
     if writeRes.isErr():
       error "Connection write error", error = writeRes.error.msg
       return
+
+    waku_service_outbound_network_bytes.inc(
+      amount = resBuf.len().int64, labelValues = [WakuStoreCodec]
+    )
 
   self.handler = handler
   self.codec = WakuStoreCodec

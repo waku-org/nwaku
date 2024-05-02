@@ -269,7 +269,9 @@ proc setupProtocols(
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
     if storeNode.isOk():
-      node.peerManager.addServicePeer(storeNode.value, legacy_common.WakuStoreCodec)
+      node.peerManager.addServicePeer(
+        storeNode.value, legacy_common.WakuLegacyStoreCodec
+      )
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
