@@ -18,11 +18,11 @@ suite "Wakunode2 - Waku":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
-    let wakunode2 = Waku.init(conf).valueOr:
+    let waku = Waku.init(conf).valueOr:
       raiseAssert error
 
     ## When
-    let version = wakunode2.version
+    let version = waku.version
 
     ## Then
     check:
@@ -34,28 +34,28 @@ suite "Wakunode2 - Waku initialization":
     var conf = defaultTestWakuNodeConf()
     conf.peerPersistence = true
 
-    let wakunode2 = Waku.init(conf).valueOr:
+    let waku = Waku.init(conf).valueOr:
       raiseAssert error
 
     check:
-      not wakunode2.node.peerManager.storage.isNil()
+      not waku.node.peerManager.storage.isNil()
 
   test "node setup is successful with default configuration":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
     ## When
-    var wakunode2 = Waku.init(conf).valueOr:
+    var waku = Waku.init(conf).valueOr:
       raiseAssert error
 
-    (waitFor wakunode2.startWaku()).isOkOr:
+    (waitFor startWaku(addr waku)).isOkOr:
       raiseAssert error
 
-    wakunode2.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
+    waku.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
       raiseAssert error
 
     ## Then
-    let node = wakunode2.node
+    let node = waku.node
     check:
       not node.isNil()
       node.wakuArchive.isNil()
@@ -64,7 +64,7 @@ suite "Wakunode2 - Waku initialization":
       not node.rendezvous.isNil()
 
     ## Cleanup
-    waitFor wakunode2.stop()
+    waitFor waku.stop()
 
   test "app properly handles dynamic port configuration":
     ## Given
@@ -72,15 +72,15 @@ suite "Wakunode2 - Waku initialization":
     conf.tcpPort = Port(0)
 
     ## When
-    var wakunode2 = Waku.init(conf).valueOr:
+    var waku = Waku.init(conf).valueOr:
       raiseAssert error
 
-    (waitFor wakunode2.startWaku()).isOkOr:
+    (waitFor startWaku(addr waku)).isOkOr:
       raiseAssert error
 
     ## Then
     let
-      node = wakunode2.node
+      node = waku.node
       typedNodeEnr = node.enr.toTypedRecord()
 
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
@@ -97,4 +97,4 @@ suite "Wakunode2 - Waku initialization":
       typedNodeEnr.get().tcp.get() != 0
 
     ## Cleanup
-    waitFor wakunode2.stop()
+    waitFor waku.stop()
