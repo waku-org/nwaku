@@ -34,13 +34,15 @@ proc enrConfiguration*(
     if conf.shards.len == 0:
       var shardsLocal = newSeq[uint16]()
       let shardsRes = topicsToRelayShards(conf.pubsubTopics)
-      if shardsRes.isOk() and shardsRes.get().isSome():
-        shardsLocal = shardsRes.get().get().shardIds
-      elif not shardsRes.get().isNone():
-        info "no pubsub topics specified or pubsubtopic is of type Named sharding "
-      else:
+      if shardsRes.isErr():
         error "failed to parse pubsub topic, please format according to static shard specification",
-          error = shardsRes.error
+          error = $shardsRes.error
+      else:
+        if shardsRes.get().isSome():
+          shardsLocal = shardsRes.get().get().shardIds
+        else:
+          info "no pubsub topics specified or pubsubtopic is of type Named sharding "
+
       shardsLocal
 
     # some shards configured
