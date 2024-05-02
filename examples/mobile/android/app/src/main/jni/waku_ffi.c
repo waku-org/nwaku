@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 // cb_result represents a response received when executing a callback.
 // If `error` is true, `message` will contain the error message description
@@ -129,9 +130,7 @@ JNIEnv *getEnv() {
   int status = (*jvm)->GetEnv(jvm, (void **)&env, JNI_VERSION_1_6);
   if (status < 0) {
     status = (*jvm)->AttachCurrentThread(jvm, &env, NULL);
-    if (status != JNI_OK) {
-      return NULL;
-    }
+    assert(status == JNI_OK && "could not obtain env");
   }
   return env;
 }
@@ -163,16 +162,9 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 
 jclass loadClass(JNIEnv *env, const char *className) {
   jstring jName = (*env)->NewStringUTF(env, className);
-  jclass jClass =
-      (*env)->CallObjectMethod(env, jClassLoader, jLoadClass, jName);
-  if ((*env)->ExceptionCheck(env) != JNI_FALSE) {
-    __android_log_print(ANDROID_LOG_ERROR,
-                        "==================================",
-                        "class could not be loaded");
-  }
-
-  	(*env)->DeleteLocalRef(env, jName);
-
+  jclass jClass = (*env)->CallObjectMethod(env, jClassLoader, jLoadClass, jName);
+  assert((*env)->ExceptionCheck(env) == JNI_FALSE && "class could not be loaded");
+  (*env)->DeleteLocalRef(env, jName);
   return jClass;
 }
 
@@ -298,13 +290,7 @@ void wk_callback(int callerRet, const char *msg, size_t len, void *userData) {
   // TODO: might be too much overhead to attach/detach per call?
   JNIEnv *env = c->env;
   JNIEnv *attachedEnv = NULL;
-  if ((*jvm)->AttachCurrentThread(jvm, &attachedEnv, NULL) != JNI_OK) {
-    __android_log_print(ANDROID_LOG_ERROR, "set_event_callback",
-                        "could not attach to current thread");
-    return;
-  }
-
-  jstring message = (*attachedEnv)->NewStringUTF(attachedEnv, msg);
+  assert((*jvm)->AttachCurrentThread(jvm, &attachedEnv, NULL) == JNI_OK && "could not attach to current thread");
 
   jclass clazz = loadClass(attachedEnv, "com/mobile/EventCallbackManager");
 
@@ -312,6 +298,7 @@ void wk_callback(int callerRet, const char *msg, size_t len, void *userData) {
       (*attachedEnv)
           ->GetStaticMethodID(attachedEnv, clazz, "execEventCallback", "(JLjava/lang/String;)V");
 
+  jstring message = (*attachedEnv)->NewStringUTF(attachedEnv, msg);
   (*attachedEnv)->CallStaticVoidMethod(attachedEnv, clazz, methodID, c->wakuPtr, message);
 
   (*attachedEnv)->DeleteLocalRef(attachedEnv, clazz);

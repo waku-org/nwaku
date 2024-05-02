@@ -150,15 +150,6 @@ class WakuModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaMo
   fun version(ctx: String, promise: Promise) {
     val wakuPtr = BigInteger(ctx).toLong()
     val response = wakuVersion(wakuPtr)
-
-    // TODO: remove this
-    wakuRelayPublish(
-        wakuPtr,
-        "test",
-        "{\"payload\":\"aGVsbG8\", \"contentTopic\":\"test\", \"timestamp\":0, \"version\":0}",
-        0
-    )
-
     if (response.error) {
       promise.reject("waku_version", response.message)
     } else {

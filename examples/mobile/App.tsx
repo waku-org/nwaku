@@ -109,6 +109,20 @@ const WakuFactory = (() => {
       );
     }
 
+    // TODO: Use a type instead of `any`
+    async relayPublish(
+      pubsubTopic: string,
+      msg: any,
+      timeoutMs: Number,
+    ): Promise<String> {
+      return NativeModules.WakuModule.relayPublish(
+        this.wakuPtr,
+        pubsubTopic,
+        msg,
+        timeoutMs,
+      );
+    }
+
     onEvent(cb: (event: any) => void): EmitterSubscription {
       return eventEmitter.addListener('wakuEvent', evt => {
         if (evt.wakuPtr === this.wakuPtr) {
@@ -123,6 +137,7 @@ const WakuFactory = (() => {
       console.debug('initializing waku library');
       await NativeModules.WakuModule.setup();
       isSetup = true;
+      alert('waku instance created!');
     }
 
     let wakuPtr = await NativeModules.WakuModule.new(config);
@@ -202,11 +217,24 @@ function App(): React.JSX.Element {
 
   const onClickSetEventCallback = async () => {
     const eventSubs = waku.onEvent((event: any) => {
-      alert('Received a message');
       console.log(event);
+      alert('received a message');
     });
+    // TODO: eventSubs.remove() should be used to avoid a mem leak.
 
-    // TODO: remember to call eventSubs.remove() to avoid a mem leak.
+    alert("event callback set");
+  };
+
+  const onClickPublish = async () => {
+    const pubsubTopic = 'test';
+    const msg = {
+      payload: 'aGVsbG8',
+      contentTopic: 'test',
+      timestamp: 0,
+      version: 0,
+    };
+    let hash = await waku.relayPublish(pubsubTopic, msg, 0);
+    alert('published - msgHash: ' + hash);
   };
 
   return (
@@ -254,6 +282,9 @@ function App(): React.JSX.Element {
               color="#841584"
               onPress={onClickSubscribe}
             />
+          </Section>
+          <Section>
+            <Button title="Publish" color="#841584" onPress={onClickPublish} />
           </Section>
           <Section>
             <Button

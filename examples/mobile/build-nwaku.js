@@ -10,7 +10,7 @@ const libwakuHeaderSrc = 'library/libwaku.h';
 
 // Android --------------------------------------------------------------------------------------
 
-const androidArchitectures = ['arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64'];
+const androidArchitectures = ['arm64-v8a', 'x86', 'x86_64']; // 'armeabi-v7a'
 const androidSrcFolder = 'build/android';
 const androidDstFolder = 'android/app/src/main/jniLibs';
 const androidFilesToCheck = ['libwaku.so', 'librln.so'];
