@@ -54,7 +54,7 @@ type
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64, conn: Connection
-): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
+): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   let rpc = PeerExchangeRpc(request: PeerExchangeRequest(numPeers: numPeers))
 
   var buffer: seq[byte]
@@ -79,15 +79,18 @@ proc request*(
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo
-): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
-  let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
-  if connOpt.isNone():
-    return err(dialFailure)
-  return await wpx.request(numPeers, connOpt.get())
+): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
+  try:
+    let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
+    if connOpt.isNone():
+      return err(dialFailure)
+    return await wpx.request(numPeers, connOpt.get())
+  except CatchableError:
+    return err("exception dialing peer: " & getCurrentExceptionMsg())
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64
-): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async, gcsafe.} =
+): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
     waku_px_errors.inc(labelValues = [peerNotFoundFailure])

@@ -1,6 +1,6 @@
 import std/[options, sequtils, strutils]
 import chronicles, chronos, stew/results, stew/shims/net
-import ../../../../waku/node/waku_node, ../../../alloc
+import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
 
 type PeerManagementMsgType* = enum
   CONNECT_TO
@@ -43,14 +43,14 @@ proc connectTo(
   return ok()
 
 proc process*(
-    self: ptr PeerManagementRequest, node: WakuNode
+    self: ptr PeerManagementRequest, waku: Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
   case self.operation
   of CONNECT_TO:
-    let ret = node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
+    let ret = waku.node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
     if ret.isErr():
       return err(ret.error)
 

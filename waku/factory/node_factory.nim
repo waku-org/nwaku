@@ -337,7 +337,7 @@ proc setupProtocols(
 
 proc startNode*(
     node: WakuNode, conf: WakuNodeConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
-): Future[Result[void, string]] {.async.} =
+): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
   ## keep-alive, if configured.

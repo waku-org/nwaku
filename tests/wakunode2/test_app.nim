@@ -11,14 +11,14 @@ import
   libp2p/switch
 import ../testlib/common, ../testlib/wakucore, ../testlib/wakunode
 
-include ../../waku/factory/app
+include ../../waku/factory/waku
 
-suite "Wakunode2 - App":
+suite "Wakunode2 - Waku":
   test "compilation version should be reported":
     ## Given
     let conf = defaultTestWakuNodeConf()
 
-    let wakunode2 = App.init(conf).valueOr:
+    let wakunode2 = Waku.init(conf).valueOr:
       raiseAssert error
 
     ## When
@@ -28,13 +28,13 @@ suite "Wakunode2 - App":
     check:
       version == git_version
 
-suite "Wakunode2 - App initialization":
+suite "Wakunode2 - Waku initialization":
   test "peer persistence setup should be successfully mounted":
     ## Given
     var conf = defaultTestWakuNodeConf()
     conf.peerPersistence = true
 
-    let wakunode2 = App.init(conf).valueOr:
+    let wakunode2 = Waku.init(conf).valueOr:
       raiseAssert error
 
     check:
@@ -45,10 +45,10 @@ suite "Wakunode2 - App initialization":
     let conf = defaultTestWakuNodeConf()
 
     ## When
-    var wakunode2 = App.init(conf).valueOr:
+    var wakunode2 = Waku.init(conf).valueOr:
       raiseAssert error
 
-    wakunode2.startApp().isOkOr:
+    (waitFor wakunode2.startWaku()).isOkOr:
       raiseAssert error
 
     wakunode2.metricsServer = waku_metrics.startMetricsServerAndLogging(conf).valueOr:
@@ -72,10 +72,10 @@ suite "Wakunode2 - App initialization":
     conf.tcpPort = Port(0)
 
     ## When
-    var wakunode2 = App.init(conf).valueOr:
+    var wakunode2 = Waku.init(conf).valueOr:
       raiseAssert error
 
-    wakunode2.startApp().isOkOr:
+    (waitFor wakunode2.startWaku()).isOkOr:
       raiseAssert error
 
     ## Then
@@ -86,7 +86,7 @@ suite "Wakunode2 - App initialization":
     assert typedNodeEnr.isOk(), $typedNodeEnr.error
 
     check:
-      # App started properly
+      # Waku started properly
       not node.isNil()
       node.wakuArchive.isNil()
       node.wakuStore.isNil()

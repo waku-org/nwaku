@@ -46,37 +46,31 @@ import
   ../../waku/factory/external_config
 
 logScope:
-  topics = "wakunode app"
+  topics = "wakunode waku"
 
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
 
-type
-  App* = object
-    version: string
-    conf: WakuNodeConf
-    rng: ref HmacDrbgContext
-    key: crypto.PrivateKey
+type Waku* = object
+  version: string
+  conf: WakuNodeConf
+  rng: ref HmacDrbgContext
+  key: crypto.PrivateKey
 
-    wakuDiscv5*: WakuDiscoveryV5
-    dynamicBootstrapNodes: seq[RemotePeerInfo]
+  wakuDiscv5*: WakuDiscoveryV5
+  dynamicBootstrapNodes: seq[RemotePeerInfo]
 
-    node: WakuNode
+  node*: WakuNode
 
-    restServer*: WakuRestServerRef
-    metricsServer*: MetricsHttpServerRef
+  restServer*: WakuRestServerRef
+  metricsServer*: MetricsHttpServerRef
 
-  AppResult*[T] = Result[T, string]
-
-func node*(app: App): WakuNode =
-  app.node
-
-func version*(app: App): string =
-  app.version
+func version*(waku: Waku): string =
+  waku.version
 
 ## Initialisation
 
-proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
+proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   var confCopy = conf
   let rng = crypto.newRng()
 
@@ -103,7 +97,7 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
-  var app = App(
+  var waku = Waku(
     version: git_version,
     conf: confCopy,
     rng: rng,
@@ -112,11 +106,11 @@ proc init*(T: type App, conf: WakuNodeConf): Result[App, string] =
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
   )
 
-  ok(app)
+  ok(waku)
 
 proc getPorts(
     listenAddrs: seq[MultiAddress]
-): AppResult[tuple[tcpPort, websocketPort: Option[Port]]] =
+): Result[tuple[tcpPort, websocketPort: Option[Port]], string] =
   var tcpPort, websocketPort = none(Port)
 
   for a in listenAddrs:
@@ -132,9 +126,9 @@ proc getPorts(
 
   return ok((tcpPort: tcpPort, websocketPort: websocketPort))
 
-proc getRunningNetConfig(app: App): AppResult[NetConfig] =
-  var conf = app.conf
-  let (tcpPort, websocketPort) = getPorts(app.node.switch.peerInfo.listenAddrs).valueOr:
+proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
+  var conf = waku[].conf
+  let (tcpPort, websocketPort) = getPorts(waku[].node.switch.peerInfo.listenAddrs).valueOr:
     return err("Could not retrieve ports " & error)
 
   if tcpPort.isSome():
@@ -149,67 +143,62 @@ proc getRunningNetConfig(app: App): AppResult[NetConfig] =
 
   return ok(netConf)
 
-proc updateEnr(app: var App, netConf: NetConfig): AppResult[void] =
-  let record = enrConfiguration(app.conf, netConf, app.key).valueOr:
+proc updateEnr(waku: ptr Waku, netConf: NetConfig): Result[void, string] =
+  let record = enrConfiguration(waku[].conf, netConf, waku[].key).valueOr:
     return err("ENR setup failed: " & error)
 
-  if isClusterMismatched(record, app.conf.clusterId):
+  if isClusterMismatched(record, waku[].conf.clusterId):
     return err("cluster id mismatch configured shards")
 
-  app.node.enr = record
+  waku[].node.enr = record
 
   return ok()
 
-proc updateApp(app: var App): AppResult[void] =
-  if app.conf.tcpPort == Port(0) or app.conf.websocketPort == Port(0):
-    let netConf = getRunningNetConfig(app).valueOr:
+proc updateWaku(waku: ptr Waku): Result[void, string] =
+  if waku[].conf.tcpPort == Port(0) or waku[].conf.websocketPort == Port(0):
+    let netConf = getRunningNetConfig(waku).valueOr:
       return err("error calling updateNetConfig: " & $error)
 
-    updateEnr(app, netConf).isOkOr:
+    updateEnr(waku, netConf).isOkOr:
       return err("error calling updateEnr: " & $error)
 
-    app.node.announcedAddresses = netConf.announcedAddresses
+    waku[].node.announcedAddresses = netConf.announcedAddresses
 
-    printNodeNetworkInfo(app.node)
+    printNodeNetworkInfo(waku[].node)
 
   return ok()
 
-proc startApp*(app: var App): AppResult[void] =
-  let nodeRes = catch:
-    (waitFor startNode(app.node, app.conf, app.dynamicBootstrapNodes))
-  if nodeRes.isErr():
-    return err("exception starting node: " & nodeRes.error.msg)
+proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
+  (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+    return err("error while calling startNode: " & $error)
 
-  nodeRes.get().isOkOr:
-    return err("exception starting node: " & error)
-
-  # Update app data that is set dynamically on node start
-  app.updateApp().isOkOr:
+  # Update waku data that is set dynamically on node start
+  updateWaku(waku).isOkOr:
     return err("Error in updateApp: " & $error)
 
   ## Discv5
-  if app.conf.discv5Discovery:
-    app.wakuDiscV5 = waku_discv5.setupDiscoveryV5(
-      app.node.enr, app.node.peerManager, app.node.topicSubscriptionQueue, app.conf,
-      app.dynamicBootstrapNodes, app.rng, app.key,
+  if waku[].conf.discv5Discovery:
+    waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
+      waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
+      waku.dynamicBootstrapNodes, waku.rng, waku.key,
     )
 
-    (waitFor app.wakuDiscV5.start()).isOkOr:
+    (await waku.wakuDiscV5.start()).isOkOr:
       return err("failed to start waku discovery v5: " & $error)
 
   return ok()
 
-# App shutdown
+# Waku shutdown
 
-proc stop*(app: App): Future[void] {.async: (raises: [Exception]).} =
-  if not app.restServer.isNil():
-    await app.restServer.stop()
+proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
+  if not waku.restServer.isNil():
+    await waku.restServer.stop()
 
-  if not app.metricsServer.isNil():
-    await app.metricsServer.stop()
+  if not waku.metricsServer.isNil():
+    await waku.metricsServer.stop()
 
-  if not app.wakuDiscv5.isNil():
-    await app.wakuDiscv5.stop()
+  if not waku.wakuDiscv5.isNil():
+    await waku.wakuDiscv5.stop()
 
-  if not app.node.isNil():
-    await app.node.stop()
+  if not waku.node.isNil():
+    await waku.node.stop()

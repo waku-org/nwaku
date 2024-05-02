@@ -1063,7 +1063,7 @@ proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount: uint64
-): Future[Result[int, string]] {.async, raises: [Defect].} =
+): Future[Result[int, string]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
     return err("PeerExchange is not mounted")
