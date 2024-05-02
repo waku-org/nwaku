@@ -34,6 +34,7 @@ suite "Waku Store - query handler":
     let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
     info "AAAAA "
     let hash = computeMessageHash(DefaultPubsubTopic, msg)
+
     info "AAAAA "
     let kv = WakuMessageKeyValue(messageHash: hash, message: msg)
     info "AAAAA "

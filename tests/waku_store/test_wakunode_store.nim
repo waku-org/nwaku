@@ -67,8 +67,7 @@ procSuite "WakuNode - Store":
       info "AAAAA "
       require (
         waitFor driver.put(
-          DefaultPubsubTopic, kv.message, msg_digest, kv.messageHash,
-          kv.message.timestamp,
+          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
         )
       ).isOk()
 
@@ -99,7 +98,8 @@ procSuite "WakuNode - Store":
     info "AAAAA "
 
     ## Given
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
     info "AAAAA "
 
@@ -146,6 +146,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
       paginationForward: PagingDirection.FORWARD,
       paginationLimit: some(uint64(7)),
@@ -219,6 +220,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
       paginationLimit: some(uint64(7)),
       paginationForward: PagingDirection.BACKWARD,
@@ -331,7 +333,8 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
 
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let res = waitFor client.query(req, serverPeer)
 
     ## Then
@@ -340,7 +343,8 @@ procSuite "WakuNode - Store":
     let response = res.get()
     check:
       response.messages.len == 1
-      response.messages[0] == WakuMessageKeyValue(messageHash: hash, message: message)
+      response.messages[0] ==
+        WakuMessageKeyValue(messageHash: hash, message: some(message))
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
@@ -435,7 +439,8 @@ procSuite "WakuNode - Store":
     info "AAAAA "
 
     ## Given
-    let req = StoreQueryRequest(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
     info "AAAAA "
 
@@ -512,7 +517,6 @@ procSuite "WakuNode - Store":
       check:
         response.messages.mapIt(it.message) == msgListA
     info "AAAAA "
-
     let failsProc = proc() {.async.} =
       let queryRes = waitFor client.query(req, peer = serverPeer)
 
