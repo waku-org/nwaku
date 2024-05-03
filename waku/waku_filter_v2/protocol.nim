@@ -217,7 +217,7 @@ proc handleMessage*(
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
   debug "handling message",
-    pubsubTopic = pubsubTopic, message = message, msg_hash = msgHash
+    pubsubTopic = pubsubTopic, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
 
