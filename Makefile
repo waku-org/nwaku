@@ -28,6 +28,11 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 
 else # "variables.mk" was included. Business as usual until the end of this file.
 
+ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
+ detected_OS := Windows
+else
+ detected_OS := $(strip $(shell uname))
+endif
 
 ##########
 ## Main ##
@@ -131,7 +136,7 @@ clean: | clean-libbacktrace
 ##################
 ##     RLN      ##
 ##################
-.PHONY: librln-env librln shouldUseRLNV2
+.PHONY: librln shouldUseRLNV2
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 ifeq ($(RLN_V2),true)
@@ -303,7 +308,11 @@ endif
 				build-libwaku-for-android-arch
 
 ANDROID_TARGET ?= 30
-ANDROID_TOOLCHAIN_DIR ?= $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64
+ifeq ($(detected_OS),Darwin)
+	ANDROID_TOOLCHAIN_DIR := $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/darwin-x86_64
+else
+	ANDROID_TOOLCHAIN_DIR := $(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64
+endif
 
 rebuild-nat-libs: | clean-cross nat-libs
 
@@ -320,25 +329,25 @@ build-libwaku-for-android-arch:
 libwaku-android-arm64: ANDROID_ARCH=aarch64-linux-android
 libwaku-android-arm64: CPU=arm64
 libwaku-android-arm64: ABIDIR=arm64-v8a
-libwaku-android-arm64: | libwaku-android-precheck build deps librln-env
+libwaku-android-arm64: | libwaku-android-precheck build deps
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 
 libwaku-android-amd64: ANDROID_ARCH=x86_64-linux-android
 libwaku-android-amd64: CPU=amd64
 libwaku-android-amd64: ABIDIR=x86_64
-libwaku-android-amd64: | libwaku-android-precheck build deps librln-env
+libwaku-android-amd64: | libwaku-android-precheck build deps
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 
 libwaku-android-x86: ANDROID_ARCH=i686-linux-android
 libwaku-android-x86: CPU=i386
 libwaku-android-x86: ABIDIR=x86
-libwaku-android-x86: | libwaku-android-precheck build deps librln-env
+libwaku-android-x86: | libwaku-android-precheck build deps
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=$(ANDROID_ARCH) CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 
 libwaku-android-arm: ANDROID_ARCH=armv7a-linux-androideabi
 libwaku-android-arm: CPU=arm
 libwaku-android-arm: ABIDIR=armeabi-v7a
-libwaku-android-arm: | libwaku-android-precheck build deps librln-env
+libwaku-android-arm: | libwaku-android-precheck build deps
 # cross-rs target architecture name does not match the one used in android
 	$(MAKE) build-libwaku-for-android-arch ANDROID_ARCH=$(ANDROID_ARCH) CROSS_TARGET=armv7-linux-androideabi CPU=$(CPU) ABIDIR=$(ABIDIR) ANDROID_COMPILER=$(ANDROID_ARCH)$(ANDROID_TARGET)-clang
 
@@ -346,7 +355,10 @@ libwaku-android:
 	$(MAKE) libwaku-android-amd64
 	$(MAKE) libwaku-android-arm64
 	$(MAKE) libwaku-android-x86
-	$(MAKE) libwaku-android-arm
+# This target is disabled because on recent versions of cross-rs complain with the following error
+# relocation R_ARM_THM_ALU_PREL_11_0 cannot be used against symbol 'stack_init_trampoline_return'; recompile with -fPIC
+# It's likely this architecture is not used so we might just not support it.
+#	$(MAKE) libwaku-android-arm
 
 cwaku_example: | build libwaku
 	echo -e $(BUILD_MSG) "build/$@" && \
