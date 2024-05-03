@@ -790,4 +790,11 @@ proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
   except CatchableError:
     err(getCurrentExceptionMsg())
 
+proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
+  try:
+    let conf = WakuNodeConf.load(version = "")
+    return conf
+  except CatchableError:
+    return err(getCurrentExceptionMsg())
+
 {.pop.}

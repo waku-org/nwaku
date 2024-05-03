@@ -49,7 +49,13 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self)
 
 proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
-  var conf: WakuNodeConf
+  #[ var conf = WakuNodeConf.load().valueOr:
+    return err("Failed creating node: " & error) ]#
+  var conf = defaultWakuNodeConf().valueOr:
+    return err("Failed creating node: " & error)
+
+  echo conf
+
   var errorResp: string
 
   try:
