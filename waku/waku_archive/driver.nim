@@ -55,7 +55,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async: (raises: []).} =
   discard
 
 method getMessagesCount*(

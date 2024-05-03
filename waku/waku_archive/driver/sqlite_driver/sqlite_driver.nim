@@ -120,7 +120,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async: (raises: []).} =
   let cursor =
     if cursor.isSome():
       some(cursor.get().hash)

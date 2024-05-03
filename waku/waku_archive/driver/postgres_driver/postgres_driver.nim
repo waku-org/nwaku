@@ -600,7 +600,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async: (raises: []).} =
   let hexHashes = hashes.mapIt(toHex(it))
 
   if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and

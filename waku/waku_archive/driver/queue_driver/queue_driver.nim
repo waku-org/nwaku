@@ -267,7 +267,7 @@ method getMessages*(
     hashes: seq[WakuMessageHash] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async: (raises: []).} =
   let cursor = cursor.map(toIndex)
 
   let matchesQuery: QueryFilterMatcher =

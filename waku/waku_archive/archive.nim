@@ -130,7 +130,7 @@ proc handleMessage*(
 
 proc findMessages*(
     self: WakuArchive, query: ArchiveQuery
-): Future[ArchiveResult] {.async, gcsafe.} =
+): Future[ArchiveResult] {.async: (raises: []), gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
 
   let maxPageSize =
