@@ -2,7 +2,7 @@ import std/[options, sequtils, strutils]
 import chronicles, chronos, stew/byteutils, stew/results, stew/shims/net
 import
   ../../../../../waku/waku_core/message/message,
-  ../../../../../waku/node/waku_node,
+  ../../../../../waku/factory/waku,
   ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
@@ -79,26 +79,26 @@ proc toWakuMessage(m: ThreadSafeWakuMessage): WakuMessage =
   return wakuMessage
 
 proc process*(
-    self: ptr RelayRequest, node: ptr WakuNode
+    self: ptr RelayRequest, waku: ptr Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
-  if node.wakuRelay.isNil():
+  if waku.node.wakuRelay.isNil():
     return err("Operation not supported without Waku Relay enabled.")
 
   case self.operation
   of SUBSCRIBE:
     # TO DO: properly perform 'subscribe'
-    discard node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
+    discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
   of UNSUBSCRIBE:
     # TODO: properly perform 'unsubscribe'
-    node.wakuRelay.unsubscribeAll($self.pubsubTopic)
+    waku.node.wakuRelay.unsubscribeAll($self.pubsubTopic)
   of PUBLISH:
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic
 
-    let numPeers = await node.wakuRelay.publish(pubsubTopic, msg)
+    let numPeers = await waku.node.wakuRelay.publish(pubsubTopic, msg)
     if numPeers == 0:
       return err("Message not sent because no peers found.")
     elif numPeers > 0:
