@@ -92,7 +92,7 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   echo "here"
 
   let cursor = cursor.map(toDbCursor)
@@ -111,6 +111,7 @@ method getMessagesV2*(
 
 method getMessages*(
     s: SqliteDriver,
+    includeData = false,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),

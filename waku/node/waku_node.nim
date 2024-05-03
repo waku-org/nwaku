@@ -50,7 +50,6 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../discovery/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -808,6 +807,7 @@ when defined(waku_exp_store_resume):
 proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   var query = ArchiveQuery()
 
+  query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
   query.contentTopics = request.contentTopics
   query.startTime = request.startTime
@@ -834,9 +834,17 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
 
   res.statusCode = 200
   res.statusDesc = "OK"
-  res.messages = response.hashes.zip(response.messages).mapIt(
-      WakuMessageKeyValue(messageHash: it[0], message: it[1])
-    )
+
+  for i in 0 ..< response.hashes.len:
+    let hash = response.hashes[i]
+
+    let kv =
+      store_common.WakuMessageKeyValue(messageHash: hash, message: none(WakuMessage))
+
+    res.messages.add(kv)
+
+  for i in 0 ..< response.messages.len:
+    res.messages[i].message = some(response.messages[i])
 
   if response.cursor.isSome():
     res.paginationCursor = some(response.cursor.get().hash)

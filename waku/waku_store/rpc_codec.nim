@@ -14,7 +14,7 @@ proc encode*(req: StoreQueryRequest): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, req.requestId)
-  pb.write3(2, req.includeData)
+  pb.write3(2, uint32(req.includeData))
 
   pb.write3(10, req.pubsubTopic)
 
@@ -56,11 +56,11 @@ proc decode*(
   if not ?pb.getField(1, req.requestId):
     return err(ProtobufError.missingRequiredField("request_id"))
 
-  var inclData: uint
+  var inclData: uint32
   if not ?pb.getField(2, inclData):
     req.includeData = false
   else:
-    req.includeData = inclData == 1
+    req.includeData = inclData > 0
 
   var pubsubTopic: string
   if not ?pb.getField(10, pubsubTopic):
@@ -124,7 +124,9 @@ proc encode*(keyValue: WakuMessageKeyValue): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, keyValue.messageHash)
-  pb.write3(2, keyValue.message.encode())
+
+  if keyValue.message.isSome():
+    pb.write3(2, keyValue.message.get().encode())
 
   pb.finish3()
 
@@ -163,9 +165,9 @@ proc decode*(
 
   var proto: ProtoBuffer
   if not ?pb.getField(2, proto):
-    return err(ProtobufError.missingRequiredField("message"))
+    keyValue.message = none(WakuMessage)
   else:
-    keyValue.message = ?WakuMessage.decode(proto.buffer)
+    keyValue.message = some(?WakuMessage.decode(proto.buffer))
 
   return ok(keyValue)
 
