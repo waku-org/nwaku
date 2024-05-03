@@ -45,7 +45,6 @@ proc loadAppKeystore*(
 ): KeystoreResult[JsonNode] =
   ## Load and decode JSON keystore from pathname
   var data: JsonNode
-  var matchingAppKeystore: JsonNode
 
   # If no keystore exists at path we create a new empty one with passed keystore parameters
   if fileExists(path) == false:
@@ -77,14 +76,45 @@ proc loadAppKeystore*(
 
         # We check if parsed json contains the relevant keystore credentials fields and if these are set to the passed parameters
         # (note that "if" is lazy, so if one of the .contains() fails, the json fields contents will not be checked and no ResultDefect will be raised due to accessing unavailable fields)
-        if data.hasKeys(["application", "appIdentifier", "credentials", "version"]) and
-            data["application"].getStr() == appInfo.application and
-            data["appIdentifier"].getStr() == appInfo.appIdentifier and
-            data["version"].getStr() == appInfo.version:
+        if not data.hasKeys(["application", "appIdentifier", "credentials", "version"]):
+          return err(
+            AppKeystoreError(
+              kind: KeystoreJsonKeyError, msg: "Missing required fields in keystore"
+            )
+          )
+
+        if data["application"].getStr() != appInfo.application:
+          return err(
+            AppKeystoreError(
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "Application does not match. Expected '" & appInfo.application &
+                "' but got '" & data["application"].getStr() & "'",
+            )
+          )
+
+        if data["appIdentifier"].getStr() != appInfo.appIdentifier:
+          return err(
+            AppKeystoreError(
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "AppIdentifier does not match. Expected '" & appInfo.appIdentifier &
+                "' but got '" & data["appIdentifier"].getStr() & "'",
+            )
+          )
+
+        if data["version"].getStr() != appInfo.version:
+          return err(
+            AppKeystoreError(
+              kind: KeystoreJsonValueMismatchError,
+              msg:
+                "Version does not match. Expected '" & appInfo.version & "' but got '" &
+                data["version"].getStr() & "'",
+            )
+          )
           # We return the first json keystore that matches the passed app parameters
           # We assume a unique kesytore with such parameters is present in the file
-          matchingAppKeystore = data
-          break
+        return ok(data)
       # TODO: we might continue rather than return for some of these errors
       except JsonParsingError:
         return
@@ -101,7 +131,12 @@ proc loadAppKeystore*(
   except IOError:
     return err(AppKeystoreError(kind: KeystoreIoError, msg: getCurrentExceptionMsg()))
 
-  return ok(matchingAppKeystore)
+  return err(
+    AppKeystoreError(
+      kind: KeystoreKeystoreDoesNotExist,
+      msg: "No keystore found for the passed parameters",
+    )
+  )
 
 # Adds a membership credential to the keystore matching the application, appIdentifier and version filters.
 proc addMembershipCredentials*(

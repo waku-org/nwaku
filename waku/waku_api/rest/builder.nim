@@ -113,7 +113,7 @@ proc startRestServerEsentials*(
 proc startRestServerProtocolSupport*(
     restServer: WakuRestServerRef,
     node: WakuNode,
-    wakuDiscv5: Option[WakuDiscoveryV5],
+    wakuDiscv5: WakuDiscoveryV5,
     conf: WakuNodeConf,
 ): Result[void, string] =
   if not conf.rest:
@@ -154,8 +154,8 @@ proc startRestServerProtocolSupport*(
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =
-      if wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(wakuDiscv5.get(), Filter))
+      if not wakuDiscv5.isNil():
+        some(defaultDiscoveryHandler(wakuDiscv5, Filter))
       else:
         none(DiscoveryHandler)
 
@@ -168,8 +168,8 @@ proc startRestServerProtocolSupport*(
 
   ## Store REST API
   let storeDiscoHandler =
-    if wakuDiscv5.isSome():
-      some(defaultDiscoveryHandler(wakuDiscv5.get(), Store))
+    if not wakuDiscv5.isNil():
+      some(defaultDiscoveryHandler(wakuDiscv5, Store))
     else:
       none(DiscoveryHandler)
 
@@ -182,8 +182,8 @@ proc startRestServerProtocolSupport*(
   if (conf.lightpushnode != "" and node.wakuLightpushClient != nil) or
       (conf.lightpush and node.wakuLightPush != nil and node.wakuRelay != nil):
     let lightDiscoHandler =
-      if wakuDiscv5.isSome():
-        some(defaultDiscoveryHandler(wakuDiscv5.get(), Lightpush))
+      if not wakuDiscv5.isNil():
+        some(defaultDiscoveryHandler(wakuDiscv5, Lightpush))
       else:
         none(DiscoveryHandler)
 

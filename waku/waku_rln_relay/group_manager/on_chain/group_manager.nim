@@ -134,11 +134,18 @@ template retryWrapper(
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
 
-proc setMetadata*(g: OnchainGroupManager): RlnRelayResult[void] =
+proc setMetadata*(
+    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
+): GroupManagerResult[void] =
+  let normalizedBlock =
+    if lastProcessedBlock.isSome():
+      lastProcessedBlock.get()
+    else:
+      g.latestProcessedBlock
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
       RlnMetadata(
-        lastProcessedBlock: g.latestProcessedBlock,
+        lastProcessedBlock: normalizedBlock,
         chainId: uint64(g.chainId.get()),
         contractAddress: g.ethContractAddress,
         validRoots: g.validRoots.toSeq(),
@@ -183,9 +190,6 @@ when defined(rln_v2):
       await g.registerCb.get()(membersSeq)
 
     g.validRootBuffer = g.slideRootQueue()
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
 
 else:
   method atomicBatch*(
@@ -214,9 +218,6 @@ else:
       await g.registerCb.get()(membersSeq)
 
     g.validRootBuffer = g.slideRootQueue()
-    let setMetadataRes = g.setMetadata()
-    if setMetadataRes.isErr():
-      error "failed to persist rln metadata", error = setMetadataRes.error
 
 when defined(rln_v2):
   method register*(
@@ -550,13 +551,6 @@ proc getAndHandleEvents(
     raise newException(ValueError, "failed to handle events")
 
   g.latestProcessedBlock = toBlock
-  let metadataSetRes = g.setMetadata()
-  if metadataSetRes.isErr():
-    # this is not a fatal error, hence we don't raise an exception
-    warn "failed to persist rln metadata", error = metadataSetRes.error()
-  else:
-    trace "rln metadata persisted", blockNumber = g.latestProcessedBlock
-
   return true
 
 proc runInInterval(g: OnchainGroupManager, cb: proc, interval: Duration) =
@@ -591,6 +585,13 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     var handleBlockRes: bool
     g.retryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
+
+    # cannot use isOkOr here because results in a compile-time error that 
+    # shows the error is void for some reason
+    let setMetadataRes = g.setMetadata()
+    if setMetadataRes.isErr():
+      error "failed to persist rln metadata", error = setMetadataRes.error
+
     return handleBlockRes
 
   return wrappedCb
@@ -664,6 +665,8 @@ proc startOnchainSync(
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
       if futs.len >= maxFutures or toBlock == currentLatestBlock:
         await g.batchAwaitBlockHandlingFuture(futs)
+        g.setMetadata(lastProcessedBlock = some(toBlock)).isOkOr:
+          error "failed to persist rln metadata", error = $error
         futs = newSeq[Future[bool]]()
       fromBlock = toBlock + 1
   except CatchableError:

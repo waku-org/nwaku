@@ -21,6 +21,7 @@ import
   libp2p/multiaddress,
   libp2p/peerid,
   dnsdisc/client
+import libp2p/nameresolving/dnsresolver
 import ../waku_core
 
 export client
@@ -97,3 +98,35 @@ proc init*(
   debug "init success"
 
   return ok(wakuDnsDisc)
+
+proc retrieveDynamicBootstrapNodes*(
+    dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
+): Result[seq[RemotePeerInfo], string] =
+  ## Retrieve dynamic bootstrap nodes (DNS discovery)
+
+  if dnsDiscovery and dnsDiscoveryUrl != "":
+    # DNS discovery
+    debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
+
+    var nameServers: seq[TransportAddress]
+    for ip in dnsDiscoveryNameServers:
+      nameServers.add(initTAddress(ip, Port(53))) # Assume all servers use port 53
+
+    let dnsResolver = DnsResolver.new(nameServers)
+
+    proc resolver(domain: string): Future[string] {.async, gcsafe.} =
+      trace "resolving", domain = domain
+      let resolved = await dnsResolver.resolveTxt(domain)
+      return resolved[0] # Use only first answer
+
+    var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
+    if wakuDnsDiscovery.isOk():
+      return wakuDnsDiscovery.get().findPeers().mapErr(
+          proc(e: cstring): string =
+            $e
+        )
+    else:
+      warn "Failed to init Waku DNS discovery"
+
+  debug "No method for retrieving dynamic bootstrap nodes specified."
+  ok(newSeq[RemotePeerInfo]()) # Return an empty seq by default

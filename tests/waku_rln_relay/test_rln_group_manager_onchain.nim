@@ -328,7 +328,10 @@ suite "Onchain group manager":
     let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
       raiseAssert $error
 
+    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
+      raiseAssert $error
     check:
+      metadataOpt.get().validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
     await manager.stop()
 
@@ -481,13 +484,8 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await fut
+    check await fut.withTimeout(5.seconds)
 
-    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
-      raiseAssert $error
-    assert metadataOpt.isSome(), "metadata is not set"
-    check:
-      metadataOpt.get().validRoots == manager.validRoots.toSeq()
     await manager.stop()
 
   asyncTest "withdraw: should guard against uninitialized state":

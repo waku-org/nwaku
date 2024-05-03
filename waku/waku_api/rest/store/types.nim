@@ -72,7 +72,7 @@ proc writeValue*(
   writer.beginRecord()
 
   writer.writeField("payload", base64.encode(msg.payload))
-  writer.writeField("contentTopic", msg.contentTopic)
+  writer.writeField("content_topic", msg.contentTopic)
 
   if msg.meta.len > 0:
     writer.writeField("meta", base64.encode(msg.meta))
@@ -114,7 +114,7 @@ proc readValue*(
       let base64String = reader.readValue(Base64String)
       payload = base64.decode(base64String).valueOr:
         reader.raiseUnexpectedField("Failed decoding data", "payload")
-    of "contentTopic":
+    of "content_topic":
       contentTopic = reader.readValue(ContentTopic)
     of "version":
       version = reader.readValue(uint32)
@@ -186,7 +186,9 @@ proc writeValue*(
   writer.beginRecord()
 
   writer.writeField("message_hash", value.messageHash)
-  writer.writeField("message", value.message)
+
+  if value.message.isSome():
+    writer.writeField("message", value.message.get())
 
   writer.endRecord()
 
@@ -217,10 +219,7 @@ proc readValue*(
   if messageHash.isNone():
     reader.raiseUnexpectedValue("Field `message_hash` is missing")
 
-  if message.isNone():
-    reader.raiseUnexpectedValue("Field `message` is missing")
-
-  value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message.get())
+  value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message)
 
 ## StoreQueryResponse serde
 

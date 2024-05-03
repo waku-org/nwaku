@@ -14,7 +14,7 @@ procSuite "Waku Store - RPC codec":
     ## Given
     let query = StoreQueryRequest(
       requestId: "0",
-      includeData: false,
+      includeData: true,
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
       startTime: some(Timestamp(10)),
@@ -58,7 +58,7 @@ procSuite "Waku Store - RPC codec":
     let
       message = fakeWakuMessage()
       hash = computeMessageHash(DefaultPubsubTopic, message)
-      keyValue = WakuMessageKeyValue(messageHash: hash, message: message)
+      keyValue = WakuMessageKeyValue(messageHash: hash, message: some(message))
       res = StoreQueryResponse(
         requestId: "1",
         statusCode: 200,

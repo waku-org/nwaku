@@ -50,7 +50,6 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../discovery/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -227,10 +226,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    trace "waku.relay received",
-      peerId = node.peerId,
+    debug "waku.relay received",
+      my_peer_id = node.peerId,
       pubsubTopic = topic,
-      hash = topic.computeMessageHash(msg).to0xHex(),
+      msg_hash = topic.computeMessageHash(msg).to0xHex(),
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
 
@@ -808,6 +807,7 @@ when defined(waku_exp_store_resume):
 proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   var query = ArchiveQuery()
 
+  query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
   query.contentTopics = request.contentTopics
   query.startTime = request.startTime
@@ -834,9 +834,17 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
 
   res.statusCode = 200
   res.statusDesc = "OK"
-  res.messages = response.hashes.zip(response.messages).mapIt(
-      WakuMessageKeyValue(messageHash: it[0], message: it[1])
-    )
+
+  for i in 0 ..< response.hashes.len:
+    let hash = response.hashes[i]
+
+    let kv =
+      store_common.WakuMessageKeyValue(messageHash: hash, message: none(WakuMessage))
+
+    res.messages.add(kv)
+
+  for i in 0 ..< response.messages.len:
+    res.messages[i].message = some(response.messages[i])
 
   if response.cursor.isSome():
     res.paginationCursor = some(response.cursor.get().hash)
@@ -914,7 +922,9 @@ proc mountLightPush*(
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        debug "Lightpush request has not been published to any peers"
+        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+        debug "Lightpush request has not been published to any peers",
+          msg_hash = msgHash
 
       return ok()
 
@@ -953,16 +963,21 @@ proc lightpushPublish*(
       message: WakuMessage,
       peer: RemotePeerInfo,
   ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+    let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
     if not node.wakuLightpushClient.isNil():
       debug "publishing message with lightpush",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
-        peer = peer.peerId
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
       return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
 
     if not node.wakuLightPush.isNil():
       debug "publishing message with self hosted lightpush",
-        pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
+        pubsubTopic = pubsubTopic,
+        contentTopic = message.contentTopic,
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
   if pubsubTopic.isSome():
@@ -1217,13 +1232,9 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
-  if not node.wakuRelay.isNil():
-    await node.wakuRelay.stop()
-
-  if not node.wakuMetadata.isNil():
-    node.wakuMetadata.stop()
-
+  ## By stopping the switch we are stopping all the underlying mounted protocols
   await node.switch.stop()
+
   node.peerManager.stop()
 
   if not node.wakuRlnRelay.isNil():
