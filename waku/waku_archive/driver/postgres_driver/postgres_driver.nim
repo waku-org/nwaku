@@ -221,7 +221,7 @@ method put*(
   let version = $message.version
   let timestamp = $message.timestamp
 
-  debug "put PostgresDriver", timestamp = timestamp
+  trace "put PostgresDriver", timestamp = timestamp
 
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,
