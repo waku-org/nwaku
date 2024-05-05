@@ -19,3 +19,4 @@ const
   emptyResponseBodyFailure* = "empty_response_body_failure"
   messagePushFailure* = "message_push_failure"
   requestLimitReachedFailure* = "request_limit_reached_failure"
+  messageValidationFailure* = "message_validation_failure"

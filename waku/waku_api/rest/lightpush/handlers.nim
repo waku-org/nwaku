@@ -16,6 +16,7 @@ import
   ../../waku/node/peer_manager,
   ../../../waku_node,
   ../../waku/waku_lightpush/common,
+  ../../waku/waku_lightpush/protocol
   ../../handlers,
   ../serdes,
   ../responses,
@@ -39,14 +40,8 @@ const NoPeerNoneFoundError =
 
 const ROUTE_LIGHTPUSH* = "/lightpush/v1/message"
 
-proc installLightPushRequestHandler*(
-    router: var RestRouter,
-    node: WakuNode,
-    discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler),
-) =
-  router.api(MethodPost, ROUTE_LIGHTPUSH) do(
-    contentBody: Option[ContentBody]
-  ) -> RestApiResponse:
+proc installLightPushRequestHandler*(router: var RestRouter, node: WakuNode, discHandler: Option[DiscoveryHandler] = none(DiscoveryHandler)) =
+  router.api(MethodPost, ROUTE_LIGHTPUSH) do(contentBody: Option[ContentBody]) -> RestApiResponse:
     ## Send a request to push a waku message
     debug "post", ROUTE_LIGHTPUSH, contentBody
 
@@ -59,6 +54,12 @@ proc installLightPushRequestHandler*(
 
     let msg = req.message.toWakuMessage().valueOr:
       return RestApiResponse.badRequest("Invalid message: " & $error)
+
+    let validationRes = node.wakuLightPush.validateMessage(req.pubsubTopic, msg).isOkOr:
+      return RestApiResponse.badRequest("Message validation failed: " & $error)
+    # let validationRes = node.wakuRlnRelay.validateMessage(message)
+    # if validationRes != Valid:
+    #   return RestApiResponse.badRequest("Message validation failed: ")
 
     let peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
       let handler = discHandler.valueOr:
@@ -78,10 +79,8 @@ proc installLightPushRequestHandler*(
 
     if subFut.value().isErr():
       if subFut.value().error == TooManyRequestsMessage:
-        return RestApiResponse.tooManyRequests("Request rate limmit reached")
+        return RestApiResponse.tooManyRequests("Request rate limit reached")
 
-      return RestApiResponse.serviceUnavailable(
-        fmt("Failed to request a message push: {subFut.value().error}")
-      )
+      return RestApiResponse.serviceUnavailable(fmt("Failed to request a message push: {subFut.value().error}"))
 
     return RestApiResponse.ok()
