@@ -201,9 +201,50 @@ proc mountWakuSync*(node: WakuNode): Result[void, string] =
   if not node.wakuSync.isNil():
     return err("Waku sync already mounted, skipping")
 
-  let sync = WakuSync.new(node.peerManager) #TODO add the callback and the options
+  let prune: PruneCallback = proc(
+      pruneStart: Timestamp, pruneStop: Timestamp, cursor: Option[WakuMessageHash]
+  ): Future[
+      Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
+  ] {.async: (raises: []), closure, gcsafe.} =
+    let archiveCursor =
+      if cursor.isSome():
+        some(ArchiveCursor(hash: cursor.get()))
+      else:
+        none(ArchiveCursor)
 
-  node.wakuSync = sync
+    let query = ArchiveQuery(
+      cursor: archiveCursor,
+      startTime: some(pruneStart),
+      endTime: some(pruneStop),
+      pageSize: 100,
+    )
+
+    let catchable = catch:
+      await node.wakuArchive.findMessages(query)
+
+    let res =
+      if catchable.isErr():
+        return err(catchable.error.msg)
+      else:
+        catchable.get()
+
+    let response = res.valueOr:
+      return err($error)
+
+    let elements = collect(newSeq):
+      for (hash, msg) in response.hashes.zip(response.messages):
+        (hash, msg.timestamp)
+
+    let cursor =
+      if response.cursor.isNone():
+        none(WakuMessageHash)
+      else:
+        some(response.cursor.get().hash)
+
+    return ok((elements, cursor))
+
+  #TODO add sync callback and options
+  node.wakuSync = WakuSync.new(peerManager = node.peerManager, pruneCB = some(prune))
 
   let catchRes = catch:
     node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))
