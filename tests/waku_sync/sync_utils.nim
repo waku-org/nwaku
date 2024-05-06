@@ -2,16 +2,16 @@
 
 import std/options, chronos, chronicles, libp2p/crypto/crypto
 
-import
-  ../../../waku/[node/peer_manager, waku_core, waku_sync], ../testlib/[common, wakucore]
+import ../../../waku/[node/peer_manager, waku_core, waku_sync], ../testlib/wakucore
 
 proc newTestWakuSync*(
-    switch: Switch, handler: WakuSyncCallback
+    switch: Switch, handler: SyncCallback
 ): Future[WakuSync] {.async.} =
-  const DefaultFrameSize = 153600
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuSync.new(peerManager, DefaultFrameSize, 0.seconds, 0, some(handler))
+    proto = WakuSync.new(
+      peerManager = peerManager, relayJitter = 0.seconds, syncCB = some(handler)
+    )
   assert proto != nil
 
   proto.start()
