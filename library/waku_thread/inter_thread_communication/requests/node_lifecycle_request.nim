@@ -1,5 +1,7 @@
 import std/options
 import std/sequtils
+import std/json
+
 import chronos, chronicles, stew/results, stew/shims/net
 import
   ../../../../waku/common/enr/builder,
@@ -51,23 +53,34 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
 proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
   #[ var conf = WakuNodeConf.load().valueOr:
     return err("Failed creating node: " & error) ]#
+
+  #echo $configJson
+  echo "--------------------------------------------------"
   var conf = defaultWakuNodeConf().valueOr:
     return err("Failed creating node: " & error)
-
-  echo conf
 
   var errorResp: string
 
   try:
-    if not parseConfig($configJson, conf, errorResp):
-      return err(errorResp)
-  except Exception:
-    return err("exception calling parseConfig: " & getCurrentExceptionMsg())
+    let jsonNode = parseJson($configJson)
 
-  # TODO: figure out how to extract default values from the config pragma
-  conf.nat = "any"
-  conf.maxConnections = 50.uint16
-  conf.maxMessageSize = default_values.DefaultMaxWakuMessageSizeStr
+    #[ let jsonConf = %conf
+    echo conf ]#
+
+    for key, value in pairs(jsonNode):
+      echo "Key: ", key, typeof(key), " with value: ", value, typeof(value)
+
+    for confField, confValue in fieldPairs(conf):
+      if jsonNode.contains(confField):
+        echo "setting " & $confField
+        if $confField == "storeMaxNumDbConnections":
+          #echo "storeMaxNumDbConnections: " & $confValue
+          echo typeof(confValue)
+        confValue = parseCmdArg(typeof(confValue), jsonNode[confField].getStr())
+  except Exception:
+    return err("exception calling parsing configuration: " & getCurrentExceptionMsg())
+
+  echo conf
 
   # The Waku Network config (cluster-id=1)
   if conf.clusterId == 1:

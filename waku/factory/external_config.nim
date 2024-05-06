@@ -1,4 +1,5 @@
 import
+  os,
   std/strutils,
   stew/results,
   chronos,
@@ -613,6 +614,9 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid private key")
 
+proc parseCmdArg*[T](_: type Option[T], s: string): Option[T] {.raises: [ValueError].} =
+  some(parseCmdArg(T, s))
+
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
@@ -658,11 +662,23 @@ proc parseCmdArg*(T: type Port, p: string): T =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type Option[int], p: string): T =
+proc parseCmdArg*(T: type int, p: string): T =
   try:
-    some(parseInt(p))
+    parseInt(p)
   except CatchableError:
-    raise newException(ValueError, "Invalid number")
+    raise newException(ValueError, "Invalid int")
+
+proc parseCmdArg*(T: type uint64, p: string): T =
+  try:
+    parseUint(p)
+  except CatchableError:
+    raise newException(ValueError, "Invalid uint")
+
+proc parseCmdArg*(T: type int64, p: string): T =
+  try:
+    parseInt(p)
+  except CatchableError:
+    raise newException(ValueError, "Invalid int")
 
 proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
   return @[]
@@ -673,11 +689,69 @@ proc parseCmdArg*(T: type ShardIdx, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid shard index")
 
-proc parseCmdArg*(T: type Option[uint], p: string): T =
+proc parseCmdArg*(T: type logging.LogLevel, p: string): T =
   try:
-    some(parseUint(p))
+    parseEnum[logging.LogLevel](p)
+  except CatchableError:
+    raise newException(ValueError, "Invalid log level")
+
+proc parseCmdArg*(T: type logging.LogFormat, p: string): T =
+  try:
+    parseEnum[logging.LogFormat](p)
+  except CatchableError:
+    raise newException(ValueError, "Invalid log format")
+
+proc parseCmdArg*(T: type string, p: string): T =
+  return p
+
+proc parseCmdArg*(T: type seq[string], p: string): T =
+  try:
+    return @[] # TO DO
+  except CatchableError:
+    raise newException(ValueError, "Invalid sequence of strings")
+
+proc parseCmdArg*(T: type seq[ProtectedTopic], p: string): T =
+  try:
+    return @[] # TO DO
+  except CatchableError:
+    raise newException(ValueError, "Invalid protected topics")
+
+proc parseCmdArg*(T: type seq[IpAddress], p: string): T =
+  try:
+    return @[] # TO DO
+  except CatchableError:
+    raise newException(ValueError, "Invalid seq of IP addresses")
+
+proc parseCmdArg*(T: type seq[ShardIdx], p: string): T =
+  try:
+    return @[] # TO DO
+  except CatchableError:
+    raise newException(ValueError, "Invalid seq of ShardIdx's")
+
+func parseCmdArg*(T: type SomeUnsignedInt, s: string): T {.raises: [ValueError].} =
+  T parseBiggestUInt(s)
+
+proc parseCmdArg*(T: type uint, p: string): T =
+  try:
+    parseUint(p)
   except CatchableError:
     raise newException(ValueError, "Invalid unsigned integer")
+
+proc parseCmdArg*(T: type StartUpCommand, p: string): T =
+  try:
+    parseEnum[StartUpCommand](p)
+  except CatchableError:
+    raise newException(ValueError, "Invalid start up command")
+
+func parseCmdArg*(T: type bool, p: string): T =
+  try:
+    p.len == 0 or parseBool(p)
+  except CatchableError:
+    raise newException(
+      ValueError,
+      "'" & p &
+        "' is not a valid boolean value. Supported values are on/off, yes/no, true/false or 1/0",
+    )
 
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]
