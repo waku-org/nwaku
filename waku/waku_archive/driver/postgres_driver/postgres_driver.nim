@@ -225,7 +225,7 @@ method put*(
   let timestamp = $message.timestamp
   let meta = toHex(message.meta)
 
-  debug "put PostgresDriver", timestamp = timestamp
+  trace "put PostgresDriver", timestamp = timestamp
 
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,

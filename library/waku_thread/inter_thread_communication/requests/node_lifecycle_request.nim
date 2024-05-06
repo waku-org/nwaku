@@ -12,7 +12,7 @@ import
   ../../../../waku/node/peer_manager/peer_manager,
   ../../../../waku/waku_core,
   ../../../../waku/factory/external_config,
-  ../../../../waku/node/waku_node,
+  ../../../../waku/factory/waku,
   ../../../../waku/node/config,
   ../../../../waku/waku_archive/driver/builder,
   ../../../../waku/waku_archive/driver,
@@ -48,16 +48,12 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self[].configJson)
   deallocShared(self)
 
-proc createNode(configJson: cstring): Future[Result[WakuNode, string]] {.async.} =
+proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
   var conf: WakuNodeConf
   var errorResp: string
 
   try:
-    if not parseConfig(
-      $configJson,
-      conf,
-      errorResp,
-    ):
+    if not parseConfig($configJson, conf, errorResp):
       return err(errorResp)
   except Exception:
     return err("exception calling parseConfig: " & getCurrentExceptionMsg())
@@ -69,6 +65,7 @@ proc createNode(configJson: cstring): Future[Result[WakuNode, string]] {.async.}
 
   # The Waku Network config (cluster-id=1)
   if conf.clusterId == 1:
+    ## TODO: This section is duplicated in wakunode2.nim. We need to move this to a common module
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
     if len(conf.shards) != 0:
       conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
@@ -88,31 +85,28 @@ proc createNode(configJson: cstring): Future[Result[WakuNode, string]] {.async.}
     conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
+  let wakuRes = Waku.init(conf).valueOr:
+    error "waku initialization failed", error = error
+    return err("Failed setting up Waku: " & $error)
 
-  let nodeRes = setupNode(conf).valueOr():
-    error "Failed setting up node", error = error
-    return err("Failed setting up node: " & $error)
-
-  return ok(nodeRes)
+  return ok(wakuRes)
 
 proc process*(
-    self: ptr NodeLifecycleRequest, node: ptr WakuNode
+    self: ptr NodeLifecycleRequest, waku: ptr Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
   case self.operation
   of CREATE_NODE:
-    let newNodeRes = await createNode(self.configJson)
-    if newNodeRes.isErr():
-      return err(newNodeRes.error)
-
-    node[] = newNodeRes.get()
+    waku[] = (await createWaku(self.configJson)).valueOr:
+      return err("error processing createWaku request: " & $error)
   of START_NODE:
-    await node[].start()
+    (await waku.startWaku()).isOkOr:
+      return err("problem starting waku: " & $error)
   of STOP_NODE:
     try:
-      await node[].stop()
+      await waku[].stop()
     except Exception:
       return err("exception stopping node: " & getCurrentExceptionMsg())
 

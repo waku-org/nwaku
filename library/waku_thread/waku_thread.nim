@@ -11,7 +11,7 @@ import
   stew/results,
   stew/shims/net
 import
-  ../../../waku/node/waku_node,
+  ../../../waku/factory/waku,
   ../events/[json_message_event, json_base_event],
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
@@ -48,7 +48,7 @@ proc run(ctx: ptr Context) {.thread.} =
   ## This is the worker thread body. This thread runs the Waku node
   ## and attends library user requests (stop, connect_to, etc.)
 
-  var node: WakuNode
+  var waku: Waku
 
   while running.load == true:
     ## Trying to get a request from the libwaku main thread
@@ -57,7 +57,7 @@ proc run(ctx: ptr Context) {.thread.} =
     waitFor ctx.reqSignal.wait()
     let recvOk = ctx.reqChannel.tryRecv(request)
     if recvOk == true:
-      let resultResponse = waitFor InterThreadRequest.process(request, addr node)
+      let resultResponse = waitFor InterThreadRequest.process(request, addr waku)
 
       ## Converting a `Result` into a thread-safe transferable response type
       let threadSafeResp = InterThreadResponse.createShared(resultResponse)
