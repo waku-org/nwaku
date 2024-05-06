@@ -37,8 +37,7 @@ void free_cb_result(cb_result *result) {
 void on_response(int ret, const char *msg, size_t len, void *user_data) {
   if (ret != 0) {
     char errMsg[300];
-    sprintf(errMsg, "function execution failed. Returned code: %d, %s\n", ret,
-            msg);
+    snprintf(errMsg, 300, "function execution failed. Returned code: %d, %s\n", ret, msg);
     if (user_data != NULL) {
       cb_result **data_ref = (cb_result **)user_data;
       (*data_ref) = malloc(sizeof(cb_result));
@@ -53,8 +52,8 @@ void on_response(int ret, const char *msg, size_t len, void *user_data) {
     return;
 
   if (len == 0) {
-    len = 2;
-    msg = "ok";
+    len = 14;
+    msg = "on_response-ok";
   }
 
   cb_result **data_ref = (cb_result **)user_data;
