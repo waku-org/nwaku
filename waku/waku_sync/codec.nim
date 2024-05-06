@@ -59,6 +59,7 @@ proc decode*(T: type SyncPayload, buffer: seq[byte]): ProtobufResult[T] =
   else:
     req.hashes = newSeqOfCap[WakuMessageHash](buffer.len)
     for buf in buffer:
-      req.messageHashes.add(WakuMessageHash.fromBytes(buf))
+      let msg: WakuMessageHash = fromBytes(buf)
+      req.hashes.add(msg)
 
   return ok(req)

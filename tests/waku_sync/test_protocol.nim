@@ -429,10 +429,10 @@ suite "Waku Sync":
       check:
         s2.insert(msg2.timestamp, msgHash2).isOk()
 
-      let subrange1Res = SubRange.new(s1, 0, int64.high)
+      let subrange1Res = SubRange.new(s1, 0, uint64.high)
       assert subrange1Res.isOk(), $subrange1Res.error
       let subrange1 = subrange1Res.value
-      let subrange2Res = SubRange.new(s2, 0, int64.high)
+      let subrange2Res = SubRange.new(s2, 0, uint64.high)
       assert subrange2Res.isOk(), $subrange2Res.error
 
       let subrange2 = subrange2Res.value

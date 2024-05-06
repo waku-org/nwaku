@@ -11,7 +11,7 @@ proc newTestWakuSync*(
   const DefaultFrameSize = 153600
   let
     peerManager = PeerManager.new(switch)
-    proto = WakuSync.new(peerManager, DefaultFrameSize, 0.seconds, some(handler))
+    proto = WakuSync.new(peerManager, DefaultFrameSize, 0.seconds, 0, some(handler))
   assert proto != nil
 
   proto.start()
