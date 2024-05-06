@@ -31,11 +31,11 @@ type PostgresDriver* = ref object of ArchiveDriver
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;"""
+  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -86,7 +86,7 @@ const SelectNoCursorV2AscStmtDef =
 
 const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
 const SelectNoCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -95,7 +95,7 @@ const SelectNoCursorV2DescStmtDef =
 
 const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
 const SelectWithCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) < ($3,$4) AND
@@ -105,7 +105,7 @@ const SelectWithCursorV2DescStmtDef =
 
 const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
 const SelectWithCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) > ($3,$4) AND
@@ -161,7 +161,7 @@ proc rowCallbackImpl(
   ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
 
   let numFields = pqResult.pqnfields()
-  if numFields != 8:
+  if numFields != 9:
     error "Wrong number of fields"
     return
 
@@ -176,6 +176,7 @@ proc rowCallbackImpl(
     var payload: string
     var hashHex: string
     var msgHash: WakuMessageHash
+    var meta: string
 
     try:
       storedAt = parseInt($(pqgetvalue(pqResult, iRow, 0)))
@@ -186,6 +187,7 @@ proc rowCallbackImpl(
       timestamp = parseInt($(pqgetvalue(pqResult, iRow, 5)))
       digest = parseHexStr($(pqgetvalue(pqResult, iRow, 6)))
       hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
+      meta = parseHexStr($(pqgetvalue(pqResult, iRow, 8)))
       msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
@@ -194,6 +196,7 @@ proc rowCallbackImpl(
     wakuMessage.version = uint32(version)
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
+    wakuMessage.meta = @(meta.toOpenArrayByte(0, meta.high))
 
     outRows.add(
       (
@@ -220,6 +223,7 @@ method put*(
   let payload = toHex(message.payload)
   let version = $message.version
   let timestamp = $message.timestamp
+  let meta = toHex(message.meta)
 
   trace "put PostgresDriver", timestamp = timestamp
 
@@ -228,7 +232,7 @@ method put*(
     InsertRowStmtDefinition,
     @[
       digest, messageHash, rxTime, contentTopic, payload, pubsubTopic, version,
-      timestamp,
+      timestamp, meta,
     ],
     @[
       int32(digest.len),
@@ -239,8 +243,19 @@ method put*(
       int32(pubsubTopic.len),
       int32(version.len),
       int32(timestamp.len),
+      int32(meta.len),
     ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    @[
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+    ],
   )
 
 method getAllMessages*(
@@ -256,7 +271,7 @@ method getAllMessages*(
     await s.readConnPool.pgQuery(
       """SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
-                                       id, messageHash FROM messages ORDER BY storedAt ASC""",
+                                       id, messageHash, meta FROM messages ORDER BY storedAt ASC""",
       newSeq[string](0),
       rowCallback,
     )
@@ -311,7 +326,7 @@ proc getMessagesArbitraryQuery(
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
-    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 

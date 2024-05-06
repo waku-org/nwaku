@@ -47,20 +47,27 @@ export waku_core.DefaultPubsubTopic, waku_core.DefaultContentTopic
 proc fakeWakuMessage*(
     payload: string | seq[byte] = "TEST-PAYLOAD",
     contentTopic = DefaultContentTopic,
-    meta = newSeq[byte](),
+    meta: string | seq[byte] = newSeq[byte](),
     ts = now(),
     ephemeral = false,
 ): WakuMessage =
   var payloadBytes: seq[byte]
+  var metaBytes: seq[byte]
+
   when payload is string:
     payloadBytes = toBytes(payload)
   else:
     payloadBytes = payload
 
+  when meta is string:
+    metaBytes = toBytes(meta)
+  else:
+    metaBytes = meta
+
   WakuMessage(
     payload: payloadBytes,
     contentTopic: contentTopic,
-    meta: meta,
+    meta: metaBytes,
     version: 2,
     timestamp: ts,
     ephemeral: ephemeral,

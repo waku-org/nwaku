@@ -32,10 +32,11 @@ suite "SQLite driver":
   test "insert a message":
     ## Given
     const contentTopic = "test-content-topic"
+    const meta = "test meta"
 
     let driver = newSqliteArchiveDriver()
 
-    let msg = fakeWakuMessage(contentTopic = contentTopic)
+    let msg = fakeWakuMessage(contentTopic = contentTopic, meta = meta)
     let msgHash = computeMessageHash(DefaultPubsubTopic, msg)
 
     ## When
@@ -51,9 +52,9 @@ suite "SQLite driver":
     check:
       storedMsg.len == 1
       storedMsg.all do(item: auto) -> bool:
-        let (pubsubTopic, msg, _, _, hash) = item
-        msg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic and
-          hash == msgHash
+        let (pubsubTopic, actualMsg, _, _, hash) = item
+        actualMsg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic and
+          hash == msgHash and msg.meta == actualMsg.meta
 
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
