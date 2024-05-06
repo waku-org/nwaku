@@ -56,8 +56,11 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
   )
   try:
-    waitFor groupManager.init()
-  except CatchableError:
+    (waitFor groupManager.init()).isOkOr:
+      error "failure while initializing OnchainGroupManager", error = $error
+      quit(1)
+  # handling the exception is required since waitFor raises an exception
+  except Exception, CatchableError:
     error "failure while initializing OnchainGroupManager",
       error = getCurrentExceptionMsg()
     quit(1)

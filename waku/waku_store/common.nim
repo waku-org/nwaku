@@ -3,57 +3,62 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[options, sequtils], stew/results, stew/byteutils, nimcrypto/sha2
+import std/[options], stew/results
 import ../waku_core, ../common/paging
 
 const
-  WakuStoreCodec* = "/vac/waku/store/2.0.0-beta4"
+  WakuStoreCodec* = "/vac/waku/store-query/3.0.0"
 
   DefaultPageSize*: uint64 = 20
 
   MaxPageSize*: uint64 = 100
 
+  EmptyCursor*: WakuMessageHash = EmptyWakuMessageHash
+
 type WakuStoreResult*[T] = Result[T, string]
-
-## Waku message digest
-
-type MessageDigest* = MDigest[256]
-
-proc computeDigest*(msg: WakuMessage): MessageDigest =
-  var ctx: sha256
-  ctx.init()
-  defer:
-    ctx.clear()
-
-  ctx.update(msg.contentTopic.toBytes())
-  ctx.update(msg.payload)
-
-  # Computes the hash
-  return ctx.finish()
 
 ## Public API types
 
 type
-  HistoryCursor* = object
-    pubsubTopic*: PubsubTopic
-    senderTime*: Timestamp
-    storeTime*: Timestamp
-    digest*: MessageDigest
+  StoreQueryRequest* = object
+    requestId*: string
+    includeData*: bool
 
-  HistoryQuery* = object
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
-    cursor*: Option[HistoryCursor]
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
-    pageSize*: uint64
-    direction*: PagingDirection
 
-  HistoryResponse* = object
-    messages*: seq[WakuMessage]
-    cursor*: Option[HistoryCursor]
+    messageHashes*: seq[WakuMessageHash]
 
-  HistoryErrorKind* {.pure.} = enum
+    paginationCursor*: Option[WakuMessageHash]
+    paginationForward*: PagingDirection
+    paginationLimit*: Option[uint64]
+
+  WakuMessageKeyValue* = object
+    messageHash*: WakuMessageHash
+    message*: Option[WakuMessage]
+
+  StoreQueryResponse* = object
+    requestId*: string
+
+    statusCode*: uint32
+    statusDesc*: string
+
+    messages*: seq[WakuMessageKeyValue]
+
+    paginationCursor*: Option[WakuMessageHash]
+
+  StatusCode* {.pure.} = enum
+    UNKNOWN = uint32(000)
+    SUCCESS = uint32(200)
+    BAD_RESPONSE = uint32(300)
+    BAD_REQUEST = uint32(400)
+    TOO_MANY_REQUESTS = uint32(429)
+    SERVICE_UNAVAILABLE = uint32(503)
+    PEER_DIAL_FAILURE = uint32(504)
+
+  ErrorCode* {.pure.} = enum
     UNKNOWN = uint32(000)
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
@@ -61,49 +66,55 @@ type
     SERVICE_UNAVAILABLE = uint32(503)
     PEER_DIAL_FAILURE = uint32(504)
 
-  HistoryError* = object
-    case kind*: HistoryErrorKind
-    of PEER_DIAL_FAILURE:
+  StoreError* = object
+    case kind*: ErrorCode
+    of ErrorCode.PEER_DIAL_FAILURE:
       address*: string
-    of BAD_RESPONSE, BAD_REQUEST:
+    of ErrorCode.BAD_RESPONSE, ErrorCode.BAD_REQUEST:
       cause*: string
     else:
       discard
 
-  HistoryResult* = Result[HistoryResponse, HistoryError]
+  StoreQueryResult* = Result[StoreQueryResponse, StoreError]
 
-proc parse*(T: type HistoryErrorKind, kind: uint32): T =
+proc into*(errCode: ErrorCode): StatusCode =
+  StatusCode(uint32(errCode))
+
+proc new*(T: type StoreError, code: uint32, desc: string): T =
+  let kind = ErrorCode.parse(code)
+
   case kind
-  of 000, 200, 300, 400, 429, 503:
-    HistoryErrorKind(kind)
+  of ErrorCode.BAD_RESPONSE:
+    return StoreError(kind: kind, cause: desc)
+  of ErrorCode.BAD_REQUEST:
+    return StoreError(kind: kind, cause: desc)
+  of ErrorCode.TOO_MANY_REQUESTS:
+    return StoreError(kind: kind)
+  of ErrorCode.SERVICE_UNAVAILABLE:
+    return StoreError(kind: kind)
+  of ErrorCode.PEER_DIAL_FAILURE:
+    return StoreError(kind: kind, address: desc)
+  of ErrorCode.UNKNOWN:
+    return StoreError(kind: kind)
+
+proc parse*(T: type ErrorCode, kind: uint32): T =
+  case kind
+  of 000, 300, 400, 429, 503, 504:
+    ErrorCode(kind)
   else:
-    HistoryErrorKind.UNKNOWN
+    ErrorCode.UNKNOWN
 
-proc `$`*(err: HistoryError): string =
+proc `$`*(err: StoreError): string =
   case err.kind
-  of HistoryErrorKind.PEER_DIAL_FAILURE:
+  of ErrorCode.PEER_DIAL_FAILURE:
     "PEER_DIAL_FAILURE: " & err.address
-  of HistoryErrorKind.BAD_RESPONSE:
+  of ErrorCode.BAD_RESPONSE:
     "BAD_RESPONSE: " & err.cause
-  of HistoryErrorKind.BAD_REQUEST:
+  of ErrorCode.BAD_REQUEST:
     "BAD_REQUEST: " & err.cause
-  of HistoryErrorKind.TOO_MANY_REQUESTS:
+  of ErrorCode.TOO_MANY_REQUESTS:
     "TOO_MANY_REQUESTS"
-  of HistoryErrorKind.SERVICE_UNAVAILABLE:
+  of ErrorCode.SERVICE_UNAVAILABLE:
     "SERVICE_UNAVAILABLE"
-  of HistoryErrorKind.UNKNOWN:
+  of ErrorCode.UNKNOWN:
     "UNKNOWN"
-
-proc checkHistCursor*(self: HistoryCursor): Result[void, HistoryError] =
-  if self.pubsubTopic.len == 0:
-    return err(HistoryError(kind: BAD_REQUEST, cause: "empty pubsubTopic"))
-  if self.senderTime == 0:
-    return err(HistoryError(kind: BAD_REQUEST, cause: "invalid senderTime"))
-  if self.storeTime == 0:
-    return err(HistoryError(kind: BAD_REQUEST, cause: "invalid storeTime"))
-  if self.digest.data.all(
-    proc(x: byte): bool =
-      x == 0
-  ):
-    return err(HistoryError(kind: BAD_REQUEST, cause: "empty digest"))
-  return ok()

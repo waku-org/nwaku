@@ -33,9 +33,16 @@ import
   ./waku_store/test_waku_store,
   ./waku_store/test_wakunode_store
 
+# Waku legacy store test suite
+import
+  ./waku_store_legacy/test_client,
+  ./waku_store_legacy/test_rpc_codec,
+  ./waku_store_legacy/test_waku_store,
+  ./waku_store_legacy/test_wakunode_store
+
 when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)
-  import ./waku_store/test_resume
+  import ./waku_store_legacy/test_resume
 
 import
   ./node/test_all,
@@ -77,7 +84,8 @@ import
   ./wakunode_rest/test_rest_filter,
   ./wakunode_rest/test_rest_lightpush,
   ./wakunode_rest/test_rest_admin,
-  ./wakunode_rest/test_rest_cors
+  ./wakunode_rest/test_rest_cors,
+  ./wakunode_rest/test_rest_health
 
 import ./waku_rln_relay/test_all
 

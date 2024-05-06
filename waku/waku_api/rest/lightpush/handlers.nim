@@ -16,6 +16,7 @@ import
   ../../waku/node/peer_manager,
   ../../../waku_node,
   ../../waku/waku_lightpush/common,
+  ../../waku/waku_lightpush/self_req_handler,
   ../../waku/waku_lightpush/protocol
   ../../handlers,
   ../serdes,
@@ -35,6 +36,9 @@ const NoPeerNoDiscoError =
 
 const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
+
+proc useSelfHostedLightPush(node: WakuNode): bool =
+  return node.wakuLightPush != nil and node.wakuLightPushClient == nil
 
 #### Request handlers
 
@@ -58,15 +62,19 @@ proc installLightPushRequestHandler*(router: var RestRouter, node: WakuNode, dis
     let validationRes = node.wakuLightPush.validateMessage(req.pubsubTopic, msg).isOkOr:
       return RestApiResponse.badRequest("Message validation failed: " & $error)
 
-    let peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
-      let handler = discHandler.valueOr:
-        return NoPeerNoDiscoError
+    var peer = RemotePeerInfo.init($node.switch.peerInfo.peerId)
+    if useSelfHostedLightPush(node):
+      discard
+    else:
+      peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
+        let handler = discHandler.valueOr:
+          return NoPeerNoDiscoError
 
-      let peerOp = (await handler()).valueOr:
-        return RestApiResponse.internalServerError("No value in peerOp: " & $error)
+        let peerOp = (await handler()).valueOr:
+          return RestApiResponse.internalServerError("No value in peerOp: " & $error)
 
-      peerOp.valueOr:
-        return NoPeerNoneFoundError
+        peerOp.valueOr:
+          return NoPeerNoneFoundError
 
     let subFut = node.lightpushPublish(req.pubsubTopic, msg, peer)
 

@@ -94,7 +94,9 @@ proc handleMessage*(
 
   let
     msgDigest = computeDigest(msg)
+    msgDigestHex = msgDigest.data.to0xHex()
     msgHash = computeMessageHash(pubsubTopic, msg)
+    msgHashHex = msgHash.to0xHex()
     msgTimestamp =
       if msg.timestamp > 0:
         msg.timestamp
@@ -102,18 +104,27 @@ proc handleMessage*(
         getNanosecondTime(getTime().toUnixFloat())
 
   trace "handling message",
+    msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     msgTimestamp = msg.timestamp,
     usedTimestamp = msgTimestamp,
-    digest = toHex(msgDigest.data),
-    messageHash = toHex(msgHash)
+    digest = msgDigestHex
 
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
-    debug "failed to insert message", err = error
+    error "failed to insert message", error = error
+
+  debug "message archived",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    msgTimestamp = msg.timestamp,
+    usedTimestamp = msgTimestamp,
+    digest = msgDigestHex
+
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
 
@@ -133,10 +144,14 @@ proc findMessages*(
   if query.contentTopics.len > 10:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
+  if query.cursor.isSome() and query.cursor.get().hash.len != 32:
+    return err(ArchiveError.invalidQuery("invalid cursor hash length"))
+
   let queryStartTime = getTime().toUnixFloat()
 
   let rows = (
     await self.driver.getMessages(
+      includeData = query.includeData,
       contentTopic = query.contentTopics,
       pubsubTopic = query.pubsubTopic,
       cursor = query.cursor,
@@ -163,7 +178,10 @@ proc findMessages*(
   let pageSize = min(rows.len, int(maxPageSize))
 
   #TODO once store v2 is removed, unzip instead of 2x map
-  messages = rows[0 ..< pageSize].mapIt(it[1])
+  #TODO once store v2 is removed, update driver to not return messages when not needed
+  if query.includeData:
+    messages = rows[0 ..< pageSize].mapIt(it[1])
+
   hashes = rows[0 ..< pageSize].mapIt(it[4])
 
   ## Cursor
@@ -192,6 +210,74 @@ proc findMessages*(
     reverse(hashes)
 
   return ok(ArchiveResponse(hashes: hashes, messages: messages, cursor: cursor))
+
+proc findMessagesV2*(
+    self: WakuArchive, query: ArchiveQuery
+): Future[ArchiveResult] {.async, deprecated, gcsafe.} =
+  ## Search the archive to return a single page of messages matching the query criteria
+
+  let maxPageSize =
+    if query.pageSize <= 0:
+      DefaultPageSize
+    else:
+      min(query.pageSize, MaxPageSize)
+
+  let isAscendingOrder = query.direction.into()
+
+  if query.contentTopics.len > 10:
+    return err(ArchiveError.invalidQuery("too many content topics"))
+
+  let queryStartTime = getTime().toUnixFloat()
+
+  let rows = (
+    await self.driver.getMessagesV2(
+      contentTopic = query.contentTopics,
+      pubsubTopic = query.pubsubTopic,
+      cursor = query.cursor,
+      startTime = query.startTime,
+      endTime = query.endTime,
+      maxPageSize = maxPageSize + 1,
+      ascendingOrder = isAscendingOrder,
+    )
+  ).valueOr:
+    return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))
+
+  let queryDuration = getTime().toUnixFloat() - queryStartTime
+  waku_archive_query_duration_seconds.observe(queryDuration)
+
+  var messages = newSeq[WakuMessage]()
+  var cursor = none(ArchiveCursor)
+
+  if rows.len == 0:
+    return ok(ArchiveResponse(messages: messages, cursor: cursor))
+
+  ## Messages
+  let pageSize = min(rows.len, int(maxPageSize))
+
+  messages = rows[0 ..< pageSize].mapIt(it[1])
+
+  ## Cursor
+  if rows.len > int(maxPageSize):
+    ## Build last message cursor
+    ## The cursor is built from the last message INCLUDED in the response
+    ## (i.e. the second last message in the rows list)
+
+    let (pubsubTopic, message, digest, storeTimestamp, _) = rows[^2]
+
+    cursor = some(
+      ArchiveCursor(
+        digest: MessageDigest.fromBytes(digest),
+        storeTime: storeTimestamp,
+        sendertime: message.timestamp,
+        pubsubTopic: pubsubTopic,
+      )
+    )
+
+  # All messages MUST be returned in chronological order
+  if not isAscendingOrder:
+    reverse(messages)
+
+  return ok(ArchiveResponse(messages: messages, cursor: cursor))
 
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
   debug "executing message retention policy"

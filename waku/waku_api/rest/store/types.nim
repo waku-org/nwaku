@@ -4,50 +4,15 @@ else:
   {.push raises: [].}
 
 import
-  std/[sets, strformat, uri],
-  stew/byteutils,
+  std/[sets, strformat, uri, options],
+  stew/[byteutils, arrayops],
   chronicles,
   json_serialization,
   json_serialization/std/options,
   presto/[route, client, common]
-import
-  ../../../waku_store/common as waku_store_common,
-  ../../../common/base64,
-  ../../../waku_core,
-  ../serdes
+import ../../../waku_store/common, ../../../common/base64, ../../../waku_core, ../serdes
 
 #### Types
-
-type
-  HistoryCursorRest* = object
-    pubsubTopic*: PubsubTopic
-    senderTime*: Timestamp
-    storeTime*: Timestamp
-    digest*: MessageDigest
-
-  StoreRequestRest* = object
-    # inspired by https://github.com/waku-org/nwaku/blob/f95147f5b7edfd45f914586f2d41cd18fb0e0d18/waku/v2//waku_store/common.nim#L52
-    pubsubTopic*: Option[PubsubTopic]
-    contentTopics*: seq[ContentTopic]
-    cursor*: Option[HistoryCursorRest]
-    startTime*: Option[Timestamp]
-    endTime*: Option[Timestamp]
-    pageSize*: uint64
-    ascending*: bool
-
-  StoreWakuMessage* = object
-    payload*: Base64String
-    contentTopic*: Option[ContentTopic]
-    version*: Option[uint32]
-    timestamp*: Option[Timestamp]
-    ephemeral*: Option[bool]
-    meta*: Option[Base64String]
-
-  StoreResponseRest* = object # inspired by https://rfc.vac.dev/spec/16/#storeresponse
-    messages*: seq[StoreWakuMessage]
-    cursor*: Option[HistoryCursorRest]
-    # field that contains error information
-    errorMessage*: Option[string]
 
 createJsonFlavor RestJson
 
@@ -55,112 +20,83 @@ Json.setWriter JsonWriter, PreferredOutput = string
 
 #### Type conversion
 
-# Converts a URL-encoded-base64 string into a 'MessageDigest'
-proc parseMsgDigest*(input: Option[string]): Result[Option[MessageDigest], string] =
+proc parseHash*(input: Option[string]): Result[Option[WakuMessageHash], string] =
+  let base64UrlEncoded =
+    if input.isSome():
+      input.get()
+    else:
+      return ok(none(WakuMessageHash))
+
+  if base64UrlEncoded == "":
+    return ok(none(WakuMessageHash))
+
+  let base64Encoded = decodeUrl(base64UrlEncoded)
+
+  let decodedBytes = base64.decode(Base64String(base64Encoded)).valueOr:
+    return err("waku message hash parsing error: " & error)
+
+  let hash: WakuMessageHash = fromBytes(decodedBytes)
+
+  return ok(some(hash))
+
+proc parseHashes*(input: Option[string]): Result[seq[WakuMessageHash], string] =
+  var hashes: seq[WakuMessageHash] = @[]
+
   if not input.isSome() or input.get() == "":
-    return ok(none(MessageDigest))
+    return ok(hashes)
 
   let decodedUrl = decodeUrl(input.get())
-  let base64Decoded = base64.decode(Base64String(decodedUrl))
-  var messageDigest = MessageDigest()
 
-  if not base64Decoded.isOk():
-    return err(base64Decoded.error)
+  if decodedUrl != "":
+    for subString in decodedUrl.split(','):
+      let hash = ?parseHash(some(subString))
 
-  let base64DecodedArr = base64Decoded.get()
-  # Next snippet inspired by "nwaku/waku/waku_archive/archive.nim"
-  # TODO: Improve coherence of MessageDigest type
-  messageDigest = block:
-    var data: array[32, byte]
-    for i in 0 ..< min(base64DecodedArr.len, 32):
-      data[i] = base64DecodedArr[i]
+      if hash.isSome():
+        hashes.add(hash.get())
 
-    MessageDigest(data: data)
-
-  return ok(some(messageDigest))
+  return ok(hashes)
 
 # Converts a given MessageDigest object into a suitable
 # Base64-URL-encoded string suitable to be transmitted in a Rest
 # request-response. The MessageDigest is first base64 encoded
 # and this result is URL-encoded.
-proc toRestStringMessageDigest*(self: MessageDigest): string =
-  let base64Encoded = base64.encode(self.data)
+proc toRestStringWakuMessageHash*(self: WakuMessageHash): string =
+  let base64Encoded = base64.encode(self)
   encodeUrl($base64Encoded)
 
-proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
-  WakuMessage(
-    payload: base64.decode(message.payload).get(),
-    contentTopic: message.contentTopic.get(),
-    version: message.version.get(),
-    timestamp: message.timestamp.get(),
-    ephemeral: message.ephemeral.get(),
-    meta: message.meta.get(Base64String("")).decode().get(),
-  )
-
-# Converts a 'HistoryResponse' object to an 'StoreResponseRest'
-# that can be serialized to a json object.
-proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
-  proc toStoreWakuMessage(message: WakuMessage): StoreWakuMessage =
-    StoreWakuMessage(
-      payload: base64.encode(message.payload),
-      contentTopic: some(message.contentTopic),
-      version: some(message.version),
-      timestamp: some(message.timestamp),
-      ephemeral: some(message.ephemeral),
-      meta:
-        if message.meta.len > 0:
-          some(base64.encode(message.meta))
-        else:
-          none(Base64String)
-      ,
-    )
-
-  var storeWakuMsgs: seq[StoreWakuMessage]
-  for m in histResp.messages:
-    storeWakuMsgs.add(m.toStoreWakuMessage())
-
-  var cursor = none(HistoryCursorRest)
-  if histResp.cursor.isSome:
-    cursor = some(
-      HistoryCursorRest(
-        pubsubTopic: histResp.cursor.get().pubsubTopic,
-        senderTime: histResp.cursor.get().senderTime,
-        storeTime: histResp.cursor.get().storeTime,
-        digest: histResp.cursor.get().digest,
-      )
-    )
-
-  StoreResponseRest(messages: storeWakuMsgs, cursor: cursor)
-
-## Beginning of StoreWakuMessage serde
+## WakuMessage serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: StoreWakuMessage
+    writer: var JsonWriter, msg: WakuMessage
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("payload", $value.payload)
-  if value.contentTopic.isSome():
-    writer.writeField("contentTopic", value.contentTopic.get())
-  if value.version.isSome():
-    writer.writeField("version", value.version.get())
-  if value.timestamp.isSome():
-    writer.writeField("timestamp", value.timestamp.get())
-  if value.ephemeral.isSome():
-    writer.writeField("ephemeral", value.ephemeral.get())
-  if value.meta.isSome():
-    writer.writeField("meta", value.meta.get())
+
+  writer.writeField("payload", base64.encode(msg.payload))
+  writer.writeField("content_topic", msg.contentTopic)
+
+  if msg.meta.len > 0:
+    writer.writeField("meta", base64.encode(msg.meta))
+
+  writer.writeField("version", msg.version)
+  writer.writeField("timestamp", msg.timestamp)
+  writer.writeField("ephemeral", msg.ephemeral)
+
+  if msg.proof.len > 0:
+    writer.writeField("proof", base64.encode(msg.proof))
+
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var StoreWakuMessage
+    reader: var JsonReader, value: var WakuMessage
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
-    payload = none(Base64String)
-    contentTopic = none(ContentTopic)
-    version = none(uint32)
-    timestamp = none(Timestamp)
-    ephemeral = none(bool)
-    meta = none(Base64String)
+    payload: seq[byte]
+    contentTopic: ContentTopic
+    version: uint32
+    timestamp: Timestamp
+    ephemeral: bool
+    meta: seq[byte]
+    proof: seq[byte]
 
   var keys = initHashSet[string]()
   for fieldName in readObjectFields(reader):
@@ -171,49 +107,56 @@ proc readValue*(
           fmt"Multiple `{fieldName}` fields found"
         except CatchableError:
           "Multiple fields with the same name found"
-      reader.raiseUnexpectedField(err, "StoreWakuMessage")
+      reader.raiseUnexpectedField(err, "WakuMessage")
 
     case fieldName
     of "payload":
-      payload = some(reader.readValue(Base64String))
-    of "contentTopic":
-      contentTopic = some(reader.readValue(ContentTopic))
+      let base64String = reader.readValue(Base64String)
+      payload = base64.decode(base64String).valueOr:
+        reader.raiseUnexpectedField("Failed decoding data", "payload")
+    of "content_topic":
+      contentTopic = reader.readValue(ContentTopic)
     of "version":
-      version = some(reader.readValue(uint32))
+      version = reader.readValue(uint32)
     of "timestamp":
-      timestamp = some(reader.readValue(Timestamp))
+      timestamp = reader.readValue(Timestamp)
     of "ephemeral":
-      ephemeral = some(reader.readValue(bool))
+      ephemeral = reader.readValue(bool)
     of "meta":
-      meta = some(reader.readValue(Base64String))
+      let base64String = reader.readValue(Base64String)
+      meta = base64.decode(base64String).valueOr:
+        reader.raiseUnexpectedField("Failed decoding data", "meta")
+    of "proof":
+      let base64String = reader.readValue(Base64String)
+      proof = base64.decode(base64String).valueOr:
+        reader.raiseUnexpectedField("Failed decoding data", "proof")
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
-  if payload.isNone():
+  if payload.len == 0:
     reader.raiseUnexpectedValue("Field `payload` is missing")
 
-  value = StoreWakuMessage(
-    payload: payload.get(),
+  value = WakuMessage(
+    payload: payload,
     contentTopic: contentTopic,
     version: version,
     timestamp: timestamp,
     ephemeral: ephemeral,
     meta: meta,
+    proof: proof,
   )
 
-## End of StoreWakuMessage serde
-
-## Beginning of MessageDigest serde
+## WakuMessageHash serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: MessageDigest
+    writer: var JsonWriter, value: WakuMessageHash
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("data", base64.encode(value.data))
+  writer.writeField("data", base64.encode(value))
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var MessageDigest
+    reader: var JsonReader, value: var WakuMessageHash
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var data = none(seq[byte])
 
@@ -221,10 +164,10 @@ proc readValue*(
     case fieldName
     of "data":
       if data.isSome():
-        reader.raiseUnexpectedField("Multiple `data` fields found", "MessageDigest")
+        reader.raiseUnexpectedField("Multiple `data` fields found", "WakuMessageHash")
       let decoded = base64.decode(reader.readValue(Base64String))
       if not decoded.isOk():
-        reader.raiseUnexpectedField("Failed decoding data", "MessageDigest")
+        reader.raiseUnexpectedField("Failed decoding data", "WakuMessageHash")
       data = some(decoded.get())
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
@@ -233,149 +176,164 @@ proc readValue*(
     reader.raiseUnexpectedValue("Field `data` is missing")
 
   for i in 0 ..< 32:
-    value.data[i] = data.get()[i]
+    value[i] = data.get()[i]
 
-## End of MessageDigest serde
-
-## Beginning of HistoryCursorRest serde
+## WakuMessageKeyValue serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: HistoryCursorRest
+    writer: var JsonWriter, value: WakuMessageKeyValue
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("pubsub_topic", value.pubsubTopic)
-  writer.writeField("sender_time", value.senderTime)
-  writer.writeField("store_time", value.storeTime)
-  writer.writeField("digest", value.digest)
+
+  writer.writeField("message_hash", value.messageHash)
+
+  if value.message.isSome():
+    writer.writeField("message", value.message.get())
+
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var HistoryCursorRest
+    reader: var JsonReader, value: var WakuMessageKeyValue
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
-    pubsubTopic = none(PubsubTopic)
-    senderTime = none(Timestamp)
-    storeTime = none(Timestamp)
-    digest = none(MessageDigest)
+    messageHash = none(WakuMessageHash)
+    message = none(WakuMessage)
 
   for fieldName in readObjectFields(reader):
     case fieldName
-    of "pubsub_topic":
-      if pubsubTopic.isSome():
+    of "message_hash":
+      if messageHash.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `pubsub_topic` fields found", "HistoryCursorRest"
+          "Multiple `message_hash` fields found", "WakuMessageKeyValue"
         )
-      pubsubTopic = some(reader.readValue(PubsubTopic))
-    of "sender_time":
-      if senderTime.isSome():
+      messageHash = some(reader.readValue(WakuMessageHash))
+    of "message":
+      if message.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `sender_time` fields found", "HistoryCursorRest"
+          "Multiple `message` fields found", "WakuMessageKeyValue"
         )
-      senderTime = some(reader.readValue(Timestamp))
-    of "store_time":
-      if storeTime.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `store_time` fields found", "HistoryCursorRest"
-        )
-      storeTime = some(reader.readValue(Timestamp))
-    of "digest":
-      if digest.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `digest` fields found", "HistoryCursorRest"
-        )
-      digest = some(reader.readValue(MessageDigest))
+      message = some(reader.readValue(WakuMessage))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
-  if pubsubTopic.isNone():
-    reader.raiseUnexpectedValue("Field `pubsub_topic` is missing")
+  if messageHash.isNone():
+    reader.raiseUnexpectedValue("Field `message_hash` is missing")
 
-  if senderTime.isNone():
-    reader.raiseUnexpectedValue("Field `sender_time` is missing")
+  value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message)
 
-  if storeTime.isNone():
-    reader.raiseUnexpectedValue("Field `store_time` is missing")
-
-  if digest.isNone():
-    reader.raiseUnexpectedValue("Field `digest` is missing")
-
-  value = HistoryCursorRest(
-    pubsubTopic: pubsubTopic.get(),
-    senderTime: senderTime.get(),
-    storeTime: storeTime.get(),
-    digest: digest.get(),
-  )
-
-## End of HistoryCursorRest serde
-
-## Beginning of StoreResponseRest serde
+## StoreQueryResponse serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: StoreResponseRest
+    writer: var JsonWriter, value: StoreQueryResponse
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
+
+  writer.writeField("request_id", value.requestId)
+
+  writer.writeField("status_code", value.statusCode)
+  writer.writeField("status_desc", value.statusDesc)
+
   writer.writeField("messages", value.messages)
-  if value.cursor.isSome():
-    writer.writeField("cursor", value.cursor.get())
-  if value.errorMessage.isSome():
-    writer.writeField("error_message", value.errorMessage.get())
+
+  if value.paginationCursor.isSome():
+    writer.writeField("pagination_cursor", value.paginationCursor.get())
+
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var StoreResponseRest
+    reader: var JsonReader, value: var StoreQueryResponse
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
-    messages = none(seq[StoreWakuMessage])
-    cursor = none(HistoryCursorRest)
-    errorMessage = none(string)
+    requestId = none(string)
+    code = none(uint32)
+    desc = none(string)
+    messages = none(seq[WakuMessageKeyValue])
+    cursor = none(WakuMessageHash)
 
   for fieldName in readObjectFields(reader):
     case fieldName
+    of "request_id":
+      if requestId.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `request_id` fields found", "StoreQueryResponse"
+        )
+      requestId = some(reader.readValue(string))
+    of "status_code":
+      if code.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `status_code` fields found", "StoreQueryResponse"
+        )
+      code = some(reader.readValue(uint32))
+    of "status_desc":
+      if desc.isSome():
+        reader.raiseUnexpectedField(
+          "Multiple `status_desc` fields found", "StoreQueryResponse"
+        )
+      desc = some(reader.readValue(string))
     of "messages":
       if messages.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `messages` fields found", "StoreResponseRest"
+          "Multiple `messages` fields found", "StoreQueryResponse"
         )
-      messages = some(reader.readValue(seq[StoreWakuMessage]))
-    of "cursor":
+      messages = some(reader.readValue(seq[WakuMessageKeyValue]))
+    of "pagination_cursor":
       if cursor.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `cursor` fields found", "StoreResponseRest"
+          "Multiple `pagination_cursor` fields found", "StoreQueryResponse"
         )
-      cursor = some(reader.readValue(HistoryCursorRest))
-    of "error_message":
-      if errorMessage.isSome():
-        reader.raiseUnexpectedField(
-          "Multiple `error_message` fields found", "StoreResponseRest"
-        )
-      errorMessage = some(reader.readValue(string))
+      cursor = some(reader.readValue(WakuMessageHash))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
+
+  if requestId.isNone():
+    reader.raiseUnexpectedValue("Field `request_id` is missing")
+
+  if code.isNone():
+    reader.raiseUnexpectedValue("Field `status_code` is missing")
+
+  if desc.isNone():
+    reader.raiseUnexpectedValue("Field `status_desc` is missing")
 
   if messages.isNone():
     reader.raiseUnexpectedValue("Field `messages` is missing")
 
-  value = StoreResponseRest(
-    messages: messages.get(), cursor: cursor, errorMessage: errorMessage
+  value = StoreQueryResponse(
+    requestId: requestId.get(),
+    statusCode: code.get(),
+    statusDesc: desc.get(),
+    messages: messages.get(),
+    paginationCursor: cursor,
   )
 
-## End of StoreResponseRest serde
-
-## Beginning of StoreRequestRest serde
+## StoreRequestRest serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: StoreRequestRest
+    writer: var JsonWriter, req: StoreQueryRequest
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
-  if value.pubsubTopic.isSome():
-    writer.writeField("pubsub_topic", value.pubsubTopic.get())
-  writer.writeField("content_topics", value.contentTopics)
-  if value.startTime.isSome():
-    writer.writeField("start_time", value.startTime.get())
-  if value.endTime.isSome():
-    writer.writeField("end_time", value.endTime.get())
-  writer.writeField("page_size", value.pageSize)
-  writer.writeField("ascending", value.ascending)
-  writer.endRecord()
 
-## End of StoreRequestRest serde
+  writer.writeField("request_id", req.requestId)
+  writer.writeField("include_data", req.includeData)
+
+  if req.pubsubTopic.isSome():
+    writer.writeField("pubsub_topic", req.pubsubTopic.get())
+
+  writer.writeField("content_topics", req.contentTopics)
+
+  if req.startTime.isSome():
+    writer.writeField("start_time", req.startTime.get())
+
+  if req.endTime.isSome():
+    writer.writeField("end_time", req.endTime.get())
+
+  writer.writeField("message_hashes", req.messageHashes)
+
+  if req.paginationCursor.isSome():
+    writer.writeField("pagination_cursor", req.paginationCursor.get())
+
+  writer.writeField("pagination_forward", req.paginationForward)
+
+  if req.paginationLimit.isSome():
+    writer.writeField("pagination_limit", req.paginationLimit.get())
+
+  writer.endRecord()

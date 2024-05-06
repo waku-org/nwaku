@@ -1,6 +1,7 @@
 {.used.}
 
 import
+  std/sequtils,
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
@@ -13,7 +14,6 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
@@ -27,7 +27,6 @@ import
   ../../../waku/waku_node,
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -48,14 +47,22 @@ procSuite "WakuNode - Store":
       fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
     ]
 
+  let hashes = msgListA.mapIt(computeMessageHash(DefaultPubsubTopic, it))
+
+  let kvs = zip(hashes, msgListA).mapIt(
+      WakuMessageKeyValue(messageHash: it[0], message: some(it[1]))
+    )
+
   let archiveA = block:
     let driver = newSqliteArchiveDriver()
 
-    for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg)
-      let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
+    for kv in kvs:
+      let message = kv.message.get()
+      let msg_digest = computeDigest(message)
       require (
-        waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)
+        waitFor driver.put(
+          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
+        )
       ).isOk()
 
     driver
@@ -78,7 +85,8 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
@@ -89,7 +97,7 @@ procSuite "WakuNode - Store":
 
     let response = queryRes.get()
     check:
-      response.messages == msgListA
+      response.messages == kvs
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -112,18 +120,19 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(
+    let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
-      pageSize: 7,
-      direction: PagingDirection.FORWARD,
+      paginationForward: PagingDirection.FORWARD,
+      paginationLimit: some(uint64(7)),
     )
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
     var nextReq = req # copy
 
-    var pages = newSeq[seq[WakuMessage]](2)
-    var cursors = newSeq[Option[HistoryCursor]](2)
+    var pages = newSeq[seq[WakuMessageKeyValue]](2)
+    var cursors = newSeq[Option[WakuMessageHash]](2)
 
     for i in 0 ..< 2:
       let res = waitFor client.query(nextReq, peer = serverPeer)
@@ -132,19 +141,19 @@ procSuite "WakuNode - Store":
       # Keep query response content
       let response = res.get()
       pages[i] = response.messages
-      cursors[i] = response.cursor
+      cursors[i] = response.paginationCursor
 
       # Set/update the request cursor
-      nextReq.cursor = cursors[i]
+      nextReq.paginationCursor = cursors[i]
 
     ## Then
     check:
-      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[6]))
-      cursors[1] == none(HistoryCursor)
+      cursors[0] == some(kvs[6].messageHash)
+      cursors[1] == none(WakuMessageHash)
 
     check:
-      pages[0] == msgListA[0 .. 6]
-      pages[1] == msgListA[7 .. 9]
+      pages[0] == kvs[0 .. 6]
+      pages[1] == kvs[7 .. 9]
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -167,18 +176,19 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(
+    let req = StoreQueryRequest(
+      includeData: true,
       contentTopics: @[DefaultContentTopic],
-      pageSize: 7,
-      direction: PagingDirection.BACKWARD,
+      paginationLimit: some(uint64(7)),
+      paginationForward: PagingDirection.BACKWARD,
     )
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
     var nextReq = req # copy
 
-    var pages = newSeq[seq[WakuMessage]](2)
-    var cursors = newSeq[Option[HistoryCursor]](2)
+    var pages = newSeq[seq[WakuMessageKeyValue]](2)
+    var cursors = newSeq[Option[WakuMessageHash]](2)
 
     for i in 0 ..< 2:
       let res = waitFor client.query(nextReq, peer = serverPeer)
@@ -187,19 +197,19 @@ procSuite "WakuNode - Store":
       # Keep query response content
       let response = res.get()
       pages[i] = response.messages
-      cursors[i] = response.cursor
+      cursors[i] = response.paginationCursor
 
       # Set/update the request cursor
-      nextReq.cursor = cursors[i]
+      nextReq.paginationCursor = cursors[i]
 
     ## Then
     check:
-      cursors[0] == some(computeHistoryCursor(DefaultPubsubTopic, msgListA[3]))
-      cursors[1] == none(HistoryCursor)
+      cursors[0] == some(kvs[3].messageHash)
+      cursors[1] == none(WakuMessageHash)
 
     check:
-      pages[0] == msgListA[3 .. 9]
-      pages[1] == msgListA[0 .. 2]
+      pages[0] == kvs[3 .. 9]
+      pages[1] == kvs[0 .. 2]
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -230,6 +240,7 @@ procSuite "WakuNode - Store":
 
     ## Given
     let message = fakeWakuMessage()
+    let hash = computeMessageHash(DefaultPubSubTopic, message)
     let
       serverPeer = server.peerInfo.toRemotePeerInfo()
       filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
@@ -254,9 +265,9 @@ procSuite "WakuNode - Store":
     # Wait for the server filter to receive the push message
     require waitFor filterFut.withTimeout(5.seconds)
 
-    let res = waitFor client.query(
-      HistoryQuery(contentTopics: @[DefaultContentTopic]), peer = serverPeer
-    )
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
+    let res = waitFor client.query(req, serverPeer)
 
     ## Then
     check res.isOk()
@@ -264,7 +275,8 @@ procSuite "WakuNode - Store":
     let response = res.get()
     check:
       response.messages.len == 1
-      response.messages[0] == message
+      response.messages[0] ==
+        WakuMessageKeyValue(messageHash: hash, message: some(message))
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
@@ -292,28 +304,27 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Forcing a bad cursor with empty digest data
-    var data: array[32, byte] = [
+    var cursor: WakuMessageHash = [
       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
       0, 0, 0, 0, 0,
     ]
-    let cursor = HistoryCursor(
-      pubsubTopic: "pubsubTopic",
-      senderTime: now(),
-      storeTime: now(),
-      digest: waku_archive.MessageDigest(data: data),
-    )
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic], cursor: some(cursor))
+    let req = StoreQueryRequest(
+      contentTopics: @[DefaultContentTopic], paginationCursor: some(cursor)
+    )
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     ## When
     let queryRes = waitFor client.query(req, peer = serverPeer)
 
     ## Then
-    check not queryRes.isOk()
+    check queryRes.isOk()
 
-    check queryRes.error == "BAD_REQUEST: invalid cursor"
+    let response = queryRes.get()
+
+    check response.statusCode == 400
+    check response.statusDesc == "BAD_REQUEST: invalid cursor"
 
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
@@ -336,7 +347,8 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let requestProc = proc() {.async.} =
@@ -346,7 +358,7 @@ procSuite "WakuNode - Store":
 
       let response = queryRes.get()
       check:
-        response.messages == msgListA
+        response.messages.mapIt(it.message.get()) == msgListA
 
     for count in 0 ..< 4:
       waitFor requestProc()
@@ -379,23 +391,25 @@ procSuite "WakuNode - Store":
     client.mountStoreClient()
 
     ## Given
-    let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let successProc = proc() {.async.} =
       let queryRes = waitFor client.query(req, peer = serverPeer)
 
       check queryRes.isOk()
-
       let response = queryRes.get()
       check:
-        response.messages == msgListA
+        response.messages.mapIt(it.message.get()) == msgListA
 
     let failsProc = proc() {.async.} =
       let queryRes = waitFor client.query(req, peer = serverPeer)
 
-      check queryRes.isErr()
-      check queryRes.error == "TOO_MANY_REQUESTS"
+      check queryRes.isOk()
+      let response = queryRes.get()
+
+      check response.statusCode == 429
 
     for count in 0 ..< 3:
       waitFor successProc()

@@ -1,6 +1,6 @@
 import std/[options, sequtils, strutils, json]
 import chronicles, chronos, stew/results, stew/shims/net
-import ../../../../waku/node/waku_node, ../../../alloc
+import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
 
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES
@@ -20,13 +20,13 @@ proc getMultiaddresses(node: WakuNode): seq[string] =
   return node.info().listenAddresses
 
 proc process*(
-    self: ptr DebugNodeRequest, node: WakuNode
+    self: ptr DebugNodeRequest, waku: Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
   case self.operation
   of RETRIEVE_LISTENING_ADDRESSES:
-    return ok($(%*node.getMultiaddresses()))
+    return ok($(%*waku.node.getMultiaddresses()))
 
   return err("unsupported operation in DebugNodeRequest")

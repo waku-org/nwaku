@@ -72,6 +72,7 @@ method put*(
       toBytes(pubsubTopic), # pubsubTopic
       int64(message.version), # version
       message.timestamp, # senderTimestamp
+      message.meta, # meta
     )
   )
 
@@ -83,8 +84,35 @@ method getAllMessages*(
   ## Retrieve all messages from the store.
   return s.db.selectAllMessages()
 
+method getMessagesV2*(
+    s: SqliteDriver,
+    contentTopic = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
+  echo "here"
+
+  let cursor = cursor.map(toDbCursor)
+
+  let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
+    contentTopic,
+    pubsubTopic,
+    cursor,
+    startTime,
+    endTime,
+    limit = maxPageSize,
+    ascending = ascendingOrder,
+  )
+
+  return rowsRes
+
 method getMessages*(
     s: SqliteDriver,
+    includeData = false,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
@@ -94,9 +122,13 @@ method getMessages*(
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  let cursor = cursor.map(toDbCursor)
+  let cursor =
+    if cursor.isSome():
+      some(cursor.get().hash)
+    else:
+      none(WakuMessageHash)
 
-  let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
+  let rowsRes = s.db.selectMessagesByStoreQueryWithLimit(
     contentTopic,
     pubsubTopic,
     cursor,

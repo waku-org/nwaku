@@ -32,8 +32,21 @@ method getAllMessages*(
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
   discard
 
+method getMessagesV2*(
+    driver: ArchiveDriver,
+    contentTopic = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursor),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, deprecated, async.} =
+  discard
+
 method getMessages*(
     driver: ArchiveDriver,
+    includeData = false,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),

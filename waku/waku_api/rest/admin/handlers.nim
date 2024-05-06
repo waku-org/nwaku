@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[strformat, sequtils, sets, tables],
+  std/[strformat, sequtils, tables],
   stew/byteutils,
   chronicles,
   json_serialization,
@@ -13,7 +13,7 @@ import
 
 import
   ../../../waku_core,
-  ../../../waku_store,
+  ../../../waku_store_legacy/common,
   ../../../waku_filter_v2,
   ../../../waku_lightpush/common,
   ../../../waku_relay,
@@ -66,7 +66,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         )
       tuplesToWakuPeers(peers, filterV2Peers)
 
-    if not node.wakuStore.isNil():
+    if not node.wakuLegacyStore.isNil():
       # Map WakuStore peers to WakuPeers and add to return list
       let storePeers = node.peerManager.peerStore.peers(WakuStoreCodec).mapIt(
           (

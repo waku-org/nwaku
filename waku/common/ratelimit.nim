@@ -11,7 +11,8 @@ export tokenbucket
 
 type RateLimitSetting* = tuple[volume: int, period: Duration]
 
-let DefaultGlobalNonRelayRateLimit*: RateLimitSetting = (60, 1.minutes)
+# Set the default to switch off rate limiting for now
+let DefaultGlobalNonRelayRateLimit*: RateLimitSetting = (0, 0.minutes)
 
 proc newTokenBucket*(setting: Option[RateLimitSetting]): Option[TokenBucket] =
   if setting.isNone:

@@ -13,19 +13,25 @@
 ## stored by that local store node.
 ##
 
-import stew/results, chronos, chronicles
+import stew/results, chronos
 import ./protocol, ./common
 
 proc handleSelfStoreRequest*(
-    self: WakuStore, histQuery: HistoryQuery
-): Future[WakuStoreResult[HistoryResponse]] {.async.} =
+    self: WakuStore, req: StoreQueryRequest
+): Future[WakuStoreResult[StoreQueryResponse]] {.async.} =
   ## Handles the store requests made by the node to itself.
   ## Normally used in REST-store requests
 
-  try:
-    let resp: HistoryResponse = (await self.queryHandler(histQuery)).valueOr:
-      return err("error in handleSelfStoreRequest: " & $error)
+  let handlerResult = catch:
+    await self.requestHandler(req)
 
-    return WakuStoreResult[HistoryResponse].ok(resp)
-  except Exception:
-    return err("exception in handleSelfStoreRequest: " & getCurrentExceptionMsg())
+  let resResult =
+    if handlerResult.isErr():
+      return err("exception in handleSelfStoreRequest: " & handlerResult.error.msg)
+    else:
+      handlerResult.get()
+
+  let res = resResult.valueOr:
+    return err("error in handleSelfStoreRequest: " & $error)
+
+  return ok(res)

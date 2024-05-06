@@ -10,7 +10,14 @@ template initializedGuard*(g: StaticGroupManager): untyped =
   if not g.initialized:
     raise newException(ValueError, "StaticGroupManager is not initialized")
 
-method init*(g: StaticGroupManager): Future[void] {.async.} =
+proc resultifiedInitGuard(g: StaticGroupManager): GroupManagerResult[void] =
+  try:
+    initializedGuard(g)
+    return ok()
+  except CatchableError:
+    return err("StaticGroupManager is not initialized")
+
+method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} =
   let
     groupSize = g.groupSize
     groupKeys = g.groupKeys
@@ -18,14 +25,13 @@ method init*(g: StaticGroupManager): Future[void] {.async.} =
       if g.membershipIndex.isSome():
         g.membershipIndex.get()
       else:
-        raise newException(ValueError, "Membership index is not set")
+        return err("membershipIndex is not set")
 
   if membershipIndex < MembershipIndex(0) or
       membershipIndex >= MembershipIndex(groupSize):
-    raise newException(
-      ValueError,
+    return err(
       "Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " &
-        $membershipIndex,
+        $membershipIndex
     )
   when defined(rln_v2):
     g.userMessageLimit = some(DefaultUserMessageLimit)
@@ -39,15 +45,13 @@ method init*(g: StaticGroupManager): Future[void] {.async.} =
       )
     )
     let leaves = rateCommitments.toLeaves().valueOr:
-      raise newException(
-        ValueError, "Failed to convert rate commitments to leaves: " & $error
-      )
+      return err("Failed to convert rate commitments to leaves: " & $error)
     let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, leaves)
   else:
     let idCommitments = groupKeys.mapIt(it.idCommitment)
     let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
     if not membersInserted:
-      raise newException(ValueError, "Failed to insert members into the merkle tree")
+      return err("Failed to insert members into the merkle tree")
 
   discard g.slideRootQueue()
 
@@ -55,13 +59,14 @@ method init*(g: StaticGroupManager): Future[void] {.async.} =
 
   g.initialized = true
 
-  return
+  return ok()
 
 method startGroupSync*(
     g: StaticGroupManager
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
+): Future[GroupManagerResult[void]] {.async.} =
+  ?g.resultifiedInitGuard()
   # No-op
+  return ok()
 
 when defined(rln_v2):
   method register*(

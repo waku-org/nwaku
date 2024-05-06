@@ -8,7 +8,6 @@ else:
 import
   std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles],
   stew/[results, byteutils],
-  stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
   chronicles,
@@ -218,7 +217,8 @@ suite "Onchain group manager":
 
   asyncTest "should initialize successfully":
     let manager = await setup()
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     check:
       manager.ethRpc.isSome()
@@ -231,7 +231,8 @@ suite "Onchain group manager":
 
   asyncTest "should error on initialization when loaded metadata does not match":
     let manager = await setup()
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     let metadataSetRes = manager.setMetadata()
     assert metadataSetRes.isOk(), metadataSetRes.error
@@ -253,50 +254,43 @@ suite "Onchain group manager":
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
     )
-    expect(ValueError):
-      await manager2.init()
+    (await manager2.init()).isErrOr:
+      raiseAssert "Expected error when contract address doesn't match"
 
   asyncTest "should error when keystore path and password are provided but file doesn't exist":
     let manager = await setup()
     manager.keystorePath = some("/inexistent/file")
     manager.keystorePassword = some("password")
 
-    expect(CatchableError):
-      await manager.init()
+    (await manager.init()).isErrOr:
+      raiseAssert "Expected error when keystore file doesn't exist"
 
   asyncTest "startGroupSync: should start group sync":
     let manager = await setup()
 
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
+
     await manager.stop()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     let manager = await setup()
 
-    try:
-      await manager.startGroupSync()
-    except CatchableError:
-      assert true
-    except Exception:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.startGroupSync()).isErrOr:
+      raiseAssert "Expected error when not initialized"
 
     await manager.stop()
 
   asyncTest "startGroupSync: should sync to the state of the group":
     let manager = await setup()
     let credentials = generateCredentials(manager.rlnInstance)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
     let fut = newFuture[void]("startGroupSync")
 
@@ -324,18 +318,20 @@ suite "Onchain group manager":
         await manager.register(credentials, UserMessageLimit(1))
       else:
         await manager.register(credentials)
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut
 
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
+    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
+      raiseAssert $error
     check:
+      metadataOpt.get().validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
     await manager.stop()
 
@@ -343,12 +339,11 @@ suite "Onchain group manager":
     let manager = await setup()
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
     type TestGroupSyncFuts = array[0 .. credentialCount - 1, Future[void]]
     var futures: TestGroupSyncFuts
@@ -377,7 +372,8 @@ suite "Onchain group manager":
 
     try:
       manager.onRegister(generateCallback(futures, credentials))
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
 
       for i in 0 ..< credentials.len():
         when defined(rln_v2):
@@ -389,10 +385,8 @@ suite "Onchain group manager":
 
     await allFutures(futures)
 
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
     check:
       merkleRootBefore != merkleRootAfter
@@ -421,18 +415,14 @@ suite "Onchain group manager":
 
   asyncTest "register: should register successfully":
     let manager = await setup()
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
     let idCommitment = generateCredentials(manager.rlnInstance).idCommitment
-    let merkleRootBeforeRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootBeforeRes.isOk()
-    let merkleRootBefore = merkleRootBeforeRes.get()
+    let merkleRootBefore = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
 
     try:
       when defined(rln_v2):
@@ -447,10 +437,8 @@ suite "Onchain group manager":
       assert false,
         "exception raised when calling register: " & getCurrentExceptionMsg()
 
-    let merkleRootAfterRes = manager.rlnInstance.getMerkleRoot()
-    require:
-      merkleRootAfterRes.isOk()
-    let merkleRootAfter = merkleRootAfterRes.get()
+    let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
+      raiseAssert $error
     check:
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
       manager.latestIndex == 1
@@ -480,9 +468,11 @@ suite "Onchain group manager":
       fut.complete()
 
     manager.onRegister(callback)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
     try:
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
       when defined(rln_v2):
         await manager.register(
           RateCommitment(
@@ -494,13 +484,8 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await fut
+    check await fut.withTimeout(5.seconds)
 
-    let metadataOpt = manager.rlnInstance.getMetadata().valueOr:
-      raiseAssert $error
-    assert metadataOpt.isSome(), "metadata is not set"
-    check:
-      metadataOpt.get().validRoots == manager.validRoots.toSeq()
     await manager.stop()
 
   asyncTest "withdraw: should guard against uninitialized state":
@@ -519,7 +504,8 @@ suite "Onchain group manager":
   asyncTest "validateRoot: should validate good root":
     let manager = await setup()
     let credentials = generateCredentials(manager.rlnInstance)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     let fut = newFuture[void]()
 
@@ -541,7 +527,8 @@ suite "Onchain group manager":
     manager.onRegister(callback)
 
     try:
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
       when defined(rln_v2):
         await manager.register(credentials, UserMessageLimit(1))
       else:
@@ -578,12 +565,10 @@ suite "Onchain group manager":
 
   asyncTest "validateRoot: should reject bad root":
     let manager = await setup()
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
     let credentials = generateCredentials(manager.rlnInstance)
 
@@ -620,7 +605,8 @@ suite "Onchain group manager":
   asyncTest "verifyProof: should verify valid proof":
     let manager = await setup()
     let credentials = generateCredentials(manager.rlnInstance)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     let fut = newFuture[void]()
 
@@ -642,7 +628,8 @@ suite "Onchain group manager":
     manager.onRegister(callback)
 
     try:
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
       when defined(rln_v2):
         await manager.register(credentials, UserMessageLimit(1))
       else:
@@ -679,12 +666,10 @@ suite "Onchain group manager":
 
   asyncTest "verifyProof: should reject invalid proof":
     let manager = await setup()
-    await manager.init()
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
 
     let idCredential = generateCredentials(manager.rlnInstance)
 
@@ -724,19 +709,19 @@ suite "Onchain group manager":
     let invalidProof = invalidProofRes.get()
 
     # verify the proof (should be false)
-    let verifiedRes = manager.verifyProof(messageBytes, invalidProof)
-    require:
-      verifiedRes.isOk()
+    let verified = manager.verifyProof(messageBytes, invalidProof).valueOr:
+      raiseAssert $error
 
     check:
-      verifiedRes.get() == false
+      verified == false
     await manager.stop()
 
   asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
     let manager = await setup()
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     type TestBackfillFuts = array[0 .. credentialCount - 1, Future[void]]
     var futures: TestBackfillFuts
@@ -766,7 +751,9 @@ suite "Onchain group manager":
 
     try:
       manager.onRegister(generateCallback(futures, credentials))
-      await manager.startGroupSync()
+      (await manager.startGroupSync()).isOkOr:
+        raiseAssert $error
+
       for i in 0 ..< credentials.len():
         when defined(rln_v2):
           await manager.register(credentials[i], UserMessageLimit(1))
@@ -798,7 +785,8 @@ suite "Onchain group manager":
 
   asyncTest "isReady should return false if ethRpc is none":
     let manager = await setup()
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     manager.ethRpc = none(Web3)
 
@@ -815,7 +803,8 @@ suite "Onchain group manager":
 
   asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
     let manager = await setup()
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
     var isReady = true
     try:
@@ -830,13 +819,12 @@ suite "Onchain group manager":
 
   asyncTest "isReady should return true if ethRpc is ready":
     let manager = await setup()
-    await manager.init()
+    (await manager.init()).isOkOr:
+      raiseAssert $error
     # node can only be ready after group sync is done
-    try:
-      await manager.startGroupSync()
-    except Exception, CatchableError:
-      assert false,
-        "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
+    (await manager.startGroupSync()).isOkOr:
+      raiseAssert $error
+
     var isReady = false
     try:
       isReady = await manager.isReady()

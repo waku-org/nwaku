@@ -15,7 +15,7 @@ import
 export wire_spec, logging
 
 type StealthCommitmentProtocol* = object
-  wakuApp: App
+  waku: Waku
   contentTopic: string
   spendingKeyPair: StealthCommitmentFFI.KeyPair
   viewingKeyPair: StealthCommitmentFFI.KeyPair
@@ -51,10 +51,10 @@ proc sendThruWaku*(
     timestamp: getNanosecondTime(time),
   )
 
-  (self.wakuApp.node.wakuRlnRelay.appendRLNProof(message, float64(time))).isOkOr:
+  (self.waku.node.wakuRlnRelay.appendRLNProof(message, float64(time))).isOkOr:
     return err("could not append rate limit proof to the message: " & $error)
 
-  (await self.wakuApp.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
+  (await self.waku.node.publish(some(DefaultPubsubTopic), message)).isOkOr:
     return err("failed to publish message: " & $error)
 
   debug "rate limit proof is appended to the message"
@@ -167,7 +167,7 @@ proc getSCPHandler(self: StealthCommitmentProtocol): SCPHandler =
   return handler
 
 proc new*(
-    wakuApp: App, contentTopic = ContentTopic("/wakustealthcommitments/1/app/proto")
+    waku: Waku, contentTopic = ContentTopic("/wakustealthcommitments/1/app/proto")
 ): Result[StealthCommitmentProtocol, string] =
   let spendingKeyPair = StealthCommitmentFFI.generateKeyPair().valueOr:
     return err("could not generate spending key pair: " & $error)
@@ -178,7 +178,7 @@ proc new*(
   info "viewing public key", publicKey = viewingKeyPair.publicKey
 
   let SCP = StealthCommitmentProtocol(
-    wakuApp: wakuApp,
+    waku: waku,
     contentTopic: contentTopic,
     spendingKeyPair: spendingKeyPair,
     viewingKeyPair: viewingKeyPair,
@@ -192,5 +192,5 @@ proc new*(
       except CatchableError:
         error "could not handle SCP message: ", err = getCurrentExceptionMsg()
 
-  wakuApp.node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
+  waku.node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(handler))
   return ok(SCP)

@@ -31,8 +31,12 @@ import
   ../waku_core/topics/sharding,
   ../waku_relay,
   ../waku_archive,
-  ../waku_store,
+  ../waku_store_legacy/protocol as legacy_store,
+  ../waku_store_legacy/client as legacy_store_client,
+  ../waku_store_legacy/common as legacy_store_common,
+  ../waku_store/protocol as store,
   ../waku_store/client as store_client,
+  ../waku_store/common as store_common,
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
@@ -40,12 +44,12 @@ import
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
+  ../waku_lightpush/self_req_handler,
   ../waku_enr,
   ../waku_peer_exchange,
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../discovery/waku_dnsdisc,
   ../common/ratelimit
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
@@ -87,8 +91,10 @@ type
     switch*: Switch
     wakuRelay*: WakuRelay
     wakuArchive*: WakuArchive
-    wakuStore*: WakuStore
-    wakuStoreClient*: WakuStoreClient
+    wakuLegacyStore*: legacy_store.WakuStore
+    wakuLegacyStoreClient*: legacy_store_client.WakuStoreClient
+    wakuStore*: store.WakuStore
+    wakuStoreClient*: store_client.WakuStoreClient
     wakuFilter*: waku_filter_v2.WakuFilter
     wakuFilterClient*: filter_client.WakuFilterClient
     wakuRlnRelay*: WakuRLNRelay
@@ -220,10 +226,10 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    trace "waku.relay received",
-      peerId = node.peerId,
+    debug "waku.relay received",
+      my_peer_id = node.peerId,
       pubsubTopic = topic,
-      hash = topic.computeMessageHash(msg).to0xHex(),
+      msg_hash = topic.computeMessageHash(msg).to0xHex(),
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
 
@@ -651,10 +657,10 @@ proc mountArchive*(
 
   return ok()
 
-## Waku store
+## Legacy Waku Store
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toArchiveQuery(request: HistoryQuery): ArchiveQuery =
+proc toArchiveQuery(request: legacy_store_common.HistoryQuery): ArchiveQuery =
   ArchiveQuery(
     pubsubTopic: request.pubsubTopic,
     contentTopics: request.contentTopics,
@@ -674,7 +680,7 @@ proc toArchiveQuery(request: HistoryQuery): ArchiveQuery =
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toHistoryResult*(res: ArchiveResult): HistoryResult =
+proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
   if res.isErr():
     let error = res.error
     case res.error.kind
@@ -699,51 +705,57 @@ proc toHistoryResult*(res: ArchiveResult): HistoryResult =
       )
     )
 
-proc mountStore*(
+proc mountLegacyStore*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async, raises: [Defect, LPError].} =
-  info "mounting waku store protocol"
+) {.async.} =
+  info "mounting waku legacy store protocol"
 
   if node.wakuArchive.isNil():
-    error "failed to mount waku store protocol", error = "waku archive not set"
+    error "failed to mount waku legacy store protocol", error = "waku archive not set"
     return
 
   # TODO: Review this handler logic. Maybe, move it to the appplication code
   let queryHandler: HistoryQueryHandler = proc(
       request: HistoryQuery
-  ): Future[HistoryResult] {.async.} =
+  ): Future[legacy_store_common.HistoryResult] {.async.} =
     if request.cursor.isSome():
       request.cursor.get().checkHistCursor().isOkOr:
         return err(error)
 
     let request = request.toArchiveQuery()
-    let response = await node.wakuArchive.findMessages(request)
+    let response = await node.wakuArchive.findMessagesV2(request)
     return response.toHistoryResult()
 
-  node.wakuStore =
-    WakuStore.new(node.peerManager, node.rng, queryHandler, some(rateLimit))
+  node.wakuLegacyStore = legacy_store.WakuStore.new(
+    node.peerManager, node.rng, queryHandler, some(rateLimit)
+  )
 
   if node.started:
     # Node has started already. Let's start store too.
-    await node.wakuStore.start()
+    await node.wakuLegacyStore.start()
 
-  node.switch.mount(node.wakuStore, protocolMatcher(WakuStoreCodec))
+  node.switch.mount(
+    node.wakuLegacyStore, protocolMatcher(legacy_store_common.WakuStoreCodec)
+  )
 
-proc mountStoreClient*(node: WakuNode) =
-  info "mounting store client"
+proc mountLegacyStoreClient*(node: WakuNode) =
+  info "mounting legacy store client"
 
-  node.wakuStoreClient = WakuStoreClient.new(node.peerManager, node.rng)
+  node.wakuLegacyStoreClient =
+    legacy_store_client.WakuStoreClient.new(node.peerManager, node.rng)
 
 proc query*(
-    node: WakuNode, query: HistoryQuery, peer: RemotePeerInfo
-): Future[WakuStoreResult[HistoryResponse]] {.async, gcsafe.} =
+    node: WakuNode, query: legacy_store_common.HistoryQuery, peer: RemotePeerInfo
+): Future[legacy_store_common.WakuStoreResult[legacy_store_common.HistoryResponse]] {.
+    async, gcsafe
+.} =
   ## Queries known nodes for historical messages
-  if node.wakuStoreClient.isNil():
-    return err("waku store client is nil")
+  if node.wakuLegacyStoreClient.isNil():
+    return err("waku legacy store client is nil")
 
-  let queryRes = await node.wakuStoreClient.query(query, peer)
+  let queryRes = await node.wakuLegacyStoreClient.query(query, peer)
   if queryRes.isErr():
-    return err($queryRes.error)
+    return err("legacy store client query error: " & $queryRes.error)
 
   let response = queryRes.get()
 
@@ -751,15 +763,15 @@ proc query*(
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc query*(
-    node: WakuNode, query: HistoryQuery
-): Future[WakuStoreResult[HistoryResponse]] {.
+    node: WakuNode, query: legacy_store_common.HistoryQuery
+): Future[legacy_store_common.WakuStoreResult[legacy_store_common.HistoryResponse]] {.
     async, gcsafe, deprecated: "Use 'node.query()' with peer destination instead"
 .} =
   ## Queries known nodes for historical messages
-  if node.wakuStoreClient.isNil():
-    return err("waku store client is nil")
+  if node.wakuLegacyStoreClient.isNil():
+    return err("waku legacy store client is nil")
 
-  let peerOpt = node.peerManager.selectPeer(WakuStoreCodec)
+  let peerOpt = node.peerManager.selectPeer(legacy_store_common.WakuStoreCodec)
   if peerOpt.isNone():
     error "no suitable remote peers"
     return err("peer_not_found_failure")
@@ -779,16 +791,113 @@ when defined(waku_exp_store_resume):
     ## peerList indicates the list of peers to query from. The history is fetched from the first available peer in this list. Such candidates should be found through a discovery method (to be developed).
     ## if no peerList is passed, one of the peers in the underlying peer manager unit of the store protocol is picked randomly to fetch the history from.
     ## The history gets fetched successfully if the dialed peer has been online during the queried time window.
-    if node.wakuStoreClient.isNil():
+    if node.wakuLegacyStoreClient.isNil():
       return
 
-    let retrievedMessages = await node.wakuStoreClient.resume(peerList)
+    let retrievedMessages = await node.wakuLegacyStoreClient.resume(peerList)
     if retrievedMessages.isErr():
       error "failed to resume store", error = retrievedMessages.error
       return
 
     info "the number of retrieved messages since the last online time: ",
       number = retrievedMessages.value
+
+## Waku Store
+
+proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
+  var query = ArchiveQuery()
+
+  query.includeData = request.includeData
+  query.pubsubTopic = request.pubsubTopic
+  query.contentTopics = request.contentTopics
+  query.startTime = request.startTime
+  query.endTime = request.endTime
+  query.hashes = request.messageHashes
+
+  if request.paginationCursor.isSome():
+    var cursor = ArchiveCursor()
+    cursor.hash = request.paginationCursor.get()
+    query.cursor = some(cursor)
+
+  query.direction = request.paginationForward
+
+  if request.paginationLimit.isSome():
+    query.pageSize = uint(request.paginationLimit.get())
+
+  return query
+
+proc toStoreResult(res: ArchiveResult): StoreQueryResult =
+  let response = res.valueOr:
+    return err(StoreError.new(300, "archive error: " & $error))
+
+  var res = StoreQueryResponse()
+
+  res.statusCode = 200
+  res.statusDesc = "OK"
+
+  for i in 0 ..< response.hashes.len:
+    let hash = response.hashes[i]
+
+    let kv =
+      store_common.WakuMessageKeyValue(messageHash: hash, message: none(WakuMessage))
+
+    res.messages.add(kv)
+
+  for i in 0 ..< response.messages.len:
+    res.messages[i].message = some(response.messages[i])
+
+  if response.cursor.isSome():
+    res.paginationCursor = some(response.cursor.get().hash)
+
+  return ok(res)
+
+proc mountStore*(
+    node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
+) {.async.} =
+  if node.wakuArchive.isNil():
+    error "failed to mount waku store protocol", error = "waku archive not set"
+    return
+
+  info "mounting waku store protocol"
+
+  let requestHandler: StoreQueryRequestHandler = proc(
+      request: StoreQueryRequest
+  ): Future[StoreQueryResult] {.async.} =
+    let request = request.toArchiveQuery()
+    let response = await node.wakuArchive.findMessages(request)
+
+    return response.toStoreResult()
+
+  node.wakuStore =
+    store.WakuStore.new(node.peerManager, node.rng, requestHandler, some(rateLimit))
+
+  if node.started:
+    await node.wakuStore.start()
+
+  node.switch.mount(node.wakuStore, protocolMatcher(store_common.WakuStoreCodec))
+
+proc mountStoreClient*(node: WakuNode) =
+  info "mounting store client"
+
+  node.wakuStoreClient = store_client.WakuStoreClient.new(node.peerManager, node.rng)
+
+proc query*(
+    node: WakuNode, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
+): Future[store_common.WakuStoreResult[store_common.StoreQueryResponse]] {.
+    async, gcsafe
+.} =
+  ## Queries known nodes for historical messages
+  if node.wakuStoreClient.isNil():
+    return err("waku store v3 client is nil")
+
+  let response = (await node.wakuStoreClient.query(request, peer)).valueOr:
+    var res = StoreQueryResponse()
+    res.statusCode = uint32(error.kind)
+    res.statusDesc = $error
+
+    return ok(res)
+
+  return ok(response)
 
 ## Waku lightpush
 
@@ -813,7 +922,9 @@ proc mountLightPush*(
 
       if publishedCount == 0:
         ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        debug("Lightpush request has not been published to any peers")
+        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+        debug "Lightpush request has not been published to any peers",
+          msg_hash = msgHash
 
       return ok()
 
@@ -842,15 +953,35 @@ proc lightpushPublish*(
   ## Returns whether relaying was successful or not.
   ## `WakuMessage` should contain a `contentTopic` field for light node
   ## functionality.
-  if node.wakuLightpushClient.isNil():
-    return err("waku lightpush client is nil")
+  if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
+    error "failed to publish message as lightpush not available"
+    return err("Waku lightpush not available")
+
+  let internalPublish = proc(
+      node: WakuNode,
+      pubsubTopic: PubsubTopic,
+      message: WakuMessage,
+      peer: RemotePeerInfo,
+  ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+    let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
+    if not node.wakuLightpushClient.isNil():
+      debug "publishing message with lightpush",
+        pubsubTopic = pubsubTopic,
+        contentTopic = message.contentTopic,
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
+      return await node.wakuLightpushClient.publish(pubsubTopic, message, peer)
+
+    if not node.wakuLightPush.isNil():
+      debug "publishing message with self hosted lightpush",
+        pubsubTopic = pubsubTopic,
+        contentTopic = message.contentTopic,
+        target_peer_id = peer.peerId,
+        msg_hash = msgHash
+      return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
 
   if pubsubTopic.isSome():
-    debug "publishing message with lightpush",
-      pubsubTopic = pubsubTopic.get(),
-      contentTopic = message.contentTopic,
-      peer = peer.peerId
-    return await node.wakuLightpushClient.publish(pubsubTopic.get(), message, peer)
+    return await internalPublish(node, pubsubTopic.get(), message, peer)
 
   let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
 
@@ -861,9 +992,7 @@ proc lightpushPublish*(
       topicMapRes.get()
 
   for pubsub, _ in topicMap.pairs: # There's only one pair anyway
-    debug "publishing message with lightpush",
-      pubsubTopic = pubsub, contentTopic = message.contentTopic, peer = peer.peerId
-    return await node.wakuLightpushClient.publish($pubsub, message, peer)
+    return await internalPublish(node, $pubsub, message, peer)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc lightpushPublish*(
@@ -871,16 +1000,19 @@ proc lightpushPublish*(
 ): Future[WakuLightPushResult[void]] {.
     async, gcsafe, deprecated: "Use 'node.lightpushPublish()' instead"
 .} =
-  if node.wakuLightpushClient.isNil():
-    let msg = "waku lightpush client is nil"
-    error "failed to publish message", msg = msg
-    return err(msg)
+  if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
+    error "failed to publish message as lightpush not available"
+    return err("waku lightpush not available")
 
-  let peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
-  if peerOpt.isNone():
-    let msg = "no suitable remote peers"
-    error "failed to publish message", msg = msg
-    return err(msg)
+  var peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo)
+  if not node.wakuLightpushClient.isNil():
+    peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
+    if peerOpt.isNone():
+      let msg = "no suitable remote peers"
+      error "failed to publish message", msg = msg
+      return err(msg)
+  elif not node.wakuLightPush.isNil():
+    peerOpt = some(RemotePeerInfo.init($node.switch.peerInfo.peerId))
 
   let publishRes =
     await node.lightpushPublish(pubsubTopic, message, peer = peerOpt.get())
@@ -931,7 +1063,7 @@ proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
 
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount: uint64
-): Future[Result[int, string]] {.async, raises: [Defect].} =
+): Future[Result[int, string]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
     return err("PeerExchange is not mounted")
@@ -1100,13 +1232,9 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
-  if not node.wakuRelay.isNil():
-    await node.wakuRelay.stop()
-
-  if not node.wakuMetadata.isNil():
-    node.wakuMetadata.stop()
-
+  ## By stopping the switch we are stopping all the underlying mounted protocols
   await node.switch.stop()
+
   node.peerManager.stop()
 
   if not node.wakuRlnRelay.isNil():

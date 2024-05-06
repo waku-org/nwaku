@@ -7,7 +7,7 @@ import
   ../testlib/[common, wakucore]
 
 proc newTestWakuStore*(
-    switch: Switch, handler: HistoryQueryHandler
+    switch: Switch, handler: StoreQueryRequestHandler
 ): Future[WakuStore] {.async.} =
   let
     peerManager = PeerManager.new(switch)
@@ -21,13 +21,3 @@ proc newTestWakuStore*(
 proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient =
   let peerManager = PeerManager.new(switch)
   WakuStoreClient.new(peerManager, rng)
-
-proc computeHistoryCursor*(
-    pubsubTopic: PubsubTopic, message: WakuMessage
-): HistoryCursor =
-  HistoryCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: waku_store.computeDigest(message),
-  )

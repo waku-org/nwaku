@@ -246,3 +246,60 @@ procSuite "Credentials test suite":
     check:
       recoveredCredentialsRes.isErr()
       recoveredCredentialsRes.error.kind == KeystoreCredentialNotFoundError
+
+  test "if a keystore exists, but the keystoreQuery doesn't match it":
+    let filepath = "./testAppKeystore.txt"
+    defer:
+      removeFile(filepath)
+
+    # We generate random identity credentials (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
+    let
+      idTrapdoor = randomSeqByte(rng[], 32)
+      idNullifier = randomSeqByte(rng[], 32)
+      idSecretHash = randomSeqByte(rng[], 32)
+      idCommitment = randomSeqByte(rng[], 32)
+      idCredential = IdentityCredential(
+        idTrapdoor: idTrapdoor,
+        idNullifier: idNullifier,
+        idSecretHash: idSecretHash,
+        idCommitment: idCommitment,
+      )
+
+    # We generate two distinct membership groups
+    let contract = MembershipContract(
+      chainId: "5", address: "0x0123456789012345678901234567890123456789"
+    )
+    let index = MembershipIndex(1)
+    var membershipCredential = KeystoreMembership(
+      membershipContract: contract, treeIndex: index, identityCredential: idCredential
+    )
+
+    let password = "%m0um0ucoW%"
+
+    let keystoreRes = addMembershipCredentials(
+      path = filepath,
+      membership = membershipCredential,
+      password = password,
+      appInfo = testAppInfo,
+    )
+
+    assert(keystoreRes.isOk(), $keystoreRes.error)
+
+    let badTestAppInfo =
+      AppInfo(application: "_bad_test_", appIdentifier: "1234", version: "0.1")
+
+    # We test retrieval of credentials.
+    let membershipQuery = KeystoreMembership(membershipContract: contract)
+
+    let recoveredCredentialsRes = getMembershipCredentials(
+      path = filepath,
+      password = password,
+      query = membershipQuery,
+      appInfo = badTestAppInfo,
+    )
+
+    check:
+      recoveredCredentialsRes.isErr()
+      recoveredCredentialsRes.error.kind == KeystoreJsonValueMismatchError
+      recoveredCredentialsRes.error.msg ==
+        "Application does not match. Expected '_bad_test_' but got 'test'"

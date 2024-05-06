@@ -12,10 +12,13 @@ suite "Store Client":
   var message1 {.threadvar.}: WakuMessage
   var message2 {.threadvar.}: WakuMessage
   var message3 {.threadvar.}: WakuMessage
-  var messageSeq {.threadvar.}: seq[WakuMessage]
-  var handlerFuture {.threadvar.}: Future[HistoryQuery]
-  var handler {.threadvar.}: HistoryQueryHandler
-  var historyQuery {.threadvar.}: HistoryQuery
+  var hash1 {.threadvar.}: WakuMessageHash
+  var hash2 {.threadvar.}: WakuMessageHash
+  var hash3 {.threadvar.}: WakuMessageHash
+  var messageSeq {.threadvar.}: seq[WakuMessageKeyValue]
+  var handlerFuture {.threadvar.}: Future[StoreQueryRequest]
+  var handler {.threadvar.}: StoreQueryRequestHandler
+  var storeQuery {.threadvar.}: StoreQueryRequest
 
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
@@ -30,15 +33,25 @@ suite "Store Client":
     message1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
     message2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
     message3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
-    messageSeq = @[message1, message2, message3]
+    hash1 = computeMessageHash(DefaultPubsubTopic, message1)
+    hash2 = computeMessageHash(DefaultPubsubTopic, message2)
+    hash3 = computeMessageHash(DefaultPubsubTopic, message3)
+    messageSeq =
+      @[
+        WakuMessageKeyValue(messageHash: hash1, message: some(message1)),
+        WakuMessageKeyValue(messageHash: hash2, message: some(message2)),
+        WakuMessageKeyValue(messageHash: hash3, message: some(message3)),
+      ]
     handlerFuture = newHistoryFuture()
-    handler = proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.} =
-      handlerFuture.complete(req)
-      return ok(HistoryResponse(messages: messageSeq))
-    historyQuery = HistoryQuery(
+    handler = proc(req: StoreQueryRequest): Future[StoreQueryResult] {.async, gcsafe.} =
+      var request = req
+      request.requestId = ""
+      handlerFuture.complete(request)
+      return ok(StoreQueryResponse(messages: messageSeq))
+    storeQuery = StoreQueryRequest(
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
-      direction: PagingDirection.FORWARD,
+      paginationForward: PagingDirection.FORWARD,
     )
 
     serverSwitch = newTestSwitch()
@@ -55,15 +68,15 @@ suite "Store Client":
   asyncTeardown:
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
-  suite "HistoryQuery Creation and Execution":
+  suite "StoreQueryRequest Creation and Execution":
     asyncTest "Valid Queries":
       # When a valid query is sent to the server
-      let queryResponse = await client.query(historyQuery, peer = serverPeerInfo)
+      let queryResponse = await client.query(storeQuery, peer = serverPeerInfo)
 
       # Then the query is processed successfully
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
       check:
-        handlerFuture.read() == historyQuery
+        handlerFuture.read() == storeQuery
         queryResponse.get().messages == messageSeq
 
     asyncTest "Invalid Queries":
@@ -73,33 +86,33 @@ suite "Store Client":
 
       # Given some invalid queries
       let
-        invalidQuery1 = HistoryQuery(
+        invalidQuery1 = StoreQueryRequest(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[],
-          direction: PagingDirection.FORWARD,
+          paginationForward: PagingDirection.FORWARD,
         )
-        invalidQuery2 = HistoryQuery(
+        invalidQuery2 = StoreQueryRequest(
           pubsubTopic: PubsubTopic.none(),
           contentTopics: @[DefaultContentTopic],
-          direction: PagingDirection.FORWARD,
+          paginationForward: PagingDirection.FORWARD,
         )
-        invalidQuery3 = HistoryQuery(
+        invalidQuery3 = StoreQueryRequest(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
-          pageSize: 0,
+          paginationLimit: some(uint64(0)),
         )
-        invalidQuery4 = HistoryQuery(
+        invalidQuery4 = StoreQueryRequest(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
-          pageSize: 0,
+          paginationLimit: some(uint64(0)),
         )
-        invalidQuery5 = HistoryQuery(
+        invalidQuery5 = StoreQueryRequest(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
           endTime: some(0.Timestamp),
         )
-        invalidQuery6 = HistoryQuery(
+        invalidQuery6 = StoreQueryRequest(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
@@ -165,15 +178,15 @@ suite "Store Client":
         handlerFuture.read() == invalidQuery6
         queryResponse6.get().messages == messageSeq
 
-  suite "Verification of HistoryResponse Payload":
+  suite "Verification of StoreQueryResponse Payload":
     asyncTest "Positive Responses":
       # When a valid query is sent to the server
-      let queryResponse = await client.query(historyQuery, peer = serverPeerInfo)
+      let queryResponse = await client.query(storeQuery, peer = serverPeerInfo)
 
       # Then the query is processed successfully, and is of the expected type
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
-        type(queryResponse.get()) is HistoryResponse
+        type(queryResponse.get()) is StoreQueryResponse
 
     asyncTest "Negative Responses - PeerDialFailure":
       # Given a stopped peer
@@ -182,10 +195,10 @@ suite "Store Client":
         otherServerPeerInfo = otherServerSwitch.peerInfo.toRemotePeerInfo()
 
       # When a query is sent to the stopped peer
-      let queryResponse = await client.query(historyQuery, peer = otherServerPeerInfo)
+      let queryResponse = await client.query(storeQuery, peer = otherServerPeerInfo)
 
       # Then the query is not processed
       check:
         not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         queryResponse.isErr()
-        queryResponse.error.kind == HistoryErrorKind.PEER_DIAL_FAILURE
+        queryResponse.error.kind == ErrorCode.PEER_DIAL_FAILURE
