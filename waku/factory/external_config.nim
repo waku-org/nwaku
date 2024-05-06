@@ -792,8 +792,8 @@ proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
 
 proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
   try:
-    let conf = WakuNodeConf.load(version = "")
-    return conf
+    let conf = WakuNodeConf.load(version = "", cmdLine = @[])
+    return ok(conf)
   except CatchableError:
     return err(getCurrentExceptionMsg())
 
