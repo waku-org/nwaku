@@ -57,9 +57,6 @@ proc installLightPushRequestHandler*(router: var RestRouter, node: WakuNode, dis
 
     let validationRes = node.wakuLightPush.validateMessage(req.pubsubTopic, msg).isOkOr:
       return RestApiResponse.badRequest("Message validation failed: " & $error)
-    # let validationRes = node.wakuRlnRelay.validateMessage(message)
-    # if validationRes != Valid:
-    #   return RestApiResponse.badRequest("Message validation failed: ")
 
     let peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
       let handler = discHandler.valueOr:
