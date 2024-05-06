@@ -63,6 +63,8 @@ INSERT INTO messages (
                        storedAt
                    FROM messages_backup;
 
+CREATE INDEX IF NOT EXISTS i_query ON messages (contentTopic, pubsubTopic, storedAt, id);
+
 DROP TABLE messages_backup;
 
 UPDATE version SET version = 4 WHERE version = 3;
