@@ -101,7 +101,7 @@ proc send*[T](self: Reconciled[T]): Future[Result[Sent[T], string]] {.async.} =
     await self.connection.writeLP(self.payload.encode().buffer)
 
   if writeRes.isErr():
-    return err(writeRes.error.msg)
+    return err("send connection write error: " & writeRes.error.msg)
 
   return ok(
     Sent[T](
@@ -120,7 +120,7 @@ proc listenBack*[T](self: Sent[T]): Future[Result[Received[T], string]] {.async.
     if readRes.isOk():
       readRes.get()
     else:
-      return err(readRes.error.msg)
+      return err("listenBack connection read error: " & readRes.error.msg)
 
   # can't otherwise the compiler complains
   #let payload = SyncPayload.decode(buffer).valueOr:
@@ -134,7 +134,7 @@ proc listenBack*[T](self: Sent[T]): Future[Result[Received[T], string]] {.async.
     else:
       let decodeError: ProtobufError = decodeRes.error
       let errMsg = $decodeError
-      return err(errMsg)
+      return err("listenBack decoding error: " & errMsg)
 
   return ok(
     Received[T](
@@ -222,7 +222,7 @@ proc clientTerminate*(
     await self.connection.writeLp(payload.encode().buffer)
 
   if writeRes.isErr():
-    return err(writeRes.error.msg)
+    return err("clientTerminate connection write error: " & writeRes.error.msg)
 
   self.negentropy.delete()
 

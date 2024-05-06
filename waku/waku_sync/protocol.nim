@@ -28,12 +28,12 @@ logScope:
   topics = "waku sync"
 
 type WakuSync* = ref object of LPProtocol
-  storage: Storage
+  storage: Storage # Negentropy protocol storage 
   peerManager: PeerManager
   maxFrameSize: int # Not sure if this should be protocol defined or not...
-  syncInterval: timer.Duration
-  syncDelay: int64
-  callback: Option[WakuSyncCallback]
+  syncInterval: timer.Duration # Time between each syncronisation attempt
+  relayJitter: int64 # Time delay until all messages are mostly received network wide
+  callback: Option[WakuSyncCallback] # Callback with the result of the syncronisation
   periodicSyncFut: Future[void]
 
 proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
@@ -50,11 +50,11 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   if self.storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
-proc calculateRange(delay: int64): (int64, int64) =
+proc calculateRange(relayJitter: int64): (int64, int64) =
   var now = getNowInNanosecondTime()
 
   # Because of message jitter inherent to GossipSub
-  now -= delay
+  now -= relayJitter
 
   let range = getNanosecondTime(3600) # 1 hour
 
@@ -66,7 +66,7 @@ proc calculateRange(delay: int64): (int64, int64) =
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
-  let (start, `end`) = calculateRange(self.syncDelay)
+  let (start, `end`) = calculateRange(self.relayJitter)
 
   let frameSize = DefaultFrameSize
 
@@ -98,7 +98,7 @@ proc request(
       payload = received.payload
 
     reconciled = (?received.clientReconcile(hashes)).valueOr:
-      let completed = error # we use Result as an Either type
+      let completed = error # Result[Reconciled, Completed]
 
       ?await completed.clientTerminate()
 
@@ -145,7 +145,7 @@ proc sync*(
 proc handleLoop(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async.} =
-  let (start, `end`) = calculateRange(self.syncDelay)
+  let (start, `end`) = calculateRange(self.relayJitter)
 
   let frameSize = DefaultFrameSize
 
@@ -162,7 +162,7 @@ proc handleLoop(
       payload = received.payload
 
     let reconciled = (?received.serverReconcile()).valueOr:
-      let completed = error
+      let completed = error # Result[Reconciled, Completed]
 
       let hashes = await completed.serverTerminate()
 
@@ -202,7 +202,7 @@ proc new*(
     peerManager: PeerManager,
     maxFrameSize: int = DefaultFrameSize,
     syncInterval: timer.Duration = DefaultSyncInterval,
-    syncDelay: int64 = 20, #Default gossipsub jitter in network.
+    relayJitter: int64 = 20, #Default gossipsub jitter in network.
     callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
 ): T =
   let storage = Storage.new().valueOr:
@@ -215,7 +215,7 @@ proc new*(
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
     callback: callback,
-    syncDelay: syncDelay,
+    relayJitter: relayJitter,
   )
 
   sync.initProtocolHandler()

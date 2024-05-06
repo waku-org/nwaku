@@ -11,7 +11,7 @@ const WakuSyncCodec* = "/vac/waku/sync/1.0.0"
 const DefaultFrameSize* = 153600
 
 type WakuSyncCallback* = proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.
-  async: (raises: []), closure, gcsafe
+  async: (raises: []), closure
 .}
 
 type SyncPayload* = object
