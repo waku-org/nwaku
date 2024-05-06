@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, times],
+  std/[options],
   stew/results,
   chronicles,
   chronos,
@@ -30,11 +30,15 @@ logScope:
 type WakuSync* = ref object of LPProtocol
   storage: Storage # Negentropy protocol storage 
   peerManager: PeerManager
-  maxFrameSize: int # Not sure if this should be protocol defined or not...
+  maxFrameSize: int
   syncInterval: timer.Duration # Time between each syncronisation attempt
-  relayJitter: int64 # Time delay until all messages are mostly received network wide
-  callback: Option[WakuSyncCallback] # Callback with the result of the syncronisation
+  relayJitter: Duration # Time delay until all messages are mostly received network wide
+  syncCallBack: Option[SyncCallBack] # Callback with the result of the syncronisation
+  pruneCallBack: Option[PruneCallBack] # Callback with the result of the archive query
+  pruneStart: Timestamp # Last pruning start timestamp 
+  pruneInterval: Duration # Time between each pruning attempt
   periodicSyncFut: Future[void]
+  periodicPruneFut: Future[void]
 
 proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
@@ -50,13 +54,13 @@ proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) 
   if self.storage.insert(msg.timestamp, msgHash).isErr():
     debug "failed to insert message ", hash = msgHash.toHex()
 
-proc calculateRange(relayJitter: int64): (int64, int64) =
+proc calculateRange(jitter: Duration, syncRange: Duration = 1.hours): (int64, int64) =
   var now = getNowInNanosecondTime()
 
-  # Because of message jitter inherent to GossipSub
-  now -= relayJitter
+  # Because of message jitter inherent to Relay protocol
+  now -= jitter.nanos
 
-  let range = getNanosecondTime(3600) # 1 hour
+  let range = syncRange.nanos
 
   let start = now - range
   let `end` = now
@@ -68,14 +72,13 @@ proc request(
 ): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
   let (start, `end`) = calculateRange(self.relayJitter)
 
-  let frameSize = DefaultFrameSize
-
-  let initialized = ?clientInitialize(self.storage, conn, frameSize, start, `end`)
+  let initialized =
+    ?clientInitialize(self.storage, conn, self.maxFrameSize, start, `end`)
 
   debug "sync session initialized",
     client = self.peerManager.switch.peerInfo.peerId,
     server = conn.peerId,
-    frameSize = frameSize,
+    frameSize = self.maxFrameSize,
     timeStart = start,
     timeEnd = `end`
 
@@ -147,9 +150,8 @@ proc handleLoop(
 ): Future[Result[seq[WakuMessageHash], string]] {.async.} =
   let (start, `end`) = calculateRange(self.relayJitter)
 
-  let frameSize = DefaultFrameSize
-
-  let initialized = ?serverInitialize(self.storage, conn, frameSize, start, `end`)
+  let initialized =
+    ?serverInitialize(self.storage, conn, self.maxFrameSize, start, `end`)
 
   var sent = initialized
 
@@ -202,8 +204,11 @@ proc new*(
     peerManager: PeerManager,
     maxFrameSize: int = DefaultFrameSize,
     syncInterval: timer.Duration = DefaultSyncInterval,
-    relayJitter: int64 = 20, #Default gossipsub jitter in network.
-    callback: Option[WakuSyncCallback] = none(WakuSyncCallback),
+    relayJitter: Duration = DefaultGossipSubJitter,
+      #Default gossipsub jitter in network.
+    syncCB: Option[SyncCallback] = none(SyncCallback),
+    pruneInterval: Duration = DefaultPruneInterval,
+    pruneCB: Option[PruneCallBack] = none(PruneCallback),
 ): T =
   let storage = Storage.new().valueOr:
     debug "storage creation failed"
@@ -214,8 +219,11 @@ proc new*(
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
-    callback: callback,
     relayJitter: relayJitter,
+    syncCallBack: syncCB,
+    pruneCallBack: pruneCB,
+    pruneStart: getNowInNanosecondTime(),
+    pruneInterval: pruneInterval,
   )
 
   sync.initProtocolHandler()
@@ -229,19 +237,52 @@ proc periodicSync(self: WakuSync) {.async.} =
     await sleepAsync(self.syncInterval)
 
     let (hashes, peer) = (await self.sync()).valueOr:
-      debug "periodic sync error", error = error
+      debug "periodic sync failed", error = error
       continue
 
-    let callback = self.callback.valueOr:
+    let callback = self.syncCallBack.valueOr:
       continue
 
     await callback(hashes, peer)
 
+proc periodicPrune(self: WakuSync) {.async.} =
+  let callback = self.pruneCallBack.valueOr:
+    return
+
+  while true:
+    await sleepAsync(self.pruneInterval)
+
+    let pruneStop = getNowInNanosecondTime()
+
+    var (elements, cursor) =
+      (newSeq[(WakuMessageHash, Timestamp)](0), none(WakuMessageHash))
+
+    while true:
+      (elements, cursor) = (await callback(self.pruneStart, pruneStop, cursor)).valueOr:
+        debug "storage pruning failed", error = $error
+        break
+
+      if elements.len == 0:
+        break
+
+      for (hash, timestamp) in elements:
+        self.storage.erase(timestamp, hash).isOkOr:
+          trace "element pruning failed", time = timestamp, hash = hash, error = error
+          continue
+
+      if cursor.isNone():
+        break
+
+    self.pruneStart = pruneStop
+
 proc start*(self: WakuSync) =
   self.started = true
-  if self.syncInterval > ZeroDuration:
-    # start periodic-sync only if interval is set.
+
+  if self.syncCallBack.isSome() and self.syncInterval > ZeroDuration:
     self.periodicSyncFut = self.periodicSync()
+
+  if self.pruneCallBack.isSome() and self.pruneInterval > ZeroDuration:
+    self.periodicPruneFut = self.periodicPrune()
 
   info "WakuSync protocol started"
 

@@ -29,7 +29,7 @@ suite "Waku Sync":
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
 
-  var protoHandler {.threadvar.}: WakuSyncCallback
+  var protoHandler {.threadvar.}: SyncCallback
 
   var server {.threadvar.}: WakuSync
   var client {.threadvar.}: WakuSync
@@ -362,7 +362,7 @@ suite "Waku Sync":
       let msg3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let hash3 = computeMessageHash(DefaultPubsubTopic, msg3)
 
-      let protoHandler: WakuSyncCallback = proc(
+      let protoHandler: SyncCallback = proc(
           hashes: seq[WakuMessageHash], peer: RemotePeerInfo
       ) {.async: (raises: []), closure, gcsafe.} =
         debug "Received needHashes from peer:", len = hashes.len
