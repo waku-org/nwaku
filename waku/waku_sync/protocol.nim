@@ -266,8 +266,9 @@ proc periodicPrune(self: WakuSync) {.async.} =
         break
 
       for (hash, timestamp) in elements:
-        #TODO handle erase error
-        discard self.storage.erase(timestamp, hash)
+        self.storage.erase(timestamp, hash).isOkOr:
+          trace "element pruning failed", time = timestamp, hash = hash, error = error
+          continue
 
       if cursor.isNone():
         break
