@@ -14,15 +14,14 @@ const
   DefaultGossipSubJitter*: Duration = 20.seconds
 
 type
-  SyncCallback* = proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.
-    async: (raises: []), closure, gcsafe
-  .}
+  SyncCallback* =
+    proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.async: (raises: []).}
 
   PruneCallback* = proc(
     startTime: Timestamp, endTime: Timestamp, cursor = none(WakuMessageHash)
   ): Future[
     Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
-  ] {.async: (raises: []), closure, gcsafe.}
+  ] {.async: (raises: []).}
 
   SyncPayload* = object
     rangeStart*: Option[uint64]
