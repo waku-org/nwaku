@@ -2,7 +2,6 @@ const ContentScriptVersion_4* =
   """
 ALTER TABLE IF EXISTS messages_backup RENAME TO messages;
 ALTER TABLE messages RENAME TO messages_backup;
-ALTER TABLE messages_backup DROP CONSTRAINT messageIndex;
 
 CREATE TABLE IF NOT EXISTS messages (
    pubsubTopic VARCHAR NOT NULL,
