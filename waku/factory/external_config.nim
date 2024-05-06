@@ -616,6 +616,7 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
+# change to force image creation in CI
 proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
