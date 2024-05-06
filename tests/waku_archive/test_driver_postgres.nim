@@ -54,8 +54,9 @@ suite "Postgres driver":
 
   asyncTest "Insert a message":
     const contentTopic = "test-content-topic"
+    const meta = "test meta"
 
-    let msg = fakeWakuMessage(contentTopic = contentTopic)
+    let msg = fakeWakuMessage(contentTopic = contentTopic, meta = meta)
 
     let computedDigest = computeDigest(msg)
     let computedHash = computeMessageHash(DefaultPubsubTopic, msg)
@@ -75,6 +76,7 @@ suite "Postgres driver":
     assert toHex(computedDigest.data) == toHex(digest)
     assert toHex(actualMsg.payload) == toHex(msg.payload)
     assert toHex(computedHash) == toHex(hash)
+    assert toHex(actualMsg.meta) == toHex(msg.meta)
 
   asyncTest "Insert and query message":
     const contentTopic1 = "test-content-topic-1"

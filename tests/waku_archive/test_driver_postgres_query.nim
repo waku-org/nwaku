@@ -133,6 +133,61 @@ suite "Postgres driver - queries":
     check:
       filteredMessages == expected[2 .. 3]
 
+  asyncTest "single content topic with meta field":
+    ## Given
+    const contentTopic = "test-content-topic"
+
+    let expected =
+      @[
+        fakeWakuMessage(@[byte 0], ts = ts(00), meta = "meta-0"),
+        fakeWakuMessage(@[byte 1], ts = ts(10), meta = "meta-1"),
+        fakeWakuMessage(
+          @[byte 2], contentTopic = contentTopic, ts = ts(20), meta = "meta-2"
+        ),
+        fakeWakuMessage(
+          @[byte 3], contentTopic = contentTopic, ts = ts(30), meta = "meta-3"
+        ),
+        fakeWakuMessage(
+          @[byte 4], contentTopic = contentTopic, ts = ts(40), meta = "meta-4"
+        ),
+        fakeWakuMessage(
+          @[byte 5], contentTopic = contentTopic, ts = ts(50), meta = "meta-5"
+        ),
+        fakeWakuMessage(
+          @[byte 6], contentTopic = contentTopic, ts = ts(60), meta = "meta-6"
+        ),
+        fakeWakuMessage(
+          @[byte 7], contentTopic = contentTopic, ts = ts(70), meta = "meta-7"
+        ),
+      ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (
+        await driver.put(
+          DefaultPubsubTopic,
+          msg,
+          computeDigest(msg),
+          computeMessageHash(DefaultPubsubTopic, msg),
+          msg.timestamp,
+        )
+      ).isOk()
+
+    ## When
+    let res = await driver.getMessages(
+      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+    )
+
+    ## Then
+    assert res.isOk(), res.error
+
+    let filteredMessages = res.tryGet().mapIt(it[1])
+    check:
+      filteredMessages == expected[2 .. 3]
+
   asyncTest "single content topic - descending order":
     ## Given
     const contentTopic = "test-content-topic"
