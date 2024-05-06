@@ -17,7 +17,7 @@ import
   ../../../waku_node,
   ../../waku/waku_lightpush/common,
   ../../waku/waku_lightpush/self_req_handler,
-  ../../waku/waku_lightpush/protocol
+  ../../waku/waku_lightpush/protocol,
   ../../handlers,
   ../serdes,
   ../responses,
@@ -59,8 +59,13 @@ proc installLightPushRequestHandler*(router: var RestRouter, node: WakuNode, dis
     let msg = req.message.toWakuMessage().valueOr:
       return RestApiResponse.badRequest("Invalid message: " & $error)
 
-    let validationRes = node.wakuLightPush.validateMessage(req.pubsubTopic, msg).isOkOr:
-      return RestApiResponse.badRequest("Message validation failed: " & $error)
+    let pubsubTopic = req.pubsubTopic.get()
+    if req.pubsubTopic.isSome():
+      let validationRes = (await node.wakuLightPush.validateMessage(pubsubTopic, msg))
+      if validationRes.isErr():
+        return RestApiResponse.badRequest("Message validation failed: " & $validationRes.error)
+    else:
+       return RestApiResponse.badRequest("Pubsub topic is required")
 
     var peer = RemotePeerInfo.init($node.switch.peerInfo.peerId)
     if useSelfHostedLightPush(node):
