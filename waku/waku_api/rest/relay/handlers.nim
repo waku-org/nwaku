@@ -21,7 +21,8 @@ import
   ../serdes,
   ../responses,
   ../rest_serdes,
-  ./types
+  ./types,
+  ../../../../../tests/waku_rln_relay/rln/waku_rln_relay_utils
 
 from std/times import getTime
 from std/times import toUnix
@@ -155,7 +156,7 @@ proc installRelayApiHandlers*(
     if not node.wakuRlnRelay.isNil():
       # append the proof to the message
 
-      node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
+      node.wakuRlnRelay.unsafeAppendRLNProof(message, float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
@@ -266,7 +267,7 @@ proc installRelayApiHandlers*(
 
     # if RLN is mounted, append the proof to the message
     if not node.wakuRlnRelay.isNil():
-      node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix())).isOkOr:
+      node.wakuRlnRelay.unsafeAppendRLNProof(message, float64(getTime().toUnix())).isOkOr:
         return RestApiResponse.internalServerError(
           "Failed to publish: error appending RLN proof to message: " & $error
         )
