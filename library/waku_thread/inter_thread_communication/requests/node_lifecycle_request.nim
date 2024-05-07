@@ -49,11 +49,6 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self)
 
 proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
-  #[ var conf = WakuNodeConf.load().valueOr:
-    return err("Failed creating node: " & error) ]#
-
-  #echo $configJson
-  echo "--------------------------------------------------"
   var conf = defaultWakuNodeConf().valueOr:
     return err("Failed creating node: " & error)
 
@@ -73,7 +68,7 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
         var formattedString = ($jsonNode[confField]).replace("\"", "")
         confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
-    return err("exception calling parsing configuration: " & getCurrentExceptionMsg())
+    return err("exception parsing configuration: " & getCurrentExceptionMsg())
 
   echo conf
 
