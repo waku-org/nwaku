@@ -1,8 +1,6 @@
-import std/options
-import std/sequtils
-import std/json
-
+import std/[options, sequtils, json, strutils]
 import chronos, chronicles, stew/results, stew/shims/net
+
 import
   ../../../../waku/common/enr/builder,
   ../../../../waku/waku_enr/capabilities,
@@ -64,19 +62,16 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
   try:
     let jsonNode = parseJson($configJson)
 
-    #[ let jsonConf = %conf
-    echo conf ]#
-
-    for key, value in pairs(jsonNode):
-      echo "Key: ", key, typeof(key), " with value: ", value, typeof(value)
+    #[ for key, value in pairs(jsonNode):
+      echo "Key: ", key, typeof(key), " with value: ", value, typeof(value)]#
 
     for confField, confValue in fieldPairs(conf):
       if jsonNode.contains(confField):
-        echo "setting " & $confField
-        if $confField == "storeMaxNumDbConnections":
-          #echo "storeMaxNumDbConnections: " & $confValue
-          echo typeof(confValue)
-        confValue = parseCmdArg(typeof(confValue), jsonNode[confField].getStr())
+        echo "entered for ", confField, " and assigning value ", $jsonNode[confField]
+
+        # Make sure string doesn't contain the " character
+        var formattedString = ($jsonNode[confField]).replace("\"", "")
+        confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
     return err("exception calling parsing configuration: " & getCurrentExceptionMsg())
 
