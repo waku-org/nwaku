@@ -65,6 +65,7 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
         echo "entered for ", confField, " and assigning value ", $jsonNode[confField]
 
         # Make sure string doesn't contain the " character
+        # Test and handle accordingly cases of seqs of strings
         var formattedString = ($jsonNode[confField]).replace("\"", "")
         confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
