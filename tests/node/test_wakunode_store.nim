@@ -60,7 +60,9 @@ suite "Waku Store - End to End - Sorted Archive":
       ]
     archiveMessages = messages.mapIt(
       WakuMessageKeyValue(
-        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+        messageHash: computeMessageHash(pubsubTopic, it),
+        message: some(it),
+        pubsubTopic: some(pubsubTopic),
       )
     )
 
@@ -337,7 +339,9 @@ suite "Waku Store - End to End - Sorted Archive":
           archiveMessages &
           extraMessages.mapIt(
             WakuMessageKeyValue(
-              messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+              messageHash: computeMessageHash(pubsubTopic, it),
+              message: some(it),
+              pubsubTopic: some(pubsubTopic),
             )
           )
 
@@ -392,7 +396,9 @@ suite "Waku Store - End to End - Sorted Archive":
           archiveMessages &
           extraMessages.mapIt(
             WakuMessageKeyValue(
-              messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+              messageHash: computeMessageHash(pubsubTopic, it),
+              message: some(it),
+              pubsubTopic: some(pubsubTopic),
             )
           )
 
@@ -558,7 +564,9 @@ suite "Waku Store - End to End - Unsorted Archive":
       ]
     unsortedArchiveMessages = messages.mapIt(
       WakuMessageKeyValue(
-        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+        messageHash: computeMessageHash(pubsubTopic, it),
+        message: some(it),
+        pubsubTopic: some(pubsubTopic),
       )
     )
 
@@ -773,7 +781,9 @@ suite "Waku Store - End to End - Unsorted Archive without provided Timestamp":
       ]
     unsortedArchiveMessages = messages.mapIt(
       WakuMessageKeyValue(
-        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+        messageHash: computeMessageHash(pubsubTopic, it),
+        message: some(it),
+        pubsubTopic: some(pubsubTopic),
       )
     )
 
@@ -915,13 +925,17 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
     archiveMessages = messages.mapIt(
       WakuMessageKeyValue(
-        messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+        messageHash: computeMessageHash(pubsubTopic, it),
+        message: some(it),
+        pubsubTopic: some(pubsubTopic),
       )
     )
 
     for i in 6 ..< 10:
       archiveMessages[i].messagehash =
         computeMessageHash(pubsubTopicB, archiveMessages[i].message.get())
+
+      archiveMessages[i].pubsubTopic = some(pubsubTopicB)
 
     let
       serverKey = generateSecp256k1Key()
@@ -1274,7 +1288,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
       let voluminousArchiveMessages = messages.mapIt(
         WakuMessageKeyValue(
-          messageHash: computeMessageHash(pubsubTopic, it), message: some(it)
+          messageHash: computeMessageHash(pubsubTopic, it),
+          message: some(it),
+          pubsubTopic: some(pubsubTopic),
         )
       )
 
