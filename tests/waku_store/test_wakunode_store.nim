@@ -50,7 +50,9 @@ procSuite "WakuNode - Store":
   let hashes = msgListA.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
   let kvs = zip(hashes, msgListA).mapIt(
-      WakuMessageKeyValue(messageHash: it[0], message: some(it[1]))
+      WakuMessageKeyValue(
+        messageHash: it[0], message: some(it[1]), pubsubTopic: some(DefaultPubsubTopic)
+      )
     )
 
   let archiveA = block:
@@ -276,7 +278,11 @@ procSuite "WakuNode - Store":
     check:
       response.messages.len == 1
       response.messages[0] ==
-        WakuMessageKeyValue(messageHash: hash, message: some(message))
+        WakuMessageKeyValue(
+          messageHash: hash,
+          message: some(message),
+          pubsubTopic: some(DefaultPubSubTopic),
+        )
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
