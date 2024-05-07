@@ -10,7 +10,7 @@ import ../../../common/databases/db_sqlite, ../../../common/databases/common
 logScope:
   topics = "waku archive migration"
 
-const SchemaVersion* = 8 # increase this when there is an update in the database schema
+const SchemaVersion* = 9 # increase this when there is an update in the database schema
 
 template projectRoot(): string =
   currentSourcePath.rsplit(DirSep, 1)[0] / ".." / ".." / ".." / ".."
