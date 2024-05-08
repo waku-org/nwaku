@@ -730,7 +730,17 @@ method getOldestMessageTimestamp*(
   if intRes.isErr():
     return err("error in getOldestMessageTimestamp: " & intRes.error)
 
-  return ok(Timestamp(intRes.get()))
+  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition: " & $error)
+
+  let oldestPartitionTimeNanoSec =
+    Timestamp(oldestPartition.getPartitionStartTimeInNanosec())
+
+  ## In some cases it could happen that we have
+  ## empty partitions which are older than the current stored rows.
+  ## In those cases we want to consider those older partitions as the oldest considered timestamp.
+
+  return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
 
 method getNewestMessageTimestamp*(
     s: PostgresDriver
