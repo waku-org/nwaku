@@ -13,7 +13,8 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   nimcrypto/utils,
-  secp256k1
+  secp256k1,
+  json
 import
   ../common/confutils/envvar/defs as confEnvvarDefs,
   ../common/confutils/envvar/std/net as confEnvvarNet,
@@ -615,11 +616,18 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
     raise newException(ValueError, "Invalid private key")
 
 proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].} =
-  var res: seq[T] = @[]
-  let inputSeq = s.toSeq()
+  var
+    inputSeq: JsonNode
+    res: seq[T] = @[]
+
+  try:
+    inputSeq = s.parseJson()
+  except Exception:
+    raise newException(ValueError, "Could not parse sequence")
 
   for entry in inputSeq:
-    res.add(parseCmdArg(T, $entry))
+    var formattedString = ($entry).strip(chars = {'\"'})
+    res.add(parseCmdArg(T, formattedString))
 
   return res
 
