@@ -116,6 +116,8 @@ proc hasDuplicate*(
 
   # check if the epoch exists
   let nullifier = proofMetadata.nullifier
+  debug "before: nullifierLog",
+    nl = rlnPeer.nullifierLog, epoch = fromEpoch(epoch), nullifier = inHex(nullifier)
   if not rlnPeer.nullifierLog.hasKey(epoch):
     return ok(false)
   try:
@@ -136,10 +138,14 @@ proc updateLog*(
   ## Returns an error if it cannot update the log
 
   # check if the epoch exists
+  debug "before: updateLog", nl = rlnPeer.nullifierLog, epoch = fromEpoch(epoch)
   if not rlnPeer.nullifierLog.hasKeyOrPut(
     epoch, {proofMetadata.nullifier: proofMetadata}.toTable()
   ):
+    debug "updated log", nl = rlnPeer.nullifierLog, epoch = fromEpoch(epoch)
     return ok()
+  debug "before: updateLog, epoch exists",
+    nl = rlnPeer.nullifierLog, epoch = fromEpoch(epoch)
 
   try:
     # check if an identical record exists
@@ -147,7 +153,11 @@ proc updateLog*(
       # the above condition could be `discarded` but it is kept for clarity, that slashing will 
       # be implemented here
       # TODO: slashing logic
+      debug "duplicate message: slashing is not implemented yet",
+        epoch = fromEpoch(epoch), nullifier = inHex(proofMetadata.nullifier)
       return ok()
+    debug "after: updateLog, no duplicate",
+      nl = rlnPeer.nullifierLog, epoch = fromEpoch(epoch)
     return ok()
   except KeyError:
     return
@@ -268,6 +278,7 @@ proc validateMessageAndUpdateLog*(
   ## in future messages
 
   let isValidMessage = rlnPeer.validateMessage(msg, timeOption)
+  debug "message validation result", isValidMessage = isValidMessage
 
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
@@ -281,6 +292,8 @@ proc validateMessageAndUpdateLog*(
 
   # insert the message to the log (never errors)
   discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
+  debug "message log updated",
+    epoch = fromEpoch(msgProof.epoch), nullifier = inHex(msgProof.nullifier)
 
   return isValidMessage
 
@@ -316,11 +329,14 @@ proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
   # if more than MaxEpochGap epochs are in the log
   # note: the epochs are ordered ascendingly
+  debug "clearing nullifier log",
+    count = rlnPeer.nullifierLog.len().uint, maxGap = rlnPeer.rlnMaxEpochGap
   if rlnPeer.nullifierLog.len().uint < rlnPeer.rlnMaxEpochGap:
     return
 
-  trace "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
+  debug "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
   let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0 ..< rlnPeer.rlnMaxEpochGap]
+  debug "epochs to clear", epochs = epochsToClear
   for epoch in epochsToClear:
     rlnPeer.nullifierLog.del(epoch)
 
