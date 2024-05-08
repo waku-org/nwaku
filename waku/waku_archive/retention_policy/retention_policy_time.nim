@@ -24,17 +24,24 @@ method execute*(
 
   let omtRes = await driver.getOldestMessageTimestamp()
   if omtRes.isErr():
+    info "AAA"
     return err("failed to get oldest message timestamp: " & omtRes.error)
 
   let now = getNanosecondTime(getTime().toUnixFloat())
   let retentionTimestamp = now - p.retentionTime.nanoseconds
   let thresholdTimestamp = retentionTimestamp - p.retentionTime.nanoseconds div 10
+  info "AAA",
+    now = now,
+    retentionTimestamp = retentionTimestamp,
+    thresholdTimestamp = thresholdTimestamp
 
   if thresholdTimestamp <= omtRes.value:
+    info "AAA", a = thresholdTimestamp, value = omtRes.value
     return ok()
 
   let res = await driver.deleteMessagesOlderThanTimestamp(ts = retentionTimestamp)
   if res.isErr():
+    info "AAA"
     return err("failed to delete oldest messages: " & res.error)
 
   return ok()

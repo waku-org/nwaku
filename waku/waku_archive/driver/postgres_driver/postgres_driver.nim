@@ -974,20 +974,29 @@ proc removePartitionsOlderThan(
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Removes old partitions that don't contain the specified timestamp
 
+  info "AAA"
   let tsInSec = Timestamp(float(tsInNanoSec) / 1_000_000_000)
+  info "AAA", tsInSec = tsInSec, tsInNanoSec = tsInNanoSec
 
   var oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    info "AAA"
     return err("could not get oldest partition in removePartitionOlderThan: " & $error)
 
+  info "AAA", oldestPartition = oldestPartition
+
   while not oldestPartition.containsMoment(tsInSec):
+    info "AAA"
     (await self.removePartition(oldestPartition.getName())).isOkOr:
+      info "AAA"
       return err("issue in removePartitionsOlderThan: " & $error)
 
     oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+      info "AAA"
       return err(
         "could not get partition in removePartitionOlderThan in while loop: " & $error
       )
 
+  info "AAA"
   ## We reached the partition that contains the target timestamp plus don't want to remove it
   return ok()
 
@@ -1097,12 +1106,16 @@ proc getCurrentVersion*(
 method deleteMessagesOlderThanTimestamp*(
     s: PostgresDriver, tsNanoSec: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
+  info "AAA"
   ## First of all, let's remove the older partitions so that we can reduce
   ## the database size.
   (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
+    info "AAA", error = $error
     return err("error while removing older partitions: " & $error)
 
   (await s.writeConnPool.pgQuery("DELETE FROM messages WHERE storedAt < " & $tsNanoSec)).isOkOr:
+    info "AAA", error = $error
     return err("error in deleteMessagesOlderThanTimestamp: " & $error)
+  info "AAA"
 
   return ok()
