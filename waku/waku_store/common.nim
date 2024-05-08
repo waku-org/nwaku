@@ -38,6 +38,7 @@ type
   WakuMessageKeyValue* = object
     messageHash*: WakuMessageHash
     message*: Option[WakuMessage]
+    pubsubTopic*: Option[PubsubTopic]
 
   StoreQueryResponse* = object
     requestId*: string
