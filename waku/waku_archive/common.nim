@@ -56,6 +56,7 @@ type
   ArchiveResponse* = object
     hashes*: seq[WakuMessageHash]
     messages*: seq[WakuMessage]
+    topics*: seq[PubsubTopic]
     cursor*: Option[ArchiveCursor]
 
   ArchiveErrorKind* {.pure.} = enum

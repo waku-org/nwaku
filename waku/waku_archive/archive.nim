@@ -169,6 +169,7 @@ proc findMessages*(
 
   var hashes = newSeq[WakuMessageHash]()
   var messages = newSeq[WakuMessage]()
+  var topics = newSeq[PubsubTopic]()
   var cursor = none(ArchiveCursor)
 
   if rows.len == 0:
@@ -180,6 +181,7 @@ proc findMessages*(
   #TODO once store v2 is removed, unzip instead of 2x map
   #TODO once store v2 is removed, update driver to not return messages when not needed
   if query.includeData:
+    topics = rows[0 ..< pageSize].mapIt(it[0])
     messages = rows[0 ..< pageSize].mapIt(it[1])
 
   hashes = rows[0 ..< pageSize].mapIt(it[4])
@@ -206,10 +208,13 @@ proc findMessages*(
 
   # All messages MUST be returned in chronological order
   if not isAscendingOrder:
-    reverse(messages)
     reverse(hashes)
+    reverse(messages)
+    reverse(topics)
 
-  return ok(ArchiveResponse(hashes: hashes, messages: messages, cursor: cursor))
+  return ok(
+    ArchiveResponse(hashes: hashes, messages: messages, topics: topics, cursor: cursor)
+  )
 
 proc findMessagesV2*(
     self: WakuArchive, query: ArchiveQuery
