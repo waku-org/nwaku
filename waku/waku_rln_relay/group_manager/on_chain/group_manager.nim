@@ -856,7 +856,7 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
     cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
 
   # the node is still able to process messages if it is behind the latest block by a factor of the valid roots
-  if uint(g.latestProcessedBlock) < uint(currentBlock) - uint(g.validRoots.len):
+  if u256(g.latestProcessedBlock) < u256(currentBlock) - u256(g.validRoots.len):
     return false
 
   return not (await g.isSyncing())
