@@ -29,7 +29,9 @@ suite "Waku Store - query handler":
 
     let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
     let hash = computeMessageHash(DefaultPubsubTopic, msg)
-    let kv = WakuMessageKeyValue(messageHash: hash, message: some(msg))
+    let kv = WakuMessageKeyValue(
+      messageHash: hash, message: some(msg), pubsubTopic: some(DefaultPubsubTopic)
+    )
 
     var queryHandlerFut = newFuture[(StoreQueryRequest)]()
 
