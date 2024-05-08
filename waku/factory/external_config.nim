@@ -614,8 +614,14 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid private key")
 
-proc parseCmdArg*[T](_: type Option[T], s: string): Option[T] {.raises: [ValueError].} =
-  some(parseCmdArg(T, s))
+proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].} =
+  var res: seq[T] = @[]
+  let inputSeq = s.toSeq()
+
+  for entry in inputSeq:
+    res.add(parseCmdArg(T, $entry))
+
+  return res
 
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
@@ -636,12 +642,6 @@ proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
 proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type IpAddress, p: string): T =
-  try:
-    parseIpAddress(p)
-  except CatchableError:
-    raise newException(ValueError, "Invalid IP address")
-
 proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
@@ -652,12 +652,6 @@ proc defaultListenAddress*(): IpAddress =
 
 proc defaultColocationLimit*(): int =
   return DefaultColocationLimit
-
-proc parseCmdArg*(T: type Port, p: string): T =
-  try:
-    Port(parseInt(p))
-  except CatchableError:
-    raise newException(ValueError, "Invalid Port number")
 
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
@@ -701,36 +695,6 @@ proc parseCmdArg*(T: type logging.LogFormat, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid log format")
 
-proc parseCmdArg*(T: type string, p: string): T =
-  return p
-
-proc parseCmdArg*(T: type seq[string], p: string): T =
-  try:
-    return @[] # TO DO
-  except CatchableError:
-    raise newException(ValueError, "Invalid sequence of strings")
-
-proc parseCmdArg*(T: type seq[ProtectedTopic], p: string): T =
-  try:
-    return @[] # TO DO
-  except CatchableError:
-    raise newException(ValueError, "Invalid protected topics")
-
-proc parseCmdArg*(T: type seq[IpAddress], p: string): T =
-  try:
-    return @[] # TO DO
-  except CatchableError:
-    raise newException(ValueError, "Invalid seq of IP addresses")
-
-proc parseCmdArg*(T: type seq[ShardIdx], p: string): T =
-  try:
-    return @[] # TO DO
-  except CatchableError:
-    raise newException(ValueError, "Invalid seq of ShardIdx's")
-
-func parseCmdArg*(T: type SomeUnsignedInt, s: string): T {.raises: [ValueError].} =
-  T parseBiggestUInt(s)
-
 proc parseCmdArg*(T: type uint, p: string): T =
   try:
     parseUint(p)
@@ -742,16 +706,6 @@ proc parseCmdArg*(T: type StartUpCommand, p: string): T =
     parseEnum[StartUpCommand](p)
   except CatchableError:
     raise newException(ValueError, "Invalid start up command")
-
-func parseCmdArg*(T: type bool, p: string): T =
-  try:
-    p.len == 0 or parseBool(p)
-  except CatchableError:
-    raise newException(
-      ValueError,
-      "'" & p &
-        "' is not a valid boolean value. Supported values are on/off, yes/no, true/false or 1/0",
-    )
 
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]

@@ -1,5 +1,5 @@
 import std/[options, sequtils, json, strutils]
-import chronos, chronicles, stew/results, stew/shims/net
+import chronos, chronicles, stew/results, stew/shims/net, confutils, confutils/std/net
 
 import
   ../../../../waku/common/enr/builder,
