@@ -24,8 +24,7 @@ import
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
   ../../../events/[json_message_event, json_base_event],
-  ../../../alloc,
-  ../../config
+  ../../../alloc
 
 type NodeLifecycleMsgType* = enum
   CREATE_NODE
