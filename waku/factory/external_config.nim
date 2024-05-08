@@ -1,5 +1,4 @@
 import
-  os,
   std/strutils,
   stew/results,
   chronos,
@@ -664,23 +663,23 @@ proc defaultColocationLimit*(): int =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type int, p: string): T =
+#[ proc parseCmdArg*(T: type int, p: string): T =
   try:
     parseInt(p)
   except CatchableError:
-    raise newException(ValueError, "Invalid int")
+    raise newException(ValueError, "Invalid int") ]#
 
-proc parseCmdArg*(T: type uint64, p: string): T =
+#[ proc parseCmdArg*(T: type uint64, p: string): T =
   try:
     parseUint(p)
   except CatchableError:
-    raise newException(ValueError, "Invalid uint")
+    raise newException(ValueError, "Invalid uint") ]#
 
-proc parseCmdArg*(T: type int64, p: string): T =
+#[ proc parseCmdArg*(T: type int64, p: string): T =
   try:
     parseInt(p)
   except CatchableError:
-    raise newException(ValueError, "Invalid int")
+    raise newException(ValueError, "Invalid int") ]#
 
 proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
   return @[]
@@ -691,29 +690,29 @@ proc parseCmdArg*(T: type ShardIdx, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid shard index")
 
-proc parseCmdArg*(T: type logging.LogLevel, p: string): T =
+#[ proc parseCmdArg*(T: type logging.LogLevel, p: string): T =
   try:
     parseEnum[logging.LogLevel](p)
   except CatchableError:
-    raise newException(ValueError, "Invalid log level")
+    raise newException(ValueError, "Invalid log level") ]#
 
-proc parseCmdArg*(T: type logging.LogFormat, p: string): T =
+#[ proc parseCmdArg*(T: type logging.LogFormat, p: string): T =
   try:
     parseEnum[logging.LogFormat](p)
   except CatchableError:
-    raise newException(ValueError, "Invalid log format")
+    raise newException(ValueError, "Invalid log format") ]#
 
-proc parseCmdArg*(T: type uint, p: string): T =
+#[ proc parseCmdArg*(T: type uint, p: string): T =
   try:
     parseUint(p)
   except CatchableError:
-    raise newException(ValueError, "Invalid unsigned integer")
+    raise newException(ValueError, "Invalid unsigned integer") ]#
 
-proc parseCmdArg*(T: type StartUpCommand, p: string): T =
+#[ proc parseCmdArg*(T: type StartUpCommand, p: string): T =
   try:
     parseEnum[StartUpCommand](p)
   except CatchableError:
-    raise newException(ValueError, "Invalid start up command")
+    raise newException(ValueError, "Invalid start up command") ]#
 
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]

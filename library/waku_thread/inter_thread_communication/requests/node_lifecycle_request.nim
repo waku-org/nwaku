@@ -57,21 +57,13 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
   try:
     let jsonNode = parseJson($configJson)
 
-    #[ for key, value in pairs(jsonNode):
-      echo "Key: ", key, typeof(key), " with value: ", value, typeof(value)]#
-
     for confField, confValue in fieldPairs(conf):
       if jsonNode.contains(confField):
-        echo "entered for ", confField, " and assigning value ", $jsonNode[confField]
-
         # Make sure string doesn't contain the leading or trailing " character
-        # Test and handle accordingly cases of seqs of strings
         var formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
         confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
     return err("exception parsing configuration: " & getCurrentExceptionMsg())
-
-  echo conf
 
   # The Waku Network config (cluster-id=1)
   if conf.clusterId == 1:
