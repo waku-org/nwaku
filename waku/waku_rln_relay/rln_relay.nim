@@ -331,7 +331,7 @@ proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
   # note: the epochs are ordered ascendingly
   debug "clearing nullifier log",
     count = rlnPeer.nullifierLog.len().uint, maxGap = rlnPeer.rlnMaxEpochGap
-  if rlnPeer.nullifierLog.len().uint < rlnPeer.rlnMaxEpochGap:
+  if rlnPeer.nullifierLog.len().uint <= rlnPeer.rlnMaxEpochGap:
     return
 
   debug "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
