@@ -876,8 +876,8 @@ proc initializePartitionsInfo(
 
     return ok()
 
-const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(1)
-const PartitionsRangeInterval = timer.seconds(30) ## Time range covered by each parition
+const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
+const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
 proc loopPartitionFactory(
     self: PostgresDriver, onFatalError: OnFatalErrorHandler
