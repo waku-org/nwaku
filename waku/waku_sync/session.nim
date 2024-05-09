@@ -53,7 +53,7 @@ type Completed*[T] = object
 proc clientInitialize*(
     store: Storage,
     conn: Connection,
-    frameSize = DefaultFrameSize,
+    frameSize = DefaultMaxFrameSize,
     start = int64.low,
     `end` = int64.high,
 ): Result[Reconciled[ClientSync], string] =
@@ -80,7 +80,7 @@ proc clientInitialize*(
 proc serverInitialize*(
     store: Storage,
     conn: Connection,
-    frameSize = DefaultFrameSize,
+    frameSize = DefaultMaxFrameSize,
     start = int64.low,
     `end` = int64.high,
 ): Result[Sent[ServerSync], string] =

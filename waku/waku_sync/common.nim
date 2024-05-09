@@ -3,25 +3,25 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[options], chronos
+import std/[options], chronos, libp2p/peerId
 import ../waku_core
 
 const
   DefaultSyncInterval*: Duration = 1.hours
-  DefaultPruneInterval*: Duration = 30.minutes
   WakuSyncCodec* = "/vac/waku/sync/1.0.0"
-  DefaultFrameSize* = 153600
+  DefaultMaxFrameSize* = 153600 #TODO change to something sensible
   DefaultGossipSubJitter*: Duration = 20.seconds
 
 type
-  SyncCallback* =
-    proc(hashes: seq[WakuMessageHash], syncPeer: RemotePeerInfo) {.async: (raises: []).}
+  TransferCallback* = proc(
+    hashes: seq[WakuMessageHash], peerId: PeerId
+  ): Future[Result[void, string]] {.async: (raises: []), closure.}
 
   PruneCallback* = proc(
     startTime: Timestamp, endTime: Timestamp, cursor = none(WakuMessageHash)
   ): Future[
     Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
-  ] {.async: (raises: []).}
+  ] {.async: (raises: []), closure.}
 
   SyncPayload* = object
     rangeStart*: Option[uint64]

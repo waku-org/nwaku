@@ -205,7 +205,7 @@ proc mountWakuSync*(node: WakuNode): Result[void, string] =
       pruneStart: Timestamp, pruneStop: Timestamp, cursor: Option[WakuMessageHash]
   ): Future[
       Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
-  ] {.async: (raises: []), closure, gcsafe.} =
+  ] {.async: (raises: []), closure.} =
     let archiveCursor =
       if cursor.isSome():
         some(ArchiveCursor(hash: cursor.get()))
@@ -243,8 +243,49 @@ proc mountWakuSync*(node: WakuNode): Result[void, string] =
 
     return ok((elements, cursor))
 
-  #TODO add sync callback and options
-  node.wakuSync = WakuSync.new(peerManager = node.peerManager, pruneCB = some(prune))
+  let transfer: TransferCallback = proc(
+      hashes: seq[WakuMessageHash], peerId: PeerId
+  ): Future[Result[void, string]] {.async: (raises: []), closure.} =
+    var query = StoreQueryRequest()
+    query.includeData = true
+    query.messageHashes = hashes
+    query.paginationLimit = some(uint64(100))
+
+    while true:
+      # Do we need a query retry mechanism??
+      let queryRes = catch:
+        await node.wakuStoreClient.query(query, peerId)
+
+      let res =
+        if queryRes.isErr():
+          return err(queryRes.error.msg)
+        else:
+          queryRes.get()
+
+      let response = res.valueOr:
+        return err($error)
+
+      query.paginationCursor = response.paginationCursor
+
+      for kv in response.messages:
+        let handleRes = catch:
+          await node.wakuArchive.handleMessage(kv.pubsubTopic.get(), kv.message.get())
+
+        if handleRes.isErr():
+          trace "message transfer failed", error
+          # Messages can be synced next time since they are not added to storage yet.
+          continue
+
+        node.wakuSync.ingessMessage(kv.pubsubTopic.get(), kv.message.get())
+
+      if query.paginationCursor.isNone():
+        break
+
+    return ok()
+
+  node.wakuSync = WakuSync.new(
+    peerManager = node.peerManager, pruneCB = some(prune), transferCB = some(transfer)
+  )
 
   let catchRes = catch:
     node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))

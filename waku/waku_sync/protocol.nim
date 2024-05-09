@@ -31,12 +31,15 @@ type WakuSync* = ref object of LPProtocol
   storage: Storage # Negentropy protocol storage 
   peerManager: PeerManager
   maxFrameSize: int
+
   syncInterval: timer.Duration # Time between each syncronisation attempt
   relayJitter: Duration # Time delay until all messages are mostly received network wide
-  syncCallBack: Option[SyncCallBack] # Callback with the result of the syncronisation
+  transferCallBack: Option[TransferCallback] # Callback for message transfer.
+
   pruneCallBack: Option[PruneCallBack] # Callback with the result of the archive query
   pruneStart: Timestamp # Last pruning start timestamp 
   pruneInterval: Duration # Time between each pruning attempt
+
   periodicSyncFut: Future[void]
   periodicPruneFut: Future[void]
 
@@ -121,9 +124,7 @@ proc sync*(
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     debug "sync session ended",
-      server = self.peerManager.switch.peerInfo.peerId,
-      client = conn.peerId,
-      error = $error
+      server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId, error
     return err("Sync request error: " & error)
 
   return ok((hashes, peer))
@@ -137,9 +138,7 @@ proc sync*(
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
     debug "sync session ended",
-      server = self.peerManager.switch.peerInfo.peerId,
-      client = conn.peerId,
-      error = $error
+      server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId, error
 
     return err("Sync request error: " & error)
 
@@ -184,14 +183,16 @@ proc initProtocolHandler(self: WakuSync) =
 
     let hashes = (await self.handleLoop(conn)).valueOr:
       debug "sync session ended",
-        server = self.peerManager.switch.peerInfo.peerId,
-        client = conn.peerId,
-        error = $error
+        server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId, error
 
       #TODO send error code and desc to client
       return
 
-    #TODO handle the hashes that the server need from the client
+    if self.transferCallBack.isSome():
+      let callback = self.transferCallBack.get()
+
+      (await callback(hashes, conn.peerId)).isOkOr:
+        debug "transfer callback failed", error
 
     debug "sync session ended gracefully",
       server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId
@@ -202,13 +203,11 @@ proc initProtocolHandler(self: WakuSync) =
 proc new*(
     T: type WakuSync,
     peerManager: PeerManager,
-    maxFrameSize: int = DefaultFrameSize,
+    maxFrameSize: int = DefaultMaxFrameSize,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: Duration = DefaultGossipSubJitter,
-      #Default gossipsub jitter in network.
-    syncCB: Option[SyncCallback] = none(SyncCallback),
-    pruneInterval: Duration = DefaultPruneInterval,
     pruneCB: Option[PruneCallBack] = none(PruneCallback),
+    transferCB: Option[TransferCallback] = none(TransferCallback),
 ): T =
   let storage = Storage.new().valueOr:
     debug "storage creation failed"
@@ -220,10 +219,8 @@ proc new*(
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
     relayJitter: relayJitter,
-    syncCallBack: syncCB,
     pruneCallBack: pruneCB,
-    pruneStart: getNowInNanosecondTime(),
-    pruneInterval: pruneInterval,
+    transferCallBack: transferCB,
   )
 
   sync.initProtocolHandler()
@@ -232,34 +229,39 @@ proc new*(
 
   return sync
 
-proc periodicSync(self: WakuSync) {.async.} =
+proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
   while true:
     await sleepAsync(self.syncInterval)
 
+    debug "periodic sync started"
+
     let (hashes, peer) = (await self.sync()).valueOr:
-      debug "periodic sync failed", error = error
+      debug "sync failed", error
       continue
 
-    let callback = self.syncCallBack.valueOr:
+    (await callback(hashes, peer.peerId)).isOkOr:
+      debug "transfer callback failed", error
       continue
 
-    await callback(hashes, peer)
+    debug "periodic sync done", hashSynced = hashes.len
 
-proc periodicPrune(self: WakuSync) {.async.} =
-  let callback = self.pruneCallBack.valueOr:
-    return
+proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
+  await sleepAsync(self.syncInterval)
+
+  var pruneStop = getNowInNanosecondTime()
 
   while true:
-    await sleepAsync(self.pruneInterval)
+    await sleepAsync(self.syncInterval)
 
-    let pruneStop = getNowInNanosecondTime()
+    debug "periodic prune started",
+      startTime = self.pruneStart, endTime = pruneStop, storageSize = self.storage.len
 
     var (elements, cursor) =
       (newSeq[(WakuMessageHash, Timestamp)](0), none(WakuMessageHash))
 
     while true:
       (elements, cursor) = (await callback(self.pruneStart, pruneStop, cursor)).valueOr:
-        debug "storage pruning failed", error = $error
+        debug "pruning callback failed", error
         break
 
       if elements.len == 0:
@@ -267,22 +269,26 @@ proc periodicPrune(self: WakuSync) {.async.} =
 
       for (hash, timestamp) in elements:
         self.storage.erase(timestamp, hash).isOkOr:
-          trace "element pruning failed", time = timestamp, hash = hash, error = error
+          trace "storage erase failed", timestamp, hash, error
           continue
 
       if cursor.isNone():
         break
 
     self.pruneStart = pruneStop
+    pruneStop = getNowInNanosecondTime()
+
+    debug "periodic prune done", storageSize = self.storage.len
 
 proc start*(self: WakuSync) =
   self.started = true
+  self.pruneStart = getNowInNanosecondTime()
 
-  if self.syncCallBack.isSome() and self.syncInterval > ZeroDuration:
-    self.periodicSyncFut = self.periodicSync()
+  if self.transferCallBack.isSome() and self.syncInterval > ZeroDuration:
+    self.periodicSyncFut = self.periodicSync(self.transferCallBack.get())
 
-  if self.pruneCallBack.isSome() and self.pruneInterval > ZeroDuration:
-    self.periodicPruneFut = self.periodicPrune()
+  if self.pruneCallBack.isSome() and self.syncInterval > ZeroDuration:
+    self.periodicPruneFut = self.periodicPrune(self.pruneCallBack.get())
 
   info "WakuSync protocol started"
 
