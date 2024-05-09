@@ -27,7 +27,7 @@ proc newTokenBucket*(setting: Option[RateLimitSetting]): Option[TokenBucket] =
 proc checkUsage(
     t: var Option[TokenBucket], proto: string, conn: Connection
 ): bool {.raises: [Defect].} =
-  if t.isNone:
+  if t.isNone():
     return true
 
   let tokenBucket = t.get()
