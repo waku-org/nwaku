@@ -134,7 +134,7 @@ proc pubsubUnsubscribe*(self: MessageCache, pubsubTopic: PubsubTopic) =
     dec(j)
 
   # check if messages on this pubsub topic are indexed by any content topic, if not remove them.
-  for mId in msgIndices:
+  for mId in msgIndices.sorted(SortOrder.Descending):
     if not self.contentIndex.anyIt(it.msgIdx == mId):
       self.removeMessage(mId)
 
@@ -167,7 +167,7 @@ proc contentUnsubscribe*(self: MessageCache, contentTopic: ContentTopic) =
     dec(j)
 
   # check if messages on this content topic are indexed by any pubsub topic, if not remove them.
-  for mId in msgIndices:
+  for mId in msgIndices.sorted(SortOrder.Descending):
     if not self.pubsubIndex.anyIt(it.msgIdx == mId):
       self.removeMessage(mId)
 
@@ -275,7 +275,7 @@ proc getAutoMessages*(
   let messages = msgIndices.mapIt(self.messages[it])
 
   if clear:
-    for idx in msgIndices.reversed:
+    for idx in msgIndices.sorted(SortOrder.Descending):
       self.removeMessage(idx)
 
   return ok(messages)

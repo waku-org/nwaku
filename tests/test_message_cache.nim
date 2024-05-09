@@ -1,7 +1,9 @@
 {.used.}
 
-import std/sets, stew/[results, byteutils], testutils/unittests
+import std/[sets, random], stew/[results, byteutils], testutils/unittests
 import ../../waku/waku_core, ../../waku/waku_api/message_cache, ./testlib/wakucore
+
+randomize()
 
 suite "MessageCache":
   setup:
@@ -209,3 +211,39 @@ suite "MessageCache":
 
     check:
       cache.messagesCount() == 2
+
+  test "fuzzing":
+    let testContentTopic1 = "contentTopic1"
+    let testContentTopic2 = "contentTopic2"
+
+    let cache = MessageCache.init(50)
+
+    cache.contentSubscribe(testContentTopic1)
+    cache.contentSubscribe(testContentTopic2)
+
+    for _ in 0 .. 10000:
+      let numb = rand(1.0)
+
+      if numb > 0.4:
+        let topic = if rand(1.0) > 0.5: testContentTopic1 else: testContentTopic2
+
+        let testMessage = fakeWakuMessage(contentTopic = topic)
+
+        cache.addMessage(DefaultPubsubTopic, testMessage)
+      elif numb > 0.1:
+        let topic = if rand(1.0) > 0.5: testContentTopic1 else: testContentTopic2
+
+        let clear = rand(1.0) > 0.5
+        discard cache.getAutoMessages(topic, clear)
+      elif numb > 0.05:
+        if rand(1.0) > 0.5:
+          cache.pubsubUnsubscribe(DefaultPubsubTopic)
+        else:
+          cache.pubsubSubscribe(DefaultPubsubTopic)
+      else:
+        let topic = if rand(1.0) > 0.5: testContentTopic1 else: testContentTopic2
+
+        if rand(1.0) > 0.5:
+          cache.contentUnsubscribe(topic)
+        else:
+          cache.contentSubscribe(topic)
