@@ -272,7 +272,7 @@ proc mountWakuSync*(node: WakuNode): Result[void, string] =
           await node.wakuArchive.handleMessage(kv.pubsubTopic.get(), kv.message.get())
 
         if handleRes.isErr():
-          trace "message transfer failed", error
+          trace "message transfer failed", error = handleRes.error.msg
           # Messages can be synced next time since they are not added to storage yet.
           continue
 

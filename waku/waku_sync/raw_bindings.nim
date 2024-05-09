@@ -222,6 +222,9 @@ proc insert*(storage: Storage, id: int64, hash: WakuMessageHash): Result[void, s
   else:
     return err("insert error")
 
+proc len*(storage: Storage): int =
+  int(storage.size)
+
 proc `==`*(a: NegentropySubRange, b: pointer): bool {.borrow.}
 
 proc new*(
