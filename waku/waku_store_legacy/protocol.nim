@@ -108,7 +108,7 @@ proc initProtocolHandler(ws: WakuStore) =
     ),
   ).encode().buffer
 
-  proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handler(conn: Connection, proto: string) {.async, closure.} =
     var resBuf: seq[byte]
     ws.requestRateLimiter.checkUsageLimit(WakuLegacyStoreCodec, conn):
       let readRes = catch:
