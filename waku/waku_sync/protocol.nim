@@ -43,6 +43,9 @@ type WakuSync* = ref object of LPProtocol
   periodicSyncFut: Future[void]
   periodicPruneFut: Future[void]
 
+proc storageSize*(self: WakuSync): int =
+  self.storage.len
+
 proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     return
