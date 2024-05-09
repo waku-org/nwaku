@@ -243,7 +243,7 @@ proc installStoreApiHandlers*(
       return RestApiResponse.badRequest(error)
 
     let peerAddr = parsedPeerAddr.valueOr:
-      node.peerManager.selectPeer(WakuStoreCodec).valueOr:
+      node.peerManager.selectPeer(WakuLegacyStoreCodec).valueOr:
         let handler = discHandler.valueOr:
           return NoPeerNoDiscError
 

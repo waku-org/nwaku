@@ -39,7 +39,7 @@ proc new*(
 proc sendHistoryQueryRPC(
     w: WakuStoreClient, req: HistoryQuery, peer: RemotePeerInfo
 ): Future[HistoryResult] {.async, gcsafe.} =
-  let connOpt = await w.peerManager.dialPeer(peer, WakuStoreCodec)
+  let connOpt = await w.peerManager.dialPeer(peer, WakuLegacyStoreCodec)
   if connOpt.isNone():
     waku_legacy_store_errors.inc(labelValues = [dialFailure])
     return err(HistoryError(kind: HistoryErrorKind.PEER_DIAL_FAILURE, address: $peer))
@@ -217,7 +217,7 @@ when defined(waku_exp_store_resume):
     else:
       debug "no candidate list is provided, selecting a random peer"
       # if no peerList is set then query from one of the peers stored in the peer manager
-      let peerOpt = w.peerManager.selectPeer(WakuStoreCodec)
+      let peerOpt = w.peerManager.selectPeer(WakuLegacyStoreCodec)
       if peerOpt.isNone():
         warn "no suitable remote peers"
         waku_legacy_store_errors.inc(labelValues = [peerNotFoundFailure])

@@ -62,3 +62,6 @@ proc new*(T: type[TokenBucket], budgetCap: int, fillDuration: Duration = 1.secon
     fillDuration: fillDuration,
     lastTimeFull: Moment.now(),
   )
+
+func `$`*(b: TokenBucket): string {.inline.} =
+  return $b.budgetCap & "/" & $b.fillDuration
