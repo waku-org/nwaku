@@ -24,7 +24,7 @@ proc newTokenBucket*(setting: Option[RateLimitSetting]): Option[TokenBucket] =
 
   return some(TokenBucket.new(volume, period))
 
-proc checkUsage*(
+proc checkUsage(
     t: var Option[TokenBucket], proto: string, conn: Connection
 ): bool {.raises: [Defect].} =
   if t.isNone:
