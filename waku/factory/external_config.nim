@@ -622,7 +622,7 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
   try:
     inputSeq = s.parseJson()
   except Exception:
-    raise newException(ValueError, fmt"Could not parse sequence {s}")
+    raise newException(ValueError, fmt"Could not parse sequence: {s}")
 
   for entry in inputSeq:
     let formattedString = ($entry).strip(chars = {'\"'})
