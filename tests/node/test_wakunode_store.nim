@@ -89,6 +89,7 @@ suite "Waku Store - End to End - Sorted Archive":
     client.mountStoreClient()
 
     waitFor allFutures(server.start(), client.start())
+    await sleepAsync(chronos.milliseconds(500))
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
@@ -955,6 +956,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     client.mountStoreClient()
 
     waitFor allFutures(server.start(), client.start())
+    await sleepAsync(chronos.milliseconds(500))
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
