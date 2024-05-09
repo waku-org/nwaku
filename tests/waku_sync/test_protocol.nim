@@ -13,7 +13,6 @@ from std/os import sleep
 
 import
   ../../waku/[
-    common/paging,
     node/peer_manager,
     waku_core,
     waku_core/message/digest,
@@ -29,8 +28,6 @@ suite "Waku Sync":
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
 
-  var transferCallback {.threadvar.}: TransferCallback
-
   var server {.threadvar.}: WakuSync
   var client {.threadvar.}: WakuSync
 
@@ -42,16 +39,8 @@ suite "Waku Sync":
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
-    transferCallback = proc(
-        hashes: seq[WakuMessageHash], peer: PeerId
-    ): Future[Result[void, string]] {.async: (raises: []), closure.} =
-      debug "Received needHashes from peer:", len = hashes.len
-      for hash in hashes:
-        trace "Hash received from peer:", hash = hash.to0xHex()
-      return ok()
-
-    server = newTestWakuSync(serverSwitch, transfer = some(transferCallback))
-    client = newTestWakuSync(clientSwitch, transfer = some(transferCallback))
+    server = newTestWakuSync(serverSwitch)
+    client = newTestWakuSync(clientSwitch)
 
     serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
 
@@ -76,7 +65,7 @@ suite "Waku Sync":
       server.ingessMessage(DefaultPubsubTopic, msg3)
 
       var hashes = await client.sync(serverPeerInfo)
-      #await sleepAsync(1) # to ensure graceful shutdown
+
       require (hashes.isOk())
       check:
         hashes.value.len == 3
@@ -106,18 +95,29 @@ suite "Waku Sync":
       client.ingessMessage(DefaultPubsubTopic, msg1)
       server.ingessMessage(DefaultPubsubTopic, msg2)
 
-      var hashes = await client.sync(serverPeerInfo)
-      require (hashes.isOk())
+      var syncRes = await client.sync(serverPeerInfo)
+
       check:
-        hashes.value.len == 1
-        hashes.value[0] == computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
+        syncRes.isOk()
+
+      var hashes = syncRes.get()
+
+      check:
+        hashes.len == 1
+        hashes[0] == computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
+
       #Assuming message is fetched from peer
       client.ingessMessage(DefaultPubsubTopic, msg2)
-      sleep(1000)
-      hashes = await client.sync(serverPeerInfo)
-      require (hashes.isOk())
+
+      syncRes = await client.sync(serverPeerInfo)
+
       check:
-        hashes.value.len == 0
+        syncRes.isOk()
+
+      hashes = syncRes.get()
+
+      check:
+        hashes.len == 0
 
     #[     asyncTest "sync 2 nodes duplicate hashes":
       let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
@@ -211,7 +211,7 @@ suite "Waku Sync":
       ## Setup
       let client2Switch = newTestSwitch()
       await client2Switch.start()
-      let client2 = newTestWakuSync(client2Switch, transfer = some(transferCallback))
+      let client2 = newTestWakuSync(client2Switch)
 
       let msgCount = 10000
       var i = 0
@@ -260,10 +260,10 @@ suite "Waku Sync":
       )
 
       let
-        client2 = newTestWakuSync(client2Switch, transfer = some(transferCallback))
-        client3 = newTestWakuSync(client3Switch, transfer = some(transferCallback))
-        client4 = newTestWakuSync(client4Switch, transfer = some(transferCallback))
-        client5 = newTestWakuSync(client5Switch, transfer = some(transferCallback))
+        client2 = newTestWakuSync(client2Switch)
+        client3 = newTestWakuSync(client3Switch)
+        client4 = newTestWakuSync(client4Switch)
+        client5 = newTestWakuSync(client5Switch)
 
       let msgCount = 100000
       var i = 0
@@ -363,18 +363,10 @@ suite "Waku Sync":
       let msg3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let hash3 = computeMessageHash(DefaultPubsubTopic, msg3)
 
-      let transferCallback = proc(
-          hashes: seq[WakuMessageHash], peer: PeerId
-      ): Future[Result[void, string]] {.async: (raises: []), closure.} =
-        debug "Received needHashes from peer:", len = hashes.len
-        for hash in hashes:
-          trace "Hash received from peer:", hash = hash.to0xHex()
-        return ok()
-
       let
-        node1 = newTestWakuSync(node1Switch, transfer = some(transferCallback))
-        node2 = newTestWakuSync(node2Switch, transfer = some(transferCallback))
-        node3 = newTestWakuSync(node3Switch, transfer = some(transferCallback))
+        node1 = newTestWakuSync(node1Switch)
+        node2 = newTestWakuSync(node2Switch)
+        node3 = newTestWakuSync(node3Switch)
 
       node1.ingessMessage(DefaultPubsubTopic, msg1)
       node2.ingessMessage(DefaultPubsubTopic, msg1)
@@ -407,7 +399,7 @@ suite "Waku Sync":
       await allFutures(node1.stop(), node2.stop(), node3.stop())
       await allFutures(node1Switch.stop(), node2Switch.stop(), node3Switch.stop())
 
-    asyncTest "pruning at interval":
+    asyncTest "pruning":
       let switch = newTestSwitch()
 
       await switch.start()
@@ -438,12 +430,8 @@ suite "Waku Sync":
 
       let interval = 1.seconds
 
-      let wakuSync = newTestWakuSync(
-        switch = switch,
-        transfer = none(TransferCallback),
-        prune = some(prune),
-        interval = interval,
-      )
+      let wakuSync =
+        newTestWakuSync(switch = switch, prune = some(prune), interval = interval)
 
       wakuSync.ingessMessage(DefaultPubsubTopic, msg1)
       wakuSync.ingessMessage(DefaultPubsubTopic, msg2)
@@ -454,9 +442,6 @@ suite "Waku Sync":
 
       check:
         wakuSync.storageSize == 0
-
-    #asyncTest "transfering missing messages after a sync":
-    #TODO
 
   suite "Bindings":
     asyncTest "test c integration":
