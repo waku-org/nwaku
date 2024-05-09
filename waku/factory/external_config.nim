@@ -1,5 +1,5 @@
 import
-  std/strutils,
+  std/[strutils, strformat],
   stew/results,
   chronos,
   regex,
