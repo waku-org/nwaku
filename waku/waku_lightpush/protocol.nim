@@ -79,7 +79,8 @@ proc initProtocolHandler(wl: WakuLightPush) =
 
       rpc = await handleRequest(wl, conn.peerId, buffer)
     do:
-      debug "lightpush request rejected due rate limit exceeded", peerId = conn.peerId
+      debug "lightpush request rejected due rate limit exceeded",
+        peerId = conn.peerId, limit = $wl.requestRateLimiter
 
       rpc = static(
         PushRPC(

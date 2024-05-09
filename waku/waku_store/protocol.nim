@@ -109,7 +109,8 @@ proc initProtocolHandler(self: WakuStore) =
 
       resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
     do:
-      debug "store query request rejected due rate limit exceeded", peerId = conn.peerId
+      debug "store query request rejected due rate limit exceeded",
+        peerId = conn.peerId, limit = $self.requestRateLimiter
       resBuf = rejectReposnseBuffer
 
     let writeRes = catch:

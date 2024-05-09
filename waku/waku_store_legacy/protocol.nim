@@ -125,7 +125,7 @@ proc initProtocolHandler(ws: WakuStore) =
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
-        peerId = conn.peerId
+        peerId = conn.peerId, limit = $ws.requestRateLimiter
       resBuf = rejectResponseBuf
 
     let writeRes = catch:

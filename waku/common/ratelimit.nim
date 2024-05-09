@@ -26,7 +26,7 @@ proc newTokenBucket*(setting: Option[RateLimitSetting]): Option[TokenBucket] =
 
 proc checkUsage(
     t: var Option[TokenBucket], proto: string, conn: Connection
-): bool {.raises: [Defect].} =
+): bool {.raises: [].} =
   if t.isNone():
     return true
 
@@ -48,3 +48,9 @@ template checkUsageLimit*(
   else:
     waku_service_requests_rejected.inc(labelValues = [proto])
     bodyRejected
+
+func `$`*(ob: Option[TokenBucket]): string {.inline.} =
+  if ob.isNone():
+    return "no-limit"
+
+  return $ob.get()
