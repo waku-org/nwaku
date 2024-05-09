@@ -30,8 +30,8 @@
 /metrics/waku-sim-all-nodes-grafana-dashboard.json
 
 *.log
-package-lock.json
-package.json
+/package-lock.json
+/package.json
 node_modules/
 /.update.timestamp
 

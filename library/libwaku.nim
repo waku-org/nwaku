@@ -3,7 +3,7 @@
 {.passc: "-fPIC".}
 
 if defined(linux):
-  {.passl: "-Wl,-soname,libwaku.so"}
+  {.passl: "-Wl,-soname,libwaku.so".}
 
 import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
 import chronicles, chronos
@@ -42,7 +42,6 @@ const RET_MISSING_CALLBACK: cint = 2
 ################################################################################
 ### Not-exported components
 
-
 template foreignThreadGc(body: untyped) =
   when declared(setupForeignThreadGc):
     setupForeignThreadGc()
@@ -51,7 +50,6 @@ template foreignThreadGc(body: untyped) =
 
   when declared(tearDownForeignThreadGc):
     tearDownForeignThreadGc()
-
 
 proc relayEventCallback(ctx: ptr Context): WakuRelayHandler =
   return proc(
@@ -95,10 +93,10 @@ var initialized: Atomic[bool]
 if defined(android):
   # Redirect chronicles to Android System logs
   when compiles(defaultChroniclesStream.outputs[0].writer):
-    defaultChroniclesStream.outputs[0].writer =
-      proc (logLevel: LogLevel, msg: LogOutputStr) {.raises: [].} =
-        echo logLevel, msg
-
+    defaultChroniclesStream.outputs[0].writer = proc(
+        logLevel: LogLevel, msg: LogOutputStr
+    ) {.raises: [].} =
+      echo logLevel, msg
 
 ### End of library setup
 ################################################################################
@@ -134,9 +132,9 @@ proc waku_new(
   ctx.userData = userData
 
   waku_thread.sendRequestToWakuThread(
-     ctx,
-     RequestType.LIFECYCLE,
-     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
+    ctx,
+    RequestType.LIFECYCLE,
+    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
   ).isOkOr:
     foreignThreadGc:
       let msg = $error
