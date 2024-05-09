@@ -622,10 +622,10 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
   try:
     inputSeq = s.parseJson()
   except Exception:
-    raise newException(ValueError, "Could not parse sequence")
+    raise newException(ValueError, fmt"Could not parse sequence {s}")
 
   for entry in inputSeq:
-    var formattedString = ($entry).strip(chars = {'\"'})
+    let formattedString = ($entry).strip(chars = {'\"'})
     res.add(parseCmdArg(T, formattedString))
 
   return res
@@ -788,6 +788,6 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
     let conf = WakuNodeConf.load(version = "", cmdLine = @[])
     return ok(conf)
   except CatchableError:
-    return err(getCurrentExceptionMsg())
+    return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
 
 {.pop.}

@@ -59,7 +59,8 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
     for confField, confValue in fieldPairs(conf):
       if jsonNode.contains(confField):
         # Make sure string doesn't contain the leading or trailing " character
-        var formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
+        let formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
+        # Override conf field with the value set in the json-string
         confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
     return err("exception parsing configuration: " & getCurrentExceptionMsg())
