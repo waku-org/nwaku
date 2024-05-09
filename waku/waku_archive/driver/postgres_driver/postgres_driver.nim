@@ -701,7 +701,10 @@ proc getInt(
   try:
     retInt = parseInt(str)
   except ValueError:
-    return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
+    return err(
+      fmt"exception in getInt, parseInt, str:[{str}] query:[{query}]: " &
+        getCurrentExceptionMsg()
+    )
 
   return ok(retInt)
 
@@ -726,19 +729,18 @@ method getMessagesCount*(
 method getOldestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
-  if intRes.isErr():
-    return err("error in getOldestMessageTimestamp: " & intRes.error)
-
-  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
-    return err("could not get oldest partition: " & $error)
-
-  let oldestPartitionTimeNanoSec =
-    Timestamp(oldestPartition.getPartitionStartTimeInNanosec())
-
   ## In some cases it could happen that we have
   ## empty partitions which are older than the current stored rows.
   ## In those cases we want to consider those older partitions as the oldest considered timestamp.
+  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition: " & $error)
+
+  let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
+
+  let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
+  if intRes.isErr():
+    ## Just return the oldest partition time considering the partitions set
+    return ok(Timestamp(oldestPartitionTimeNanoSec))
 
   return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
 
@@ -874,8 +876,8 @@ proc initializePartitionsInfo(
 
     return ok()
 
-const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
-const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
+const DefaultDatabasePartitionCheckTimeInterval = timer.seconds(1)
+const PartitionsRangeInterval = timer.seconds(30) ## Time range covered by each parition
 
 proc loopPartitionFactory(
     self: PostgresDriver, onFatalError: OnFatalErrorHandler
