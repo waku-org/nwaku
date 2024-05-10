@@ -1178,7 +1178,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(
+      let retFut = await driver.put(
         DefaultPubsubTopic,
         msg,
         computeDigest(msg),
@@ -1188,7 +1188,7 @@ suite "Queue driver - query by time range":
       require retFut.isOk()
 
     ## When
-    let res = waitFor driver.getMessages(
+    let res = await driver.getMessages(
       contentTopic = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1203,7 +1203,7 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[2 .. 6]
 
     ## Cleanup
-    (waitFor driver.close()).expect("driver to close")
+    (await driver.close()).expect("driver to close")
 
   test "time range start and content topic - descending order":
     ## Given
@@ -1287,7 +1287,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(
+      let retFut = await driver.put(
         DefaultPubsubTopic,
         msg,
         computeDigest(msg),
@@ -1299,7 +1299,7 @@ suite "Queue driver - query by time range":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
 
     ## When
-    let res = waitFor driver.getMessages(
+    let res = await driver.getMessages(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1315,7 +1315,7 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[4 .. 9]
 
     ## Cleanup
-    (waitFor driver.close()).expect("driver to close")
+    (await driver.close()).expect("driver to close")
 
   asynctest "time range start, single content topic and cursor - descending order":
     ## Given
@@ -1345,7 +1345,7 @@ suite "Queue driver - query by time range":
     debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
 
     for msg in messages:
-      let retFut = waitFor driver.put(
+      let retFut = await driver.put(
         DefaultPubsubTopic,
         msg,
         computeDigest(msg),
@@ -1357,7 +1357,7 @@ suite "Queue driver - query by time range":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = waitFor driver.getMessages(
+    let res = await driver.getMessages(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1373,7 +1373,7 @@ suite "Queue driver - query by time range":
       filteredMessages == expected[3 .. 4].reversed()
 
     ## Cleanup
-    (waitFor driver.close()).expect("driver to close")
+    (await driver.close()).expect("driver to close")
 
   test "time range, content topic, pubsub topic and cursor":
     ## Given
