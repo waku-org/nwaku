@@ -1,5 +1,5 @@
 import
-  std/strutils,
+  std/[strutils, strformat],
   stew/results,
   chronos,
   regex,
@@ -12,7 +12,8 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   nimcrypto/utils,
-  secp256k1
+  secp256k1,
+  json
 import
   ../common/confutils/envvar/defs as confEnvvarDefs,
   ../common/confutils/envvar/std/net as confEnvvarNet,
@@ -613,6 +614,22 @@ proc parseCmdArg*(T: type crypto.PrivateKey, p: string): T =
   except CatchableError:
     raise newException(ValueError, "Invalid private key")
 
+proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].} =
+  var
+    inputSeq: JsonNode
+    res: seq[T] = @[]
+
+  try:
+    inputSeq = s.parseJson()
+  except Exception:
+    raise newException(ValueError, fmt"Could not parse sequence: {s}")
+
+  for entry in inputSeq:
+    let formattedString = ($entry).strip(chars = {'\"'})
+    res.add(parseCmdArg(T, formattedString))
+
+  return res
+
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
@@ -632,12 +649,6 @@ proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
 proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type IpAddress, p: string): T =
-  try:
-    parseIpAddress(p)
-  except CatchableError:
-    raise newException(ValueError, "Invalid IP address")
-
 proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
   return @[]
 
@@ -649,20 +660,8 @@ proc defaultListenAddress*(): IpAddress =
 proc defaultColocationLimit*(): int =
   return DefaultColocationLimit
 
-proc parseCmdArg*(T: type Port, p: string): T =
-  try:
-    Port(parseInt(p))
-  except CatchableError:
-    raise newException(ValueError, "Invalid Port number")
-
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
-
-proc parseCmdArg*(T: type Option[int], p: string): T =
-  try:
-    some(parseInt(p))
-  except CatchableError:
-    raise newException(ValueError, "Invalid number")
 
 proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
   return @[]
@@ -672,12 +671,6 @@ proc parseCmdArg*(T: type ShardIdx, p: string): T =
     ShardIdx(parseInt(p))
   except CatchableError:
     raise newException(ValueError, "Invalid shard index")
-
-proc parseCmdArg*(T: type Option[uint], p: string): T =
-  try:
-    some(parseUint(p))
-  except CatchableError:
-    raise newException(ValueError, "Invalid unsigned integer")
 
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]
@@ -789,5 +782,12 @@ proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
+
+proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
+  try:
+    let conf = WakuNodeConf.load(version = "", cmdLine = @[])
+    return ok(conf)
+  except CatchableError:
+    return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
 
 {.pop.}
