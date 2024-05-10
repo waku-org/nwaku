@@ -1,7 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
+  std/[options, sequtils, strformat, random, algorithm],
+  testutils/unittests,
+  chronos,
+  chronicles
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver as driver_module,
@@ -1767,9 +1770,21 @@ suite "Postgres driver - queries":
         )
       ).isOk()
 
+    ## just keep the second resolution.
+    ## Notice that the oldest timestamps considers the minimum partition timestamp, which
+    ## is expressed in seconds.
+    let oldestPartitionTimestamp =
+      Timestamp(float(oldestTime) / 1_000_000_000) * 1_000_000_000
+
     var res = await driver.getOldestMessageTimestamp()
     assert res.isOk(), res.error
-    assert res.get() == oldestTime, "Failed to retrieve the latest timestamp"
+
+    ## We give certain margin of error. The oldest timestamp is obtained from
+    ## the oldest partition timestamp and there might be at most one second of difference
+    ## between the time created in the test and the oldest-partition-timestamp created within
+    ## the driver logic.
+    assert abs(res.get() - oldestPartitionTimestamp) < (2 * 1_000_000_000),
+      fmt"Failed to retrieve the latest timestamp {res.get()} != {oldestPartitionTimestamp}"
 
     res = await driver.getNewestMessageTimestamp()
     assert res.isOk(), res.error
