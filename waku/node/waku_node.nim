@@ -1136,13 +1136,18 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     let peers =
       node.peerManager.peerStore.peers().filterIt(it.connectedness == Connected)
 
+    echo "----------- physical connections before: ",
+      node.peerManager.connectedPeers(PingCodec)
     for peer in peers:
       try:
         let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
         let pingDelay = await node.libp2pPing.ping(conn)
+        await conn.close()
       except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
+    echo "----------- physical connections after: ",
+      node.peerManager.connectedPeers(PingCodec)
     await sleepAsync(keepalive)
 
 proc startKeepalive*(node: WakuNode) =
