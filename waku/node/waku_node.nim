@@ -1128,6 +1128,10 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     # Keep all connected peers alive while running
     trace "Running keepalive"
 
+    echo "------------------ Entering keepalive -----------"
+    echo "----------- ping connections: (in, out): ",
+      node.peerManager.getNumStreams(PingCodec)
+
     # First get a list of connected peer infos
     let peers =
       node.peerManager.peerStore.peers().filterIt(it.connectedness == Connected)
