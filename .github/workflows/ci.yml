@@ -1,6 +1,7 @@
 name: ci
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -126,14 +127,20 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
-  js-waku-node:
-    needs: build-docker-image
+  js-waku-node-quay:
     uses: waku-org/js-waku/.github/workflows/test-node.yml@master
     with:
-      nim_wakunode_image: ${{ needs.build-docker-image.outputs.image }}
+      nim_wakunode_image: quay.io/wakuorg/nwaku-pr:2690-rln-v1
       test_type: node
       debug: waku*
-
+  
+  js-waku-node-release:
+    uses: waku-org/js-waku/.github/workflows/test-node.yml@master
+    with:
+      nim_wakunode_image: wakuorg/nwaku:v0.27.0
+      test_type: node
+      debug: waku*
+  
   js-waku-node-optional:
     needs: build-docker-image
     uses: waku-org/js-waku/.github/workflows/test-node.yml@master
