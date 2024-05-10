@@ -26,7 +26,7 @@ Update `nwaku` "vendor" dependencies.
 - [ ] nim-json-rpc
 - [ ] nim-json-serialization
 - [ ] nim-libbacktrace
-- [ ] nim-libp2p ( update to the unstable branch )
+- [ ] nim-libp2p
 - [ ] nim-metrics
 - [ ] nim-nat-traversal
 - [ ] nim-presto
