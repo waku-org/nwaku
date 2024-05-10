@@ -56,8 +56,8 @@ suite "Waku Lightpush - End To End":
     await allFutures(server.start(), client.start())
     await server.start()
 
-    waitFor server.mountRelay()
-    waitFor server.mountLightpush()
+    await server.mountRelay()
+    await server.mountLightpush()
     client.mountLightpushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()

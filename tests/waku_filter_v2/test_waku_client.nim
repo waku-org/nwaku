@@ -2153,8 +2153,8 @@ suite "Waku Filter - End to End":
           wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
         # When both are stopped and started
-        waitFor allFutures(wakuFilter.stop(), wakuFilterClient.stop())
-        waitFor allFutures(wakuFilter.start(), wakuFilterClient.start())
+        await allFutures(wakuFilter.stop(), wakuFilterClient.stop())
+        await allFutures(wakuFilter.start(), wakuFilterClient.start())
 
         # Then the suscription is maintained
         check:
