@@ -1,6 +1,6 @@
-import std/options
-import std/sequtils
-import chronos, chronicles, stew/results, stew/shims/net
+import std/[options, sequtils, json, strutils]
+import chronos, chronicles, stew/results, stew/shims/net, confutils, confutils/std/net
+
 import
   ../../../../waku/common/enr/builder,
   ../../../../waku/waku_enr/capabilities,
@@ -24,8 +24,7 @@ import
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
   ../../../events/[json_message_event, json_base_event],
-  ../../../alloc,
-  ../../config
+  ../../../alloc
 
 type NodeLifecycleMsgType* = enum
   CREATE_NODE
@@ -49,19 +48,22 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self)
 
 proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
-  var conf: WakuNodeConf
+  var conf = defaultWakuNodeConf().valueOr:
+    return err("Failed creating node: " & error)
+
   var errorResp: string
 
   try:
-    if not parseConfig($configJson, conf, errorResp):
-      return err(errorResp)
-  except Exception:
-    return err("exception calling parseConfig: " & getCurrentExceptionMsg())
+    let jsonNode = parseJson($configJson)
 
-  # TODO: figure out how to extract default values from the config pragma
-  conf.nat = "any"
-  conf.maxConnections = 50.uint16
-  conf.maxMessageSize = default_values.DefaultMaxWakuMessageSizeStr
+    for confField, confValue in fieldPairs(conf):
+      if jsonNode.contains(confField):
+        # Make sure string doesn't contain the leading or trailing " character
+        let formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
+        # Override conf field with the value set in the json-string
+        confValue = parseCmdArg(typeof(confValue), formattedString)
+  except Exception:
+    return err("exception parsing configuration: " & getCurrentExceptionMsg())
 
   # The Waku Network config (cluster-id=1)
   if conf.clusterId == 1:
