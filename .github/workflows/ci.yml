@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - debug-investigating-js-test-failures
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
