@@ -702,7 +702,7 @@ proc getInt(
     retInt = parseInt(str)
   except ValueError:
     return err(
-      fmt"exception in getInt, parseInt, str:[{str}] query:[{query}]: " &
+      "exception in getInt, parseInt, str: " & str & " query: " & query & " exception: " &
         getCurrentExceptionMsg()
     )
 
