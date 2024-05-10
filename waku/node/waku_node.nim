@@ -1132,7 +1132,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
     let peers =
       node.peerManager.peerStore.peers().filterIt(it.connectedness == Connected)
 
-      node.peerManager.connectedPeers(PingCodec)
     for peer in peers:
       try:
         let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
