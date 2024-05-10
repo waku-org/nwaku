@@ -358,7 +358,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let requestProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       assert queryRes.isOk(), queryRes.error
 
@@ -402,7 +402,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let successProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       check queryRes.isOk()
       let response = queryRes.get()
@@ -410,7 +410,7 @@ procSuite "WakuNode - Store":
         response.messages.mapIt(it.message.get()) == msgListA
 
     let failsProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       check queryRes.isOk()
       let response = queryRes.get()

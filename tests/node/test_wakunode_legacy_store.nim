@@ -76,16 +76,16 @@ suite "Waku Store - End to End - Sorted Archive":
     let mountArchiveResult = server.mountArchive(archiveDriver)
     assert mountArchiveResult.isOk()
 
-    waitFor server.mountLegacyStore()
+    await server.mountLegacyStore()
     client.mountLegacyStoreClient()
 
-    waitFor allFutures(server.start(), client.start())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     clientPeerId = client.peerInfo.toRemotePeerInfo().peerId
 
   asyncTeardown:
-    waitFor allFutures(client.stop(), server.stop())
+    await allFutures(client.stop(), server.stop())
 
   suite "Message Pagination":
     asyncTest "Forward Pagination":
@@ -448,9 +448,9 @@ suite "Waku Store - End to End - Sorted Archive":
             otherServer.mountArchive(otherArchiveDriverWithMessages)
         assert mountOtherArchiveResult.isOk()
 
-        waitFor otherServer.mountLegacyStore()
+        await otherServer.mountLegacyStore()
 
-        waitFor otherServer.start()
+        await otherServer.start()
         let otherServerRemotePeerInfo = otherServer.peerInfo.toRemotePeerInfo()
 
         # When making a history query to the first server node      
@@ -479,7 +479,7 @@ suite "Waku Store - End to End - Sorted Archive":
           otherQueryResponse.get().messages == archiveMessages[5 ..< 10]
 
         # Cleanup
-        waitFor otherServer.stop()
+        await otherServer.stop()
 
 suite "Waku Store - End to End - Unsorted Archive":
   var pubsubTopic {.threadvar.}: PubsubTopic
@@ -536,15 +536,15 @@ suite "Waku Store - End to End - Unsorted Archive":
 
     assert mountUnsortedArchiveResult.isOk()
 
-    waitFor server.mountLegacyStore()
+    await server.mountLegacyStore()
     client.mountLegacyStoreClient()
 
-    waitFor allFutures(server.start(), client.start())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    waitFor allFutures(client.stop(), server.stop())
+    await allFutures(client.stop(), server.stop())
 
   asyncTest "Basic (Timestamp and Digest) Sorting Validation":
     # When making a history query
@@ -691,15 +691,15 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
 
     assert mountSortedArchiveResult.isOk()
 
-    waitFor server.mountLegacyStore()
+    await server.mountLegacyStore()
     client.mountLegacyStoreClient()
 
-    waitFor allFutures(server.start(), client.start())
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    waitFor allFutures(client.stop(), server.stop())
+    await allFutures(client.stop(), server.stop())
 
   suite "Validation of Content Filtering":
     asyncTest "Basic Content Filtering":
@@ -935,8 +935,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ephemeralServer.mountArchive(ephemeralArchiveDriver)
       assert mountEphemeralArchiveResult.isOk()
 
-      waitFor ephemeralServer.mountLegacyStore()
-      waitFor ephemeralServer.start()
+      await ephemeralServer.mountLegacyStore()
+      await ephemeralServer.start()
       let ephemeralServerRemotePeerInfo = ephemeralServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with only ephemeral messages
@@ -948,7 +948,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      waitFor ephemeralServer.stop()
+      await ephemeralServer.stop()
 
     xasyncTest "Mixed messages":
       # Given an archive with both ephemeral and non-ephemeral messages
@@ -977,8 +977,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         mountMixedArchiveResult = mixedServer.mountArchive(mixedArchiveDriver)
       assert mountMixedArchiveResult.isOk()
 
-      waitFor mixedServer.mountLegacyStore()
-      waitFor mixedServer.start()
+      await mixedServer.mountLegacyStore()
+      await mixedServer.start()
       let mixedServerRemotePeerInfo = mixedServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with mixed messages
@@ -989,7 +989,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages == nonEphemeralMessages
 
       # Cleanup
-      waitFor mixedServer.stop()
+      await mixedServer.stop()
 
   suite "Edge Case Scenarios":
     asyncTest "Empty Message Store":
@@ -1004,8 +1004,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         mountEmptyArchiveResult = emptyServer.mountArchive(emptyArchiveDriver)
       assert mountEmptyArchiveResult.isOk()
 
-      waitFor emptyServer.mountLegacyStore()
-      waitFor emptyServer.start()
+      await emptyServer.mountLegacyStore()
+      await emptyServer.start()
       let emptyServerRemotePeerInfo = emptyServer.peerInfo.toRemotePeerInfo()
 
       # When making a history query to the server with an empty archive
@@ -1016,7 +1016,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         queryResponse.get().messages.len == 0
 
       # Cleanup
-      waitFor emptyServer.stop()
+      await emptyServer.stop()
 
     asyncTest "Voluminous Message Store":
       # Given a voluminous archive (1M+ messages)
@@ -1036,8 +1036,8 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           voluminousServer.mountArchive(voluminousArchiveDriverWithMessages)
       assert mountVoluminousArchiveResult.isOk()
 
-      waitFor voluminousServer.mountLegacyStore()
-      waitFor voluminousServer.start()
+      await voluminousServer.mountLegacyStore()
+      await voluminousServer.start()
       let voluminousServerRemotePeerInfo = voluminousServer.peerInfo.toRemotePeerInfo()
 
       # Given the following history query
@@ -1060,7 +1060,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
           ]
 
       # Cleanup
-      waitFor voluminousServer.stop()
+      await voluminousServer.stop()
 
     asyncTest "Large contentFilters Array":
       # Given a history query with the max contentFilters len, 10
