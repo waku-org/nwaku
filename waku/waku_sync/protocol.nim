@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options],
+  std/options,
   stew/results,
   chronicles,
   chronos,
@@ -191,7 +191,7 @@ proc initProtocolHandler(self: WakuSync) =
       #TODO send error code and desc to client
       return
 
-    if self.transferCallBack.isSome():
+    if hashes.len > 0 and self.transferCallBack.isSome():
       let callback = self.transferCallBack.get()
 
       (await callback(hashes, conn.peerId)).isOkOr:
@@ -233,6 +233,8 @@ proc new*(
   return sync
 
 proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
+  debug "periodic sync initialized", interval = $self.syncInterval
+
   while true:
     await sleepAsync(self.syncInterval)
 
@@ -242,13 +244,16 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
       debug "sync failed", error
       continue
 
-    (await callback(hashes, peer.peerId)).isOkOr:
-      debug "transfer callback failed", error
-      continue
+    if hashes.len > 0:
+      (await callback(hashes, peer.peerId)).isOkOr:
+        debug "transfer callback failed", error
+        continue
 
     debug "periodic sync done", hashSynced = hashes.len
 
 proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
+  debug "periodic prune initialized", interval = $self.syncInterval
+
   await sleepAsync(self.syncInterval)
 
   var pruneStop = getNowInNanosecondTime()
