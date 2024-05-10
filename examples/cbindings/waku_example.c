@@ -269,13 +269,13 @@ int main(int argc, char** argv) {
 
     char jsonConfig[2048];
     snprintf(jsonConfig, 2048, "{ \
-                                    \"host\": \"%s\",    \
-                                    \"port\": %d,        \
-                                    \"key\": \"%s\",     \
+                                    \"listenAddress\": \"%s\",    \
+                                    \"tcpPort\": %d,        \
+                                    \"nodekey\": \"%s\",     \
                                     \"relay\": %s,       \
                                     \"store\": %s,       \
-                                    \"storeDbUrl\": \"%s\",  \
-                                    \"storeRetentionPolicy\": \"%s\",  \
+                                    \"storeMessageDbUrl\": \"%s\",  \
+                                    \"storeMessageRetentionPolicy\": \"%s\",  \
                                     \"storeMaxNumDbConnections\": %d \
                                 }", cfgNode.host,
                                     cfgNode.port,
