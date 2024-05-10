@@ -83,6 +83,9 @@ proc getLastMoment*(partition: Partition): int64 =
   let lastTimeInSec = partition.timeRange.`end`
   return lastTimeInSec
 
+proc getPartitionStartTimeInNanosec*(partition: Partition): int64 =
+  return partition.timeRange.beginning * 1_000_000_000
+
 proc containsMoment*(partition: Partition, time: int64): bool =
   ## Returns true if the given moment is contained within the partition window,
   ## 'false' otherwise.

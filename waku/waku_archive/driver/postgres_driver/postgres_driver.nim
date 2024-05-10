@@ -701,7 +701,10 @@ proc getInt(
   try:
     retInt = parseInt(str)
   except ValueError:
-    return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
+    return err(
+      "exception in getInt, parseInt, str: " & str & " query: " & query & " exception: " &
+        getCurrentExceptionMsg()
+    )
 
   return ok(retInt)
 
@@ -726,11 +729,20 @@ method getMessagesCount*(
 method getOldestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  ## In some cases it could happen that we have
+  ## empty partitions which are older than the current stored rows.
+  ## In those cases we want to consider those older partitions as the oldest considered timestamp.
+  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition: " & $error)
+
+  let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
+
   let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
   if intRes.isErr():
-    return err("error in getOldestMessageTimestamp: " & intRes.error)
+    ## Just return the oldest partition time considering the partitions set
+    return ok(Timestamp(oldestPartitionTimeNanoSec))
 
-  return ok(Timestamp(intRes.get()))
+  return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
 
 method getNewestMessageTimestamp*(
     s: PostgresDriver
