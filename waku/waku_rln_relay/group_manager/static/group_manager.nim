@@ -1,4 +1,4 @@
-import ../group_manager_base, ../../rln, std/sequtils
+import ../group_manager_base, ../../rln, std/sequtils, ../../constants
 
 export group_manager_base
 
