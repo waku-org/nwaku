@@ -137,7 +137,7 @@ proc getAnvilPath*(): string =
   return $anvilPath
 
 # Runs Anvil daemon
-proc runAnvil*(): Process =
+proc runAnvil*(port: int = 8540, chainId: string = "1337"): Process =
   # Passed options are
   # --port                            Port to listen on.
   # --gas-limit                       Sets the block gas limit in WEI.
@@ -151,6 +151,7 @@ proc runAnvil*(): Process =
       anvilPath,
       args = [
         "--port",
+<<<<<<< HEAD
         "8540",
         "--gas-limit",
         "300000000000000",
@@ -158,6 +159,15 @@ proc runAnvil*(): Process =
         "1000000000",
         "--chain-id",
         $CHAIN_ID,
+=======
+        $port,
+        "--gas-limit",
+        "300000000000000",
+        "--balance",
+        "10000",
+        "--chain-id",
+        chainId,
+>>>>>>> d07ecb7f (wip)
       ],
       options = {poUsePath},
     )
@@ -170,7 +180,7 @@ proc runAnvil*(): Process =
       try:
         if runAnvil.outputstream.readLine(cmdline):
           anvilStartLog.add(cmdline)
-          if cmdline.contains("Listening on 127.0.0.1:8540"):
+          if cmdline.contains("Listening on 127.0.0.1:" & $port):
             break
       except Exception, CatchableError:
         break

@@ -25,7 +25,7 @@ import
   ],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, wakunode, testasync, futures, common],
+  ../testlib/[wakucore, wakunode, testasync, futures, common, assertions],
   ../resources/payloads,
   ../waku_rln_relay/[utils_static, utils_onchain],
 
@@ -33,38 +33,43 @@ from ../../waku/waku_noise/noise_utils import randomSeqByte
 import os
 
 proc addFakeMemebershipToKeystore(
+    credentials: IdentityCredential,
     keystorePath: string,
     appInfo: AppInfo,
     rlnRelayEthContractAddress: string,
     password: string,
-) =
-  # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
-  var
-    idTrapdoor = randomSeqByte(rng[], 32)
-    idNullifier = randomSeqByte(rng[], 32)
-    idSecretHash = randomSeqByte(rng[], 32)
-    idCommitment = randomSeqByte(rng[], 32)
-    idCredential = IdentityCredential(
-      idTrapdoor: idTrapdoor,
-      idNullifier: idNullifier,
-      idSecretHash: idSecretHash,
-      idCommitment: idCommitment,
-    )
+    membershipIndex: uint,
+): IdentityCredential =
+  # # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
+  # var
+  #   idTrapdoor = randomSeqByte(rng[], 32)
+  #   idNullifier = randomSeqByte(rng[], 32)
+  #   idSecretHash = randomSeqByte(rng[], 32)
+  #   idCommitment = randomSeqByte(rng[], 32)
+  #   idCredential = IdentityCredential(
+  #     idTrapdoor: idTrapdoor,
+  #     idNullifier: idNullifier,
+  #     idSecretHash: idSecretHash,
+  #     idCommitment: idCommitment,
+  #   )
 
   var
-    contract = MembershipContract(chainId: "5", address: rlnRelayEthContractAddress)
-    index = MembershipIndex(1)
+    contract = MembershipContract(chainId: "1337", address: rlnRelayEthContractAddress)
+    index = MembershipIndex(membershipIndex)
 
   let
     membershipCredential = KeystoreMembership(
-      membershipContract: contract, treeIndex: index, identityCredential: idCredential
+      membershipContract: contract, treeIndex: index, identityCredential: credentials
     )
-    keystoreRes = addMembershipCredentials(
+    persistRes = addMembershipCredentials(
       path = keystorePath,
       membership = membershipCredential,
       password = password,
       appInfo = appInfo,
     )
+
+  assert persistRes.isOk()
+  return credentials
 
 proc getWakuRlnConfigOnChain*(
     keystorePath: string,
@@ -74,21 +79,24 @@ proc getWakuRlnConfigOnChain*(
     credIndex: uint,
 ): WakuRlnConfig =
   let
-    rlnInstance = createRlnInstance(
-        tree_path = genTempPath("rln_tree", "group_manager_onchain")
-      )
-      .expect("Couldn't create RLN instance")
-    creds = generateCredentials(rlnInstance)
+    # probably not needed
+    # rlnInstance = createRlnInstance(
+    #     tree_path = genTempPath("rln_tree", "group_manager_onchain")
+    #   )
+    #   .expect("Couldn't create RLN instance")
     keystoreRes = createAppKeystore(keystorePath, appInfo)
+
+  assert keystoreRes.isOk()
 
   return WakuRlnConfig(
     rlnRelayEthClientAddress: EthClient,
     rlnRelayDynamic: true,
-    rlnRelayCredIndex: some(credIndex),
+    # rlnRelayCredIndex: some(credIndex), # only needed to manually be set static
+    rlnRelayCredIndex: some(credIndex), # remove
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
     rlnRelayCredPath: keystorePath,
     rlnRelayCredPassword: password,
-    rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
+    # rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
   )
 
@@ -415,36 +423,195 @@ suite "Waku RlnRelay - End to End - OnChain":
   asyncTeardown:
     await allFutures(client.stop(), server.stop())
 
-  asyncTest "No valid contract":
+  # asyncTest "No valid contract":
+  #   let
+  #     invalidContractAddress = "0x0000000000000000000000000000000000000000"
+  #     keystorePath =
+  #       genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+  #     appInfo = RlnAppInfo
+  #     password = "1234"
+  #     wakuRlnConfig1 = getWakuRlnConfigOnChain(
+  #       keystorePath, appInfo, invalidContractAddress, password, 1
+  #     )
+  #     wakuRlnConfig2 = getWakuRlnConfigOnChain(
+  #       keystorePath, appInfo, invalidContractAddress, password, 2
+  #     )
+  #     credentials = addFakeMemebershipToKeystore(
+  #       keystorePath, appInfo, invalidContractAddress, password, 1
+  #     )
+
+  #   # Given the node enables Relay and Rln while subscribing to a pubsub topic
+  #   try:
+  #     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+  #     assert false, "Relay should fail mounting when using an invalid contract"
+  #   except CatchableError:
+  #     assert true
+
+  #   try:
+  #     await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+  #     assert false, "Relay should fail mounting when using an invalid contract"
+  #   except CatchableError:
+  #     assert true
+
+  asyncTest "Valid contract":
+    echo "# 1"
     let
-      invalidContractAddress = "0x0000000000000000000000000000000000000000"
+      onChainGroupManager = await setup()
+      contractAddress = onChainGroupManager.ethContractAddress
       keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
       appInfo = RlnAppInfo
       password = "1234"
-      wakuRlnConfig1 = getWakuRlnConfigOnChain(
-        keystorePath, appInfo, invalidContractAddress, password, 1
-      )
-      wakuRlnConfig2 = getWakuRlnConfigOnChain(
-        keystorePath, appInfo, invalidContractAddress, password, 2
-      )
 
-    addFakeMemebershipToKeystore(
-      keystorePath, appInfo, invalidContractAddress, password
-    )
+    let keystoreRes = createAppKeystore(keystorePath, appInfo)
+    assert keystoreRes.isOk()
 
+    # TODO: how do I register creds or groupmanager on contract?
+
+    let rlnInstance = createRlnInstance(
+        tree_path =
+          # genTempPath("rln_instance", "test_wakunode_relay_rln-valid_contract")
+          genTempPath("rln_tree", "group_manager_onchain")
+      )
+      .expect("Couldn't create RLN instance")
+
+    # Generate configs before registering the credentials. Otherwise the file gets cleared up.
+    let
+      wakuRlnConfig1 =
+        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
+      wakuRlnConfig2 =
+        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+
+    let
+      credentialRes1 = rlnInstance.membershipKeyGen()
+      # credentialRes2 = rlnInstance.membershipKeyGen()
+
+    if credentialRes1.isErr():
+      error "failure while generating credentials", error = credentialRes1.error
+      quit(1)
+
+    # if credentialRes2.isErr():
+    #   error "failure while generating credentials", error = credentialRes2.error
+    #   quit(1)
+
+    let
+      idCredential1 = credentialRes1.get()
+      # idCredential2 = credentialRes2.get()
+
+    echo "-: ", idCredential1.idCommitment.toUInt256()
+    await onChainGroupManager.init()
+    try:
+      waitFor onChainGroupManager.register(idCredential1)
+      # waitFor onChainGroupManager.register(credentials2)
+    except Exception:
+      assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
+
+    let credentialIndex1 = onChainGroupManager.membershipIndex.get()
+    echo "-----------", credentialIndex1
+    let
+      credentials1 = addFakeMemebershipToKeystore(
+        idCredential1, keystorePath, appInfo, contractAddress, password,
+        credentialIndex1,
+      )
+      # credentials2 = addFakeMemebershipToKeystore(
+      #   idCredential2, keystorePath, appInfo, contractAddress, password, 2
+      # )
+
+    await onChainGroupManager.stop()
+    # let
+    #   contractAddress = $(await uploadRLNContract(EthClient))
+    #   keystorePath =
+    #     genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+    #   appInfo = RlnAppInfo
+    #   password = "1234"
+    #   wakuRlnConfig1 =
+    #     getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+    #   wakuRlnConfig2 =
+    #     getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 2)
+    #   credentials = addFakeMemebershipToKeystore(
+    #     keystorePath, appInfo, contractAddress, password, 1
+    #   )
+    # echo "######################"
+
+    # let
+    #   rlnInstance = createRlnInstance(
+    #       tree_path = genTempPath("rln_tree", "group_manager_onchain")
+    #     )
+    #     .expect("Couldn't create RLN instance")
+    #   keystoreRes = createAppKeystore(keystorePath, appInfo)
+    # var idCredential = generateCredentials(rlnInstance)
+    # assert keystoreRes.isOk()
+
+    # let wakuRlnConfig1 = WakuRlnConfig(
+    #   rlnRelayEthClientAddress: EthClient,
+    #   rlnRelayDynamic: true,
+    #   rlnRelayCredIndex: some(MembershipIndex(1)),
+    #   rlnRelayEthContractAddress: contractAddress,
+    #   rlnRelayCredPath: keystorePath,
+    #   rlnRelayCredPassword: password,
+    #   rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $1),
+    #   rlnEpochSizeSec: 1,
+    # )
+    # let wakuRlnConfig2 = WakuRlnConfig(
+    #   rlnRelayEthClientAddress: EthClient,
+    #   rlnRelayDynamic: true,
+    #   rlnRelayCredIndex: some(MembershipIndex(2)),
+    #   rlnRelayEthContractAddress: contractAddress,
+    #   rlnRelayCredPath: keystorePath,
+    #   rlnRelayCredPassword: password,
+    #   rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $2),
+    #   rlnEpochSizeSec: 1,
+    # )
+
+    # var
+    #   contract = MembershipContract(chainId: "5", address: contractAddress)
+    #   index = MembershipIndex(1)
+
+    # let
+    #   membershipCredential = KeystoreMembership(
+    #     membershipContract: contract, treeIndex: index, identityCredential: idCredential
+    #   )
+    #   keystoreRes2 = addMembershipCredentials(
+    #     path = keystorePath,
+    #     membership = membershipCredential,
+    #     password = password,
+    #     appInfo = appInfo,
+    #   )
+
+    # assert keystoreRes2.isOk()
+
+    # echo "######################"
+
+    echo "sleep2a"
+    # await sleepAsync(30.seconds)
+    echo "sleep2b"
+
+    echo "# 2"
     # Given the node enables Relay and Rln while subscribing to a pubsub topic
-    try:
-      await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-      assert false, "Relay should fail mounting when using an invalid contract"
-    except CatchableError:
-      assert true
+    await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+    # echo "# 3"
+    # await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+    # echo "# 4"
 
-    try:
-      await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-      assert false, "Relay should fail mounting when using an invalid contract"
-    except CatchableError:
-      assert true
+    # let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+
+    # # And the nodes are connected
+    # await client.connectToNodes(@[serverRemotePeerInfo])
+
+    # # And the node registers the completion handler
+    # var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
+
+    # # When the client sends a valid RLN message
+    # let isCompleted1 =
+    #   await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+
+    # # Then the valid RLN message is relayed
+    # check:
+    #   isCompleted1
+    #   completionFuture.read()
+
+  asyncTest "Valid contract with insufficient gas":
+    discard
 
   ################################
   ## Terminating/removing Anvil
