@@ -4,9 +4,8 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils],
-  stew/results,
-  stew/shims/net
+  std/[options, sequtils, net],
+  stew/results
 import
   ./external_config,
   ../common/utils/nat,

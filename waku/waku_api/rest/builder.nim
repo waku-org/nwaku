@@ -6,7 +6,6 @@ else:
 import net, tables
 import presto
 import
-  ../../waku/common/utils/nat,
   ../../waku/waku_node,
   ../../waku/discovery/waku_discv5,
   ../../waku/factory/external_config,

@@ -1,4 +1,4 @@
-import std/tables, stew/objects, stew/templateutils
+import std/tables, stew/templateutils
 
 template keepItIf*[A, B](tableParam: var Table[A, B], itPredicate: untyped) =
   bind evalTemplateParamOnce

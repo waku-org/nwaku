@@ -4,11 +4,10 @@ else:
   {.push raises: [].}
 
 import
-  std/[algorithm, sequtils, strutils, tables, times, os, deques],
+  std/[sequtils, tables, times, deques],
   chronicles,
   options,
   chronos,
-  chronos/ratelimit,
   stint,
   web3,
   json,
@@ -33,8 +32,7 @@ import
   ../common/error_handling,
   ../waku_relay, # for WakuRelayHandler
   ../waku_core,
-  ../waku_keystore,
-  ../utils/collector
+  ../waku_keystore
 
 logScope:
   topics = "waku rln_relay"

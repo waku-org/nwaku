@@ -4,9 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, re],
+  std/[options, strutils, re, net],
   stew/results,
-  stew/shims/net,
   chronicles,
   chronos,
   chronos/apps/http/httpserver

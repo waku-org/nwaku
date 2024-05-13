@@ -4,8 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, os, sequtils],
-  stew/shims/net as stewNet,
+  std/[options, strutils, os, sequtils, net],
   chronicles,
   chronos,
   metrics,

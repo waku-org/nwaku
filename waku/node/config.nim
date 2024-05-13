@@ -4,9 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils],
+  std/[options, sequtils, strutils, net],
   stew/results,
-  stew/shims/net,
   libp2p/[multiaddress, multicodec]
 import ../../waku/waku_core/peers
 import ../waku_enr
