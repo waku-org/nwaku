@@ -10,6 +10,7 @@ import
   eth/keys as eth_keys
 import
   ../../../waku/waku_node,
+  ../../../waku/waku_core/topics,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/discovery/waku_discv5,
@@ -21,6 +22,8 @@ import
 # Waku node
 
 proc defaultTestWakuNodeConf*(): WakuNodeConf =
+  ## set cluster-id == 0 to not use TWN as that needs a background blockchain (e.g. anvil)
+  ## running because RLN is mounted if TWN (cluster-id == 1) is configured.
   WakuNodeConf(
     cmd: noCommand,
     tcpPort: Port(60000),
@@ -32,7 +35,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     nat: "any",
     maxConnections: 50,
     maxMessageSize: "1024 KiB",
-    clusterId: 1.uint32,
+    clusterId: 0.uint32,
     pubsubTopics: @["/waku/2/rs/1/0"],
     relay: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
@@ -58,7 +61,6 @@ proc newTestWakuNode*(
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
     agentString = none(string),
-    clusterId: uint32 = 1.uint32,
     pubsubTopics: seq[string] = @["/waku/2/rs/1/0"],
     peerStoreCapacity = none(int),
 ): WakuNode =
@@ -72,6 +74,12 @@ proc newTestWakuNode*(
       extPort
 
   var conf = defaultTestWakuNodeConf()
+
+  let clusterId =
+    if pubsubTopics.len() > 0:
+      NsPubsubTopic.parse(pubsubTopics[0]).get().clusterId
+    else:
+      1.uint16
 
   conf.clusterId = clusterId
   conf.pubsubTopics = pubsubTopics

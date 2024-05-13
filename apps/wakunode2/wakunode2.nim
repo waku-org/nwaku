@@ -16,7 +16,6 @@ import
   ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
   ../../waku/factory/external_config,
-  ../../waku/factory/networks_config,
   ../../waku/factory/waku,
   ../../waku/node/health_monitor,
   ../../waku/node/waku_metrics,
@@ -25,31 +24,7 @@ import
 logScope:
   topics = "wakunode main"
 
-proc logConfig(conf: WakuNodeConf) =
-  info "Configuration: Enabled protocols",
-    relay = conf.relay,
-    rlnRelay = conf.rlnRelay,
-    store = conf.store,
-    filter = conf.filter,
-    lightpush = conf.lightpush,
-    peerExchange = conf.peerExchange
-
-  info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
-
-  for shard in conf.pubsubTopics:
-    info "Configuration. Shards", shard = shard
-
-  for i in conf.discv5BootstrapNodes:
-    info "Configuration. Bootstrap nodes", node = i
-
-  if conf.rlnRelay and conf.rlnRelayDynamic:
-    info "Configuration. Validation",
-      mechanism = "onchain rln",
-      contract = conf.rlnRelayEthContractAddress,
-      maxMessageSize = conf.maxMessageSize,
-      rlnEpochSizeSec = conf.rlnEpochSizeSec,
-      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
-      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
+const git_version* {.strdefine.} = "n/a"
 
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
@@ -64,15 +39,11 @@ when isMainModule:
 
   const versionString = "version / git commit hash: " & waku.git_version
 
-  let confRes = WakuNodeConf.load(version = versionString)
-  if confRes.isErr():
-    error "failure while loading the configuration", error = confRes.error
+  var conf = WakuNodeConf.load(version = versionString).valueOr:
+    error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  var conf = confRes.get()
-
   ## Logging setup
-
   # Adhere to NO_COLOR initiative: https://no-color.org/
   let color =
     try:
@@ -89,38 +60,6 @@ when isMainModule:
   of inspectRlnDb:
     doInspectRlnDb(conf)
   of noCommand:
-    case conf.clusterId
-    # cluster-id=0
-    of 0:
-      let clusterZeroConf = ClusterConf.ClusterZeroConf()
-      conf.pubsubTopics = clusterZeroConf.pubsubTopics
-      # TODO: Write some template to "merge" the configs
-    # cluster-id=1 (aka The Waku Network)
-    of 1:
-      let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-      if len(conf.shards) != 0:
-        conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-      else:
-        conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-      # Override configuration
-      conf.maxMessageSize = twnClusterConf.maxMessageSize
-      conf.clusterId = twnClusterConf.clusterId
-      conf.rlnRelay = twnClusterConf.rlnRelay
-      conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-      conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-      conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-      conf.discv5Discovery = twnClusterConf.discv5Discovery
-      conf.discv5BootstrapNodes =
-        conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-      conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-      conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    else:
-      discard
-
-    info "Running nwaku node", version = waku.git_version
-    logConfig(conf)
-
     # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
     # It will always be called from main thread anyway.
     # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety

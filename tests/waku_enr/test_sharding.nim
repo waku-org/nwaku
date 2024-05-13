@@ -9,7 +9,7 @@ import
   eth/keys as eth_keys
 
 import
-  ../../../waku/[waku_enr, discovery/waku_discv5, waku_core],
+  ../../../waku/[waku_enr, discovery/waku_discv5, waku_core, common/enr],
   ../testlib/wakucore,
   ../waku_discv5/utils,
   ./utils
@@ -114,3 +114,55 @@ suite "Sharding":
 
       ## Cleanup
       await node.stop()
+
+suite "Discovery Mechanisms for Shards":
+  test "Index List Representation":
+    # Given a valid index list and its representation
+    let
+      indicesList: seq[uint8] = @[0, 73, 2, 0, 1, 0, 10]
+      clusterId: uint16 = 73 # bitVector's clusterId
+      shardIds: seq[uint16] = @[1u16, 10u16] # bitVector's shardIds
+
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    # When building an ENR with the index list
+    var builder = EnrBuilder.init(enrPrivKey, enrSeqNum)
+    builder.addFieldPair(ShardingIndicesListEnrField, indicesList)
+    let
+      record = builder.build().tryGet()
+      relayShards = record.toTyped().tryGet().relayShardingIndicesList().get()
+
+    # Then the ENR should be correctly parsed
+    check:
+      relayShards == RelayShards.init(clusterId, shardIds).expect("Valid Shards")
+
+  test "Bit Vector Representation":
+    # Given a valid bit vector and its representation
+    let
+      bitVector: seq[byte] =
+        @[
+          0, 73, 2, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ]
+      clusterId: uint16 = 73 # bitVector's clusterId
+      shardIds: seq[uint16] = @[1u16, 10u16] # bitVector's shardIds
+
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    # When building an ENR with the bit vector
+    var builder = EnrBuilder.init(enrPrivKey, enrSeqNum)
+    builder.addFieldPair(ShardingBitVectorEnrField, bitVector)
+    let
+      record = builder.build().tryGet()
+      relayShards = record.toTyped().tryGet().relayShardingBitVector().get()
+
+    # Then the ENR should be correctly parsed
+    check:
+      relayShards == RelayShards.init(clusterId, shardIds).expect("Valid Shards")
