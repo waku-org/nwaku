@@ -764,8 +764,6 @@ proc readValue*(
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
-{.push warning[ProveInit]: off.}
-
 proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
   try:
     let conf = WakuNodeConf.load(
@@ -789,5 +787,3 @@ proc defaultWakuNodeConf*(): ConfResult[WakuNodeConf] =
     return ok(conf)
   except CatchableError:
     return err("exception in defaultWakuNodeConf: " & getCurrentExceptionMsg())
-
-{.pop.}

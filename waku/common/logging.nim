@@ -1,10 +1,6 @@
 ## This code has been copied and addapted from `status-im/nimbu-eth2` project.
 ## Link: https://github.com/status-im/nimbus-eth2/blob/c585b0a5b1ae4d55af38ad7f4715ad455e791552/beacon_chain/nimbus_binary_common.nim
-import
-  std/[strutils, typetraits],
-  chronicles,
-  chronicles/log_output,
-  chronicles/topics_registry
+import std/typetraits, chronicles, chronicles/log_output, chronicles/topics_registry
 
 export chronicles.LogLevel
 

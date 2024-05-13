@@ -3,8 +3,8 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[options, strutils]
-import chronicles, eth/net/nat, stew/results, stew/shims/net, nativesockets
+import std/[options, strutils, net]
+import chronicles, eth/net/nat, stew/results, nativesockets
 
 logScope:
   topics = "nat"

@@ -3,9 +3,9 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
+import std/net
 import
   stew/results,
-  stew/shims/net,
   chronicles,
   chronos,
   chronos/apps/http/httpserver,

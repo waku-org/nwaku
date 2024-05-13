@@ -5,7 +5,6 @@ else:
 
 import
   std/[strformat, sequtils, tables],
-  stew/byteutils,
   chronicles,
   json_serialization,
   presto/route,

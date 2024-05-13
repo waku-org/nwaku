@@ -4,13 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
   chronos,
   chronicles,
   metrics,
   stew/results,
   stew/byteutils,
-  stew/shims/net as stewNet,
   eth/keys,
   nimcrypto,
   bearssl/rand,
@@ -435,7 +434,7 @@ proc mountFilter*(
       filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer,
-) {.async, raises: [Defect, LPError].} =
+) {.async: (raises: []).} =
   ## Mounting filter v2 protocol
 
   info "mounting filter protocol"
@@ -444,9 +443,15 @@ proc mountFilter*(
   )
 
   if node.started:
-    await node.wakuFilter.start()
+    try:
+      await node.wakuFilter.start()
+    except CatchableError:
+      error "failed to start wakuFilter", error = getCurrentExceptionMsg()
 
-  node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
+  try:
+    node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))
+  except LPError:
+    error "failed to mount wakuFilter", error = getCurrentExceptionMsg()
 
 proc filterHandleMessage*(
     node: WakuNode, pubsubTopic: PubsubTopic, message: WakuMessage
@@ -457,7 +462,7 @@ proc filterHandleMessage*(
 
   await node.wakuFilter.handleMessage(pubsubTopic, message)
 
-proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
   ## Mounting both filter
   ## Giving option for application level to choose btw own push message handling or
   ## rely on node provided cache. - This only applies for v2 filter client
@@ -466,16 +471,22 @@ proc mountFilterClient*(node: WakuNode) {.async, raises: [Defect, LPError].} =
   node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
 
   if node.started:
-    await node.wakuFilterClient.start()
+    try:
+      await node.wakuFilterClient.start()
+    except CatchableError:
+      error "failed to start wakuFilterClient", error = getCurrentExceptionMsg()
 
-  node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
+  try:
+    node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))
+  except LPError:
+    error "failed to mount wakuFilterClient", error = getCurrentExceptionMsg()
 
 proc filterSubscribe*(
     node: WakuNode,
     pubsubTopic: Option[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
-): Future[FilterSubscribeResult] {.async, gcsafe, raises: [Defect, ValueError].} =
+): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Registers for messages that match a specific filter. Triggers the handler whenever a message is received.
   if node.wakuFilterClient.isNil():
     error "cannot register filter subscription to topic",
@@ -528,22 +539,29 @@ proc filterSubscribe*(
         let content = topics.mapIt($it)
         node.wakuFilterClient.subscribe(remotePeer, $pubsub, content)
 
-    let finished = await allFinished(futures)
-
     var subRes: FilterSubscribeResult = FilterSubscribeResult.ok()
-    for fut in finished:
-      let res = fut.read()
+    try:
+      let finished = await allFinished(futures)
 
-      if res.isErr():
-        error "failed filter subscription", error = res.error
-        waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
-        subRes = FilterSubscribeResult.err(res.error)
+      for fut in finished:
+        let res = fut.read()
 
-    for pubsub, topics in topicMap.pairs:
-      info "subscribed to topic", pubsubTopic = pubsub, contentTopics = topics
+        if res.isErr():
+          error "failed filter subscription", error = res.error
+          waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+          subRes = FilterSubscribeResult.err(res.error)
 
-      # Purpose is to update Waku Metadata
-      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
+      for pubsub, topics in topicMap.pairs:
+        info "subscribed to topic", pubsubTopic = pubsub, contentTopics = topics
+
+        # Purpose is to update Waku Metadata
+        node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
+    except CatchableError:
+      let errMsg = "exception in filterSubscribe: " & getCurrentExceptionMsg()
+      error "exception in filterSubscribe", error = getCurrentExceptionMsg()
+      waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
+      subRes =
+        FilterSubscribeResult.err(FilterSubscribeError.serviceUnavailable(errMsg))
 
     # return the last error or ok
     return subRes
@@ -553,7 +571,7 @@ proc filterUnsubscribe*(
     pubsubTopic: Option[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
     peer: RemotePeerInfo | string,
-): Future[FilterSubscribeResult] {.async, gcsafe, raises: [Defect, ValueError].} =
+): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
   let remotePeerRes = parsePeerInfo(peer)
@@ -600,29 +618,36 @@ proc filterUnsubscribe*(
         let content = topics.mapIt($it)
         node.wakuFilterClient.unsubscribe(remotePeer, $pubsub, content)
 
-    let finished = await allFinished(futures)
-
     var unsubRes: FilterSubscribeResult = FilterSubscribeResult.ok()
-    for fut in finished:
-      let res = fut.read()
+    try:
+      let finished = await allFinished(futures)
 
-      if res.isErr():
-        error "failed filter unsubscription", error = res.error
-        waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
-        unsubRes = FilterSubscribeResult.err(res.error)
+      for fut in finished:
+        let res = fut.read()
 
-    for pubsub, topics in topicMap.pairs:
-      info "unsubscribed from topic", pubsubTopic = pubsub, contentTopics = topics
+        if res.isErr():
+          error "failed filter unsubscription", error = res.error
+          waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+          unsubRes = FilterSubscribeResult.err(res.error)
 
-      # Purpose is to update Waku Metadata
-      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
+      for pubsub, topics in topicMap.pairs:
+        info "unsubscribed from topic", pubsubTopic = pubsub, contentTopics = topics
+
+        # Purpose is to update Waku Metadata
+        node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
+    except CatchableError:
+      let errMsg = "exception in filterUnsubscribe: " & getCurrentExceptionMsg()
+      error "exception in filterUnsubscribe", error = getCurrentExceptionMsg()
+      waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
+      unsubRes =
+        FilterSubscribeResult.err(FilterSubscribeError.serviceUnavailable(errMsg))
 
     # return the last error or ok
     return unsubRes
 
 proc filterUnsubscribeAll*(
     node: WakuNode, peer: RemotePeerInfo | string
-): Future[FilterSubscribeResult] {.async, gcsafe, raises: [Defect, ValueError].} =
+): Future[FilterSubscribeResult] {.async: (raises: []).} =
   ## Unsubscribe from a content filter V2".
 
   let remotePeerRes = parsePeerInfo(peer)
@@ -1055,15 +1080,21 @@ proc mountRlnRelay*(
 
 ## Waku peer-exchange
 
-proc mountPeerExchange*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountPeerExchange*(node: WakuNode) {.async: (raises: []).} =
   info "mounting waku peer exchange"
 
   node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager)
 
   if node.started:
-    await node.wakuPeerExchange.start()
+    try:
+      await node.wakuPeerExchange.start()
+    except CatchableError:
+      error "failed to start wakuPeerExchange", error = getCurrentExceptionMsg()
 
-  node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
+  try:
+    node.switch.mount(node.wakuPeerExchange, protocolMatcher(WakuPeerExchangeCodec))
+  except LPError:
+    error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
 
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount: uint64
@@ -1110,21 +1141,25 @@ proc setPeerExchangePeer*(
 
 ## Other protocols
 
-proc mountLibp2pPing*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   info "mounting libp2p ping protocol"
 
   try:
     node.libp2pPing = Ping.new(rng = node.rng)
   except Exception as e:
-    # This is necessary as `Ping.new*` does not have explicit `raises` requirement
-    # @TODO: remove exception handling once explicit `raises` in ping module
-    raise newException(LPError, "Failed to initialize ping protocol")
+    error "failed to create ping", error = getCurrentExceptionMsg()
 
   if node.started:
     # Node has started already. Let's start ping too.
-    await node.libp2pPing.start()
+    try:
+      await node.libp2pPing.start()
+    except CatchableError:
+      error "failed to start libp2pPing", error = getCurrentExceptionMsg()
 
-  node.switch.mount(node.libp2pPing)
+  try:
+    node.switch.mount(node.libp2pPing)
+  except LPError:
+    error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
@@ -1153,15 +1188,21 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-proc mountRendezvous*(node: WakuNode) {.async, raises: [Defect, LPError].} =
+proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
   node.rendezvous = RendezVous.new(node.switch)
 
   if node.started:
-    await node.rendezvous.start()
+    try:
+      await node.rendezvous.start()
+    except CatchableError:
+      error "failed to start rendezvous", error = getCurrentExceptionMsg()
 
-  node.switch.mount(node.rendezvous)
+  try:
+    node.switch.mount(node.rendezvous)
+  except LPError:
+    error "failed to mount rendezvous", error = getCurrentExceptionMsg()
 
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
