@@ -6,7 +6,7 @@ type Instr {.union.} = object
   bytes: array[8, byte]
   value: uint64
 
-proc mockImpl(target, replacement: pointer) =
+proc mockImpl*(target, replacement: pointer) =
   # YOLO who needs alignment
   #doAssert (cast[ByteAddress](target) and ByteAddress(0x07)) == 0
   var page = cast[pointer](cast[ByteAddress](target) and (not 0xfff))

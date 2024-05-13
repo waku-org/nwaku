@@ -47,7 +47,7 @@ randomize()
 
 const
   # TODO: Make configurable
-  DefaultDialTimeout = chronos.seconds(10)
+  DefaultDialTimeout* = chronos.seconds(10)
 
   # Max attempts before removing the peer
   MaxFailedAttempts = 5
@@ -146,6 +146,10 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
+    # Reading from the db (pm.storage) is only done on startup, hence you need to connect to all saved peers. 
+    # `remotePeerInfo.connectedness` should already be `NotConnected`, but both we reset it to `NotConnected` just in case.
+    # This reset is also done when reading from storage, I believe, to ensure the `connectedness` state is the correct one.
+    # So many resets are likely redudant, but I haven't verified whether this is the case or not.
     remotePeerInfo.connectedness = NotConnected
 
     pm.storage.insertOrReplace(remotePeerInfo)
@@ -850,7 +854,7 @@ proc prunePeerStore*(pm: PeerManager) =
       continue
 
     for shard in rs.shardIds:
-      peersByShard.mgetOrPut(shard, @[peer]).add(peer)
+      peersByShard.mgetOrPut(shard, @[]).add(peer)
 
   # prune not connected peers without shard
   for peer in shardlessPeers:
