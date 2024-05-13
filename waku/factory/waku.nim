@@ -18,6 +18,7 @@ import
   metrics,
   metrics/chronos_httpserver
 import
+  ../../waku/common/logging,
   ../../waku/waku_core,
   ../../waku/waku_node,
   ../../waku/node/waku_metrics,
@@ -41,6 +42,7 @@ import
   ../../waku/waku_rln_relay,
   ../../waku/waku_store,
   ../../waku/waku_filter_v2,
+  ../../waku/factory/networks_config,
   ../../waku/factory/node_factory,
   ../../waku/factory/internal_config,
   ../../waku/factory/external_config
@@ -65,6 +67,32 @@ type Waku* = object
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
 
+proc logConfig(conf: WakuNodeConf) =
+  info "Configuration: Enabled protocols",
+    relay = conf.relay,
+    rlnRelay = conf.rlnRelay,
+    store = conf.store,
+    filter = conf.filter,
+    lightpush = conf.lightpush,
+    peerExchange = conf.peerExchange
+
+  info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
+
+  for shard in conf.pubsubTopics:
+    info "Configuration. Shards", shard = shard
+
+  for i in conf.discv5BootstrapNodes:
+    info "Configuration. Bootstrap nodes", node = i
+
+  if conf.rlnRelay and conf.rlnRelayDynamic:
+    info "Configuration. Validation",
+      mechanism = "onchain rln",
+      contract = conf.rlnRelayEthContractAddress,
+      maxMessageSize = conf.maxMessageSize,
+      rlnEpochSizeSec = conf.rlnEpochSizeSec,
+      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
+      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
+
 func version*(waku: Waku): string =
   waku.version
 
@@ -73,6 +101,43 @@ func version*(waku: Waku): string =
 proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   var confCopy = conf
   let rng = crypto.newRng()
+
+  logging.setupLogLevel(confCopy.logLevel)
+
+  case confCopy.clusterId
+
+  # cluster-id=0
+  of 0:
+    let clusterZeroConf = ClusterConf.ClusterZeroConf()
+    confCopy.pubsubTopics = clusterZeroConf.pubsubTopics
+    # TODO: Write some template to "merge" the configs
+
+  # cluster-id=1 (aka The Waku Network)
+  of 1:
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    if len(confCopy.shards) != 0:
+      confCopy.pubsubTopics =
+        confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+    else:
+      confCopy.pubsubTopics = twnClusterConf.pubsubTopics
+
+    # Override configuration
+    confCopy.maxMessageSize = twnClusterConf.maxMessageSize
+    confCopy.clusterId = twnClusterConf.clusterId
+    confCopy.rlnRelay = twnClusterConf.rlnRelay
+    confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    confCopy.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+    confCopy.discv5Discovery = twnClusterConf.discv5Discovery
+    confCopy.discv5BootstrapNodes =
+      confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+    confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+  else:
+    discard
+
+  info "Running nwaku node", version = git_version
+  logConfig(confCopy)
 
   if not confCopy.nodekey.isSome():
     let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
