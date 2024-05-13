@@ -67,7 +67,7 @@ jobs:
         if: ${{ steps.secrets.outcome == 'success' }}
         run: |
 
-          make RLN_V${{matrix.rln_version}}=true -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
+          make RLN_V${{matrix.rln_version}}=true -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="--colors:off -d:chronicles_colors:none -d:disableMarchNative -d:postgres" wakunode2
 
           SHORT_REF=$(git rev-parse --short HEAD)
 
