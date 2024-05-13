@@ -223,6 +223,7 @@ proc mountWakuSync*(
             none(ArchiveCursor)
 
         let query = ArchiveQuery(
+          includeData: true,
           cursor: archiveCursor,
           startTime: some(pruneStart),
           endTime: some(pruneStop),

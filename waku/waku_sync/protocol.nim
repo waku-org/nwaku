@@ -37,8 +37,8 @@ type WakuSync* = ref object of LPProtocol
   transferCallBack: Option[TransferCallback] # Callback for message transfer.
 
   pruneCallBack: Option[PruneCallBack] # Callback with the result of the archive query
-  pruneStart: Timestamp # Last pruning start timestamp 
-  pruneInterval: Duration # Time between each pruning attempt
+  pruneStart: Timestamp # Last pruning start timestamp
+  pruneOffset: timer.Duration # Offset to prune a bit more than necessary. 
 
   periodicSyncFut: Future[void]
   periodicPruneFut: Future[void]
@@ -223,6 +223,7 @@ proc new*(
     syncInterval: syncInterval,
     relayJitter: relayJitter,
     pruneCallBack: pruneCB,
+    pruneOffset: syncInterval div 2,
     transferCallBack: transferCB,
   )
 
@@ -262,13 +263,17 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
     await sleepAsync(self.syncInterval)
 
     debug "periodic prune started",
-      startTime = self.pruneStart, endTime = pruneStop, storageSize = self.storage.len
+      startTime = self.pruneStart - self.pruneOffset.nanos,
+      endTime = pruneStop,
+      storageSize = self.storage.len
 
     var (elements, cursor) =
       (newSeq[(WakuMessageHash, Timestamp)](0), none(WakuMessageHash))
 
     while true:
-      (elements, cursor) = (await callback(self.pruneStart, pruneStop, cursor)).valueOr:
+      (elements, cursor) = (
+        await callback(self.pruneStart - self.pruneOffset.nanos, pruneStop, cursor)
+      ).valueOr:
         debug "pruning callback failed", error
         break
 

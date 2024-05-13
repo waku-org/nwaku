@@ -9,12 +9,9 @@ import
   ../waku_archive/archive_utils,
   ../testlib/[wakucore, wakunode, testasync]
 
-suite "Waku Sync - End to End":
+suite "Store Sync - End to End":
   var server {.threadvar.}: WakuNode
   var client {.threadvar.}: WakuNode
-
-  var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
-  var clientRemotePeerInfo {.threadvar.}: RemotePeerInfo
 
   asyncSetup:
     let timeOrigin = now()
@@ -79,8 +76,8 @@ suite "Waku Sync - End to End":
 
     await sleepAsync(chronos.milliseconds(500))
 
-    serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
-    clientRemotePeerInfo = client.peerInfo.toRemotePeerInfo()
+    let serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
+    let clientRemotePeerInfo = client.peerInfo.toRemotePeerInfo()
 
     client.peerManager.addServicePeer(serverRemotePeerInfo, WakuSyncCodec)
     server.peerManager.addServicePeer(clientRemotePeerInfo, WakuSyncCodec)
@@ -91,40 +88,133 @@ suite "Waku Sync - End to End":
   asyncTeardown:
     await allFutures(client.stop(), server.stop())
 
-  suite "Store Syncronization":
-    asyncTest "no message set differences":
-      check:
-        client.wakuSync.storageSize() == server.wakuSync.storageSize()
+  asyncTest "no message set differences":
+    check:
+      client.wakuSync.storageSize() == server.wakuSync.storageSize()
 
-      await sleepAsync(1.seconds)
+    await sleepAsync(1.seconds)
 
-      check:
-        client.wakuSync.storageSize() == server.wakuSync.storageSize()
+    check:
+      client.wakuSync.storageSize() == server.wakuSync.storageSize()
 
-    asyncTest "client message set differences":
-      let msg = fakeWakuMessage(@[byte 10])
+  asyncTest "client message set differences":
+    let msg = fakeWakuMessage(@[byte 10])
 
+    client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+    await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+    check:
+      client.wakuSync.storageSize() != server.wakuSync.storageSize()
+
+    await sleepAsync(1.seconds)
+
+    check:
+      client.wakuSync.storageSize() == server.wakuSync.storageSize()
+
+  asyncTest "server message set differences":
+    let msg = fakeWakuMessage(@[byte 10])
+
+    server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+    await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+    check:
+      client.wakuSync.storageSize() != server.wakuSync.storageSize()
+
+    await sleepAsync(1.seconds)
+
+    check:
+      client.wakuSync.storageSize() == server.wakuSync.storageSize()
+
+suite "Waku Sync - Pruning":
+  var server {.threadvar.}: WakuNode
+  var client {.threadvar.}: WakuNode
+
+  asyncSetup:
+    let
+      serverKey = generateSecp256k1Key()
+      clientKey = generateSecp256k1Key()
+
+    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    let serverArchiveDriver = newSqliteArchiveDriver()
+    let clientArchiveDriver = newSqliteArchiveDriver()
+
+    let mountServerArchiveRes = server.mountArchive(serverArchiveDriver)
+    let mountClientArchiveRes = client.mountArchive(clientArchiveDriver)
+
+    assert mountServerArchiveRes.isOk()
+    assert mountClientArchiveRes.isOk()
+
+    await server.mountStore()
+    await client.mountStore()
+
+    client.mountStoreClient()
+    server.mountStoreClient()
+
+    let mountServerSync = server.mountWakuSync(
+      maxFrameSize = 0,
+      relayJitter = 0.seconds,
+      syncInterval = 1.hours,
+      enablePruning = false,
+    )
+    let mountClientSync = client.mountWakuSync(
+      maxFrameSize = 0,
+      syncInterval = 1.seconds,
+      relayJitter = 0.seconds,
+      enablePruning = true,
+    )
+
+    assert mountServerSync.isOk()
+    assert mountClientSync.isOk()
+
+    await allFutures(server.start(), client.start())
+
+    await sleepAsync(1.seconds)
+
+  asyncTeardown:
+    await allFutures(client.stop(), server.stop())
+
+  asyncTest "pruning":
+    for _ in 0 ..< 10:
+      let msg = fakeWakuMessage()
       client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
       await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
-
-      check:
-        client.wakuSync.storageSize() != server.wakuSync.storageSize()
-
-      await sleepAsync(1.seconds)
-
-      check:
-        client.wakuSync.storageSize() == server.wakuSync.storageSize()
-
-    asyncTest "server message set differences":
-      let msg = fakeWakuMessage(@[byte 10])
 
       server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
       await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
-      check:
-        client.wakuSync.storageSize() != server.wakuSync.storageSize()
+    await sleepAsync(1.seconds)
 
-      await sleepAsync(1.seconds)
+    for _ in 0 ..< 10:
+      let msg = fakeWakuMessage()
+      client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
-      check:
-        client.wakuSync.storageSize() == server.wakuSync.storageSize()
+      server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+    await sleepAsync(1.seconds)
+
+    for _ in 0 ..< 10:
+      let msg = fakeWakuMessage()
+      client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+      server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+    await sleepAsync(1.seconds)
+
+    for _ in 0 ..< 10:
+      let msg = fakeWakuMessage()
+      client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+      server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
+
+    await sleepAsync(1.seconds)
+
+    check:
+      client.wakuSync.storageSize() == 10
