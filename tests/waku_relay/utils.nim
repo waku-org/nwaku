@@ -104,11 +104,20 @@ proc sendRlnMessageWithInvalidProof*(
 ): Future[bool] {.async.} =
   let
     extraBytes: seq[byte] = @[byte(1), 2, 3]
-    rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
-      concat(payload, extraBytes),
-        # we add extra bytes to invalidate proof verification against original payload
-      client.wakuRlnRelay.getCurrentEpoch(),
-    )
+    when defined(rln_v2):
+      rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
+        concat(payload, extraBytes),
+          # we add extra bytes to invalidate proof verification against original payload
+        client.wakuRlnRelay.getCurrentEpoch(),
+        messageId = MessageId(0)
+      )      
+    else:
+      rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
+        concat(payload, extraBytes),
+          # we add extra bytes to invalidate proof verification against original payload
+        client.wakuRlnRelay.getCurrentEpoch(),
+      )
+
     rateLimitProof = rateLimitProofRes.get().encode().buffer
     message =
       WakuMessage(payload: @payload, contentTopic: contentTopic, proof: rateLimitProof)
