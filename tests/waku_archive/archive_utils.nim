@@ -13,8 +13,8 @@ import
   ],
   ../testlib/[wakucore]
 
-proc newSqliteDatabase*(): SqliteDatabase =
-  SqliteDatabase.new(":memory:").tryGet()
+proc newSqliteDatabase*(path: Option[string] = string.none()): SqliteDatabase =
+  SqliteDatabase.new(path.get(":memory:")).tryGet()
 
 proc newSqliteArchiveDriver*(): ArchiveDriver =
   let database = newSqliteDatabase()

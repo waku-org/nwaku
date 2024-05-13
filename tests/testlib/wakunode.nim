@@ -10,6 +10,7 @@ import
   eth/keys as eth_keys
 import
   ../../../waku/waku_node,
+  ../../../waku/waku_core/topics,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_enr,
   ../../../waku/discovery/waku_discv5,
@@ -58,7 +59,6 @@ proc newTestWakuNode*(
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
     agentString = none(string),
-    clusterId: uint32 = 1.uint32,
     pubsubTopics: seq[string] = @["/waku/2/rs/1/0"],
     peerStoreCapacity = none(int),
 ): WakuNode =
@@ -72,6 +72,12 @@ proc newTestWakuNode*(
       extPort
 
   var conf = defaultTestWakuNodeConf()
+
+  let clusterId =
+    if pubsubTopics.len() > 0:
+      NsPubsubTopic.parse(pubsubTopics[0]).get().clusterId
+    else:
+      1.uint16
 
   conf.clusterId = clusterId
   conf.pubsubTopics = pubsubTopics
