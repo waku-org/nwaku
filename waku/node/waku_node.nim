@@ -1136,6 +1136,7 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
       try:
         let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
         let pingDelay = await node.libp2pPing.ping(conn)
+        await conn.close()
       except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
