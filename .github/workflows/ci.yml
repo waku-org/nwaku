@@ -124,7 +124,7 @@ jobs:
   build-docker-image:
     needs: changes
     if: ${{ needs.changes.outputs.v2 == 'true' || needs.changes.outputs.common == 'true' || needs.changes.outputs.docker == 'true' }}
-    uses: waku-org/nwaku/.github/workflows/container-image.yml@master
+    uses: waku-org/nwaku/.github/workflows/container-image.yml@debug-investigating-js-test-failures
     secrets: inherit
 
   js-waku-node:
