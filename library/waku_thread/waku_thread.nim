@@ -26,6 +26,9 @@ type Context* = object
   eventCallback*: pointer
   eventUserdata*: pointer
 
+const git_version* {.strdefine.} = "n/a"
+const versionString = "version / git commit hash: " & waku.git_version
+
 # To control when the thread is running
 var running: Atomic[bool]
 
@@ -47,6 +50,7 @@ proc waku_init() =
 proc run(ctx: ptr Context) {.thread.} =
   ## This is the worker thread body. This thread runs the Waku node
   ## and attends library user requests (stop, connect_to, etc.)
+  info "Starting Waku", version = versionString
 
   var waku: Waku
 
