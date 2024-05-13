@@ -176,23 +176,29 @@ suite "Waku RlnRelay - End to End":
 
       doAssert(
         client.wakuRlnRelay
-        .appendRLNProof(message1b, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 0)
-        .isOk()
-      )
-      doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(message1kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 1)
-        .isOk()
-      )
-      doAssert(
-        client.wakuRlnRelay
-        .appendRLNProof(message150kib, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 2)
+        .appendRLNProof(
+          message1b, epoch + float64(client.wakuRlnRelay.rlnEpochSizeSec * 0)
+        )
         .isOk()
       )
       doAssert(
         client.wakuRlnRelay
         .appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
+          message1kib, epoch + float64(client.wakuRlnRelay.rlnEpochSizeSec * 1)
+        )
+        .isOk()
+      )
+      doAssert(
+        client.wakuRlnRelay
+        .appendRLNProof(
+          message150kib, epoch + float64(client.wakuRlnRelay.rlnEpochSizeSec * 2)
+        )
+        .isOk()
+      )
+      doAssert(
+        client.wakuRlnRelay
+        .appendRLNProof(
+          message151kibPlus, epoch + float64(client.wakuRlnRelay.rlnEpochSizeSec * 3)
         )
         .isOk()
       )
@@ -256,9 +262,11 @@ suite "Waku RlnRelay - End to End":
         WakuMessage(payload: @payload150kibPlus, contentTopic: contentTopic)
 
       doAssert(
-        client.wakuRlnRelay.appendRLNProof(
-          message151kibPlus, epoch + client.wakuRlnRelay.rlnEpochSizeSec * 3
+        client.wakuRlnRelay
+        .appendRLNProof(
+          message151kibPlus, epoch + float64(client.wakuRlnRelay.rlnEpochSizeSec * 3)
         )
+        .isOk()
       )
 
       # When sending the 150KiB plus message
