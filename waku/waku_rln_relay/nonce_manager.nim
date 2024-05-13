@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronos, stew/results, times
+import chronos, chronicles, stew/results, times
 import ./constants
 
 export chronos, times, results, constants
@@ -48,8 +48,9 @@ proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
   n.nextNonce = retNonce + 1
   n.lastNonceTime = now
 
-  # This is commented out only for testing purposes
-  # if retNonce >= n.nonceLimit:
+  # This is modified for testing purposes, once the limit is reached the nonce value is reset to 0
+  if retNonce >= n.nonceLimit:
+    retNonce = 0
   #   return err(
   #     NonceManagerError(
   #       kind: NonceLimitReached,
