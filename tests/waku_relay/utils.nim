@@ -95,33 +95,51 @@ proc sendRlnMessage*(
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
 
-proc sendRlnMessageWithInvalidProof*(
-    client: WakuNode,
-    pubsubTopic: string,
-    contentTopic: string,
-    completionFuture: Future[bool],
-    payload: seq[byte] = "Hello".toBytes(),
-): Future[bool] {.async.} =
-  let
-    extraBytes: seq[byte] = @[byte(1), 2, 3]
-    when defined(rln_v2):
+when defined(rln_v2):
+  proc sendRlnMessageWithInvalidProof*(
+      client: WakuNode,
+      pubsubTopic: string,
+      contentTopic: string,
+      completionFuture: Future[bool],
+      payload: seq[byte] = "Hello".toBytes(),
+  ): Future[bool] {.async.} =
+    let
+      extraBytes: seq[byte] = @[byte(1), 2, 3]
       rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
         concat(payload, extraBytes),
           # we add extra bytes to invalidate proof verification against original payload
         client.wakuRlnRelay.getCurrentEpoch(),
-        messageId = MessageId(0)
-      )      
-    else:
+        messageId = MessageId(0),
+      )
+      rateLimitProof = rateLimitProofRes.get().encode().buffer
+      message = WakuMessage(
+        payload: @payload, contentTopic: contentTopic, proof: rateLimitProof
+      )
+
+    discard await client.publish(some(pubsubTopic), message)
+    let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
+    return isCompleted
+
+else:
+  proc sendRlnMessageWithInvalidProof*(
+      client: WakuNode,
+      pubsubTopic: string,
+      contentTopic: string,
+      completionFuture: Future[bool],
+      payload: seq[byte] = "Hello".toBytes(),
+  ): Future[bool] {.async.} =
+    let
+      extraBytes: seq[byte] = @[byte(1), 2, 3]
       rateLimitProofRes = client.wakuRlnRelay.groupManager.generateProof(
         concat(payload, extraBytes),
           # we add extra bytes to invalidate proof verification against original payload
         client.wakuRlnRelay.getCurrentEpoch(),
       )
+      rateLimitProof = rateLimitProofRes.get().encode().buffer
+      message = WakuMessage(
+        payload: @payload, contentTopic: contentTopic, proof: rateLimitProof
+      )
 
-    rateLimitProof = rateLimitProofRes.get().encode().buffer
-    message =
-      WakuMessage(payload: @payload, contentTopic: contentTopic, proof: rateLimitProof)
-
-  discard await client.publish(some(pubsubTopic), message)
-  let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
-  return isCompleted
+    discard await client.publish(some(pubsubTopic), message)
+    let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
+    return isCompleted
