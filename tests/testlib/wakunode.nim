@@ -21,6 +21,8 @@ import
 # Waku node
 
 proc defaultTestWakuNodeConf*(): WakuNodeConf =
+  ## set cluster-id == 0 to not use TWN as that needs a background blockchain (e.g. anvil)
+  ## running because RLN is mounted if TWN (cluster-id == 1) is configured.
   WakuNodeConf(
     cmd: noCommand,
     tcpPort: Port(60000),
@@ -33,8 +35,6 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     maxConnections: 50,
     maxMessageSize: "1024 KiB",
     clusterId: 0.uint32,
-      ## set cluster-id == 0 to not use TWN as that needs a background blockchain (e.g. anvil)
-      ## running because RLN is mounted if TWN (cluster-id == 1) is configured.
     pubsubTopics: @["/waku/2/rs/1/0"],
     relay: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
