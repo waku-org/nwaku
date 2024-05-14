@@ -103,7 +103,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     tuplesToWakuPeers(peers, pxPeers)
 
     if not node.wakuSync.isNil():
-      # Map WakuStore peers to WakuPeers and add to return list
+      # Map WakuSync peers to WakuPeers and add to return list
       let syncPeers = node.peerManager.peerStore.peers(WakuSyncCodec).mapIt(
           (
             multiaddr: constructMultiaddrStr(it),

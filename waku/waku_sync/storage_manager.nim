@@ -1,4 +1,5 @@
-when (NimMajor, NimMinor) < (1, 4):
+# Unused yet.
+#[ when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:
   {.push raises: [].}
@@ -72,3 +73,4 @@ proc retrieveStorage*(
     self.storages[dateTime] = storage
 
   return ok(some(storage))
+ ]#
