@@ -479,12 +479,7 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     # TODO: how do I register creds or groupmanager on contract?
 
-    let rlnInstance = createRlnInstance(
-        tree_path =
-          # genTempPath("rln_instance", "test_wakunode_relay_rln-valid_contract")
-          genTempPath("rln_tree", "group_manager_onchain")
-      )
-      .expect("Couldn't create RLN instance")
+    let rlnInstance = onChainGroupManager.rlnInstance
 
     # Generate configs before registering the credentials. Otherwise the file gets cleared up.
     let
@@ -511,9 +506,11 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     echo "-: ", idCredential1.idCommitment.toUInt256()
     discard await onChainGroupManager.init()
+    echo "#123"
     try:
       waitFor onChainGroupManager.register(idCredential1)
       waitFor onChainGroupManager.register(idCredential2)
+      echo "#456"
     except Exception:
       assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
 
@@ -650,17 +647,17 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     echo "# 5"
     try:
-      client.wakuRlnRelay.groupManager.onRegister(
-        callback1 # generateCallback(@[future1], @[credentials1])
-      )
       server.wakuRlnRelay.groupManager.onRegister(
-        callback2 # generateCallback(@[future2], @[credentials2])
+        callback1 # generateCallback(@[future2], @[credentials2])
+      )
+      client.wakuRlnRelay.groupManager.onRegister(
+        callback2 # generateCallback(@[future1], @[credentials1])
       )
       echo "# 5a"
-      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
-        raiseAssert $error
-        echo "# 5b"
       (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+        raiseAssert $error
+      echo "# 5b"
+      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
 
       echo "# 6"
@@ -673,16 +670,10 @@ suite "Waku RlnRelay - End to End - OnChain":
       #     @[credentials2], UserMessageLimit(1)
       #   )
       # else:
-      #   await client.wakuRlnRelay.groupManager.register(credentials1)
+      # await client.wakuRlnRelay.groupManager.register(credentials1)
       #   await server.wakuRlnRelay.groupManager.register(credentials2)
-      client.wakuRlnRelay.groupManager.rlnInstance = rlnInstance
-      client.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
-      client.wakuRlnRelay.groupManager.membershipIndex =
-        some(MembershipIndex(credentialIndex1))
-      server.wakuRlnRelay.groupManager.rlnInstance = rlnInstance
-      server.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
-      server.wakuRlnRelay.groupManager.membershipIndex =
-        some(MembershipIndex(credentialIndex1))
+      server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
+      client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
       echo "# 7"
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
