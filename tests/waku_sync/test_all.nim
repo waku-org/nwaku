@@ -1,4 +1,3 @@
 {.used.}
 
-import 
-  ./test_protocol
+import ./test_protocol, ./test_bindings
