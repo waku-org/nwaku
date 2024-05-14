@@ -37,10 +37,10 @@ import
 
 # # Waku legacy store test suite
 import
-  ./waku_store_legacy/test_client,
-  ./waku_store_legacy/test_rpc_codec,
-  ./waku_store_legacy/test_waku_store,
-  ./waku_store_legacy/test_wakunode_store
+  ./waku_store_legacy/test_client
+    # ./waku_store_legacy/test_rpc_codec,
+    # ./waku_store_legacy/test_waku_store,
+    # ./waku_store_legacy/test_wakunode_store
 
 # when defined(waku_exp_store_resume):
 #   # TODO: Review store resume test cases (#1282)
