@@ -37,7 +37,8 @@ template nanosecondTime*(collector: Gauge, body: untyped) =
   else:
     body
 
-proc timestampInSeconds*(time: Timestamp): Timestamp =
+# Unused yet
+#[ proc timestampInSeconds*(time: Timestamp): Timestamp =
   let timeStr = $time
   var timestamp: Timestamp = time
 
@@ -47,4 +48,4 @@ proc timestampInSeconds*(time: Timestamp): Timestamp =
     timestamp = Timestamp(time div Timestamp(1_000_000))
   elif timeStr.len() > 10:
     timestamp = Timestamp(time div Timestamp(1000))
-  return timestamp
+  return timestamp ]#

@@ -24,42 +24,42 @@ type ServerSync* = object
 
 type Reconciled*[T] = object
   sync: T
-  negentropy: NegentropySubRange
+  negentropy: Negentropy
   connection: Connection
   frameSize: int
   payload*: SyncPayload
 
 type Sent*[T] = object
   sync: T
-  negentropy: NegentropySubRange
+  negentropy: Negentropy
   connection: Connection
   frameSize: int
 
 type Received*[T] = object
   sync: T
-  negentropy: NegentropySubRange
+  negentropy: Negentropy
   connection: Connection
   frameSize: int
   payload*: SyncPayload
 
 type Completed*[T] = object
   sync: T
-  negentropy: NegentropySubRange
+  negentropy: Negentropy
   connection: Connection
   haveHashes: seq[WakuMessageHash]
 
 ### State Transition ###
 
 proc clientInitialize*(
-    store: Storage,
+    store: NegentropyStorage,
     conn: Connection,
-    frameSize = DefaultFrameSize,
+    frameSize = DefaultMaxFrameSize,
     start = int64.low,
     `end` = int64.high,
 ): Result[Reconciled[ClientSync], string] =
-  let subrange = ?SubRange.new(store, uint64(start), uint64(`end`))
+  let subrange = ?NegentropySubRangeStorage.new(store, uint64(start), uint64(`end`))
 
-  let negentropy = ?NegentropySubrange.new(subrange, frameSize)
+  let negentropy = ?Negentropy.new(subrange, frameSize)
 
   let negentropyPayload = ?negentropy.initiate()
 
@@ -78,15 +78,15 @@ proc clientInitialize*(
   )
 
 proc serverInitialize*(
-    store: Storage,
+    store: NegentropyStorage,
     conn: Connection,
-    frameSize = DefaultFrameSize,
+    frameSize = DefaultMaxFrameSize,
     start = int64.low,
     `end` = int64.high,
 ): Result[Sent[ServerSync], string] =
-  let subrange = ?SubRange.new(store, uint64(start), uint64(`end`))
+  let subrange = ?NegentropySubRangeStorage.new(store, uint64(start), uint64(`end`))
 
-  let negentropy = ?NegentropySubrange.new(subrange, frameSize)
+  let negentropy = ?Negentropy.new(subrange, frameSize)
 
   let sync = ServerSync()
 

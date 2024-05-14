@@ -275,6 +275,16 @@ proc setupProtocols(
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
+  if conf.storeSync:
+    (
+      await node.mountWakuSync(
+        int(conf.storeSyncMaxPayloadSize),
+        conf.storeSyncInterval.seconds(),
+        conf.storeSyncRelayJitter.seconds(),
+      )
+    ).isOkOr:
+      return err("failed to mount waku sync protocol: " & $error)
+
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:

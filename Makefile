@@ -37,10 +37,10 @@ endif
 ##########
 ## Main ##
 ##########
-.PHONY: all test update clean negentropy
+.PHONY: all test update clean
 
 # default target, because it's the first one that doesn't start with '.'
-all: | negentropy wakunode2 example2 chat2 chat2bridge libwaku
+all: | wakunode2 example2 chat2 chat2bridge libwaku
 
 test: | testcommon testwaku
 
@@ -51,7 +51,7 @@ update: | update-common
 	rm -rf waku.nims && \
 		$(MAKE) waku.nims $(HANDLE_OUTPUT)
 
-clean: | negentropy-clean
+clean:
 	rm -rf build
 
 # must be included after the default target
@@ -84,8 +84,6 @@ endif
 endif
 ## end of Heaptracker options
 
-## Pass libnegentropy to linker.
-NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
 
 ##################
 ## Dependencies ##
@@ -412,6 +410,19 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+
+######################
+###   NEGENTROPY   ###
+######################
+.PHONY: negentropy
+
+## Pass libnegentropy to linker.
+NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
+
+all: | negentropy
+
+clean: | negentropy-clean
+
 negentropy:
 	$(MAKE) -C vendor/negentropy/cpp && \
 		cp vendor/negentropy/cpp/libnegentropy.so ./
