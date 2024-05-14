@@ -30,6 +30,7 @@ suite "Store Client":
   var clientPeerInfo {.threadvar.}: RemotePeerInfo
 
   asyncSetup:
+    info "ivan"
     message1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
     message2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
     message3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
@@ -76,9 +77,12 @@ suite "Store Client":
 
     serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
     clientPeerInfo = clientSwitch.peerInfo.toRemotePeerInfo()
+    info "ivan"
 
   asyncTeardown:
+    info "ivan"
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
+    info "ivan"
 
   suite "StoreQueryRequest Creation and Execution":
     asyncTest "Valid Queries":
@@ -96,6 +100,7 @@ suite "Store Client":
       # it directly depends on the handler implementation, to achieve
       # proper coverage we'd need an example implementation.
 
+      info "ivan"
       # Given some invalid queries
       let
         invalidQuery1 = StoreQueryRequest(
@@ -130,32 +135,43 @@ suite "Store Client":
           startTime: some(0.Timestamp),
           endTime: some(-1.Timestamp),
         )
+      info "ivan"
 
       # When the query is sent to the server
       let queryResponse1 = await client.query(invalidQuery1, peer = serverPeerInfo)
+      info "ivan"
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+      info "ivan"
       check:
         handlerFuture.read() == invalidQuery1
         queryResponse1.get().messages == messageSeq
+      info "ivan"
 
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
+      info "ivan"
       let queryResponse2 = await client.query(invalidQuery2, peer = serverPeerInfo)
+      info "ivan"
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+      info "ivan"
       check:
         handlerFuture.read() == invalidQuery2
         queryResponse2.get().messages == messageSeq
+      info "ivan"
 
       # When the query is sent to the server
       handlerFuture = newHistoryFuture()
+      info "ivan"
       let queryResponse3 = await client.query(invalidQuery3, peer = serverPeerInfo)
+      info "ivan"
 
       # Then the query is not processed
       assert await handlerFuture.withTimeout(FUTURE_TIMEOUT)
+      info "ivan"
       check:
         handlerFuture.read() == invalidQuery3
         queryResponse3.get().messages == messageSeq
@@ -192,6 +208,7 @@ suite "Store Client":
 
   suite "Verification of StoreQueryResponse Payload":
     asyncTest "Positive Responses":
+      info "ivan"
       # When a valid query is sent to the server
       let queryResponse = await client.query(storeQuery, peer = serverPeerInfo)
 
@@ -199,18 +216,23 @@ suite "Store Client":
       check:
         await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         type(queryResponse.get()) is StoreQueryResponse
+      info "ivan"
 
     asyncTest "Negative Responses - PeerDialFailure":
+      info "ivan"
       # Given a stopped peer
       let
         otherServerSwitch = newTestSwitch()
         otherServerPeerInfo = otherServerSwitch.peerInfo.toRemotePeerInfo()
+      info "ivan"
 
       # When a query is sent to the stopped peer
       let queryResponse = await client.query(storeQuery, peer = otherServerPeerInfo)
+      info "ivan"
 
       # Then the query is not processed
       check:
         not await handlerFuture.withTimeout(FUTURE_TIMEOUT)
         queryResponse.isErr()
         queryResponse.error.kind == ErrorCode.PEER_DIAL_FAILURE
+      info "ivan"
