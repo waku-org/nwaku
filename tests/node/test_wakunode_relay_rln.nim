@@ -88,15 +88,26 @@ proc getWakuRlnConfigOnChain*(
 
   assert keystoreRes.isOk()
 
+  # return WakuRlnConfig(
+  #   rlnRelayEthClientAddress: EthClient,
+  #   rlnRelayDynamic: true,
+  #   # rlnRelayCredIndex: some(credIndex), # only needed to manually be set static
+  #   rlnRelayCredIndex: some(credIndex), # remove
+  #   rlnRelayEthContractAddress: rlnRelayEthContractAddress,
+  #   rlnRelayCredPath: keystorePath,
+  #   rlnRelayCredPassword: password,
+  #   # rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
+  #   rlnEpochSizeSec: 1,
+  # )
+
   return WakuRlnConfig(
-    rlnRelayEthClientAddress: EthClient,
     rlnRelayDynamic: true,
-    # rlnRelayCredIndex: some(credIndex), # only needed to manually be set static
-    rlnRelayCredIndex: some(credIndex), # remove
+    rlnRelayCredIndex: some(credIndex),
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
-    rlnRelayCredPath: keystorePath,
-    rlnRelayCredPassword: password,
-    # rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
+    rlnRelayEthClientAddress: EthClient,
+    # rlnRelayCredPath: keystorePath,
+    # rlnRelayCredPassword: password,
+    rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
   )
 
@@ -484,38 +495,41 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     let
       credentialRes1 = rlnInstance.membershipKeyGen()
-      # credentialRes2 = rlnInstance.membershipKeyGen()
+      credentialRes2 = rlnInstance.membershipKeyGen()
 
     if credentialRes1.isErr():
       error "failure while generating credentials", error = credentialRes1.error
       quit(1)
 
-    # if credentialRes2.isErr():
-    #   error "failure while generating credentials", error = credentialRes2.error
-    #   quit(1)
+    if credentialRes2.isErr():
+      error "failure while generating credentials", error = credentialRes2.error
+      quit(1)
 
     let
       idCredential1 = credentialRes1.get()
-      # idCredential2 = credentialRes2.get()
+      idCredential2 = credentialRes2.get()
 
     echo "-: ", idCredential1.idCommitment.toUInt256()
-    await onChainGroupManager.init()
+    discard await onChainGroupManager.init()
     try:
       waitFor onChainGroupManager.register(idCredential1)
-      # waitFor onChainGroupManager.register(credentials2)
+      waitFor onChainGroupManager.register(idCredential2)
     except Exception:
       assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
 
-    let credentialIndex1 = onChainGroupManager.membershipIndex.get()
+    let
+      credentialIndex1 = onChainGroupManager.membershipIndex.get()
+      credentialIndex2 = credentialIndex1 + 1
     echo "-----------", credentialIndex1
     let
       credentials1 = addFakeMemebershipToKeystore(
         idCredential1, keystorePath, appInfo, contractAddress, password,
         credentialIndex1,
       )
-      # credentials2 = addFakeMemebershipToKeystore(
-      #   idCredential2, keystorePath, appInfo, contractAddress, password, 2
-      # )
+      credentials2 = addFakeMemebershipToKeystore(
+        idCredential2, keystorePath, appInfo, contractAddress, password,
+        credentialIndex2,
+      )
 
     await onChainGroupManager.stop()
     # let
@@ -589,26 +603,111 @@ suite "Waku RlnRelay - End to End - OnChain":
     echo "# 2"
     # Given the node enables Relay and Rln while subscribing to a pubsub topic
     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-    # echo "# 3"
-    # await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-    # echo "# 4"
+    echo "# 3"
+    await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+    echo "# 4"
 
-    # let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+    # proc generateCallback(
+    #     futs: TestGroupSyncFuts, credentials: seq[IdentityCredential]
+    # ): OnRegisterCallback =
+    #   var futureIndex = 0
+    #   proc callback(registrations: seq[Membership]): Future[void] {.async.} =
+    #     when defined(rln_v2):
+    #       if registrations.len == 1 and
+    #           registrations[0].rateCommitment ==
+    #           getRateCommitment(credentials[futureIndex], UserMessageLimit(1)) and
+    #           registrations[0].index == MembershipIndex(futureIndex):
+    #         futs[futureIndex].complete()
+    #         futureIndex += 1
+    #     else:
+    #       if registrations.len == 1 and
+    #           registrations[0].idCommitment == credentials[futureIndex].idCommitment and
+    #           registrations[0].index == MembershipIndex(futureIndex):
+    #         futs[futureIndex].complete()
+    #         futureIndex += 1
 
-    # # And the nodes are connected
-    # await client.connectToNodes(@[serverRemotePeerInfo])
+    #   return callback
 
-    # # And the node registers the completion handler
-    # var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
+    # type TestGroupSyncFuts = array[2, Future[void]]
+    # var futures: TestGroupSyncFuts
+    # for i in 0 ..< futures.len():
+    #   futures[i] = newFuture[void]()
+    var
+      future1 = newFuture[void]()
+      future2 = newFuture[void]()
 
-    # # When the client sends a valid RLN message
-    # let isCompleted1 =
-    #   await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+    proc callback1(registrations: seq[Membership]): Future[void] {.async.} =
+      echo "~~~1"
+      echo registrations
+      echo "###"
+      future1.complete()
 
-    # # Then the valid RLN message is relayed
-    # check:
-    #   isCompleted1
-    #   completionFuture.read()
+    proc callback2(registrations: seq[Membership]): Future[void] {.async.} =
+      echo "~~~2"
+      echo registrations
+      echo "###"
+      future2.complete()
+
+    echo "# 5"
+    try:
+      client.wakuRlnRelay.groupManager.onRegister(
+        callback1 # generateCallback(@[future1], @[credentials1])
+      )
+      server.wakuRlnRelay.groupManager.onRegister(
+        callback2 # generateCallback(@[future2], @[credentials2])
+      )
+      echo "# 5a"
+      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+        raiseAssert $error
+        echo "# 5b"
+      (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+        raiseAssert $error
+
+      echo "# 6"
+      # for i in 0 ..< credentials.len():
+      # when defined(rln_v2):
+      #   await client.wakuRlnRelay.groupManager.register(
+      #     @[credentials1], UserMessageLimit(1)
+      #   )
+      #   await server.wakuRlnRelay.groupManager.register(
+      #     @[credentials2], UserMessageLimit(1)
+      #   )
+      # else:
+      #   await client.wakuRlnRelay.groupManager.register(credentials1)
+      #   await server.wakuRlnRelay.groupManager.register(credentials2)
+      client.wakuRlnRelay.groupManager.rlnInstance = rlnInstance
+      client.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
+      client.wakuRlnRelay.groupManager.membershipIndex =
+        some(MembershipIndex(credentialIndex1))
+      server.wakuRlnRelay.groupManager.rlnInstance = rlnInstance
+      server.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
+      server.wakuRlnRelay.groupManager.membershipIndex =
+        some(MembershipIndex(credentialIndex1))
+      echo "# 7"
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
+    echo "# 8"
+    # await allFutures(@[future1, future2])
+    echo "# FUTURES DONE"
+
+    let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+
+    # And the nodes are connected
+    await client.connectToNodes(@[serverRemotePeerInfo])
+
+    # And the node registers the completion handler
+    var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
+    echo "# 8"
+    # When the client sends a valid RLN message
+    let isCompleted1 =
+      await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+    echo "# 10"
+    # Then the valid RLN message is relayed
+    check:
+      isCompleted1
+      completionFuture.read()
+    echo "# 11"
 
   asyncTest "Valid contract with insufficient gas":
     discard
