@@ -108,7 +108,6 @@ proc waku_setup() {.dynlib, exportc.} =
   if not initialized.load:
     initialized.store(true)
 
-    # TODO: ask Ivan what is nimGC_setStackBottom for
     when declared(nimGC_setStackBottom):
       var locals {.volatile, noinit.}: pointer
       locals = addr(locals)

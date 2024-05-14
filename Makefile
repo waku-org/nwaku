@@ -295,9 +295,9 @@ else
 		$(ENV_SCRIPT) nim libwakuDynamic $(NIM_PARAMS) waku.nims
 endif
 
-################
+#####################
 ## Mobile Bindings ##
-################
+#####################
 .PHONY: libwaku-android \
 				libwaku-android-precheck \
 				libwaku-android-arm64 \

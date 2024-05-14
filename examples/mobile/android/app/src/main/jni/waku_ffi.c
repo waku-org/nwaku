@@ -27,15 +27,19 @@ typedef struct {
 // frees the results associated to the allocation of a cb_result
 void free_cb_result(cb_result *result) {
   if (result != NULL) {
-    free(result->message);
+    if (result->message != NULL) {
+      free(result->message);
+      result->message = NULL;
+    }
     free(result);
+    result = NULL;
   }
 }
 
 // callback executed by libwaku functions. It expects user_data to be a
 // cb_result*.
 void on_response(int ret, const char *msg, size_t len, void *user_data) {
-  if (ret != 0) {
+  if (ret != RET_OK) {
     char errMsg[300];
     snprintf(errMsg, 300, "function execution failed. Returned code: %d, %s\n", ret, msg);
     if (user_data != NULL) {
@@ -43,7 +47,8 @@ void on_response(int ret, const char *msg, size_t len, void *user_data) {
       (*data_ref) = malloc(sizeof(cb_result));
       (*data_ref)->error = true;
       (*data_ref)->message = malloc(len * sizeof(char) + 1);
-      strcpy((*data_ref)->message, msg);
+      (*data_ref)->message[0] = '\0';
+      strncat((*data_ref)->message, msg, len);
     }
     return;
   }
@@ -60,7 +65,8 @@ void on_response(int ret, const char *msg, size_t len, void *user_data) {
   (*data_ref) = malloc(sizeof(cb_result));
   (*data_ref)->error = false;
   (*data_ref)->message = malloc(len * sizeof(char) + 1);
-  strcpy((*data_ref)->message, msg);
+  (*data_ref)->message[0] = '\0';
+  strncat((*data_ref)->message, msg, len);
 }
 
 // converts a cb_result into an instance of the kotlin WakuResult class
