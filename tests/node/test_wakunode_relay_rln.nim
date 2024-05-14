@@ -7,7 +7,8 @@ import
   testutils/unittests,
   chronos,
   libp2p/switch,
-  libp2p/protocols/pubsub/pubsub
+  libp2p/protocols/pubsub/pubsub,
+  eth/keys
 
 from std/times import epochTime
 
@@ -700,8 +701,64 @@ suite "Waku RlnRelay - End to End - OnChain":
       completionFuture.read()
     echo "# 11"
 
-  asyncTest "Valid contract with insufficient gas":
-    discard
+  asyncTest "Concept proff without first onChainManager":
+    let
+      rlnInstance = createRlnInstance(
+          tree_path = genTempPath("rln_tree", "group_manager_onchain")
+        )
+        .get()
+      contractAddress = $(await uploadRLNContract(EthClient))
+      web3 = await newWeb3(EthClient)
+      accounts = await web3.provider.eth_accounts()
+    web3.defaultAccount = accounts[0]
+
+    let
+      keystorePath =
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+      appInfo = RlnAppInfo
+      password = "1234"
+
+    let
+      wakuRlnConfig1 =
+        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
+      wakuRlnConfig2 =
+        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+
+    let
+      credentials1 = rlnInstance.membershipKeyGen().get()
+      credentials2 = rlnInstance.membershipKeyGen().get()
+
+    # Given the node enables Relay and Rln while subscribing to a pubsub topic
+    await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+    await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+
+    var
+      future1 = newFuture[void]()
+      future2 = newFuture[void]()
+
+    proc callback1(registrations: seq[Membership]): Future[void] {.async.} =
+      echo "~ callback1"
+      echo registrations
+      future1.complete()
+
+    proc callback2(registrations: seq[Membership]): Future[void] {.async.} =
+      echo "~ callback2"
+      echo registrations
+      future2.complete()
+
+    try:
+      server.wakuRlnRelay.groupManager.onRegister(callback1)
+      echo "# AFTER REGISTER 1"
+      client.wakuRlnRelay.groupManager.onRegister(callback2)
+      echo "# AFTER REGISTER 2"
+      (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+        raiseAssert $error
+      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+        raiseAssert $error
+    except Exception, CatchableError:
+      assert false, "exception raised: " & getCurrentExceptionMsg()
+
+    await allFutures(@[future1, future2])
 
   ################################
   ## Terminating/removing Anvil
