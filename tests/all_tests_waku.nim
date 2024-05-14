@@ -26,14 +26,14 @@ when os == "Linux" and
     defined(postgres):
   import ./waku_archive/test_driver_postgres_query, ./waku_archive/test_driver_postgres
 
-# THE FOLLOWING TESTS WORK WELL WITHOUT ISSUE ON MACOS
+# THE FOLLOWING TESTS WORK WELL WITHOUT ISSUE ON MACOS (running them alone)
 #
 # Waku store test suite
-# import
-#   ./waku_store/test_client,
-#   ./waku_store/test_rpc_codec,
-#   ./waku_store/test_waku_store,
-#   ./waku_store/test_wakunode_store
+import
+  ./waku_store/test_client,
+  ./waku_store/test_rpc_codec,
+  ./waku_store/test_waku_store,
+  ./waku_store/test_wakunode_store
 
 # # Waku legacy store test suite
 # import
