@@ -54,6 +54,14 @@ suite "Store Client":
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
+    if serverSwitch.peerInfo.isNil():
+      error "serverSwitch.peerInfo is nil"
+      raise newException(CatchableError, "serverSwitch.peerInfo is nil")
+
+    if clientSwitch.peerInfo.isNil():
+      error "clientSwitch.peerInfo is nil"
+      raise newException(CatchableError, "clientSwitch.peerInfo is nil")
+
     serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
     clientPeerInfo = clientSwitch.peerInfo.toRemotePeerInfo()
 
