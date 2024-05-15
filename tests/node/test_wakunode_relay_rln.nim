@@ -701,6 +701,7 @@ suite "Waku RlnRelay - End to End - OnChain":
       completionFuture.read()
     echo "# 11"
 
+  # TODO: This doesn't work, document and remove
   asyncTest "Concept proff without first onChainManager":
     let
       rlnInstance = createRlnInstance(
@@ -728,10 +729,19 @@ suite "Waku RlnRelay - End to End - OnChain":
       credentials1 = rlnInstance.membershipKeyGen().get()
       credentials2 = rlnInstance.membershipKeyGen().get()
 
+    echo "-> Creds1: ", $credentials1
+    echo "-> Creds2: ", $credentials2
+
     # Given the node enables Relay and Rln while subscribing to a pubsub topic
     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
     await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
 
+    echo "# PrivKey1: ",
+      OnChainGroupManager(server.wakuRlnRelay.groupManager).ethPrivateKey
+    echo "# PrivKey1: ",
+      OnChainGroupManager(client.wakuRlnRelay.groupManager).ethPrivateKey
+
+    echo "# CALLBACKS"
     var
       future1 = newFuture[void]()
       future2 = newFuture[void]()
@@ -748,17 +758,26 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     try:
       server.wakuRlnRelay.groupManager.onRegister(callback1)
-      echo "# AFTER REGISTER 1"
+      echo "# CB 1"
       client.wakuRlnRelay.groupManager.onRegister(callback2)
-      echo "# AFTER REGISTER 2"
+      echo "# CB 2"
+
+      await server.wakuRlnRelay.groupManager.register(credentials1)
+      echo "# REGISTER 1"
+      await client.wakuRlnRelay.groupManager.register(credentials2)
+      echo "# REGISTER 2"
+
       (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
+      echo "# GROUP SYNC 1"
       (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
+      echo "# GROUP SYNC 2"
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await allFutures(@[future1, future2])
+    echo "# FUTURES"
 
   ################################
   ## Terminating/removing Anvil
