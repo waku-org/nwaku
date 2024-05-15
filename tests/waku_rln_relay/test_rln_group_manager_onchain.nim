@@ -97,7 +97,7 @@ suite "Onchain group manager":
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
 
     expect(CatchableError):
-      await manager.init()
+      discard await manager.init()
 
   asyncTest "should error when keystore path and password are provided but file doesn't exist":
     let manager = await setup()

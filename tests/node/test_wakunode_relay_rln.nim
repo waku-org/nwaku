@@ -79,15 +79,15 @@ proc getWakuRlnConfigOnChain*(
     password: string,
     credIndex: uint,
 ): WakuRlnConfig =
-  let
-    # probably not needed
-    # rlnInstance = createRlnInstance(
-    #     tree_path = genTempPath("rln_tree", "group_manager_onchain")
-    #   )
-    #   .expect("Couldn't create RLN instance")
-    keystoreRes = createAppKeystore(keystorePath, appInfo)
+  # let
+  #   # probably not needed
+  #   # rlnInstance = createRlnInstance(
+  #   #     tree_path = genTempPath("rln_tree", "group_manager_onchain")
+  #   #   )
+  #   #   .expect("Couldn't create RLN instance")
+  #   keystoreRes = createAppKeystore(keystorePath, appInfo)
 
-  assert keystoreRes.isOk()
+  # assert keystoreRes.isOk()
 
   # return WakuRlnConfig(
   #   rlnRelayEthClientAddress: EthClient,
@@ -106,8 +106,8 @@ proc getWakuRlnConfigOnChain*(
     rlnRelayCredIndex: some(credIndex),
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
     rlnRelayEthClientAddress: EthClient,
-    # rlnRelayCredPath: keystorePath,
-    # rlnRelayCredPassword: password,
+    rlnRelayCredPath: keystorePath,
+    rlnRelayCredPassword: password,
     rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
   )
@@ -466,6 +466,22 @@ suite "Waku RlnRelay - End to End - OnChain":
   #     assert true
 
   asyncTest "Valid contract":
+    #[
+      # Notes
+      # Remaining
+      Instead of running the idCredentials monkeypatch, passing the correct membershipIndex and keystorePath and keystorePassword should work.
+      # Methods
+      A) Using the register callback to fetch the correct membership
+      B) Using two different keystores, one for each rlnconfig. If there's only one key, it will fetch it regardless of membershipIndex.
+      # A
+      - Register is not calling callback even though register is happening, this should happen.
+      - This command should be working, but it doesn't on the current HEAD of the branch, it does work on master, which suggest there's something wrong with the branch.
+      - nim c -r --out:build/onchain -d:chronicles_log_level=NOTICE --verbosity:0 --hints:off  -d:git_version="v0.27.0-rc.0-3-gaa9c30" -d:release --passL:librln_v0.3.7.a --passL:-lm tests/waku_rln_relay/test_rln_group_manager_onchain.nim && onchain_group_test
+      - All modified files are tests/*, which is a bit weird. Might be interesting re-creating the branch slowly, and checking out why this is happening.
+      # B
+      Haven't tried this approach.
+    ]#
+
     echo "# 1"
     let
       onChainGroupManager = await setup()
@@ -479,6 +495,13 @@ suite "Waku RlnRelay - End to End - OnChain":
     assert keystoreRes.isOk()
 
     # TODO: how do I register creds or groupmanager on contract?
+
+    proc dummyC(registrations: seq[Membership]): Future[void] {.async.} =
+      echo "~~~~"
+      echo registrations
+      echo "~~~~"
+
+    onChainGroupManager.onRegister(dummyC)
 
     let rlnInstance = onChainGroupManager.rlnInstance
 
@@ -507,11 +530,12 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     echo "-: ", idCredential1.idCommitment.toUInt256()
     discard await onChainGroupManager.init()
-    echo "#123"
+    echo "#~~~~~~~~~~~~~~~~~~~#"
     try:
-      waitFor onChainGroupManager.register(idCredential1)
-      waitFor onChainGroupManager.register(idCredential2)
-      echo "#456"
+      await onChainGroupManager.register(idCredential1)
+      await onChainGroupManager.register(idCredential2)
+      await sleepAsync(5.seconds)
+      echo "#~~~~~~~~~~~~~~~~~~~#"
     except Exception:
       assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
 
@@ -673,8 +697,12 @@ suite "Waku RlnRelay - End to End - OnChain":
       # else:
       # await client.wakuRlnRelay.groupManager.register(credentials1)
       #   await server.wakuRlnRelay.groupManager.register(credentials2)
-      server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
-      client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
+      # echo server.wakuRlnRelay.groupManager.idCredentials
+      # echo client.wakuRlnRelay.groupManager.idCredentials
+      # server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
+      # client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
+      echo server.wakuRlnRelay.groupManager.idCredentials
+      echo client.wakuRlnRelay.groupManager.idCredentials
       echo "# 7"
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
