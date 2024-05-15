@@ -917,6 +917,10 @@ proc mountLightPush*(
     pushHandler = proc(
         peer: PeerId, pubsubTopic: string, message: WakuMessage
     ): Future[WakuLightPushResult[void]] {.async.} =
+      let validationRes = await node.wakuRelay.validateMessage(pubSubTopic, message)
+      if validationRes.isErr():
+        return err(validationRes.error)
+
       let publishedCount =
         await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
 

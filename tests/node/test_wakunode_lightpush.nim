@@ -6,6 +6,7 @@ import
   testutils/unittests,
   chronos,
   chronicles,
+  std/strformat,
   os,
   libp2p/[peerstore, crypto/crypto]
 
@@ -23,7 +24,8 @@ import
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc,
   ],
-  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
+  ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
+  ../resources/payloads
 
 suite "Waku Lightpush - End To End":
   var
@@ -85,3 +87,20 @@ suite "Waku Lightpush - End To End":
 
       # Then the message is relayed to the server
       assertResultOk publishResponse
+
+  suite "Waku LightPush Validation Tests":
+    asyncTest "Validate message size exceeds limit":
+      let 
+        msgOverLimit = fakeWakuMessage(
+          contentTopic = contentTopic,
+          payload = getByteSequence(DefaultMaxWakuMessageSize + 64 * 1024),
+        )
+      
+      # When the client publishes an over-limit message
+      let publishResponse = await client.lightpushPublish(
+        some(pubsubTopic), msgOverLimit, serverRemotePeerInfo
+      )
+
+      check:
+        publishResponse.isErr()
+        publishResponse.error == fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
