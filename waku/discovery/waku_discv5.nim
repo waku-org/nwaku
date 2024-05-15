@@ -203,6 +203,7 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
     let discoveredPeers =
       discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
+    trace "discv5 discovered peers", num_discovered_peers = discoveredPeers.len
     for peer in discoveredPeers:
       # Peers added are filtered by the peer manager
       peerManager.addPeer(peer, PeerOrigin.Discv5)
