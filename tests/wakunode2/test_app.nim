@@ -9,7 +9,11 @@ import
   libp2p/crypto/secp,
   libp2p/multiaddress,
   libp2p/switch
-import ../testlib/common, ../testlib/wakucore, ../testlib/wakunode
+import
+  ../testlib/common,
+  ../testlib/wakucore,
+  ../testlib/wakunode,
+  ../../waku/node/waku_metrics
 
 include ../../waku/factory/waku
 

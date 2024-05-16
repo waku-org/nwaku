@@ -5,9 +5,7 @@ else:
 
 import metrics
 
-proc parseCollectorIntoF64(
-    collector: SimpleCollector
-): float64 {.gcsafe, raises: [Defect].} =
+proc parseCollectorIntoF64(collector: SimpleCollector): float64 {.gcsafe, raises: [].} =
   {.gcsafe.}:
     var total = 0.float64
     for metrics in collector.metrics:

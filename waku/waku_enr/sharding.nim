@@ -4,9 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, bitops, sequtils],
+  std/[options, bitops, sequtils, net],
   stew/[endians2, results],
-  stew/shims/net,
   chronicles,
   eth/keys,
   libp2p/[multiaddress, multicodec],

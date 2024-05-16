@@ -4,8 +4,7 @@ else:
   {.push raises: [].}
 
 import chronos, stew/results
-import
-  ../../driver, ../../../common/databases/db_postgres, ../../../common/error_handling
+import ../../../common/databases/db_postgres, ../../../common/error_handling
 
 ## Simple query to validate that the postgres is working and attending requests
 const HealthCheckQuery = "SELECT version();"
