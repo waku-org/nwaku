@@ -277,7 +277,8 @@ int main(int argc, char** argv) {
                                     \"storeMessageDbUrl\": \"%s\",  \
                                     \"storeMessageRetentionPolicy\": \"%s\",  \
                                     \"storeMaxNumDbConnections\": %d , \
-                                    \"logLevel\": \"DEBUG\" \
+                                    \"logLevel\": \"DEBUG\", \
+                                    \"discv5-discovery\": true \
                                 }", cfgNode.host,
                                     cfgNode.port,
                                     cfgNode.key,
