@@ -200,10 +200,27 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
   while wd.listening:
     trace "running discv5 discovery loop"
     let discoveredRecords = await wd.findRandomPeers()
-    let discoveredPeers =
-      discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
 
-    trace "discv5 discovered peers", num_discovered_peers = discoveredPeers.len
+    var discoveredPeers: seq[RemotePeerInfo]
+    var wrongRecordsReasons: seq[tuple[record: string, errorDescription: string]]
+      ## this is to store the reasons why certain records could not be converted to RemotePeerInfo
+
+    for record in discoveredRecords:
+      let peerInfo = record.toRemotePeerInfo().valueOr:
+        ## in case of error, we keep track of it for debugging purposes
+        wrongRecordsReasons.add(($record, $error))
+        continue
+
+      discoveredPeers.add(peerInfo)
+
+    trace "discv5 discovered peers",
+      num_discovered_peers = discoveredPeers.len,
+      peers = toSeq(discoveredPeers.mapIt(shortLog(it.peerId)))
+
+    trace "discv5 discarded wrong records",
+      wrong_records =
+        wrongRecordsReasons.mapIt("(" & it.record & "," & it.errorDescription & ")")
+
     for peer in discoveredPeers:
       # Peers added are filtered by the peer manager
       peerManager.addPeer(peer, PeerOrigin.Discv5)
