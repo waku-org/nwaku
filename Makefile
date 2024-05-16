@@ -214,6 +214,10 @@ chat2bridge: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
+liteprotocoltester: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
+
 
 ################
 ## Waku tools ##

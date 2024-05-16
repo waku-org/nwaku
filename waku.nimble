@@ -102,6 +102,10 @@ task chat2bridge, "Build chat2bridge":
   let name = "chat2bridge"
   buildBinary name, "apps/chat2bridge/"
 
+task liteprotocoltester, "Build liteprotocoltester":
+  let name = "liteprotocoltester"
+  buildBinary name, "apps/liteprotocoltester/"
+
 ### C Bindings
 task libwakuStatic, "Build the cbindings waku node library":
   let name = "libwaku"
