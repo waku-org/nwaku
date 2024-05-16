@@ -47,35 +47,45 @@ proc sendSubscribeRequest(
 
   try:
     await connection.writeLP(filterSubscribeRequest.encode().buffer)
-
-    let respBuf = await connection.readLp(DefaultMaxSubscribeResponseSize)
-    let respDecodeRes = FilterSubscribeResponse.decode(respBuf)
-    if respDecodeRes.isErr():
-      trace "Failed to decode filter subscribe response", servicePeer
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
-      return err(FilterSubscribeError.badResponse(decodeRpcFailure))
-
-    let response = respDecodeRes.get()
-
-    if response.requestId != filterSubscribeRequest.requestId:
-      trace "Filter subscribe response requestId mismatch", servicePeer, response
-      waku_filter_errors.inc(labelValues = [requestIdMismatch])
-      return err(FilterSubscribeError.badResponse(requestIdMismatch))
-
-    if response.statusCode != 200:
-      trace "Filter subscribe error response", servicePeer, response
-      waku_filter_errors.inc(labelValues = [errorResponse])
-      let cause =
-        if response.statusDesc.isSome():
-          response.statusDesc.get()
-        else:
-          "filter subscribe error"
-      return err(FilterSubscribeError.parse(response.statusCode, cause = cause))
   except CatchableError:
-    let errMsg = "exception in waku_filter_v2 client: " & getCurrentExceptionMsg()
-    trace "exception in waku_filter_v2 client", error = getCurrentExceptionMsg()
+    let errMsg =
+      "exception in waku_filter_v2 client writeLP: " & getCurrentExceptionMsg()
+    trace "exception in waku_filter_v2 client writeLP", error = getCurrentExceptionMsg()
     waku_filter_errors.inc(labelValues = [errMsg])
     return err(FilterSubscribeError.badResponse(errMsg))
+
+  var respBuf: seq[byte]
+  try:
+    respBuf = await connection.readLp(DefaultMaxSubscribeResponseSize)
+  except CatchableError:
+    let errMsg =
+      "exception in waku_filter_v2 client readLp: " & getCurrentExceptionMsg()
+    trace "exception in waku_filter_v2 client readLp", error = getCurrentExceptionMsg()
+    waku_filter_errors.inc(labelValues = [errMsg])
+    return err(FilterSubscribeError.badResponse(errMsg))
+
+  let respDecodeRes = FilterSubscribeResponse.decode(respBuf)
+  if respDecodeRes.isErr():
+    trace "Failed to decode filter subscribe response", servicePeer
+    waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+    return err(FilterSubscribeError.badResponse(decodeRpcFailure))
+
+  let response = respDecodeRes.get()
+
+  if response.requestId != filterSubscribeRequest.requestId:
+    trace "Filter subscribe response requestId mismatch", servicePeer, response
+    waku_filter_errors.inc(labelValues = [requestIdMismatch])
+    return err(FilterSubscribeError.badResponse(requestIdMismatch))
+
+  if response.statusCode != 200:
+    trace "Filter subscribe error response", servicePeer, response
+    waku_filter_errors.inc(labelValues = [errorResponse])
+    let cause =
+      if response.statusDesc.isSome():
+        response.statusDesc.get()
+      else:
+        "filter subscribe error"
+    return err(FilterSubscribeError.parse(response.statusCode, cause = cause))
 
   return ok()
 
