@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, os, sequtils, net],
+  std/[options, strutils, sequtils, net],
   chronicles,
   chronos,
   metrics,
@@ -43,16 +43,8 @@ when isMainModule:
     error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  ## Logging setup
-  # Adhere to NO_COLOR initiative: https://no-color.org/
-  let color =
-    try:
-      not parseBool(os.getEnv("NO_COLOR", "false"))
-    except CatchableError:
-      true
-
-  logging.setupLogLevel(conf.logLevel)
-  logging.setupLogFormat(conf.logFormat, color)
+  ## Also called within Waku.init. The call to startRestServerEsentials needs the following line
+  logging.setupLog(conf.logLevel, conf.logFormat)
 
   case conf.cmd
   of generateRlnKeystore:

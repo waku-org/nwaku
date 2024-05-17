@@ -69,7 +69,7 @@ proc maintainSubscription(
 proc setupAndSubscribe(rng: ref HmacDrbgContext) =
   let filterPeer = parsePeerInfo(FilterPeer).get()
 
-  setupLogLevel(logging.LogLevel.NOTICE)
+  setupLog(logging.LogLevel.NOTICE, logging.LogFormat.TEXT)
   notice "starting filter subscriber"
 
   var

@@ -36,7 +36,8 @@ const discv5Port = 8000
 
 proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
   # use notice to filter all waku messaging
-  setupLogLevel(logging.LogLevel.NOTICE)
+  setupLog(logging.LogLevel.NOTICE, logging.LogFormat.TEXT)
+
   notice "starting subscriber", wakuPort = wakuPort, discv5Port = discv5Port
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[])[]

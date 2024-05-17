@@ -42,7 +42,7 @@ proc publishMessages(
 proc setupAndPublish(rng: ref HmacDrbgContext) =
   let lightpushPeer = parsePeerInfo(LightpushPeer).get()
 
-  setupLogLevel(logging.LogLevel.NOTICE)
+  setupLog(logging.LogLevel.NOTICE, logging.LogFormat.TEXT)
   notice "starting lightpush publisher"
 
   var

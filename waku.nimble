@@ -105,8 +105,14 @@ task chat2bridge, "Build chat2bridge":
 ### C Bindings
 task libwakuStatic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name, "library/", "-d:chronicles_log_level=ERROR", "static"
+  buildLibrary name,
+    "library/",
+    """-d:chronicles_line_numbers -d:chronicles_runtime_filtering=on -d:chronicles_sinks="textlines,json" -d:chronicles_default_output_device=Dynamic -d:chronicles_disabled_topics="eth,dnsdisc.client" """,
+    "static"
 
 task libwakuDynamic, "Build the cbindings waku node library":
   let name = "libwaku"
-  buildLibrary name, "library/", "-d:chronicles_log_level=ERROR", "dynamic"
+  buildLibrary name,
+    "library/",
+    """-d:chronicles_line_numbers -d:chronicles_runtime_filtering=on -d:chronicles_sinks="textlines,json" -d:chronicles_default_output_device=Dynamic -d:chronicles_disabled_topics="eth,dnsdisc.client" """,
+    "dynamic"

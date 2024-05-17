@@ -92,7 +92,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   var confCopy = conf
   let rng = crypto.newRng()
 
-  logging.setupLogLevel(confCopy.logLevel)
+  logging.setupLog(conf.logLevel, conf.logFormat)
 
   case confCopy.clusterId
 
