@@ -142,7 +142,7 @@ proc writeValue*(
   writer.beginRecord()
   writer.writeField("payload", $value.payload)
   if value.contentTopic.isSome():
-    writer.writeField("content_topic", value.contentTopic.get())
+    writer.writeField("contentTopic", value.contentTopic.get())
   if value.version.isSome():
     writer.writeField("version", value.version.get())
   if value.timestamp.isSome():
@@ -178,7 +178,7 @@ proc readValue*(
     case fieldName
     of "payload":
       payload = some(reader.readValue(Base64String))
-    of "content_topic":
+    of "contentTopic":
       contentTopic = some(reader.readValue(ContentTopic))
     of "version":
       version = some(reader.readValue(uint32))
@@ -245,9 +245,9 @@ proc writeValue*(
     writer: var JsonWriter, value: HistoryCursorRest
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
-  writer.writeField("pubsub_topic", value.pubsubTopic)
-  writer.writeField("sender_time", value.senderTime)
-  writer.writeField("store_time", value.storeTime)
+  writer.writeField("pubsubTopic", value.pubsubTopic)
+  writer.writeField("senderTime", value.senderTime)
+  writer.writeField("storeTime", value.storeTime)
   writer.writeField("digest", value.digest)
   writer.endRecord()
 
@@ -262,22 +262,22 @@ proc readValue*(
 
   for fieldName in readObjectFields(reader):
     case fieldName
-    of "pubsub_topic":
+    of "pubsubTopic":
       if pubsubTopic.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `pubsub_topic` fields found", "HistoryCursorRest"
+          "Multiple `pubsubTopic` fields found", "HistoryCursorRest"
         )
       pubsubTopic = some(reader.readValue(PubsubTopic))
-    of "sender_time":
+    of "senderTime":
       if senderTime.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `sender_time` fields found", "HistoryCursorRest"
+          "Multiple `senderTime` fields found", "HistoryCursorRest"
         )
       senderTime = some(reader.readValue(Timestamp))
-    of "store_time":
+    of "storeTime":
       if storeTime.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `store_time` fields found", "HistoryCursorRest"
+          "Multiple `storeTime` fields found", "HistoryCursorRest"
         )
       storeTime = some(reader.readValue(Timestamp))
     of "digest":
@@ -290,13 +290,13 @@ proc readValue*(
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
   if pubsubTopic.isNone():
-    reader.raiseUnexpectedValue("Field `pubsub_topic` is missing")
+    reader.raiseUnexpectedValue("Field `pubsubTopic` is missing")
 
   if senderTime.isNone():
-    reader.raiseUnexpectedValue("Field `sender_time` is missing")
+    reader.raiseUnexpectedValue("Field `senderTime` is missing")
 
   if storeTime.isNone():
-    reader.raiseUnexpectedValue("Field `store_time` is missing")
+    reader.raiseUnexpectedValue("Field `storeTime` is missing")
 
   if digest.isNone():
     reader.raiseUnexpectedValue("Field `digest` is missing")
@@ -320,7 +320,7 @@ proc writeValue*(
   if value.cursor.isSome():
     writer.writeField("cursor", value.cursor.get())
   if value.errorMessage.isSome():
-    writer.writeField("error_message", value.errorMessage.get())
+    writer.writeField("errorMessage", value.errorMessage.get())
   writer.endRecord()
 
 proc readValue*(
@@ -345,10 +345,10 @@ proc readValue*(
           "Multiple `cursor` fields found", "StoreResponseRest"
         )
       cursor = some(reader.readValue(HistoryCursorRest))
-    of "error_message":
+    of "errorMessage":
       if errorMessage.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `error_message` fields found", "StoreResponseRest"
+          "Multiple `errorMessage` fields found", "StoreResponseRest"
         )
       errorMessage = some(reader.readValue(string))
     else:
@@ -370,13 +370,13 @@ proc writeValue*(
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
   if value.pubsubTopic.isSome():
-    writer.writeField("pubsub_topic", value.pubsubTopic.get())
-  writer.writeField("content_topics", value.contentTopics)
+    writer.writeField("pubsubTopic", value.pubsubTopic.get())
+  writer.writeField("contentTopics", value.contentTopics)
   if value.startTime.isSome():
-    writer.writeField("start_time", value.startTime.get())
+    writer.writeField("startTime", value.startTime.get())
   if value.endTime.isSome():
-    writer.writeField("end_time", value.endTime.get())
-  writer.writeField("page_size", value.pageSize)
+    writer.writeField("endTime", value.endTime.get())
+  writer.writeField("pageSize", value.pageSize)
   writer.writeField("ascending", value.ascending)
   writer.endRecord()
 

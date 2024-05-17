@@ -72,7 +72,7 @@ proc writeValue*(
   writer.beginRecord()
 
   writer.writeField("payload", base64.encode(msg.payload))
-  writer.writeField("content_topic", msg.contentTopic)
+  writer.writeField("contentTopic", msg.contentTopic)
 
   if msg.meta.len > 0:
     writer.writeField("meta", base64.encode(msg.meta))
@@ -114,7 +114,7 @@ proc readValue*(
       let base64String = reader.readValue(Base64String)
       payload = base64.decode(base64String).valueOr:
         reader.raiseUnexpectedField("Failed decoding data", "payload")
-    of "content_topic":
+    of "contentTopic":
       contentTopic = reader.readValue(ContentTopic)
     of "version":
       version = reader.readValue(uint32)
@@ -185,7 +185,7 @@ proc writeValue*(
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
 
-  writer.writeField("message_hash", value.messageHash)
+  writer.writeField("messageHash", value.messageHash)
 
   if value.message.isSome():
     writer.writeField("message", value.message.get())
@@ -201,10 +201,10 @@ proc readValue*(
 
   for fieldName in readObjectFields(reader):
     case fieldName
-    of "message_hash":
+    of "messageHash":
       if messageHash.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `message_hash` fields found", "WakuMessageKeyValue"
+          "Multiple `messageHash` fields found", "WakuMessageKeyValue"
         )
       messageHash = some(reader.readValue(WakuMessageHash))
     of "message":
@@ -217,7 +217,7 @@ proc readValue*(
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
   if messageHash.isNone():
-    reader.raiseUnexpectedValue("Field `message_hash` is missing")
+    reader.raiseUnexpectedValue("Field `messageHash` is missing")
 
   value = WakuMessageKeyValue(messageHash: messageHash.get(), message: message)
 
@@ -228,15 +228,13 @@ proc writeValue*(
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
 
-  writer.writeField("request_id", value.requestId)
-
-  writer.writeField("status_code", value.statusCode)
-  writer.writeField("status_desc", value.statusDesc)
-
+  writer.writeField("requestId", value.requestId)
+  writer.writeField("statusCode", value.statusCode)
+  writer.writeField("statusDesc", value.statusDesc)
   writer.writeField("messages", value.messages)
 
   if value.paginationCursor.isSome():
-    writer.writeField("pagination_cursor", value.paginationCursor.get())
+    writer.writeField("paginationCursor", value.paginationCursor.get())
 
   writer.endRecord()
 
@@ -252,22 +250,22 @@ proc readValue*(
 
   for fieldName in readObjectFields(reader):
     case fieldName
-    of "request_id":
+    of "requestId":
       if requestId.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `request_id` fields found", "StoreQueryResponse"
+          "Multiple `requestId` fields found", "StoreQueryResponse"
         )
       requestId = some(reader.readValue(string))
-    of "status_code":
+    of "statusCode":
       if code.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `status_code` fields found", "StoreQueryResponse"
+          "Multiple `statusCode` fields found", "StoreQueryResponse"
         )
       code = some(reader.readValue(uint32))
-    of "status_desc":
+    of "statusDesc":
       if desc.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `status_desc` fields found", "StoreQueryResponse"
+          "Multiple `statusDesc` fields found", "StoreQueryResponse"
         )
       desc = some(reader.readValue(string))
     of "messages":
@@ -276,23 +274,23 @@ proc readValue*(
           "Multiple `messages` fields found", "StoreQueryResponse"
         )
       messages = some(reader.readValue(seq[WakuMessageKeyValue]))
-    of "pagination_cursor":
+    of "paginationCursor":
       if cursor.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `pagination_cursor` fields found", "StoreQueryResponse"
+          "Multiple `paginationCursor` fields found", "StoreQueryResponse"
         )
       cursor = some(reader.readValue(WakuMessageHash))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
   if requestId.isNone():
-    reader.raiseUnexpectedValue("Field `request_id` is missing")
+    reader.raiseUnexpectedValue("Field `requestId` is missing")
 
   if code.isNone():
-    reader.raiseUnexpectedValue("Field `status_code` is missing")
+    reader.raiseUnexpectedValue("Field `statusCode` is missing")
 
   if desc.isNone():
-    reader.raiseUnexpectedValue("Field `status_desc` is missing")
+    reader.raiseUnexpectedValue("Field `statusDesc` is missing")
 
   if messages.isNone():
     reader.raiseUnexpectedValue("Field `messages` is missing")
@@ -312,28 +310,28 @@ proc writeValue*(
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
 
-  writer.writeField("request_id", req.requestId)
-  writer.writeField("include_data", req.includeData)
+  writer.writeField("requestId", req.requestId)
+  writer.writeField("includeData", req.includeData)
 
   if req.pubsubTopic.isSome():
-    writer.writeField("pubsub_topic", req.pubsubTopic.get())
+    writer.writeField("pubsubTopic", req.pubsubTopic.get())
 
-  writer.writeField("content_topics", req.contentTopics)
+  writer.writeField("contentTopics", req.contentTopics)
 
   if req.startTime.isSome():
-    writer.writeField("start_time", req.startTime.get())
+    writer.writeField("startTime", req.startTime.get())
 
   if req.endTime.isSome():
-    writer.writeField("end_time", req.endTime.get())
+    writer.writeField("endTime", req.endTime.get())
 
-  writer.writeField("message_hashes", req.messageHashes)
+  writer.writeField("messageHashes", req.messageHashes)
 
   if req.paginationCursor.isSome():
-    writer.writeField("pagination_cursor", req.paginationCursor.get())
+    writer.writeField("paginationCursor", req.paginationCursor.get())
 
-  writer.writeField("pagination_forward", req.paginationForward)
+  writer.writeField("paginationForward", req.paginationForward)
 
   if req.paginationLimit.isSome():
-    writer.writeField("pagination_limit", req.paginationLimit.get())
+    writer.writeField("paginationLimit", req.paginationLimit.get())
 
   writer.endRecord()
