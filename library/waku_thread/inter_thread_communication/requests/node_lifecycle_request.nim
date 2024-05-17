@@ -1,29 +1,12 @@
-import std/[options, sequtils, json, strutils]
-import chronos, chronicles, stew/results, stew/shims/net, confutils, confutils/std/net
+import std/[options, sequtils, json, strutils, net]
+import chronos, chronicles, stew/results, confutils, confutils/std/net
 
 import
-  ../../../../waku/common/enr/builder,
-  ../../../../waku/waku_enr/capabilities,
-  ../../../../waku/waku_enr/multiaddr,
-  ../../../../waku/waku_enr/sharding,
-  ../../../../waku/waku_core/message/message,
-  ../../../../waku/waku_core/message/default_values,
-  ../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../waku/node/peer_manager/peer_manager,
-  ../../../../waku/waku_core,
   ../../../../waku/factory/external_config,
   ../../../../waku/factory/waku,
-  ../../../../waku/node/config,
-  ../../../../waku/waku_archive/driver/builder,
-  ../../../../waku/waku_archive/driver,
-  ../../../../waku/waku_archive/retention_policy/builder,
-  ../../../../waku/waku_archive/retention_policy,
-  ../../../../waku/waku_relay/protocol,
-  ../../../../waku/waku_store,
-  ../../../../waku/factory/builder,
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
-  ../../../events/[json_message_event, json_base_event],
   ../../../alloc
 
 type NodeLifecycleMsgType* = enum
@@ -64,28 +47,6 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
         confValue = parseCmdArg(typeof(confValue), formattedString)
   except Exception:
     return err("exception parsing configuration: " & getCurrentExceptionMsg())
-
-  # The Waku Network config (cluster-id=1)
-  if conf.clusterId == 1:
-    ## TODO: This section is duplicated in wakunode2.nim. We need to move this to a common module
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(conf.shards) != 0:
-      conf.pubsubTopics = conf.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      conf.pubsubTopics = twnClusterConf.pubsubTopics
-
-    # Override configuration
-    conf.maxMessageSize = twnClusterConf.maxMessageSize
-    conf.clusterId = twnClusterConf.clusterId
-    conf.rlnRelay = twnClusterConf.rlnRelay
-    conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    conf.discv5Discovery = twnClusterConf.discv5Discovery
-    conf.discv5BootstrapNodes =
-      conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-    conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
 
   let wakuRes = Waku.init(conf).valueOr:
     error "waku initialization failed", error = error

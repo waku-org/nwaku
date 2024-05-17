@@ -2,7 +2,7 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-import std/[json, sequtils, times, strformat, options, atomics, strutils]
+import std/[json, strformat, strutils]
 import chronicles, chronos
 import
   ../../waku/common/base64,
@@ -10,7 +10,6 @@ import
   ../../waku/node/waku_node,
   ../../waku/waku_core/topics/pubsub_topic,
   ../../../waku/waku_relay/protocol,
-  ./events/json_base_event,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
