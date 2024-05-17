@@ -219,6 +219,7 @@ int main(int argc, char** argv) {
                                     \"port\": %d,       \
                                     \"key\": \"%s\",    \
                                     \"relay\": %s,      \
+                                    \"logLevel\": \"DEBUG\" \
                                 }", cfgNode.host,
                                     cfgNode.port,
                                     cfgNode.key,
