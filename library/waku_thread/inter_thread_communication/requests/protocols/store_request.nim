@@ -1,13 +1,5 @@
-import std/[options, sequtils, strutils]
-import chronos, stew/results, stew/shims/net
-import
-  ../../../../../waku/factory/waku,
-  ../../../../../waku/waku_archive/driver/builder,
-  ../../../../../waku/waku_archive/driver,
-  ../../../../../waku/waku_archive/retention_policy/builder,
-  ../../../../../waku/waku_archive/retention_policy,
-  ../../../../alloc,
-  ../../../../callback
+import chronos, stew/results
+import ../../../../../waku/factory/waku, ../../../../alloc, ../../../../callback
 
 type StoreReqType* = enum
   REMOTE_QUERY ## to perform a query to another Store node

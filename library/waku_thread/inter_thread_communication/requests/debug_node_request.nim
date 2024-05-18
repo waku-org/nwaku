@@ -1,6 +1,6 @@
-import std/[options, sequtils, strutils, json]
-import chronicles, chronos, stew/results, stew/shims/net
-import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
+import std/json
+import chronicles, chronos, stew/results
+import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
 
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES
