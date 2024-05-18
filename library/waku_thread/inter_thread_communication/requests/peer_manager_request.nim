@@ -1,5 +1,5 @@
-import std/[options, sequtils, strutils]
-import chronicles, chronos, stew/results, stew/shims/net
+import std/[sequtils, strutils]
+import chronicles, chronos, stew/results
 import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
 
 type PeerManagementMsgType* = enum

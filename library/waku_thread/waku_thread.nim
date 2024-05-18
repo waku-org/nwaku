@@ -2,17 +2,11 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-import std/[json, sequtils, times, strformat, options, atomics, strutils, os]
+import std/[options, atomics, os, net]
 import
-  chronicles,
-  chronos,
-  chronos/threadsync,
-  taskpools/channels_spsc_single,
-  stew/results,
-  stew/shims/net
+  chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, stew/results
 import
   ../../../waku/factory/waku,
-  ../events/[json_message_event, json_base_event],
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
 
