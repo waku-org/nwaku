@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options, sets, net],
+  std/[sequtils, strutils, options, sets, net, json],
   stew/results,
   chronos,
   chronicles,
@@ -373,3 +373,28 @@ proc setupDiscoveryV5*(
   WakuDiscoveryV5.new(
     rng, discv5Conf, some(myENR), some(nodePeerManager), nodeTopicSubscriptionQueue
   )
+
+proc updateBootstrapRecords*(
+    self: var WakuDiscoveryV5, newRecordsString: string
+): Result[void, string] =
+  ## newRecordsString - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
+  var newRecords = newSeq[waku_enr.Record]()
+
+  var jsonNode: JsonNode
+  try:
+    jsonNode = parseJson(newRecordsString)
+  except Exception:
+    return err("exception parsing json enr records: " & getCurrentExceptionMsg())
+
+  if jsonNode.kind != JArray:
+    return err("updateBootstrapRecords should receive a json array containing ENRs")
+
+  for enr in jsonNode:
+    let enrWithoutQuotes = ($enr).replace("\"", "")
+    var bootstrapNodeEnr: waku_enr.Record
+    if not bootstrapNodeEnr.fromURI(enrWithoutQuotes):
+      return err("wrong enr given: " & enrWithoutQuotes)
+
+  self.protocol.bootstrapRecords = newRecords
+
+  return ok()

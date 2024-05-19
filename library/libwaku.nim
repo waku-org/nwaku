@@ -17,6 +17,7 @@ import
   ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
   ./waku_thread/inter_thread_communication/requests/protocols/store_request,
   ./waku_thread/inter_thread_communication/requests/debug_node_request,
+  ./waku_thread/inter_thread_communication/requests/discovery_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
   ./callback
@@ -396,6 +397,53 @@ proc waku_listen_addresses(
     let msg = $connRes.value
     callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_OK
+
+proc waku_dns_discovery(
+    ctx: ptr Context,
+    entTreeUrl: cstring,
+    nameDnsServer: cstring,
+    timeoutMs: cint,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  ctx[].userData = userData
+
+  let bootstrapPeers = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.DISCOVERY,
+    DiscoveryRequest.createRetrieveBootstrapNodesRequest(
+      DiscoveryMsgType.GET_BOOTSTRAP_NODES, entTreeUrl, nameDnsServer, timeoutMs
+    ),
+  ).valueOr:
+    let msg = $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $bootstrapPeers
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
+
+proc waku_discv5_update_bootnodes(
+    ctx: ptr Context, bootnodes: cstring, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  ## Updates the bootnode list used for discovering new peers via DiscoveryV5
+  ## bootnodes - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
+  ctx[].userData = userData
+
+  let resp = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.DISCOVERY,
+    DiscoveryRequest.createUpdateBootstrapNodesRequest(
+      DiscoveryMsgType.UPDATE_DISCV5_BOOTSTRAP_NODES, bootnodes
+    ),
+  ).valueOr:
+    let msg = $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $resp
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
 
 ### End of exported procs
 ################################################################################

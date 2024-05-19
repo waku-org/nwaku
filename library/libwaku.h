@@ -92,6 +92,25 @@ int waku_listen_addresses(void* ctx,
                           WakuCallBack callback,
                           void* userData);
 
+// Returns a list of multiaddress given a url to a DNS discoverable ENR tree
+// Parameters
+//     char* entTreeUrl: URL containing a discoverable ENR tree
+//     char* nameDnsServer: The nameserver to resolve the ENR tree url.
+//     int timeoutMs: Timeout value in milliseconds to execute the call.
+int waku_dns_discovery(void* ctx,
+                       const char* entTreeUrl,
+                       const char* nameDnsServer,
+                       int timeoutMs,
+                       WakuCallBack callback,
+                       void* userData);
+
+// Updates the bootnode list used for discovering new peers via DiscoveryV5
+// bootnodes - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
+int waku_discv5_update_bootnodes(void* ctx,
+                                 char* bootnodes,
+                                 WakuCallBack callback,
+                                 void* userData);
+
 #ifdef __cplusplus
 }
 #endif
