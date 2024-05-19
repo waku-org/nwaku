@@ -36,17 +36,28 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
 
   var errorResp: string
 
+  var jsonNode: JsonNode
   try:
-    let jsonNode = parseJson($configJson)
-
-    for confField, confValue in fieldPairs(conf):
-      if jsonNode.contains(confField):
-        # Make sure string doesn't contain the leading or trailing " character
-        let formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
-        # Override conf field with the value set in the json-string
-        confValue = parseCmdArg(typeof(confValue), formattedString)
+    jsonNode = parseJson($configJson)
   except Exception:
-    return err("exception parsing configuration: " & getCurrentExceptionMsg())
+    return err(
+      "exception in createWaku when calling parseJson: " & getCurrentExceptionMsg() &
+        " configJson string: " & $configJson
+    )
+
+  for confField, confValue in fieldPairs(conf):
+    if jsonNode.contains(confField):
+      # Make sure string doesn't contain the leading or trailing " character
+      let formattedString = ($jsonNode[confField]).strip(chars = {'\"'})
+      # Override conf field with the value set in the json-string
+      try:
+        confValue = parseCmdArg(typeof(confValue), formattedString)
+      except Exception:
+        return err(
+          "exception in createWaku when parsing configuration. exc: " &
+            getCurrentExceptionMsg() & ". string that could not be parsed: " &
+            formattedString & ". expected type: " & $typeof(confValue)
+        )
 
   let wakuRes = Waku.init(conf).valueOr:
     error "waku initialization failed", error = error
