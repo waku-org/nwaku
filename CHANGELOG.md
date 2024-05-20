@@ -1,4 +1,12 @@
-## v0.28.0 (2024-05-20)
+## v0.28.0 (2024-05-22)
+
+## What's Changed
+
+Release highlights:
+
+* Store V3 has been merged
+* Implemented an enhanced and more robust node health check mechanism
+* Introduced the Waku object to libwaku in order to setup a node and its protocols 
 
 ### Features
 
@@ -58,6 +66,17 @@
 - workflow to autoassign PR ([#2604](https://github.com/waku-org/nwaku/issues/2604)) ([10d36c39](https://github.com/waku-org/nwaku/commit/10d36c39))
 - start moving discovery modules to waku/discovery ([#2587](https://github.com/waku-org/nwaku/issues/2587)) ([828583ad](https://github.com/waku-org/nwaku/commit/828583ad))
 - don't create docker images for users without org's secrets ([#2585](https://github.com/waku-org/nwaku/issues/2585)) ([51ec12be](https://github.com/waku-org/nwaku/commit/51ec12be))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
 
 ## v0.27.0 (2024-04-19)
 
