@@ -56,7 +56,7 @@ Ensure all items in this list are ticked:
     git push origin v0.1.0-rc.1
     ```
 
-1. For the release validation process, please refer to the following [guide](https://www.notion.so/Release-Process-61234f335b904cd0943a5033ed8f42b4#47af557e7f9744c68fdbe5240bf93ca9)
+1. Validate the release. For the release validation process, please refer to the following [guide](https://www.notion.so/Release-Process-61234f335b904cd0943a5033ed8f42b4#47af557e7f9744c68fdbe5240bf93ca9)
 
 1. Once the release-candidate has been validated, create a final release tag and push it.
 We also need to merge release branch back to master as a final step.
