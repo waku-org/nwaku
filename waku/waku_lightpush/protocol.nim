@@ -8,6 +8,7 @@ import
 import
   ../node/peer_manager/peer_manager,
   ../waku_core,
+  ../waku_relay,
   ./common,
   ./rpc,
   ./rpc_codec,
@@ -23,7 +24,7 @@ logScope:
 type WakuLightPush* = ref object of LPProtocol
   rng*: ref rand.HmacDrbgContext
   peerManager*: PeerManager
-  pushHandler*: PushMessageHandler
+  wakuRelay*: WakuRelay
   requestRateLimiter*: Option[TokenBucket]
 
 proc handleRequest*(
@@ -56,9 +57,24 @@ proc handleRequest*(
       pubsubTopic = pubsubTopic,
       hash = pubsubTopic.computeMessageHash(message).to0xHex()
 
-    let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
-    isSuccess = handleRes.isOk()
-    pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
+    # Validate the message using WakuRelay
+    let validationRes = await wl.wakuRelay.validateMessage(pubsubTopic, message)
+    if validationRes.isErr():
+      pushResponseInfo = validationRes.error
+    else:
+      # Publish the message using WakuRelay
+      let publishedCount = await wl.wakuRelay.publish(pubsubTopic, message)
+
+      if publishedCount == 0:
+        pushResponseInfo = "Message not published to any peers"
+        ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
+        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+        debug "Lightpush request has not been published to any peers",
+          msg_hash = msgHash
+
+      isSuccess = publishedCount > 0
+  
+  pushResponseInfo = (if isSuccess: "OK" else: pushResponseInfo)
 
   if not isSuccess:
     waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
@@ -105,13 +121,13 @@ proc new*(
     T: type WakuLightPush,
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
-    pushHandler: PushMessageHandler,
+    wakuRelay: WakuRelay,
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wl = WakuLightPush(
     rng: rng,
     peerManager: peerManager,
-    pushHandler: pushHandler,
+    wakuRelay: wakuRelay,
     requestRateLimiter: newTokenBucket(rateLimitSetting),
   )
   wl.initProtocolHandler()
