@@ -30,7 +30,7 @@ proc parseHash*(input: Option[string]): Result[Option[WakuMessageHash], string] 
   if base64UrlEncoded == "":
     return ok(none(WakuMessageHash))
 
-  let base64Encoded = decodeUrl(base64UrlEncoded)
+  let base64Encoded = decodeUrl(base64UrlEncoded, false)
 
   let decodedBytes = base64.decode(Base64String(base64Encoded)).valueOr:
     return err("waku message hash parsing error: " & error)
@@ -62,7 +62,7 @@ proc parseHashes*(input: Option[string]): Result[seq[WakuMessageHash], string] =
 # and this result is URL-encoded.
 proc toRestStringWakuMessageHash*(self: WakuMessageHash): string =
   let base64Encoded = base64.encode(self)
-  encodeUrl($base64Encoded)
+  encodeUrl($base64Encoded, false)
 
 ## WakuMessage serde
 
