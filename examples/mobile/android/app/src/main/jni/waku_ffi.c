@@ -7,6 +7,9 @@
 #include <string.h>
 #include <assert.h>
 
+#define APPNAME "waku-jni"
+#define LOGD(TAG) __android_log_print(ANDROID_LOG_DEBUG , APPNAME,TAG);
+
 // cb_result represents a response received when executing a callback.
 // If `error` is true, `message` will contain the error message description
 // otherwise, it will contain the result of the callback execution
@@ -175,6 +178,7 @@ jclass loadClass(JNIEnv *env, const char *className) {
 
 void Java_com_mobile_WakuModule_wakuSetup(JNIEnv *env, jobject thiz) {
   waku_setup();
+  LOGD("log example for debugging purposes...")
 }
 
 jobject Java_com_mobile_WakuModule_wakuNew(JNIEnv *env, jobject thiz,

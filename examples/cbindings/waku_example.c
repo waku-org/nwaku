@@ -247,6 +247,7 @@ void handle_user_input() {
 // End of UI program logic
 
 int main(int argc, char** argv) {
+    waku_setup();
 
     struct ConfigNode cfgNode;
     // default values

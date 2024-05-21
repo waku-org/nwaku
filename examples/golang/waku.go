@@ -200,6 +200,10 @@ type WakuNode struct {
 	ctx unsafe.Pointer
 }
 
+func WakuSetup() {
+	C.waku_setup()
+}
+
 func WakuNew(config WakuConfig) (*WakuNode, error) {
 	jsonConfig, err := json.Marshal(config)
 	if err != nil {
@@ -443,6 +447,8 @@ func (self *WakuNode) WakuListenAddresses() (string, error) {
 }
 
 func main() {
+	WakuSetup()
+
 	config := WakuConfig{
 		Host:        "0.0.0.0",
 		Port:        30304,
