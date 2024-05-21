@@ -75,6 +75,10 @@ const SelectWithCursorAscStmtDef =
           storedAt <= $7
     ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
 
+const SelectMessageByHashName = "SelectMessageByHash"
+const SelectMessageByHashDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages WHERE messageHash = $1"""
+
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
 const SelectNoCursorV2AscStmtDef =
   """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
@@ -347,10 +351,30 @@ proc getMessagesArbitraryQuery(
     args.add(pubsubTopic.get())
 
   if cursor.isSome():
+    let hashHex = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hashHex],
+        @[int32(hashHex.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    let storetime = entree[0][3]
+
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, messageHash) " & comp & " (?,?)")
-    args.add($cursor.get().storeTime)
-    args.add(toHex(cursor.get().hash))
+    args.add($storetime)
+    args.add(hashHex)
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
@@ -472,13 +496,31 @@ proc getMessagesPreparedStmt(
   let limit = $maxPageSize
 
   if cursor.isSome():
+    let hash = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hash],
+        @[int32(hash.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    let storeTime = $entree[0][3]
+
     var stmtName =
       if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
     var stmtDef =
       if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
-
-    let hash = toHex(cursor.get().hash)
-    let storeTime = $cursor.get().storeTime
 
     (
       await s.readConnPool.runStmt(
