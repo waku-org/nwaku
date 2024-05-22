@@ -1,3 +1,82 @@
+## v0.28.0 (2024-05-22)
+
+## What's Changed
+
+Release highlights:
+
+* Store V3 has been merged
+* Implemented an enhanced and more robust node health check mechanism
+* Introduced the Waku object to libwaku in order to setup a node and its protocols 
+
+### Features
+
+- Added message size check before relay for lightpush ([#2695](https://github.com/waku-org/nwaku/issues/2695)) ([9dfdfa27](https://github.com/waku-org/nwaku/commit/9dfdfa27))
+- adding json string support to bindings config ([#2685](https://github.com/waku-org/nwaku/issues/2685)) ([be5471c6](https://github.com/waku-org/nwaku/commit/be5471c6))
+- Added flexible rate limit checks for store, legacy store and lightpush ([#2668](https://github.com/waku-org/nwaku/issues/2668)) ([026d804a](https://github.com/waku-org/nwaku/commit/026d804a))
+- store v3 return pubsub topics ([#2676](https://github.com/waku-org/nwaku/issues/2676)) ([d700006a](https://github.com/waku-org/nwaku/commit/d700006a))
+- supporting meta field in store ([#2609](https://github.com/waku-org/nwaku/issues/2609)) ([a46d4451](https://github.com/waku-org/nwaku/commit/a46d4451))
+- store v3 ([#2431](https://github.com/waku-org/nwaku/issues/2431)) ([0b0fbfad](https://github.com/waku-org/nwaku/commit/0b0fbfad))
+
+### Bug Fixes
+
+- use await instead of waitFor in async tests ([#2690](https://github.com/waku-org/nwaku/issues/2690)) ([a37c9ba9](https://github.com/waku-org/nwaku/commit/a37c9ba9))
+- message cache removal crash ([#2682](https://github.com/waku-org/nwaku/issues/2682)) ([fa26d05f](https://github.com/waku-org/nwaku/commit/fa26d05f))
+- add `meta` to sqlite migration scripts ([#2675](https://github.com/waku-org/nwaku/issues/2675)) ([82f95999](https://github.com/waku-org/nwaku/commit/82f95999))
+- content_script_version_4.nim: migration failed when dropping unexisting constraing ([#2672](https://github.com/waku-org/nwaku/issues/2672)) ([38f8b08c](https://github.com/waku-org/nwaku/commit/38f8b08c))
+- **filter:** log is too large ([#2665](https://github.com/waku-org/nwaku/issues/2665)) ([cee020f2](https://github.com/waku-org/nwaku/commit/cee020f2))
+- issue [#2644](https://github.com/waku-org/nwaku/issues/2644) properly ([#2663](https://github.com/waku-org/nwaku/issues/2663)) ([853ec186](https://github.com/waku-org/nwaku/commit/853ec186))
+- store v3 validate cursor & remove messages  ([#2636](https://github.com/waku-org/nwaku/issues/2636)) ([e03d1165](https://github.com/waku-org/nwaku/commit/e03d1165))
+- **waku_keystore:** sigsegv on different appInfo ([#2654](https://github.com/waku-org/nwaku/issues/2654)) ([5dd645cf](https://github.com/waku-org/nwaku/commit/5dd645cf))
+- **rln-relay:** persist metadata every batch during initial sync ([#2649](https://github.com/waku-org/nwaku/issues/2649)) ([a9e19efd](https://github.com/waku-org/nwaku/commit/a9e19efd))
+- handle named sharding in enr ([#2647](https://github.com/waku-org/nwaku/issues/2647)) ([8d1b0834](https://github.com/waku-org/nwaku/commit/8d1b0834))
+- parse shards properly in enr config for non twn ([#2633](https://github.com/waku-org/nwaku/issues/2633)) ([6e6cb298](https://github.com/waku-org/nwaku/commit/6e6cb298))
+- proto field numbers & status desc ([#2632](https://github.com/waku-org/nwaku/issues/2632)) ([843fe217](https://github.com/waku-org/nwaku/commit/843fe217))
+- missing rate limit setting for legacy store protocol ([#2631](https://github.com/waku-org/nwaku/issues/2631)) ([5f65565c](https://github.com/waku-org/nwaku/commit/5f65565c))
+- **rln-relay:** enforce error callback to remove exception raised from retryWrapper ([#2622](https://github.com/waku-org/nwaku/issues/2622)) ([9c9883a6](https://github.com/waku-org/nwaku/commit/9c9883a6))
+- **rln-relay:** increase retries for 1 minute recovery time ([#2614](https://github.com/waku-org/nwaku/issues/2614)) ([1a23700d](https://github.com/waku-org/nwaku/commit/1a23700d))
+- **ci:** unique comment_tag to reference rln version ([#2613](https://github.com/waku-org/nwaku/issues/2613)) ([2c01fa0f](https://github.com/waku-org/nwaku/commit/2c01fa0f))
+- don't use WakuMessageSize in req/resp protocols ([#2601](https://github.com/waku-org/nwaku/issues/2601)) ([e61e4ff9](https://github.com/waku-org/nwaku/commit/e61e4ff9))
+- create options api for cors preflight request ([#2598](https://github.com/waku-org/nwaku/issues/2598)) ([768c61b1](https://github.com/waku-org/nwaku/commit/768c61b1))
+- node restart test issue ([#2576](https://github.com/waku-org/nwaku/issues/2576)) ([4a8e62ac](https://github.com/waku-org/nwaku/commit/4a8e62ac))
+- **doc:** update REST API docs ([#2581](https://github.com/waku-org/nwaku/issues/2581)) ([006d43ae](https://github.com/waku-org/nwaku/commit/006d43ae))
+
+### Changes
+
+- move code from wakunode2 to a more generic place, waku ([#2670](https://github.com/waku-org/nwaku/issues/2670)) ([840e0122](https://github.com/waku-org/nwaku/commit/840e0122))
+- closing ping streams ([#2692](https://github.com/waku-org/nwaku/issues/2692)) ([7d4857ea](https://github.com/waku-org/nwaku/commit/7d4857ea))
+- Postgres enhance get oldest timestamp ([#2687](https://github.com/waku-org/nwaku/issues/2687)) ([8451cf8e](https://github.com/waku-org/nwaku/commit/8451cf8e))
+- **rln-relay:** health check should account for window of roots ([#2664](https://github.com/waku-org/nwaku/issues/2664)) ([6a1af922](https://github.com/waku-org/nwaku/commit/6a1af922))
+- updating TWN bootstrap fleet to waku.sandbox ([#2638](https://github.com/waku-org/nwaku/issues/2638)) ([22f64bbd](https://github.com/waku-org/nwaku/commit/22f64bbd))
+- simplify migration script postgres version_4 ([#2674](https://github.com/waku-org/nwaku/issues/2674)) ([91c85738](https://github.com/waku-org/nwaku/commit/91c85738))
+- big refactor to add waku component in libwaku instead of only waku node ([#2658](https://github.com/waku-org/nwaku/issues/2658)) ([2463527b](https://github.com/waku-org/nwaku/commit/2463527b))
+- simplify app.nim and move discovery items to appropriate modules ([#2657](https://github.com/waku-org/nwaku/issues/2657)) ([404810aa](https://github.com/waku-org/nwaku/commit/404810aa))
+- log enhancement for message reliability analysis ([#2640](https://github.com/waku-org/nwaku/issues/2640)) ([d5e0e4a9](https://github.com/waku-org/nwaku/commit/d5e0e4a9))
+- metrics server. Simplify app.nim module ([#2650](https://github.com/waku-org/nwaku/issues/2650)) ([4a110f65](https://github.com/waku-org/nwaku/commit/4a110f65))
+- change nim-libp2p branch from unstable to master ([#2648](https://github.com/waku-org/nwaku/issues/2648)) ([d09c9c91](https://github.com/waku-org/nwaku/commit/d09c9c91))
+- Enabling to use a full node for lightpush via rest api without lightpush client configured ([#2626](https://github.com/waku-org/nwaku/issues/2626)) ([2a4c0f15](https://github.com/waku-org/nwaku/commit/2a4c0f15))
+- **rln-relay:** resultify rln-relay 1/n ([#2607](https://github.com/waku-org/nwaku/issues/2607)) ([1d7ff288](https://github.com/waku-org/nwaku/commit/1d7ff288))
+- ci.yml - avoid calling brew link libpq --force on macos ([#2627](https://github.com/waku-org/nwaku/issues/2627)) ([05f332ed](https://github.com/waku-org/nwaku/commit/05f332ed))
+- an enhanced version of convenient node health check script ([#2624](https://github.com/waku-org/nwaku/issues/2624)) ([7f8d8e80](https://github.com/waku-org/nwaku/commit/7f8d8e80))
+- **rln-db-inspector:** add more logging to find zero leaf indices ([#2617](https://github.com/waku-org/nwaku/issues/2617)) ([40752b1e](https://github.com/waku-org/nwaku/commit/40752b1e))
+- addition of waku_api/rest/builder.nim and reduce app.nim ([#2623](https://github.com/waku-org/nwaku/issues/2623)) ([b28207ab](https://github.com/waku-org/nwaku/commit/b28207ab))
+- Separation of node health and initialization state from rln_relay ([#2612](https://github.com/waku-org/nwaku/issues/2612)) ([6d135b0d](https://github.com/waku-org/nwaku/commit/6d135b0d))
+- enabling rest api as default ([#2600](https://github.com/waku-org/nwaku/issues/2600)) ([6bc79bc7](https://github.com/waku-org/nwaku/commit/6bc79bc7))
+- move app.nim and networks_config.nim to waku/factory ([#2608](https://github.com/waku-org/nwaku/issues/2608)) ([1ba9df4b](https://github.com/waku-org/nwaku/commit/1ba9df4b))
+- workflow to autoassign PR ([#2604](https://github.com/waku-org/nwaku/issues/2604)) ([10d36c39](https://github.com/waku-org/nwaku/commit/10d36c39))
+- start moving discovery modules to waku/discovery ([#2587](https://github.com/waku-org/nwaku/issues/2587)) ([828583ad](https://github.com/waku-org/nwaku/commit/828583ad))
+- don't create docker images for users without org's secrets ([#2585](https://github.com/waku-org/nwaku/issues/2585)) ([51ec12be](https://github.com/waku-org/nwaku/commit/51ec12be))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+The Waku v1 implementation has been removed from this repository and can be found in a separate [Waku Legacy](https://github.com/waku-org/waku-legacy) repository.
+
 ## v0.27.0 (2024-04-19)
 
 >  **Note:**
