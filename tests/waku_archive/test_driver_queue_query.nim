@@ -606,6 +606,53 @@ suite "Queue driver - query by cursor":
     ## Cleanup
     (waitFor driver.close()).expect("driver to close")
 
+  test "only cursor - invalid":
+    ## Given
+    const contentTopic = "test-content-topic"
+
+    let driver = newTestSqliteDriver()
+
+    let expected =
+      @[
+        fakeWakuMessage(@[byte 0], ts = ts(00)),
+        fakeWakuMessage(@[byte 1], ts = ts(10)),
+        fakeWakuMessage(@[byte 2], contentTopic = contentTopic, ts = ts(20)),
+        fakeWakuMessage(@[byte 3], contentTopic = contentTopic, ts = ts(30)),
+        fakeWakuMessage(@[byte 4], contentTopic = contentTopic, ts = ts(40)),
+        fakeWakuMessage(@[byte 5], contentTopic = contentTopic, ts = ts(50)),
+        fakeWakuMessage(@[byte 6], contentTopic = contentTopic, ts = ts(60)),
+        fakeWakuMessage(@[byte 7], contentTopic = contentTopic, ts = ts(70)),
+      ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+
+    for msg in messages:
+      let retFut = waitFor driver.put(
+        DefaultPubsubTopic,
+        msg,
+        computeDigest(msg),
+        computeMessageHash(DefaultPubsubTopic, msg),
+        msg.timestamp,
+      )
+      require retFut.isOk()
+
+    let cursor = computeTestCursor(DefaultPubsubTopic, fakeWakuMessage())
+
+    ## When
+    let res = waitFor driver.getMessages(
+      cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
+    )
+
+    ## Then
+    check:
+      res.isErr()
+      res.error == "invalid_cursor"
+
+    ## Cleanup
+    (waitFor driver.close()).expect("driver to close")
+
   test "content topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"

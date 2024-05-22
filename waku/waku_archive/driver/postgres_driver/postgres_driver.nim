@@ -369,6 +369,9 @@ proc getMessagesArbitraryQuery(
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
 
+    if entree.len == 0:
+      return ok(entree)
+
     let storetime = entree[0][3]
 
     let comp = if ascendingOrder: ">" else: "<"
@@ -514,6 +517,9 @@ proc getMessagesPreparedStmt(
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
 
     let storeTime = $entree[0][3]
 
