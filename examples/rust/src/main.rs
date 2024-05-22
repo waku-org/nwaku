@@ -13,6 +13,8 @@ pub type WakuCallback =
     );
 
 extern "C" {
+    pub fn waku_setup();
+
     pub fn waku_new(
         config_json: *const u8,
         cb: WakuCallback,
@@ -41,7 +43,7 @@ pub unsafe extern "C" fn trampoline<C>(
     C: FnMut(i32, &str),
 {
     let closure = &mut *(data as *mut C);
-    
+
     let buffer_utf8 =
     String::from_utf8(slice::from_raw_parts(buffer as *mut u8, buffer_len)
                     .to_vec())
@@ -68,6 +70,8 @@ fn main() {
     }";
 
     unsafe {
+        waku_setup();
+
         // Create the waku node
         let closure = |ret: i32, data: &str| {
             println!("Ret {ret}. Error creating waku node {data}");
