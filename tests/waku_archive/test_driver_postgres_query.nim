@@ -649,7 +649,7 @@ suite "Postgres driver - queries":
     ## Given
     const contentTopic = "test-content-topic"
 
-    let expected =
+    var messages =
       @[
         fakeWakuMessage(@[byte 0], ts = ts(00)),
         fakeWakuMessage(@[byte 1], ts = ts(10)),
@@ -660,7 +660,6 @@ suite "Postgres driver - queries":
         fakeWakuMessage(@[byte 6], contentTopic = contentTopic, ts = ts(60)),
         fakeWakuMessage(@[byte 7], contentTopic = contentTopic, ts = ts(70)),
       ]
-    var messages = expected
 
     shuffle(messages)
     debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)

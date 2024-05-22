@@ -77,7 +77,7 @@ const SelectWithCursorAscStmtDef =
 
 const SelectMessageByHashName = "SelectMessageByHash"
 const SelectMessageByHashDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages WHERE messageHash = $1"""
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages WHERE messageHash = $1"""
 
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
 const SelectNoCursorV2AscStmtDef =
