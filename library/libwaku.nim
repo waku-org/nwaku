@@ -2,7 +2,7 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-if defined(linux):
+when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
 import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
