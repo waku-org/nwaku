@@ -80,13 +80,10 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
   return ok(some(relayShard))
 
 func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
-  rs.clusterId == clusterId and rs.shardIds.contains(shardId)
+  return rs.clusterId == clusterId and rs.shardIds.contains(shardId)
 
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
-  if topic.kind != NsPubsubTopicKind.StaticSharding:
-    return false
-
-  rs.contains(topic.clusterId, topic.shardId)
+  return rs.contains(topic.clusterId, topic.shardId)
 
 func contains*(rs: RelayShards, topic: PubsubTopic | string): bool =
   let parseRes = NsPubsubTopic.parse(topic)
@@ -241,10 +238,7 @@ proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
   rs.contains(clusterId, shardId)
 
 proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
-  if topic.kind != NsPubsubTopicKind.StaticSharding:
-    return false
-
-  containsShard(r, topic.clusterId, topic.shardId)
+  return containsShard(r, topic.clusterId, topic.shardId)
 
 proc containsShard*(r: Record, topic: PubsubTopic | string): bool =
   let parseRes = NsPubsubTopic.parse(topic)
