@@ -13,40 +13,23 @@ export parsing
 
 type PubsubTopic* = string
 
-const DefaultPubsubTopic* = PubsubTopic("/waku/2/default-waku/proto")
+const DefaultPubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
 
 ## Namespaced pub-sub topic
 
-type NsPubsubTopicKind* {.pure.} = enum
-  StaticSharding
-  NamedSharding
-
 type NsPubsubTopic* = object
-  case kind*: NsPubsubTopicKind
-  of NsPubsubTopicKind.StaticSharding:
-    clusterId*: uint16
-    shardId*: uint16
-  of NsPubsubTopicKind.NamedSharding:
-    name*: string
+  clusterId*: uint16
+  shardId*: uint16
 
 proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
-  NsPubsubTopic(
-    kind: NsPubsubTopicKind.StaticSharding, clusterId: clusterId, shardId: shardId
-  )
-
-proc named*(T: type NsPubsubTopic, name: string): T =
-  NsPubsubTopic(kind: NsPubsubTopicKind.NamedSharding, name: name)
+  return NsPubsubTopic(clusterId: clusterId, shardId: shardId)
 
 # Serialization
 
 proc `$`*(topic: NsPubsubTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/waku/2/<raw-topic>
-  case topic.kind
-  of NsPubsubTopicKind.NamedSharding:
-    "/waku/2/" & topic.name
-  of NsPubsubTopicKind.StaticSharding:
-    "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
+    return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
 
 # Deserialization
 
@@ -86,27 +69,13 @@ proc parseStaticSharding*(
 
   ok(NsPubsubTopic.staticSharding(clusterId, shardId))
 
-proc parseNamedSharding*(
-    T: type NsPubsubTopic, topic: PubsubTopic | string
-): ParsingResult[NsPubsubTopic] =
-  if not topic.startsWith(Waku2PubsubTopicPrefix):
-    return err(ParsingError.invalidFormat("must start with " & Waku2PubsubTopicPrefix))
-
-  let raw = topic[8 ..< topic.len]
-  if raw.len == 0:
-    return err(ParsingError.missingPart("topic-name"))
-
-  ok(NsPubsubTopic.named(name = raw))
-
 proc parse*(
     T: type NsPubsubTopic, topic: PubsubTopic | string
 ): ParsingResult[NsPubsubTopic] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
-  if topic.startsWith(StaticShardingPubsubTopicPrefix):
-    NsPubsubTopic.parseStaticSharding(topic)
-  else:
-    NsPubsubTopic.parseNamedSharding(topic)
+  NsPubsubTopic.parseStaticSharding(topic)
+
 
 # Pubsub topic compatibility
 
@@ -114,21 +83,10 @@ converter toPubsubTopic*(topic: NsPubsubTopic): PubsubTopic =
   $topic
 
 proc `==`*[T: NsPubsubTopic](x, y: T): bool =
-  case y.kind
-  of NsPubsubTopicKind.StaticSharding:
-    if x.kind != NsPubsubTopicKind.StaticSharding:
-      return false
+  if x.clusterId != y.clusterId:
+    return false
 
-    if x.clusterId != y.clusterId:
-      return false
+  if x.shardId != y.shardId:
+    return false
 
-    if x.shardId != y.shardId:
-      return false
-  of NsPubsubTopicKind.NamedSharding:
-    if x.kind != NsPubsubTopicKind.NamedSharding:
-      return false
-
-    if x.name != y.name:
-      return false
-
-  true
+  return true

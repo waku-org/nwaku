@@ -69,7 +69,7 @@ type Chat2MatterbridgeConf* = object
 
   topics* {.
     desc: "Default topics to subscribe to (space separated list)",
-    defaultValue: "/waku/2/default-waku/proto",
+    defaultValue: "/waku/2/rs/0/0",
     name: "topics"
   .}: string
 

@@ -26,7 +26,7 @@ import
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
 const
-  LitePubsubTopic* = PubsubTopic("/waku/2/default-waku/proto")
+  LitePubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
   LiteContentTopic* = ContentTopic("/tester/1/light-pubsub-example/proto")
 
 type TesterFunctionality* = enum

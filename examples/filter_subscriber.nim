@@ -8,7 +8,7 @@ const
   FilterPeer =
     "/ip4/34.16.1.67/tcp/30303/p2p/16Uiu2HAmDCp8XJ9z1ev18zuv8NHekAsjNyezAvmMfFEJkiharitG"
     # node-01.gc-us-central1-a.waku.test.statusim.net on waku.test
-  FilterPubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
+  FilterPubsubTopic = PubsubTopic("/waku/2/rs/0/0")
   FilterContentTopic = ContentTopic("/examples/1/light-pubsub-example/proto")
 
 proc unsubscribe(
