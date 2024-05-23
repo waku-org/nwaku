@@ -39,7 +39,7 @@ proc enrConfiguration*(
     if shardsOpt.isSome():
       shards = shardsOpt.get().shardIds
     else:
-      info "no pubsub topics specified or pubsubtopic is of type Named sharding "
+      info "no pubsub topics specified"
   # some shards configured
   else:
     shards = toSeq(conf.shards.mapIt(uint16(it)))
