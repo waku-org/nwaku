@@ -150,7 +150,7 @@ suite "Waku v2 Rest API - Relay":
 
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
-    let pubSubTopic = "/waku/2/default-waku/proto"
+    let pubSubTopic = "/waku/2/rs/0/0"
 
     var messages =
       @[

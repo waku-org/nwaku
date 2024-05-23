@@ -103,7 +103,7 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
 
   # Make sure it matches the publisher. Use default value
   # see spec: https://rfc.vac.dev/spec/23/
-  let pubSubTopic = PubsubTopic("/waku/2/default-waku/proto")
+  let pubSubTopic = PubsubTopic("/waku/2/rs/0/0")
 
   # any content topic can be chosen. make sure it matches the publisher
   let contentTopic = ContentTopic("/examples/1/pubsub-example/proto")

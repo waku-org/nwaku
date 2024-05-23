@@ -69,12 +69,6 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
     if res.isErr():
       return err("failed to parse topic: " & $res.error)
 
-  if parsedTopicsRes.allIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
-    return ok(none(RelayShards))
-
-  if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
-    return err("use named (/waku/2/*) OR static (/waku/2/rs/*/*) shards not both.")
-
   if parsedTopicsRes.anyIt(it.get().clusterId != parsedTopicsRes[0].get().clusterId):
     return err("use shards with the same cluster Id.")
 

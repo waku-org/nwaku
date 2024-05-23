@@ -56,7 +56,7 @@ docker compose logs -f receivernode
 | ---: | :--- | :--- |
 | NUM_MESSAGES   | Number of message to publish | 120 |
 | DELAY_MESSAGES | Frequency of messages in milliseconds | 1000 |
-| PUBSUB | Used pubsub_topic for testing | /waku/2/default-waku/proto |
+| PUBSUB | Used pubsub_topic for testing | /waku/2/rs/0/0 |
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
 
 ### Lite Protocol Tester application cli options
@@ -67,7 +67,7 @@ docker compose logs -f receivernode
 | --service-node| Address of the service node to use for lightpush and/or filter service | - |
 | --num-messages | Number of message to publish | 120 |
 | --delay-messages | Frequency of messages in milliseconds | 1000 |
-| --pubsub-topic | Used pubsub_topic for testing | /waku/2/default-waku/proto |
+| --pubsub-topic | Used pubsub_topic for testing | /waku/2/rs/0/0 |
 | --content_topic | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | --cluster-id | Cluster id for the test | 0 |
 | --config-file | TOML configuration file to fine tune the light waku node<br>Note that some configurations (full node services) are not taken into account | - |
