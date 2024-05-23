@@ -25,8 +25,8 @@ proc newWakuArchive*(driver: ArchiveDriver): WakuArchive =
 
 proc computeArchiveCursor*(
     pubsubTopic: PubsubTopic, message: WakuMessage
-): ArchiveCursor =
-  ArchiveCursor(
+): ArchiveCursorV2 =
+  ArchiveCursorV2(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
@@ -41,7 +41,7 @@ proc put*(
     let
       msgDigest = computeDigest(msg)
       msgHash = computeMessageHash(pubsubTopic, msg)
-      _ = waitFor driver.put(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
+      _ = waitFor driver.putV2(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
         # discard crashes
   return driver
 

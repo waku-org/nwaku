@@ -157,7 +157,7 @@ procSuite "Waku Archive - find messages":
 
     for msg in msgListA:
       require (
-        waitFor driver.put(
+        waitFor driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -369,17 +369,16 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with forward pagination":
     ## Given
-    let req =
-      ArchiveQuery(includeData: true, pageSize: 4, direction: PagingDirection.FORWARD)
+    let req = ArchiveQueryV2(pageSize: 4, direction: PagingDirection.FORWARD)
 
     ## When
     var nextReq = req # copy
 
     var pages = newSeq[seq[WakuMessage]](3)
-    var cursors = newSeq[Option[ArchiveCursor]](3)
+    var cursors = newSeq[Option[ArchiveCursorV2]](3)
 
     for i in 0 ..< 3:
-      let res = waitFor archiveA.findMessages(nextReq)
+      let res = waitFor archiveA.findMessagesV2(nextReq)
       require res.isOk()
 
       # Keep query response content
@@ -394,7 +393,7 @@ procSuite "Waku Archive - find messages":
     check:
       cursors[0] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[3]))
       cursors[1] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[7]))
-      cursors[2] == none(ArchiveCursor)
+      cursors[2] == none(ArchiveCursorV2)
 
     check:
       pages[0] == msgListA[0 .. 3]
@@ -403,17 +402,16 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with backward pagination":
     ## Given
-    let req =
-      ArchiveQuery(includeData: true, pageSize: 4, direction: PagingDirection.BACKWARD)
+    let req = ArchiveQueryV2(pageSize: 4, direction: PagingDirection.BACKWARD)
 
     ## When
     var nextReq = req # copy
 
     var pages = newSeq[seq[WakuMessage]](3)
-    var cursors = newSeq[Option[ArchiveCursor]](3)
+    var cursors = newSeq[Option[ArchiveCursorV2]](3)
 
     for i in 0 ..< 3:
-      let res = waitFor archiveA.findMessages(nextReq)
+      let res = waitFor archiveA.findMessagesV2(nextReq)
       require res.isOk()
 
       # Keep query response content
@@ -428,7 +426,7 @@ procSuite "Waku Archive - find messages":
     check:
       cursors[0] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[6]))
       cursors[1] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[2]))
-      cursors[2] == none(ArchiveCursor)
+      cursors[2] == none(ArchiveCursorV2)
 
     check:
       pages[0] == msgListA[6 .. 9]
@@ -457,7 +455,7 @@ procSuite "Waku Archive - find messages":
 
     for msg in msgList:
       require (
-        waitFor driver.put(
+        waitFor driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),

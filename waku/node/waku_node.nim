@@ -685,13 +685,15 @@ proc mountArchive*(
 ## Legacy Waku Store
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toArchiveQuery(request: legacy_store_common.HistoryQuery): ArchiveQuery =
-  ArchiveQuery(
+proc toArchiveQuery(
+    request: legacy_store_common.HistoryQuery
+): ArchiveQueryV2 {.deprecated.} =
+  ArchiveQueryV2(
     pubsubTopic: request.pubsubTopic,
     contentTopics: request.contentTopics,
     cursor: request.cursor.map(
-      proc(cursor: HistoryCursor): ArchiveCursor =
-        ArchiveCursor(
+      proc(cursor: HistoryCursor): ArchiveCursorV2 =
+        ArchiveCursorV2(
           pubsubTopic: cursor.pubsubTopic,
           senderTime: cursor.senderTime,
           storeTime: cursor.storeTime,
@@ -705,7 +707,9 @@ proc toArchiveQuery(request: legacy_store_common.HistoryQuery): ArchiveQuery =
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
+proc toHistoryResult*(
+    res: ArchiveResultV2
+): legacy_store_common.HistoryResult {.deprecated.} =
   if res.isErr():
     let error = res.error
     case res.error.kind
@@ -719,7 +723,7 @@ proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
       HistoryResponse(
         messages: response.messages,
         cursor: response.cursor.map(
-          proc(cursor: ArchiveCursor): HistoryCursor =
+          proc(cursor: ArchiveCursorV2): HistoryCursor =
             HistoryCursor(
               pubsubTopic: cursor.pubsubTopic,
               senderTime: cursor.senderTime,
@@ -732,7 +736,7 @@ proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
 
 proc mountLegacyStore*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
-) {.async.} =
+) {.async, deprecated.} =
   info "mounting waku legacy store protocol"
 
   if node.wakuArchive.isNil():
@@ -763,7 +767,7 @@ proc mountLegacyStore*(
     node.wakuLegacyStore, protocolMatcher(legacy_store_common.WakuLegacyStoreCodec)
   )
 
-proc mountLegacyStoreClient*(node: WakuNode) =
+proc mountLegacyStoreClient*(node: WakuNode) {.deprecated.} =
   info "mounting legacy store client"
 
   node.wakuLegacyStoreClient =
@@ -772,7 +776,7 @@ proc mountLegacyStoreClient*(node: WakuNode) =
 proc query*(
     node: WakuNode, query: legacy_store_common.HistoryQuery, peer: RemotePeerInfo
 ): Future[legacy_store_common.WakuStoreResult[legacy_store_common.HistoryResponse]] {.
-    async, gcsafe
+    async, gcsafe, deprecated
 .} =
   ## Queries known nodes for historical messages
   if node.wakuLegacyStoreClient.isNil():
@@ -838,11 +842,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   query.startTime = request.startTime
   query.endTime = request.endTime
   query.hashes = request.messageHashes
-
-  if request.paginationCursor.isSome():
-    var cursor = ArchiveCursor()
-    cursor.hash = request.paginationCursor.get()
-    query.cursor = some(cursor)
+  query.cursor = request.paginationCursor
 
   query.direction = request.paginationForward
 
@@ -871,8 +871,7 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
     res.messages[i].message = some(response.messages[i])
     res.messages[i].pubsubTopic = some(response.topics[i])
 
-  if response.cursor.isSome():
-    res.paginationCursor = some(response.cursor.get().hash)
+  res.paginationCursor = response.cursor
 
   return ok(res)
 

@@ -152,7 +152,7 @@ proc findMessages*(
   let rows = (
     await self.driver.getMessages(
       includeData = query.includeData,
-      contentTopic = query.contentTopics,
+      contentTopics = query.contentTopics,
       pubsubTopic = query.pubsubTopic,
       cursor = query.cursor,
       startTime = query.startTime,

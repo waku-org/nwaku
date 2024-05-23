@@ -44,7 +44,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -54,7 +54,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(maxPageSize = 5, ascendingOrder = true)
+    let res = await driver.getMessagesV2(maxPageSize = 5, ascendingOrder = true)
 
     ## Then
     check:
@@ -91,7 +91,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -101,7 +101,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -152,7 +152,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -162,7 +162,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -201,7 +201,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -211,7 +211,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = false
     )
 
@@ -252,7 +252,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -262,7 +262,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2],
       maxPageSize = 2,
       ascendingOrder = true,
@@ -300,7 +300,7 @@ suite "SQLite driver - query by content topic":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -310,7 +310,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -334,7 +334,7 @@ suite "SQLite driver - query by content topic":
     for t in 0 ..< 40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts = ts(t))
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -344,7 +344,7 @@ suite "SQLite driver - query by content topic":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[DefaultContentTopic],
       maxPageSize = pageSize,
       ascendingOrder = true,
@@ -407,13 +407,13 @@ suite "SQLite driver - query by pubsub topic":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic), maxPageSize = 2, ascendingOrder = true
     )
 
@@ -474,13 +474,13 @@ suite "SQLite driver - query by pubsub topic":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(maxPageSize = 2, ascendingOrder = true)
+    let res = await driver.getMessagesV2(maxPageSize = 2, ascendingOrder = true)
 
     ## Then
     check:
@@ -539,13 +539,13 @@ suite "SQLite driver - query by pubsub topic":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       maxPageSize = 2,
@@ -590,7 +590,7 @@ suite "SQLite driver - query by cursor":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -602,7 +602,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       cursor = some(cursor), maxPageSize = 2, ascendingOrder = true
     )
 
@@ -642,7 +642,7 @@ suite "SQLite driver - query by cursor":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -654,7 +654,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
     )
 
@@ -692,7 +692,7 @@ suite "SQLite driver - query by cursor":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -701,13 +701,12 @@ suite "SQLite driver - query by cursor":
         )
       ).isOk()
 
-    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
-    let cursor = ArchiveCursor(hash: fakeCursor)
+    let cursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
 
     ## When
     let res = await driver.getMessages(
       includeData = true,
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       pubsubTopic = none(PubsubTopic),
       cursor = some(cursor),
       startTime = none(Timestamp),
@@ -750,7 +749,7 @@ suite "SQLite driver - query by cursor":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -762,7 +761,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
@@ -805,7 +804,7 @@ suite "SQLite driver - query by cursor":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -817,7 +816,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
@@ -905,7 +904,7 @@ suite "SQLite driver - query by cursor":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -913,7 +912,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(expected[5][0], expected[5][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       maxPageSize = 10,
@@ -1002,7 +1001,7 @@ suite "SQLite driver - query by cursor":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1010,7 +1009,7 @@ suite "SQLite driver - query by cursor":
     let cursor = computeArchiveCursor(expected[6][0], expected[6][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       maxPageSize = 10,
@@ -1055,7 +1054,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1065,7 +1064,7 @@ suite "SQLite driver - query by time range":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       startTime = some(ts(15, timeOrigin)), maxPageSize = 10, ascendingOrder = true
     )
 
@@ -1105,7 +1104,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1115,7 +1114,7 @@ suite "SQLite driver - query by time range":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       endTime = some(ts(45, timeOrigin)), maxPageSize = 10, ascendingOrder = true
     )
 
@@ -1202,13 +1201,13 @@ suite "SQLite driver - query by time range":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       startTime = some(ts(15, timeOrigin)),
       endTime = some(ts(45, timeOrigin)),
       maxPageSize = 10,
@@ -1253,7 +1252,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1263,7 +1262,7 @@ suite "SQLite driver - query by time range":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(45, timeOrigin)),
       endTime = some(ts(15, timeOrigin)),
@@ -1306,7 +1305,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1316,7 +1315,7 @@ suite "SQLite driver - query by time range":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1361,7 +1360,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1371,7 +1370,7 @@ suite "SQLite driver - query by time range":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1417,7 +1416,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1429,7 +1428,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[3])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1476,7 +1475,7 @@ suite "SQLite driver - query by time range":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1488,7 +1487,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1569,7 +1568,7 @@ suite "SQLite driver - query by time range":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1577,7 +1576,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(DefaultPubsubTopic, expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1660,7 +1659,7 @@ suite "SQLite driver - query by time range":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1668,7 +1667,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(expected[7][0], expected[7][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1752,7 +1751,7 @@ suite "SQLite driver - query by time range":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1760,7 +1759,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1845,7 +1844,7 @@ suite "SQLite driver - query by time range":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1853,7 +1852,7 @@ suite "SQLite driver - query by time range":
     let cursor = computeArchiveCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),

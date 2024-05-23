@@ -55,7 +55,9 @@ procSuite "WakuNode - Store Legacy":
       let msg_digest = waku_archive.computeDigest(msg)
       let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
       require (
-        waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)
+        waitFor driver.putV2(
+          DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp
+        )
       ).isOk()
 
     driver

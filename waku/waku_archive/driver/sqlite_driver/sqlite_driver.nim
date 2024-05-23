@@ -80,7 +80,7 @@ method put*(
 
 method getAllMessages*(
     s: SqliteDriver
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## Retrieve all messages from the store.
   return s.db.selectAllMessages()
 
@@ -88,12 +88,12 @@ method getMessagesV2*(
     s: SqliteDriver,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
   echo "here"
 
   let cursor = cursor.map(toDbCursor)
@@ -115,13 +115,13 @@ method getMessages*(
     includeData = false,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   let cursor =
     if cursor.isSome():
       some(cursor.get().hash)

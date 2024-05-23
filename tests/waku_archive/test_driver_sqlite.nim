@@ -40,7 +40,7 @@ suite "SQLite driver":
     let msgHash = computeMessageHash(DefaultPubsubTopic, msg)
 
     ## When
-    let putRes = waitFor driver.put(
+    let putRes = waitFor driver.putV2(
       DefaultPubsubTopic, msg, computeDigest(msg), msgHash, msg.timestamp
     )
 
@@ -48,7 +48,7 @@ suite "SQLite driver":
     check:
       putRes.isOk()
 
-    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
+    let storedMsg = (waitFor driver.getAllMessagesV2()).tryGet()
     check:
       storedMsg.len == 1
       storedMsg.all do(item: auto) -> bool:

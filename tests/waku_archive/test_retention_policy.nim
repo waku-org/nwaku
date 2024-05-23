@@ -33,7 +33,7 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.put(
+        driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -86,7 +86,7 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.put(
+        driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -147,7 +147,7 @@ suite "Waku Archive - Retention policy":
     ## When
     for msg in messages:
       require (
-        waitFor driver.put(
+        waitFor driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -158,7 +158,7 @@ suite "Waku Archive - Retention policy":
       require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
-    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
+    let storedMsg = (waitFor driver.getAllMessagesV2()).tryGet()
     check:
       storedMsg.len == capacity
       storedMsg.all do(item: auto) -> bool:

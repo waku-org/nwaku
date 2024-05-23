@@ -246,34 +246,37 @@ proc setupProtocols(
     # Store setup
     let rateLimitSetting: RateLimitSetting =
       (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
+
+    if conf.legacyStore:
+      # If enabled old drivers are use for both v2 and v3 else v3 driver and store are used
+      try:
+        await mountLegacyStore(node, rateLimitSetting)
+      except CatchableError:
+        return
+          err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
+
+      mountLegacyStoreClient(node)
+      if conf.storenode != "":
+        let storeNode = parsePeerInfo(conf.storenode)
+        if storeNode.isOk():
+          node.peerManager.addServicePeer(
+            storeNode.value, legacy_common.WakuLegacyStoreCodec
+          )
+        else:
+          return err("failed to set node waku legacy store peer: " & storeNode.error)
+
     try:
       await mountStore(node, rateLimitSetting)
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
-    try:
-      await mountLegacyStore(node, rateLimitSetting)
-    except CatchableError:
-      return
-        err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
-
-  mountStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
-    if storeNode.isOk():
-      node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
-    else:
-      return err("failed to set node waku store peer: " & storeNode.error)
-
-  mountLegacyStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
-    if storeNode.isOk():
-      node.peerManager.addServicePeer(
-        storeNode.value, legacy_common.WakuLegacyStoreCodec
-      )
-    else:
-      return err("failed to set node waku legacy store peer: " & storeNode.error)
+    mountStoreClient(node)
+    if conf.storenode != "":
+      let storeNode = parsePeerInfo(conf.storenode)
+      if storeNode.isOk():
+        node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
+      else:
+        return err("failed to set node waku store peer: " & storeNode.error)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:

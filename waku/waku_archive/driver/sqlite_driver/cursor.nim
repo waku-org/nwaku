@@ -7,5 +7,5 @@ import ../../../waku_core, ../../common
 
 type DbCursor* = (Timestamp, seq[byte], PubsubTopic)
 
-proc toDbCursor*(c: ArchiveCursor): DbCursor =
+proc toDbCursor*(c: ArchiveCursorV2): DbCursor =
   (c.storeTime, @(c.digest.data), c.pubsubTopic)
