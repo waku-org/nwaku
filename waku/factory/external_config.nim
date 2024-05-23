@@ -300,6 +300,7 @@ type WakuNodeConf* = object
 
     pubsubTopics* {.
       desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
+      defaultValue: @["/waku/2/rs/0/0"],
       name: "pubsub-topic"
     .}: seq[string]
 
