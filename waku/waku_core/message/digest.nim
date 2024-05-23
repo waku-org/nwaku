@@ -21,10 +21,10 @@ converter fromBytes*(array: openArray[byte]): WakuMessageHash =
   discard copyFrom(hash, array)
   hash
 
-converter toBytesArray*(digest: MDigest[256]): WakuMessageHash =
+converter toBytesArray*(digest: MDigest[256]): WakuMessageHash {.deprecated.} =
   digest.data
 
-converter toBytes*(digest: MDigest[256]): seq[byte] =
+converter toBytes*(digest: MDigest[256]): seq[byte] {.deprecated.} =
   toSeq(digest.data)
 
 proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessageHash =

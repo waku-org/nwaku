@@ -11,7 +11,8 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./queue_driver
+  ./queue_driver/queue_driver as queue_driver,
+  ./queue_driver/queue_driver_legacy as queue_driver_legacy
 
 export sqlite_driver, queue_driver
 
@@ -28,6 +29,7 @@ proc new*(
     migrate: bool,
     maxNumConn: int,
     onFatalErrorAction: OnFatalErrorHandler,
+    legacy: bool = false,
 ): Future[Result[T, string]] {.async.} =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
@@ -121,5 +123,10 @@ proc new*(
       )
   else:
     debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new() # Defaults to a capacity of 25.000 messages
+    # Defaults to a capacity of 25.000 messages
+    let driver =
+      if legacy:
+        queue_driver_legacy.QueueDriver.new()
+      else:
+        queue_driver.QueueDriver.new()
     return ok(driver)

@@ -8,9 +8,9 @@ import ../waku_core, ../common/paging
 
 ## Waku message digest
 
-type MessageDigest* = MDigest[256]
+type MessageDigest* {.deprecated.} = MDigest[256]
 
-proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
+proc fromBytes*(T: type MessageDigest, src: seq[byte]): T {.deprecated.} =
   var data: array[32, byte]
 
   let byteCount = copyFrom[byte](data, src)
@@ -19,7 +19,7 @@ proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
 
   return MessageDigest(data: data)
 
-proc computeDigest*(msg: WakuMessage): MessageDigest =
+proc computeDigest*(msg: WakuMessage): MessageDigest {.deprecated.} =
   var ctx: sha256
   ctx.init()
   defer:
@@ -34,13 +34,7 @@ proc computeDigest*(msg: WakuMessage): MessageDigest =
 ## Public API types
 
 type
-  #TODO Once Store v2 is removed, the cursor becomes the hash of the last message
-  ArchiveCursor* = object
-    digest*: MessageDigest
-    storeTime*: Timestamp
-    senderTime*: Timestamp
-    pubsubTopic*: PubsubTopic
-    hash*: WakuMessageHash
+  ArchiveCursor* = WakuMessageHash
 
   ArchiveQuery* = object
     includeData*: bool # indicate if messages should be returned in addition to hashes.
@@ -54,10 +48,34 @@ type
     direction*: PagingDirection
 
   ArchiveResponse* = object
+    cursor*: Option[ArchiveCursor]
+    hashes*: seq[WakuMessageHash]
+    topics*: seq[PubsubTopic]
+    messages*: seq[WakuMessage]
+
+  ArchiveCursorV2* {.deprecated.} = object
+    digest*: MessageDigest
+    storeTime*: Timestamp
+    senderTime*: Timestamp
+    pubsubTopic*: PubsubTopic
+    hash*: WakuMessageHash
+
+  ArchiveQueryV2* {.deprecated.} = object
+    includeData*: bool # indicate if messages should be returned in addition to hashes.
+    pubsubTopic*: Option[PubsubTopic]
+    contentTopics*: seq[ContentTopic]
+    cursor*: Option[ArchiveCursorV2]
+    startTime*: Option[Timestamp]
+    endTime*: Option[Timestamp]
+    hashes*: seq[WakuMessageHash]
+    pageSize*: uint
+    direction*: PagingDirection
+
+  ArchiveResponseV2* {.deprecated.} = object
     hashes*: seq[WakuMessageHash]
     messages*: seq[WakuMessage]
     topics*: seq[PubsubTopic]
-    cursor*: Option[ArchiveCursor]
+    cursor*: Option[ArchiveCursorV2]
 
   ArchiveErrorKind* {.pure.} = enum
     UNKNOWN = uint32(0)
@@ -73,6 +91,8 @@ type
       discard
 
   ArchiveResult* = Result[ArchiveResponse, ArchiveError]
+
+  ArchiveResultV2* {.deprecated.} = Result[ArchiveResponseV2, ArchiveError]
 
 proc `$`*(err: ArchiveError): string =
   case err.kind
