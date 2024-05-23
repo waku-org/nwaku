@@ -12,7 +12,7 @@ const
   LightpushPeer =
     "/ip4/178.128.141.171/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W"
     # node-01.do-ams3.waku.test.statusim.net on waku.test
-  LightpushPubsubTopic = PubsubTopic("/waku/2/default-waku/proto")
+  LightpushPubsubTopic = PubsubTopic("/waku/2/rs/0/0")
   LightpushContentTopic = ContentTopic("/examples/1/light-pubsub-example/proto")
 
 proc publishMessages(

@@ -16,7 +16,7 @@ suite "Waku Message - Deterministic hashing":
     ##  message_hash = 0xa2554498b31f5bcdfcbf7fa58ad1c2d45f0254f3f8110a85588ec3cf10720fd8
 
     ## Given
-    let pubsubTopic = DefaultPubsubTopic # /waku/2/default-waku/proto
+    let pubsubTopic = DefaultPubsubTopic # /waku/2/rs/0/0
     let message = fakeWakuMessage(
       contentTopic = DefaultContentTopic, # /waku/2/default-content/proto
       payload = "\x01\x02\x03\x04TEST\x05\x06\x07\x08".toBytes(),
@@ -51,7 +51,7 @@ suite "Waku Message - Deterministic hashing":
     ##  message_hash = 0x64cce733fed134e83da02b02c6f689814872b1a0ac97ea56b76095c3c72bfe05
 
     ## Given
-    let pubsubTopic = DefaultPubsubTopic # /waku/2/default-waku/proto
+    let pubsubTopic = DefaultPubsubTopic # /waku/2/rs/0/0
     let message = fakeWakuMessage(
       contentTopic = DefaultContentTopic, # /waku/2/default-content/proto
       payload = "\x01\x02\x03\x04TEST\x05\x06\x07\x08".toBytes(),
@@ -86,7 +86,7 @@ suite "Waku Message - Deterministic hashing":
     ##  message_hash = 0x7158b6498753313368b9af8f6e0a0a05104f68f972981da42a43bc53fb0c1b27"
 
     ## Given
-    let pubsubTopic = DefaultPubsubTopic # /waku/2/default-waku/proto
+    let pubsubTopic = DefaultPubsubTopic # /waku/2/rs/0/0
     let message = fakeWakuMessage(
       contentTopic = DefaultContentTopic, # /waku/2/default-content/proto
       payload = "\x01\x02\x03\x04TEST\x05\x06\x07\x08".toBytes(),
@@ -122,7 +122,7 @@ suite "Waku Message - Deterministic hashing":
     ##  message_hash = 0x483ea950cb63f9b9d6926b262bb36194d3f40a0463ce8446228350bd44e96de4
 
     ## Given
-    let pubsubTopic = DefaultPubsubTopic # /waku/2/default-waku/proto
+    let pubsubTopic = DefaultPubsubTopic # /waku/2/rs/0/0
     let message = fakeWakuMessage(
       contentTopic = DefaultContentTopic, # /waku/2/default-content/proto
       payload = newSeq[byte](),
