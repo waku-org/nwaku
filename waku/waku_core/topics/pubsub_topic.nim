@@ -32,7 +32,7 @@ proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
 proc `$`*(topic: NsPubsubTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/waku/2/<raw-topic>
-    return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
+  return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
 
 # Deserialization
 
@@ -78,7 +78,6 @@ proc parse*(
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
   NsPubsubTopic.parseStaticSharding(topic)
-
 
 # Pubsub topic compatibility
 
