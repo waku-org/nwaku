@@ -8,13 +8,13 @@ proc validateDbUrl*(dbUrl: string): Result[string, string] =
   if "sqlite" in dbUrl or dbUrl == "" or dbUrl == "none" or dbUrl.match(regex):
     return ok(dbUrl)
   else:
-    return err("invalid 'db url' option format: " & dbUrl)
+    return err("invalid 'db url' option format")
 
 proc getDbEngine*(dbUrl: string): Result[string, string] =
   let dbUrlParts = dbUrl.split("://", 1)
 
   if dbUrlParts.len != 2:
-    return err("Incorrect dbUrl : " & dbUrl)
+    return err("Incorrect dbUrl")
 
   let engine = dbUrlParts[0]
   return ok(engine)
@@ -23,7 +23,7 @@ proc getDbPath*(dbUrl: string): Result[string, string] =
   let dbUrlParts = dbUrl.split("://", 1)
 
   if dbUrlParts.len != 2:
-    return err("Incorrect dbUrl : " & dbUrl)
+    return err("Incorrect dbUrl")
 
   let path = dbUrlParts[1]
   return ok(path)
