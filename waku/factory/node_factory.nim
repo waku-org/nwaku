@@ -117,10 +117,16 @@ proc setupProtocols(
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
+  var shardCount: uint32
+  if conf.pubsubTopics.len > 0:
+    shardCount = uint32(conf.pubsubTopics.len)
+  else:
+    shardCount = uint32(conf.shards.len)
+
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+  node.mountSharding(conf.clusterId, shardCount).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
