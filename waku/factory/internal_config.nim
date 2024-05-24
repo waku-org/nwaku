@@ -36,7 +36,14 @@ proc enrConfiguration*(
     return err("failed to parse pubsub topic: " & $error)
 
   if shardsOpt.isSome():
-    shards = shardsOpt.get().shardIds
+    let relayShards = shardsOpt.get()
+
+    if relayShards.clusterid != conf.clusterId:
+      error "pubsub topic corresponds to different shard than configured",
+        nodeCluster = conf.clusterId, pubsubCluster = relayShards.clusterid
+      return err("pubsub topic corresponds to different shard than configured")
+
+    shards = relayShards.shardIds
   elif conf.shards.len > 0:
     shards = toSeq(conf.shards.mapIt(uint16(it)))
   else:
