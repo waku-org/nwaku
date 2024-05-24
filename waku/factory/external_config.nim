@@ -300,13 +300,13 @@ type WakuNodeConf* = object
 
     pubsubTopics* {.
       desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
-      defaultValue: @["/waku/2/rs/0/0"],
+      defaultValue: @[],
       name: "pubsub-topic"
     .}: seq[string]
 
     shards* {.
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
-      defaultValue: @[],
+      defaultValue: @[uint16(0)],
       name: "shard"
     .}: seq[ShardIdx]
 
