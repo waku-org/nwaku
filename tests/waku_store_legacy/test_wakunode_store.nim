@@ -13,21 +13,17 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_core/subscription,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_filter_v2,
   ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_store_legacy,
   ../../../waku/waku_node,
   ../waku_store_legacy/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -52,11 +48,8 @@ procSuite "WakuNode - Store Legacy":
     let driver = newSqliteArchiveDriver()
 
     for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg)
       let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
-      require (
-        waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)
-      ).isOk()
+      require (waitFor driver.put(msg_hash, DefaultPubsubTopic, msg)).isOk()
 
     driver
 

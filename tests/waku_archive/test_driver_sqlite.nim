@@ -2,12 +2,10 @@
 
 import std/sequtils, testutils/unittests, chronos
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_core,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore
 
 suite "SQLite driver":
@@ -40,9 +38,7 @@ suite "SQLite driver":
     let msgHash = computeMessageHash(DefaultPubsubTopic, msg)
 
     ## When
-    let putRes = waitFor driver.put(
-      DefaultPubsubTopic, msg, computeDigest(msg), msgHash, msg.timestamp
-    )
+    let putRes = waitFor driver.put(msgHash, DefaultPubsubTopic, msg)
 
     ## Then
     check:
@@ -52,7 +48,7 @@ suite "SQLite driver":
     check:
       storedMsg.len == 1
       storedMsg.all do(item: auto) -> bool:
-        let (pubsubTopic, actualMsg, _, _, hash) = item
+        let (hash, pubsubTopic, actualMsg) = item
         actualMsg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic and
           hash == msgHash and msg.meta == actualMsg.meta
 

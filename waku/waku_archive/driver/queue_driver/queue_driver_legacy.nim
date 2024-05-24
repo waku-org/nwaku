@@ -4,17 +4,17 @@ else:
   {.push raises: [].}
 
 import std/options, stew/results, stew/sorted_set, chronicles, chronos
-import ../../../waku_core, ../../common, ../../driver, ./index
+import ../../../waku_core, ../../common, ../../driver, ./index_legacy
 
 logScope:
-  topics = "waku archive legacy queue_store"
+  topics = "waku archive queue_store"
 
 const QueueDriverDefaultMaxCapacity* = 25_000
 
 type
-  QueryFilterMatcher = proc(index: IndexV2, msg: WakuMessage): bool {.gcsafe, closure.}
+  QueryFilterMatcher = proc(index: Index, msg: WakuMessage): bool {.gcsafe, closure.}
 
-  QueueDriver* = ref object of ArchiveDriver
+  LegacyQueueDriver* {.deprecated.} = ref object of ArchiveDriver
     ## Bounded repository for indexed messages
     ##
     ## The store queue will keep messages up to its
@@ -25,7 +25,7 @@ type
     ## for new items.
 
     # TODO: a circular/ring buffer may be a more efficient implementation
-    items: SortedSet[IndexV2, WakuMessage] # sorted set of stored messages
+    items: SortedSet[Index, WakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
 
   QueueDriverErrorKind {.pure.} = enum
@@ -40,8 +40,8 @@ proc `$`(error: QueueDriverErrorKind): string =
 ### Helpers
 
 proc walkToCursor(
-    w: SortedSetWalkRef[IndexV2, WakuMessage], startCursor: IndexV2, forward: bool
-): SortedSetResult[IndexV2, WakuMessage] =
+    w: SortedSetWalkRef[Index, WakuMessage], startCursor: Index, forward: bool
+): SortedSetResult[Index, WakuMessage] =
   ## Walk to util we find the cursor
   ## TODO: Improve performance here with a binary/tree search
 
@@ -67,22 +67,22 @@ proc walkToCursor(
 
 #### API
 
-proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T =
-  var items = SortedSet[IndexV2, WakuMessage].init()
-  return QueueDriver(items: items, capacity: capacity)
+proc new*(T: type LegacyQueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T =
+  var items = SortedSet[Index, WakuMessage].init()
+  return LegacyQueueDriver(items: items, capacity: capacity)
 
-proc contains*(driver: QueueDriver, index: IndexV2): bool =
+proc contains*(driver: LegacyQueueDriver, index: Index): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.
   return driver.items.eq(index).isOk()
 
-proc len*(driver: QueueDriver): int {.noSideEffect.} =
+proc len*(driver: LegacyQueueDriver): int {.noSideEffect.} =
   return driver.items.len
 
 proc getPage(
-    driver: QueueDriver,
+    driver: LegacyQueueDriver,
     pageSize: uint = 0,
     forward: bool = true,
-    cursor: Option[IndexV2] = none(IndexV2),
+    cursor: Option[Index] = none(Index),
     predicate: QueryFilterMatcher = nil,
 ): QueueDriverGetPageResult =
   ## Populate a single page in forward direction
@@ -91,11 +91,11 @@ proc getPage(
   ## Each entry must match the `pred`
   var outSeq: seq[ArchiveRowV2]
 
-  var w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+  var w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
   defer:
     w.destroy()
 
-  var currentEntry: SortedSetResult[IndexV2, WakuMessage]
+  var currentEntry: SortedSetResult[Index, WakuMessage]
 
   # Find starting entry
   if cursor.isSome():
@@ -151,10 +151,10 @@ proc getPage(
 
 ## --- SortedSet accessors ---
 
-iterator fwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
+iterator fwdIterator*(driver: LegacyQueueDriver): (Index, WakuMessage) =
   ## Forward iterator over the entire store queue
   var
-    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
     res = w.first()
 
   while res.isOk():
@@ -163,10 +163,10 @@ iterator fwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
 
   w.destroy()
 
-iterator bwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
+iterator bwdIterator*(driver: LegacyQueueDriver): (Index, WakuMessage) =
   ## Backwards iterator over the entire store queue
   var
-    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
     res = w.last()
 
   while res.isOk():
@@ -175,9 +175,9 @@ iterator bwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
 
   w.destroy()
 
-proc first*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
+proc first*(driver: LegacyQueueDriver): ArchiveDriverResult[Index] =
   var
-    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
     res = w.first()
   w.destroy()
 
@@ -186,9 +186,9 @@ proc first*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
 
   return ok(res.value.key)
 
-proc last*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
+proc last*(driver: LegacyQueueDriver): ArchiveDriverResult[Index] =
   var
-    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
     res = w.last()
   w.destroy()
 
@@ -200,19 +200,19 @@ proc last*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
 ## --- Queue API ---
 
 proc add*(
-    driver: QueueDriver, index: IndexV2, msg: WakuMessage
+    driver: LegacyQueueDriver, index: Index, msg: WakuMessage
 ): ArchiveDriverResult[void] =
   ## Add a message to the queue
   ##
   ## If we're at capacity, we will be removing, the oldest (first) item
   if driver.contains(index):
-    trace "could not add item to store queue. IndexV2 already exists", index = index
+    trace "could not add item to store queue. Index already exists", index = index
     return err("duplicate")
 
   # TODO: the below delete block can be removed if we convert to circular buffer
   if driver.items.len >= driver.capacity:
     var
-      w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
+      w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
       firstItem = w.first
 
     if cmp(index, firstItem.value.key) < 0:
@@ -227,15 +227,15 @@ proc add*(
 
   return ok()
 
-method putV2*(
-    driver: QueueDriver,
+method put*(
+    driver: LegacyQueueDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
     digest: MessageDigest,
     messageHash: WakuMessageHash,
     receivedTime: Timestamp,
-): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
-  let index = IndexV2(
+): Future[ArchiveDriverResult[void]] {.async.} =
+  let index = Index(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     receiverTime: receivedTime,
@@ -246,18 +246,18 @@ method putV2*(
   return driver.add(index, message)
 
 method getAllMessages*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
 method existsTable*(
-    driver: QueueDriver, tableName: string
+    driver: LegacyQueueDriver, tableName: string
 ): Future[ArchiveDriverResult[bool]] {.async.} =
   return err("interface method not implemented")
 
-method getMessagesV2*(
-    driver: QueueDriver,
+method getMessages*(
+    driver: LegacyQueueDriver,
     includeData = false,
     contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
@@ -268,10 +268,10 @@ method getMessagesV2*(
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
-  let cursor = cursor.map(toIndexV2)
+  let cursor = cursor.map(toIndex)
 
   let matchesQuery: QueryFilterMatcher =
-    func (index: IndexV2, msg: WakuMessage): bool =
+    func (index: Index, msg: WakuMessage): bool =
       if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
         return false
 
@@ -301,62 +301,62 @@ method getMessagesV2*(
   return ok(pageRes.value)
 
 method getMessagesCount*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
 method getPagesCount*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
 method getPagesSize*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
 method getDatabaseSize*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   return ok(int64(driver.len()))
 
 method performVacuum*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
 method getOldestMessageTimestamp*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.first().map(
-      proc(index: IndexV2): Timestamp =
+      proc(index: Index): Timestamp =
         index.receiverTime
     )
 
 method getNewestMessageTimestamp*(
-    driver: QueueDriver
+    driver: LegacyQueueDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.last().map(
-      proc(index: IndexV2): Timestamp =
+      proc(index: Index): Timestamp =
         index.receiverTime
     )
 
 method deleteMessagesOlderThanTimestamp*(
-    driver: QueueDriver, ts: Timestamp
+    driver: LegacyQueueDriver, ts: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
 method deleteOldestMessagesNotWithinLimit*(
-    driver: QueueDriver, limit: int
+    driver: LegacyQueueDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
   # TODO: Implement this message_store method
   return err("interface method not implemented")
 
 method decreaseDatabaseSize*(
-    driver: QueueDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+    driver: LegacyQueueDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
   return err("interface method not implemented")
 
-method close*(driver: QueueDriver): Future[ArchiveDriverResult[void]] {.async.} =
+method close*(driver: LegacyQueueDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()

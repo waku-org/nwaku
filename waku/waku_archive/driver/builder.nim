@@ -11,8 +11,7 @@ import
   ../../common/error_handling,
   ./sqlite_driver,
   ./sqlite_driver/migrations as archive_driver_sqlite_migrations,
-  ./queue_driver/queue_driver as queue_driver,
-  ./queue_driver/queue_driver_legacy as queue_driver_legacy
+  ./queue_driver
 
 export sqlite_driver, queue_driver
 
@@ -80,11 +79,21 @@ proc new*(
         return err("error in migrate sqlite: " & $migrateRes.error)
 
     debug "setting up sqlite waku archive driver"
-    let res = SqliteDriver.new(db)
-    if res.isErr():
-      return err("failed to init sqlite archive driver: " & res.error)
 
-    return ok(res.get())
+    if legacy:
+      let res = LegacySqliteDriver.new(db)
+
+      if res.isErr():
+        return err("failed to init sqlite archive driver: " & res.error)
+
+      return ok(res.get())
+    else:
+      let res = SqliteDriver.new(db)
+
+      if res.isErr():
+        return err("failed to init sqlite archive driver: " & res.error)
+
+      return ok(res.get())
   of "postgres":
     when defined(postgres):
       let res = PostgresDriver.new(
@@ -124,9 +133,12 @@ proc new*(
   else:
     debug "setting up in-memory waku archive driver"
     # Defaults to a capacity of 25.000 messages
-    let driver =
-      if legacy:
-        queue_driver_legacy.QueueDriver.new()
-      else:
-        queue_driver.QueueDriver.new()
-    return ok(driver)
+
+    if legacy:
+      let driver = LegacyQueueDriver.new()
+
+      return ok(driver)
+    else:
+      let driver = QueueDriver.new()
+
+      return ok(driver)

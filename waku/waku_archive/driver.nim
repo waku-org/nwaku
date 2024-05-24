@@ -35,8 +35,8 @@ method getAllMessages*(
 
 method getMessages*(
     driver: ArchiveDriver,
-    includeData = false,
-    contentTopic = newSeq[ContentTopic](0),
+    includeData = true,
+    contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
     startTime = none(Timestamp),

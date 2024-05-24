@@ -92,7 +92,7 @@ suite "Queue driver - query by content topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
@@ -136,7 +136,7 @@ suite "Queue driver - query by content topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = false
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = false
     )
 
     ## Then
@@ -182,7 +182,7 @@ suite "Queue driver - query by content topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2],
+      contentTopics = @[contentTopic1, contentTopic2],
       maxPageSize = 2,
       ascendingOrder = true,
     )
@@ -225,7 +225,7 @@ suite "Queue driver - query by content topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
@@ -254,7 +254,7 @@ suite "Queue driver - query by content topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       maxPageSize = pageSize,
       ascendingOrder = true,
     )
@@ -446,7 +446,7 @@ suite "SQLite driver - query by pubsub topic":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       maxPageSize = 2,
       ascendingOrder = true,
@@ -642,7 +642,7 @@ suite "Queue driver - query by cursor":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -692,7 +692,7 @@ suite "Queue driver - query by cursor":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -1114,7 +1114,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(45, timeOrigin)),
       endTime = some(ts(15, timeOrigin)),
       maxPageSize = 2,
@@ -1162,7 +1162,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -1212,7 +1212,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -1265,7 +1265,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1319,7 +1319,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1405,7 +1405,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(0, timeOrigin)),
@@ -1493,7 +1493,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1582,7 +1582,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1672,7 +1672,7 @@ suite "Queue driver - query by time range":
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),

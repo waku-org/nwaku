@@ -187,10 +187,10 @@ proc findMessages*(
     let cursor = query.cursor.get()
 
     if cursor.len != 32:
-      return err(ArchiveError.invalidQuery("invalid cursor: hash length not 32"))
+      return err(ArchiveError.invalidQuery("cursor hash length not 32"))
 
     if cursor == EmptyWakuMessageHash:
-      return err(ArchiveError.invalidQuery("invalid cursor: all zero hash"))
+      return err(ArchiveError.invalidQuery("all zeroes cursor hash"))
 
   let maxPageSize =
     if query.pageSize <= 0:
@@ -205,7 +205,7 @@ proc findMessages*(
   let rows = (
     await self.driver.getMessages(
       includeData = query.includeData,
-      contentTopic = query.contentTopics,
+      contentTopics = query.contentTopics,
       pubsubTopic = query.pubsubTopic,
       cursor = query.cursor,
       startTime = query.startTime,

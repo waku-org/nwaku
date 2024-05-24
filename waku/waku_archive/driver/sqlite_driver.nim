@@ -3,6 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import ./sqlite_driver/sqlite_driver
+import ./sqlite_driver/sqlite_driver, ./sqlite_driver/sqlite_driver_legacy
 
-export sqlite_driver
+export sqlite_driver, sqlite_driver_legacy

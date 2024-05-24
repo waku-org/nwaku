@@ -249,8 +249,8 @@ method existsTable*(
 
 method getMessages*(
     driver: QueueDriver,
-    includeData = false,
-    contentTopic: seq[ContentTopic] = @[],
+    includeData = true,
+    contentTopics: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
     startTime = none(Timestamp),
@@ -269,7 +269,7 @@ method getMessages*(
       if pubsubTopic.isSome() and index.topic != pubsubTopic.get():
         return false
 
-      if contentTopic.len > 0 and msg.contentTopic notin contentTopic:
+      if contentTopics.len > 0 and msg.contentTopic notin contentTopics:
         return false
 
       if startTime.isSome() and msg.timestamp < startTime.get():
