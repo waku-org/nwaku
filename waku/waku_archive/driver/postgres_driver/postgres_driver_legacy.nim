@@ -19,7 +19,7 @@ import
   ./postgres_healthcheck,
   ./partitions_manager
 
-type PostgresDriver* = ref object of ArchiveDriver
+type LegacyPostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
   writeConnPool: PgAsyncPool
   readConnPool: PgAsyncPool
@@ -29,112 +29,98 @@ type PostgresDriver* = ref object of ArchiveDriver
   futLoopPartitionFactory: Future[void]
 
 const InsertRowStmtName = "InsertRow"
-const InsertRowStmtDefinition =
-  """INSERT INTO messages (messageHash, pubsubTopic, contentTopic, payload,
-  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $7 = '' THEN NULL ELSE $7 END) ON CONFLICT DO NOTHING;"""
+const InsertRowStmtDefinition = # TODO: get the sql queries from a file
+  """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
+  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
-  """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
-    FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
-          timestamp >= $4 AND
-          timestamp <= $5
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
-
-const SelectNoCursorNoDataAscStmtName = "SelectWithoutCursorAndDataAsc"
-const SelectNoCursorNoDataAscStmtDef =
-  """SELECT messageHash
-    FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          timestamp >= $4 AND
-          timestamp <= $5
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
+          storedAt >= $4 AND
+          storedAt <= $5
+    ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
-  """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
-    FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
-          timestamp >= $4 AND
-          timestamp <= $5
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
-
-const SelectNoCursorNoDataDescStmtName = "SelectWithoutCursorAndDataDesc"
-const SelectNoCursorNoDataDescStmtDef =
-  """SELECT messageHash
-    FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          timestamp >= $4 AND
-          timestamp <= $5
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
+          storedAt >= $4 AND
+          storedAt <= $5
+    ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
-  """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
-    FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
-          (timestamp, messageHash) < ($4,$5) AND
-          timestamp >= $6 AND
-          timestamp <= $7
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
-
-const SelectWithCursorNoDataDescStmtName = "SelectWithCursorNoDataDesc"
-const SelectWithCursorNoDataDescStmtDef =
-  """SELECT messageHash
-    FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (timestamp, messageHash) < ($4,$5) AND
-          timestamp >= $6 AND
-          timestamp <= $7
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
+          (storedAt, messageHash) < ($4,$5) AND
+          storedAt >= $6 AND
+          storedAt <= $7
+    ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
-  """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
-    FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
-          (timestamp, messageHash) > ($4,$5) AND
-          timestamp >= $6 AND
-          timestamp <= $7
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
-
-const SelectWithCursorNoDataAscStmtName = "SelectWithCursorNoDataAsc"
-const SelectWithCursorNoDataAscStmtDef =
-  """SELECT messageHash
-    FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (timestamp, messageHash) > ($4,$5) AND
-          timestamp >= $6 AND
-          timestamp <= $7
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
+          (storedAt, messageHash) > ($4,$5) AND
+          storedAt >= $6 AND
+          storedAt <= $7
+    ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
 
 const SelectMessageByHashName = "SelectMessageByHash"
 const SelectMessageByHashDef =
-  """SELECT timestamp
-    FROM messages
-    WHERE messageHash = $1"""
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages WHERE messageHash = $1"""
+
+const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
+const SelectNoCursorV2AscStmtDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          storedAt >= $3 AND
+          storedAt <= $4
+    ORDER BY storedAt ASC LIMIT $5;"""
+
+const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
+const SelectNoCursorV2DescStmtDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          storedAt >= $3 AND
+          storedAt <= $4
+    ORDER BY storedAt DESC LIMIT $5;"""
+
+const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
+const SelectWithCursorV2DescStmtDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          (storedAt, id) < ($3,$4) AND
+          storedAt >= $5 AND
+          storedAt <= $6
+    ORDER BY storedAt DESC LIMIT $7;"""
+
+const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
+const SelectWithCursorV2AscStmtDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
+    WHERE contentTopic IN ($1) AND
+          pubsubTopic = $2 AND
+          (storedAt, id) > ($3,$4) AND
+          storedAt >= $5 AND
+          storedAt <= $6
+    ORDER BY storedAt ASC LIMIT $7;"""
 
 const DefaultMaxNumConns = 50
 
 proc new*(
-    T: type PostgresDriver,
+    T: type LegacyPostgresDriver,
     dbUrl: string,
     maxConnections = DefaultMaxNumConns,
     onFatalErrorAction: OnFatalErrorHandler = nil,
@@ -154,61 +140,23 @@ proc new*(
   if not isNil(onFatalErrorAction):
     asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
-  let driver = PostgresDriver(
+  let driver = LegacyPostgresDriver(
     writeConnPool: writeConnPool,
     readConnPool: readConnPool,
     partitionMngr: PartitionManager.new(),
   )
   return ok(driver)
 
-proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+proc reset*(s: LegacyPostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Clear the database partitions
   let targetSize = 0
   let forceRemoval = true
   let ret = await s.decreaseDatabaseSize(targetSize, forceRemoval)
   return ret
 
-proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Option[Timestamp]) =
-  let numFields = pqResult.pqnfields()
-  if numFields != 1:
-    error "Wrong number of fields"
-    return
-
-  let catchable = catch:
-    parseInt($(pqgetvalue(pqResult, 0, 1)))
-
-  if catchable.isErr():
-    error "could not parse correctly", error = catchable.error.msg
-    return
-
-  let timestamp: Timestamp = catchable.get()
-
-  timeCursor = some(timestamp)
-
-proc hashCallbackImpl(
-    pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
-) =
-  let numFields = pqResult.pqnfields()
-  if numFields != 1:
-    error "Wrong number of fields"
-    return
-
-  for iRow in 0 ..< pqResult.pqNtuples():
-    let catchable = catch:
-      parseHexStr($(pqgetvalue(pqResult, iRow, 1)))
-
-    if catchable.isErr():
-      error "could not parse correctly", error = catchable.error.msg
-      return
-
-    let hashHex = catchable.get()
-    let msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
-
-    rows.add((msgHash, "", WakuMessage()))
-
 proc rowCallbackImpl(
     pqResult: ptr PGresult,
-    outRows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)],
+    outRows: var seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)],
 ) =
   ## Proc aimed to contain the logic of the callback passed to the `psasyncpool`.
   ## That callback is used in "SELECT" queries.
@@ -217,92 +165,117 @@ proc rowCallbackImpl(
   ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
 
   let numFields = pqResult.pqnfields()
-  if numFields != 7:
+  if numFields != 9:
     error "Wrong number of fields"
     return
 
   for iRow in 0 ..< pqResult.pqNtuples():
-    var
-      hashHex: string
-      msgHash: WakuMessageHash
-
-      pubSubTopic: string
-
-      contentTopic: string
-      payload: string
-      version: uint
-      timestamp: Timestamp
-      meta: string
-      wakuMessage: WakuMessage
+    var wakuMessage: WakuMessage
+    var timestamp: Timestamp
+    var version: uint
+    var pubSubTopic: string
+    var contentTopic: string
+    var storedAt: int64
+    var digest: string
+    var payload: string
+    var hashHex: string
+    var msgHash: WakuMessageHash
+    var meta: string
 
     try:
-      hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 1)))
+      storedAt = parseInt($(pqgetvalue(pqResult, iRow, 0)))
+      contentTopic = $(pqgetvalue(pqResult, iRow, 1))
+      payload = parseHexStr($(pqgetvalue(pqResult, iRow, 2)))
+      pubSubTopic = $(pqgetvalue(pqResult, iRow, 3))
+      version = parseUInt($(pqgetvalue(pqResult, iRow, 4)))
+      timestamp = parseInt($(pqgetvalue(pqResult, iRow, 5)))
+      digest = parseHexStr($(pqgetvalue(pqResult, iRow, 6)))
+      hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
+      meta = parseHexStr($(pqgetvalue(pqResult, iRow, 8)))
       msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
-
-      pubSubTopic = $(pqgetvalue(pqResult, iRow, 2))
-
-      contentTopic = $(pqgetvalue(pqResult, iRow, 3))
-      payload = parseHexStr($(pqgetvalue(pqResult, iRow, 4)))
-      version = parseUInt($(pqgetvalue(pqResult, iRow, 5)))
-      timestamp = parseInt($(pqgetvalue(pqResult, iRow, 6)))
-      meta = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
 
+    wakuMessage.timestamp = timestamp
+    wakuMessage.version = uint32(version)
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
-    wakuMessage.version = uint32(version)
-    wakuMessage.timestamp = timestamp
     wakuMessage.meta = @(meta.toOpenArrayByte(0, meta.high))
 
-    outRows.add((msgHash, pubSubTopic, wakuMessage))
+    outRows.add(
+      (
+        pubSubTopic,
+        wakuMessage,
+        @(digest.toOpenArrayByte(0, digest.high)),
+        storedAt,
+        msgHash,
+      )
+    )
 
 method put*(
-    s: PostgresDriver,
-    messageHash: WakuMessageHash,
+    s: LegacyPostgresDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
+    digest: MessageDigest,
+    messageHash: WakuMessageHash,
+    receivedTime: Timestamp,
 ): Future[ArchiveDriverResult[void]] {.async.} =
+  let digest = toHex(digest.data)
   let messageHash = toHex(messageHash)
-
+  let rxTime = $receivedTime
   let contentTopic = message.contentTopic
   let payload = toHex(message.payload)
   let version = $message.version
   let timestamp = $message.timestamp
   let meta = toHex(message.meta)
 
-  trace "put PostgresDriver", timestamp = timestamp
+  trace "put LegacyPostgresDriver", timestamp = timestamp
 
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,
     InsertRowStmtDefinition,
-    @[messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta],
     @[
+      digest, messageHash, rxTime, contentTopic, payload, pubsubTopic, version,
+      timestamp, meta,
+    ],
+    @[
+      int32(digest.len),
       int32(messageHash.len),
-      int32(pubsubTopic.len),
+      int32(rxTime.len),
       int32(contentTopic.len),
       int32(payload.len),
+      int32(pubsubTopic.len),
       int32(version.len),
       int32(timestamp.len),
       int32(meta.len),
     ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    @[
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+    ],
   )
 
 method getAllMessages*(
-    s: PostgresDriver
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+    s: LegacyPostgresDriver
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## Retrieve all messages from the store.
 
-  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
   (
     await s.readConnPool.pgQuery(
-      """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
-        FROM messages
-        ORDER BY timestamp ASC, messageHash ASC""",
+      """SELECT storedAt, contentTopic,
+                                       payload, pubsubTopic, version, timestamp,
+                                       id, messageHash, meta FROM messages ORDER BY storedAt ASC""",
       newSeq[string](0),
       rowCallback,
     )
@@ -312,7 +285,7 @@ method getAllMessages*(
   return ok(rows)
 
 proc getPartitionsList(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[seq[string]]] {.async.} =
   ## Retrieves the seq of partition table names.
   ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
@@ -343,62 +316,28 @@ proc getPartitionsList(
 
   return ok(partitions)
 
-proc getTimeCursor(
-    s: PostgresDriver, hashHex: string
-): Future[ArchiveDriverResult[Option[Timestamp]]] {.async.} =
-  var timeCursor: Option[Timestamp]
-
-  proc cursorCallback(pqResult: ptr PGresult) =
-    timeCursorCallbackImpl(pqResult, timeCursor)
-
-  ?await s.readConnPool.runStmt(
-    SelectMessageByHashName,
-    SelectMessageByHashDef,
-    @[hashHex],
-    @[int32(hashHex.len)],
-    @[int32(0)],
-    cursorCallback,
-  )
-
-  return ok(timeCursor)
-
 proc getMessagesArbitraryQuery(
-    s: PostgresDriver,
-    contentTopics: seq[ContentTopic] = @[],
+    s: LegacyPostgresDriver,
+    contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
-    """SELECT messageHash, pubsubTopic,contentTopic, payload, version, timestamp, meta
-      FROM messages"""
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
-  if cursor.isSome():
-    let hashHex = toHex(cursor.get())
-
-    let timeCursor = ?await s.getTimeCursor(hashHex)
-
-    if timeCursor.isNone():
-      return err("cursor not found")
-
-    let comp = if ascendingOrder: ">" else: "<"
-    statements.add("(timestamp, messageHash) " & comp & " (?,?)")
-
-    args.add($timeCursor.get())
-    args.add(hashHex)
-
-  if contentTopics.len > 0:
-    let cstmt = "contentTopic IN (" & "?".repeat(contentTopics.len).join(",") & ")"
+  if contentTopic.len > 0:
+    let cstmt = "contentTopic IN (" & "?".repeat(contentTopic.len).join(",") & ")"
     statements.add(cstmt)
-    for t in contentTopics:
+    for t in contentTopic:
       args.add(t)
 
   if hexHashes.len > 0:
@@ -411,12 +350,41 @@ proc getMessagesArbitraryQuery(
     statements.add("pubsubTopic = ?")
     args.add(pubsubTopic.get())
 
+  if cursor.isSome():
+    let hashHex = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hashHex],
+        @[int32(hashHex.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storetime = entree[0][3]
+
+    let comp = if ascendingOrder: ">" else: "<"
+    statements.add("(storedAt, messageHash) " & comp & " (?,?)")
+    args.add($storetime)
+    args.add(hashHex)
+
   if startTime.isSome():
-    statements.add("timestamp >= ?")
+    statements.add("storedAt >= ?")
     args.add($startTime.get())
 
   if endTime.isSome():
-    statements.add("timestamp <= ?")
+    statements.add("storedAt <= ?")
     args.add($endTime.get())
 
   if statements.len > 0:
@@ -428,12 +396,12 @@ proc getMessagesArbitraryQuery(
   else:
     direction = "DESC"
 
-  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+  query &= " ORDER BY storedAt " & direction & ", messageHash " & direction
 
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
@@ -442,61 +410,45 @@ proc getMessagesArbitraryQuery(
 
   return ok(rows)
 
-proc getMessageHashesArbitraryQuery(
-    s: PostgresDriver,
-    contentTopics: seq[ContentTopic] = @[],
+proc getMessagesV2ArbitraryQuery(
+    s: LegacyPostgresDriver,
+    contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
-    hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[(WakuMessageHash, PubsubTopic, WakuMessage)]]] {.
-    async
-.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
-  var query = """SELECT messageHash FROM messages"""
+  var query =
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
-  if cursor.isSome():
-    let hashHex = toHex(cursor.get())
-
-    let timeCursor = ?await s.getTimeCursor(hashHex)
-
-    if timeCursor.isNone():
-      return err("cursor not found")
-
-    let comp = if ascendingOrder: ">" else: "<"
-    statements.add("(timestamp, messageHash) " & comp & " (?,?)")
-
-    args.add($timeCursor.get())
-    args.add(hashHex)
-
-  if contentTopics.len > 0:
-    let cstmt = "contentTopic IN (" & "?".repeat(contentTopics.len).join(",") & ")"
+  if contentTopic.len > 0:
+    let cstmt = "contentTopic IN (" & "?".repeat(contentTopic.len).join(",") & ")"
     statements.add(cstmt)
-    for t in contentTopics:
-      args.add(t)
-
-  if hexHashes.len > 0:
-    let cstmt = "messageHash IN (" & "?".repeat(hexHashes.len).join(",") & ")"
-    statements.add(cstmt)
-    for t in hexHashes:
+    for t in contentTopic:
       args.add(t)
 
   if pubsubTopic.isSome():
     statements.add("pubsubTopic = ?")
     args.add(pubsubTopic.get())
 
+  if cursor.isSome():
+    let comp = if ascendingOrder: ">" else: "<"
+    statements.add("(storedAt, id) " & comp & " (?,?)")
+    args.add($cursor.get().storeTime)
+    args.add(toHex(cursor.get().digest.data))
+
   if startTime.isSome():
-    statements.add("timestamp >= ?")
+    statements.add("storedAt >= ?")
     args.add($startTime.get())
 
   if endTime.isSome():
-    statements.add("timestamp <= ?")
+    statements.add("storedAt <= ?")
     args.add($endTime.get())
 
   if statements.len > 0:
@@ -508,14 +460,14 @@ proc getMessageHashesArbitraryQuery(
   else:
     direction = "DESC"
 
-  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+  query &= " ORDER BY storedAt " & direction & ", id " & direction
 
   query &= " LIMIT ?"
   args.add($maxPageSize)
 
-  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
-    hashCallbackImpl(pqResult, rows)
+    rowCallbackImpl(pqResult, rows)
 
   (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
     return err("failed to run query: " & $error)
@@ -523,21 +475,22 @@ proc getMessageHashesArbitraryQuery(
   return ok(rows)
 
 proc getMessagesPreparedStmt(
-    s: PostgresDriver,
+    s: LegacyPostgresDriver,
     contentTopic: string,
     pubsubTopic: PubsubTopic,
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime: Timestamp,
     endTime: Timestamp,
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  ## This proc aims to run the most typical queries in a more performant way,
-  ## i.e. by means of prepared statements.
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
+  ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
+  ## prepared statements.
+  ##
+  ## contentTopic - string with list of conten topics. e.g: "'ctopic1','ctopic2','ctopic3'"
 
-  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
-
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
@@ -545,7 +498,59 @@ proc getMessagesPreparedStmt(
   let endTimeStr = $endTime
   let limit = $maxPageSize
 
-  if cursor.isNone():
+  if cursor.isSome():
+    let hash = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hash],
+        @[int32(hash.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storeTime = $entree[0][3]
+
+    var stmtName =
+      if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
+    var stmtDef =
+      if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[
+          contentTopic, hashes, pubsubTopic, storeTime, hash, startTimeStr, endTimeStr,
+          limit,
+        ],
+        @[
+          int32(contentTopic.len),
+          int32(pubsubTopic.len),
+          int32(storeTime.len),
+          int32(hash.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+  else:
     var stmtName =
       if ascOrder: SelectNoCursorAscStmtName else: SelectNoCursorDescStmtName
     var stmtDef = if ascOrder: SelectNoCursorAscStmtDef else: SelectNoCursorDescStmtDef
@@ -566,197 +571,152 @@ proc getMessagesPreparedStmt(
         rowCallback,
       )
     ).isOkOr:
-      return err(stmtName & ": " & $error)
-
-    return ok(rows)
-
-  let hashHex = toHex(cursor.get())
-
-  let timeCursor = ?await s.getTimeCursor(hashHex)
-
-  if timeCursor.isNone():
-    return err("cursor not found")
-
-  let timeString = $timeCursor.get()
-
-  var stmtName =
-    if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
-  var stmtDef =
-    if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
-
-  (
-    await s.readConnPool.runStmt(
-      stmtName,
-      stmtDef,
-      @[
-        contentTopic, hashes, pubsubTopic, hashHex, timeString, startTimeStr,
-        endTimeStr, limit,
-      ],
-      @[
-        int32(contentTopic.len),
-        int32(hashes.len),
-        int32(pubsubTopic.len),
-        int32(timeString.len),
-        int32(hashHex.len),
-        int32(startTimeStr.len),
-        int32(endTimeStr.len),
-        int32(limit.len),
-      ],
-      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
-      rowCallback,
-    )
-  ).isOkOr:
-    return err(stmtName & ": " & $error)
+      return err("failed to run query without cursor: " & $error)
 
   return ok(rows)
 
-proc getMessageHashesPreparedStmt(
-    s: PostgresDriver,
+proc getMessagesV2PreparedStmt(
+    s: LegacyPostgresDriver,
     contentTopic: string,
     pubsubTopic: PubsubTopic,
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime: Timestamp,
     endTime: Timestamp,
-    hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  ## This proc aims to run the most typical queries in a more performant way,
-  ## i.e. by means of prepared statements.
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
+  ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
+  ## prepared statements.
+  ##
+  ## contentTopic - string with list of conten topics. e.g: "'ctopic1','ctopic2','ctopic3'"
 
-  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
-
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
-    hashCallbackImpl(pqResult, rows)
+    rowCallbackImpl(pqResult, rows)
 
   let startTimeStr = $startTime
   let endTimeStr = $endTime
   let limit = $maxPageSize
 
-  if cursor.isNone():
+  if cursor.isSome():
     var stmtName =
-      if ascOrder: SelectNoCursorNoDataAscStmtName else: SelectNoCursorNoDataDescStmtName
+      if ascOrder: SelectWithCursorV2AscStmtName else: SelectWithCursorV2DescStmtName
     var stmtDef =
-      if ascOrder: SelectNoCursorNoDataAscStmtDef else: SelectNoCursorNoDataDescStmtDef
+      if ascOrder: SelectWithCursorV2AscStmtDef else: SelectWithCursorV2DescStmtDef
+
+    let digest = toHex(cursor.get().digest.data)
+    let storeTime = $cursor.get().storeTime
 
     (
       await s.readConnPool.runStmt(
         stmtName,
         stmtDef,
-        @[contentTopic, hashes, pubsubTopic, startTimeStr, endTimeStr, limit],
+        @[contentTopic, pubsubTopic, storeTime, digest, startTimeStr, endTimeStr, limit],
         @[
           int32(contentTopic.len),
-          int32(hashes.len),
+          int32(pubsubTopic.len),
+          int32(storeTime.len),
+          int32(digest.len),
+          int32(startTimeStr.len),
+          int32(endTimeStr.len),
+          int32(limit.len),
+        ],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+        rowCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+  else:
+    var stmtName =
+      if ascOrder: SelectNoCursorV2AscStmtName else: SelectNoCursorV2DescStmtName
+    var stmtDef =
+      if ascOrder: SelectNoCursorV2AscStmtDef else: SelectNoCursorV2DescStmtDef
+
+    (
+      await s.readConnPool.runStmt(
+        stmtName,
+        stmtDef,
+        @[contentTopic, pubsubTopic, startTimeStr, endTimeStr, limit],
+        @[
+          int32(contentTopic.len),
           int32(pubsubTopic.len),
           int32(startTimeStr.len),
           int32(endTimeStr.len),
           int32(limit.len),
         ],
-        @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+        @[int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
       )
     ).isOkOr:
-      return err(stmtName & ": " & $error)
-
-    return ok(rows)
-
-  let hashHex = toHex(cursor.get())
-
-  let timeCursor = ?await s.getTimeCursor(hashHex)
-
-  if timeCursor.isNone():
-    return err("cursor not found")
-
-  let timeString = $timeCursor.get()
-
-  var stmtName =
-    if ascOrder:
-      SelectWithCursorNoDataAscStmtName
-    else:
-      SelectWithCursorNoDataDescStmtName
-  var stmtDef =
-    if ascOrder: SelectWithCursorNoDataAscStmtDef else: SelectWithCursorNoDataDescStmtDef
-
-  (
-    await s.readConnPool.runStmt(
-      stmtName,
-      stmtDef,
-      @[
-        contentTopic, hashes, pubsubTopic, hashHex, timeString, startTimeStr,
-        endTimeStr, limit,
-      ],
-      @[
-        int32(contentTopic.len),
-        int32(hashes.len),
-        int32(pubsubTopic.len),
-        int32(timeString.len),
-        int32(hashHex.len),
-        int32(startTimeStr.len),
-        int32(endTimeStr.len),
-        int32(limit.len),
-      ],
-      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
-      rowCallback,
-    )
-  ).isOkOr:
-    return err(stmtName & ": " & $error)
+      return err("failed to run query without cursor: " & $error)
 
   return ok(rows)
 
 method getMessages*(
-    s: PostgresDriver,
-    includeData = true,
-    contentTopics = newSeq[ContentTopic](0),
+    s: LegacyPostgresDriver,
+    includeData = false,
+    contentTopicSeq = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   let hexHashes = hashes.mapIt(toHex(it))
 
-  if contentTopics.len > 0 and hexHashes.len > 0 and pubsubTopic.isSome() and
+  if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
       startTime.isSome() and endTime.isSome():
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
-    if includeData:
-      return await s.getMessagesPreparedStmt(
-        contentTopics.join(","),
-        PubsubTopic(pubsubTopic.get()),
-        cursor,
-        startTime.get(),
-        endTime.get(),
-        hexHashes.join(","),
-        maxPageSize,
-        ascendingOrder,
-      )
-    else:
-      return await s.getMessageHashesPreparedStmt(
-        contentTopics.join(","),
-        PubsubTopic(pubsubTopic.get()),
-        cursor,
-        startTime.get(),
-        endTime.get(),
-        hexHashes.join(","),
-        maxPageSize,
-        ascendingOrder,
-      )
+    return await s.getMessagesPreparedStmt(
+      contentTopicSeq.join(","),
+      PubsubTopic(pubsubTopic.get()),
+      cursor,
+      startTime.get(),
+      endTime.get(),
+      hexHashes.join(","),
+      maxPageSize,
+      ascendingOrder,
+    )
   else:
-    if includeData:
-      ## We will run atypical query. In this case we don't use prepared statemets
-      return await s.getMessagesArbitraryQuery(
-        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-        ascendingOrder,
-      )
-    else:
-      return await s.getMessageHashesArbitraryQuery(
-        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-        ascendingOrder,
-      )
+    ## We will run atypical query. In this case we don't use prepared statemets
+    return await s.getMessagesArbitraryQuery(
+      contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+      ascendingOrder,
+    )
+
+method getMessagesV2*(
+    s: LegacyPostgresDriver,
+    contentTopicSeq = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursorV2),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
+  if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
+      endTime.isSome():
+    ## Considered the most common query. Therefore, we use prepared statements to optimize it.
+    return await s.getMessagesV2PreparedStmt(
+      contentTopicSeq.join(","),
+      PubsubTopic(pubsubTopic.get()),
+      cursor,
+      startTime.get(),
+      endTime.get(),
+      maxPageSize,
+      ascendingOrder,
+    )
+  else:
+    ## We will run atypical query. In this case we don't use prepared statemets
+    return await s.getMessagesV2ArbitraryQuery(
+      contentTopicSeq, pubsubTopic, cursor, startTime, endTime, maxPageSize,
+      ascendingOrder,
+    )
 
 proc getStr(
-    s: PostgresDriver, query: string
+    s: LegacyPostgresDriver, query: string
 ): Future[ArchiveDriverResult[string]] {.async.} =
   # Performs a query that is expected to return a single string
 
@@ -778,7 +738,7 @@ proc getStr(
   return ok(ret)
 
 proc getInt(
-    s: PostgresDriver, query: string
+    s: LegacyPostgresDriver, query: string
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
@@ -797,7 +757,7 @@ proc getInt(
   return ok(retInt)
 
 method getDatabaseSize*(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
     return err("error in getDatabaseSize: " & error)
@@ -806,7 +766,7 @@ method getDatabaseSize*(
   return ok(databaseSize)
 
 method getMessagesCount*(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   let intRes = await s.getInt("SELECT COUNT(1) FROM messages")
   if intRes.isErr():
@@ -815,7 +775,7 @@ method getMessagesCount*(
   return ok(intRes.get())
 
 method getOldestMessageTimestamp*(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   ## In some cases it could happen that we have
   ## empty partitions which are older than the current stored rows.
@@ -833,7 +793,7 @@ method getOldestMessageTimestamp*(
   return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
 
 method getNewestMessageTimestamp*(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   let intRes = await s.getInt("SELECT MAX(storedAt) FROM messages")
   if intRes.isErr():
@@ -842,7 +802,7 @@ method getNewestMessageTimestamp*(
   return ok(Timestamp(intRes.get()))
 
 method deleteOldestMessagesNotWithinLimit*(
-    s: PostgresDriver, limit: int
+    s: LegacyPostgresDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
   let execRes = await s.writeConnPool.pgQuery(
     """DELETE FROM messages WHERE id NOT IN
@@ -856,9 +816,9 @@ method deleteOldestMessagesNotWithinLimit*(
 
   return ok()
 
-method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
+method close*(s: LegacyPostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   ## Cancel the partition factory loop
-  s.futLoopPartitionFactory.cancelSoon()
+  s.futLoopPartitionFactory.cancel()
 
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
@@ -873,7 +833,7 @@ method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
 
 proc sleep*(
-    s: PostgresDriver, seconds: int
+    s: LegacyPostgresDriver, seconds: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
   # This is for testing purposes only. It is aimed to test the proper
   # implementation of asynchronous requests. It merely triggers a sleep in the
@@ -894,7 +854,7 @@ proc sleep*(
   return ok()
 
 proc performWriteQuery*(
-    s: PostgresDriver, query: string
+    s: LegacyPostgresDriver, query: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Performs a query that somehow changes the state of the database
 
@@ -904,7 +864,7 @@ proc performWriteQuery*(
   return ok()
 
 proc addPartition(
-    self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
+    self: LegacyPostgresDriver, startTime: Timestamp, duration: timer.Duration
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
@@ -934,7 +894,7 @@ proc addPartition(
   return ok()
 
 proc initializePartitionsInfo(
-    self: PostgresDriver
+    self: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[void]] {.async.} =
   let partitionNamesRes = await self.getPartitionsList()
   if not partitionNamesRes.isOk():
@@ -968,7 +928,7 @@ const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
 const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
 proc loopPartitionFactory(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+    self: LegacyPostgresDriver, onFatalError: OnFatalErrorHandler
 ) {.async.} =
   ## Loop proc that continuously checks whether we need to create a new partition.
   ## Notice that the deletion of partitions is handled by the retention policy modules.
@@ -1021,12 +981,12 @@ proc loopPartitionFactory(
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
 
 proc startPartitionFactory*(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
+    self: LegacyPostgresDriver, onFatalError: OnFatalErrorHandler
 ) {.async.} =
   self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
 
 proc getTableSize*(
-    self: PostgresDriver, tableName: string
+    self: LegacyPostgresDriver, tableName: string
 ): Future[ArchiveDriverResult[string]] {.async.} =
   ## Returns a human-readable representation of the size for the requested table.
   ## tableName - table of interest.
@@ -1044,7 +1004,7 @@ proc getTableSize*(
   return ok(tableSize)
 
 proc removePartition(
-    self: PostgresDriver, partitionName: string
+    self: LegacyPostgresDriver, partitionName: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
   var partSize = ""
   let partSizeRes = await self.getTableSize(partitionName)
@@ -1070,7 +1030,7 @@ proc removePartition(
   return ok()
 
 proc removePartitionsOlderThan(
-    self: PostgresDriver, tsInNanoSec: Timestamp
+    self: LegacyPostgresDriver, tsInNanoSec: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Removes old partitions that don't contain the specified timestamp
 
@@ -1092,7 +1052,7 @@ proc removePartitionsOlderThan(
   return ok()
 
 proc removeOldestPartition(
-    self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
+    self: LegacyPostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Indirectly called from the retention policy
 
@@ -1111,11 +1071,11 @@ proc removeOldestPartition(
 
   return await self.removePartition(oldestPartition.getName())
 
-proc containsAnyPartition*(self: PostgresDriver): bool =
+proc containsAnyPartition*(self: LegacyPostgresDriver): bool =
   return not self.partitionMngr.isEmpty()
 
 method decreaseDatabaseSize*(
-    driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+    driver: LegacyPostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
   var dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("decreaseDatabaseSize failed to get database size: " & $error)
@@ -1151,7 +1111,7 @@ method decreaseDatabaseSize*(
   return ok()
 
 method existsTable*(
-    s: PostgresDriver, tableName: string
+    s: LegacyPostgresDriver, tableName: string
 ): Future[ArchiveDriverResult[bool]] {.async.} =
   let query: string =
     fmt"""
@@ -1181,7 +1141,7 @@ method existsTable*(
   return ok(exists == "t")
 
 proc getCurrentVersion*(
-    s: PostgresDriver
+    s: LegacyPostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   let existsVersionTable = (await s.existsTable("version")).valueOr:
     return err("error in getCurrentVersion-existsTable: " & $error)
@@ -1195,7 +1155,7 @@ proc getCurrentVersion*(
   return ok(res)
 
 method deleteMessagesOlderThanTimestamp*(
-    s: PostgresDriver, tsNanoSec: Timestamp
+    s: LegacyPostgresDriver, tsNanoSec: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## First of all, let's remove the older partitions so that we can reduce
   ## the database size.
