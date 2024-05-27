@@ -1,0 +1,160 @@
+version: "3.7"
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 1000m
+
+# Environment variable definitions
+x-eth-client-address: &eth_client_address ${ETH_CLIENT_ADDRESS:-} # Add your ETH_CLIENT_ADDRESS after the "-"
+
+x-rln-environment: &rln_env
+  RLN_RELAY_CONTRACT_ADDRESS: ${RLN_RELAY_CONTRACT_ADDRESS:-0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4}
+  RLN_RELAY_CRED_PATH: ${RLN_RELAY_CRED_PATH:-} # Optional: Add your RLN_RELAY_CRED_PATH after the "-"
+  RLN_RELAY_CRED_PASSWORD: ${RLN_RELAY_CRED_PASSWORD:-} # Optional: Add your RLN_RELAY_CRED_PASSWORD after the "-"
+
+x-test-running-conditions: &test_running_conditions
+  NUM_MESSAGES: ${NUM_MESSAGES:-120}
+  DELAY_MESSAGES: "${DELAY_MESSAGES:-1000}"
+  PUBSUB: ${PUBSUB:-}
+  CONTENT_TOPIC: ${CONTENT_TOPIC:-}
+
+# Services definitions
+services:
+  servicenode:
+    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:latest}
+    ports:
+      - 30304:30304/tcp
+      - 30304:30304/udp
+      - 9005:9005/udp
+      - 127.0.0.1:8003:8003
+      - 80:80 #Let's Encrypt
+      - 8000:8000/tcp #WSS
+      - 127.0.0.1:8645:8645
+    <<:
+      - *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      RLN_RELAY_CRED_PASSWORD: "${RLN_RELAY_CRED_PASSWORD}"
+      ETH_CLIENT_ADDRESS: *eth_client_address
+      EXTRA_ARGS: ${EXTRA_ARGS}
+      <<:
+        - *rln_env
+    volumes:
+      - ./run_service_node.sh:/opt/run_service_node.sh:Z
+      - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
+      - ./rln_tree:/etc/rln_tree/:Z
+      - ./keystore:/keystore:Z
+    entrypoint: sh
+    command:
+      - /opt/run_service_node.sh
+
+  publishernode:
+    image: waku.liteprotocoltester:latest
+    build:
+      context: ../..
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+    ports:
+      # - 30304:30304/tcp
+      # - 30304:30304/udp
+      # - 9005:9005/udp
+      # - 127.0.0.1:8003:8003
+      # - 80:80 #Let's Encrypt
+      # - 8000:8000/tcp #WSS
+      - 127.0.0.1:8646:8646
+    <<:
+      - *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      RLN_RELAY_CRED_PASSWORD: "${RLN_RELAY_CRED_PASSWORD}"
+      ETH_CLIENT_ADDRESS: *eth_client_address
+      EXTRA_ARGS: ${EXTRA_ARGS}
+      <<:
+        - *rln_env
+        - *test_running_conditions
+    volumes:
+      - ./run_tester_node.sh:/opt/run_tester_node.sh:Z
+      - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
+      - ./rln_tree:/etc/rln_tree/:Z
+      - ./keystore:/keystore:Z
+    entrypoint: sh
+    command:
+      - /opt/run_tester_node.sh
+      - SENDER
+    depends_on:
+      - servicenode
+    configs:
+      - source: cfg_tester_node.toml
+        target: config.toml
+
+  receivernode:
+    image: waku.liteprotocoltester:latest
+    build:
+      context: ../..
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+    ports:
+      # - 30304:30304/tcp
+      # - 30304:30304/udp
+      # - 9005:9005/udp
+      # - 127.0.0.1:8003:8003
+      # - 80:80 #Let's Encrypt
+      # - 8000:8000/tcp #WSS
+      - 127.0.0.1:8647:8647
+    <<:
+      - *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      RLN_RELAY_CRED_PASSWORD: "${RLN_RELAY_CRED_PASSWORD}"
+      ETH_CLIENT_ADDRESS: *eth_client_address
+      EXTRA_ARGS: ${EXTRA_ARGS}
+      <<:
+        - *rln_env
+        - *test_running_conditions
+    volumes:
+      - ./run_tester_node.sh:/opt/run_tester_node.sh:Z
+      - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
+      - ./rln_tree:/etc/rln_tree/:Z
+      - ./keystore:/keystore:Z
+    entrypoint: sh
+    command:
+      - /opt/run_tester_node.sh
+      - RECEIVER
+    depends_on:
+      - servicenode
+      - publishernode
+    configs:
+      - source: cfg_tester_node.toml
+        target: config.toml
+
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - 127.0.0.1:9090:9090
+    depends_on:
+      - servicenode
+
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    env_file:
+      - ./monitoring/configuration/grafana-plugins.env
+    volumes:
+      - ./monitoring/configuration/grafana.ini:/etc/grafana/grafana.ini:Z
+      - ./monitoring/configuration/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:Z
+      - ./monitoring/configuration/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:Z
+      - ./monitoring/configuration/dashboards:/var/lib/grafana/dashboards/:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_icon.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
+    ports:
+      - 0.0.0.0:3000:3000
+    depends_on:
+      - prometheus
+
+configs:
+  cfg_tester_node.toml:
+    content: |
+      max-connections = 100

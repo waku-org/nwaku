@@ -1,7 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
+  std/[options, sequtils, strformat, random, algorithm],
+  testutils/unittests,
+  chronos,
+  chronicles
 import
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver as driver_module,
@@ -104,6 +107,61 @@ suite "Postgres driver - queries":
         fakeWakuMessage(@[byte 5], contentTopic = contentTopic, ts = ts(50)),
         fakeWakuMessage(@[byte 6], contentTopic = contentTopic, ts = ts(60)),
         fakeWakuMessage(@[byte 7], contentTopic = contentTopic, ts = ts(70)),
+      ]
+    var messages = expected
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (
+        await driver.put(
+          DefaultPubsubTopic,
+          msg,
+          computeDigest(msg),
+          computeMessageHash(DefaultPubsubTopic, msg),
+          msg.timestamp,
+        )
+      ).isOk()
+
+    ## When
+    let res = await driver.getMessages(
+      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+    )
+
+    ## Then
+    assert res.isOk(), res.error
+
+    let filteredMessages = res.tryGet().mapIt(it[1])
+    check:
+      filteredMessages == expected[2 .. 3]
+
+  asyncTest "single content topic with meta field":
+    ## Given
+    const contentTopic = "test-content-topic"
+
+    let expected =
+      @[
+        fakeWakuMessage(@[byte 0], ts = ts(00), meta = "meta-0"),
+        fakeWakuMessage(@[byte 1], ts = ts(10), meta = "meta-1"),
+        fakeWakuMessage(
+          @[byte 2], contentTopic = contentTopic, ts = ts(20), meta = "meta-2"
+        ),
+        fakeWakuMessage(
+          @[byte 3], contentTopic = contentTopic, ts = ts(30), meta = "meta-3"
+        ),
+        fakeWakuMessage(
+          @[byte 4], contentTopic = contentTopic, ts = ts(40), meta = "meta-4"
+        ),
+        fakeWakuMessage(
+          @[byte 5], contentTopic = contentTopic, ts = ts(50), meta = "meta-5"
+        ),
+        fakeWakuMessage(
+          @[byte 6], contentTopic = contentTopic, ts = ts(60), meta = "meta-6"
+        ),
+        fakeWakuMessage(
+          @[byte 7], contentTopic = contentTopic, ts = ts(70), meta = "meta-7"
+        ),
       ]
     var messages = expected
 
@@ -586,6 +644,49 @@ suite "Postgres driver - queries":
     let filteredMessages = res.tryGet().mapIt(it[1])
     check:
       filteredMessages == expected[2 .. 3].reversed()
+
+  asyncTest "only cursor - invalid":
+    ## Given
+    const contentTopic = "test-content-topic"
+
+    var messages =
+      @[
+        fakeWakuMessage(@[byte 0], ts = ts(00)),
+        fakeWakuMessage(@[byte 1], ts = ts(10)),
+        fakeWakuMessage(@[byte 2], contentTopic = contentTopic, ts = ts(20)),
+        fakeWakuMessage(@[byte 3], contentTopic = contentTopic, ts = ts(30)),
+        fakeWakuMessage(@[byte 4], contentTopic = contentTopic, ts = ts(40)),
+        fakeWakuMessage(@[byte 5], contentTopic = contentTopic, ts = ts(50)),
+        fakeWakuMessage(@[byte 6], contentTopic = contentTopic, ts = ts(60)),
+        fakeWakuMessage(@[byte 7], contentTopic = contentTopic, ts = ts(70)),
+      ]
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (
+        await driver.put(
+          DefaultPubsubTopic,
+          msg,
+          computeDigest(msg),
+          computeMessageHash(DefaultPubsubTopic, msg),
+          msg.timestamp,
+        )
+      ).isOk()
+
+    let cursor = computeTestCursor(DefaultPubsubTopic, fakeWakuMessage())
+
+    ## When
+    let res = await driver.getMessages(
+      cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
+    )
+
+    ## Then
+    assert res.isOk(), res.error
+
+    check:
+      res.value.len == 0
 
   asyncTest "content topic and cursor":
     ## Given
@@ -1712,9 +1813,21 @@ suite "Postgres driver - queries":
         )
       ).isOk()
 
+    ## just keep the second resolution.
+    ## Notice that the oldest timestamps considers the minimum partition timestamp, which
+    ## is expressed in seconds.
+    let oldestPartitionTimestamp =
+      Timestamp(float(oldestTime) / 1_000_000_000) * 1_000_000_000
+
     var res = await driver.getOldestMessageTimestamp()
     assert res.isOk(), res.error
-    assert res.get() == oldestTime, "Failed to retrieve the latest timestamp"
+
+    ## We give certain margin of error. The oldest timestamp is obtained from
+    ## the oldest partition timestamp and there might be at most one second of difference
+    ## between the time created in the test and the oldest-partition-timestamp created within
+    ## the driver logic.
+    assert abs(res.get() - oldestPartitionTimestamp) < (2 * 1_000_000_000),
+      fmt"Failed to retrieve the latest timestamp {res.get()} != {oldestPartitionTimestamp}"
 
     res = await driver.getNewestMessageTimestamp()
     assert res.isOk(), res.error

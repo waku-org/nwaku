@@ -269,7 +269,9 @@ proc setupProtocols(
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
     if storeNode.isOk():
-      node.peerManager.addServicePeer(storeNode.value, legacy_common.WakuStoreCodec)
+      node.peerManager.addServicePeer(
+        storeNode.value, legacy_common.WakuLegacyStoreCodec
+      )
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
@@ -337,7 +339,7 @@ proc setupProtocols(
 
 proc startNode*(
     node: WakuNode, conf: WakuNodeConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
-): Future[Result[void, string]] {.async.} =
+): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
   ## keep-alive, if configured.

@@ -1,13 +1,5 @@
-import std/[options, sequtils, strutils]
-import chronos, stew/results, stew/shims/net
-import
-  ../../../../../waku/node/waku_node,
-  ../../../../../waku/waku_archive/driver/builder,
-  ../../../../../waku/waku_archive/driver,
-  ../../../../../waku/waku_archive/retention_policy/builder,
-  ../../../../../waku/waku_archive/retention_policy,
-  ../../../../alloc,
-  ../../../../callback
+import chronos, stew/results
+import ../../../../../waku/factory/waku, ../../../../alloc, ../../../../callback
 
 type StoreReqType* = enum
   REMOTE_QUERY ## to perform a query to another Store node
@@ -50,20 +42,20 @@ proc destroyShared(self: ptr StoreQueryRequest) =
   deallocShared(self)
 
 proc process(
-    self: ptr StoreQueryRequest, node: ptr WakuNode
+    self: ptr StoreQueryRequest, waku: ptr Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
 proc process*(
-    self: ptr StoreRequest, node: ptr WakuNode
+    self: ptr StoreRequest, waku: ptr Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     deallocShared(self)
 
   case self.operation
   of REMOTE_QUERY:
-    return await cast[ptr StoreQueryRequest](self[].storeReq).process(node)
+    return await cast[ptr StoreQueryRequest](self[].storeReq).process(waku)
   of LOCAL_QUERY:
     discard
     # cast[ptr StoreQueryRequest](request[].reqContent).process(node)

@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[tables, strutils, os], stew/results, chronicles, chronos
+import std/strutils, stew/results, chronicles, chronos
 import
   ../../../common/databases/common,
   ../../../../migrations/message_store_postgres/pg_migration_manager,
@@ -9,7 +9,7 @@ import
 logScope:
   topics = "waku archive migration"
 
-const SchemaVersion* = 3 # increase this when there is an update in the database schema
+const SchemaVersion* = 4 # increase this when there is an update in the database schema
 
 proc breakIntoStatements*(script: string): seq[string] =
   ## Given a full migration script, that can potentially contain a list

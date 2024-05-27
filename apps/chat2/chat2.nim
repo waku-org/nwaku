@@ -470,7 +470,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       echo "Connecting to storenode: " & $(storenode.get())
 
       node.mountLegacyStoreClient()
-      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
+      node.peerManager.addServicePeer(storenode.get(), WakuLegacyStoreCodec)
 
       proc storeHandler(response: HistoryResponse) {.gcsafe.} =
         for msg in response.messages:

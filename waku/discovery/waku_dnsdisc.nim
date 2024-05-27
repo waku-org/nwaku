@@ -9,8 +9,7 @@ else:
 ## EIP-1459 is defined in https://eips.ethereum.org/EIPS/eip-1459
 
 import
-  std/options,
-  stew/shims/net,
+  std/[options, net],
   chronicles,
   chronos,
   metrics,

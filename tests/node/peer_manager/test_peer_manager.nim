@@ -34,10 +34,12 @@ suite "Peer Manager":
     asyncTest "light client is not disconnected":
       # Given two nodes with the same shardId
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1]
+        )
 
       # And both mount metadata and filter
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -46,7 +48,7 @@ suite "Peer Manager":
       await server.mountFilter()
 
       # And both nodes are started
-      waitFor allFutures(server.start(), client.start())
+      await allFutures(server.start(), client.start())
       await sleepAsync(FUTURE_TIMEOUT)
 
       # And the nodes are connected
@@ -67,10 +69,12 @@ suite "Peer Manager":
     asyncTest "relay with same shardId is not disconnected":
       # Given two nodes with the same shardId
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+        )
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -79,7 +83,7 @@ suite "Peer Manager":
       await server.mountRelay()
 
       # And both nodes are started
-      waitFor allFutures(server.start(), client.start())
+      await allFutures(server.start(), client.start())
       await sleepAsync(FUTURE_TIMEOUT)
 
       # And the nodes are connected
@@ -98,10 +102,12 @@ suite "Peer Manager":
     asyncTest "relay with different shardId is disconnected":
       # Given two nodes with different shardIds
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1]
+        )
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -110,7 +116,7 @@ suite "Peer Manager":
       await server.mountRelay()
 
       # And both nodes are started
-      waitFor allFutures(server.start(), client.start())
+      await allFutures(server.start(), client.start())
       await sleepAsync(FUTURE_TIMEOUT)
 
       # And the nodes are connected

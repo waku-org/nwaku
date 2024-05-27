@@ -31,11 +31,11 @@ type PostgresDriver* = ref object of ArchiveDriver
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   """INSERT INTO messages (id, messageHash, storedAt, contentTopic, payload, pubsubTopic,
-  version, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING;"""
+  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -75,6 +75,10 @@ const SelectWithCursorAscStmtDef =
           storedAt <= $7
     ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
 
+const SelectMessageByHashName = "SelectMessageByHash"
+const SelectMessageByHashDef =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages WHERE messageHash = $1"""
+
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
 const SelectNoCursorV2AscStmtDef =
   """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
@@ -86,7 +90,7 @@ const SelectNoCursorV2AscStmtDef =
 
 const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
 const SelectNoCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -95,7 +99,7 @@ const SelectNoCursorV2DescStmtDef =
 
 const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
 const SelectWithCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) < ($3,$4) AND
@@ -105,7 +109,7 @@ const SelectWithCursorV2DescStmtDef =
 
 const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
 const SelectWithCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           (storedAt, id) > ($3,$4) AND
@@ -161,7 +165,7 @@ proc rowCallbackImpl(
   ## outRows - seq of Store-rows. This is populated from the info contained in pqResult
 
   let numFields = pqResult.pqnfields()
-  if numFields != 8:
+  if numFields != 9:
     error "Wrong number of fields"
     return
 
@@ -176,6 +180,7 @@ proc rowCallbackImpl(
     var payload: string
     var hashHex: string
     var msgHash: WakuMessageHash
+    var meta: string
 
     try:
       storedAt = parseInt($(pqgetvalue(pqResult, iRow, 0)))
@@ -186,6 +191,7 @@ proc rowCallbackImpl(
       timestamp = parseInt($(pqgetvalue(pqResult, iRow, 5)))
       digest = parseHexStr($(pqgetvalue(pqResult, iRow, 6)))
       hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
+      meta = parseHexStr($(pqgetvalue(pqResult, iRow, 8)))
       msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
@@ -194,6 +200,7 @@ proc rowCallbackImpl(
     wakuMessage.version = uint32(version)
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
+    wakuMessage.meta = @(meta.toOpenArrayByte(0, meta.high))
 
     outRows.add(
       (
@@ -220,15 +227,16 @@ method put*(
   let payload = toHex(message.payload)
   let version = $message.version
   let timestamp = $message.timestamp
+  let meta = toHex(message.meta)
 
-  debug "put PostgresDriver", timestamp = timestamp
+  trace "put PostgresDriver", timestamp = timestamp
 
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,
     InsertRowStmtDefinition,
     @[
       digest, messageHash, rxTime, contentTopic, payload, pubsubTopic, version,
-      timestamp,
+      timestamp, meta,
     ],
     @[
       int32(digest.len),
@@ -239,8 +247,19 @@ method put*(
       int32(pubsubTopic.len),
       int32(version.len),
       int32(timestamp.len),
+      int32(meta.len),
     ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    @[
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+      int32(0),
+    ],
   )
 
 method getAllMessages*(
@@ -256,7 +275,7 @@ method getAllMessages*(
     await s.readConnPool.pgQuery(
       """SELECT storedAt, contentTopic,
                                        payload, pubsubTopic, version, timestamp,
-                                       id, messageHash FROM messages ORDER BY storedAt ASC""",
+                                       id, messageHash, meta FROM messages ORDER BY storedAt ASC""",
       newSeq[string](0),
       rowCallback,
     )
@@ -311,7 +330,7 @@ proc getMessagesArbitraryQuery(
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
-    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
@@ -332,10 +351,33 @@ proc getMessagesArbitraryQuery(
     args.add(pubsubTopic.get())
 
   if cursor.isSome():
+    let hashHex = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hashHex],
+        @[int32(hashHex.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storetime = entree[0][3]
+
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, messageHash) " & comp & " (?,?)")
-    args.add($cursor.get().storeTime)
-    args.add(toHex(cursor.get().hash))
+    args.add($storetime)
+    args.add(hashHex)
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
@@ -457,13 +499,34 @@ proc getMessagesPreparedStmt(
   let limit = $maxPageSize
 
   if cursor.isSome():
+    let hash = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hash],
+        @[int32(hash.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storeTime = $entree[0][3]
+
     var stmtName =
       if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
     var stmtDef =
       if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
-
-    let hash = toHex(cursor.get().hash)
-    let storeTime = $cursor.get().storeTime
 
     (
       await s.readConnPool.runStmt(
@@ -686,7 +749,10 @@ proc getInt(
   try:
     retInt = parseInt(str)
   except ValueError:
-    return err("exception in getInt, parseInt: " & getCurrentExceptionMsg())
+    return err(
+      "exception in getInt, parseInt, str: " & str & " query: " & query & " exception: " &
+        getCurrentExceptionMsg()
+    )
 
   return ok(retInt)
 
@@ -711,11 +777,20 @@ method getMessagesCount*(
 method getOldestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  ## In some cases it could happen that we have
+  ## empty partitions which are older than the current stored rows.
+  ## In those cases we want to consider those older partitions as the oldest considered timestamp.
+  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition: " & $error)
+
+  let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
+
   let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
   if intRes.isErr():
-    return err("error in getOldestMessageTimestamp: " & intRes.error)
+    ## Just return the oldest partition time considering the partitions set
+    return ok(Timestamp(oldestPartitionTimeNanoSec))
 
-  return ok(Timestamp(intRes.get()))
+  return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
 
 method getNewestMessageTimestamp*(
     s: PostgresDriver
@@ -725,16 +800,6 @@ method getNewestMessageTimestamp*(
     return err("error in getNewestMessageTimestamp: " & intRes.error)
 
   return ok(Timestamp(intRes.get()))
-
-method deleteMessagesOlderThanTimestamp*(
-    s: PostgresDriver, ts: Timestamp
-): Future[ArchiveDriverResult[void]] {.async.} =
-  let execRes =
-    await s.writeConnPool.pgQuery("DELETE FROM messages WHERE storedAt < " & $ts)
-  if execRes.isErr():
-    return err("error in deleteMessagesOlderThanTimestamp: " & execRes.error)
-
-  return ok()
 
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int
@@ -938,6 +1003,54 @@ proc getTableSize*(
 
   return ok(tableSize)
 
+proc removePartition(
+    self: PostgresDriver, partitionName: string
+): Future[ArchiveDriverResult[void]] {.async.} =
+  var partSize = ""
+  let partSizeRes = await self.getTableSize(partitionName)
+  if partSizeRes.isOk():
+    partSize = partSizeRes.get()
+
+  ## Detach and remove the partition concurrently to not block the parent table (messages)
+  let detachPartitionQuery =
+    "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
+  debug "removeOldestPartition", query = detachPartitionQuery
+  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
+    return err(fmt"error in {detachPartitionQuery}: " & $error)
+
+  ## Drop the partition
+  let dropPartitionQuery = "DROP TABLE " & partitionName
+  debug "removeOldestPartition drop partition", query = dropPartitionQuery
+  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
+    return err(fmt"error in {dropPartitionQuery}: " & $error)
+
+  debug "removed partition", partition_name = partitionName, partition_size = partSize
+  self.partitionMngr.removeOldestPartitionName()
+
+  return ok()
+
+proc removePartitionsOlderThan(
+    self: PostgresDriver, tsInNanoSec: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Removes old partitions that don't contain the specified timestamp
+
+  let tsInSec = Timestamp(float(tsInNanoSec) / 1_000_000_000)
+
+  var oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+    return err("could not get oldest partition in removePartitionOlderThan: " & $error)
+
+  while not oldestPartition.containsMoment(tsInSec):
+    (await self.removePartition(oldestPartition.getName())).isOkOr:
+      return err("issue in removePartitionsOlderThan: " & $error)
+
+    oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
+      return err(
+        "could not get partition in removePartitionOlderThan in while loop: " & $error
+      )
+
+  ## We reached the partition that contains the target timestamp plus don't want to remove it
+  return ok()
+
 proc removeOldestPartition(
     self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -956,31 +1069,7 @@ proc removeOldestPartition(
         debug "Skipping to remove the current partition"
         return ok()
 
-  var partSize = ""
-  let partSizeRes = await self.getTableSize(oldestPartition.getName())
-  if partSizeRes.isOk():
-    partSize = partSizeRes.get()
-
-  ## In the following lines is where the partition removal happens.
-  ## Detach and remove the partition concurrently to not block the parent table (messages)
-  let detachPartitionQuery =
-    "ALTER TABLE messages DETACH PARTITION " & oldestPartition.getName() &
-    " CONCURRENTLY;"
-  debug "removeOldestPartition", query = detachPartitionQuery
-  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    return err(fmt"error in {detachPartitionQuery}: " & $error)
-
-  ## Drop the partition
-  let dropPartitionQuery = "DROP TABLE " & oldestPartition.getName()
-  debug "removeOldestPartition drop partition", query = dropPartitionQuery
-  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
-    return err(fmt"error in {dropPartitionQuery}: " & $error)
-
-  debug "removed partition",
-    partition_name = oldestPartition.getName(), partition_size = partSize
-  self.partitionMngr.removeOldestPartitionName()
-
-  return ok()
+  return await self.removePartition(oldestPartition.getName())
 
 proc containsAnyPartition*(self: PostgresDriver): bool =
   return not self.partitionMngr.isEmpty()
@@ -1064,3 +1153,16 @@ proc getCurrentVersion*(
     return err("error in getMessagesCount: " & $error)
 
   return ok(res)
+
+method deleteMessagesOlderThanTimestamp*(
+    s: PostgresDriver, tsNanoSec: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## First of all, let's remove the older partitions so that we can reduce
+  ## the database size.
+  (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
+    return err("error while removing older partitions: " & $error)
+
+  (await s.writeConnPool.pgQuery("DELETE FROM messages WHERE storedAt < " & $tsNanoSec)).isOkOr:
+    return err("error in deleteMessagesOlderThanTimestamp: " & $error)
+
+  return ok()

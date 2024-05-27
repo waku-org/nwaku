@@ -38,9 +38,21 @@ suite "Store Client":
     hash3 = computeMessageHash(DefaultPubsubTopic, message3)
     messageSeq =
       @[
-        WakuMessageKeyValue(messageHash: hash1, message: some(message1)),
-        WakuMessageKeyValue(messageHash: hash2, message: some(message2)),
-        WakuMessageKeyValue(messageHash: hash3, message: some(message3)),
+        WakuMessageKeyValue(
+          messageHash: hash1,
+          message: some(message1),
+          pubsubTopic: some(DefaultPubsubTopic),
+        ),
+        WakuMessageKeyValue(
+          messageHash: hash2,
+          message: some(message2),
+          pubsubTopic: some(DefaultPubsubTopic),
+        ),
+        WakuMessageKeyValue(
+          messageHash: hash3,
+          message: some(message3),
+          pubsubTopic: some(DefaultPubsubTopic),
+        ),
       ]
     handlerFuture = newHistoryFuture()
     handler = proc(req: StoreQueryRequest): Future[StoreQueryResult] {.async, gcsafe.} =
@@ -61,6 +73,17 @@ suite "Store Client":
     client = newTestWakuStoreClient(clientSwitch)
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    ## The following sleep is aimed to prevent macos failures in CI
+    #[
+2024-05-16T13:24:45.5106200Z INF 2024-05-16 13:24:45.509+00:00 Stopping AutonatService                    topics="libp2p autonatservice" tid=53712 file=service.nim:203
+2024-05-16T13:24:45.5107960Z WRN 2024-05-16 13:24:45.509+00:00 service is already stopped                 topics="libp2p switch" tid=53712 file=switch.nim:86
+2024-05-16T13:24:45.5109010Z . (1.68s)
+2024-05-16T13:24:45.5109320Z Store Client  (0.00s)
+2024-05-16T13:24:45.5109870Z SIGSEGV: Illegal storage access. (Attempt to read from nil?)
+2024-05-16T13:24:45.5111470Z stack trace: (most recent call last)
+    ]#
+    await sleepAsync(500.millis)
 
     serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
     clientPeerInfo = clientSwitch.peerInfo.toRemotePeerInfo()

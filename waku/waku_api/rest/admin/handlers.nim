@@ -5,7 +5,6 @@ else:
 
 import
   std/[strformat, sequtils, tables],
-  stew/byteutils,
   chronicles,
   json_serialization,
   presto/route,
@@ -14,6 +13,7 @@ import
 import
   ../../../waku_core,
   ../../../waku_store_legacy/common,
+  ../../../waku_store/common,
   ../../../waku_filter_v2,
   ../../../waku_lightpush/common,
   ../../../waku_relay,
@@ -43,7 +43,6 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
     var peers: WakuPeers = @[]
 
     if not node.wakuRelay.isNil():
-      # Map managed peers to WakuPeers and add to return list
       let relayPeers = node.peerManager.peerStore.peers(WakuRelayCodec).mapIt(
           (
             multiaddr: constructMultiaddrStr(it),
@@ -54,7 +53,6 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       tuplesToWakuPeers(peers, relayPeers)
 
     if not node.wakuFilter.isNil():
-      # Map WakuFilter peers to WakuPeers and add to return list
       let filterV2Peers = node.peerManager.peerStore
         .peers(WakuFilterSubscribeCodec)
         .mapIt(
@@ -66,8 +64,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         )
       tuplesToWakuPeers(peers, filterV2Peers)
 
-    if not node.wakuLegacyStore.isNil():
-      # Map WakuStore peers to WakuPeers and add to return list
+    if not node.wakuStore.isNil():
       let storePeers = node.peerManager.peerStore.peers(WakuStoreCodec).mapIt(
           (
             multiaddr: constructMultiaddrStr(it),
@@ -76,6 +73,18 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
           )
         )
       tuplesToWakuPeers(peers, storePeers)
+
+    if not node.wakuLegacyStore.isNil():
+      let legacyStorePeers = node.peerManager.peerStore
+        .peers(WakuLegacyStoreCodec)
+        .mapIt(
+          (
+            multiaddr: constructMultiaddrStr(it),
+            protocol: WakuLegacyStoreCodec,
+            connected: it.connectedness == Connectedness.Connected,
+          )
+        )
+      tuplesToWakuPeers(peers, legacyStorePeers)
 
     if not node.wakuLightPush.isNil():
       # Map WakuStore peers to WakuPeers and add to return list

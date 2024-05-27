@@ -180,11 +180,11 @@ proc addValidator*(
 ) {.gcsafe.} =
   w.wakuValidators.add((handler, errorMessage))
 
-method start*(w: WakuRelay) {.async.} =
+method start*(w: WakuRelay) {.async, base.} =
   debug "start"
   await procCall GossipSub(w).start()
 
-method stop*(w: WakuRelay) {.async.} =
+method stop*(w: WakuRelay) {.async, base.} =
   debug "stop"
   await procCall GossipSub(w).stop()
 

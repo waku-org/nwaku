@@ -18,7 +18,7 @@ type SqlQueryStr = string
 
 proc queryRowWakuMessageCallback(
     s: ptr sqlite3_stmt,
-    contentTopicCol, payloadCol, versionCol, senderTimestampCol: cint,
+    contentTopicCol, payloadCol, versionCol, senderTimestampCol, metaCol: cint,
 ): WakuMessage =
   let
     topic = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, contentTopicCol))
@@ -26,17 +26,21 @@ proc queryRowWakuMessageCallback(
     contentTopic = string.fromBytes(@(toOpenArray(topic, 0, topicLength - 1)))
 
     p = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, payloadCol))
+    m = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, metaCol))
 
-    length = sqlite3_column_bytes(s, payloadCol)
-    payload = @(toOpenArray(p, 0, length - 1))
+    payloadLength = sqlite3_column_bytes(s, payloadCol)
+    metaLength = sqlite3_column_bytes(s, metaCol)
+    payload = @(toOpenArray(p, 0, payloadLength - 1))
     version = sqlite3_column_int64(s, versionCol)
     senderTimestamp = sqlite3_column_int64(s, senderTimestampCol)
+    meta = @(toOpenArray(m, 0, metaLength - 1))
 
   return WakuMessage(
     contentTopic: ContentTopic(contentTopic),
     payload: payload,
     version: uint32(version),
     timestamp: Timestamp(senderTimestamp),
+    meta: meta,
   )
 
 proc queryRowReceiverTimestampCallback(
@@ -83,8 +87,8 @@ proc createTableQuery(table: string): SqlQueryStr =
   "CREATE TABLE IF NOT EXISTS " & table & " (" & " pubsubTopic BLOB NOT NULL," &
     " contentTopic BLOB NOT NULL," & " payload BLOB," & " version INTEGER NOT NULL," &
     " timestamp INTEGER NOT NULL," & " id BLOB," & " messageHash BLOB," &
-    " storedAt INTEGER NOT NULL," & " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" &
-    ") WITHOUT ROWID;"
+    " storedAt INTEGER NOT NULL," & " meta BLOB," &
+    " CONSTRAINT messageIndex PRIMARY KEY (messageHash)" & ") WITHOUT ROWID;"
 
 proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
   let query = createTableQuery(DbTable)
@@ -129,14 +133,23 @@ proc createHistoryQueryIndex*(db: SqliteDatabase): DatabaseResult[void] =
   return ok()
 
 ## Insert message
-type InsertMessageParams* =
-  (seq[byte], seq[byte], Timestamp, seq[byte], seq[byte], seq[byte], int64, Timestamp)
+type InsertMessageParams* = (
+  seq[byte],
+  seq[byte],
+  Timestamp,
+  seq[byte],
+  seq[byte],
+  seq[byte],
+  int64,
+  Timestamp,
+  seq[byte],
+)
 
 proc insertMessageQuery(table: string): SqlQueryStr =
   return
     "INSERT INTO " & table &
-    "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp)" &
-    " VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
+    "(id, messageHash, storedAt, contentTopic, payload, pubsubTopic, version, timestamp, meta)" &
+    " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"
 
 proc prepareInsertMessageStmt*(
     db: SqliteDatabase
@@ -244,7 +257,7 @@ proc deleteOldestMessagesNotWithinLimit*(
 
 proc selectAllMessagesQuery(table: string): SqlQueryStr =
   return
-    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash" &
+    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta" &
     " FROM " & table & " ORDER BY storedAt ASC"
 
 proc selectAllMessages*(
@@ -258,7 +271,12 @@ proc selectAllMessages*(
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol = 3)
       wakuMessage = queryRowWakuMessageCallback(
-        s, contentTopicCol = 1, payloadCol = 2, versionCol = 4, senderTimestampCol = 5
+        s,
+        contentTopicCol = 1,
+        payloadCol = 2,
+        versionCol = 4,
+        senderTimestampCol = 5,
+        metaCol = 8,
       )
       digest = queryRowDigestCallback(s, digestCol = 6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol = 0)
@@ -342,7 +360,7 @@ proc selectMessagesWithLimitQueryv2(
   var query: string
 
   query =
-    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash"
+    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta"
   query &= " FROM " & table
 
   if where.isSome():
@@ -435,7 +453,12 @@ proc selectMessagesByHistoryQueryWithLimit*(
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol = 3)
       message = queryRowWakuMessageCallback(
-        s, contentTopicCol = 1, payloadCol = 2, versionCol = 4, senderTimestampCol = 5
+        s,
+        contentTopicCol = 1,
+        payloadCol = 2,
+        versionCol = 4,
+        senderTimestampCol = 5,
+        metaCol = 8,
       )
       digest = queryRowDigestCallback(s, digestCol = 6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol = 0)
@@ -485,7 +508,7 @@ proc execSelectMessageByHash(
 proc selectMessageByHashQuery(): SqlQueryStr =
   var query: string
 
-  query = "SELECT contentTopic, payload, version, timestamp, messageHash"
+  query = "SELECT contentTopic, payload, version, timestamp, meta, messageHash"
   query &= " FROM " & DbTable
   query &= " WHERE messageHash = (?)"
 
@@ -621,7 +644,7 @@ proc selectMessagesWithLimitQuery(
   var query: string
 
   query =
-    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash"
+    "SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta"
   query &= " FROM " & table
 
   if where.isSome():
@@ -655,7 +678,12 @@ proc selectMessagesByStoreQueryWithLimit*(
 
       proc queryRowCallback(s: ptr sqlite3_stmt) =
         wakuMessage = queryRowWakuMessageCallback(
-          s, contentTopicCol = 0, payloadCol = 1, versionCol = 2, senderTimestampCol = 3
+          s,
+          contentTopicCol = 0,
+          payloadCol = 1,
+          versionCol = 2,
+          senderTimestampCol = 3,
+          metaCol = 4,
         )
 
       let query = selectMessageByHashQuery()
@@ -676,7 +704,12 @@ proc selectMessagesByStoreQueryWithLimit*(
     let
       pubsubTopic = queryRowPubsubTopicCallback(s, pubsubTopicCol = 3)
       message = queryRowWakuMessageCallback(
-        s, contentTopicCol = 1, payloadCol = 2, versionCol = 4, senderTimestampCol = 5
+        s,
+        contentTopicCol = 1,
+        payloadCol = 2,
+        versionCol = 4,
+        senderTimestampCol = 5,
+        metaCol = 8,
       )
       digest = queryRowDigestCallback(s, digestCol = 6)
       storedAt = queryRowReceiverTimestampCallback(s, storedAtCol = 0)

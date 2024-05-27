@@ -163,7 +163,7 @@ when defined(rln_v2):
       start: MembershipIndex,
       rateCommitments = newSeq[RateCommitment](),
       toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]).} =
+  ): Future[void] {.async: (raises: [Exception]), base.} =
     initializedGuard(g)
 
     # convert the rateCommitment struct to a leaf value
@@ -197,7 +197,7 @@ else:
       start: MembershipIndex,
       idCommitments = newSeq[IDCommitment](),
       toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]).} =
+  ): Future[void] {.async: (raises: [Exception]), base.} =
     initializedGuard(g)
 
     waku_rln_membership_insertion_duration_seconds.nanosecondTime:
@@ -586,7 +586,7 @@ proc getNewBlockCallback(g: OnchainGroupManager): proc =
     g.retryWrapper(handleBlockRes, "Failed to handle new block"):
       await g.getAndHandleEvents(fromBlock, latestBlock)
 
-    # cannot use isOkOr here because results in a compile-time error that 
+    # cannot use isOkOr here because results in a compile-time error that
     # shows the error is void for some reason
     let setMetadataRes = g.setMetadata()
     if setMetadataRes.isErr():
@@ -855,7 +855,8 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
   g.retryWrapper(currentBlock, "Failed to get the current block number"):
     cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
 
-  if g.latestProcessedBlock < currentBlock:
+  # the node is still able to process messages if it is behind the latest block by a factor of the valid roots
+  if u256(g.latestProcessedBlock) < (u256(currentBlock) - u256(g.validRoots.len)):
     return false
 
   return not (await g.isSyncing())

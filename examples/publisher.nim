@@ -38,7 +38,8 @@ const discv5Port = 9000
 
 proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   # use notice to filter all waku messaging
-  setupLogLevel(logging.LogLevel.NOTICE)
+  setupLog(logging.LogLevel.NOTICE, logging.LogFormat.TEXT)
+
   notice "starting publisher", wakuPort = wakuPort, discv5Port = discv5Port
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()

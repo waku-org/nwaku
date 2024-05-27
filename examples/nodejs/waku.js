@@ -21,6 +21,7 @@ var cfg = `{
     "port": 60001,
     "key": "364d111d729a6eb6d3e6113e163f017b5ef03a6f94c9b5b7bb1bb36fa5cb07a9",
     "relay": true
+    "logLevel": "DEBUG"
 }`
 
 function event_handler(event) {

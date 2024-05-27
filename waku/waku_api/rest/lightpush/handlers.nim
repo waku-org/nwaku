@@ -16,7 +16,6 @@ import
   ../../waku/node/peer_manager,
   ../../../waku_node,
   ../../waku/waku_lightpush/common,
-  ../../waku/waku_lightpush/self_req_handler,
   ../../handlers,
   ../serdes,
   ../responses,

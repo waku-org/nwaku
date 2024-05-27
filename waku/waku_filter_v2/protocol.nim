@@ -216,8 +216,7 @@ proc handleMessage*(
 ) {.async.} =
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  debug "handling message",
-    pubsubTopic = pubsubTopic, message = message, msg_hash = msgHash
+  debug "handling message", pubsubTopic = pubsubTopic, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
 
@@ -312,13 +311,13 @@ proc startMaintainingSubscriptions(wf: WakuFilter, interval: Duration) =
 
   wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
 
-method start*(wf: WakuFilter) {.async.} =
+method start*(wf: WakuFilter) {.async, base.} =
   debug "starting filter protocol"
   wf.startMaintainingSubscriptions(MaintainSubscriptionsInterval)
 
   await procCall LPProtocol(wf).start()
 
-method stop*(wf: WakuFilter) {.async.} =
+method stop*(wf: WakuFilter) {.async, base.} =
   debug "stopping filter protocol"
   if not wf.maintenanceTask.isNil():
     wf.maintenanceTask.clearTimer()

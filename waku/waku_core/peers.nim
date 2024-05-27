@@ -4,12 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, uri],
+  std/[options, sequtils, strutils, uri, net],
   stew/results,
-  stew/shims/net,
   chronos,
   eth/keys,
   eth/p2p/discoveryv5/enr,
+  eth/net/utils,
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/errors,

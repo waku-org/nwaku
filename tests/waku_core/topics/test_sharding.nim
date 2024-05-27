@@ -11,16 +11,33 @@ suite "Autosharding":
     pubsubTopic13 = "/waku/2/rs/1/3"
     contentTopicShort = "/toychat/2/huilong/proto"
     contentTopicFull = "/0/toychat/2/huilong/proto"
+    contentTopicShort2 = "/toychat2/2/huilong/proto"
+    contentTopicFull2 = "/0/toychat2/2/huilong/proto"
+    contentTopicShort3 = "/toychat/2/huilong/proto2"
+    contentTopicFull3 = "/0/toychat/2/huilong/proto2"
+    contentTopicShort4 = "/toychat/4/huilong/proto2"
+    contentTopicFull4 = "/0/toychat/4/huilong/proto2"
+    contentTopicFull5 = "/1/toychat/2/huilong/proto"
+    contentTopicFull6 = "/1/toychat2/2/huilong/proto"
     contentTopicInvalid = "/1/toychat/2/huilong/proto"
 
   suite "getGenZeroShard":
     test "Generate Gen0 Shard":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
+
       # Given two valid topics
       let
         nsContentTopic1 = NsContentTopic.parse(contentTopicShort).value()
         nsContentTopic2 = NsContentTopic.parse(contentTopicFull).value()
+        nsContentTopic3 = NsContentTopic.parse(contentTopicShort2).value()
+        nsContentTopic4 = NsContentTopic.parse(contentTopicFull2).value()
+        nsContentTopic5 = NsContentTopic.parse(contentTopicShort3).value()
+        nsContentTopic6 = NsContentTopic.parse(contentTopicFull3).value()
+        nsContentTopic7 = NsContentTopic.parse(contentTopicShort3).value()
+        nsContentTopic8 = NsContentTopic.parse(contentTopicFull3).value()
+        nsContentTopic9 = NsContentTopic.parse(contentTopicFull4).value()
+        nsContentTopic10 = NsContentTopic.parse(contentTopicFull5).value()
 
       # When we generate a gen0 shard from them
       let
@@ -28,11 +45,35 @@ suite "Autosharding":
           sharding.getGenZeroShard(nsContentTopic1, GenerationZeroShardsCount)
         nsPubsubTopic2 =
           sharding.getGenZeroShard(nsContentTopic2, GenerationZeroShardsCount)
+        nsPubsubTopic3 =
+          sharding.getGenZeroShard(nsContentTopic3, GenerationZeroShardsCount)
+        nsPubsubTopic4 =
+          sharding.getGenZeroShard(nsContentTopic4, GenerationZeroShardsCount)
+        nsPubsubTopic5 =
+          sharding.getGenZeroShard(nsContentTopic5, GenerationZeroShardsCount)
+        nsPubsubTopic6 =
+          sharding.getGenZeroShard(nsContentTopic6, GenerationZeroShardsCount)
+        nsPubsubTopic7 =
+          sharding.getGenZeroShard(nsContentTopic7, GenerationZeroShardsCount)
+        nsPubsubTopic8 =
+          sharding.getGenZeroShard(nsContentTopic8, GenerationZeroShardsCount)
+        nsPubsubTopic9 =
+          sharding.getGenZeroShard(nsContentTopic9, GenerationZeroShardsCount)
+        nsPubsubTopic10 =
+          sharding.getGenZeroShard(nsContentTopic10, GenerationZeroShardsCount)
 
       # Then the generated shards are valid
       check:
         nsPubsubTopic1 == NsPubsubTopic.staticSharding(ClusterId, 3)
         nsPubsubTopic2 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        nsPubsubTopic3 == NsPubsubTopic.staticSharding(ClusterId, 6)
+        nsPubsubTopic4 == NsPubsubTopic.staticSharding(ClusterId, 6)
+        nsPubsubTopic5 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        nsPubsubTopic6 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        nsPubsubTopic7 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        nsPubsubTopic8 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        nsPubsubTopic9 == NsPubsubTopic.staticSharding(ClusterId, 7)
+        nsPubsubTopic10 == NsPubsubTopic.staticSharding(ClusterId, 3)
 
   suite "getShard from NsContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":

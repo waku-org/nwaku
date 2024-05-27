@@ -4,6 +4,7 @@ import ../../../waku/[waku_core/message, waku_store, waku_store_legacy]
 
 const
   FUTURE_TIMEOUT* = 1.seconds
+  FUTURE_TIMEOUT_MEDIUM* = 5.seconds
   FUTURE_TIMEOUT_LONG* = 10.seconds
   FUTURE_TIMEOUT_SHORT* = 100.milliseconds
 
@@ -40,3 +41,8 @@ proc waitForResult*[T](
 ): Future[Result[T, string]] {.async.} =
   discard await future.withTimeout(timeout)
   return future.toResult()
+
+proc reset*[T](future: Future[T]): void =
+  # Likely an incomplete reset, but good enough for testing purposes (for now)
+  future.internalError = nil
+  future.internalState = FutureState.Pending

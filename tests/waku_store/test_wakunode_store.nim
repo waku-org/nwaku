@@ -50,7 +50,9 @@ procSuite "WakuNode - Store":
   let hashes = msgListA.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
   let kvs = zip(hashes, msgListA).mapIt(
-      WakuMessageKeyValue(messageHash: it[0], message: some(it[1]))
+      WakuMessageKeyValue(
+        messageHash: it[0], message: some(it[1]), pubsubTopic: some(DefaultPubsubTopic)
+      )
     )
 
   let archiveA = block:
@@ -276,7 +278,11 @@ procSuite "WakuNode - Store":
     check:
       response.messages.len == 1
       response.messages[0] ==
-        WakuMessageKeyValue(messageHash: hash, message: some(message))
+        WakuMessageKeyValue(
+          messageHash: hash,
+          message: some(message),
+          pubsubTopic: some(DefaultPubSubTopic),
+        )
 
     let (handledPubsubTopic, handledMsg) = filterFut.read()
     check:
@@ -352,7 +358,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let requestProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       assert queryRes.isOk(), queryRes.error
 
@@ -396,7 +402,7 @@ procSuite "WakuNode - Store":
     let serverPeer = server.peerInfo.toRemotePeerInfo()
 
     let successProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       check queryRes.isOk()
       let response = queryRes.get()
@@ -404,7 +410,7 @@ procSuite "WakuNode - Store":
         response.messages.mapIt(it.message.get()) == msgListA
 
     let failsProc = proc() {.async.} =
-      let queryRes = waitFor client.query(req, peer = serverPeer)
+      let queryRes = await client.query(req, peer = serverPeer)
 
       check queryRes.isOk()
       let response = queryRes.get()

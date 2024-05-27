@@ -4,14 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/math,
   chronicles,
   chronos,
   metrics,
   stew/byteutils,
   stew/endians2,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/errors,
   nimcrypto/sha2,
   secp256k1
@@ -34,6 +32,7 @@ proc msgHash*(pubSubTopic: string, msg: WakuMessage): array[32, byte] =
   ctx.update(msg.payload)
   ctx.update(msg.contentTopic.toBytes())
   ctx.update(msg.timestamp.uint64.toBytes(Endianness.littleEndian))
+  # ctx.update(msg.meta) meta is not included in the message hash, as the signature goes in the meta field
   ctx.update(
     if msg.ephemeral:
       @[1.byte]

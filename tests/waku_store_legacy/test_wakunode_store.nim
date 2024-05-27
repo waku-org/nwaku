@@ -31,7 +31,7 @@ import
   ../testlib/wakucore,
   ../testlib/wakunode
 
-procSuite "WakuNode - Store":
+procSuite "WakuNode - Store Legacy":
   ## Fixtures
   let timeOrigin = now()
   let msgListA =

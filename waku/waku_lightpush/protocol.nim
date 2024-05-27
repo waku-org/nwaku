@@ -32,7 +32,6 @@ proc handleRequest*(
   let reqDecodeRes = PushRPC.decode(buffer)
   var
     isSuccess = false
-    isRejectedDueRateLimit = false
     pushResponseInfo = ""
     requestId = ""
 
@@ -40,16 +39,7 @@ proc handleRequest*(
     pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
   elif reqDecodeRes.get().request.isNone():
     pushResponseInfo = emptyRequestBodyFailure
-  elif wl.requestRateLimiter.isSome() and not wl.requestRateLimiter.get().tryConsume(1):
-    isRejectedDueRateLimit = true
-    let pushRpcRequest = reqDecodeRes.get()
-    debug "lightpush request rejected due rate limit exceeded",
-      peerId = peerId, requestId = pushRpcRequest.requestId
-    pushResponseInfo = TooManyRequestsMessage
-    waku_service_requests_rejected.inc(labelValues = ["Lightpush"])
   else:
-    waku_service_requests.inc(labelValues = ["Lightpush"])
-
     let pushRpcRequest = reqDecodeRes.get()
 
     requestId = pushRpcRequest.requestId
@@ -70,7 +60,7 @@ proc handleRequest*(
     isSuccess = handleRes.isOk()
     pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
-  if not isSuccess and not isRejectedDueRateLimit:
+  if not isSuccess:
     waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
     error "failed to push message", error = pushResponseInfo
   let response = PushResponse(isSuccess: isSuccess, info: some(pushResponseInfo))
@@ -79,9 +69,34 @@ proc handleRequest*(
 
 proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
-    let buffer = await conn.readLp(DefaultMaxRpcSize)
-    let rpc = await handleRequest(wl, conn.peerId, buffer)
+    var rpc: PushRPC
+    wl.requestRateLimiter.checkUsageLimit(WakuLightPushCodec, conn):
+      let buffer = await conn.readLp(DefaultMaxRpcSize)
+
+      waku_service_inbound_network_bytes.inc(
+        amount = buffer.len().int64, labelValues = [WakuLightPushCodec]
+      )
+
+      rpc = await handleRequest(wl, conn.peerId, buffer)
+    do:
+      debug "lightpush request rejected due rate limit exceeded",
+        peerId = conn.peerId, limit = $wl.requestRateLimiter
+
+      rpc = static(
+        PushRPC(
+          ## We will not copy and decode RPC buffer from stream only for requestId
+          ## in reject case as it is comparably too expensive and opens possible
+          ## attack surface
+          requestId: "N/A",
+          response:
+            some(PushResponse(isSuccess: false, info: some(TooManyRequestsMessage))),
+        )
+      )
+
     await conn.writeLp(rpc.encode().buffer)
+
+    ## For lightpush might not worth to measure outgoing trafic as it is only
+    ## small respones about success/failure
 
   wl.handler = handle
   wl.codec = WakuLightPushCodec

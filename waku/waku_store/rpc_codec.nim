@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/options, stew/arrayops, nimcrypto/hash
+import std/options, stew/arrayops
 import ../common/[protobuf, paging], ../waku_core, ./common
 
 const DefaultMaxRpcSize* = -1
@@ -125,8 +125,9 @@ proc encode*(keyValue: WakuMessageKeyValue): ProtoBuffer =
 
   pb.write3(1, keyValue.messageHash)
 
-  if keyValue.message.isSome():
+  if keyValue.message.isSome() and keyValue.pubsubTopic.isSome():
     pb.write3(2, keyValue.message.get().encode())
+    pb.write3(3, keyValue.pubsubTopic.get())
 
   pb.finish3()
 
@@ -164,10 +165,13 @@ proc decode*(
     keyValue.messagehash = hash
 
   var proto: ProtoBuffer
-  if not ?pb.getField(2, proto):
-    keyValue.message = none(WakuMessage)
-  else:
+  var topic: string
+  if ?pb.getField(2, proto) and ?pb.getField(3, topic):
     keyValue.message = some(?WakuMessage.decode(proto.buffer))
+    keyValue.pubsubTopic = some(topic)
+  else:
+    keyValue.message = none(WakuMessage)
+    keyValue.pubsubTopic = none(string)
 
   return ok(keyValue)
 

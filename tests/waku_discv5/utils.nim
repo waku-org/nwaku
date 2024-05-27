@@ -6,7 +6,8 @@ import
   eth/keys as eth_keys
 
 import
-  ../../../waku/[waku_core/topics, waku_enr, discovery/waku_discv5],
+  ../../../waku/
+    [waku_core/topics, waku_enr, discovery/waku_discv5, node/peer_manager/peer_manager],
   ../testlib/[common, wakucore]
 
 proc newTestDiscv5*(
@@ -17,6 +18,7 @@ proc newTestDiscv5*(
     record: waku_enr.Record,
     bootstrapRecords = newSeq[waku_enr.Record](),
     queue = newAsyncEventQueue[SubscriptionEvent](30),
+    peerManager: Option[PeerManager] = none(PeerManager),
 ): WakuDiscoveryV5 =
   let config = WakuDiscoveryV5Config(
     privateKey: eth_keys.PrivateKey(privKey.skkey),
@@ -26,7 +28,11 @@ proc newTestDiscv5*(
   )
 
   let discv5 = WakuDiscoveryV5.new(
-    rng = rng(), conf = config, record = some(record), queue = queue
+    rng = rng(),
+    conf = config,
+    record = some(record),
+    queue = queue,
+    peerManager = peerManager,
   )
 
   return discv5

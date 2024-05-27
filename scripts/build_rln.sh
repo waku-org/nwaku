@@ -17,17 +17,28 @@ output_filename=$3
 # Get the host triplet
 host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
 
+tarball="${host_triplet}"
+
+# use arkzkey feature for v0.4.4
+# TODO: update this script in the future when arkzkey is default
+if [[ "${rln_version}" == "v0.4.4" ]]; then
+    tarball+="-arkzkey-rln.tar.gz"
+else
+    tarball+="-rln.tar.gz"
+fi
+
+
 # Download the prebuilt rln library if it is available
 if curl --silent --fail-with-body -L \
-  "https://github.com/vacp2p/zerokit/releases/download/$rln_version/${host_triplet}-rln.tar.gz" \
-  -o "${host_triplet}-rln.tar.gz";
+  "https://github.com/vacp2p/zerokit/releases/download/$rln_version/$tarball" \
+  -o "${tarball}";
 then
-    echo "Downloaded ${host_triplet}-rln.tar.gz"
-    tar -xzf "${host_triplet}-rln.tar.gz"
+    echo "Downloaded ${tarball}"
+    tar -xzf "${tarball}"
     mv "release/librln.a" "${output_filename}"
-    rm -rf "${host_triplet}-rln.tar.gz" release
+    rm -rf "${tarball}" release
 else
-    echo "Failed to download ${host_triplet}-rln.tar.gz"
+    echo "Failed to download ${tarball}"
     # Build rln instead
     # first, check if submodule version = version in Makefile
     cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml"

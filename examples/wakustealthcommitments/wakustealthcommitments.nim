@@ -11,16 +11,7 @@ logScope:
 
 when isMainModule:
   ## Logging setup
-
-  # Adhere to NO_COLOR initiative: https://no-color.org/
-  let color =
-    try:
-      not parseBool(os.getEnv("NO_COLOR", "false"))
-    except CatchableError:
-      true
-
-  logging.setupLogLevel(logging.LogLevel.INFO)
-  logging.setupLogFormat(logging.LogFormat.TEXT, color)
+  setupLog(logging.LogLevel.NOTICE, logging.LogFormat.TEXT)
 
   info "Starting Waku Stealth Commitment Protocol"
   info "Starting Waku Node"

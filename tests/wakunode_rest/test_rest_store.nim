@@ -123,7 +123,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("c2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -195,7 +195,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -282,7 +282,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -354,7 +354,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -442,7 +442,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -513,7 +513,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     # Sending no peer-store node address
     response = await client.getStoreMessagesV3(
@@ -560,7 +560,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("ct2"), ts = 9),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -616,7 +616,7 @@ procSuite "Waku Rest API - Store v3":
     let msg = fakeWakuMessage(
       @[byte 0], contentTopic = ContentTopic("ct1"), ts = 0, meta = (@[byte 8])
     )
-    require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+    require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
@@ -682,7 +682,7 @@ procSuite "Waku Rest API - Store v3":
         fakeWakuMessage(@[byte 09], ts = ts(90, timeOrigin)),
       ]
     for msg in msgList:
-      require (waitFor driver.put(DefaultPubsubTopic, msg)).isOk()
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 

@@ -18,8 +18,7 @@ const EmptyWakuMessageHash*: WakuMessageHash = [
 
 converter fromBytes*(array: openArray[byte]): WakuMessageHash =
   var hash: WakuMessageHash
-  let copiedBytes = copyFrom(hash, array)
-  assert copiedBytes == 32, "Waku message hash is 32 bytes"
+  discard copyFrom(hash, array)
   hash
 
 converter toBytesArray*(digest: MDigest[256]): WakuMessageHash =
