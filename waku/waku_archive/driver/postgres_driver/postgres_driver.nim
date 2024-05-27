@@ -853,6 +853,42 @@ proc sleep*(
 
   return ok()
 
+proc acquireDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  let locked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_try_advisory_lock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error acquiring a lock: " & error)
+
+  if locked == "f":
+    return err("another waku instance is currently executing a migration")
+
+  return ok()
+
+proc releaseDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  let unlocked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_advisory_unlock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error releasing a lock: " & error)
+
+  if unlocked == "f":
+    return err("could not release advisory lock")
+
+  return ok()
+
 proc performWriteQuery*(
     s: PostgresDriver, query: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
