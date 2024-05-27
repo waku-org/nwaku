@@ -35,6 +35,9 @@ proc parseHash*(input: Option[string]): Result[Option[WakuMessageHash], string] 
   let decodedBytes = base64.decode(Base64String(base64Encoded)).valueOr:
     return err("waku message hash parsing error: " & error)
 
+  if decodedBytes.len != 32:
+    return err("waku message hash parsing error: invalid hash length: " & $decodedBytes.len)
+
   let hash: WakuMessageHash = fromBytes(decodedBytes)
 
   return ok(some(hash))

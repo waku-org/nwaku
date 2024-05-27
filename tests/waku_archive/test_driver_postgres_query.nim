@@ -675,11 +675,20 @@ suite "Postgres driver - queries":
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, fakeWakuMessage())
+    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let cursor = ArchiveCursor(hash: fakeCursor)
 
     ## When
     let res = await driver.getMessages(
-      cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
+      includeData = true,
+      contentTopicSeq = @[DefaultContentTopic],
+      pubsubTopic = none(PubsubTopic),
+      cursor = some(cursor),
+      startTime = none(Timestamp),
+      endTime = none(Timestamp),
+      hashes = @[],
+      maxPageSize = 5,
+      ascendingOrder = true,
     )
 
     ## Then
