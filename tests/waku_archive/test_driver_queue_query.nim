@@ -637,11 +637,20 @@ suite "Queue driver - query by cursor":
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, fakeWakuMessage())
+    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let cursor = ArchiveCursor(hash: fakeCursor)
 
     ## When
     let res = waitFor driver.getMessages(
-      cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
+      includeData = true,
+      contentTopic = @[DefaultContentTopic],
+      pubsubTopic = none(PubsubTopic),
+      cursor = some(cursor),
+      startTime = none(Timestamp),
+      endTime = none(Timestamp),
+      hashes = @[],
+      maxPageSize = 5,
+      ascendingOrder = true,
     )
 
     ## Then
