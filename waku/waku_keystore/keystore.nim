@@ -213,6 +213,8 @@ proc getMembershipCredentials*(
         keystoreCredential = keystoreCredentials.getFields().values().toSeq()[0]
       else:
         let key = query.hash()
+        echo "key: ", key
+        echo "\n\n"
         if not keystoreCredentials.hasKey(key):
           # error
           return err(

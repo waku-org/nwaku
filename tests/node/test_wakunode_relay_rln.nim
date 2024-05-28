@@ -55,7 +55,8 @@ proc addFakeMemebershipToKeystore(
   #   )
 
   var
-    contract = MembershipContract(chainId: "1337", address: rlnRelayEthContractAddress)
+    contract = MembershipContract(chainId: "0x539", address: rlnRelayEthContractAddress)
+    # contract = MembershipContract(chainId: "1337", address: rlnRelayEthContractAddress)
     index = MembershipIndex(membershipIndex)
 
   let
@@ -68,6 +69,9 @@ proc addFakeMemebershipToKeystore(
       password = password,
       appInfo = appInfo,
     )
+
+  echo membershipCredential
+  echo membershipCredential.hash()
 
   assert persistRes.isOk()
   return credentials
@@ -103,11 +107,11 @@ proc getWakuRlnConfigOnChain*(
 
   return WakuRlnConfig(
     rlnRelayDynamic: true,
-    rlnRelayCredIndex: some(credIndex),
+    # rlnRelayCredIndex: some(credIndex),
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
     rlnRelayEthClientAddress: EthClient,
-    rlnRelayCredPath: keystorePath,
-    rlnRelayCredPassword: password,
+    # rlnRelayCredPath: keystorePath,
+    # rlnRelayCredPassword: password,
     rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
   )
@@ -490,20 +494,9 @@ suite "Waku RlnRelay - End to End - OnChain":
         genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
       appInfo = RlnAppInfo
       password = "1234"
+      rlnInstance = onChainGroupManager.rlnInstance
 
-    let keystoreRes = createAppKeystore(keystorePath, appInfo)
-    assert keystoreRes.isOk()
-
-    # TODO: how do I register creds or groupmanager on contract?
-
-    proc dummyC(registrations: seq[Membership]): Future[void] {.async.} =
-      echo "~~~~"
-      echo registrations
-      echo "~~~~"
-
-    onChainGroupManager.onRegister(dummyC)
-
-    let rlnInstance = onChainGroupManager.rlnInstance
+    assertResultOk(createAppKeystore(keystorePath, appInfo))
 
     # Generate configs before registering the credentials. Otherwise the file gets cleared up.
     let
@@ -528,21 +521,23 @@ suite "Waku RlnRelay - End to End - OnChain":
       idCredential1 = credentialRes1.get()
       idCredential2 = credentialRes2.get()
 
-    echo "-: ", idCredential1.idCommitment.toUInt256()
     discard await onChainGroupManager.init()
-    echo "#~~~~~~~~~~~~~~~~~~~#"
     try:
       await onChainGroupManager.register(idCredential1)
       await onChainGroupManager.register(idCredential2)
-      await sleepAsync(5.seconds)
-      echo "#~~~~~~~~~~~~~~~~~~~#"
     except Exception:
       assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
 
+    # let
+    #   credentialIndex1 = onChainGroupManager.membershipIndex.get() # 1
+    #   credentialIndex2 = credentialIndex1 + 1 # 2
+    # assert credentialIndex1 == 1
+    # assert credentialIndex2 == 2
+
     let
-      credentialIndex1 = onChainGroupManager.membershipIndex.get()
-      credentialIndex2 = credentialIndex1 + 1
-    echo "-----------", credentialIndex1
+      credentialIndex1: uint = 0
+      credentialIndex2: uint = 1
+
     let
       credentials1 = addFakeMemebershipToKeystore(
         idCredential1, keystorePath, appInfo, contractAddress, password,
@@ -554,162 +549,22 @@ suite "Waku RlnRelay - End to End - OnChain":
       )
 
     await onChainGroupManager.stop()
-    # let
-    #   contractAddress = $(await uploadRLNContract(EthClient))
-    #   keystorePath =
-    #     genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
-    #   appInfo = RlnAppInfo
-    #   password = "1234"
-    #   wakuRlnConfig1 =
-    #     getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
-    #   wakuRlnConfig2 =
-    #     getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 2)
-    #   credentials = addFakeMemebershipToKeystore(
-    #     keystorePath, appInfo, contractAddress, password, 1
-    #   )
-    # echo "######################"
 
-    # let
-    #   rlnInstance = createRlnInstance(
-    #       tree_path = genTempPath("rln_tree", "group_manager_onchain")
-    #     )
-    #     .expect("Couldn't create RLN instance")
-    #   keystoreRes = createAppKeystore(keystorePath, appInfo)
-    # var idCredential = generateCredentials(rlnInstance)
-    # assert keystoreRes.isOk()
-
-    # let wakuRlnConfig1 = WakuRlnConfig(
-    #   rlnRelayEthClientAddress: EthClient,
-    #   rlnRelayDynamic: true,
-    #   rlnRelayCredIndex: some(MembershipIndex(1)),
-    #   rlnRelayEthContractAddress: contractAddress,
-    #   rlnRelayCredPath: keystorePath,
-    #   rlnRelayCredPassword: password,
-    #   rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $1),
-    #   rlnEpochSizeSec: 1,
-    # )
-    # let wakuRlnConfig2 = WakuRlnConfig(
-    #   rlnRelayEthClientAddress: EthClient,
-    #   rlnRelayDynamic: true,
-    #   rlnRelayCredIndex: some(MembershipIndex(2)),
-    #   rlnRelayEthContractAddress: contractAddress,
-    #   rlnRelayCredPath: keystorePath,
-    #   rlnRelayCredPassword: password,
-    #   rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $2),
-    #   rlnEpochSizeSec: 1,
-    # )
-
-    # var
-    #   contract = MembershipContract(chainId: "5", address: contractAddress)
-    #   index = MembershipIndex(1)
-
-    # let
-    #   membershipCredential = KeystoreMembership(
-    #     membershipContract: contract, treeIndex: index, identityCredential: idCredential
-    #   )
-    #   keystoreRes2 = addMembershipCredentials(
-    #     path = keystorePath,
-    #     membership = membershipCredential,
-    #     password = password,
-    #     appInfo = appInfo,
-    #   )
-
-    # assert keystoreRes2.isOk()
-
-    # echo "######################"
-
-    echo "sleep2a"
-    # await sleepAsync(30.seconds)
-    echo "sleep2b"
-
-    echo "# 2"
     # Given the node enables Relay and Rln while subscribing to a pubsub topic
     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-    echo "# 3"
     await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-    echo "# 4"
 
-    # proc generateCallback(
-    #     futs: TestGroupSyncFuts, credentials: seq[IdentityCredential]
-    # ): OnRegisterCallback =
-    #   var futureIndex = 0
-    #   proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-    #     when defined(rln_v2):
-    #       if registrations.len == 1 and
-    #           registrations[0].rateCommitment ==
-    #           getRateCommitment(credentials[futureIndex], UserMessageLimit(1)) and
-    #           registrations[0].index == MembershipIndex(futureIndex):
-    #         futs[futureIndex].complete()
-    #         futureIndex += 1
-    #     else:
-    #       if registrations.len == 1 and
-    #           registrations[0].idCommitment == credentials[futureIndex].idCommitment and
-    #           registrations[0].index == MembershipIndex(futureIndex):
-    #         futs[futureIndex].complete()
-    #         futureIndex += 1
-
-    #   return callback
-
-    # type TestGroupSyncFuts = array[2, Future[void]]
-    # var futures: TestGroupSyncFuts
-    # for i in 0 ..< futures.len():
-    #   futures[i] = newFuture[void]()
-    var
-      future1 = newFuture[void]()
-      future2 = newFuture[void]()
-
-    proc callback1(registrations: seq[Membership]): Future[void] {.async.} =
-      echo "~~~1"
-      echo registrations
-      echo "###"
-      future1.complete()
-
-    proc callback2(registrations: seq[Membership]): Future[void] {.async.} =
-      echo "~~~2"
-      echo registrations
-      echo "###"
-      future2.complete()
-
-    echo "# 5"
     try:
-      server.wakuRlnRelay.groupManager.onRegister(
-        callback1 # generateCallback(@[future2], @[credentials2])
-      )
-      client.wakuRlnRelay.groupManager.onRegister(
-        callback2 # generateCallback(@[future1], @[credentials1])
-      )
-      echo "# 5a"
       (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
-      echo "# 5b"
       (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
 
-      echo "# 6"
-      # for i in 0 ..< credentials.len():
-      # when defined(rln_v2):
-      #   await client.wakuRlnRelay.groupManager.register(
-      #     @[credentials1], UserMessageLimit(1)
-      #   )
-      #   await server.wakuRlnRelay.groupManager.register(
-      #     @[credentials2], UserMessageLimit(1)
-      #   )
-      # else:
-      # await client.wakuRlnRelay.groupManager.register(credentials1)
-      #   await server.wakuRlnRelay.groupManager.register(credentials2)
-      # echo server.wakuRlnRelay.groupManager.idCredentials
-      # echo client.wakuRlnRelay.groupManager.idCredentials
-      # server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
-      # client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
-      echo server.wakuRlnRelay.groupManager.idCredentials
-      echo client.wakuRlnRelay.groupManager.idCredentials
-      echo "# 7"
+      # Hack
+      server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
+      client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    echo "# 8"
-    # await allFutures(@[future1, future2])
-    echo "# FUTURES DONE"
 
     let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
 
@@ -718,16 +573,14 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     # And the node registers the completion handler
     var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
-    echo "# 8"
+
     # When the client sends a valid RLN message
     let isCompleted1 =
-      await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
-    echo "# 10"
+      await client.sendRlnMessage(pubsubTopic, contentTopic, completionFuture)
+
     # Then the valid RLN message is relayed
-    check:
-      isCompleted1
-      completionFuture.read()
-    echo "# 11"
+    check isCompleted1
+    assertResultOk(await completionFuture.waitForResult())
 
   # TODO: This doesn't work, document and remove
   asyncTest "Concept proff without first onChainManager":

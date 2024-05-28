@@ -119,6 +119,8 @@ proc `==`*(x, y: KeystoreMembership): bool =
 
 proc hash*(m: KeystoreMembership): string =
   # hash together the chainId, address and treeIndex
+  echo "\n"
+  echo "hashing: ", m.membershipContract.chainId, " - ", $m.treeIndex
   return
     $sha256.digest(
       m.membershipContract.chainId & m.membershipContract.address & $m.treeIndex
