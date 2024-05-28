@@ -1,6 +1,10 @@
 {.used.}
 
-import std/[options, sequtils, random], testutils/unittests, chronos, chronicles
+import
+  std/[options, sequtils, strformat, random, algorithm],
+  testutils/unittests,
+  chronos,
+  chronicles
 import
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
@@ -59,11 +63,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
