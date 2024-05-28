@@ -652,7 +652,7 @@ suite "SQLite driver - query by cursor":
     ## When
     let res = await driver.getMessages(
       includeData = true,
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       pubsubTopic = none(PubsubTopic),
       cursor = some(cursor),
       startTime = none(Timestamp),

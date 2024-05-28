@@ -1,16 +1,9 @@
 {.used.}
 
+import std/[options, sequtils, random], testutils/unittests, chronos, chronicles
 import
-  std/[options, sequtils, strformat, random, algorithm],
-  testutils/unittests,
-  chronos,
-  chronicles
-import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver as driver_module,
   ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_core,
-  ../../../waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/testasync,
@@ -24,15 +17,6 @@ logScope:
 
 # Initialize the random number generator
 common.randomize()
-
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
-  ArchiveCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: computeDigest(message),
-    hash: computeMessageHash(pubsubTopic, message),
-  )
 
 suite "Postgres driver - queries":
   ## Unique driver instance
@@ -89,7 +73,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[0 .. 4]
 
@@ -116,23 +100,19 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3]
 
@@ -171,23 +151,19 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3]
 
@@ -214,23 +190,19 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = false
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = false
     )
 
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[6 .. 7].reversed()
 
@@ -259,17 +231,13 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     var res = await driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2],
+      contentTopics = @[contentTopic1, contentTopic2],
       pubsubTopic = some(DefaultPubsubTopic),
       maxPageSize = 2,
       ascendingOrder = true,
@@ -279,14 +247,14 @@ suite "Postgres driver - queries":
 
     ## Then
     assert res.isOk(), res.error
-    var filteredMessages = res.tryGet().mapIt(it[1])
+    var filteredMessages = res.tryGet().mapIt(it[2])
     check filteredMessages == expected[2 .. 3]
 
     ## When
     ## This is very similar to the previous one but we enforce to use the prepared
     ## statement by querying one single content topic
     res = await driver.getMessages(
-      contentTopic = @[contentTopic1],
+      contentTopics = @[contentTopic1],
       pubsubTopic = some(DefaultPubsubTopic),
       maxPageSize = 2,
       ascendingOrder = true,
@@ -296,7 +264,7 @@ suite "Postgres driver - queries":
 
     ## Then
     assert res.isOk(), res.error
-    filteredMessages = res.tryGet().mapIt(it[1])
+    filteredMessages = res.tryGet().mapIt(it[2])
     check filteredMessages == @[expected[2]]
 
   asyncTest "single content topic - no results":
@@ -319,23 +287,19 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 
@@ -347,17 +311,13 @@ suite "Postgres driver - queries":
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts = ts(t))
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       maxPageSize = pageSize,
       ascendingOrder = true,
     )
@@ -411,11 +371,7 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -426,7 +382,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -472,11 +428,7 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
     ## When
     let res = await driver.getMessages(maxPageSize = 2, ascendingOrder = true)
@@ -485,7 +437,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[0 .. 1]
 
@@ -531,15 +483,11 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       maxPageSize = 2,
       ascendingOrder = true,
@@ -549,7 +497,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -577,15 +525,11 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
@@ -595,7 +539,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[5 .. 6]
 
@@ -623,15 +567,11 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
@@ -641,7 +581,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3].reversed()
 
@@ -667,21 +607,16 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
-    let cursor = ArchiveCursor(hash: fakeCursor)
+    let cursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
 
     ## When
     let res = await driver.getMessages(
       includeData = true,
-      contentTopicSeq = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       pubsubTopic = none(PubsubTopic),
       cursor = some(cursor),
       startTime = none(Timestamp),
@@ -721,19 +656,15 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -742,7 +673,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[5 .. 6]
 
@@ -770,19 +701,15 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -791,7 +718,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 5].reversed()
 
@@ -862,13 +789,9 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(expected[5][0], expected[5][1])
+    let cursor = computeMessageHash(expected[5][0], expected[5][1])
 
     ## When
     let res = await driver.getMessages(
@@ -882,7 +805,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[6 .. 7]
 
@@ -953,13 +876,9 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(expected[6][0], expected[6][1])
+    let cursor = computeMessageHash(expected[6][0], expected[6][1])
 
     ## When
     let res = await driver.getMessages(
@@ -973,7 +892,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5].reversed()
 
@@ -1001,11 +920,7 @@ suite "Postgres driver - queries":
     let hashes = messages.mapIt(computeMessageHash(DefaultPubsubTopic, it))
 
     for (msg, hash) in messages.zip(hashes):
-      require (
-        await driver.put(
-          DefaultPubsubTopic, msg, computeDigest(msg), hash, msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(hash, DefaultPubsubTopic, msg)).isOk()
 
     ## When
     let res = await driver.getMessages(hashes = hashes, ascendingOrder = false)
@@ -1014,7 +929,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.reversed()
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages
 
@@ -1042,11 +957,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
@@ -1058,7 +969,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6]
 
@@ -1086,11 +997,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
@@ -1102,7 +1009,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[0 .. 4]
 
@@ -1175,11 +1082,7 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
     ## When
     let res = await driver.getMessages(
@@ -1193,7 +1096,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[2 .. 4]
 
@@ -1222,17 +1125,13 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(45, timeOrigin)),
       endTime = some(ts(15, timeOrigin)),
       maxPageSize = 2,
@@ -1241,7 +1140,7 @@ suite "Postgres driver - queries":
 
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 
@@ -1269,17 +1168,13 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -1287,7 +1182,7 @@ suite "Postgres driver - queries":
 
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6]
 
@@ -1318,17 +1213,13 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -1336,7 +1227,7 @@ suite "Postgres driver - queries":
 
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6].reversed()
 
@@ -1368,19 +1259,15 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[3])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1389,7 +1276,7 @@ suite "Postgres driver - queries":
 
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[4 .. 9]
 
@@ -1421,19 +1308,15 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1442,7 +1325,7 @@ suite "Postgres driver - queries":
 
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[3 .. 4].reversed()
 
@@ -1506,17 +1389,13 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[1][1])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(0, timeOrigin)),
@@ -1528,7 +1407,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[3 .. 4]
 
@@ -1591,17 +1470,13 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(expected[7][0], expected[7][1])
+    let cursor = computeMessageHash(expected[7][0], expected[7][1])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1613,7 +1488,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5].reversed()
 
@@ -1677,17 +1552,13 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeMessageHash(expected[1][0], expected[1][1])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1700,7 +1571,7 @@ suite "Postgres driver - queries":
     assert res.isOk(), res.error
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -1764,17 +1635,13 @@ suite "Postgres driver - queries":
 
     for row in messages:
       let (topic, msg) = row
-      require (
-        await driver.put(
-          topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-        )
-      ).isOk()
+      require (await driver.put(computeMessageHash(topic, msg), topic, msg)).isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeMessageHash(expected[1][0], expected[1][1])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1786,7 +1653,7 @@ suite "Postgres driver - queries":
     ## Then
     assert res.isOk(), res.error
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 
@@ -1814,11 +1681,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
@@ -1865,11 +1728,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
@@ -1906,11 +1765,7 @@ suite "Postgres driver - queries":
     for msg in messages:
       require (
         await driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 

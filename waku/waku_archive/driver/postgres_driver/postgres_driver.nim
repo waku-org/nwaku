@@ -825,7 +825,7 @@ method getOldestMessageTimestamp*(
 
   let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
 
-  let intRes = await s.getInt("SELECT MIN(storedAt) FROM messages")
+  let intRes = await s.getInt("SELECT MIN(timestamp) FROM messages")
   if intRes.isErr():
     ## Just return the oldest partition time considering the partitions set
     return ok(Timestamp(oldestPartitionTimeNanoSec))
@@ -835,7 +835,7 @@ method getOldestMessageTimestamp*(
 method getNewestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  let intRes = await s.getInt("SELECT MAX(storedAt) FROM messages")
+  let intRes = await s.getInt("SELECT MAX(timestamp) FROM messages")
   if intRes.isErr():
     return err("error in getNewestMessageTimestamp: " & intRes.error)
 
@@ -847,7 +847,7 @@ method deleteOldestMessagesNotWithinLimit*(
   let execRes = await s.writeConnPool.pgQuery(
     """DELETE FROM messages WHERE id NOT IN
                           (
-                        SELECT id FROM messages ORDER BY storedAt DESC LIMIT ?
+                        SELECT id FROM messages ORDER BY timestamp DESC LIMIT ?
                           );""",
     @[$limit],
   )
@@ -907,7 +907,7 @@ proc addPartition(
     self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
-  ## `startTime` <= storedAt < `startTime + duration`.
+  ## `startTime` <= timestamp < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
 
   let beginning = startTime
@@ -1202,7 +1202,11 @@ method deleteMessagesOlderThanTimestamp*(
   (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
     return err("error while removing older partitions: " & $error)
 
-  (await s.writeConnPool.pgQuery("DELETE FROM messages WHERE storedAt < " & $tsNanoSec)).isOkOr:
+  (
+    await s.writeConnPool.pgQuery(
+      "DELETE FROM messages WHERE timestamp < " & $tsNanoSec
+    )
+  ).isOkOr:
     return err("error in deleteMessagesOlderThanTimestamp: " & $error)
 
   return ok()
