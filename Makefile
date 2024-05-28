@@ -130,8 +130,8 @@ ifeq ($(POSTGRES), 1)
 NIM_PARAMS := $(NIM_PARAMS) -d:postgres -d:nimDebugDlOpen
 endif
 
-ifeq ($(LOG_HASH), 1)
-NIM_PARAMS := $(NIM_PARAMS) -d:log_msg_hash
+ifeq ($(LOG_MSG_HASHES), 1)
+NIM_PARAMS := $(NIM_PARAMS) -d:logMessageHashes
 endif
 
 clean: | clean-libbacktrace
