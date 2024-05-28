@@ -206,15 +206,17 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
         pubsubTopic = pubsubTopic, error = $error
       return ValidationResult.Reject
 
-    let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
-
     # now sequentially validate the message
-    for (validator, _) in w.wakuValidators:
+    for (validator, errorMessage) in w.wakuValidators:
       let validatorRes = await validator(pubsubTopic, msg)
 
       if validatorRes != ValidationResult.Accept:
+        let msgHash = computeMessageHash(pubsubTopic, msg).to0xHex()
         error "protocol generateOrderedValidator reject waku validator",
-          msg_hash = msgHash, pubsubTopic = pubsubTopic, validatorRes = validatorRes
+          msg_hash = msgHash,
+          pubsubTopic = pubsubTopic,
+          validatorRes = validatorRes,
+          error = errorMessage
 
         return validatorRes
 
@@ -305,8 +307,9 @@ proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
 ): Future[int] {.async.} =
   let data = message.encode().buffer
-  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  debug "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
+  when defined(log_msg_hash):
+    let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+    info "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)
