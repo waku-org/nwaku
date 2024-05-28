@@ -551,7 +551,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   var chainId: Quantity
   g.retryWrapper(chainId, "Failed to get the chain id"):
     await ethRpc.provider.eth_chainId()
-
   g.chainId = some(chainId)
 >>>>>>> 524fb392 (wip)
 

@@ -33,48 +33,43 @@ import
 from ../../waku/waku_noise/noise_utils import randomSeqByte
 import os
 
-proc addFakeMemebershipToKeystore(
+proc buildRandomIdentityCredentials(): IdentityCredential =
+  # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
+  let
+    idTrapdoor = randomSeqByte(rng[], 32)
+    idNullifier = randomSeqByte(rng[], 32)
+    idSecretHash = randomSeqByte(rng[], 32)
+    idCommitment = randomSeqByte(rng[], 32)
+
+  IdentityCredential(
+    idTrapdoor: idTrapdoor,
+    idNullifier: idNullifier,
+    idSecretHash: idSecretHash,
+    idCommitment: idCommitment,
+  )
+
+proc addMembershipCredentialsToKeystore(
     credentials: IdentityCredential,
     keystorePath: string,
     appInfo: AppInfo,
     rlnRelayEthContractAddress: string,
     password: string,
     membershipIndex: uint,
-): IdentityCredential =
-  # # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
-  # var
-  #   idTrapdoor = randomSeqByte(rng[], 32)
-  #   idNullifier = randomSeqByte(rng[], 32)
-  #   idSecretHash = randomSeqByte(rng[], 32)
-  #   idCommitment = randomSeqByte(rng[], 32)
-  #   idCredential = IdentityCredential(
-  #     idTrapdoor: idTrapdoor,
-  #     idNullifier: idNullifier,
-  #     idSecretHash: idSecretHash,
-  #     idCommitment: idCommitment,
-  #   )
-
-  var
+): KeystoreResult[void] =
+  let
     contract = MembershipContract(chainId: "0x539", address: rlnRelayEthContractAddress)
     # contract = MembershipContract(chainId: "1337", address: rlnRelayEthContractAddress)
     index = MembershipIndex(membershipIndex)
-
-  let
     membershipCredential = KeystoreMembership(
       membershipContract: contract, treeIndex: index, identityCredential: credentials
     )
-    persistRes = addMembershipCredentials(
-      path = keystorePath,
-      membership = membershipCredential,
-      password = password,
-      appInfo = appInfo,
-    )
 
-  echo membershipCredential
-  echo membershipCredential.hash()
-
-  assert persistRes.isOk()
-  return credentials
+  addMembershipCredentials(
+    path = keystorePath,
+    membership = membershipCredential,
+    password = password,
+    appInfo = appInfo,
+  )
 
 proc getWakuRlnConfigOnChain*(
     keystorePath: string,
@@ -107,7 +102,7 @@ proc getWakuRlnConfigOnChain*(
 
   return WakuRlnConfig(
     rlnRelayDynamic: true,
-    # rlnRelayCredIndex: some(credIndex),
+    rlnRelayCredIndex: some(credIndex),
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
     rlnRelayEthClientAddress: EthClient,
     # rlnRelayCredPath: keystorePath,
@@ -441,52 +436,63 @@ suite "Waku RlnRelay - End to End - OnChain":
 
   # asyncTest "No valid contract":
   #   let
+  #     # TODO: Add a test
+  #     # This test 
   #     invalidContractAddress = "0x0000000000000000000000000000000000000000"
+  #     # invalidContractAddress = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
   #     keystorePath =
   #       genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
   #     appInfo = RlnAppInfo
   #     password = "1234"
   #     wakuRlnConfig1 = getWakuRlnConfigOnChain(
-  #       keystorePath, appInfo, invalidContractAddress, password, 1
+  #       keystorePath, appInfo, invalidContractAddress, password, 0
   #     )
   #     wakuRlnConfig2 = getWakuRlnConfigOnChain(
-  #       keystorePath, appInfo, invalidContractAddress, password, 2
-  #     )
-  #     credentials = addFakeMemebershipToKeystore(
   #       keystorePath, appInfo, invalidContractAddress, password, 1
   #     )
+  #     idCredential = buildRandomIdentityCredentials()
+  #     persistRes = addMembershipCredentialsToKeystore(
+  #       idCredential, keystorePath, appInfo, invalidContractAddress, password, 1
+  #     )
+  #   assertResultOk(persistRes)
 
   #   # Given the node enables Relay and Rln while subscribing to a pubsub topic
+  #   # await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
   #   try:
   #     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
   #     assert false, "Relay should fail mounting when using an invalid contract"
   #   except CatchableError:
   #     assert true
 
-  #   try:
-  #     await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-  #     assert false, "Relay should fail mounting when using an invalid contract"
-  #   except CatchableError:
-  #     assert true
+  # try:
+  #   await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+  #   assert false, "Relay should fail mounting when using an invalid contract"
+  # except CatchableError:
+  #   assert true
 
   asyncTest "Valid contract":
     #[
       # Notes
-      # Remaining
+      ## Issues
+      ### TreeIndex
+      For some reason the calls to `getWakuRlnConfigOnChain` need to be made with `treeIndex` = 0 and 1, in that order.
+      But the registration needs to be made with 1 and 2. 
+      #### Solutions
+      Requires investigation
+      ### Monkeypatching
       Instead of running the idCredentials monkeypatch, passing the correct membershipIndex and keystorePath and keystorePassword should work.
-      # Methods
+      #### Solutions
       A) Using the register callback to fetch the correct membership
       B) Using two different keystores, one for each rlnconfig. If there's only one key, it will fetch it regardless of membershipIndex.
-      # A
+      ##### A
       - Register is not calling callback even though register is happening, this should happen.
       - This command should be working, but it doesn't on the current HEAD of the branch, it does work on master, which suggest there's something wrong with the branch.
       - nim c -r --out:build/onchain -d:chronicles_log_level=NOTICE --verbosity:0 --hints:off  -d:git_version="v0.27.0-rc.0-3-gaa9c30" -d:release --passL:librln_v0.3.7.a --passL:-lm tests/waku_rln_relay/test_rln_group_manager_onchain.nim && onchain_group_test
       - All modified files are tests/*, which is a bit weird. Might be interesting re-creating the branch slowly, and checking out why this is happening.
-      # B
-      Haven't tried this approach.
+      ##### B
+      Untested
     ]#
 
-    echo "# 1"
     let
       onChainGroupManager = await setup()
       contractAddress = onChainGroupManager.ethContractAddress
@@ -495,7 +501,6 @@ suite "Waku RlnRelay - End to End - OnChain":
       appInfo = RlnAppInfo
       password = "1234"
       rlnInstance = onChainGroupManager.rlnInstance
-
     assertResultOk(createAppKeystore(keystorePath, appInfo))
 
     # Generate configs before registering the credentials. Otherwise the file gets cleared up.
@@ -505,48 +510,34 @@ suite "Waku RlnRelay - End to End - OnChain":
       wakuRlnConfig2 =
         getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
 
+    # Generate credentials
     let
-      credentialRes1 = rlnInstance.membershipKeyGen()
-      credentialRes2 = rlnInstance.membershipKeyGen()
-
-    if credentialRes1.isErr():
-      error "failure while generating credentials", error = credentialRes1.error
-      quit(1)
-
-    if credentialRes2.isErr():
-      error "failure while generating credentials", error = credentialRes2.error
-      quit(1)
-
-    let
-      idCredential1 = credentialRes1.get()
-      idCredential2 = credentialRes2.get()
+      idCredential1 = rlnInstance.membershipKeyGen().get()
+      idCredential2 = rlnInstance.membershipKeyGen().get()
 
     discard await onChainGroupManager.init()
     try:
-      await onChainGroupManager.register(idCredential1)
-      await onChainGroupManager.register(idCredential2)
+      # Register credentials in the chain
+      waitFor onChainGroupManager.register(idCredential1)
+      waitFor onChainGroupManager.register(idCredential2)
     except Exception:
       assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
 
-    # let
-    #   credentialIndex1 = onChainGroupManager.membershipIndex.get() # 1
-    #   credentialIndex2 = credentialIndex1 + 1 # 2
-    # assert credentialIndex1 == 1
-    # assert credentialIndex2 == 2
-
+    # Add credentials to keystore
     let
-      credentialIndex1: uint = 0
-      credentialIndex2: uint = 1
-
-    let
-      credentials1 = addFakeMemebershipToKeystore(
+      credentialIndex1 = onChainGroupManager.membershipIndex.get() # 1
+      credentialIndex2 = credentialIndex1 + 1 # 2
+      persistRes1 = addMembershipCredentialsToKeystore(
         idCredential1, keystorePath, appInfo, contractAddress, password,
         credentialIndex1,
       )
-      credentials2 = addFakeMemebershipToKeystore(
+      persistRes2 = addMembershipCredentialsToKeystore(
         idCredential2, keystorePath, appInfo, contractAddress, password,
         credentialIndex2,
       )
+
+    assertResultOk(persistRes1)
+    assertResultOk(persistRes2)
 
     await onChainGroupManager.stop()
 
@@ -560,105 +551,26 @@ suite "Waku RlnRelay - End to End - OnChain":
       (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
         raiseAssert $error
 
-      # Hack
-      server.wakuRlnRelay.groupManager.idCredentials = some(credentials1)
-      client.wakuRlnRelay.groupManager.idCredentials = some(credentials2)
+      # Test Hack: Monkeypatch the idCredentials into the groupManager
+      server.wakuRlnRelay.groupManager.idCredentials = some(idCredential1)
+      client.wakuRlnRelay.groupManager.idCredentials = some(idCredential2)
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
-
     # And the nodes are connected
+    let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
     await client.connectToNodes(@[serverRemotePeerInfo])
 
     # And the node registers the completion handler
     var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
     # When the client sends a valid RLN message
-    let isCompleted1 =
-      await client.sendRlnMessage(pubsubTopic, contentTopic, completionFuture)
+    let isCompleted =
+      await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
 
     # Then the valid RLN message is relayed
-    check isCompleted1
+    check isCompleted
     assertResultOk(await completionFuture.waitForResult())
-
-  # TODO: This doesn't work, document and remove
-  asyncTest "Concept proff without first onChainManager":
-    let
-      rlnInstance = createRlnInstance(
-          tree_path = genTempPath("rln_tree", "group_manager_onchain")
-        )
-        .get()
-      contractAddress = $(await uploadRLNContract(EthClient))
-      web3 = await newWeb3(EthClient)
-      accounts = await web3.provider.eth_accounts()
-    web3.defaultAccount = accounts[0]
-
-    let
-      keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
-      appInfo = RlnAppInfo
-      password = "1234"
-
-    let
-      wakuRlnConfig1 =
-        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
-      wakuRlnConfig2 =
-        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
-
-    let
-      credentials1 = rlnInstance.membershipKeyGen().get()
-      credentials2 = rlnInstance.membershipKeyGen().get()
-
-    echo "-> Creds1: ", $credentials1
-    echo "-> Creds2: ", $credentials2
-
-    # Given the node enables Relay and Rln while subscribing to a pubsub topic
-    await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-    await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-
-    echo "# PrivKey1: ",
-      OnChainGroupManager(server.wakuRlnRelay.groupManager).ethPrivateKey
-    echo "# PrivKey1: ",
-      OnChainGroupManager(client.wakuRlnRelay.groupManager).ethPrivateKey
-
-    echo "# CALLBACKS"
-    var
-      future1 = newFuture[void]()
-      future2 = newFuture[void]()
-
-    proc callback1(registrations: seq[Membership]): Future[void] {.async.} =
-      echo "~ callback1"
-      echo registrations
-      future1.complete()
-
-    proc callback2(registrations: seq[Membership]): Future[void] {.async.} =
-      echo "~ callback2"
-      echo registrations
-      future2.complete()
-
-    try:
-      server.wakuRlnRelay.groupManager.onRegister(callback1)
-      echo "# CB 1"
-      client.wakuRlnRelay.groupManager.onRegister(callback2)
-      echo "# CB 2"
-
-      await server.wakuRlnRelay.groupManager.register(credentials1)
-      echo "# REGISTER 1"
-      await client.wakuRlnRelay.groupManager.register(credentials2)
-      echo "# REGISTER 2"
-
-      (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
-        raiseAssert $error
-      echo "# GROUP SYNC 1"
-      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
-        raiseAssert $error
-      echo "# GROUP SYNC 2"
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    await allFutures(@[future1, future2])
-    echo "# FUTURES"
 
   ################################
   ## Terminating/removing Anvil
