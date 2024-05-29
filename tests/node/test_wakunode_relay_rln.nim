@@ -13,12 +13,12 @@ import
 from std/times import epochTime
 
 import
-  ../../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../../waku/[
     node/waku_node,
     node/peer_manager,
     waku_core,
     waku_node,
+    common/error_handling,
     waku_rln_relay,
     waku_rln_relay/rln,
     waku_rln_relay/protocol_types,
@@ -31,7 +31,6 @@ import
   ../waku_rln_relay/[utils_static, utils_onchain],
 
 from ../../waku/waku_noise/noise_utils import randomSeqByte
-import os
 
 proc buildRandomIdentityCredentials(): IdentityCredential =
   # We generate a random identity credential (inter-value constrains are not enforced, otherwise we need to load e.g. zerokit RLN keygen)
@@ -77,28 +76,12 @@ proc getWakuRlnConfigOnChain*(
     rlnRelayEthContractAddress: string,
     password: string,
     credIndex: uint,
+    fatalErrorHandler: Option[OnFatalErrorHandler] = none(OnFatalErrorHandler),
 ): WakuRlnConfig =
-  # let
-  #   # probably not needed
-  #   # rlnInstance = createRlnInstance(
-  #   #     tree_path = genTempPath("rln_tree", "group_manager_onchain")
-  #   #   )
-  #   #   .expect("Couldn't create RLN instance")
-  #   keystoreRes = createAppKeystore(keystorePath, appInfo)
+  proc voidHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
+    discard
 
-  # assert keystoreRes.isOk()
-
-  # return WakuRlnConfig(
-  #   rlnRelayEthClientAddress: EthClient,
-  #   rlnRelayDynamic: true,
-  #   # rlnRelayCredIndex: some(credIndex), # only needed to manually be set static
-  #   rlnRelayCredIndex: some(credIndex), # remove
-  #   rlnRelayEthContractAddress: rlnRelayEthContractAddress,
-  #   rlnRelayCredPath: keystorePath,
-  #   rlnRelayCredPassword: password,
-  #   # rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
-  #   rlnEpochSizeSec: 1,
-  # )
+  let handler = if fatalErrorHandler.isSome: fatalErrorHandler.get else: voidHandler
 
   return WakuRlnConfig(
     rlnRelayDynamic: true,
@@ -109,6 +92,7 @@ proc getWakuRlnConfigOnChain*(
     # rlnRelayCredPassword: password,
     rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
+    onFatalErrorAction: handler,
   )
 
 proc setupRelayWithOnChainRln*(
@@ -434,41 +418,93 @@ suite "Waku RlnRelay - End to End - OnChain":
   asyncTeardown:
     await allFutures(client.stop(), server.stop())
 
-  # asyncTest "No valid contract":
-  #   let
-  #     # TODO: Add a test
-  #     # This test 
-  #     invalidContractAddress = "0x0000000000000000000000000000000000000000"
-  #     # invalidContractAddress = "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
-  #     keystorePath =
-  #       genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
-  #     appInfo = RlnAppInfo
-  #     password = "1234"
-  #     wakuRlnConfig1 = getWakuRlnConfigOnChain(
-  #       keystorePath, appInfo, invalidContractAddress, password, 0
-  #     )
-  #     wakuRlnConfig2 = getWakuRlnConfigOnChain(
-  #       keystorePath, appInfo, invalidContractAddress, password, 1
-  #     )
-  #     idCredential = buildRandomIdentityCredentials()
-  #     persistRes = addMembershipCredentialsToKeystore(
-  #       idCredential, keystorePath, appInfo, invalidContractAddress, password, 1
-  #     )
-  #   assertResultOk(persistRes)
+  asyncTest "Invalid format contract":
+    let
+      # One character missing
+      invalidContractAddress = "0x000000000000000000000000000000000000000"
+      keystorePath =
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+      appInfo = RlnAppInfo
+      password = "1234"
+      wakuRlnConfig1 = getWakuRlnConfigOnChain(
+        keystorePath, appInfo, invalidContractAddress, password, 0
+      )
+      wakuRlnConfig2 = getWakuRlnConfigOnChain(
+        keystorePath, appInfo, invalidContractAddress, password, 1
+      )
+      idCredential = buildRandomIdentityCredentials()
+      persistRes = addMembershipCredentialsToKeystore(
+        idCredential, keystorePath, appInfo, invalidContractAddress, password, 1
+      )
+    assertResultOk(persistRes)
 
-  #   # Given the node enables Relay and Rln while subscribing to a pubsub topic
-  #   # await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-  #   try:
-  #     await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-  #     assert false, "Relay should fail mounting when using an invalid contract"
-  #   except CatchableError:
-  #     assert true
+    # Given the node enables Relay and Rln while subscribing to a pubsub topic
+    try:
+      await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+      assert false, "Relay should fail mounting when using an invalid contract"
+    except CatchableError:
+      assert true
 
-  # try:
-  #   await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-  #   assert false, "Relay should fail mounting when using an invalid contract"
-  # except CatchableError:
-  #   assert true
+    try:
+      await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+      assert false, "Relay should fail mounting when using an invalid contract"
+    except CatchableError:
+      assert true
+
+  asyncTest "Unregistered contract":
+    # This is a very slow test due to the retries RLN does. Might take upwards of 1m-2m to finish.
+    let
+      invalidContractAddress = "0x0000000000000000000000000000000000000000"
+      keystorePath =
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+      appInfo = RlnAppInfo
+      password = "1234"
+
+    # Connect to the eth client
+    discard await newWeb3(EthClient)
+
+    var serverErrorFuture = Future[string].new()
+    proc serverFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
+      serverErrorFuture.complete(errMsg)
+
+    var clientErrorFuture = Future[string].new()
+    proc clientFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
+      clientErrorFuture.complete(errMsg)
+
+    let
+      wakuRlnConfig1 = getWakuRlnConfigOnChain(
+        keystorePath,
+        appInfo,
+        invalidContractAddress,
+        password,
+        0,
+        some(serverFatalErrorHandler),
+      )
+      wakuRlnConfig2 = getWakuRlnConfigOnChain(
+        keystorePath,
+        appInfo,
+        invalidContractAddress,
+        password,
+        1,
+        some(clientFatalErrorHandler),
+      )
+
+    # Given the node enable Relay and Rln while subscribing to a pubsub topic.
+    # The withTimeout call is a workaround for the test not to terminate with an exception.
+    # However, it doesn't reduce the retries against the blockchain that the mounting rln process attempts (until it accepts failure).
+    # Note: These retries might be an unintended library issue.
+    discard await server
+    .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+    .withTimeout(FUTURE_TIMEOUT)
+    discard await client
+    .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+    .withTimeout(FUTURE_TIMEOUT)
+
+    check:
+      (await serverErrorFuture.waitForResult()).get() ==
+        "Failed to get the storage index: No response from the Web3 provider"
+      (await clientErrorFuture.waitForResult()).get() ==
+        "Failed to get the storage index: No response from the Web3 provider"
 
   asyncTest "Valid contract":
     #[
