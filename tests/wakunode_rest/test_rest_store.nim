@@ -47,7 +47,7 @@ proc put(
       else:
         getNowInNanosecondTime()
 
-  store.put(pubsubTopic, message, digest, msgHash, receivedTime)
+  store.putV2(pubsubTopic, message, digest, msgHash, receivedTime)
 
 # Creates a new WakuNode
 proc testWakuNode(): WakuNode =
