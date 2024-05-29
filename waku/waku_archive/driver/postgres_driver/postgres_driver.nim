@@ -45,7 +45,7 @@ const SelectNoCursorAscStmtDef =
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -55,7 +55,7 @@ const SelectNoCursorDescStmtDef =
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -66,7 +66,7 @@ const SelectWithCursorDescStmtDef =
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           messageHash IN ($2) AND
           pubsubTopic = $3 AND
@@ -81,7 +81,7 @@ const SelectMessageByHashDef =
 
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
 const SelectNoCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
     WHERE contentTopic IN ($1) AND
           pubsubTopic = $2 AND
           storedAt >= $3 AND
@@ -423,7 +423,7 @@ proc getMessagesV2ArbitraryQuery(
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
-    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
