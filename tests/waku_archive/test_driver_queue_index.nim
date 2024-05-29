@@ -33,78 +33,78 @@ proc randomHash(): WakuMessageHash =
 suite "Queue Driver - index":
   ## Test vars
   let
-    smallIndex1 = Index(
+    smallIndex1 = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(1000),
       hash: randomHash(),
     )
-    smallIndex2 = Index(
+    smallIndex2 = IndexV2(
       digest: hashFromStr("1234567"), # digest is less significant than senderTime
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(1000),
       hash: randomHash(),
     )
-    largeIndex1 = Index(
+    largeIndex1 = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(9000),
       hash: randomHash(),
     ) # only senderTime differ from smallIndex1
-    largeIndex2 = Index(
+    largeIndex2 = IndexV2(
       digest: hashFromStr("12345"), # only digest differs from smallIndex1
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(1000),
       hash: randomHash(),
     )
-    eqIndex1 = Index(
+    eqIndex1 = IndexV2(
       digest: hashFromStr("0003"),
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(54321),
       hash: randomHash(),
     )
-    eqIndex2 = Index(
+    eqIndex2 = IndexV2(
       digest: hashFromStr("0003"),
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(54321),
       hash: randomHash(),
     )
-    eqIndex3 = Index(
+    eqIndex3 = IndexV2(
       digest: hashFromStr("0003"),
       receiverTime: getNanosecondTime(9999),
         # receiverTime difference should have no effect on comparisons
       senderTime: getNanosecondTime(54321),
       hash: randomHash(),
     )
-    diffPsTopic = Index(
+    diffPsTopic = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(0),
       senderTime: getNanosecondTime(1000),
       pubsubTopic: "zzzz",
       hash: randomHash(),
     )
-    noSenderTime1 = Index(
+    noSenderTime1 = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(1100),
       senderTime: getNanosecondTime(0),
       pubsubTopic: "zzzz",
       hash: randomHash(),
     )
-    noSenderTime2 = Index(
+    noSenderTime2 = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(10000),
       senderTime: getNanosecondTime(0),
       pubsubTopic: "zzzz",
       hash: randomHash(),
     )
-    noSenderTime3 = Index(
+    noSenderTime3 = IndexV2(
       digest: hashFromStr("1234"),
       receiverTime: getNanosecondTime(1200),
       senderTime: getNanosecondTime(0),
       pubsubTopic: "aaaa",
       hash: randomHash(),
     )
-    noSenderTime4 = Index(
+    noSenderTime4 = IndexV2(
       digest: hashFromStr("0"),
       receiverTime: getNanosecondTime(1200),
       senderTime: getNanosecondTime(0),
@@ -112,20 +112,20 @@ suite "Queue Driver - index":
       hash: randomHash(),
     )
 
-  test "Index comparison":
-    # Index comparison with senderTime diff
+  test "IndexV2 comparison":
+    # IndexV2 comparison with senderTime diff
     check:
       cmp(smallIndex1, largeIndex1) < 0
       cmp(smallIndex2, largeIndex1) < 0
 
-    # Index comparison with digest diff
+    # IndexV2 comparison with digest diff
     check:
       cmp(smallIndex1, smallIndex2) < 0
       cmp(smallIndex1, largeIndex2) < 0
       cmp(smallIndex2, largeIndex2) > 0
       cmp(largeIndex1, largeIndex2) > 0
 
-    # Index comparison when equal
+    # IndexV2 comparison when equal
     check:
       cmp(eqIndex1, eqIndex2) == 0
 
@@ -156,7 +156,7 @@ suite "Queue Driver - index":
       cmp(noSenderTime2, eqIndex3) < 0
       cmp(eqIndex3, noSenderTime2) > 0 # Test symmetry
 
-  test "Index equality":
+  test "IndexV2 equality":
     # Exactly equal
     check:
       eqIndex1 == eqIndex2
@@ -184,14 +184,14 @@ suite "Queue Driver - index":
     check:
       smallIndex1 != diffPsTopic
 
-  test "Index computation should not be empty":
+  test "IndexV2 computation should not be empty":
     ## Given
     let ts = getTestTimestamp()
     let wm = WakuMessage(payload: @[byte 1, 2, 3], timestamp: ts)
 
     ## When
     let ts2 = getTestTimestamp() + 10
-    let index = Index.compute(wm, ts2, DefaultContentTopic)
+    let index = IndexV2.compute(wm, ts2, DefaultContentTopic)
 
     ## Then
     check:
@@ -201,7 +201,7 @@ suite "Queue Driver - index":
       index.senderTime == ts
       index.pubsubTopic == DefaultContentTopic
 
-  test "Index digest of two identical messsage should be the same":
+  test "IndexV2 digest of two identical messsage should be the same":
     ## Given
     let topic = ContentTopic("test-content-topic")
     let
@@ -211,8 +211,8 @@ suite "Queue Driver - index":
     ## When
     let ts = getTestTimestamp()
     let
-      index1 = Index.compute(wm1, ts, DefaultPubsubTopic)
-      index2 = Index.compute(wm2, ts, DefaultPubsubTopic)
+      index1 = IndexV2.compute(wm1, ts, DefaultPubsubTopic)
+      index2 = IndexV2.compute(wm2, ts, DefaultPubsubTopic)
 
     ## Then
     check:

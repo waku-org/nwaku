@@ -701,7 +701,8 @@ suite "SQLite driver - query by cursor":
         )
       ).isOk()
 
-    let cursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let cursor = ArchiveCursorV2(hash: fakeCursor)
 
     ## When
     let res = await driver.getMessages(

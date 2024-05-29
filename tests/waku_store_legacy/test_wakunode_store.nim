@@ -241,7 +241,7 @@ procSuite "WakuNode - Store Legacy":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.wakuArchive.handleMessage(pubsubTopic, msg)
+      await server.wakuArchive.handleMessageV2(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
     server.wakuFilterClient.registerPushHandler(filterHandler)

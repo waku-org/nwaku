@@ -12,19 +12,30 @@ type
   ArchiveDriverResult*[T] = Result[T, string]
   ArchiveDriver* = ref object of RootObj
 
-#TODO Once Store v2 is removed keep only messages and hashes
-type ArchiveRow* = (PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)
+type
+  ArchiveRow* = (WakuMessageHash, PubsubTopic, WakuMessage)
+
+  ArchiveRowV2* {.deprecated.} =
+    (PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)
 
 # ArchiveDriver interface
 
 method put*(
+    driver: ArchiveDriver,
+    messageHash: WakuMessageHash,
+    pubsubTopic: PubsubTopic,
+    message: WakuMessage,
+): Future[ArchiveDriverResult[void]] {.base, async.} =
+  discard
+
+method putV2*(
     driver: ArchiveDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
     digest: MessageDigest,
     messageHash: WakuMessageHash,
     receivedTime: Timestamp,
-): Future[ArchiveDriverResult[void]] {.base, async.} =
+): Future[ArchiveDriverResult[void]] {.base, deprecated, async.} =
   discard
 
 method getAllMessages*(
@@ -32,16 +43,9 @@ method getAllMessages*(
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
   discard
 
-method getMessagesV2*(
-    driver: ArchiveDriver,
-    contentTopic = newSeq[ContentTopic](0),
-    pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
-    startTime = none(Timestamp),
-    endTime = none(Timestamp),
-    maxPageSize = DefaultPageSize,
-    ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, deprecated, async.} =
+method getAllMessagesV2*(
+    driver: ArchiveDriver
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.base, deprecated, async.} =
   discard
 
 method getMessages*(
@@ -49,13 +53,25 @@ method getMessages*(
     includeData = true,
     contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.base, async.} =
+  discard
+
+method getMessagesV2*(
+    driver: ArchiveDriver,
+    contentTopic = newSeq[ContentTopic](0),
+    pubsubTopic = none(PubsubTopic),
+    cursor = none(ArchiveCursorV2),
+    startTime = none(Timestamp),
+    endTime = none(Timestamp),
+    maxPageSize = DefaultPageSize,
+    ascendingOrder = true,
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.base, deprecated, async.} =
   discard
 
 method getMessagesCount*(

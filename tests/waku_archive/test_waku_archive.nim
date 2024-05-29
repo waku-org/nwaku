@@ -29,7 +29,7 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ephemeral = false, ts = validSenderTime)
 
     ## When
-    waitFor archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessageV2(DefaultPubSubTopic, message)
 
     ## Then
     check:
@@ -52,7 +52,7 @@ suite "Waku Archive - message handling":
 
     ## When
     for msg in msgList:
-      waitFor archive.handleMessage(DefaultPubsubTopic, msg)
+      waitFor archive.handleMessageV2(DefaultPubsubTopic, msg)
 
     ## Then
     check:
@@ -68,7 +68,7 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ts = invalidSenderTime)
 
     ## When
-    waitFor archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessageV2(DefaultPubSubTopic, message)
 
     ## Then
     check:
@@ -88,7 +88,7 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ts = invalidSenderTime)
 
     ## When
-    waitFor archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessageV2(DefaultPubSubTopic, message)
 
     ## Then
     check:
@@ -107,7 +107,7 @@ suite "Waku Archive - message handling":
     let message = fakeWakuMessage(ts = invalidSenderTime)
 
     ## When
-    waitFor archive.handleMessage(DefaultPubSubTopic, message)
+    waitFor archive.handleMessageV2(DefaultPubSubTopic, message)
 
     ## Then
     check:
@@ -179,11 +179,11 @@ procSuite "Waku Archive - find messages":
       msg1 = fakeWakuMessage(contentTopic = topic)
       msg2 = fakeWakuMessage()
 
-    waitFor archive.handleMessage("foo", msg1)
-    waitFor archive.handleMessage("foo", msg2)
+    waitFor archive.handleMessageV2("foo", msg1)
+    waitFor archive.handleMessageV2("foo", msg2)
 
     ## Given
-    let req = ArchiveQuery(includeData: true, contentTopics: @[topic])
+    let req = ArchiveQueryV2(includeData: true, contentTopics: @[topic])
 
     ## When
     let queryRes = waitFor archive.findMessages(req)
@@ -213,12 +213,12 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(contentTopic = topic2)
       msg3 = fakeWakuMessage(contentTopic = topic3)
 
-    waitFor archive.handleMessage("foo", msg1)
-    waitFor archive.handleMessage("foo", msg2)
-    waitFor archive.handleMessage("foo", msg3)
+    waitFor archive.handleMessageV2("foo", msg1)
+    waitFor archive.handleMessageV2("foo", msg2)
+    waitFor archive.handleMessageV2("foo", msg3)
 
     ## Given
-    let req = ArchiveQuery(includeData: true, contentTopics: @[topic1, topic3])
+    let req = ArchiveQueryV2(includeData: true, contentTopics: @[topic1, topic3])
 
     ## When
     let queryRes = waitFor archive.findMessages(req)
@@ -242,7 +242,7 @@ procSuite "Waku Archive - find messages":
     let queryTopics = toSeq(1 .. 15).mapIt(ContentTopic($it))
 
     ## Given
-    let req = ArchiveQuery(contentTopics: queryTopics)
+    let req = ArchiveQueryV2(contentTopics: queryTopics)
 
     ## When
     let queryRes = waitFor archive.findMessages(req)
@@ -276,13 +276,13 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(contentTopic = contentTopic2)
       msg3 = fakeWakuMessage(contentTopic = contentTopic3)
 
-    waitFor archive.handleMessage(pubsubtopic1, msg1)
-    waitFor archive.handleMessage(pubsubtopic2, msg2)
-    waitFor archive.handleMessage(pubsubtopic2, msg3)
+    waitFor archive.handleMessageV2(pubsubtopic1, msg1)
+    waitFor archive.handleMessageV2(pubsubtopic2, msg2)
+    waitFor archive.handleMessageV2(pubsubtopic2, msg3)
 
     ## Given
     # This query targets: pubsubtopic1 AND (contentTopic1 OR contentTopic3)
-    let req = ArchiveQuery(
+    let req = ArchiveQueryV2(
       includeData: true,
       pubsubTopic: some(pubsubTopic1),
       contentTopics: @[contentTopic1, contentTopic3],
@@ -315,12 +315,12 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage()
       msg3 = fakeWakuMessage()
 
-    waitFor archive.handleMessage(pubsubtopic2, msg1)
-    waitFor archive.handleMessage(pubsubtopic2, msg2)
-    waitFor archive.handleMessage(pubsubtopic2, msg3)
+    waitFor archive.handleMessageV2(pubsubtopic2, msg1)
+    waitFor archive.handleMessageV2(pubsubtopic2, msg2)
+    waitFor archive.handleMessageV2(pubsubtopic2, msg3)
 
     ## Given
-    let req = ArchiveQuery(pubsubTopic: some(pubsubTopic1))
+    let req = ArchiveQueryV2(pubsubTopic: some(pubsubTopic1))
 
     ## When
     let res = waitFor archive.findMessages(req)
@@ -346,12 +346,12 @@ procSuite "Waku Archive - find messages":
       msg2 = fakeWakuMessage(payload = "TEST-2")
       msg3 = fakeWakuMessage(payload = "TEST-3")
 
-    waitFor archive.handleMessage(pubsubTopic, msg1)
-    waitFor archive.handleMessage(pubsubTopic, msg2)
-    waitFor archive.handleMessage(pubsubTopic, msg3)
+    waitFor archive.handleMessageV2(pubsubTopic, msg1)
+    waitFor archive.handleMessageV2(pubsubTopic, msg2)
+    waitFor archive.handleMessageV2(pubsubTopic, msg3)
 
     ## Given
-    let req = ArchiveQuery(includeData: true, pubsubTopic: some(pubsubTopic))
+    let req = ArchiveQueryV2(includeData: true, pubsubTopic: some(pubsubTopic))
 
     ## When
     let res = waitFor archive.findMessages(req)
@@ -465,7 +465,7 @@ procSuite "Waku Archive - find messages":
       ).isOk()
 
     ## Given
-    let req = ArchiveQuery(includeData: true, contentTopics: @[DefaultContentTopic])
+    let req = ArchiveQueryV2(includeData: true, contentTopics: @[DefaultContentTopic])
 
     ## When
     let res = waitFor archive.findMessages(req)
@@ -483,7 +483,7 @@ procSuite "Waku Archive - find messages":
 
   test "handle temporal history query with a valid time window":
     ## Given
-    let req = ArchiveQuery(
+    let req = ArchiveQueryV2(
       includeData: true,
       contentTopics: @[ContentTopic("1")],
       startTime: some(ts(15, timeOrigin)),
@@ -505,7 +505,7 @@ procSuite "Waku Archive - find messages":
   test "handle temporal history query with a zero-size time window":
     ## A zero-size window results in an empty list of history messages
     ## Given
-    let req = ArchiveQuery(
+    let req = ArchiveQueryV2(
       contentTopics: @[ContentTopic("1")],
       startTime: some(Timestamp(2)),
       endTime: some(Timestamp(2)),
@@ -524,7 +524,7 @@ procSuite "Waku Archive - find messages":
   test "handle temporal history query with an invalid time window":
     ## A history query with an invalid time range results in an empty list of history messages
     ## Given
-    let req = ArchiveQuery(
+    let req = ArchiveQueryV2(
       contentTopics: @[ContentTopic("1")],
       startTime: some(Timestamp(5)),
       endTime: some(Timestamp(2)),

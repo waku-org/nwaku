@@ -53,7 +53,7 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
   let insertStmt = db.prepareInsertMessageStmt()
   return ok(SqliteDriver(db: db, insertStmt: insertStmt))
 
-method put*(
+method putV2*(
     s: SqliteDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
@@ -78,7 +78,7 @@ method put*(
 
   return res
 
-method getAllMessages*(
+method getAllMessagesV2*(
     s: SqliteDriver
 ): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## Retrieve all messages from the store.

@@ -25,8 +25,10 @@ logScope:
 # Initialize the random number generator
 common.randomize()
 
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
-  ArchiveCursor(
+proc computeTestCursor(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+): ArchiveCursorV2 {.deprecated.} =
+  ArchiveCursorV2(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
@@ -74,7 +76,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -84,7 +86,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(maxPageSize = 5, ascendingOrder = true)
+    let res = await driver.getMessagesV2(maxPageSize = 5, ascendingOrder = true)
 
     ## Then
     assert res.isOk(), res.error
@@ -115,7 +117,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -125,7 +127,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -170,7 +172,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -180,7 +182,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -213,7 +215,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -223,7 +225,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = false
     )
 
@@ -258,7 +260,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -268,7 +270,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    var res = await driver.getMessages(
+    var res = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2],
       pubsubTopic = some(DefaultPubsubTopic),
       maxPageSize = 2,
@@ -285,7 +287,7 @@ suite "Postgres driver - queries":
     ## When
     ## This is very similar to the previous one but we enforce to use the prepared
     ## statement by querying one single content topic
-    res = await driver.getMessages(
+    res = await driver.getMessagesV2(
       contentTopic = @[contentTopic1],
       pubsubTopic = some(DefaultPubsubTopic),
       maxPageSize = 2,
@@ -318,7 +320,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -328,7 +330,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
@@ -346,7 +348,7 @@ suite "Postgres driver - queries":
     for t in 0 ..< 40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts = ts(t))
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -356,7 +358,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[DefaultContentTopic],
       maxPageSize = pageSize,
       ascendingOrder = true,
@@ -412,13 +414,13 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic), maxPageSize = 2, ascendingOrder = true
     )
 
@@ -473,13 +475,13 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(maxPageSize = 2, ascendingOrder = true)
+    let res = await driver.getMessagesV2(maxPageSize = 2, ascendingOrder = true)
 
     ## Then
     assert res.isOk(), res.error
@@ -532,13 +534,13 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       maxPageSize = 2,
@@ -576,7 +578,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -588,7 +590,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       cursor = some(cursor), maxPageSize = 2, ascendingOrder = true
     )
 
@@ -622,7 +624,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -634,7 +636,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       cursor = some(cursor), maxPageSize = 2, ascendingOrder = false
     )
 
@@ -666,7 +668,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -676,12 +678,12 @@ suite "Postgres driver - queries":
       ).isOk()
 
     let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
-    let cursor = ArchiveCursor(hash: fakeCursor)
+    let cursor = ArchiveCursorV2(hash: fakeCursor)
 
     ## When
     let res = await driver.getMessages(
       includeData = true,
-      contentTopicSeq = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       pubsubTopic = none(PubsubTopic),
       cursor = some(cursor),
       startTime = none(Timestamp),
@@ -720,7 +722,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -732,7 +734,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
@@ -769,7 +771,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -781,7 +783,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
@@ -863,7 +865,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -871,7 +873,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(expected[5][0], expected[5][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       maxPageSize = 10,
@@ -954,7 +956,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -962,7 +964,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(expected[6][0], expected[6][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       maxPageSize = 10,
@@ -1002,7 +1004,7 @@ suite "Postgres driver - queries":
 
     for (msg, hash) in messages.zip(hashes):
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic, msg, computeDigest(msg), hash, msg.timestamp
         )
       ).isOk()
@@ -1041,7 +1043,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1051,7 +1053,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       startTime = some(ts(15, timeOrigin)), maxPageSize = 10, ascendingOrder = true
     )
 
@@ -1085,7 +1087,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1095,7 +1097,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       endTime = some(ts(45, timeOrigin)), maxPageSize = 10, ascendingOrder = true
     )
 
@@ -1176,13 +1178,13 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       startTime = some(ts(15, timeOrigin)),
       endTime = some(ts(45, timeOrigin)),
       maxPageSize = 10,
@@ -1221,7 +1223,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1231,7 +1233,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(45, timeOrigin)),
       endTime = some(ts(15, timeOrigin)),
@@ -1268,7 +1270,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1278,7 +1280,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1317,7 +1319,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1327,7 +1329,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1367,7 +1369,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1379,7 +1381,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1420,7 +1422,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1432,7 +1434,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
@@ -1507,7 +1509,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1515,7 +1517,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1592,7 +1594,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1600,7 +1602,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(expected[7][0], expected[7][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1678,7 +1680,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1686,7 +1688,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1765,7 +1767,7 @@ suite "Postgres driver - queries":
     for row in messages:
       let (topic, msg) = row
       require (
-        await driver.put(
+        await driver.putV2(
           topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
         )
       ).isOk()
@@ -1773,7 +1775,7 @@ suite "Postgres driver - queries":
     let cursor = computeTestCursor(expected[1][0], expected[1][1])
 
     ## When
-    let res = await driver.getMessages(
+    let res = await driver.getMessagesV2(
       contentTopic = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
@@ -1813,7 +1815,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1864,7 +1866,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),
@@ -1905,7 +1907,7 @@ suite "Postgres driver - queries":
 
     for msg in messages:
       require (
-        await driver.put(
+        await driver.putV2(
           DefaultPubsubTopic,
           msg,
           computeDigest(msg),

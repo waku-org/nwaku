@@ -9,8 +9,8 @@ import
 
 # Helper functions
 
-proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
-  ## Use i to generate an Index WakuMessage
+proc genIndexedWakuMessage(i: int8): (IndexV2, WakuMessage) =
+  ## Use i to generate an IndexV2 WakuMessage
   var data {.noinit.}: array[32, byte]
   for x in data.mitems:
     x = i.byte
@@ -18,7 +18,7 @@ proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
   let
     message = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
     topic = "test-pubsub-topic"
-    cursor = Index(
+    cursor = IndexV2(
       receiverTime: Timestamp(i),
       senderTime: Timestamp(i),
       digest: MessageDigest(data: data),

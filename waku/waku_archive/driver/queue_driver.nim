@@ -3,7 +3,6 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  ./queue_driver/queue_driver, ./queue_driver/queue_driver_legacy, ./queue_driver/index
+import ./queue_driver/queue_driver, ./queue_driver/index
 
-export queue_driver, queue_driver_legacy, index
+export queue_driver, index

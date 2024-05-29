@@ -212,7 +212,7 @@ proc rowCallbackImpl(
       )
     )
 
-method put*(
+method putV2*(
     s: PostgresDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
@@ -262,9 +262,9 @@ method put*(
     ],
   )
 
-method getAllMessages*(
+method getAllMessagesV2*(
     s: PostgresDriver
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## Retrieve all messages from the store.
 
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
@@ -320,13 +320,13 @@ proc getMessagesArbitraryQuery(
     s: PostgresDriver,
     contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
@@ -414,12 +414,12 @@ proc getMessagesV2ArbitraryQuery(
     s: PostgresDriver,
     contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
   var query =
@@ -478,13 +478,13 @@ proc getMessagesPreparedStmt(
     s: PostgresDriver,
     contentTopic: string,
     pubsubTopic: PubsubTopic,
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime: Timestamp,
     endTime: Timestamp,
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
   ##
@@ -579,12 +579,12 @@ proc getMessagesV2PreparedStmt(
     s: PostgresDriver,
     contentTopic: string,
     pubsubTopic: PubsubTopic,
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime: Timestamp,
     endTime: Timestamp,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
   ##
@@ -655,22 +655,22 @@ proc getMessagesV2PreparedStmt(
 method getMessages*(
     s: PostgresDriver,
     includeData = false,
-    contentTopicSeq = newSeq[ContentTopic](0),
+    contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   let hexHashes = hashes.mapIt(toHex(it))
 
-  if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
+  if contentTopics.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
       startTime.isSome() and endTime.isSome():
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
     return await s.getMessagesPreparedStmt(
-      contentTopicSeq.join(","),
+      contentTopics.join(","),
       PubsubTopic(pubsubTopic.get()),
       cursor,
       startTime.get(),
@@ -682,25 +682,25 @@ method getMessages*(
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesArbitraryQuery(
-      contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+      contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
       ascendingOrder,
     )
 
 method getMessagesV2*(
     s: PostgresDriver,
-    contentTopicSeq = newSeq[ContentTopic](0),
+    contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
-  if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
+  if contentTopic.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
       endTime.isSome():
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
     return await s.getMessagesV2PreparedStmt(
-      contentTopicSeq.join(","),
+      contentTopic.join(","),
       PubsubTopic(pubsubTopic.get()),
       cursor,
       startTime.get(),
@@ -711,8 +711,7 @@ method getMessagesV2*(
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesV2ArbitraryQuery(
-      contentTopicSeq, pubsubTopic, cursor, startTime, endTime, maxPageSize,
-      ascendingOrder,
+      contentTopic, pubsubTopic, cursor, startTime, endTime, maxPageSize, ascendingOrder
     )
 
 proc getStr(

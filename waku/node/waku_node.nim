@@ -247,7 +247,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     if node.wakuArchive.isNil():
       return
 
-    await node.wakuArchive.handleMessage(topic, msg)
+    await node.wakuArchive.handleMessageV2(topic, msg)
 
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
@@ -833,8 +833,8 @@ when defined(waku_exp_store_resume):
 
 ## Waku Store
 
-proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
-  var query = ArchiveQuery()
+proc toArchiveQuery(request: StoreQueryRequest): ArchiveQueryV2 =
+  var query = ArchiveQueryV2()
 
   query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
@@ -842,7 +842,11 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   query.startTime = request.startTime
   query.endTime = request.endTime
   query.hashes = request.messageHashes
-  query.cursor = request.paginationCursor
+
+  if request.paginationCursor.isSome():
+    var cursor = ArchiveCursorV2()
+    cursor.hash = request.paginationCursor.get()
+    query.cursor = some(cursor)
 
   query.direction = request.paginationForward
 
@@ -851,7 +855,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
 
   return query
 
-proc toStoreResult(res: ArchiveResult): StoreQueryResult =
+proc toStoreResult(res: ArchiveResultV2): StoreQueryResult =
   let response = res.valueOr:
     return err(StoreError.new(300, "archive error: " & $error))
 
@@ -871,7 +875,8 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
     res.messages[i].message = some(response.messages[i])
     res.messages[i].pubsubTopic = some(response.topics[i])
 
-  res.paginationCursor = response.cursor
+  if response.cursor.isSome():
+    res.paginationCursor = some(response.cursor.get().hash)
 
   return ok(res)
 

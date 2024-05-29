@@ -6,7 +6,7 @@ else:
 import stew/byteutils, nimcrypto/sha2
 import ../../../waku_core, ../../common
 
-type Index* = object
+type IndexV2* {.deprecated.} = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   pubsubTopic*: string
   senderTime*: Timestamp # the time at which the message is generated
@@ -15,15 +15,15 @@ type Index* = object
   hash*: WakuMessageHash
 
 proc compute*(
-    T: type Index, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic
-): T =
+    T: type IndexV2, msg: WakuMessage, receivedTime: Timestamp, pubsubTopic: PubsubTopic
+): T {.deprecated.} =
   ## Takes a WakuMessage with received timestamp and returns its Index.
   let
     digest = computeDigest(msg)
     senderTime = msg.timestamp
     hash = computeMessageHash(pubsubTopic, msg)
 
-  return Index(
+  return IndexV2(
     pubsubTopic: pubsubTopic,
     senderTime: senderTime,
     receiverTime: receivedTime,
@@ -31,8 +31,8 @@ proc compute*(
     hash: hash,
   )
 
-proc tohistoryCursor*(index: Index): ArchiveCursor =
-  return ArchiveCursor(
+proc tohistoryCursor*(index: IndexV2): ArchiveCursorV2 {.deprecated.} =
+  return ArchiveCursorV2(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     storeTime: index.receiverTime,
@@ -40,8 +40,8 @@ proc tohistoryCursor*(index: Index): ArchiveCursor =
     hash: index.hash,
   )
 
-proc toIndex*(index: ArchiveCursor): Index =
-  return Index(
+proc toIndex*(index: ArchiveCursorV2): IndexV2 {.deprecated.} =
+  return IndexV2(
     pubsubTopic: index.pubsubTopic,
     senderTime: index.senderTime,
     receiverTime: index.storeTime,
@@ -49,7 +49,7 @@ proc toIndex*(index: ArchiveCursor): Index =
     hash: index.hash,
   )
 
-proc `==`*(x, y: Index): bool =
+proc `==`*(x, y: IndexV2): bool {.deprecated.} =
   ## receiverTime plays no role in index equality
   return
     (
@@ -57,7 +57,7 @@ proc `==`*(x, y: Index): bool =
       (x.pubsubTopic == y.pubsubTopic)
     ) or (x.hash == y.hash) # this applies to store v3 queries only
 
-proc cmp*(x, y: Index): int =
+proc cmp*(x, y: IndexV2): int {.deprecated.} =
   ## compares x and y
   ## returns 0 if they are equal
   ## returns -1 if x < y

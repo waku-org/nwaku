@@ -10,8 +10,10 @@ import
   ../testlib/testasync,
   ../testlib/postgres
 
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
-  ArchiveCursor(
+proc computeTestCursor(
+    pubsubTopic: PubsubTopic, message: WakuMessage
+): ArchiveCursorV2 =
+  ArchiveCursorV2(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     storeTime: message.timestamp,
@@ -61,12 +63,12 @@ suite "Postgres driver":
     let computedDigest = computeDigest(msg)
     let computedHash = computeMessageHash(DefaultPubsubTopic, msg)
 
-    let putRes = await driver.put(
+    let putRes = await driver.putV2(
       DefaultPubsubTopic, msg, computedDigest, computedHash, msg.timestamp
     )
     assert putRes.isOk(), putRes.error
 
-    let storedMsg = (await driver.getAllMessages()).tryGet()
+    let storedMsg = (await driver.getAllMessagesV2()).tryGet()
 
     assert storedMsg.len == 1
 
@@ -86,7 +88,7 @@ suite "Postgres driver":
 
     let msg1 = fakeWakuMessage(contentTopic = contentTopic1)
 
-    var putRes = await driver.put(
+    var putRes = await driver.putV2(
       pubsubTopic1,
       msg1,
       computeDigest(msg1),
@@ -97,7 +99,7 @@ suite "Postgres driver":
 
     let msg2 = fakeWakuMessage(contentTopic = contentTopic2)
 
-    putRes = await driver.put(
+    putRes = await driver.putV2(
       pubsubTopic2,
       msg2,
       computeDigest(msg2),
@@ -111,21 +113,21 @@ suite "Postgres driver":
     assert countMessagesRes.isOk(), $countMessagesRes.error
     assert countMessagesRes.get() == 2
 
-    var messagesRes = await driver.getMessages(contentTopic = @[contentTopic1])
+    var messagesRes = await driver.getMessagesV2(contentTopic = @[contentTopic1])
 
     assert messagesRes.isOk(), $messagesRes.error
     assert messagesRes.get().len == 1
 
     # Get both content topics, check ordering
     messagesRes =
-      await driver.getMessages(contentTopic = @[contentTopic1, contentTopic2])
+      await driver.getMessagesV2(contentTopic = @[contentTopic1, contentTopic2])
     assert messagesRes.isOk(), messagesRes.error
 
     assert messagesRes.get().len == 2
     assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Descending order
-    messagesRes = await driver.getMessages(
+    messagesRes = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2], ascendingOrder = false
     )
     assert messagesRes.isOk(), messagesRes.error
@@ -135,7 +137,7 @@ suite "Postgres driver":
 
     # cursor
     # Get both content topics
-    messagesRes = await driver.getMessages(
+    messagesRes = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2],
       cursor = some(computeTestCursor(pubsubTopic1, messagesRes.get()[1][1])),
     )
@@ -143,7 +145,7 @@ suite "Postgres driver":
     assert messagesRes.get().len == 1
 
     # Get both content topics but one pubsub topic
-    messagesRes = await driver.getMessages(
+    messagesRes = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2], pubsubTopic = some(pubsubTopic1)
     )
     assert messagesRes.isOk(), messagesRes.error
@@ -152,7 +154,7 @@ suite "Postgres driver":
     assert messagesRes.get()[0][1].contentTopic == contentTopic1
 
     # Limit
-    messagesRes = await driver.getMessages(
+    messagesRes = await driver.getMessagesV2(
       contentTopic = @[contentTopic1, contentTopic2], maxPageSize = 1
     )
     assert messagesRes.isOk(), messagesRes.error
@@ -169,7 +171,7 @@ suite "Postgres driver":
     let initialNumMsgs = (await driver.getMessagesCount()).valueOr:
       raiseAssert "could not get num mgs correctly: " & $error
 
-    var putRes = await driver.put(
+    var putRes = await driver.putV2(
       DefaultPubsubTopic,
       msg1,
       computeDigest(msg1),
@@ -184,7 +186,7 @@ suite "Postgres driver":
     assert newNumMsgs == (initialNumMsgs + 1.int64),
       "wrong number of messages: " & $newNumMsgs
 
-    putRes = await driver.put(
+    putRes = await driver.putV2(
       DefaultPubsubTopic,
       msg2,
       computeDigest(msg2),

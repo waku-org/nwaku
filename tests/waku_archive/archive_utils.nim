@@ -25,7 +25,7 @@ proc newWakuArchive*(driver: ArchiveDriver): WakuArchive =
 
 proc computeArchiveCursor*(
     pubsubTopic: PubsubTopic, message: WakuMessage
-): ArchiveCursorV2 =
+): ArchiveCursorV2 {.deprecated.} =
   ArchiveCursorV2(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,

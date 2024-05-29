@@ -12,7 +12,7 @@ logScope:
 const QueueDriverDefaultMaxCapacity* = 25_000
 
 type
-  QueryFilterMatcher = proc(index: Index, msg: WakuMessage): bool {.gcsafe, closure.}
+  QueryFilterMatcher = proc(index: IndexV2, msg: WakuMessage): bool {.gcsafe, closure.}
 
   QueueDriver* = ref object of ArchiveDriver
     ## Bounded repository for indexed messages
@@ -25,13 +25,13 @@ type
     ## for new items.
 
     # TODO: a circular/ring buffer may be a more efficient implementation
-    items: SortedSet[Index, WakuMessage] # sorted set of stored messages
+    items: SortedSet[IndexV2, WakuMessage] # sorted set of stored messages
     capacity: int # Maximum amount of messages to keep
 
   QueueDriverErrorKind {.pure.} = enum
     INVALID_CURSOR
 
-  QueueDriverGetPageResult = Result[seq[ArchiveRow], QueueDriverErrorKind]
+  QueueDriverGetPageResult = Result[seq[ArchiveRowV2], QueueDriverErrorKind]
 
 proc `$`(error: QueueDriverErrorKind): string =
   case error
@@ -40,8 +40,8 @@ proc `$`(error: QueueDriverErrorKind): string =
 ### Helpers
 
 proc walkToCursor(
-    w: SortedSetWalkRef[Index, WakuMessage], startCursor: Index, forward: bool
-): SortedSetResult[Index, WakuMessage] =
+    w: SortedSetWalkRef[IndexV2, WakuMessage], startCursor: IndexV2, forward: bool
+): SortedSetResult[IndexV2, WakuMessage] =
   ## Walk to util we find the cursor
   ## TODO: Improve performance here with a binary/tree search
 
@@ -68,10 +68,10 @@ proc walkToCursor(
 #### API
 
 proc new*(T: type QueueDriver, capacity: int = QueueDriverDefaultMaxCapacity): T =
-  var items = SortedSet[Index, WakuMessage].init()
+  var items = SortedSet[IndexV2, WakuMessage].init()
   return QueueDriver(items: items, capacity: capacity)
 
-proc contains*(driver: QueueDriver, index: Index): bool =
+proc contains*(driver: QueueDriver, index: IndexV2): bool =
   ## Return `true` if the store queue already contains the `index`, `false` otherwise.
   return driver.items.eq(index).isOk()
 
@@ -82,20 +82,20 @@ proc getPage(
     driver: QueueDriver,
     pageSize: uint = 0,
     forward: bool = true,
-    cursor: Option[Index] = none(Index),
+    cursor: Option[IndexV2] = none(IndexV2),
     predicate: QueryFilterMatcher = nil,
 ): QueueDriverGetPageResult =
   ## Populate a single page in forward direction
   ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
   ## Each entry must match the `pred`
-  var outSeq: seq[ArchiveRow]
+  var outSeq: seq[ArchiveRowV2]
 
-  var w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+  var w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
   defer:
     w.destroy()
 
-  var currentEntry: SortedSetResult[Index, WakuMessage]
+  var currentEntry: SortedSetResult[IndexV2, WakuMessage]
 
   # Find starting entry
   if cursor.isSome():
@@ -151,10 +151,10 @@ proc getPage(
 
 ## --- SortedSet accessors ---
 
-iterator fwdIterator*(driver: QueueDriver): (Index, WakuMessage) =
+iterator fwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
   ## Forward iterator over the entire store queue
   var
-    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
     res = w.first()
 
   while res.isOk():
@@ -163,10 +163,10 @@ iterator fwdIterator*(driver: QueueDriver): (Index, WakuMessage) =
 
   w.destroy()
 
-iterator bwdIterator*(driver: QueueDriver): (Index, WakuMessage) =
+iterator bwdIterator*(driver: QueueDriver): (IndexV2, WakuMessage) =
   ## Backwards iterator over the entire store queue
   var
-    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
     res = w.last()
 
   while res.isOk():
@@ -175,9 +175,9 @@ iterator bwdIterator*(driver: QueueDriver): (Index, WakuMessage) =
 
   w.destroy()
 
-proc first*(driver: QueueDriver): ArchiveDriverResult[Index] =
+proc first*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
   var
-    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
     res = w.first()
   w.destroy()
 
@@ -186,9 +186,9 @@ proc first*(driver: QueueDriver): ArchiveDriverResult[Index] =
 
   return ok(res.value.key)
 
-proc last*(driver: QueueDriver): ArchiveDriverResult[Index] =
+proc last*(driver: QueueDriver): ArchiveDriverResult[IndexV2] =
   var
-    w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+    w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
     res = w.last()
   w.destroy()
 
@@ -200,19 +200,19 @@ proc last*(driver: QueueDriver): ArchiveDriverResult[Index] =
 ## --- Queue API ---
 
 proc add*(
-    driver: QueueDriver, index: Index, msg: WakuMessage
+    driver: QueueDriver, index: IndexV2, msg: WakuMessage
 ): ArchiveDriverResult[void] =
   ## Add a message to the queue
   ##
   ## If we're at capacity, we will be removing, the oldest (first) item
   if driver.contains(index):
-    trace "could not add item to store queue. Index already exists", index = index
+    trace "could not add item to store queue. IndexV2 already exists", index = index
     return err("duplicate")
 
   # TODO: the below delete block can be removed if we convert to circular buffer
   if driver.items.len >= driver.capacity:
     var
-      w = SortedSetWalkRef[Index, WakuMessage].init(driver.items)
+      w = SortedSetWalkRef[IndexV2, WakuMessage].init(driver.items)
       firstItem = w.first
 
     if cmp(index, firstItem.value.key) < 0:
@@ -227,7 +227,7 @@ proc add*(
 
   return ok()
 
-method put*(
+method putV2*(
     driver: QueueDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
@@ -235,7 +235,7 @@ method put*(
     messageHash: WakuMessageHash,
     receivedTime: Timestamp,
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  let index = Index(
+  let index = IndexV2(
     pubsubTopic: pubsubTopic,
     senderTime: message.timestamp,
     receiverTime: receivedTime,
@@ -259,23 +259,23 @@ method existsTable*(
 method getMessages*(
     driver: QueueDriver,
     includeData = false,
-    contentTopic: seq[ContentTopic] = @[],
+    contentTopics: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes: seq[WakuMessageHash] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async.} =
   let cursor = cursor.map(toIndex)
 
   let matchesQuery: QueryFilterMatcher =
-    func (index: Index, msg: WakuMessage): bool =
+    func (index: IndexV2, msg: WakuMessage): bool =
       if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
         return false
 
-      if contentTopic.len > 0 and msg.contentTopic notin contentTopic:
+      if contentTopics.len > 0 and msg.contentTopic notin contentTopics:
         return false
 
       if startTime.isSome() and msg.timestamp < startTime.get():
@@ -329,7 +329,7 @@ method getOldestMessageTimestamp*(
     driver: QueueDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.first().map(
-      proc(index: Index): Timestamp =
+      proc(index: IndexV2): Timestamp =
         index.receiverTime
     )
 
@@ -337,7 +337,7 @@ method getNewestMessageTimestamp*(
     driver: QueueDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.last().map(
-      proc(index: Index): Timestamp =
+      proc(index: IndexV2): Timestamp =
         index.receiverTime
     )
 
