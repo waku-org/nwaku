@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/options, stew/results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
+  std/options, std/times, stew/results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
 import
   ../node/peer_manager/peer_manager,
   ../waku_core,
@@ -13,8 +13,8 @@ import
   ./rpc_codec,
   ./protocol_metrics,
   ../common/ratelimit,
-  ../common/waku_service_metrics
-
+  ../common/waku_service_metrics,
+  ../waku_rln_relay/rln_relay, ../waku_rln_relay/protocol_types
 export ratelimit
 
 logScope:
@@ -25,6 +25,7 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: Option[TokenBucket]
+  rlnPeer*: WakuRLNRelay
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -48,7 +49,7 @@ proc handleRequest*(
       request = pushRpcRequest.request
 
       pubSubTopic = request.get().pubSubTopic
-      message = request.get().message
+    var message = request.get().message
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
     debug "push request",
       peerId = peerId,
@@ -56,9 +57,19 @@ proc handleRequest*(
       pubsubTopic = pubsubTopic,
       hash = pubsubTopic.computeMessageHash(message).to0xHex()
 
-    let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
-    isSuccess = handleRes.isOk()
-    pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
+    # Generate and validate RLN proof
+    let 
+      rlnPeer = wl.rlnPeer
+      time = getTime().toUnix()
+      senderEpochTime = float64(time) #rlnPeer.getCurrentEpoch()
+      appendProofRes = rlnPeer.appendRLNProof(message, senderEpochTime)
+
+    if appendProofRes.isErr():
+      pushResponseInfo = "RLN proof generation failed: " & appendProofRes.error
+    else:
+      let handleRes = await wl.pushHandler(peerId, pubSubTopic, message)
+      isSuccess = handleRes.isOk()
+      pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
   if not isSuccess:
     waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
@@ -106,6 +117,7 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
+    rlnPeer: WakuRLNRelay,
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wl = WakuLightPush(
@@ -113,6 +125,7 @@ proc new*(
     peerManager: peerManager,
     pushHandler: pushHandler,
     requestRateLimiter: newTokenBucket(rateLimitSetting),
+    rlnPeer: rlnPeer,
   )
   wl.initProtocolHandler()
   return wl

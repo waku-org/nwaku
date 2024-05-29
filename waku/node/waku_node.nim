@@ -938,6 +938,13 @@ proc mountLightPush*(
         peer: PeerId, pubsubTopic: string, message: WakuMessage
     ): Future[WakuLightPushResult[void]] {.async.} =
       return err("no waku relay found")
+  # Ensure the relay is ready before mounting lightpush
+  elif node.wakuRlnRelay.isNil(): #not await node.wakuRlnRelay.isReady():
+    debug "mounting lightpush without rln-relay (nil)"
+    pushHandler = proc(
+        peer: PeerId, pubsubTopic: string, message: WakuMessage
+    ): Future[WakuLightPushResult[void]] {.async.} =
+      return err("WakuRlnRelay is not ready")
   else:
     pushHandler = proc(
         peer: PeerId, pubsubTopic: string, message: WakuMessage
@@ -959,7 +966,7 @@ proc mountLightPush*(
 
   debug "mounting lightpush with relay"
   node.wakuLightPush =
-    WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
+    WakuLightPush.new(node.peerManager, node.rng, pushHandler, node.wakuRlnRelay, some(rateLimit))
 
   if node.started:
     # Node has started already. Let's start lightpush too.
