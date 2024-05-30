@@ -328,9 +328,10 @@ proc getMessagesArbitraryQuery(
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
+  info "ivan"
 
   var query =
-    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
+    """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash FROM messages"""
   var statements: seq[string]
   var args: seq[string]
 
@@ -668,6 +669,7 @@ method getMessages*(
 
   if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
       startTime.isSome() and endTime.isSome():
+    info "ivan"
     ## Considered the most common query. Therefore, we use prepared statements to optimize it.
     return await s.getMessagesPreparedStmt(
       contentTopicSeq.join(","),
@@ -680,6 +682,7 @@ method getMessages*(
       ascendingOrder,
     )
   else:
+    info "ivan"
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
@@ -710,6 +713,7 @@ method getMessagesV2*(
     )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
+    echo "AAAAA"
     return await s.getMessagesV2ArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, maxPageSize,
       ascendingOrder,

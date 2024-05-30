@@ -268,6 +268,7 @@ suite "Postgres driver - queries":
       ).isOk()
 
     ## When
+    echo "before get messages"
     var res = await driver.getMessages(
       contentTopic = @[contentTopic1, contentTopic2],
       pubsubTopic = some(DefaultPubsubTopic),
