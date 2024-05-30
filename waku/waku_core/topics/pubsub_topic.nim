@@ -41,7 +41,7 @@ const
   StaticShardingPubsubTopicPrefix = Waku2PubsubTopicPrefix & "/rs"
 
 proc parseStaticSharding*(
-    T: type NsPubsubTopic, topic: PubsubTopic | string
+    T: type NsPubsubTopic, topic: PubsubTopic
 ): ParsingResult[NsPubsubTopic] =
   if not topic.startsWith(StaticShardingPubsubTopicPrefix):
     return err(
@@ -72,9 +72,7 @@ proc parseStaticSharding*(
 
   ok(NsPubsubTopic.staticSharding(clusterId, shardId))
 
-proc parse*(
-    T: type NsPubsubTopic, topic: PubsubTopic | string
-): ParsingResult[NsPubsubTopic] =
+proc parse*(T: type NsPubsubTopic, topic: PubsubTopic): ParsingResult[NsPubsubTopic] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
   NsPubsubTopic.parseStaticSharding(topic)
