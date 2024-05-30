@@ -608,6 +608,35 @@ suite "Waku RlnRelay - End to End - OnChain":
     check isCompleted
     assertResultOk(await completionFuture.waitForResult())
 
+  asyncTest "Not enough gas":
+    let
+      onChainGroupManager = await setup(0.u256)
+      contractAddress = onChainGroupManager.ethContractAddress
+      keystorePath =
+        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+      appInfo = RlnAppInfo
+      password = "1234"
+      rlnInstance = onChainGroupManager.rlnInstance
+    assertResultOk(createAppKeystore(keystorePath, appInfo))
+
+    # Generate credentials
+    let idCredential = rlnInstance.membershipKeyGen().get()
+
+    discard await onChainGroupManager.init()
+    var errorFuture = Future[string].new()
+    onChainGroupManager.onFatalErrorAction = proc(errMsg: string) {.gcsafe, closure.} =
+      errorFuture.complete(errMsg)
+    try:
+      # Register credentials in the chain
+      waitFor onChainGroupManager.register(idCredential)
+      assert false, "Should have failed to register credentials given there is 0 gas"
+    except Exception:
+      assert true
+
+    check (await errorFuture.waitForResult()).get() ==
+      "Failed to register the member: {\"code\":-32003,\"message\":\"Insufficient funds for gas * price + value\"}"
+    await onChainGroupManager.stop()
+
   ################################
   ## Terminating/removing Anvil
   ################################
