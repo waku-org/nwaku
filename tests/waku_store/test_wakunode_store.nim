@@ -58,7 +58,12 @@ procSuite "WakuNode - Store":
 
     for kv in kvs:
       let message = kv.message.get()
-      require (waitFor driver.put(kv.messageHash, DefaultPubsubTopic, message)).isOk()
+      let msg_digest = computeDigest(message)
+      require (
+        waitFor driver.putV2(
+          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
+        )
+      ).isOk()
 
     driver
 
