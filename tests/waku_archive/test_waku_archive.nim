@@ -369,7 +369,8 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with forward pagination":
     ## Given
-    let req = ArchiveQueryV2(pageSize: 4, direction: PagingDirection.FORWARD)
+    let req =
+      ArchiveQueryV2(includeData: true, pageSize: 4, direction: PagingDirection.FORWARD)
 
     ## When
     var nextReq = req # copy
@@ -378,7 +379,7 @@ procSuite "Waku Archive - find messages":
     var cursors = newSeq[Option[ArchiveCursorV2]](3)
 
     for i in 0 ..< 3:
-      let res = waitFor archiveA.findMessagesV2(nextReq)
+      let res = waitFor archiveA.findMessages(nextReq)
       require res.isOk()
 
       # Keep query response content
@@ -402,7 +403,9 @@ procSuite "Waku Archive - find messages":
 
   test "handle query with backward pagination":
     ## Given
-    let req = ArchiveQueryV2(pageSize: 4, direction: PagingDirection.BACKWARD)
+    let req = ArchiveQueryV2(
+      includeData: true, pageSize: 4, direction: PagingDirection.BACKWARD
+    )
 
     ## When
     var nextReq = req # copy
@@ -411,7 +414,7 @@ procSuite "Waku Archive - find messages":
     var cursors = newSeq[Option[ArchiveCursorV2]](3)
 
     for i in 0 ..< 3:
-      let res = waitFor archiveA.findMessagesV2(nextReq)
+      let res = waitFor archiveA.findMessages(nextReq)
       require res.isOk()
 
       # Keep query response content

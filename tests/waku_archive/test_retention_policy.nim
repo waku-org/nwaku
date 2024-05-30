@@ -70,7 +70,7 @@ suite "Waku Archive - Retention policy":
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     # make sure that the db is empty to before test begins
-    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
+    let storedMsg = (waitFor driver.getAllMessagesV2()).tryGet()
     # if there are messages in db, empty them
     if storedMsg.len > 0:
       let now = getNanosecondTime(getTime().toUnixFloat())

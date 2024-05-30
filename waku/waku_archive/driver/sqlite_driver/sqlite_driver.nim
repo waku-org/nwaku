@@ -112,8 +112,8 @@ method getMessagesV2*(
 
 method getMessages*(
     s: SqliteDriver,
-    includeData = false,
-    contentTopic = newSeq[ContentTopic](0),
+    includeData = true,
+    contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
@@ -129,7 +129,7 @@ method getMessages*(
       none(WakuMessageHash)
 
   let rowsRes = s.db.selectMessagesByStoreQueryWithLimit(
-    contentTopic,
+    contentTopics,
     pubsubTopic,
     cursor,
     startTime,
