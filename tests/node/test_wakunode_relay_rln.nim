@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/tempfiles,
+  std/[tempfiles, strutils],
   stew/shims/net as stewNet,
   stew/results,
   testutils/unittests,
@@ -418,224 +418,274 @@ suite "Waku RlnRelay - End to End - OnChain":
   asyncTeardown:
     await allFutures(client.stop(), server.stop())
 
-  asyncTest "Invalid format contract":
-    let
-      # One character missing
-      invalidContractAddress = "0x000000000000000000000000000000000000000"
-      keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
-      appInfo = RlnAppInfo
-      password = "1234"
-      wakuRlnConfig1 = getWakuRlnConfigOnChain(
-        keystorePath, appInfo, invalidContractAddress, password, 0
-      )
-      wakuRlnConfig2 = getWakuRlnConfigOnChain(
-        keystorePath, appInfo, invalidContractAddress, password, 1
-      )
-      idCredential = buildRandomIdentityCredentials()
-      persistRes = addMembershipCredentialsToKeystore(
-        idCredential, keystorePath, appInfo, invalidContractAddress, password, 1
-      )
-    assertResultOk(persistRes)
+  suite "Smart Contract Availability and Interaction":
+    asyncTest "Invalid format contract":
+      let
+        # One character missing
+        invalidContractAddress = "0x000000000000000000000000000000000000000"
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+        wakuRlnConfig1 = getWakuRlnConfigOnChain(
+          keystorePath, appInfo, invalidContractAddress, password, 0
+        )
+        wakuRlnConfig2 = getWakuRlnConfigOnChain(
+          keystorePath, appInfo, invalidContractAddress, password, 1
+        )
+        idCredential = buildRandomIdentityCredentials()
+        persistRes = addMembershipCredentialsToKeystore(
+          idCredential, keystorePath, appInfo, invalidContractAddress, password, 1
+        )
+      assertResultOk(persistRes)
 
-    # Given the node enables Relay and Rln while subscribing to a pubsub topic
-    try:
+      # Given the node enables Relay and Rln while subscribing to a pubsub topic
+      try:
+        await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+        assert false, "Relay should fail mounting when using an invalid contract"
+      except CatchableError:
+        assert true
+
+      try:
+        await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+        assert false, "Relay should fail mounting when using an invalid contract"
+      except CatchableError:
+        assert true
+
+    asyncTest "Unregistered contract":
+      # This is a very slow test due to the retries RLN does. Might take upwards of 1m-2m to finish.
+      let
+        invalidContractAddress = "0x0000000000000000000000000000000000000000"
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+
+      # Connect to the eth client
+      discard await newWeb3(EthClient)
+
+      var serverErrorFuture = Future[string].new()
+      proc serverFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
+        serverErrorFuture.complete(errMsg)
+
+      var clientErrorFuture = Future[string].new()
+      proc clientFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
+        clientErrorFuture.complete(errMsg)
+
+      let
+        wakuRlnConfig1 = getWakuRlnConfigOnChain(
+          keystorePath,
+          appInfo,
+          invalidContractAddress,
+          password,
+          0,
+          some(serverFatalErrorHandler),
+        )
+        wakuRlnConfig2 = getWakuRlnConfigOnChain(
+          keystorePath,
+          appInfo,
+          invalidContractAddress,
+          password,
+          1,
+          some(clientFatalErrorHandler),
+        )
+
+      # Given the node enable Relay and Rln while subscribing to a pubsub topic.
+      # The withTimeout call is a workaround for the test not to terminate with an exception.
+      # However, it doesn't reduce the retries against the blockchain that the mounting rln process attempts (until it accepts failure).
+      # Note: These retries might be an unintended library issue.
+      discard await server
+      .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+      .withTimeout(FUTURE_TIMEOUT)
+      discard await client
+      .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+      .withTimeout(FUTURE_TIMEOUT)
+
+      check:
+        (await serverErrorFuture.waitForResult()).get() ==
+          "Failed to get the storage index: No response from the Web3 provider"
+        (await clientErrorFuture.waitForResult()).get() ==
+          "Failed to get the storage index: No response from the Web3 provider"
+
+    asyncTest "Valid contract":
+      #[
+        # Notes
+        ## Issues
+        ### TreeIndex
+        For some reason the calls to `getWakuRlnConfigOnChain` need to be made with `treeIndex` = 0 and 1, in that order.
+        But the registration needs to be made with 1 and 2. 
+        #### Solutions
+        Requires investigation
+        ### Monkeypatching
+        Instead of running the idCredentials monkeypatch, passing the correct membershipIndex and keystorePath and keystorePassword should work.
+        #### Solutions
+        A) Using the register callback to fetch the correct membership
+        B) Using two different keystores, one for each rlnconfig. If there's only one key, it will fetch it regardless of membershipIndex.
+        ##### A
+        - Register is not calling callback even though register is happening, this should happen.
+        - This command should be working, but it doesn't on the current HEAD of the branch, it does work on master, which suggest there's something wrong with the branch.
+        - nim c -r --out:build/onchain -d:chronicles_log_level=NOTICE --verbosity:0 --hints:off  -d:git_version="v0.27.0-rc.0-3-gaa9c30" -d:release --passL:librln_v0.3.7.a --passL:-lm tests/waku_rln_relay/test_rln_group_manager_onchain.nim && onchain_group_test
+        - All modified files are tests/*, which is a bit weird. Might be interesting re-creating the branch slowly, and checking out why this is happening.
+        ##### B
+        Untested
+      ]#
+
+      let
+        onChainGroupManager = await setup()
+        contractAddress = onChainGroupManager.ethContractAddress
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+        rlnInstance = onChainGroupManager.rlnInstance
+      assertResultOk(createAppKeystore(keystorePath, appInfo))
+
+      # Generate configs before registering the credentials. Otherwise the file gets cleared up.
+      let
+        wakuRlnConfig1 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
+        wakuRlnConfig2 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+
+      # Generate credentials
+      let
+        idCredential1 = rlnInstance.membershipKeyGen().get()
+        idCredential2 = rlnInstance.membershipKeyGen().get()
+
+      discard await onChainGroupManager.init()
+      try:
+        # Register credentials in the chain
+        waitFor onChainGroupManager.register(idCredential1)
+        waitFor onChainGroupManager.register(idCredential2)
+      except Exception:
+        assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
+
+      # Add credentials to keystore
+      let
+        persistRes1 = addMembershipCredentialsToKeystore(
+          idCredential1, keystorePath, appInfo, contractAddress, password, 0
+        )
+        persistRes2 = addMembershipCredentialsToKeystore(
+          idCredential2, keystorePath, appInfo, contractAddress, password, 1
+        )
+
+      assertResultOk(persistRes1)
+      assertResultOk(persistRes2)
+
+      await onChainGroupManager.stop()
+
+      # Given the node enables Relay and Rln while subscribing to a pubsub topic
       await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-      assert false, "Relay should fail mounting when using an invalid contract"
-    except CatchableError:
-      assert true
-
-    try:
       await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-      assert false, "Relay should fail mounting when using an invalid contract"
-    except CatchableError:
-      assert true
 
-  asyncTest "Unregistered contract":
-    # This is a very slow test due to the retries RLN does. Might take upwards of 1m-2m to finish.
-    let
-      invalidContractAddress = "0x0000000000000000000000000000000000000000"
-      keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-no_valid_contract")
-      appInfo = RlnAppInfo
-      password = "1234"
+      try:
+        (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+          raiseAssert $error
+        (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+          raiseAssert $error
 
-    # Connect to the eth client
-    discard await newWeb3(EthClient)
+        # Test Hack: Monkeypatch the idCredentials into the groupManager
+        server.wakuRlnRelay.groupManager.idCredentials = some(idCredential1)
+        client.wakuRlnRelay.groupManager.idCredentials = some(idCredential2)
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    var serverErrorFuture = Future[string].new()
-    proc serverFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
-      serverErrorFuture.complete(errMsg)
+      # And the nodes are connected
+      let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+      await client.connectToNodes(@[serverRemotePeerInfo])
 
-    var clientErrorFuture = Future[string].new()
-    proc clientFatalErrorHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
-      clientErrorFuture.complete(errMsg)
+      # And the node registers the completion handler
+      var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
-    let
-      wakuRlnConfig1 = getWakuRlnConfigOnChain(
-        keystorePath,
-        appInfo,
-        invalidContractAddress,
-        password,
-        0,
-        some(serverFatalErrorHandler),
-      )
-      wakuRlnConfig2 = getWakuRlnConfigOnChain(
-        keystorePath,
-        appInfo,
-        invalidContractAddress,
-        password,
-        1,
-        some(clientFatalErrorHandler),
-      )
+      # When the client sends a valid RLN message
+      let isCompleted =
+        await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
 
-    # Given the node enable Relay and Rln while subscribing to a pubsub topic.
-    # The withTimeout call is a workaround for the test not to terminate with an exception.
-    # However, it doesn't reduce the retries against the blockchain that the mounting rln process attempts (until it accepts failure).
-    # Note: These retries might be an unintended library issue.
-    discard await server
-    .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-    .withTimeout(FUTURE_TIMEOUT)
-    discard await client
-    .setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
-    .withTimeout(FUTURE_TIMEOUT)
+      # Then the valid RLN message is relayed
+      check isCompleted
+      assertResultOk(await completionFuture.waitForResult())
 
-    check:
-      (await serverErrorFuture.waitForResult()).get() ==
-        "Failed to get the storage index: No response from the Web3 provider"
-      (await clientErrorFuture.waitForResult()).get() ==
-        "Failed to get the storage index: No response from the Web3 provider"
+    asyncTest "Not enough gas":
+      let
+        onChainGroupManager = await setup(0.u256)
+        contractAddress = onChainGroupManager.ethContractAddress
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+        rlnInstance = onChainGroupManager.rlnInstance
+      assertResultOk(createAppKeystore(keystorePath, appInfo))
 
-  asyncTest "Valid contract":
-    #[
-      # Notes
-      ## Issues
-      ### TreeIndex
-      For some reason the calls to `getWakuRlnConfigOnChain` need to be made with `treeIndex` = 0 and 1, in that order.
-      But the registration needs to be made with 1 and 2. 
-      #### Solutions
-      Requires investigation
-      ### Monkeypatching
-      Instead of running the idCredentials monkeypatch, passing the correct membershipIndex and keystorePath and keystorePassword should work.
-      #### Solutions
-      A) Using the register callback to fetch the correct membership
-      B) Using two different keystores, one for each rlnconfig. If there's only one key, it will fetch it regardless of membershipIndex.
-      ##### A
-      - Register is not calling callback even though register is happening, this should happen.
-      - This command should be working, but it doesn't on the current HEAD of the branch, it does work on master, which suggest there's something wrong with the branch.
-      - nim c -r --out:build/onchain -d:chronicles_log_level=NOTICE --verbosity:0 --hints:off  -d:git_version="v0.27.0-rc.0-3-gaa9c30" -d:release --passL:librln_v0.3.7.a --passL:-lm tests/waku_rln_relay/test_rln_group_manager_onchain.nim && onchain_group_test
-      - All modified files are tests/*, which is a bit weird. Might be interesting re-creating the branch slowly, and checking out why this is happening.
-      ##### B
-      Untested
-    ]#
+      # Generate credentials
+      let idCredential = rlnInstance.membershipKeyGen().get()
 
-    let
-      onChainGroupManager = await setup()
-      contractAddress = onChainGroupManager.ethContractAddress
-      keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
-      appInfo = RlnAppInfo
-      password = "1234"
-      rlnInstance = onChainGroupManager.rlnInstance
-    assertResultOk(createAppKeystore(keystorePath, appInfo))
+      discard await onChainGroupManager.init()
+      var errorFuture = Future[string].new()
+      onChainGroupManager.onFatalErrorAction = proc(
+          errMsg: string
+      ) {.gcsafe, closure.} =
+        errorFuture.complete(errMsg)
+      try:
+        # Register credentials in the chain
+        waitFor onChainGroupManager.register(idCredential)
+        assert false, "Should have failed to register credentials given there is 0 gas"
+      except Exception:
+        assert true
 
-    # Generate configs before registering the credentials. Otherwise the file gets cleared up.
-    let
-      wakuRlnConfig1 =
-        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
-      wakuRlnConfig2 =
-        getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+      check (await errorFuture.waitForResult()).get() ==
+        "Failed to register the member: {\"code\":-32003,\"message\":\"Insufficient funds for gas * price + value\"}"
+      await onChainGroupManager.stop()
 
-    # Generate credentials
-    let
-      idCredential1 = rlnInstance.membershipKeyGen().get()
-      idCredential2 = rlnInstance.membershipKeyGen().get()
+  suite "RLN Relay Configuration and Parameters":
+    asyncTest "RLN Relay Credential Path":
+      let
+        onChainGroupManager = await setup()
+        contractAddress = onChainGroupManager.ethContractAddress
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+        rlnInstance = onChainGroupManager.rlnInstance
+      assertResultOk(createAppKeystore(keystorePath, appInfo))
 
-    discard await onChainGroupManager.init()
-    try:
-      # Register credentials in the chain
-      waitFor onChainGroupManager.register(idCredential1)
-      waitFor onChainGroupManager.register(idCredential2)
-    except Exception:
-      assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
+      # Generate configs before registering the credentials. Otherwise the file gets cleared up.
+      let
+        wakuRlnConfig1 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
+        wakuRlnConfig2 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
 
-    # Add credentials to keystore
-    let
-      credentialIndex1 = onChainGroupManager.membershipIndex.get() # 1
-      credentialIndex2 = credentialIndex1 + 1 # 2
-      persistRes1 = addMembershipCredentialsToKeystore(
-        idCredential1, keystorePath, appInfo, contractAddress, password,
-        credentialIndex1,
-      )
-      persistRes2 = addMembershipCredentialsToKeystore(
-        idCredential2, keystorePath, appInfo, contractAddress, password,
-        credentialIndex2,
-      )
+      # Given the node enables Relay and Rln while subscribing to a pubsub topic
+      await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
+      await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
 
-    assertResultOk(persistRes1)
-    assertResultOk(persistRes2)
+      try:
+        (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+          raiseAssert $error
+        (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
+          raiseAssert $error
 
-    await onChainGroupManager.stop()
+        # Test Hack: Monkeypatch the idCredentials into the groupManager
+        echo server.wakuRlnRelay.groupManager.idCredentials
+        echo client.wakuRlnRelay.groupManager.idCredentials
+      except Exception, CatchableError:
+        assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    # Given the node enables Relay and Rln while subscribing to a pubsub topic
-    await server.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig1)
-    await client.setupRelayWithOnChainRln(@[pubsubTopic], wakuRlnConfig2)
+      # And the nodes are connected
+      let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
+      await client.connectToNodes(@[serverRemotePeerInfo])
 
-    try:
-      (await server.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
-        raiseAssert $error
-      (await client.wakuRlnRelay.groupManager.startGroupSync()).isOkOr:
-        raiseAssert $error
+      # And the node registers the completion handler
+      var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
 
-      # Test Hack: Monkeypatch the idCredentials into the groupManager
-      server.wakuRlnRelay.groupManager.idCredentials = some(idCredential1)
-      client.wakuRlnRelay.groupManager.idCredentials = some(idCredential2)
-    except Exception, CatchableError:
-      assert false, "exception raised: " & getCurrentExceptionMsg()
-
-    # And the nodes are connected
-    let serverRemotePeerInfo = server.switch.peerInfo.toRemotePeerInfo()
-    await client.connectToNodes(@[serverRemotePeerInfo])
-
-    # And the node registers the completion handler
-    var completionFuture = subscribeCompletionHandler(server, pubsubTopic)
-
-    # When the client sends a valid RLN message
-    let isCompleted =
-      await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
-
-    # Then the valid RLN message is relayed
-    check isCompleted
-    assertResultOk(await completionFuture.waitForResult())
-
-  asyncTest "Not enough gas":
-    let
-      onChainGroupManager = await setup(0.u256)
-      contractAddress = onChainGroupManager.ethContractAddress
-      keystorePath =
-        genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
-      appInfo = RlnAppInfo
-      password = "1234"
-      rlnInstance = onChainGroupManager.rlnInstance
-    assertResultOk(createAppKeystore(keystorePath, appInfo))
-
-    # Generate credentials
-    let idCredential = rlnInstance.membershipKeyGen().get()
-
-    discard await onChainGroupManager.init()
-    var errorFuture = Future[string].new()
-    onChainGroupManager.onFatalErrorAction = proc(errMsg: string) {.gcsafe, closure.} =
-      errorFuture.complete(errMsg)
-    try:
-      # Register credentials in the chain
-      waitFor onChainGroupManager.register(idCredential)
-      assert false, "Should have failed to register credentials given there is 0 gas"
-    except Exception:
-      assert true
-
-    check (await errorFuture.waitForResult()).get() ==
-      "Failed to register the member: {\"code\":-32003,\"message\":\"Insufficient funds for gas * price + value\"}"
-    await onChainGroupManager.stop()
+      # When the client attempts to send a message
+      try:
+        let isCompleted =
+          await sendRlnMessage(client, pubsubTopic, contentTopic, completionFuture)
+        assert false, "Should have failed to send a message"
+      except AssertionDefect as e:
+        # Then the message is not relayed
+        assert e.msg.endsWith("identity credentials are not set")
 
   ################################
   ## Terminating/removing Anvil

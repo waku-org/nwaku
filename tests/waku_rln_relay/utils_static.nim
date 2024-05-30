@@ -15,7 +15,7 @@ import
     [node/waku_node, node/peer_manager, waku_core, waku_node, waku_rln_relay],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/[wakucore, futures]
+  ../testlib/[wakucore, futures, assertions]
 
 proc setupStaticRln*(
     node: WakuNode,
@@ -56,7 +56,9 @@ proc sendRlnMessage*(
     payload: seq[byte] = "Hello".toBytes(),
 ): Future[bool] {.async.} =
   var message = WakuMessage(payload: payload, contentTopic: contentTopic)
-  doAssert(client.wakuRlnRelay.appendRLNProof(message, epochTime()).isOk())
+  let appendResult = client.wakuRlnRelay.appendRLNProof(message, epochTime())
+    # Assignment required or crashess
+  assertResultOk(appendResult)
   discard await client.publish(some(pubsubTopic), message)
   let isCompleted = await completionFuture.withTimeout(FUTURE_TIMEOUT)
   return isCompleted
