@@ -85,7 +85,7 @@ func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
   return rs.contains(topic.clusterId, topic.shardId)
 
-func contains*(rs: RelayShards, topic: PubsubTopic | string): bool =
+func contains*(rs: RelayShards, topic: PubsubTopic): bool =
   let parseRes = NsPubsubTopic.parse(topic)
   if parseRes.isErr():
     return false
@@ -240,7 +240,7 @@ proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
 proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
   return containsShard(r, topic.clusterId, topic.shardId)
 
-proc containsShard*(r: Record, topic: PubsubTopic | string): bool =
+proc containsShard*(r: Record, topic: PubsubTopic): bool =
   let parseRes = NsPubsubTopic.parse(topic)
   if parseRes.isErr():
     debug "invalid static sharding topic", topic = topic, error = parseRes.error
