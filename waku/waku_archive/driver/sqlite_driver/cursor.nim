@@ -5,7 +5,7 @@ else:
 
 import ../../../waku_core, ../../common
 
-type DbCursor* = (Timestamp, seq[byte], PubsubTopic)
+type DbCursor* {.deprecated.} = (Timestamp, seq[byte], PubsubTopic)
 
-proc toDbCursor*(c: ArchiveCursorV2): DbCursor =
+proc toDbCursor*(c: ArchiveCursorV2): DbCursor {.deprecated.} =
   (c.storeTime, @(c.digest.data), c.pubsubTopic)

@@ -2,16 +2,13 @@
 
 import std/[sequtils, times], stew/results, testutils/unittests, chronos
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive/retention_policy,
   ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
   ../../../waku/waku_archive/retention_policy/retention_policy_size,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore
 
 suite "Waku Archive - Retention policy":
@@ -33,18 +30,13 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.putV2(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
-        )
+        driver.put(computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg)
       )
 
     discard waitFor allFinished(putFutures)
 
-    require (waitFor retentionPolicy.execute(driver)).isOk()
+    let res = waitFor retentionPolicy.execute(driver)
+    assert res.isOk(), $res.error
 
     ## Then
     let numMessages = (waitFor driver.getMessagesCount()).tryGet()
@@ -70,7 +62,7 @@ suite "Waku Archive - Retention policy":
     var putFutures = newSeq[Future[ArchiveDriverResult[void]]]()
 
     # make sure that the db is empty to before test begins
-    let storedMsg = (waitFor driver.getAllMessagesV2()).tryGet()
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     # if there are messages in db, empty them
     if storedMsg.len > 0:
       let now = getNanosecondTime(getTime().toUnixFloat())
@@ -86,13 +78,7 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.putV2(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
-        )
+        driver.put(computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg)
       )
 
     # waitFor is used to synchronously wait for the futures to complete.
@@ -147,22 +133,18 @@ suite "Waku Archive - Retention policy":
     ## When
     for msg in messages:
       require (
-        waitFor driver.putV2(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+        waitFor driver.put(
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
       require (waitFor retentionPolicy.execute(driver)).isOk()
 
     ## Then
-    let storedMsg = (waitFor driver.getAllMessagesV2()).tryGet()
+    let storedMsg = (waitFor driver.getAllMessages()).tryGet()
     check:
       storedMsg.len == capacity
       storedMsg.all do(item: auto) -> bool:
-        let (pubsubTopic, msg, _, _, _) = item
+        let (_, pubsubTopic, msg) = item
         msg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic
 
     ## Cleanup

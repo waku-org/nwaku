@@ -15,8 +15,7 @@ type
 type
   ArchiveRow* = (WakuMessageHash, PubsubTopic, WakuMessage)
 
-  ArchiveRowV2* {.deprecated.} =
-    (PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)
+  ArchiveRowV2* {.deprecated.} = (PubsubTopic, WakuMessage, seq[byte], Timestamp)
 
 # ArchiveDriver interface
 
@@ -64,7 +63,6 @@ method getMessages*(
 
 method getMessagesV2*(
     driver: ArchiveDriver,
-    includeData = true,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursorV2),

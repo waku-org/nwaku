@@ -20,29 +20,29 @@ proc newSqliteArchiveDriver*(): ArchiveDriver =
   let database = newSqliteDatabase()
   SqliteDriver.new(database).tryGet()
 
+proc newLegacySqliteArchiveDriver*(): ArchiveDriver {.deprecated.} =
+  let database = newSqliteDatabase()
+  LegacySqliteDriver.new(database).tryGet()
+
 proc newWakuArchive*(driver: ArchiveDriver): WakuArchive =
   WakuArchive.new(driver).get()
-
-proc computeArchiveCursor*(
-    pubsubTopic: PubsubTopic, message: WakuMessage
-): ArchiveCursorV2 {.deprecated.} =
-  ArchiveCursorV2(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: computeDigest(message),
-    hash: computeMessageHash(pubsubTopic, message),
-  )
 
 proc put*(
     driver: ArchiveDriver, pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]
 ): ArchiveDriver =
   for msg in msgList:
-    let
-      msgDigest = computeDigest(msg)
-      msgHash = computeMessageHash(pubsubTopic, msg)
-      _ = waitFor driver.putV2(pubsubTopic, msg, msgDigest, msgHash, msg.timestamp)
-        # discard crashes
+    let _ = waitFor driver.put(computeMessageHash(pubsubTopic, msg), pubsubTopic, msg)
+
+  return driver
+
+proc putV2*(
+    driver: ArchiveDriver, pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]
+): ArchiveDriver {.deprecated.} =
+  for msg in msgList:
+    let digest = computeDigest(msg)
+    let hash = computeMessageHash(pubsubTopic, msg)
+    let _ = waitFor driver.putV2(pubsubTopic, msg, digest, hash, msg.timestamp)
+
   return driver
 
 proc newArchiveDriverWithMessages*(
@@ -50,4 +50,11 @@ proc newArchiveDriverWithMessages*(
 ): ArchiveDriver =
   var driver = newSqliteArchiveDriver()
   driver = driver.put(pubsubTopic, msgList)
+  return driver
+
+proc newLegacyArchiveDriverWithMessages*(
+    pubsubTopic: PubSubTopic, msgList: seq[WakuMessage]
+): ArchiveDriver {.deprecated.} =
+  var driver = newLegacySqliteArchiveDriver()
+  driver = driver.putV2(pubsubTopic, msgList)
   return driver

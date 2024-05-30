@@ -38,16 +38,9 @@ logScope:
 proc put(
     store: ArchiveDriver, pubsubTopic: PubsubTopic, message: WakuMessage
 ): Future[Result[void, string]] =
-  let
-    digest = computeDigest(message)
-    msgHash = computeMessageHash(pubsubTopic, message)
-    receivedTime =
-      if message.timestamp > 0:
-        message.timestamp
-      else:
-        getNowInNanosecondTime()
+  let msgHash = computeMessageHash(pubsubTopic, message)
 
-  store.putV2(pubsubTopic, message, digest, msgHash, receivedTime)
+  store.put(msgHash, pubsubTopic, message)
 
 # Creates a new WakuNode
 proc testWakuNode(): WakuNode =

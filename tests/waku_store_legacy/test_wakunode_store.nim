@@ -13,21 +13,17 @@ import
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_core/subscription,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_filter_v2,
   ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_store_legacy,
   ../../../waku/waku_node,
   ../waku_store_legacy/store_utils,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -49,7 +45,7 @@ procSuite "WakuNode - Store Legacy":
     ]
 
   let archiveA = block:
-    let driver = newSqliteArchiveDriver()
+    let driver = newLegacySqliteArchiveDriver()
 
     for msg in msgListA:
       let msg_digest = waku_archive.computeDigest(msg)
@@ -221,7 +217,7 @@ procSuite "WakuNode - Store Legacy":
     waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     waitFor filterSource.mountFilter()
-    let driver = newSqliteArchiveDriver()
+    let driver = newLegacySqliteArchiveDriver()
 
     let mountArchiveRes = server.mountArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error

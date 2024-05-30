@@ -187,10 +187,10 @@ proc findMessages*(
     let cursor = query.cursor.get()
 
     if cursor.len != 32:
-      return err(ArchiveError.invalidQuery("invalid cursor: hash length not 32"))
+      return err(ArchiveError.invalidQuery("cursor hash length not 32"))
 
     if cursor == EmptyWakuMessageHash:
-      return err(ArchiveError.invalidQuery("invalid cursor: all zero hash"))
+      return err(ArchiveError.invalidQuery("all zeroes cursor hash"))
 
   let maxPageSize =
     if query.pageSize <= 0:
@@ -306,7 +306,7 @@ proc findMessagesV2*(
     ## The cursor is built from the last message INCLUDED in the response
     ## (i.e. the second last message in the rows list)
 
-    let (pubsubTopic, message, digest, storeTimestamp, _) = rows[^2]
+    let (pubsubTopic, message, digest, storeTimestamp) = rows[^2]
 
     cursor = some(
       ArchiveCursorV2(

@@ -794,7 +794,7 @@ proc query*(
 proc query*(
     node: WakuNode, query: legacy_store_common.HistoryQuery
 ): Future[legacy_store_common.WakuStoreResult[legacy_store_common.HistoryResponse]] {.
-    async, gcsafe, deprecated: "Use 'node.query()' with peer destination instead"
+    async, gcsafe, deprecated
 .} =
   ## Queries known nodes for historical messages
   if node.wakuLegacyStoreClient.isNil():
@@ -811,7 +811,7 @@ when defined(waku_exp_store_resume):
   # TODO: Move to application module (e.g., wakunode2.nim)
   proc resume*(
       node: WakuNode, peerList: Option[seq[RemotePeerInfo]] = none(seq[RemotePeerInfo])
-  ) {.async, gcsafe.} =
+  ) {.async, gcsafe, deprecated.} =
     ## resume proc retrieves the history of waku messages published on the default waku pubsub topic since the last time the waku node has been online
     ## for resume to work properly the waku node must have the store protocol mounted in the full mode (i.e., persisting messages)
     ## messages are stored in the wakuStore's messages field and in the message db
@@ -860,6 +860,8 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   res.statusCode = 200
   res.statusDesc = "OK"
 
+  res.paginationCursor = response.cursor
+
   for i in 0 ..< response.hashes.len:
     let hash = response.hashes[i]
 
@@ -870,8 +872,6 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   for i in 0 ..< response.messages.len:
     res.messages[i].message = some(response.messages[i])
     res.messages[i].pubsubTopic = some(response.topics[i])
-
-  res.paginationCursor = response.cursor
 
   return ok(res)
 

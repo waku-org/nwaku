@@ -41,7 +41,6 @@ type
     storeTime*: Timestamp
     senderTime*: Timestamp
     pubsubTopic*: PubsubTopic
-    hash*: WakuMessageHash
 
   ArchiveQuery* = object
     includeData*: bool
@@ -55,13 +54,11 @@ type
     direction*: PagingDirection
 
   ArchiveQueryV2* {.deprecated.} = object
-    includeData*: bool
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
     cursor*: Option[ArchiveCursorV2]
     startTime*: Option[Timestamp]
     endTime*: Option[Timestamp]
-    hashes*: seq[WakuMessageHash]
     pageSize*: uint
     direction*: PagingDirection
 
@@ -72,7 +69,6 @@ type
     messages*: seq[WakuMessage]
 
   ArchiveResponseV2* {.deprecated.} = object
-    hashes*: seq[WakuMessageHash]
     messages*: seq[WakuMessage]
     topics*: seq[PubsubTopic]
     cursor*: Option[ArchiveCursorV2]

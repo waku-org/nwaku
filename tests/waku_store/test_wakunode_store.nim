@@ -58,12 +58,7 @@ procSuite "WakuNode - Store":
 
     for kv in kvs:
       let message = kv.message.get()
-      let msg_digest = computeDigest(message)
-      require (
-        waitFor driver.putV2(
-          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
-        )
-      ).isOk()
+      require (waitFor driver.put(kv.messageHash, DefaultPubsubTopic, message)).isOk()
 
     driver
 
@@ -250,7 +245,7 @@ procSuite "WakuNode - Store":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.wakuArchive.handleMessageV2(pubsubTopic, msg)
+      await server.wakuArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
     server.wakuFilterClient.registerPushHandler(filterHandler)

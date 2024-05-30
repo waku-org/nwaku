@@ -72,7 +72,7 @@ suite "Waku Store - End to End - Sorted Archive":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    archiveDriver = newArchiveDriverWithMessages(pubsubTopic, archiveMessages)
+    archiveDriver = newLegacyArchiveDriverWithMessages(pubsubTopic, archiveMessages)
     let mountArchiveResult = server.mountArchive(archiveDriver)
     assert mountArchiveResult.isOk()
 
@@ -314,7 +314,7 @@ suite "Waku Store - End to End - Sorted Archive":
             message: WakuMessage =
               fakeWakuMessage(@[byte i], ts = ts(timestampOffset, lastMessageTimestamp))
           extraMessages.add(message)
-        discard archiveDriver.put(pubsubTopic, extraMessages)
+        discard archiveDriver.putV2(pubsubTopic, extraMessages)
 
         let totalMessages = archiveMessages & extraMessages
 
@@ -361,7 +361,7 @@ suite "Waku Store - End to End - Sorted Archive":
             message: WakuMessage =
               fakeWakuMessage(@[byte i], ts = ts(timestampOffset, lastMessageTimestamp))
           extraMessages.add(message)
-        discard archiveDriver.put(pubsubTopic, extraMessages)
+        discard archiveDriver.putV2(pubsubTopic, extraMessages)
 
         let totalMessages = archiveMessages & extraMessages
 
@@ -440,7 +440,7 @@ suite "Waku Store - End to End - Sorted Archive":
         # Given a different server node with the same archive
         let
           otherArchiveDriverWithMessages =
-            newArchiveDriverWithMessages(pubsubTopic, archiveMessages)
+            newLegacyArchiveDriverWithMessages(pubsubTopic, archiveMessages)
           otherServerKey = generateSecp256k1Key()
           otherServer =
             newTestWakuNode(otherServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
@@ -530,7 +530,7 @@ suite "Waku Store - End to End - Unsorted Archive":
 
     let
       unsortedArchiveDriverWithMessages =
-        newArchiveDriverWithMessages(pubsubTopic, unsortedArchiveMessages)
+        newLegacyArchiveDriverWithMessages(pubsubTopic, unsortedArchiveMessages)
       mountUnsortedArchiveResult =
         server.mountArchive(unsortedArchiveDriverWithMessages)
 
@@ -684,9 +684,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    let archiveDriver = newSqliteArchiveDriver()
-      .put(pubsubTopic, archiveMessages[0 ..< 6])
-      .put(pubsubTopicB, archiveMessages[6 ..< 10])
+    let archiveDriver = newLegacySqliteArchiveDriver()
+      .putV2(pubsubTopic, archiveMessages[0 ..< 6])
+      .putV2(pubsubTopicB, archiveMessages[6 ..< 10])
     let mountSortedArchiveResult = server.mountArchive(archiveDriver)
 
     assert mountSortedArchiveResult.isOk()
@@ -924,7 +924,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             fakeWakuMessage(@[byte 02], ts = ts(20), ephemeral = true),
           ]
         ephemeralArchiveDriver =
-          newSqliteArchiveDriver().put(pubsubTopic, ephemeralMessages)
+          newLegacySqliteArchiveDriver().putV2(pubsubTopic, ephemeralMessages)
 
       # And a server node with the ephemeral archive
       let
@@ -965,9 +965,9 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
             fakeWakuMessage(@[byte 04], ts = ts(40), ephemeral = false),
             fakeWakuMessage(@[byte 05], ts = ts(50), ephemeral = false),
           ]
-        mixedArchiveDriver = newSqliteArchiveDriver()
-          .put(pubsubTopic, ephemeralMessages)
-          .put(pubsubTopic, nonEphemeralMessages)
+        mixedArchiveDriver = newLegacySqliteArchiveDriver()
+          .putV2(pubsubTopic, ephemeralMessages)
+          .putV2(pubsubTopic, nonEphemeralMessages)
 
       # And a server node with the mixed archive
       let
@@ -994,7 +994,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
   suite "Edge Case Scenarios":
     asyncTest "Empty Message Store":
       # Given an empty archive
-      let emptyArchiveDriver = newSqliteArchiveDriver()
+      let emptyArchiveDriver = newLegacySqliteArchiveDriver()
 
       # And a server node with the empty archive
       let
@@ -1025,7 +1025,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         let topic = "topic" & $i
         voluminousArchiveMessages.add(fakeWakuMessage(@[byte i], contentTopic = topic))
       let voluminousArchiveDriverWithMessages =
-        newArchiveDriverWithMessages(pubsubTopic, voluminousArchiveMessages)
+        newLegacyArchiveDriverWithMessages(pubsubTopic, voluminousArchiveMessages)
 
       # And a server node with the voluminous archive
       let

@@ -12,12 +12,13 @@ import
   ../../../waku_core/message/digest,
   ../../common,
   ../../driver,
-  ./queries
+  ./cursor,
+  ./queries_legacy
 
 logScope:
   topics = "waku archive sqlite"
 
-proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
+proc init(db: SqliteDatabase): ArchiveDriverResult[void] {.deprecated.} =
   ## Misconfiguration can lead to nil DB
   if db.isNil():
     return err("db not initialized")
@@ -30,15 +31,21 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   # Create indices, if don't exist
   let resRtIndex = createOldestMessageTimestampIndex(db)
   if resRtIndex.isErr():
-    return err("failed to create i_ts index: " & resRtIndex.error())
+    return err("failed to create i_rt index: " & resRtIndex.error())
+
+  let resMsgIndex = createHistoryQueryIndex(db)
+  if resMsgIndex.isErr():
+    return err("failed to create i_query index: " & resMsgIndex.error())
 
   return ok()
 
-type SqliteDriver* = ref object of ArchiveDriver
+type LegacySqliteDriver* {.deprecated.} = ref object of ArchiveDriver
   db: SqliteDatabase
   insertStmt: SqliteStmt[InsertMessageParams, void]
 
-proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
+proc new*(
+    T: type LegacySqliteDriver, db: SqliteDatabase
+): ArchiveDriverResult[T] {.deprecated.} =
   # Database initialization
   let resInit = init(db)
   if resInit.isErr():
@@ -46,110 +53,111 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  return ok(SqliteDriver(db: db, insertStmt: insertStmt))
+  return ok(LegacySqliteDriver(db: db, insertStmt: insertStmt))
 
-method put*(
-    s: SqliteDriver,
-    messageHash: WakuMessageHash,
+method putV2*(
+    s: LegacySqliteDriver,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
-): Future[ArchiveDriverResult[void]] {.async.} =
+    digest: MessageDigest,
+    messageHash: WakuMessageHash,
+    receivedTime: Timestamp,
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   ## Inserts a message into the store
   let res = s.insertStmt.exec(
     (
-      @(messageHash),
-      toBytes(pubsubTopic),
-      toBytes(message.contentTopic),
-      message.payload,
-      int64(message.version),
-      message.timestamp,
-      message.meta,
+      @(digest.data), # id
+      @(messageHash), # messageHash
+      receivedTime, # storedAt
+      toBytes(message.contentTopic), # contentTopic
+      message.payload, # payload
+      toBytes(pubsubTopic), # pubsubTopic
+      int64(message.version), # version
+      message.timestamp, # senderTimestamp
+      message.meta, # meta
     )
   )
 
   return res
 
-method getAllMessages*(
-    s: SqliteDriver
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+method getAllMessagesV2*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
   ## Retrieve all messages from the store.
   return s.db.selectAllMessages()
 
-method getMessages*(
-    s: SqliteDriver,
-    includeData = true,
-    contentTopics = newSeq[ContentTopic](0),
+method getMessagesV2*(
+    s: LegacySqliteDriver,
+    contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
+    cursor = none(ArchiveCursorV2),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
-    hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  if not includeData:
-    return s.db.selectMessageHashesByStoreQueryWithLimit(
-      contentTopics,
-      pubsubTopic,
-      cursor,
-      startTime,
-      endTime,
-      hashes,
-      limit = maxPageSize,
-      ascending = ascendingOrder,
-    )
+): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.async, deprecated.} =
+  let cursor = cursor.map(toDbCursor)
 
-  return s.db.selectMessagesByStoreQueryWithLimit(
-    contentTopics,
+  let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
+    contentTopic,
     pubsubTopic,
     cursor,
     startTime,
     endTime,
-    hashes,
     limit = maxPageSize,
     ascending = ascendingOrder,
   )
 
+  return rowsRes
+
 method getMessagesCount*(
-    s: SqliteDriver
-): Future[ArchiveDriverResult[int64]] {.async.} =
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async, deprecated.} =
   return s.db.getMessageCount()
 
-method getPagesCount*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
+method getPagesCount*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async, deprecated.} =
   return s.db.getPageCount()
 
-method getPagesSize*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
+method getPagesSize*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async, deprecated.} =
   return s.db.getPageSize()
 
-method getDatabaseSize*(s: SqliteDriver): Future[ArchiveDriverResult[int64]] {.async.} =
+method getDatabaseSize*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[int64]] {.async, deprecated.} =
   return s.db.getDatabaseSize()
 
-method performVacuum*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.async.} =
+method performVacuum*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   return s.db.performSqliteVacuum()
 
 method getOldestMessageTimestamp*(
-    s: SqliteDriver
-): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return s.db.selectOldestTimestamp()
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async, deprecated.} =
+  return s.db.selectOldestReceiverTimestamp()
 
 method getNewestMessageTimestamp*(
-    s: SqliteDriver
-): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return s.db.selectnewestTimestamp()
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async, deprecated.} =
+  return s.db.selectnewestReceiverTimestamp()
 
 method deleteMessagesOlderThanTimestamp*(
-    s: SqliteDriver, ts: Timestamp
-): Future[ArchiveDriverResult[void]] {.async.} =
+    s: LegacySqliteDriver, ts: Timestamp
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   return s.db.deleteMessagesOlderThanTimestamp(ts)
 
 method deleteOldestMessagesNotWithinLimit*(
-    s: SqliteDriver, limit: int
-): Future[ArchiveDriverResult[void]] {.async.} =
+    s: LegacySqliteDriver, limit: int
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   return s.db.deleteOldestMessagesNotWithinLimit(limit)
 
 method decreaseDatabaseSize*(
-    driver: SqliteDriver, targetSizeInBytes: int64, forceRemoval: bool = false
-): Future[ArchiveDriverResult[void]] {.async.} =
+    driver: LegacySqliteDriver, targetSizeInBytes: int64, forceRemoval: bool = false
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   ## To remove 20% of the outdated data from database
   const DeleteLimit = 0.80
 
@@ -180,7 +188,9 @@ method decreaseDatabaseSize*(
 
   return ok()
 
-method close*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.async.} =
+method close*(
+    s: LegacySqliteDriver
+): Future[ArchiveDriverResult[void]] {.async, deprecated.} =
   ## Close the database connection
   # Dispose statements
   s.insertStmt.dispose()
@@ -189,6 +199,6 @@ method close*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
 
 method existsTable*(
-    s: SqliteDriver, tableName: string
-): Future[ArchiveDriverResult[bool]] {.async.} =
+    s: LegacySqliteDriver, tableName: string
+): Future[ArchiveDriverResult[bool]] {.async, deprecated.} =
   return err("existsTable method not implemented in sqlite_driver")

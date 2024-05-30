@@ -79,11 +79,21 @@ proc new*(
         return err("error in migrate sqlite: " & $migrateRes.error)
 
     debug "setting up sqlite waku archive driver"
-    let res = SqliteDriver.new(db)
-    if res.isErr():
-      return err("failed to init sqlite archive driver: " & res.error)
 
-    return ok(res.get())
+    if legacy:
+      let res = LegacySqliteDriver.new(db)
+
+      if res.isErr():
+        return err("failed to init sqlite archive driver: " & res.error)
+
+      return ok(res.get())
+    else:
+      let res = SqliteDriver.new(db)
+
+      if res.isErr():
+        return err("failed to init sqlite archive driver: " & res.error)
+
+      return ok(res.get())
   of "postgres":
     when defined(postgres):
       let res = PostgresDriver.new(
