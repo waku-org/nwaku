@@ -27,6 +27,8 @@ when os == "Linux" and
   import
     ./waku_archive/test_driver_postgres_query,
     ./waku_archive/test_driver_postgres,
+    ./waku_archive/test_driver_postgres_query_store_v2,
+    ./waku_archive/test_driver_postgres_store_v2,
     ./factory/test_node_factory,
     ./wakunode_rest/test_rest_store
 
