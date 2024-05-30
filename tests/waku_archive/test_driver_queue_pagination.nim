@@ -7,7 +7,6 @@ import
   ../../../waku/waku_archive/driver/queue_driver/queue_driver {.all.},
   ../../../waku/waku_archive/driver/queue_driver/index,
   ../../../waku/waku_core,
-  ../testlib/common,
   ../testlib/wakucore
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =
@@ -20,11 +19,10 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
   for i in 0 ..< numMessages:
     let msg = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
 
-    let index = IndexV2(
-      receiverTime: Timestamp(i),
-      senderTime: Timestamp(i),
-      digest: MessageDigest(data: data),
+    let index = Index(
+      time: Timestamp(i),
       hash: computeMessageHash(DefaultPubsubTopic, msg),
+      topic: DefaultPubsubTopic,
     )
 
     discard testQueueDriver.add(index, msg)
@@ -34,21 +32,21 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
 procSuite "Queue driver - pagination":
   let driver = getTestQueueDriver(10)
   let
-    indexList: seq[IndexV2] = toSeq(driver.fwdIterator()).mapIt(it[0])
+    indexList: seq[Index] = toSeq(driver.fwdIterator()).mapIt(it[0])
     msgList: seq[WakuMessage] = toSeq(driver.fwdIterator()).mapIt(it[1])
 
   test "Forward pagination - normal pagination":
     ## Given
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 2
       data == msgList[4 .. 5]
@@ -57,14 +55,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 2
       data == msgList[0 .. 1]
@@ -73,14 +71,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 13
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 10
       data == msgList[0 .. 9]
@@ -90,14 +88,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(0)
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
@@ -105,14 +103,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 6
       data == msgList[4 .. 9]
@@ -121,14 +119,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = MaxPageSize + 1
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       uint(data.len) <= MaxPageSize
 
@@ -136,30 +134,25 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = some(indexList[9])
+      cursor: Option[Index] = some(indexList[9])
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
   test "Forward pagination - invalid cursor":
     ## Given
     let msg = fakeWakuMessage(payload = @[byte 10])
-    let index = ArchiveCursorV2(
-      pubsubTopic: DefaultPubsubTopic,
-      senderTime: msg.timestamp,
-      storeTime: msg.timestamp,
-      digest: computeDigest(msg),
-    ).toIndex()
+    let index = Index(hash: computeMessageHash(DefaultPubsubTopic, msg))
 
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = some(index)
+      cursor: Option[Index] = some(index)
       forward: bool = true
 
     ## When
@@ -175,14 +168,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(1)
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 1
 
@@ -191,14 +184,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(1)
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = some(indexList[0])
+      cursor: Option[Index] = some(indexList[0])
       forward: bool = true
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
@@ -206,10 +199,10 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 3
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward = true
 
-    proc onlyEvenTimes(index: IndexV2, msg: WakuMessage): bool =
+    proc onlyEvenTimes(index: Index, msg: WakuMessage): bool =
       msg.timestamp.int64 mod 2 == 0
 
     ## When
@@ -218,7 +211,7 @@ procSuite "Queue driver - pagination":
     )
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.mapIt(it.timestamp.int) == @[0, 2, 4]
 
@@ -226,14 +219,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data == msgList[1 .. 2].reversed
 
@@ -242,14 +235,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(0)
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
@@ -257,14 +250,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 2
       data == msgList[8 .. 9].reversed
@@ -273,14 +266,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 13
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 10
       data == msgList[0 .. 9].reversed
@@ -289,14 +282,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 5
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data == msgList[0 .. 2].reversed
 
@@ -304,14 +297,14 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = MaxPageSize + 1
-      cursor: Option[IndexV2] = some(indexList[3])
+      cursor: Option[Index] = some(indexList[3])
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       uint(data.len) <= MaxPageSize
 
@@ -319,30 +312,25 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 5
-      cursor: Option[IndexV2] = some(indexList[0])
+      cursor: Option[Index] = some(indexList[0])
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
   test "Backward pagination - invalid cursor":
     ## Given
     let msg = fakeWakuMessage(payload = @[byte 10])
-    let index = ArchiveCursorV2(
-      pubsubTopic: DefaultPubsubTopic,
-      senderTime: msg.timestamp,
-      storeTime: msg.timestamp,
-      digest: computeDigest(msg),
-    ).toIndex()
+    let index = Index(hash: computeMessageHash(DefaultPubsubTopic, msg))
 
     let
       pageSize: uint = 2
-      cursor: Option[IndexV2] = some(index)
+      cursor: Option[Index] = some(index)
       forward: bool = false
 
     ## When
@@ -358,14 +346,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(1)
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 1
 
@@ -374,14 +362,14 @@ procSuite "Queue driver - pagination":
     let driver = getTestQueueDriver(1)
     let
       pageSize: uint = 10
-      cursor: Option[IndexV2] = some(indexList[0])
+      cursor: Option[Index] = some(indexList[0])
       forward: bool = false
 
     ## When
     let page = driver.getPage(pageSize = pageSize, forward = forward, cursor = cursor)
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.len == 0
 
@@ -389,10 +377,10 @@ procSuite "Queue driver - pagination":
     ## Given
     let
       pageSize: uint = 3
-      cursor: Option[IndexV2] = none(IndexV2)
+      cursor: Option[Index] = none(Index)
       forward = false
 
-    proc onlyOddTimes(index: IndexV2, msg: WakuMessage): bool =
+    proc onlyOddTimes(index: Index, msg: WakuMessage): bool =
       msg.timestamp.int64 mod 2 != 0
 
     ## When
@@ -401,6 +389,6 @@ procSuite "Queue driver - pagination":
     )
 
     ## Then
-    let data = page.tryGet().mapIt(it[1])
+    let data = page.tryGet().mapIt(it[2])
     check:
       data.mapIt(it.timestamp.int) == @[5, 7, 9].reversed

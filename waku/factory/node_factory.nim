@@ -230,7 +230,7 @@ proc setupProtocols(
     # Archive setup
     let archiveDriverRes = waitFor ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
-      conf.storeMaxNumDbConnections, onFatalErrorAction,
+      conf.storeMaxNumDbConnections, onFatalErrorAction, conf.legacyStore,
     )
     if archiveDriverRes.isErr():
       return err("failed to setup archive driver: " & archiveDriverRes.error)

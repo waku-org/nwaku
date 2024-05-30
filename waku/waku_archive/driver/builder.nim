@@ -28,6 +28,7 @@ proc new*(
     migrate: bool,
     maxNumConn: int,
     onFatalErrorAction: OnFatalErrorHandler,
+    legacy: bool = false,
 ): Future[Result[T, string]] {.async.} =
   ## url - string that defines the database
   ## vacuum - if true, a cleanup operation will be applied to the database
@@ -121,5 +122,11 @@ proc new*(
       )
   else:
     debug "setting up in-memory waku archive driver"
-    let driver = QueueDriver.new() # Defaults to a capacity of 25.000 messages
-    return ok(driver)
+    # Defaults to a capacity of 25.000 messages
+
+    if legacy:
+      let driver = LegacyQueueDriver.new()
+      return ok(driver)
+    else:
+      let driver = QueueDriver.new()
+      return ok(driver)

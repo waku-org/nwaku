@@ -53,17 +53,18 @@ method getMessages*(
     includeData = true,
     contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursorV2),
+    cursor = none(ArchiveCursor),
     startTime = none(Timestamp),
     endTime = none(Timestamp),
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRowV2]]] {.base, async.} =
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
   discard
 
 method getMessagesV2*(
     driver: ArchiveDriver,
+    includeData = true,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursorV2),

@@ -833,8 +833,8 @@ when defined(waku_exp_store_resume):
 
 ## Waku Store
 
-proc toArchiveQuery(request: StoreQueryRequest): ArchiveQueryV2 =
-  var query = ArchiveQueryV2()
+proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
+  var query = ArchiveQuery()
 
   query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
@@ -842,11 +842,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQueryV2 =
   query.startTime = request.startTime
   query.endTime = request.endTime
   query.hashes = request.messageHashes
-
-  if request.paginationCursor.isSome():
-    var cursor = ArchiveCursorV2()
-    cursor.hash = request.paginationCursor.get()
-    query.cursor = some(cursor)
+  query.cursor = request.paginationCursor
 
   query.direction = request.paginationForward
 
@@ -855,7 +851,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQueryV2 =
 
   return query
 
-proc toStoreResult(res: ArchiveResultV2): StoreQueryResult =
+proc toStoreResult(res: ArchiveResult): StoreQueryResult =
   let response = res.valueOr:
     return err(StoreError.new(300, "archive error: " & $error))
 
@@ -875,8 +871,7 @@ proc toStoreResult(res: ArchiveResultV2): StoreQueryResult =
     res.messages[i].message = some(response.messages[i])
     res.messages[i].pubsubTopic = some(response.topics[i])
 
-  if response.cursor.isSome():
-    res.paginationCursor = some(response.cursor.get().hash)
+  res.paginationCursor = response.cursor
 
   return ok(res)
 
