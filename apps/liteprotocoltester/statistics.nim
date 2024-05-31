@@ -114,7 +114,7 @@ proc addMessage*(
     self[peerId].addMessage(msg)
 
 proc lossCount*(self: Statistics): uint32 =
-  self.helper.prevIndex + 1 - self.receivedMessages
+  self.helper.prevIndex - self.receivedMessages
 
 proc averageLatency*(self: Statistics): Duration =
   if self.receivedMessages == 0:
