@@ -34,7 +34,7 @@ const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
-const SelectClause = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages"""
+const SelectClause = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
 const SelectNoCursorAscStmtDef = SelectClause & """
   WHERE contentTopic IN ($1) AND
         messageHash IN ($2) AND
