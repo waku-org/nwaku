@@ -19,15 +19,6 @@ common.randomize()
 proc newTestSqliteDriver(): ArchiveDriver =
   QueueDriver.new(capacity = 50)
 
-proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
-  ArchiveCursor(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    storeTime: message.timestamp,
-    digest: computeDigest(message),
-    hash: computeMessageHash(pubsubTopic, message),
-  )
-
 suite "Queue driver - query by content topic":
   test "no content topic":
     ## Given
@@ -53,11 +44,7 @@ suite "Queue driver - query by content topic":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
@@ -68,7 +55,7 @@ suite "Queue driver - query by content topic":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[0 .. 4]
 
@@ -99,24 +86,20 @@ suite "Queue driver - query by content topic":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3]
 
@@ -147,24 +130,20 @@ suite "Queue driver - query by content topic":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = false
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = false
     )
 
     ## Then
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[6 .. 7].reversed()
 
@@ -197,17 +176,13 @@ suite "Queue driver - query by content topic":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic1, contentTopic2],
+      contentTopics = @[contentTopic1, contentTopic2],
       maxPageSize = 2,
       ascendingOrder = true,
     )
@@ -216,7 +191,7 @@ suite "Queue driver - query by content topic":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3]
 
@@ -244,24 +219,20 @@ suite "Queue driver - query by content topic":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic], maxPageSize = 2, ascendingOrder = true
+      contentTopics = @[contentTopic], maxPageSize = 2, ascendingOrder = true
     )
 
     ## Then
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 
@@ -277,17 +248,13 @@ suite "Queue driver - query by content topic":
     for t in 0 ..< 40:
       let msg = fakeWakuMessage(@[byte t], DefaultContentTopic, ts = ts(t))
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       maxPageSize = pageSize,
       ascendingOrder = true,
     )
@@ -296,7 +263,7 @@ suite "Queue driver - query by content topic":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 40
 
@@ -348,9 +315,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
     ## When
@@ -363,7 +328,7 @@ suite "SQLite driver - query by pubsub topic":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -414,9 +379,7 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
     ## When
@@ -427,7 +390,7 @@ suite "SQLite driver - query by pubsub topic":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[0 .. 1]
 
@@ -478,14 +441,12 @@ suite "SQLite driver - query by pubsub topic":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       maxPageSize = 2,
       ascendingOrder = true,
@@ -496,7 +457,7 @@ suite "SQLite driver - query by pubsub topic":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -529,15 +490,11 @@ suite "Queue driver - query by cursor":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = waitFor driver.getMessages(
@@ -548,7 +505,7 @@ suite "Queue driver - query by cursor":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[5 .. 6]
 
@@ -580,15 +537,11 @@ suite "Queue driver - query by cursor":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = waitFor driver.getMessages(
@@ -599,7 +552,7 @@ suite "Queue driver - query by cursor":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 3].reversed()
 
@@ -629,21 +582,16 @@ suite "Queue driver - query by cursor":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
-    let cursor = ArchiveCursor(hash: fakeCursor)
+    let cursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
 
     ## When
     let res = waitFor driver.getMessages(
       includeData = true,
-      contentTopic = @[DefaultContentTopic],
+      contentTopics = @[DefaultContentTopic],
       pubsubTopic = none(PubsubTopic),
       cursor = some(cursor),
       startTime = none(Timestamp),
@@ -686,19 +634,15 @@ suite "Queue driver - query by cursor":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[4])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[4])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -708,7 +652,7 @@ suite "Queue driver - query by cursor":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[5 .. 6]
 
@@ -740,19 +684,15 @@ suite "Queue driver - query by cursor":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -762,7 +702,7 @@ suite "Queue driver - query by cursor":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 5].reversed()
 
@@ -838,12 +778,10 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(expected[5][0], expected[5][1])
+    let cursor = computeMessageHash(expected[5][0], expected[5][1])
 
     ## When
     let res = waitFor driver.getMessages(
@@ -858,7 +796,7 @@ suite "Queue driver - query by cursor":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[6 .. 7]
 
@@ -934,12 +872,10 @@ suite "Queue driver - query by cursor":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(expected[6][0], expected[6][1])
+    let cursor = computeMessageHash(expected[6][0], expected[6][1])
 
     ## When
     let res = waitFor driver.getMessages(
@@ -954,7 +890,7 @@ suite "Queue driver - query by cursor":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5].reversed()
 
@@ -987,11 +923,7 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
@@ -1004,7 +936,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6]
 
@@ -1036,11 +968,7 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
@@ -1053,7 +981,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[0 .. 4]
 
@@ -1131,9 +1059,7 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
     ## When
@@ -1149,7 +1075,7 @@ suite "Queue driver - query by time range":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[2 .. 4]
 
@@ -1182,17 +1108,13 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(45, timeOrigin)),
       endTime = some(ts(15, timeOrigin)),
       maxPageSize = 2,
@@ -1202,7 +1124,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 
@@ -1234,17 +1156,13 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = await driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = true,
@@ -1253,7 +1171,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6]
 
@@ -1288,17 +1206,13 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = waitFor driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
       ascendingOrder = false,
@@ -1307,7 +1221,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[2 .. 6].reversed()
 
@@ -1343,19 +1257,15 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = await driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[3])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[3])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1365,7 +1275,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[4 .. 9]
 
@@ -1401,19 +1311,15 @@ suite "Queue driver - query by time range":
 
     for msg in messages:
       let retFut = await driver.put(
-        DefaultPubsubTopic,
-        msg,
-        computeDigest(msg),
-        computeMessageHash(DefaultPubsubTopic, msg),
-        msg.timestamp,
+        computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
       )
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[6])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[6])
 
     ## When
     let res = await driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       cursor = some(cursor),
       startTime = some(ts(15, timeOrigin)),
       maxPageSize = 10,
@@ -1423,7 +1329,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expected[3 .. 4].reversed()
 
@@ -1492,16 +1398,14 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(DefaultPubsubTopic, expected[1][1])
+    let cursor = computeMessageHash(DefaultPubsubTopic, expected[1][1])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(0, timeOrigin)),
@@ -1514,7 +1418,7 @@ suite "Queue driver - query by time range":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[3 .. 4]
 
@@ -1582,16 +1486,14 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(expected[7][0], expected[7][1])
+    let cursor = computeMessageHash(expected[7][0], expected[7][1])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1604,7 +1506,7 @@ suite "Queue driver - query by time range":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5].reversed()
 
@@ -1673,16 +1575,14 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeMessageHash(expected[1][0], expected[1][1])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1696,7 +1596,7 @@ suite "Queue driver - query by time range":
       res.isOk()
 
     let expectedMessages = expected.mapIt(it[1])
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages == expectedMessages[4 .. 5]
 
@@ -1765,16 +1665,14 @@ suite "Queue driver - query by time range":
 
     for row in messages:
       let (topic, msg) = row
-      let retFut = waitFor driver.put(
-        topic, msg, computeDigest(msg), computeMessageHash(topic, msg), msg.timestamp
-      )
+      let retFut = waitFor driver.put(computeMessageHash(topic, msg), topic, msg)
       require retFut.isOk()
 
-    let cursor = computeTestCursor(expected[1][0], expected[1][1])
+    let cursor = computeMessageHash(expected[1][0], expected[1][1])
 
     ## When
     let res = waitFor driver.getMessages(
-      contentTopic = @[contentTopic],
+      contentTopics = @[contentTopic],
       pubsubTopic = some(pubsubTopic),
       cursor = some(cursor),
       startTime = some(ts(35, timeOrigin)),
@@ -1787,7 +1685,7 @@ suite "Queue driver - query by time range":
     check:
       res.isOk()
 
-    let filteredMessages = res.tryGet().mapIt(it[1])
+    let filteredMessages = res.tryGet().mapIt(it[2])
     check:
       filteredMessages.len == 0
 

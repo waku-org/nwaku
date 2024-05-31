@@ -1,21 +1,13 @@
 {.used.}
 
-import
-  std/[options, sequtils],
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto
+import std/[options, sequtils], testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  ../../../waku/common/databases/db_sqlite,
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_archive,
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore
 
 suite "Waku Archive - message handling":
@@ -57,22 +49,6 @@ suite "Waku Archive - message handling":
     ## Then
     check:
       (waitFor driver.getMessagesCount()).tryGet() == 2
-
-  test "it should archive a message with no sender timestamp":
-    ## Setup
-    let driver = newSqliteArchiveDriver()
-    let archive = newWakuArchive(driver)
-
-    ## Given
-    let invalidSenderTime = 0
-    let message = fakeWakuMessage(ts = invalidSenderTime)
-
-    ## When
-    waitFor archive.handleMessage(DefaultPubSubTopic, message)
-
-    ## Then
-    check:
-      (waitFor driver.getMessagesCount()).tryGet() == 1
 
   test "it should not archive a message with a sender time variance greater than max time variance (future)":
     ## Setup
@@ -158,11 +134,7 @@ procSuite "Waku Archive - find messages":
     for msg in msgListA:
       require (
         waitFor driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 
@@ -392,8 +364,8 @@ procSuite "Waku Archive - find messages":
 
     ## Then
     check:
-      cursors[0] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[3]))
-      cursors[1] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[7]))
+      cursors[0] == some(computeMessageHash(DefaultPubsubTopic, msgListA[3]))
+      cursors[1] == some(computeMessageHash(DefaultPubsubTopic, msgListA[7]))
       cursors[2] == none(ArchiveCursor)
 
     check:
@@ -426,8 +398,8 @@ procSuite "Waku Archive - find messages":
 
     ## Then
     check:
-      cursors[0] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[6]))
-      cursors[1] == some(computeArchiveCursor(DefaultPubsubTopic, msgListA[2]))
+      cursors[0] == some(computeMessageHash(DefaultPubsubTopic, msgListA[6]))
+      cursors[1] == some(computeMessageHash(DefaultPubsubTopic, msgListA[2]))
       cursors[2] == none(ArchiveCursor)
 
     check:
@@ -458,11 +430,7 @@ procSuite "Waku Archive - find messages":
     for msg in msgList:
       require (
         waitFor driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
 

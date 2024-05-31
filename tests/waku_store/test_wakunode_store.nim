@@ -17,10 +17,8 @@ import
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_core/subscription,
   ../../../waku/node/peer_manager,
   ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
   ../../../waku/waku_filter_v2,
   ../../../waku/waku_filter_v2/client,
   ../../../waku/waku_store,
@@ -60,12 +58,7 @@ procSuite "WakuNode - Store":
 
     for kv in kvs:
       let message = kv.message.get()
-      let msg_digest = computeDigest(message)
-      require (
-        waitFor driver.put(
-          DefaultPubsubTopic, message, msg_digest, kv.messageHash, message.timestamp
-        )
-      ).isOk()
+      require (waitFor driver.put(kv.messageHash, DefaultPubsubTopic, message)).isOk()
 
     driver
 
