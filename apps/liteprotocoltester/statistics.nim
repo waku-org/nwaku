@@ -17,6 +17,7 @@ type
     prevArrivedAt: Moment
     lostIndices: HashSet[uint32]
     seenIndices: HashSet[uint32]
+    maxIndex: uint32
 
   Statistics* = object
     allMessageCount*: uint32
@@ -42,6 +43,7 @@ func `$`*(a: Duration): string {.inline.} =
 
 proc init*(T: type Statistics, expectedMessageCount: int = 1000): T =
   result.helper.prevIndex = 0
+  result.helper.maxIndex = 0
   result.helper.seenIndices.init(expectedMessageCount)
   result.minLatency = nanos(0)
   result.maxLatency = nanos(0)
@@ -100,6 +102,7 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage) =
     warn "Negative latency detected",
       index = msg.index, expected = expectedDelay, actual = delaySincePrevArrived
 
+  self.helper.maxIndex = max(self.helper.maxIndex, msg.index)
   self.helper.prevIndex = msg.index
   self.helper.prevArrivedAt = currentArrivedAt
   inc(self.receivedMessages)
@@ -114,7 +117,7 @@ proc addMessage*(
     self[peerId].addMessage(msg)
 
 proc lossCount*(self: Statistics): uint32 =
-  self.helper.prevIndex - self.receivedMessages
+  self.helper.maxIndex - self.receivedMessages
 
 proc averageLatency*(self: Statistics): Duration =
   if self.receivedMessages == 0:
@@ -125,7 +128,7 @@ proc echoStat*(self: Statistics) =
   let printable = catch:
     """*-----------------------------------------------------------------------------*
 |  Expected  |  Received  |    Loss    |  Misorder  |    Late    |  Duplicate |
-|{self.helper.prevIndex:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
+|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
 *-----------------------------------------------------------------------------*
 | Latency stat:                                                               |
 |    avg latency: {$self.averageLatency():<60}|
@@ -140,7 +143,7 @@ proc echoStat*(self: Statistics) =
 
 proc jsonStat*(self: Statistics): string =
   let json = catch:
-    """{{"expected":{self.helper.prevIndex},
+    """{{"expected":{self.helper.maxIndex},
          "received": {self.receivedMessages},
          "loss": {self.lossCount()},
          "misorder": {self.misorderCount},
