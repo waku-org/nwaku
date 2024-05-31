@@ -114,7 +114,7 @@ proc addMessage*(
     self[peerId].addMessage(msg)
 
 proc lossCount*(self: Statistics): uint32 =
-  self.allMessageCount - self.receivedMessages
+  self.helper.prevIndex + 1 - self.receivedMessages
 
 proc averageLatency*(self: Statistics): Duration =
   if self.receivedMessages == 0:
@@ -124,8 +124,8 @@ proc averageLatency*(self: Statistics): Duration =
 proc echoStat*(self: Statistics) =
   let printable = catch:
     """*-----------------------------------------------------------------------------*
-|  Expected  |  Reveived  |    Loss    |  Misorder  |    Late    |  Duplicate |
-|{self.allMessageCount:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
+|  Expected  |  Received  |    Loss    |  Misorder  |    Late    |  Duplicate |
+|{self.helper.prevIndex+1:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
 *-----------------------------------------------------------------------------*
 | Latency stat:                                                               |
 |    avg latency: {$self.averageLatency():<60}|
@@ -140,7 +140,7 @@ proc echoStat*(self: Statistics) =
 
 proc jsonStat*(self: Statistics): string =
   let json = catch:
-    """{{"expected":{self.allMessageCount},
+    """{{"expected":{self.helper.prevIndex+1},
          "received": {self.receivedMessages},
          "loss": {self.lossCount()},
          "misorder": {self.misorderCount},
