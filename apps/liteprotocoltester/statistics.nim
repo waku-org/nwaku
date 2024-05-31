@@ -127,8 +127,8 @@ proc averageLatency*(self: Statistics): Duration =
 proc echoStat*(self: Statistics) =
   let printable = catch:
     """*-----------------------------------------------------------------------------*
-|  Expected  |  Received  |    Loss    |  Misorder  |    Late    |  Duplicate |
-|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
+|  Expected  |  Received  |   Target   |    Loss    |  Misorder  |    Late    |  Duplicate |
+|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.allMessageCount:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
 *-----------------------------------------------------------------------------*
 | Latency stat:                                                               |
 |    avg latency: {$self.averageLatency():<60}|
