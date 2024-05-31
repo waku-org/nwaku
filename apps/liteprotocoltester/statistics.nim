@@ -145,6 +145,7 @@ proc jsonStat*(self: Statistics): string =
   let json = catch:
     """{{"expected":{self.helper.maxIndex},
          "received": {self.receivedMessages},
+         "target": {self.allMessageCount},
          "loss": {self.lossCount()},
          "misorder": {self.misorderCount},
          "late": {self.lateCount},
