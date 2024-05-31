@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[tempfiles, strutils],
+  std/[tempfiles, strutils, options],
   stew/shims/net as stewNet,
   stew/results,
   testutils/unittests,
@@ -70,6 +70,9 @@ proc addMembershipCredentialsToKeystore(
     appInfo = appInfo,
   )
 
+proc fatalErrorVoidHandler(errMsg: string) {.gcsafe, raises: [].} =
+  discard
+
 proc getWakuRlnConfigOnChain*(
     keystorePath: string,
     appInfo: AppInfo,
@@ -77,22 +80,19 @@ proc getWakuRlnConfigOnChain*(
     password: string,
     credIndex: uint,
     fatalErrorHandler: Option[OnFatalErrorHandler] = none(OnFatalErrorHandler),
+    ethClientAddress: Option[string] = none(string),
 ): WakuRlnConfig =
-  proc voidHandler(errMsg: string) {.gcsafe, closure, raises: [].} =
-    discard
-
-  let handler = if fatalErrorHandler.isSome: fatalErrorHandler.get else: voidHandler
-
   return WakuRlnConfig(
     rlnRelayDynamic: true,
     rlnRelayCredIndex: some(credIndex),
     rlnRelayEthContractAddress: rlnRelayEthContractAddress,
-    rlnRelayEthClientAddress: EthClient,
-    # rlnRelayCredPath: keystorePath,
-    # rlnRelayCredPassword: password,
+    rlnRelayEthClientAddress: ethClientAddress.get(EthClient),
     rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
-    onFatalErrorAction: handler,
+    onFatalErrorAction: fatalErrorHandler.get(fatalErrorVoidHandler),
+      # If these are used, initialisation fails with "failed to mount WakuRlnRelay: could not initialize the group manager: the commitment does not have a membership"
+      # rlnRelayCredPath: keystorePath, 
+      # rlnRelayCredPassword: password,
   )
 
 proc setupRelayWithOnChainRln*(
@@ -607,7 +607,7 @@ suite "Waku RlnRelay - End to End - OnChain":
 
     asyncTest "Not enough gas":
       let
-        onChainGroupManager = await setup(0.u256)
+        onChainGroupManager = await setup(ethAmount = 0.u256)
         contractAddress = onChainGroupManager.ethContractAddress
         keystorePath =
           genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")

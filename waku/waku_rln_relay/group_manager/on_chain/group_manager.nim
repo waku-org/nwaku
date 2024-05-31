@@ -535,7 +535,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     uint(await ethRpc.provider.eth_chainId())
 
   # Set the chain id
-<<<<<<< HEAD
   if g.chainId == 0:
     warn "Chain ID not set in config, using RPC Provider's Chain ID",
       providerChainId = fetchedChainId
@@ -547,12 +546,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     )
 
   g.chainId = fetchedChainId
-=======
-  var chainId: Quantity
-  g.retryWrapper(chainId, "Failed to get the chain id"):
-    await ethRpc.provider.eth_chainId()
-  g.chainId = some(chainId)
->>>>>>> 524fb392 (wip)
 
   if g.ethPrivateKey.isSome():
     let pk = g.ethPrivateKey.get()
