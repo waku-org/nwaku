@@ -348,11 +348,6 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
     discard
 
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
-  # To prevent metadata protocol from breaking prev nodes, by now we only
-  # disconnect if the clusterid is specified.
-  if pm.wakuMetadata.clusterId == 0:
-    return
-
   let res = catch:
     await pm.switch.dial(peerId, WakuMetadataCodec)
 
