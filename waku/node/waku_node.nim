@@ -29,7 +29,8 @@ import
   ../waku_core,
   ../waku_core/topics/sharding,
   ../waku_relay,
-  ../waku_archive,
+  ../waku_archive as waku_archive,
+  ../waku_archive_legacy as waku_archive_legacy,
   ../waku_store_legacy/protocol as legacy_store,
   ../waku_store_legacy/client as legacy_store_client,
   ../waku_store_legacy/common as legacy_store_common,
@@ -89,7 +90,8 @@ type
     peerManager*: PeerManager
     switch*: Switch
     wakuRelay*: WakuRelay
-    wakuArchive*: WakuArchive
+    wakuArchive*: waku_archive.WakuArchive
+    wakuLegacyArchive*: waku_archive_legacy.WakuArchive
     wakuLegacyStore*: legacy_store.WakuStore
     wakuLegacyStoreClient*: legacy_store_client.WakuStoreClient
     wakuStore*: store.WakuStore
@@ -673,9 +675,27 @@ proc filterUnsubscribeAll*(
 
 ## Waku archive
 proc mountArchive*(
-    node: WakuNode, driver: ArchiveDriver, retentionPolicy = none(RetentionPolicy)
+    node: WakuNode,
+    driver: waku_archive.ArchiveDriver,
+    retentionPolicy = none(waku_archive.RetentionPolicy),
 ): Result[void, string] =
-  node.wakuArchive = WakuArchive.new(driver = driver, retentionPolicy = retentionPolicy).valueOr:
+  node.wakuArchive = waku_archive.WakuArchive.new(
+    driver = driver, retentionPolicy = retentionPolicy
+  ).valueOr:
+    return err("error in mountArchive: " & error)
+
+  node.wakuArchive.start()
+
+  return ok()
+
+proc mountLegacyArchive*(
+    node: WakuNode,
+    driver: waku_archive_legacy.ArchiveDriver,
+    retentionPolicy = none(waku_archive_legacy.RetentionPolicy),
+): Result[void, string] =
+  node.wakuLegacyArchive = waku_archive_legacy.WakuArchive.new(
+    driver = driver, retentionPolicy = retentionPolicy
+  ).valueOr:
     return err("error in mountArchive: " & error)
 
   node.wakuArchive.start()
@@ -685,13 +705,15 @@ proc mountArchive*(
 ## Legacy Waku Store
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toArchiveQuery(request: legacy_store_common.HistoryQuery): ArchiveQuery =
-  ArchiveQuery(
+proc toArchiveQuery(
+    request: legacy_store_common.HistoryQuery
+): waku_archive_legacy.ArchiveQuery =
+  waku_archive_legacy.ArchiveQuery(
     pubsubTopic: request.pubsubTopic,
     contentTopics: request.contentTopics,
     cursor: request.cursor.map(
-      proc(cursor: HistoryCursor): ArchiveCursor =
-        ArchiveCursor(
+      proc(cursor: HistoryCursor): waku_archive_legacy.ArchiveCursor =
+        waku_archive_legacy.ArchiveCursor(
           pubsubTopic: cursor.pubsubTopic,
           senderTime: cursor.senderTime,
           storeTime: cursor.storeTime,
@@ -705,11 +727,14 @@ proc toArchiveQuery(request: legacy_store_common.HistoryQuery): ArchiveQuery =
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
-proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
+proc toHistoryResult*(
+    res: waku_archive_legacy.ArchiveResult
+): legacy_store_common.HistoryResult =
   if res.isErr():
     let error = res.error
     case res.error.kind
-    of ArchiveErrorKind.DRIVER_ERROR, ArchiveErrorKind.INVALID_QUERY:
+    of waku_archive_legacy.ArchiveErrorKind.DRIVER_ERROR,
+        waku_archive_legacy.ArchiveErrorKind.INVALID_QUERY:
       err(HistoryError(kind: HistoryErrorKind.BAD_REQUEST, cause: res.error.cause))
     else:
       err(HistoryError(kind: HistoryErrorKind.UNKNOWN))
@@ -719,7 +744,7 @@ proc toHistoryResult*(res: ArchiveResult): legacy_store_common.HistoryResult =
       HistoryResponse(
         messages: response.messages,
         cursor: response.cursor.map(
-          proc(cursor: ArchiveCursor): HistoryCursor =
+          proc(cursor: waku_archive_legacy.ArchiveCursor): HistoryCursor =
             HistoryCursor(
               pubsubTopic: cursor.pubsubTopic,
               senderTime: cursor.senderTime,
@@ -735,7 +760,7 @@ proc mountLegacyStore*(
 ) {.async.} =
   info "mounting waku legacy store protocol"
 
-  if node.wakuArchive.isNil():
+  if node.wakuLegacyArchive.isNil():
     error "failed to mount waku legacy store protocol", error = "waku archive not set"
     return
 
@@ -748,7 +773,7 @@ proc mountLegacyStore*(
         return err(error)
 
     let request = request.toArchiveQuery()
-    let response = await node.wakuArchive.findMessagesV2(request)
+    let response = await node.wakuLegacyArchive.findMessages(request)
     return response.toHistoryResult()
 
   node.wakuLegacyStore = legacy_store.WakuStore.new(
@@ -829,8 +854,8 @@ when defined(waku_exp_store_resume):
 
 ## Waku Store
 
-proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
-  var query = ArchiveQuery()
+proc toArchiveQuery(request: StoreQueryRequest): waku_archive.ArchiveQuery =
+  var query = waku_archive.ArchiveQuery()
 
   query.includeData = request.includeData
   query.pubsubTopic = request.pubsubTopic
@@ -846,7 +871,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
 
   return query
 
-proc toStoreResult(res: ArchiveResult): StoreQueryResult =
+proc toStoreResult(res: waku_archive.ArchiveResult): StoreQueryResult =
   let response = res.valueOr:
     return err(StoreError.new(300, "archive error: " & $error))
 
