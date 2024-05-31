@@ -72,6 +72,16 @@ proc migrate*(
   # Load migration scripts
   let scripts = pg_migration_manager.getMigrationScripts(currentVersion, targetVersion)
 
+  # Lock the db
+  (await driver.acquireDatabaseLock()).isOkOr:
+    error "failed to acquire lock", error = error
+    return err("failed to lock the db")
+
+  defer:
+    (await driver.releaseDatabaseLock()).isOkOr:
+      error "failed to release lock", error = error
+      return err("failed to unlock the db.")
+
   # Run the migration scripts
   for script in scripts:
     for statement in script.breakIntoStatements():
