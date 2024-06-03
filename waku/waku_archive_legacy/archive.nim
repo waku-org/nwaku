@@ -116,6 +116,7 @@ proc handleMessage*(
   (await self.driver.put(pubsubTopic, msg, msgDigest, msgHash, msgTimestamp)).isOkOr:
     waku_legacy_archive_errors.inc(labelValues = [insertFailure])
     error "failed to insert message", error = error
+    return
 
   debug "message archived",
     msg_hash = msgHashHex,
@@ -178,8 +179,6 @@ proc findMessages*(
   ## Messages
   let pageSize = min(rows.len, int(maxPageSize))
 
-  #TODO once store v2 is removed, unzip instead of 2x map
-  #TODO once store v2 is removed, update driver to not return messages when not needed
   if query.includeData:
     topics = rows[0 ..< pageSize].mapIt(it[0])
     messages = rows[0 ..< pageSize].mapIt(it[1])
@@ -192,10 +191,8 @@ proc findMessages*(
     ## The cursor is built from the last message INCLUDED in the response
     ## (i.e. the second last message in the rows list)
 
-    #TODO Once Store v2 is removed keep only message and hash
     let (pubsubTopic, message, digest, storeTimestamp, hash) = rows[^2]
 
-    #TODO Once Store v2 is removed, the cursor becomes the hash of the last message
     cursor = some(
       ArchiveCursor(
         digest: MessageDigest.fromBytes(digest),
