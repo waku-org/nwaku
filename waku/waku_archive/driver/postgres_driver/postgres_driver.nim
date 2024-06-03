@@ -34,88 +34,80 @@ const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
-const SelectNoCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          storedAt >= $4 AND
-          storedAt <= $5
-    ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
+const SelectClause = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
+const SelectNoCursorAscStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        storedAt >= $4 AND
+        storedAt <= $5
+  ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
-const SelectNoCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          storedAt >= $4 AND
-          storedAt <= $5
-    ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
+const SelectNoCursorDescStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        storedAt >= $4 AND
+        storedAt <= $5
+  ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
-const SelectWithCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (storedAt, messageHash) < ($4,$5) AND
-          storedAt >= $6 AND
-          storedAt <= $7
-    ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
+const SelectWithCursorDescStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        (storedAt, messageHash) < ($4,$5) AND
+        storedAt >= $6 AND
+        storedAt <= $7
+  ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
-const SelectWithCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (storedAt, messageHash) > ($4,$5) AND
-          storedAt >= $6 AND
-          storedAt <= $7
-    ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
+const SelectWithCursorAscStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        (storedAt, messageHash) > ($4,$5) AND
+        storedAt >= $6 AND
+        storedAt <= $7
+  ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
 
 const SelectMessageByHashName = "SelectMessageByHash"
-const SelectMessageByHashDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages WHERE messageHash = $1"""
+const SelectMessageByHashDef = SelectClause & """WHERE messageHash = $1"""
 
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
-const SelectNoCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          storedAt >= $3 AND
-          storedAt <= $4
-    ORDER BY storedAt ASC LIMIT $5;"""
+const SelectNoCursorV2AscStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        storedAt >= $3 AND
+        storedAt <= $4
+  ORDER BY storedAt ASC LIMIT $5;"""
 
 const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
-const SelectNoCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          storedAt >= $3 AND
-          storedAt <= $4
-    ORDER BY storedAt DESC LIMIT $5;"""
+const SelectNoCursorV2DescStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        storedAt >= $3 AND
+        storedAt <= $4
+  ORDER BY storedAt DESC LIMIT $5;"""
 
 const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
-const SelectWithCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          (storedAt, id) < ($3,$4) AND
-          storedAt >= $5 AND
-          storedAt <= $6
-    ORDER BY storedAt DESC LIMIT $7;"""
+const SelectWithCursorV2DescStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        (storedAt, id) < ($3,$4) AND
+        storedAt >= $5 AND
+        storedAt <= $6
+  ORDER BY storedAt DESC LIMIT $7;"""
 
 const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
-const SelectWithCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          (storedAt, id) > ($3,$4) AND
-          storedAt >= $5 AND
-          storedAt <= $6
-    ORDER BY storedAt ASC LIMIT $7;"""
+const SelectWithCursorV2AscStmtDef = SelectClause & """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        (storedAt, id) > ($3,$4) AND
+        storedAt >= $5 AND
+        storedAt <= $6
+  ORDER BY storedAt ASC LIMIT $7;"""
 
 const DefaultMaxNumConns = 50
 
