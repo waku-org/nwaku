@@ -275,7 +275,7 @@ proc subscribe*(
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -310,7 +310,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
