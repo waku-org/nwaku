@@ -14,14 +14,11 @@ proc unsafeAppendRLNProof*(
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
 
-  when defined(rln_v2):
-    # we do not fetch a nonce from the nonce manager,
-    # instead we use 0 as the nonce
-    let proof = rlnPeer.groupManager.generateProof(input, epoch, 0).valueOr:
-      return err("could not generate rln-v2 proof: " & $error)
-  else:
-    let proof = rlnPeer.groupManager.generateProof(input, epoch).valueOr:
-      return err("could not generate rln proof: " & $error)
+  # we do not fetch a nonce from the nonce manager,
+  # instead we use 0 as the nonce
+  let proof = rlnPeer.groupManager.generateProof(input, epoch, 0).valueOr:
+    return err("could not generate rln-v2 proof: " & $error)
+
 
   msg.proof = proof.encode().buffer
   return ok()

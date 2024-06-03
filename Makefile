@@ -139,11 +139,7 @@ clean: | clean-libbacktrace
 .PHONY: librln shouldUseRLNV2
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-ifeq ($(RLN_V2),true)
 LIBRLN_VERSION := v0.4.4
-else
-LIBRLN_VERSION := v0.3.7
-endif
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -155,12 +151,7 @@ $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
-shouldUseRLNV2:
-ifeq ($(RLN_V2),true)
-	$(eval NIM_PARAMS += -d:rln_v2)
-endif
-
-librln: | $(LIBRLN_FILE) shouldUseRLNV2
+librln: | $(LIBRLN_FILE)
 	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
 
 clean-librln:

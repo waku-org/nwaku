@@ -27,14 +27,13 @@ const
 
 const DefaultRlnTreePath* = "rln_tree.db"
 
-when defined(rln_v2):
-  const
-    # pre-processed "rln/waku-rln-relay/v2.0.0" to array[32, byte]
-    DefaultRlnIdentifier*: RlnIdentifier = [
-      114, 108, 110, 47, 119, 97, 107, 117, 45, 114, 108, 110, 45, 114, 101, 108, 97,
-      121, 47, 118, 50, 46, 48, 46, 48, 0, 0, 0, 0, 0, 0, 0,
-    ]
-    DefaultUserMessageLimit* = UserMessageLimit(20)
+const
+  # pre-processed "rln/waku-rln-relay/v2.0.0" to array[32, byte]
+  DefaultRlnIdentifier*: RlnIdentifier = [
+    114, 108, 110, 47, 119, 97, 107, 117, 45, 114, 108, 110, 45, 114, 101, 108, 97,
+    121, 47, 118, 50, 46, 48, 46, 48, 0, 0, 0, 0, 0, 0, 0,
+  ]
+  DefaultUserMessageLimit* = UserMessageLimit(20)
 
 # temporary variables to test waku-rln-relay performance in the static group mode
 const
@@ -60048,15 +60047,11 @@ const StaticGroupKeys* =
   ]
 
 # StaticGroupMerkleRoot is the root of the Merkle tree constructed from the StaticGroupKeys above
-# only identity commitments are used for the Merkle tree construction
 # rln-v2: rate commitments are used for the Merkle tree construction, defaulting the UserMessageLimit to 20
 # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
-when defined(rln_v2):
-  const StaticGroupMerkleRoot* =
-    "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
-else:
-  const StaticGroupMerkleRoot* =
-    "1e534adab58f7d300aaeecae57a25e0a0b18c368a09f720280da92b288950901"
+const StaticGroupMerkleRoot* =
+  "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
+
 
 const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in seconds
 
