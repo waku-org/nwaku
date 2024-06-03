@@ -133,9 +133,7 @@ proc getPage(
     if predicate.isNil() or predicate(key, data):
       numberOfItems += 1
 
-      outSeq.add(
-        (key.pubsubTopic, data, @(key.digest.data), key.receiverTime, key.hash)
-      )
+      outSeq.add((key.hash, key.topic, data))
 
     currentEntry =
       if forward:
@@ -227,19 +225,11 @@ proc add*(
 
 method put*(
     driver: QueueDriver,
+    messageHash: WakuMessageHash,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
-    digest: MessageDigest,
-    messageHash: WakuMessageHash,
-    receivedTime: Timestamp,
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  let index = Index(
-    pubsubTopic: pubsubTopic,
-    senderTime: message.timestamp,
-    receiverTime: receivedTime,
-    digest: digest,
-    hash: messageHash,
-  )
+  let index = Index(time: message.timestamp, hash: messageHash, topic: pubsubTopic)
 
   return driver.add(index, message)
 
@@ -256,8 +246,8 @@ method existsTable*(
 
 method getMessages*(
     driver: QueueDriver,
-    includeData = false,
-    contentTopic: seq[ContentTopic] = @[],
+    includeData = true,
+    contentTopics: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
     startTime = none(Timestamp),
@@ -266,14 +256,17 @@ method getMessages*(
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  let cursor = cursor.map(toIndex)
+  var index = none(Index)
+
+  if cursor.isSome():
+    index = some(Index(hash: cursor.get()))
 
   let matchesQuery: QueryFilterMatcher =
     func (index: Index, msg: WakuMessage): bool =
-      if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
+      if pubsubTopic.isSome() and index.topic != pubsubTopic.get():
         return false
 
-      if contentTopic.len > 0 and msg.contentTopic notin contentTopic:
+      if contentTopics.len > 0 and msg.contentTopic notin contentTopics:
         return false
 
       if startTime.isSome() and msg.timestamp < startTime.get():
@@ -287,11 +280,14 @@ method getMessages*(
 
       return true
 
-  var pageRes: QueueDriverGetPageResult
-  try:
-    pageRes = driver.getPage(maxPageSize, ascendingOrder, cursor, matchesQuery)
-  except CatchableError, Exception:
-    return err(getCurrentExceptionMsg())
+  let catchable = catch:
+    driver.getPage(maxPageSize, ascendingOrder, index, matchesQuery)
+
+  let pageRes: QueueDriverGetPageResult =
+    if catchable.isErr():
+      return err(catchable.error.msg)
+    else:
+      catchable.get()
 
   if pageRes.isErr():
     return err($pageRes.error)
@@ -328,7 +324,7 @@ method getOldestMessageTimestamp*(
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.first().map(
       proc(index: Index): Timestamp =
-        index.receiverTime
+        index.time
     )
 
 method getNewestMessageTimestamp*(
@@ -336,7 +332,7 @@ method getNewestMessageTimestamp*(
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
   return driver.last().map(
       proc(index: Index): Timestamp =
-        index.receiverTime
+        index.time
     )
 
 method deleteMessagesOlderThanTimestamp*(
