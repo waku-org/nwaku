@@ -70,16 +70,11 @@ method register*(
 
 
 method registerBatch*(
-    g: StaticGroupManager, rateCommitments: seq[RateCommitment]
+    g: StaticGroupManager, rateCommitments: seq[RawRateCommitment]
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-  let leavesRes = rateCommitments.toLeaves()
-  if not leavesRes.isOk():
-    raise newException(ValueError, "Failed to convert rate commitments to leaves")
-  let leaves = cast[seq[seq[byte]]](leavesRes.get())
-
-  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, leaves)
+  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, rateCommitments)
   if not membersInserted:
     raise newException(ValueError, "Failed to insert members into the merkle tree")
 
@@ -112,7 +107,8 @@ method withdraw*(
       let index = MembershipIndex(i)
       let rateCommitment = RateCommitment(
         idCommitment: idCommitment, userMessageLimit: g.userMessageLimit.get()
-      )
+      ).toLeaf().valueOr:
+        raise newException(ValueError, "Failed to parse rateCommitment")
       let memberRemoved = g.rlnInstance.removeMember(index)
       if not memberRemoved:
         raise newException(ValueError, "Failed to remove member from the merkle tree")

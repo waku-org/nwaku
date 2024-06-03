@@ -15,7 +15,7 @@ export options, chronos, results, protocol_types, protocol_metrics, deques
 
 type Membership* = object
   index*: MembershipIndex
-  rateCommitment*: RateCommitment
+  rateCommitment*: RawRateCommitment
 
 type OnRegisterCallback* = proc(registrations: seq[Membership]): Future[void] {.gcsafe.}
 type OnWithdrawCallback* = proc(withdrawals: seq[Membership]): Future[void] {.gcsafe.}
@@ -73,7 +73,7 @@ method register*(
 # The user may or may not have the identity secret to these commitments
 # It should be used when detecting a batch of new members in the group, and syncing the group state
 method registerBatch*(
-    g: GroupManager, rateCommitments: seq[RateCommitment]
+    g: GroupManager, rateCommitments: seq[RawRateCommitment]
 ): Future[void] {.base, async: (raises: [Exception]).} =
   raise newException(
     CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet"
