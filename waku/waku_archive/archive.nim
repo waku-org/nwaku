@@ -96,14 +96,14 @@ proc handleMessage*(
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     trace "failed to insert message",
-      hash = msgHash.to0xHex(),
+      hash_hash = msgHash.to0xHex(),
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
 
   trace "message archived",
-    hash = msgHash.to0xHex(),
+    hash_hash = msgHash.to0xHex(),
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     timestamp = msg.timestamp
@@ -115,9 +115,6 @@ proc findMessages*(
     self: WakuArchive, query: ArchiveQuery
 ): Future[ArchiveResult] {.async, gcsafe.} =
   ## Search the archive to return a single page of messages matching the query criteria
-
-  if query.contentTopics.len > 10:
-    return err(ArchiveError.invalidQuery("too many content topics"))
 
   if query.cursor.isSome():
     let cursor = query.cursor.get()
