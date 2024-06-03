@@ -319,7 +319,7 @@ type WakuNodeConf* = object
 
     legacyStore* {.
       desc: "Enable/disable waku store legacy mode",
-      defaultValue: false,
+      defaultValue: true,
       name: "legacy-store"
     .}: bool
 
