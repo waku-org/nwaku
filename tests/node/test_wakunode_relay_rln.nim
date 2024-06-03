@@ -687,6 +687,68 @@ suite "Waku RlnRelay - End to End - OnChain":
         # Then the message is not relayed
         assert e.msg.endsWith("identity credentials are not set")
 
+  suite "RLN Relay Resilience, Security and Compatibility":
+    asyncTest "Key Management and Integrity":
+      let
+        onChainGroupManager = await setup()
+        contractAddress = onChainGroupManager.ethContractAddress
+        keystorePath =
+          genTempPath("rln_keystore", "test_wakunode_relay_rln-valid_contract")
+        appInfo = RlnAppInfo
+        password = "1234"
+        rlnInstance = onChainGroupManager.rlnInstance
+      assertResultOk(createAppKeystore(keystorePath, appInfo))
+
+      # Generate configs before registering the credentials. Otherwise the file gets cleared up.
+      let
+        wakuRlnConfig1 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 0)
+        wakuRlnConfig2 =
+          getWakuRlnConfigOnChain(keystorePath, appInfo, contractAddress, password, 1)
+
+      # Generate credentials
+      let
+        idCredential1 = rlnInstance.membershipKeyGen().get()
+        idCredential2 = rlnInstance.membershipKeyGen().get()
+
+      discard await onChainGroupManager.init()
+      try:
+        # Register credentials in the chain
+        waitFor onChainGroupManager.register(idCredential1)
+        waitFor onChainGroupManager.register(idCredential2)
+      except Exception:
+        assert false, "Failed to register credentials: " & getCurrentExceptionMsg()
+
+      # Add credentials to keystore
+      let
+        persistRes1 = addMembershipCredentialsToKeystore(
+          idCredential1, keystorePath, appInfo, contractAddress, password, 0
+        )
+        persistRes2 = addMembershipCredentialsToKeystore(
+          idCredential2, keystorePath, appInfo, contractAddress, password, 1
+        )
+
+      assertResultOk(persistRes1)
+      assertResultOk(persistRes2)
+
+      # await onChainGroupManager.stop()
+
+      let
+        registryContract = onChainGroupManager.registryContract.get()
+        storageIndex = (await registryContract.usingStorageIndex().call())
+        rlnContractAddress = await registryContract.storages(storageIndex).call()
+        contract = onChainGroupManager.ethRpc.get().contractSender(
+            RlnStorage, rlnContractAddress
+          )
+        contract2 = onChainGroupManager.rlnContract.get()
+
+      echo "###"
+      echo await (contract.memberExists(idCredential1.idCommitment.toUInt256()).call())
+      echo await (contract.memberExists(idCredential2.idCommitment.toUInt256()).call())
+      echo await (contract2.memberExists(idCredential1.idCommitment.toUInt256()).call())
+      echo await (contract2.memberExists(idCredential2.idCommitment.toUInt256()).call())
+      echo "###"
+
   ################################
   ## Terminating/removing Anvil
   ################################
