@@ -45,13 +45,13 @@ proc getShard*(s: Sharding, topic: NsContentTopic): Result[NsPubsubTopic, string
   else:
     return err("Generation > 0 are not supported yet")
 
-proc getShard*(s: Sharding, topic: ContentTopic): Result[PubsubTopic, string] =
+proc getShard*(s: Sharding, topic: ContentTopic): Result[NsPubsubTopic, string] =
   let parsedTopic = NsContentTopic.parse(topic).valueOr:
     return err($error)
 
   let shard = ?s.getShard(parsedTopic)
 
-  ok($shard)
+  ok(shard)
 
 proc parseSharding*(
     s: Sharding,

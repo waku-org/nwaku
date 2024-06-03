@@ -86,12 +86,14 @@ proc logConfig(conf: WakuNodeConf) =
 func version*(waku: Waku): string =
   waku.version
 
-proc validateShards(conf: WakuNodeConf): Result[void, string] =
+proc validateShards(conf: WakuNodeConf): Result[void, string] {.raises: [Exception].} =
   for shard in conf.shards:
     if shard >= conf.networkShards:
       return err(
         fmt"Invalid shard {shard} when network has only {conf.networkShards} shards"
       )
+    # TO DO: Handle possible exception thrown by fmt and get rid of "raises"
+
   return ok()
 
 ## Initialisation

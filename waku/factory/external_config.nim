@@ -26,13 +26,13 @@ include ../waku_core/message/default_values
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
 type ConfResult*[T] = Result[T, string]
-type ProtectedTopic* = object
-  topic*: string
-  key*: secp256k1.SkPublicKey
 
-type ShardIdx = distinct uint16
-
+#type ShardIdx = uint16
 type EthRpcUrl* = distinct string
+
+type ProtectedShard* = object
+  shard*: uint16
+  key*: secp256k1.SkPublicKey
 
 type StartUpCommand* = enum
   noCommand # default, runs waku
@@ -127,12 +127,12 @@ type WakuNodeConf* = object
     .}: bool
   of noCommand:
     ##  Application-level configuration
-    protectedTopics* {.
+    protectedShards* {.
       desc:
-        "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
-      defaultValue: newSeq[ProtectedTopic](0),
+        "Shards and its public keys to be used for message validation, shard:pubkey. Argument may be repeated.",
+      defaultValue: newSeq[ProtectedShard](0),
       name: "protected-topic"
-    .}: seq[ProtectedTopic]
+    .}: seq[ProtectedShard]
 
     ## General node config
     clusterId* {.
@@ -140,7 +140,7 @@ type WakuNodeConf* = object
         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
       defaultValue: 0,
       name: "cluster-id"
-    .}: uint32
+    .}: uint16
 
     agentString* {.
       defaultValue: "nwaku",
@@ -305,7 +305,7 @@ type WakuNodeConf* = object
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
       defaultValue: @[uint16(0)],
       name: "shard"
-    .}: seq[ShardIdx]
+    .}: seq[uint16]
 
     contentTopics* {.
       desc: "Default content topic to subscribe to. Argument may be repeated.",
@@ -631,7 +631,7 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
+proc parseCmdArg*(T: type ProtectedShard, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
     raise newException(
@@ -642,9 +642,9 @@ proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
   if publicKey.isErr:
     raise newException(ValueError, "Invalid public key")
 
-  return ProtectedTopic(topic: elements[0], key: publicKey.get())
+  return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
 
-proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
+proc completeCmdArg*(T: type ProtectedShard, val: string): seq[string] =
   return @[]
 
 proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
@@ -661,14 +661,14 @@ proc defaultColocationLimit*(): int =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
-proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
+#[ proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
   return @[]
 
 proc parseCmdArg*(T: type ShardIdx, p: string): T =
   try:
     ShardIdx(parseInt(p))
   except CatchableError:
-    raise newException(ValueError, "Invalid shard index")
+    raise newException(ValueError, "Invalid shard index") ]#
 
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]
@@ -715,36 +715,36 @@ proc readValue*(
     raise newException(SerializationError, getCurrentExceptionMsg())
 
 proc readValue*(
-    r: var TomlReader, value: var ProtectedTopic
+    r: var TomlReader, value: var ProtectedShard
 ) {.raises: [SerializationError].} =
   try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+    value = parseCmdArg(ProtectedShard, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
 proc readValue*(
-    r: var EnvvarReader, value: var ProtectedTopic
+    r: var EnvvarReader, value: var ProtectedShard
 ) {.raises: [SerializationError].} =
   try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+    value = parseCmdArg(ProtectedShard, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
-proc readValue*(
+#[ proc readValue*(
     r: var TomlReader, value: var ShardIdx
 ) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(ShardIdx, r.readValue(string))
   except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
+    raise newException(SerializationError, getCurrentExceptionMsg()) ]#
 
-proc readValue*(
+#[ proc readValue*(
     r: var EnvvarReader, value: var ShardIdx
 ) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(ShardIdx, r.readValue(string))
   except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
+    raise newException(SerializationError, getCurrentExceptionMsg()) ]#
 
 proc readValue*(
     r: var TomlReader, value: var EthRpcUrl
