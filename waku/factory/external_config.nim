@@ -298,11 +298,8 @@ type WakuNodeConf* = object
       name: "keep-alive"
     .}: bool
 
-    pubsubTopics* {.
-      desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
-      defaultValue: @[],
-      name: "pubsub-topic"
-    .}: seq[string]
+    networkShards* {.desc: "Number of shards in the network", name: "network-shards".}:
+      uint32
 
     shards* {.
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
