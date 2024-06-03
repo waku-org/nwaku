@@ -31,60 +31,36 @@ logScope:
   topics = "waku rln_relay onchain_group_manager"
 
 # using the when predicate does not work within the contract macro, hence need to dupe
-when defined(rln_v2):
-  contract(WakuRlnRegistry):
-    # this describes the storage slot to use
-    proc usingStorageIndex(): Uint16 {.pure.}
-    # this map contains the address of a given storage slot
-    proc storages(index: Uint16): Address {.pure.}
-    # this serves as an entrypoint into the rln storage contract
-    proc register(
-      storageIndex: Uint16, idCommitment: Uint256, userMessageLimit: Uint256
-    )
+contract(WakuRlnRegistry):
+  # this describes the storage slot to use
+  proc usingStorageIndex(): Uint16 {.pure.}
+  # this map contains the address of a given storage slot
+  proc storages(index: Uint16): Address {.pure.}
+  # this serves as an entrypoint into the rln storage contract
+  proc register(
+    storageIndex: Uint16, idCommitment: Uint256, userMessageLimit: Uint256
+  )
 
-    # this creates a new storage on the rln registry
-    proc newStorage(maxMessageLimit: Uint256)
-    # Initializes the implementation contract (only used in unit tests)
-    proc initialize()
+  # this creates a new storage on the rln registry
+  proc newStorage(maxMessageLimit: Uint256)
+  # Initializes the implementation contract (only used in unit tests)
+  proc initialize()
 
-  # membership contract interface
-  contract(RlnStorage):
-    # this event is raised when a new member is registered
-    proc MemberRegistered(
-      idCommitment: Uint256, userMessageLimit: Uint256, index: Uint256
-    ) {.event.}
+# membership contract interface
+contract(RlnStorage):
+  # this event is raised when a new member is registered
+  proc MemberRegistered(
+    idCommitment: Uint256, userMessageLimit: Uint256, index: Uint256
+  ) {.event.}
 
-    # this constant contains the membership deposit of the contract
-    proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
-    # this map denotes existence of a given user
-    proc memberExists(idCommitment: Uint256): Uint256 {.view.}
-    # this constant describes the next index of a new member
-    proc idCommitmentIndex(): Uint256 {.view.}
-    # this constant describes the block number this contract was deployed on
-    proc deployedBlockNumber(): Uint256 {.view.}
-else:
-  contract(WakuRlnRegistry):
-    # this describes the storage slot to use
-    proc usingStorageIndex(): Uint16 {.pure.}
-    # this map contains the address of a given storage slot
-    proc storages(index: Uint16): Address {.pure.}
-    # this serves as an entrypoint into the rln storage contract
-    proc register(storageIndex: Uint16, idCommitment: Uint256)
-    # this creates a new storage on the rln registry
-    proc newStorage()
-
-  # membership contract interface
-  contract(RlnStorage):
-    # this event is raised when a new member is registered
-    proc MemberRegistered(idCommitment: Uint256, index: Uint256) {.event.}
-    # this constant contains the membership deposit of the contract
-    proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
-    # this map denotes existence of a given user
-    proc memberExists(idCommitment: Uint256): Uint256 {.view.}
-    # this constant describes the next index of a new member
-    proc idCommitmentIndex(): Uint256 {.view.}
-    # this constant describes the block number this contract was deployed on
-    proc deployedBlockNumber(): Uint256 {.view.}
+  # this constant contains the membership deposit of the contract
+  proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
+  # this map denotes existence of a given user
+  proc memberExists(idCommitment: Uint256): Uint256 {.view.}
+  # this constant describes the next index of a new member
+  proc idCommitmentIndex(): Uint256 {.view.}
+  # this constant describes the block number this contract was deployed on
+  proc deployedBlockNumber(): Uint256 {.view.}
 
 type
   RegistryContractWithSender = Sender[WakuRlnRegistry]
@@ -157,212 +133,112 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-when defined(rln_v2):
-  method atomicBatch*(
-      g: OnchainGroupManager,
-      start: MembershipIndex,
-      rateCommitments = newSeq[RateCommitment](),
-      toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]), base.} =
-    initializedGuard(g)
+method atomicBatch*(
+    g: OnchainGroupManager,
+    start: MembershipIndex,
+    rateCommitments = newSeq[RateCommitment](),
+    toRemoveIndices = newSeq[MembershipIndex](),
+): Future[void] {.async: (raises: [Exception]), base.} =
+  initializedGuard(g)
 
-    # convert the rateCommitment struct to a leaf value
-    let leaves = rateCommitments.toLeaves().valueOr:
-      raise newException(
-        ValueError, "failed to convert rateCommitments to leaves: " & $error
-      )
+  # convert the rateCommitment struct to a leaf value
+  let leaves = rateCommitments.toLeaves().valueOr:
+    raise newException(
+      ValueError, "failed to convert rateCommitments to leaves: " & $error
+    )
 
-    waku_rln_membership_insertion_duration_seconds.nanosecondTime:
-      let operationSuccess =
-        g.rlnInstance.atomicWrite(some(start), leaves, toRemoveIndices)
-    if not operationSuccess:
-      raise newException(CatchableError, "atomic batch operation failed")
-    # TODO: when slashing is enabled, we need to track slashed members
-    waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
+  waku_rln_membership_insertion_duration_seconds.nanosecondTime:
+    let operationSuccess =
+      g.rlnInstance.atomicWrite(some(start), leaves, toRemoveIndices)
+  if not operationSuccess:
+    raise newException(CatchableError, "atomic batch operation failed")
+  # TODO: when slashing is enabled, we need to track slashed members
+  waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
 
-    if g.registerCb.isSome():
-      var membersSeq = newSeq[Membership]()
-      for i in 0 ..< rateCommitments.len:
-        var index = start + MembershipIndex(i)
-        trace "registering member", rateCommitment = rateCommitments[i], index = index
-        let member = Membership(rateCommitment: rateCommitments[i], index: index)
-        membersSeq.add(member)
-      await g.registerCb.get()(membersSeq)
+  if g.registerCb.isSome():
+    var membersSeq = newSeq[Membership]()
+    for i in 0 ..< rateCommitments.len:
+      var index = start + MembershipIndex(i)
+      trace "registering member", rateCommitment = rateCommitments[i], index = index
+      let member = Membership(rateCommitment: rateCommitments[i], index: index)
+      membersSeq.add(member)
+    await g.registerCb.get()(membersSeq)
 
-    g.validRootBuffer = g.slideRootQueue()
+  g.validRootBuffer = g.slideRootQueue()
 
-else:
-  method atomicBatch*(
-      g: OnchainGroupManager,
-      start: MembershipIndex,
-      idCommitments = newSeq[IDCommitment](),
-      toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]), base.} =
-    initializedGuard(g)
+method register*(
+    g: OnchainGroupManager, rateCommitment: RateCommitment
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-    waku_rln_membership_insertion_duration_seconds.nanosecondTime:
-      let operationSuccess =
-        g.rlnInstance.atomicWrite(some(start), idCommitments, toRemoveIndices)
-    if not operationSuccess:
-      raise newException(ValueError, "atomic batch operation failed")
-    # TODO: when slashing is enabled, we need to track slashed members
-    waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
+  await g.registerBatch(@[rateCommitment])
 
-    if g.registerCb.isSome():
-      var membersSeq = newSeq[Membership]()
-      for i in 0 ..< idCommitments.len:
-        var index = start + MembershipIndex(i)
-        trace "registering member", idCommitment = idCommitments[i], index = index
-        let member = Membership(idCommitment: idCommitments[i], index: index)
-        membersSeq.add(member)
-      await g.registerCb.get()(membersSeq)
+method registerBatch*(
+    g: OnchainGroupManager, rateCommitments: seq[RateCommitment]
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-    g.validRootBuffer = g.slideRootQueue()
+  await g.atomicBatch(g.latestIndex, rateCommitments)
+  g.latestIndex += MembershipIndex(rateCommitments.len)
 
-when defined(rln_v2):
-  method register*(
-      g: OnchainGroupManager, rateCommitment: RateCommitment
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+method register*(
+    g: OnchainGroupManager,
+    identityCredential: IdentityCredential,
+    userMessageLimit: UserMessageLimit,
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-    await g.registerBatch(@[rateCommitment])
+  let ethRpc = g.ethRpc.get()
+  let registryContract = g.registryContract.get()
+  let membershipFee = g.membershipFee.get()
 
-else:
-  method register*(
-      g: OnchainGroupManager, idCommitment: IDCommitment
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+  var gasPrice: int
+  g.retryWrapper(gasPrice, "Failed to get gas price"):
+    int(await ethRpc.provider.eth_gasPrice()) * 2
+  let idCommitment = identityCredential.idCommitment.toUInt256()
 
-    await g.registerBatch(@[idCommitment])
+  let storageIndex = g.usingStorageIndex.get()
+  debug "registering the member",
+    idCommitment = idCommitment,
+    storageIndex = storageIndex,
+    userMessageLimit = userMessageLimit
+  var txHash: TxHash
+  g.retryWrapper(txHash, "Failed to register the member"):
+    await registryContract
+    .register(storageIndex, idCommitment, u256(userMessageLimit))
+    .send(gasPrice = gasPrice)
 
-when defined(rln_v2):
-  method registerBatch*(
-      g: OnchainGroupManager, rateCommitments: seq[RateCommitment]
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+  # wait for the transaction to be mined
+  var tsReceipt: ReceiptObject
+  g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
+    await ethRpc.getMinedTransactionReceipt(txHash)
+  debug "registration transaction mined", txHash = txHash
+  g.registrationTxHash = some(txHash)
+  # the receipt topic holds the hash of signature of the raised events
+  # TODO: make this robust. search within the event list for the event
+  let firstTopic = tsReceipt.logs[0].topics[0]
+  # the hash of the signature of MemberRegistered(uint256,uint256,uint256) event is equal to the following hex value
+  if firstTopic !=
+      cast[FixedBytes[32]](keccak256.digest(
+        "MemberRegistered(uint256,uint256,uint256)"
+      ).data):
+    raise newException(ValueError, "unexpected event signature")
 
-    await g.atomicBatch(g.latestIndex, rateCommitments)
-    g.latestIndex += MembershipIndex(rateCommitments.len)
+  # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
+  # data = pk encoded as 256 bits || index encoded as 256 bits || userMessageLimit encoded as 256 bits
+  let arguments = tsReceipt.logs[0].data
+  debug "tx log data", arguments = arguments
+  let
+    argumentsBytes = arguments
+    # In TX log data, uints are encoded in big endian
+    membershipIndex = UInt256.fromBytesBE(argumentsBytes[64 ..^ 1])
 
-else:
-  method registerBatch*(
-      g: OnchainGroupManager, idCommitments: seq[IDCommitment]
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+  g.userMessageLimit = some(userMessageLimit)
+  g.membershipIndex = some(membershipIndex.toMembershipIndex())
 
-    await g.atomicBatch(g.latestIndex, idCommitments)
-    g.latestIndex += MembershipIndex(idCommitments.len)
+  # don't handle member insertion into the tree here, it will be handled by the event listener
+  return
 
-when defined(rln_v2):
-  method register*(
-      g: OnchainGroupManager,
-      identityCredential: IdentityCredential,
-      userMessageLimit: UserMessageLimit,
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
-
-    let ethRpc = g.ethRpc.get()
-    let registryContract = g.registryContract.get()
-    let membershipFee = g.membershipFee.get()
-
-    var gasPrice: int
-    g.retryWrapper(gasPrice, "Failed to get gas price"):
-      int(await ethRpc.provider.eth_gasPrice()) * 2
-    let idCommitment = identityCredential.idCommitment.toUInt256()
-
-    let storageIndex = g.usingStorageIndex.get()
-    debug "registering the member",
-      idCommitment = idCommitment,
-      storageIndex = storageIndex,
-      userMessageLimit = userMessageLimit
-    var txHash: TxHash
-    g.retryWrapper(txHash, "Failed to register the member"):
-      await registryContract
-      .register(storageIndex, idCommitment, u256(userMessageLimit))
-      .send(gasPrice = gasPrice)
-
-    # wait for the transaction to be mined
-    var tsReceipt: ReceiptObject
-    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
-      await ethRpc.getMinedTransactionReceipt(txHash)
-    debug "registration transaction mined", txHash = txHash
-    g.registrationTxHash = some(txHash)
-    # the receipt topic holds the hash of signature of the raised events
-    # TODO: make this robust. search within the event list for the event
-    let firstTopic = tsReceipt.logs[0].topics[0]
-    # the hash of the signature of MemberRegistered(uint256,uint256,uint256) event is equal to the following hex value
-    if firstTopic !=
-        cast[FixedBytes[32]](keccak256.digest(
-          "MemberRegistered(uint256,uint256,uint256)"
-        ).data):
-      raise newException(ValueError, "unexpected event signature")
-
-    # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-    # data = pk encoded as 256 bits || index encoded as 256 bits || userMessageLimit encoded as 256 bits
-    let arguments = tsReceipt.logs[0].data
-    debug "tx log data", arguments = arguments
-    let
-      argumentsBytes = arguments
-      # In TX log data, uints are encoded in big endian
-      membershipIndex = UInt256.fromBytesBE(argumentsBytes[64 ..^ 1])
-
-    g.userMessageLimit = some(userMessageLimit)
-    g.membershipIndex = some(membershipIndex.toMembershipIndex())
-
-    # don't handle member insertion into the tree here, it will be handled by the event listener
-    return
-
-else:
-  method register*(
-      g: OnchainGroupManager, credentials: IdentityCredential
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
-
-    let ethRpc = g.ethRpc.get()
-    let registryContract = g.registryContract.get()
-    let membershipFee = g.membershipFee.get()
-
-    var gasPrice: int
-    g.retryWrapper(gasPrice, "Failed to get gas price"):
-      int(await ethRpc.provider.eth_gasPrice()) * 2
-    let idCommitment = credentials.idCommitment.toUInt256()
-
-    let storageIndex = g.usingStorageIndex.get()
-    debug "registering the member",
-      idCommitment = idCommitment, storageIndex = storageIndex
-    var txHash: TxHash
-    g.retryWrapper(txHash, "Failed to register the member"):
-      await registryContract.register(storageIndex, idCommitment).send(
-        gasPrice = gasPrice
-      )
-
-    # wait for the transaction to be mined
-    var tsReceipt: ReceiptObject
-    g.retryWrapper(tsReceipt, "Failed to get the transaction receipt"):
-      await ethRpc.getMinedTransactionReceipt(txHash)
-    debug "registration transaction mined", txHash = txHash
-    g.registrationTxHash = some(txHash)
-    # the receipt topic holds the hash of signature of the raised events
-    # TODO: make this robust. search within the event list for the event
-    let firstTopic = tsReceipt.logs[0].topics[0]
-    # the hash of the signature of MemberRegistered(uint256,uint256) event is equal to the following hex value
-    if firstTopic !=
-        cast[FixedBytes[32]](keccak256.digest("MemberRegistered(uint256,uint256)").data):
-      raise newException(ValueError, "unexpected event signature")
-
-    # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-    # data = pk encoded as 256 bits || index encoded as 256 bits
-    let arguments = tsReceipt.logs[0].data
-    debug "tx log data", arguments = arguments
-    let
-      argumentsBytes = arguments
-      # In TX log data, uints are encoded in big endian
-      eventIndex = UInt256.fromBytesBE(argumentsBytes[32 ..^ 1])
-
-    g.membershipIndex = some(eventIndex.toMembershipIndex())
-
-    # don't handle member insertion into the tree here, it will be handled by the event listener
-    return
 
 method withdraw*(
     g: OnchainGroupManager, idCommitment: IDCommitment
@@ -383,8 +259,7 @@ proc parseEvent(
   ## returns an error if it cannot parse the `data` parameter
   var idComm: UInt256
   var index: UInt256
-  when defined(rln_v2):
-    var userMessageLimit: UInt256
+  var userMessageLimit: UInt256
   var data: string
   # Remove the 0x prefix
   try:
@@ -398,27 +273,20 @@ proc parseEvent(
   try:
     # Parse the idComm
     offset += decode(data, offset, idComm)
-    when defined(rln_v2):
-      # Parse the userMessageLimit
-      offset += decode(data, offset, userMessageLimit)
+    # Parse the userMessageLimit
+    offset += decode(data, offset, userMessageLimit)
     # Parse the index
     offset += decode(data, offset, index)
-    when defined(rln_v2):
-      return ok(
-        Membership(
-          rateCommitment: RateCommitment(
-            idCommitment: idComm.toIDCommitment(),
-            userMessageLimit: userMessageLimit.toUserMessageLimit(),
-          ),
-          index: index.toMembershipIndex(),
-        )
+    return ok(
+      Membership(
+        rateCommitment: RateCommitment(
+          idCommitment: idComm.toIDCommitment(),
+          userMessageLimit: userMessageLimit.toUserMessageLimit(),
+        ),
+        index: index.toMembershipIndex(),
       )
-    else:
-      return ok(
-        Membership(
-          idCommitment: idComm.toIDCommitment(), index: index.toMembershipIndex()
-        )
-      )
+    )
+
   except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
 
@@ -501,24 +369,15 @@ proc handleEvents(
     try:
       let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
       let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
-      when defined(rln_v2):
-        let rateCommitments = members.mapIt(it[0].rateCommitment)
-        await g.atomicBatch(
-          start = startIndex,
-          rateCommitments = rateCommitments,
-          toRemoveIndices = removalIndices,
-        )
-        g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
-        trace "new members added to the Merkle tree", commitments = rateCommitments
-      else:
-        let idCommitments = members.mapIt(it[0].idCommitment)
-        await g.atomicBatch(
-          start = startIndex,
-          idCommitments = idCommitments,
-          toRemoveIndices = removalIndices,
-        )
-        g.latestIndex = startIndex + MembershipIndex(idCommitments.len)
-        trace "new members added to the Merkle tree", commitments = idCommitments
+      let rateCommitments = members.mapIt(it[0].rateCommitment)
+      await g.atomicBatch(
+        start = startIndex,
+        rateCommitments = rateCommitments,
+        toRemoveIndices = removalIndices,
+      )
+      g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
+      trace "new members added to the Merkle tree", commitments = rateCommitments
+
     except CatchableError:
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
@@ -759,8 +618,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
         return err("failed to get the keystore credentials: " & $error)
 
     g.membershipIndex = some(keystoreCred.treeIndex)
-    when defined(rln_v2):
-      g.userMessageLimit = some(keystoreCred.userMessageLimit)
+    g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
     try:
       let membershipExists = await rlnContract

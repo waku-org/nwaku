@@ -23,10 +23,8 @@ import
   ./conversion_utils,
   ./constants,
   ./protocol_types,
-  ./protocol_metrics
-
-when defined(rln_v2):
-  import ./nonce_manager
+  ./protocol_metrics,
+  ./nonce_manager
 
 import
   ../common/error_handling,
@@ -47,8 +45,7 @@ type WakuRlnConfig* = object
   rlnRelayTreePath*: string
   rlnEpochSizeSec*: uint64
   onFatalErrorAction*: OnFatalErrorHandler
-  when defined(rln_v2):
-    rlnRelayUserMessageLimit*: uint64
+  rlnRelayUserMessageLimit*: uint64
 
 proc createMembershipList*(
     rln: ptr RLN, n: int
@@ -93,8 +90,7 @@ type WakuRLNRelay* = ref object of RootObj
   rlnMaxEpochGap*: uint64
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
-  when defined(rln_v2):
-    nonceManager*: NonceManager
+  nonceManager*: NonceManager
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
@@ -307,14 +303,11 @@ proc appendRLNProof*(
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
 
-  when defined(rln_v2):
-    let nonce = rlnPeer.nonceManager.getNonce().valueOr:
-      return err("could not get new message id to generate an rln proof: " & $error)
-    let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
-      return err("could not generate rln-v2 proof: " & $error)
-  else:
-    let proof = rlnPeer.groupManager.generateProof(input, epoch).valueOr:
-      return err("could not generate rln proof: " & $error)
+  let nonce = rlnPeer.nonceManager.getNonce().valueOr:
+    return err("could not get new message id to generate an rln proof: " & $error)
+  let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
+    return err("could not generate rln-v2 proof: " & $error)
+
 
   msg.proof = proof.encode().buffer
   return ok()
@@ -445,28 +438,18 @@ proc mount(
   (await groupManager.startGroupSync()).isOkOr:
     return err("could not start the group sync: " & $error)
 
-  when defined(rln_v2):
-    return ok(
-      WakuRLNRelay(
-        groupManager: groupManager,
-        nonceManager:
-          NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        rlnMaxEpochGap:
-          max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
-        onFatalErrorAction: conf.onFatalErrorAction,
-      )
+  return ok(
+    WakuRLNRelay(
+      groupManager: groupManager,
+      nonceManager:
+        NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
+      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      rlnMaxEpochGap:
+        max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+      onFatalErrorAction: conf.onFatalErrorAction,
     )
-  else:
-    return ok(
-      WakuRLNRelay(
-        groupManager: groupManager,
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        rlnMaxEpochGap:
-          max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
-        onFatalErrorAction: conf.onFatalErrorAction,
-      )
-    )
+  )
+
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages

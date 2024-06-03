@@ -67,10 +67,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
 
   # 5. register on-chain
   try:
-    when defined(rln_v2):
-      waitFor groupManager.register(credential, conf.rlnRelayUserMessageLimit)
-    else:
-      waitFor groupManager.register(credential)
+    waitFor groupManager.register(credential, conf.rlnRelayUserMessageLimit)
   except Exception, CatchableError:
     error "failure while registering credentials on-chain",
       error = getCurrentExceptionMsg()
@@ -82,27 +79,18 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     chainId = $groupManager.chainId.get(),
     contractAddress = conf.rlnRelayEthContractAddress,
     membershipIndex = groupManager.membershipIndex.get()
-  when defined(rln_v2):
-    info "Your user message limit is", userMessageLimit = conf.rlnRelayUserMessageLimit
+  info "Your user message limit is", userMessageLimit = conf.rlnRelayUserMessageLimit
 
   # 6. write to keystore
-  when defined(rln_v2):
-    let keystoreCred = KeystoreMembership(
-      membershipContract: MembershipContract(
-        chainId: $groupManager.chainId.get(), address: conf.rlnRelayEthContractAddress
-      ),
-      treeIndex: groupManager.membershipIndex.get(),
-      identityCredential: credential,
-      userMessageLimit: conf.rlnRelayUserMessageLimit,
-    )
-  else:
-    let keystoreCred = KeystoreMembership(
-      membershipContract: MembershipContract(
-        chainId: $groupManager.chainId.get(), address: conf.rlnRelayEthContractAddress
-      ),
-      treeIndex: groupManager.membershipIndex.get(),
-      identityCredential: credential,
-    )
+  let keystoreCred = KeystoreMembership(
+    membershipContract: MembershipContract(
+      chainId: $groupManager.chainId.get(), address: conf.rlnRelayEthContractAddress
+    ),
+    treeIndex: groupManager.membershipIndex.get(),
+    identityCredential: credential,
+    userMessageLimit: conf.rlnRelayUserMessageLimit,
+  )
+
 
   let persistRes = addMembershipCredentials(
     conf.rlnRelayCredPath, keystoreCred, conf.rlnRelayCredPassword, RLNAppInfo

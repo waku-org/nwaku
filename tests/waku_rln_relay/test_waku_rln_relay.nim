@@ -525,14 +525,11 @@ suite "Waku rln relay":
     let rln = rlnInstance.get()
 
     # create a Merkle tree
-    when defined(rln_v2):
-      let rateCommitments =
-        groupIDCommitments.mapIt(RateCommitment(idCommitment: it, userMessageLimit: 20))
-      let leaves = rateCommitments.toLeaves().valueOr:
-        raiseAssert $error
-      let membersAdded = rln.insertMembers(0, leaves)
-    else:
-      let membersAdded = rln.insertMembers(0, groupIDCommitments)
+    let rateCommitments =
+      groupIDCommitments.mapIt(RateCommitment(idCommitment: it, userMessageLimit: 20))
+    let leaves = rateCommitments.toLeaves().valueOr:
+      raiseAssert $error
+    let membersAdded = rln.insertMembers(0, leaves)
 
     assert membersAdded, "members should be added"
     let rawRoot = rln.getMerkleRoot().valueOr:
@@ -691,21 +688,14 @@ suite "Waku rln relay":
   asyncTest "validateMessageAndUpdateLog test":
     let index = MembershipIndex(5)
 
-    when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-      )
-    else:
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
-      )
+    let wakuRlnConfig = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(index),
+      rlnRelayUserMessageLimit: 1,
+      rlnEpochSizeSec: 1,
+      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_2"),
+    )
+
     let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
       raiseAssert $error
 
@@ -749,40 +739,25 @@ suite "Waku rln relay":
     let index1 = MembershipIndex(5)
     let index2 = MembershipIndex(6)
 
-    when defined(rln_v2):
-      let rlnConf1 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index1),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
-      )
-    else:
-      let rlnConf1 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index1),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
-      )
+    let rlnConf1 = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(index1),
+      rlnRelayUserMessageLimit: 1,
+      rlnEpochSizeSec: 1,
+      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_3"),
+    )
 
     let wakuRlnRelay1 = (await WakuRlnRelay.new(rlnConf1)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
 
-    when defined(rln_v2):
-      let rlnConf2 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index2),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
-      )
-    else:
-      let rlnConf2 = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(index2),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
-      )
+    let rlnConf2 = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(index2),
+      rlnRelayUserMessageLimit: 1,
+      rlnEpochSizeSec: 1,
+      rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+    )
+
     let wakuRlnRelay2 = (await WakuRlnRelay.new(rlnConf2)).valueOr:
       raiseAssert "failed to create waku rln relay: " & $error
     # get the current epoch time

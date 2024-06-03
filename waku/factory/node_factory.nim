@@ -195,31 +195,18 @@ proc setupProtocols(
     quit(QuitFailure)
 
   if conf.rlnRelay:
-    when defined(rln_v2):
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayTreePath: conf.rlnRelayTreePath,
-        rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        onFatalErrorAction: onFatalErrorAction,
-      )
-    else:
-      let rlnConf = WakuRlnConfig(
-        rlnRelayDynamic: conf.rlnRelayDynamic,
-        rlnRelayCredIndex: conf.rlnRelayCredIndex,
-        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-        rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-        rlnRelayCredPath: conf.rlnRelayCredPath,
-        rlnRelayCredPassword: conf.rlnRelayCredPassword,
-        rlnRelayTreePath: conf.rlnRelayTreePath,
-        rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        onFatalErrorAction: onFatalErrorAction,
-      )
+    let rlnConf = WakuRlnConfig(
+      rlnRelayDynamic: conf.rlnRelayDynamic,
+      rlnRelayCredIndex: conf.rlnRelayCredIndex,
+      rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
+      rlnRelayCredPath: conf.rlnRelayCredPath,
+      rlnRelayCredPassword: conf.rlnRelayCredPassword,
+      rlnRelayTreePath: conf.rlnRelayTreePath,
+      rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+      rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      onFatalErrorAction: onFatalErrorAction,
+    )
 
     try:
       waitFor node.mountRlnRelay(rlnConf)
