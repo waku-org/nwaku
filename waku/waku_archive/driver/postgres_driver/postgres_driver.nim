@@ -120,8 +120,8 @@ const SelectWithCursorNoDataAscStmtDef =
           timestamp <= $7
     ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
 
-const SelectMessageByHashName = "SelectMessageByHash"
-const SelectMessageByHashDef =
+const SelectCursorByHashName = "SelectMessageByHash"
+const SelectCursorByHashDef =
   """SELECT timestamp FROM messages
     WHERE messageHash = $1"""
 
@@ -346,8 +346,8 @@ proc getTimeCursor(
     timeCursorCallbackImpl(pqResult, timeCursor)
 
   ?await s.readConnPool.runStmt(
-    SelectMessageByHashName,
-    SelectMessageByHashDef,
+    SelectCursorByHashName,
+    SelectCursorByHashDef,
     @[hashHex],
     @[int32(hashHex.len)],
     @[int32(0)],
