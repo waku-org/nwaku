@@ -21,13 +21,9 @@ type
   Epoch* = array[32, byte]
   RlnIdentifier* = array[32, byte]
   ZKSNARK* = array[128, byte]
-
-when defined(rln_v2):
-  type
-    MessageId* = uint64
-    ExternalNullifier* = array[32, byte]
-
-  type RateCommitment* = object
+  MessageId* = uint64
+  ExternalNullifier* = array[32, byte]
+  RateCommitment* = object
     idCommitment*: IDCommitment
     userMessageLimit*: UserMessageLimit
 
@@ -51,9 +47,8 @@ type RateLimitProof* = object
   epoch*: Epoch
   ## Application specific RLN Identifier
   rlnIdentifier*: RlnIdentifier
-  when defined(rln_v2):
-    ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
-    externalNullifier*: ExternalNullifier
+  ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
+  externalNullifier*: ExternalNullifier
 
 type ProofMetadata* = object
   nullifier*: Nullifier
