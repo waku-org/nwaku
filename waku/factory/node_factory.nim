@@ -120,7 +120,7 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+  node.mountSharding(conf.clusterId, uint32(conf.networkShards)).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
@@ -144,9 +144,11 @@ proc setupProtocols(
     peerExchangeHandler = some(handlePeerExchange)
 
   if conf.relay:
-    let shards =
+    let autoShards =
       conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
-    let pubsubTopics = conf.pubsubTopics & shards
+    let confShards =
+      conf.shards.mapIt(NsPubsubTopic(clusterId: conf.clusterId, shardId: it))
+    let shards = confShards & autoShards
 
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
@@ -155,10 +157,7 @@ proc setupProtocols(
 
     try:
       await mountRelay(
-        node,
-        pubsubTopics,
-        peerExchangeHandler = peerExchangeHandler,
-        int(parsedMaxMsgSize),
+        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())

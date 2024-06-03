@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils],
+  std/[options, sequtils, strformat],
   stew/results,
   chronicles,
   chronos,
@@ -68,7 +68,7 @@ proc logConfig(conf: WakuNodeConf) =
 
   info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
 
-  for shard in conf.pubsubTopics:
+  for shard in conf.shards:
     info "Configuration. Shards", shard = shard
 
   for i in conf.discv5BootstrapNodes:
@@ -86,6 +86,14 @@ proc logConfig(conf: WakuNodeConf) =
 func version*(waku: Waku): string =
   waku.version
 
+proc validateShards(conf: WakuNodeConf): Result[void, string] =
+  for shard in conf.shards:
+    if shard >= conf.networkShards:
+      return err(
+        fmt"Invalid shard {shard} when network has only {conf.networkShards} shards"
+      )
+  return ok()
+
 ## Initialisation
 
 proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
@@ -99,11 +107,6 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   # cluster-id=1 (aka The Waku Network)
   of 1:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(confCopy.shards) != 0:
-      confCopy.pubsubTopics =
-        confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      confCopy.pubsubTopics = twnClusterConf.pubsubTopics
 
     # Override configuration
     confCopy.maxMessageSize = twnClusterConf.maxMessageSize
@@ -117,11 +120,17 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
       confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
     confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    confCopy.networkShards = twnClusterConf.networkShards
   else:
     discard
 
   info "Running nwaku node", version = git_version
   logConfig(confCopy)
+
+  let validateShardsRes = validateShards(conf)
+  if validateShardsRes.isErr():
+    error "Failed validating shards", error = $validateShardsRes.error
+    return err("Failed validating shards: " & $validateShardsRes.error)
 
   if not confCopy.nodekey.isSome():
     let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])

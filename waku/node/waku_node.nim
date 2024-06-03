@@ -391,7 +391,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    pubsubTopics: seq[string] = @[],
+    shards: seq[NsPubsubTopic] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
@@ -422,9 +422,9 @@ proc mountRelay*(
 
   info "relay mounted successfully"
 
-  # Subscribe to topics
-  for pubsubTopic in pubsubTopics:
-    node.subscribe((kind: PubsubSub, topic: pubsubTopic))
+  # Subscribe to shards
+  for shard in shards:
+    node.subscribe((kind: PubsubSub, topic: $shard))
 
 ## Waku filter
 
