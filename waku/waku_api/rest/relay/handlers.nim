@@ -278,7 +278,7 @@ proc installRelayApiHandlers*(
     debug "Publishing message",
       contentTopic = message.contentTopic, rln = not node.wakuRlnRelay.isNil()
 
-    var publishFut = node.publish(some(pubsubTopic), message)
+    var publishFut = node.publish(some($pubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):
       return RestApiResponse.internalServerError("Failed to publish: timedout")
 
