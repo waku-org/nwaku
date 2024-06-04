@@ -124,7 +124,7 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
   let clusterId = uint32.fromBytesBE(buf[0 .. 3])
   let length = int(buf[4])
 
-  if buf.len != 3 + 2 * length:
+  if buf.len != 5 + 4 * length:
     return err(
       "invalid data: `length` field is " & $length & " but " & $buf.len &
         " bytes were provided"
@@ -132,7 +132,7 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
 
   var shardIds: seq[uint32]
   for i in 0 ..< length:
-    shardIds.add(uint32.fromBytesBE(buf[5 + 2 * i ..< 9 + 2 * i]))
+    shardIds.add(uint32.fromBytesBE(buf[5 + 4 * i ..< 9 + 4 * i]))
 
   ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
