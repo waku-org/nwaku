@@ -137,7 +137,7 @@ method atomicBatch*(
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< rateCommitments.len:
       var index = start + MembershipIndex(i)
-      info "registering member to callback", rateCommitment = rateCommitments[i], index = index
+      debug "registering member to callback", rateCommitment = rateCommitments[i], index = index
       let member = Membership(rateCommitment: rateCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)

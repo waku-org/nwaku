@@ -66,7 +66,9 @@ method register*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-  await g.registerBatch(@[rateCommitment])
+  let leaf = rateCommitment.toLeaf().get()
+
+  await g.registerBatch(@[leaf])
 
 
 method registerBatch*(

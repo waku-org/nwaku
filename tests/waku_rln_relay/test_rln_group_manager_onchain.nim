@@ -175,7 +175,7 @@ proc stopAnvil(runAnvil: Process) {.used.} =
 proc setup(): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes =
     createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
-  require:
+  check:
     rlnInstanceRes.isOk()
 
   let rlnInstance = rlnInstanceRes.get()
@@ -286,7 +286,7 @@ suite "Onchain group manager":
 
     proc generateCallback(fut: Future[void]): OnRegisterCallback =
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        require:
+        check:
           registrations.len == 1
           registrations[0].index == 0
           registrations[0].rateCommitment == rateCommitment
@@ -302,7 +302,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check await fut.withTimeout(5.seconds)
+    await fut
 
     let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
       raiseAssert $error
@@ -352,7 +352,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check await allFutures(futures).withTimeout(10.seconds)
+    await allFutures(futures)
 
     let merkleRootAfter = manager.rlnInstance.getMerkleRoot().valueOr:
       raiseAssert $error
@@ -417,7 +417,7 @@ suite "Onchain group manager":
 
     proc callback(registrations: seq[Membership]): Future[void] {.async.} =
       let rateCommitment = getRateCommitment(idCredentials, UserMessageLimit(1))
-      require:
+      check:
         registrations.len == 1
         registrations[0].rateCommitment == rateCommitment.get()
         registrations[0].index == 0
@@ -437,7 +437,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check await fut.withTimeout(5.seconds)
+    await fut
 
     await manager.stop()
 
@@ -480,7 +480,7 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check await fut.withTimeout(5.seconds)
+    await fut
 
     let messageBytes = "Hello".toBytes()
 
@@ -493,7 +493,7 @@ suite "Onchain group manager":
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
     )
 
-    require:
+    check:
       validProofRes.isOk()
     let validProof = validProofRes.get()
 
@@ -525,12 +525,10 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(
+    let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
-    require:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
+    ).valueOr:
+      raiseAssert $error
 
     # validate the root (should be false)
     let validated = manager.validateRoot(validProof.merkleRoot)
@@ -564,7 +562,7 @@ suite "Onchain group manager":
       await manager.register(credentials, UserMessageLimit(1))
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
-    check await fut.withTimeout(5.seconds)
+    await fut
 
     let messageBytes = "Hello".toBytes()
 
@@ -573,20 +571,16 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(
+    let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
-    require:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
+    ).valueOr:
+      raiseAssert $error
 
     # verify the proof (should be true)
-    let verifiedRes = manager.verifyProof(messageBytes, validProof)
-    require:
-      verifiedRes.isOk()
+    let verified = manager.verifyProof(messageBytes, validProof).valueOr:
+      raiseAssert $error
 
-    check:
-      verifiedRes.get()
+    check: verified
     await manager.stop()
 
   asyncTest "verifyProof: should reject invalid proof":
@@ -623,7 +617,7 @@ suite "Onchain group manager":
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
     )
 
-    require:
+    check:
       invalidProofRes.isOk()
     let invalidProof = invalidProofRes.get()
 
@@ -671,10 +665,10 @@ suite "Onchain group manager":
     except Exception, CatchableError:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    check await allFutures(futures).withTimeout(5.seconds)
+    await allFutures(futures)
 
     # At this point, we should have a full root queue, 5 roots, and partial buffer of 1 root
-    require:
+    check:
       manager.validRoots.len() == credentialCount - 1
       manager.validRootBuffer.len() == 1
 
