@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils],
+  std/[options, tables, sequtils, tempfiles],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -23,6 +23,7 @@ import
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
     waku_lightpush/rpc,
+    waku_rln_relay
   ],
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
@@ -55,10 +56,28 @@ suite "Waku Lightpush - End To End":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
+    # mount rln-relay
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      )
+    else:
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      )
+
     await allFutures(server.start(), client.start())
     await server.start()
 
     await server.mountRelay()
+    await server.mountRlnRelay(wakuRlnConfig)
     await server.mountLightpush()
     client.mountLightpushClient()
 

@@ -25,7 +25,28 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: Option[TokenBucket]
-  rlnPeer*: WakuRLNRelay
+  rlnPeer*: Option[WakuRLNRelay]
+
+proc generateAndValidateRLNProof*(wl: WakuLightPush, message: var WakuMessage): (string, WakuMessage) =
+  var pushResponseInfo = ""
+  # TODO: check and validate if the message already has RLN proof?
+  if wl.rlnPeer.isNone():
+    return (pushResponseInfo, message) # publishing message without RLN proof
+
+  # generate and append RLN proof
+  let 
+    rlnPeer = wl.rlnPeer.get()
+    time = getTime().toUnix()
+    senderEpochTime = float64(time)
+  let appendProofRes = rlnPeer.appendRLNProof(message, senderEpochTime)
+  if appendProofRes.isErr():
+    pushResponseInfo = "RLN proof generation failed: " & appendProofRes.error
+  
+  # validate RLN proof
+  let validateProofRes = rlnPeer.validateMessage(message, some(senderEpochTime))
+  if validateProofRes != MessageValidationResult.Valid:
+    pushResponseInfo = "RLN proof validation failed"
+  return (pushResponseInfo, message)
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -47,7 +68,6 @@ proc handleRequest*(
 
     let
       request = pushRpcRequest.request
-
       pubSubTopic = request.get().pubSubTopic
     var message = request.get().message
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
@@ -57,17 +77,10 @@ proc handleRequest*(
       pubsubTopic = pubsubTopic,
       hash = pubsubTopic.computeMessageHash(message).to0xHex()
 
-    # Generate and validate RLN proof
-    let 
-      rlnPeer = wl.rlnPeer
-      time = getTime().toUnix()
-      senderEpochTime = float64(time) #rlnPeer.getCurrentEpoch()
-      appendProofRes = rlnPeer.appendRLNProof(message, senderEpochTime)
-
-    if appendProofRes.isErr():
-      pushResponseInfo = "RLN proof generation failed: " & appendProofRes.error
-    else:
-      let handleRes = await wl.pushHandler(peerId, pubSubTopic, message)
+    let (rlnResultInfo, msgWithProof) = generateAndValidateRLNProof(wl, message)
+    pushResponseInfo = rlnResultInfo
+    if pushResponseInfo == "":
+      let handleRes = await wl.pushHandler(peerId, pubSubTopic, msgWithProof)
       isSuccess = handleRes.isOk()
       pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
@@ -117,7 +130,7 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
-    rlnPeer: WakuRLNRelay,
+    rlnPeer: Option[WakuRLNRelay] = none[WakuRLNRelay](),
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wl = WakuLightPush(
