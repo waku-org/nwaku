@@ -838,12 +838,7 @@ proc toArchiveQuery(request: StoreQueryRequest): ArchiveQuery =
   query.startTime = request.startTime
   query.endTime = request.endTime
   query.hashes = request.messageHashes
-
-  if request.paginationCursor.isSome():
-    var cursor = ArchiveCursor()
-    cursor.hash = request.paginationCursor.get()
-    query.cursor = some(cursor)
-
+  query.cursor = request.paginationCursor
   query.direction = request.paginationForward
 
   if request.paginationLimit.isSome():
@@ -871,8 +866,7 @@ proc toStoreResult(res: ArchiveResult): StoreQueryResult =
     res.messages[i].message = some(response.messages[i])
     res.messages[i].pubsubTopic = some(response.topics[i])
 
-  if response.cursor.isSome():
-    res.paginationCursor = some(response.cursor.get().hash)
+  res.paginationCursor = response.cursor
 
   return ok(res)
 
