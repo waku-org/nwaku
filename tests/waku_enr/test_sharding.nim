@@ -121,7 +121,7 @@ suite "Discovery Mechanisms for Shards":
     let
       indicesList: seq[uint8] = @[0, 73, 2, 0, 1, 0, 10]
       clusterId: uint32 = 73 # bitVector's clusterId
-      shardIds: seq[uint32] = @[1u16, 10u16] # bitVector's shardIds
+      shardIds: seq[uint32] = @[1u32, 10u32] # bitVector's shardIds
 
     let
       enrSeqNum = 1u64
@@ -150,7 +150,7 @@ suite "Discovery Mechanisms for Shards":
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]
       clusterId: uint32 = 73 # bitVector's clusterId
-      shardIds: seq[uint32] = @[1u16, 10u16] # bitVector's shardIds
+      shardIds: seq[uint32] = @[1u32, 10u32] # bitVector's shardIds
 
     let
       enrSeqNum = 1u64

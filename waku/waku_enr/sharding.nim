@@ -160,8 +160,8 @@ func fromBitVector(buf: seq[byte]): EnrResult[RelayShards] =
   let clusterId = uint32.fromBytesBE(buf[0 .. 1])
   var shardIds: seq[uint32]
 
-  for i in 0u16 ..< 128u16:
-    for j in 0u16 ..< 8u16:
+  for i in 0u32 ..< 128u32:
+    for j in 0u32 ..< 8u32:
       if not buf[2 + i].testBit(j):
         continue
 
