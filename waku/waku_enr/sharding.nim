@@ -121,8 +121,8 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
     return
       err("insufficient data: expected at least 3 bytes, got " & $buf.len & " bytes")
 
-  let clusterId = uint32.fromBytesBE(buf[0 .. 1])
-  let length = int(buf[2])
+  let clusterId = uint32.fromBytesBE(buf[0 .. 3])
+  let length = int(buf[4])
 
   if buf.len != 3 + 2 * length:
     return err(
@@ -132,7 +132,7 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
 
   var shardIds: seq[uint32]
   for i in 0 ..< length:
-    shardIds.add(uint32.fromBytesBE(buf[3 + 2 * i ..< 5 + 2 * i]))
+    shardIds.add(uint32.fromBytesBE(buf[5 + 2 * i ..< 9 + 2 * i]))
 
   ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
