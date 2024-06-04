@@ -62,7 +62,7 @@ proc parseMsgDigest*(
   if not input.isSome() or input.get() == "":
     return ok(none(waku_store_common.MessageDigest))
 
-  let decodedUrl = decodeUrl(input.get())
+  let decodedUrl = decodeUrl(input.get(), false)
   let base64Decoded = base64.decode(Base64String(decodedUrl))
   var messageDigest = waku_store_common.MessageDigest()
 
@@ -87,7 +87,7 @@ proc parseMsgDigest*(
 # and this result is URL-encoded.
 proc toRestStringMessageDigest*(self: waku_store_common.MessageDigest): string =
   let base64Encoded = base64.encode(self.data)
-  encodeUrl($base64Encoded)
+  encodeUrl($base64Encoded, false)
 
 proc toWakuMessage*(message: StoreWakuMessage): WakuMessage =
   WakuMessage(
