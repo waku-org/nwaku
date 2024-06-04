@@ -112,7 +112,7 @@ method getMessagesV2*(
 
 method getMessages*(
     s: SqliteDriver,
-    includeData = false,
+    includeData = true,
     contentTopic = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),

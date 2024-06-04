@@ -654,7 +654,7 @@ proc getMessagesV2PreparedStmt(
 
 method getMessages*(
     s: PostgresDriver,
-    includeData = false,
+    includeData = true,
     contentTopicSeq = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),

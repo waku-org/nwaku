@@ -258,7 +258,7 @@ method existsTable*(
 
 method getMessages*(
     driver: QueueDriver,
-    includeData = false,
+    includeData = true,
     contentTopic: seq[ContentTopic] = @[],
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
