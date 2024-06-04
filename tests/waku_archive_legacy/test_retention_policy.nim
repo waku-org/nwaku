@@ -5,12 +5,12 @@ import
   ../../../waku/common/databases/db_sqlite,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
-  ../../../waku/waku_archive/retention_policy,
-  ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
-  ../../../waku/waku_archive/retention_policy/retention_policy_size,
-  ../waku_archive/archive_utils,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver/sqlite_driver,
+  ../../../waku/waku_archive_legacy/retention_policy,
+  ../../../waku/waku_archive_legacy/retention_policy/retention_policy_capacity,
+  ../../../waku/waku_archive_legacy/retention_policy/retention_policy_size,
+  ../waku_archive_legacy/archive_utils,
   ../testlib/common,
   ../testlib/wakucore
 

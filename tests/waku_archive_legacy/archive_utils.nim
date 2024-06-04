@@ -6,9 +6,9 @@ import
   ../../../waku/[
     node/peer_manager,
     waku_core,
-    waku_archive,
-    waku_archive/common,
-    waku_archive/driver/sqlite_driver,
+    waku_archive_legacy,
+    waku_archive_legacy/common,
+    waku_archive_legacy/driver/sqlite_driver,
     common/databases/db_sqlite,
   ],
   ../testlib/[wakucore]

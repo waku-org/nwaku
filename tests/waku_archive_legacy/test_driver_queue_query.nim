@@ -3,8 +3,8 @@
 import
   std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/queue_driver,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver/queue_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../testlib/common,

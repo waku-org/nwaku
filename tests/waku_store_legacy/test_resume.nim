@@ -19,7 +19,7 @@ when defined(waku_exp_store_resume):
     ../../waku/waku_core/message/digest,
     ../../waku/waku_store_legacy,
     ../waku_store_legacy/store_utils,
-    ../waku_archive/archive_utils,
+    ../waku_archive_legacy/archive_utils,
     ./testlib/common,
     ./testlib/switch
 

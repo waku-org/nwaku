@@ -12,9 +12,9 @@ import
   ../../../waku/common/paging,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_archive/driver/sqlite_driver,
-  ../../../waku/waku_archive,
-  ../waku_archive/archive_utils,
+  ../../../waku/waku_archive_legacy/driver/sqlite_driver,
+  ../../../waku/waku_archive_legacy,
+  ../waku_archive_legacy/archive_utils,
   ../testlib/common,
   ../testlib/wakucore
 

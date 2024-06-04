@@ -3,11 +3,10 @@
 import
   std/[options, sequtils, algorithm], testutils/unittests, libp2p/protobuf/minprotobuf
 import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/queue_driver/queue_driver {.all.},
-  ../../../waku/waku_archive/driver/queue_driver/index,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver/queue_driver/queue_driver {.all.},
+  ../../../waku/waku_archive_legacy/driver/queue_driver/index,
   ../../../waku/waku_core,
-  ../testlib/common,
   ../testlib/wakucore
 
 proc getTestQueueDriver(numMessages: int): QueueDriver =

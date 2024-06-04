@@ -698,7 +698,7 @@ proc mountLegacyArchive*(
   ).valueOr:
     return err("error in mountArchive: " & error)
 
-  node.wakuArchive.start()
+  node.wakuLegacyArchive.start()
 
   return ok()
 
@@ -773,7 +773,7 @@ proc mountLegacyStore*(
         return err(error)
 
     let request = request.toArchiveQuery()
-    let response = await node.wakuLegacyArchive.findMessages(request)
+    let response = await node.wakuLegacyArchive.findMessagesV2(request)
     return response.toHistoryResult()
 
   node.wakuLegacyStore = legacy_store.WakuStore.new(

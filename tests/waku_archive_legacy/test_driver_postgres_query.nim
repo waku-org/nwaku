@@ -6,9 +6,9 @@ import
   chronos,
   chronicles
 import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver as driver_module,
-  ../../../waku/waku_archive/driver/postgres_driver,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver as driver_module,
+  ../../../waku/waku_archive_legacy/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../testlib/common,

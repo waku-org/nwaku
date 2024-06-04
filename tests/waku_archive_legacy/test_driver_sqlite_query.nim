@@ -5,13 +5,13 @@ import
 
 import
   ../../../waku/common/databases/db_sqlite,
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver/sqlite_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore,
-  ../waku_archive/archive_utils
+  ../waku_archive_legacy/archive_utils
 
 logScope:
   topics = "test archive _driver"

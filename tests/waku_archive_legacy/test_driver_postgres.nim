@@ -2,8 +2,8 @@
 
 import std/[sequtils, options], testutils/unittests, chronos
 import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/postgres_driver,
+  ../../../waku/waku_archive_legacy,
+  ../../../waku/waku_archive_legacy/driver/postgres_driver,
   ../../../waku/waku_core,
   ../../../waku/waku_core/message/digest,
   ../testlib/wakucore,
