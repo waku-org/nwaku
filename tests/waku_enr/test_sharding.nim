@@ -27,7 +27,7 @@ suite "Sharding":
       let empty: seq[string] = @[]
 
       let shardsTopics =
-        RelayShards.init(0, @[uint16(2), uint16(4), uint16(8)]).expect("Valid shardIds")
+        RelayShards.init(0, @[uint32(2), uint32(4), uint32(8)]).expect("Valid shardIds")
 
       ## When
 
@@ -120,8 +120,8 @@ suite "Discovery Mechanisms for Shards":
     # Given a valid index list and its representation
     let
       indicesList: seq[uint8] = @[0, 73, 2, 0, 1, 0, 10]
-      clusterId: uint16 = 73 # bitVector's clusterId
-      shardIds: seq[uint16] = @[1u16, 10u16] # bitVector's shardIds
+      clusterId: uint32 = 73 # bitVector's clusterId
+      shardIds: seq[uint32] = @[1u16, 10u16] # bitVector's shardIds
 
     let
       enrSeqNum = 1u64
@@ -149,8 +149,8 @@ suite "Discovery Mechanisms for Shards":
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
           0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         ]
-      clusterId: uint16 = 73 # bitVector's clusterId
-      shardIds: seq[uint16] = @[1u16, 10u16] # bitVector's shardIds
+      clusterId: uint32 = 73 # bitVector's clusterId
+      shardIds: seq[uint32] = @[1u16, 10u16] # bitVector's shardIds
 
     let
       enrSeqNum = 1u64

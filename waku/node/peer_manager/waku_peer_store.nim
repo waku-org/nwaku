@@ -105,7 +105,7 @@ proc peers*(peerStore: PeerStore, protocolMatcher: Matcher): seq[RemotePeerInfo]
 proc connectedness*(peerStore: PeerStore, peerId: PeerID): Connectedness =
   peerStore[ConnectionBook].book.getOrDefault(peerId, NotConnected)
 
-proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint16): bool =
+proc hasShard*(peerStore: PeerStore, peerId: PeerID, cluster, shard: uint32): bool =
   peerStore[ENRBook].book.getOrDefault(peerId).containsShard(cluster, shard)
 
 proc hasCapability*(peerStore: PeerStore, peerId: PeerID, cap: Capabilities): bool =
@@ -148,7 +148,7 @@ proc getReachablePeers*(peerStore: PeerStore): seq[RemotePeerInfo] =
   )
 
 proc getPeersByShard*(
-    peerStore: PeerStore, cluster, shard: uint16
+    peerStore: PeerStore, cluster, shard: uint32
 ): seq[RemotePeerInfo] =
   return peerStore.peers.filterIt(
     it.enr.isSome() and it.enr.get().containsShard(cluster, shard)

@@ -749,13 +749,11 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
   for shard in pm.wakuMetadata.shards.items:
     # Filter out peer not on this shard
-    let connectedInPeers = inPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
-    )
+    let connectedInPeers =
+      inPeers.filterIt(pm.peerStore.hasShard(it, pm.wakuMetadata.clusterId, shard))
 
-    let connectedOutPeers = outPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
-    )
+    let connectedOutPeers =
+      outPeers.filterIt(pm.peerStore.hasShard(it, pm.wakuMetadata.clusterId, shard))
 
     # Calculate the difference between current values and targets
     let inPeerDiff = connectedInPeers.len - inTarget
@@ -769,7 +767,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     # Get all peers for this shard
     var connectablePeers =
-      pm.peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      pm.peerStore.getPeersByShard(pm.wakuMetadata.clusterId, shard)
 
     let shardCount = connectablePeers.len
 
@@ -837,7 +835,7 @@ proc prunePeerStore*(pm: PeerManager) =
   shuffle(notConnected)
 
   var shardlessPeers: seq[PeerId]
-  var peersByShard = initTable[uint16, seq[PeerId]]()
+  var peersByShard = initTable[uint32, seq[PeerId]]()
 
   for peer in notConnected:
     if not pm.peerStore[ENRBook].contains(peer):

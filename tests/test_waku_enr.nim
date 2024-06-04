@@ -260,8 +260,8 @@ suite "Waku ENR - Relay static sharding":
   test "new relay shards object with single invalid shard id":
     ## Given
     let
-      clusterId: uint16 = 22
-      shard: uint16 = 1024
+      clusterId: uint32 = 22
+      shard: uint32 = 1024
 
     ## When
     let shardsTopics = RelayShards.init(clusterId, shard)
@@ -272,8 +272,8 @@ suite "Waku ENR - Relay static sharding":
   test "new relay shards object with single invalid shard id in list":
     ## Given
     let
-      clusterId: uint16 = 22
-      shardIds: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16, 1024u16]
+      clusterId: uint32 = 22
+      shardIds: seq[uint32] = @[1u32, 1u32, 2u32, 3u32, 5u32, 8u32, 1024u32]
 
     ## When
     let shardsTopics = RelayShards.init(clusterId, shardIds)
@@ -284,8 +284,8 @@ suite "Waku ENR - Relay static sharding":
   test "new relay shards object with single valid shard id":
     ## Given
     let
-      clusterId: uint16 = 22
-      shardId: uint16 = 1
+      clusterId: uint32 = 22
+      shardId: uint32 = 1
 
     let topic = NsPubsubTopic.staticSharding(clusterId, shardId)
 
@@ -312,8 +312,8 @@ suite "Waku ENR - Relay static sharding":
   test "new relay shards object with repeated but valid shard ids":
     ## Given
     let
-      clusterId: uint16 = 22
-      shardIds: seq[uint16] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
+      clusterId: uint32 = 22
+      shardIds: seq[uint32] = @[1u16, 2u16, 2u16, 3u16, 3u16, 3u16]
 
     ## When
     let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid Shards")
@@ -347,8 +347,8 @@ suite "Waku ENR - Relay static sharding":
       enrPrivKey = generatesecp256k1key()
 
     let
-      clusterId: uint16 = 22
-      shardIds: seq[uint16] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
+      clusterId: uint32 = 22
+      shardIds: seq[uint32] = @[1u16, 1u16, 2u16, 3u16, 5u16, 8u16]
 
     let shardsTopics = RelayShards.init(clusterId, shardIds).expect("Valid Shards")
 

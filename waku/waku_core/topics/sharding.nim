@@ -30,7 +30,7 @@ proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubT
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
 
-  NsPubsubTopic.staticSharding(uint16(s.clusterId), uint16(shard))
+  NsPubsubTopic.staticSharding(s.clusterId, uint32(shard))
 
 proc getShard*(s: Sharding, topic: NsContentTopic): Result[NsPubsubTopic, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.

@@ -79,7 +79,7 @@ proc newTestWakuNode*(
     if pubsubTopics.len() > 0:
       NsPubsubTopic.parse(pubsubTopics[0]).get().clusterId
     else:
-      1.uint16
+      1.uint32
 
   conf.clusterId = clusterId
   conf.pubsubTopics = pubsubTopics

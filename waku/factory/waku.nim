@@ -106,8 +106,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   of 1:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
     if len(confCopy.shards) != 0:
-      confCopy.pubsubTopics =
-        confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
+      confCopy.pubsubTopics = confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it])
     else:
       confCopy.pubsubTopics = twnClusterConf.pubsubTopics
 

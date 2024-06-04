@@ -28,7 +28,7 @@ proc enrConfiguration*(
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  var shards = newSeq[uint16]()
+  var shards = newSeq[uint32]()
 
   # no shards configured
   if conf.shards.len == 0:
@@ -42,10 +42,10 @@ proc enrConfiguration*(
       info "no pubsub topics specified or pubsubtopic is of type Named sharding "
   # some shards configured
   else:
-    shards = toSeq(conf.shards.mapIt(uint16(it)))
+    shards = toSeq(conf.shards.mapIt(it))
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: uint16(conf.clusterId), shardIds: shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 

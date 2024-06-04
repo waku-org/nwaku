@@ -45,8 +45,8 @@ procSuite "Waku Discovery v5":
           enrPrivKey = generatesecp256k1key()
 
         let
-          clusterId: uint16 = 21
-          shardIds: seq[uint16] = @[1u16, 2u16, 5u16, 7u16, 9u16, 11u16]
+          clusterId: uint32 = 21
+          shardIds: seq[uint32] = @[1u32, 2u32, 5u32, 7u32, 9u32, 11u32]
 
         let shardsTopics =
           RelayShards.init(clusterId, shardIds).expect("Valid shardIds")
@@ -65,8 +65,8 @@ procSuite "Waku Discovery v5":
           enrPrivKey = generatesecp256k1key()
 
         let
-          clusterId: uint16 = 22
-          shardIds: seq[uint16] = @[2u16, 4u16, 5u16, 8u16, 10u16, 12u16]
+          clusterId: uint32 = 22
+          shardIds: seq[uint32] = @[2u32, 4u32, 5u32, 8u32, 10u32, 12u32]
 
         let shardsTopics =
           RelayShards.init(clusterId, shardIds).expect("Valid shardIds")
@@ -85,8 +85,8 @@ procSuite "Waku Discovery v5":
           enrPrivKey = generatesecp256k1key()
 
         let
-          clusterId: uint16 = 22
-          shardIds: seq[uint16] = @[1u16, 3u16, 6u16, 7u16, 9u16, 11u16]
+          clusterId: uint32 = 22
+          shardIds: seq[uint32] = @[1u32, 3u32, 6u32, 7u32, 9u32, 11u32]
 
         let shardsTopics =
           RelayShards.init(clusterId, shardIds).expect("Valid shardIds")

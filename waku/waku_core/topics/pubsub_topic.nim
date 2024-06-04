@@ -27,12 +27,12 @@ type NsPubsubTopicKind* {.pure.} = enum
 type NsPubsubTopic* = object
   case kind*: NsPubsubTopicKind
   of NsPubsubTopicKind.StaticSharding:
-    clusterId*: uint16
-    shardId*: uint16
+    clusterId*: uint32
+    shardId*: uint32
   of NsPubsubTopicKind.NamedSharding:
     name*: string
 
-proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
+proc staticSharding*(T: type NsPubsubTopic, clusterId: uint32, shardId: uint32): T =
   NsPubsubTopic(
     kind: NsPubsubTopicKind.StaticSharding, clusterId: clusterId, shardId: shardId
   )
@@ -73,7 +73,7 @@ proc parseStaticSharding*(
   if clusterPart.len == 0:
     return err(ParsingError.missingPart("cluster_id"))
   let clusterId =
-    ?Base10.decode(uint16, clusterPart).mapErr(
+    ?Base10.decode(uint32, clusterPart).mapErr(
       proc(err: auto): auto =
         ParsingError.invalidFormat($err)
     )
@@ -82,7 +82,7 @@ proc parseStaticSharding*(
   if shardPart.len == 0:
     return err(ParsingError.missingPart("shard_number"))
   let shardId =
-    ?Base10.decode(uint16, shardPart).mapErr(
+    ?Base10.decode(uint32, shardPart).mapErr(
       proc(err: auto): auto =
         ParsingError.invalidFormat($err)
     )

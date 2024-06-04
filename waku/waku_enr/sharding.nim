@@ -15,7 +15,7 @@ import ../common/enr, ../waku_core
 logScope:
   topics = "waku enr sharding"
 
-const MaxShardIndex: uint16 = 1023
+const MaxShardIndex: uint32 = 1023
 
 const
   ShardingIndicesListEnrField* = "rs"
@@ -23,20 +23,20 @@ const
   ShardingBitVectorEnrField* = "rsv"
 
 type RelayShards* = object
-  clusterId*: uint16
-  shardIds*: seq[uint16]
+  clusterId*: uint32
+  shardIds*: seq[uint32]
 
 func topics*(rs: RelayShards): seq[NsPubsubTopic] =
   rs.shardIds.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
 
-func init*(T: type RelayShards, clusterId, shardId: uint16): Result[T, string] =
+func init*(T: type RelayShards, clusterId: uint32, shardId: uint32): Result[T, string] =
   if shardId > MaxShardIndex:
     return err("invalid shard Id")
 
   ok(RelayShards(clusterId: clusterId, shardIds: @[shardId]))
 
 func init*(
-    T: type RelayShards, clusterId: uint16, shardIds: varargs[uint16]
+    T: type RelayShards, clusterId: uint32, shardIds: varargs[uint32]
 ): Result[T, string] =
   if toSeq(shardIds).anyIt(it > MaxShardIndex):
     return err("invalid shard")
@@ -48,7 +48,7 @@ func init*(
   ok(RelayShards(clusterId: clusterId, shardIds: indicesSeq))
 
 func init*(
-    T: type RelayShards, clusterId: uint16, shardIds: seq[uint16]
+    T: type RelayShards, clusterId: uint32, shardIds: seq[uint32]
 ): Result[T, string] =
   if shardIds.anyIt(it > MaxShardIndex):
     return err("invalid shard")
@@ -85,7 +85,7 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
 
   return ok(some(relayShard))
 
-func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
+func contains*(rs: RelayShards, clusterId: uint32, shardId: uint32): bool =
   rs.clusterId == clusterId and rs.shardIds.contains(shardId)
 
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
@@ -121,7 +121,7 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
     return
       err("insufficient data: expected at least 3 bytes, got " & $buf.len & " bytes")
 
-  let clusterId = uint16.fromBytesBE(buf[0 .. 1])
+  let clusterId = uint32.fromBytesBE(buf[0 .. 1])
   let length = int(buf[2])
 
   if buf.len != 3 + 2 * length:
@@ -130,9 +130,9 @@ func fromIndicesList*(buf: seq[byte]): Result[RelayShards, string] =
         " bytes were provided"
     )
 
-  var shardIds: seq[uint16]
+  var shardIds: seq[uint32]
   for i in 0 ..< length:
-    shardIds.add(uint16.fromBytesBE(buf[3 + 2 * i ..< 5 + 2 * i]))
+    shardIds.add(uint32.fromBytesBE(buf[3 + 2 * i ..< 5 + 2 * i]))
 
   ok(RelayShards(clusterId: clusterId, shardIds: shardIds))
 
@@ -157,8 +157,8 @@ func fromBitVector(buf: seq[byte]): EnrResult[RelayShards] =
   if buf.len != 130:
     return err("invalid data: expected 130 bytes")
 
-  let clusterId = uint16.fromBytesBE(buf[0 .. 1])
-  var shardIds: seq[uint16]
+  let clusterId = uint32.fromBytesBE(buf[0 .. 1])
+  var shardIds: seq[uint32]
 
   for i in 0u16 ..< 128u16:
     for j in 0u16 ..< 8u16:
@@ -233,7 +233,7 @@ proc relaySharding*(record: TypedRecord): Option[RelayShards] =
 
 ## Utils
 
-proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
+proc containsShard*(r: Record, clusterId: uint32, shardId: uint32): bool =
   if shardId > MaxShardIndex:
     return false
 
