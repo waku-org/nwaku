@@ -236,13 +236,11 @@ procSuite "Waku Archive - find messages":
     let queryRes = waitFor archive.findMessages(req)
 
     ## Then
-    check:
-      queryRes.isErr()
+    assert queryRes.isOk(), $queryRes.error
 
-    let error = queryRes.tryError()
+    let response = queryRes.tryGet()
     check:
-      error.kind == ArchiveErrorKind.INVALID_QUERY
-      error.cause == "too many content topics"
+      response.messages.len() == 0
 
   test "handle query with pubsub topic filter":
     ## Setup
