@@ -38,7 +38,7 @@ proc toIDCommitment*(idCommitmentUint: UInt256): IDCommitment =
 
 type MembershipIndex* = uint
 
-proc toMembershipIndex*(v: StUint[32] or UInt256): MembershipIndex =
+proc toMembershipIndex*(v: UInt256): MembershipIndex =
   return cast[MembershipIndex](v)
 
 # Converts a sequence of tuples containing 4 string (i.e. identity trapdoor, nullifier, secret hash, commitment) to an IdentityCredential
