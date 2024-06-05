@@ -30,8 +30,6 @@ type ProtectedTopic* = object
   topic*: string
   key*: secp256k1.SkPublicKey
 
-type ShardIdx = distinct uint16
-
 type EthRpcUrl* = distinct string
 
 type StartUpCommand* = enum
@@ -140,7 +138,7 @@ type WakuNodeConf* = object
         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
       defaultValue: 0,
       name: "cluster-id"
-    .}: uint32
+    .}: uint16
 
     agentString* {.
       defaultValue: "nwaku",
@@ -307,7 +305,7 @@ type WakuNodeConf* = object
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
       defaultValue: @[],
       name: "shard"
-    .}: seq[ShardIdx]
+    .}: seq[uint16]
 
     contentTopics* {.
       desc: "Default content topic to subscribe to. Argument may be repeated.",
@@ -663,15 +661,6 @@ proc defaultColocationLimit*(): int =
 proc completeCmdArg*(T: type Port, val: string): seq[string] =
   return @[]
 
-proc completeCmdArg*(T: type ShardIdx, val: string): seq[ShardIdx] =
-  return @[]
-
-proc parseCmdArg*(T: type ShardIdx, p: string): T =
-  try:
-    ShardIdx(parseInt(p))
-  except CatchableError:
-    raise newException(ValueError, "Invalid shard index")
-
 proc completeCmdArg*(T: type EthRpcUrl, val: string): seq[string] =
   return @[]
 
@@ -729,22 +718,6 @@ proc readValue*(
 ) {.raises: [SerializationError].} =
   try:
     value = parseCmdArg(ProtectedTopic, r.readValue(string))
-  except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
-
-proc readValue*(
-    r: var TomlReader, value: var ShardIdx
-) {.raises: [SerializationError].} =
-  try:
-    value = parseCmdArg(ShardIdx, r.readValue(string))
-  except CatchableError:
-    raise newException(SerializationError, getCurrentExceptionMsg())
-
-proc readValue*(
-    r: var EnvvarReader, value: var ShardIdx
-) {.raises: [SerializationError].} =
-  try:
-    value = parseCmdArg(ShardIdx, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 

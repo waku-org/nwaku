@@ -35,7 +35,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     nat: "any",
     maxConnections: 50,
     maxMessageSize: "1024 KiB",
-    clusterId: 0.uint32,
+    clusterId: 0,
     pubsubTopics: @["/waku/2/rs/1/0"],
     relay: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
