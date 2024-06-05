@@ -28,15 +28,11 @@ proc enrConfiguration*(
 
   enrBuilder.withMultiaddrs(netConfig.enrMultiaddrs)
 
-  var shards = newSeq[uint16]()
-
-  if conf.shards.len > 0:
-    shards = toSeq(conf.shards.mapIt(uint16(it)))
-  else:
+  if conf.shards.len == 0:
     info "no shards specified"
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: conf.clusterId, shardIds: shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
