@@ -163,6 +163,9 @@ proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ret
 
 proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Option[Timestamp]) =
+  ## Callback to get a timestamp out of the DB.
+  ## Used to get the cursor timestamp.
+
   let numFields = pqResult.pqnfields()
   if numFields != 1:
     error "Wrong number of fields"
@@ -182,6 +185,9 @@ proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Option[Times
 proc hashCallbackImpl(
     pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
 ) =
+  ## Callback to get a hash out of the DB.
+  ## Used when queries only ask for hashes 
+
   let numFields = pqResult.pqnfields()
   if numFields != 1:
     error "Wrong number of fields"
