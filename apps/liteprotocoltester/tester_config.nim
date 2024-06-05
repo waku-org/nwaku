@@ -91,7 +91,7 @@ type LiteProtocolTesterConf* = object
   #   desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
   #   defaultValue: @[],
   #   name: "shard"
-  # .}: seq[ShardIdx]
+  # .}: seq[uint16]
   contentTopics* {.
     desc: "Default content topic to subscribe to. Argument may be repeated.",
     defaultValue: @[LiteContentTopic],
