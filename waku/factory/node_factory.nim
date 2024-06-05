@@ -120,7 +120,7 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.networkShards)).isOkOr:
+  node.mountSharding(conf.clusterId, conf.networkShards).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
