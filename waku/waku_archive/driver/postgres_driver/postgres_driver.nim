@@ -892,14 +892,14 @@ proc performWriteQuery*(
   return ok()
 
 proc addPartition(
-    self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
+    self: PostgresDriver, startTime: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
 
   let beginning = startTime
-  let `end` = (startTime + duration.seconds)
+  let `end` = partitions_manager.calcEndPartitionTime(startTime)
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -914,6 +914,11 @@ proc addPartition(
     "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
 
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
+    if error.contains("already exists"):
+      debug "skip create new partition as it already exists: ", skipped_error = $error
+      return ok()
+
+    ## for any different error, just consider it
     return err(fmt"error adding partition [{partitionName}]: " & $error)
 
   debug "new partition added", query = createPartitionQuery
@@ -953,7 +958,6 @@ proc initializePartitionsInfo(
     return ok()
 
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
-const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
 proc loopPartitionFactory(
     self: PostgresDriver, onFatalError: OnFatalErrorHandler
@@ -962,11 +966,6 @@ proc loopPartitionFactory(
   ## Notice that the deletion of partitions is handled by the retention policy modules.
 
   debug "starting loopPartitionFactory"
-
-  if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
-    onFatalError(
-      "partition factory partition range interval should be bigger than check interval"
-    )
 
   ## First of all, let's make the 'partition_manager' aware of the current partitions
   (await self.initializePartitionsInfo()).isOkOr:
@@ -979,7 +978,7 @@ proc loopPartitionFactory(
 
     if self.partitionMngr.isEmpty():
       debug "adding partition because now there aren't more partitions"
-      (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+      (await self.addPartition(now)).isOkOr:
         onFatalError("error when creating a new partition from empty state: " & $error)
     else:
       let newestPartitionRes = self.partitionMngr.getNewestPartition()
@@ -992,18 +991,14 @@ proc loopPartitionFactory(
         ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
 
-        (
-          await self.addPartition(
-            newestPartition.getLastMoment(), PartitionsRangeInterval
-          )
-        ).isOkOr:
+        (await self.addPartition(newestPartition.getLastMoment())).isOkOr:
           onFatalError("could not add the next partition for 'now': " & $error)
       elif now >= newestPartition.getLastMoment():
         debug "creating a new partition to contain current messages"
         ## There is no partition to contain the current time.
         ## This happens if the node has been stopped for quite a long time.
         ## Then, let's create the needed partition to contain 'now'.
-        (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+        (await self.addPartition(now)).isOkOr:
           onFatalError("could not add the next partition: " & $error)
 
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
