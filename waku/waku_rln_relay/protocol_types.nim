@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[options, tables, deques], stew/arrayops, chronos, web3, eth/keys
+import std/[options, tables, deques], stew/arrayops, stint, chronos, web3, eth/keys
 import ../waku_core, ../waku_keystore, ../common/protobuf
 
 export waku_keystore, waku_core
@@ -16,7 +16,7 @@ type RLNResult* = RlnRelayResult[ptr RLN]
 
 type
   MerkleNode* = array[32, byte]
-    # Each node of the Merkle tee is a Poseidon hash which is a 32 byte value
+  # Each node of the Merkle tree is a Poseidon hash which is a 32 byte value
   Nullifier* = array[32, byte]
   Epoch* = array[32, byte]
   RlnIdentifier* = array[32, byte]
@@ -26,6 +26,10 @@ type
   RateCommitment* = object
     idCommitment*: IDCommitment
     userMessageLimit*: UserMessageLimit
+  RawRateCommitment* = seq[byte]
+
+proc toRateCommitment*(rateCommitmentUint: UInt256): RawRateCommitment =
+  return RawRateCommitment(@(rateCommitmentUint.toBytesLE()))
 
 # Custom data types defined for waku rln relay -------------------------
 type RateLimitProof* = object

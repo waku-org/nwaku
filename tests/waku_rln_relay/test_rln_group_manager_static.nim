@@ -140,7 +140,7 @@ suite "Static group manager":
         registrations[0].rateCommitment ==
           RateCommitment(
             idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit
-          )
+          ).toLeaf().get()
       callbackCalled = true
       fut.complete()
 
@@ -204,7 +204,7 @@ suite "Static group manager":
         withdrawals[0].rateCommitment ==
           RateCommitment(
             idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit
-          )
+          ).toLeaf().get()
 
       callbackCalled = true
       fut.complete()
