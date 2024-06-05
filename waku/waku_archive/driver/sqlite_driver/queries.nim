@@ -241,9 +241,8 @@ proc selectAllMessages*(
     rows.add((hash, pubsubTopic, wakuMessage))
 
   let query = selectAllMessagesQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
-    return err(res.error())
+  db.query(query, queryRowCallback).isOkOr:
+    return err("select all messages failed: " & $error)
 
   return ok(rows)
 
@@ -260,9 +259,8 @@ proc selectAllMessageHashes*(db: SqliteDatabase): DatabaseResult[seq[WakuMessage
     rows.add(hash)
 
   let query = selectAllMessageHashesQuery(DbTable)
-  let res = db.query(query, queryRowCallback)
-  if res.isErr():
-    return err(res.error())
+  db.query(query, queryRowCallback).isOkOr:
+    return err("select all message hashes failed: " & $error)
 
   return ok(rows)
 
