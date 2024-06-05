@@ -31,50 +31,34 @@ logScope:
   topics = "waku rln_relay onchain_group_manager"
 
 # using the when predicate does not work within the contract macro, hence need to dupe
-contract(WakuRlnRegistry):
-  # this describes the storage slot to use
-  proc usingStorageIndex(): Uint16 {.pure.}
-  # this map contains the address of a given storage slot
-  proc storages(index: Uint16): Address {.pure.}
-  # this serves as an entrypoint into the rln storage contract
+contract(WakuRlnContract):
+  # this serves as an entrypoint into the rln membership set
   proc register(
-    storageIndex: Uint16, idCommitment: Uint256, userMessageLimit: Uint256
+    idCommitment: UInt256, userMessageLimit: UInt32
   )
-
-  # this creates a new storage on the rln registry
-  proc newStorage(maxMessageLimit: Uint256)
   # Initializes the implementation contract (only used in unit tests)
-  proc initialize()
-
-# membership contract interface
-contract(RlnStorage):
+  proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
   proc MemberRegistered(
-    idCommitment: Uint256, userMessageLimit: Uint256, index: Uint256
+    rateCommitment: UInt256, index: Uint32
   ) {.event.}
 
-  # this constant contains the membership deposit of the contract
-  proc MEMBERSHIP_DEPOSIT(): Uint256 {.pure.}
-  # this map denotes existence of a given user
-  proc memberExists(idCommitment: Uint256): Uint256 {.view.}
+  # this function denotes existence of a given user
+  proc memberExists(idCommitment: Uint256): UInt256 {.view.}
   # this constant describes the next index of a new member
-  proc idCommitmentIndex(): Uint256 {.view.}
+  proc commitmentIndex(): UInt256 {.view.}
   # this constant describes the block number this contract was deployed on
-  proc deployedBlockNumber(): Uint256 {.view.}
+  proc deployedBlockNumber(): UInt256 {.view.}
 
 type
-  RegistryContractWithSender = Sender[WakuRlnRegistry]
-  RlnContractWithSender = Sender[RlnStorage]
+  WakuRlnContractWithSender = Sender[WakuRlnContract]
   OnchainGroupManager* = ref object of GroupManager
     ethClientUrl*: string
     ethPrivateKey*: Option[string]
     ethContractAddress*: string
     ethRpc*: Option[Web3]
-    rlnContract*: Option[RlnContractWithSender]
     rlnContractDeployedBlockNumber*: BlockNumber
-    registryContract*: Option[RegistryContractWithSender]
-    usingStorageIndex: Option[Uint16]
-    membershipFee*: Option[Uint256]
+    wakuRlnContract*: Option[WakuRlnContractWithSender]
     latestProcessedBlock*: BlockNumber
     registrationTxHash*: Option[TxHash]
     chainId*: Option[Quantity]
@@ -136,20 +120,14 @@ proc setMetadata*(
 method atomicBatch*(
     g: OnchainGroupManager,
     start: MembershipIndex,
-    rateCommitments = newSeq[RateCommitment](),
+    rateCommitments = newSeq[RawRateCommitment](),
     toRemoveIndices = newSeq[MembershipIndex](),
 ): Future[void] {.async: (raises: [Exception]), base.} =
   initializedGuard(g)
 
-  # convert the rateCommitment struct to a leaf value
-  let leaves = rateCommitments.toLeaves().valueOr:
-    raise newException(
-      ValueError, "failed to convert rateCommitments to leaves: " & $error
-    )
-
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
     let operationSuccess =
-      g.rlnInstance.atomicWrite(some(start), leaves, toRemoveIndices)
+      g.rlnInstance.atomicWrite(some(start), rateCommitments, toRemoveIndices)
   if not operationSuccess:
     raise newException(CatchableError, "atomic batch operation failed")
   # TODO: when slashing is enabled, we need to track slashed members
@@ -159,7 +137,7 @@ method atomicBatch*(
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< rateCommitments.len:
       var index = start + MembershipIndex(i)
-      trace "registering member", rateCommitment = rateCommitments[i], index = index
+      debug "registering member to callback", rateCommitment = rateCommitments[i], index = index
       let member = Membership(rateCommitment: rateCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
@@ -171,10 +149,15 @@ method register*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-  await g.registerBatch(@[rateCommitment])
+  try:
+    let leaf = rateCommitment.toLeaf().get()
+    await g.registerBatch(@[leaf])
+  except CatchableError:
+    raise newException(ValueError, getCurrentExceptionMsg())
+
 
 method registerBatch*(
-    g: OnchainGroupManager, rateCommitments: seq[RateCommitment]
+    g: OnchainGroupManager, rateCommitments: seq[RawRateCommitment]
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
@@ -189,23 +172,20 @@ method register*(
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
-  let registryContract = g.registryContract.get()
-  let membershipFee = g.membershipFee.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
 
   var gasPrice: int
   g.retryWrapper(gasPrice, "Failed to get gas price"):
     int(await ethRpc.provider.eth_gasPrice()) * 2
   let idCommitment = identityCredential.idCommitment.toUInt256()
 
-  let storageIndex = g.usingStorageIndex.get()
   debug "registering the member",
     idCommitment = idCommitment,
-    storageIndex = storageIndex,
     userMessageLimit = userMessageLimit
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await registryContract
-    .register(storageIndex, idCommitment, u256(userMessageLimit))
+    await wakuRlnContract
+    .register(idCommitment, userMessageLimit.stuint(32))
     .send(gasPrice = gasPrice)
 
   # wait for the transaction to be mined
@@ -216,23 +196,24 @@ method register*(
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
+  debug "ts receipt", tsReceipt
   let firstTopic = tsReceipt.logs[0].topics[0]
-  # the hash of the signature of MemberRegistered(uint256,uint256,uint256) event is equal to the following hex value
+  # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
       cast[FixedBytes[32]](keccak256.digest(
-        "MemberRegistered(uint256,uint256,uint256)"
+        "MemberRegistered(uint256,uint32)"
       ).data):
     raise newException(ValueError, "unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-  # data = pk encoded as 256 bits || index encoded as 256 bits || userMessageLimit encoded as 256 bits
+  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits 
   let arguments = tsReceipt.logs[0].data
   debug "tx log data", arguments = arguments
   let
-    argumentsBytes = arguments
     # In TX log data, uints are encoded in big endian
-    membershipIndex = UInt256.fromBytesBE(argumentsBytes[64 ..^ 1])
+    membershipIndex = UInt256.fromBytesBE(arguments[32 ..^ 1])
 
+  debug "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
 
@@ -257,9 +238,8 @@ proc parseEvent(
 ): GroupManagerResult[Membership] =
   ## parses the `data` parameter of the `MemberRegistered` event `log`
   ## returns an error if it cannot parse the `data` parameter
-  var idComm: UInt256
+  var rateCommitment: UInt256
   var index: UInt256
-  var userMessageLimit: UInt256
   var data: string
   # Remove the 0x prefix
   try:
@@ -271,18 +251,13 @@ proc parseEvent(
     )
   var offset = 0
   try:
-    # Parse the idComm
-    offset += decode(data, offset, idComm)
-    # Parse the userMessageLimit
-    offset += decode(data, offset, userMessageLimit)
+    # Parse the rateCommitment
+    offset += decode(data, offset, rateCommitment)
     # Parse the index
     offset += decode(data, offset, index)
     return ok(
       Membership(
-        rateCommitment: RateCommitment(
-          idCommitment: idComm.toIDCommitment(),
-          userMessageLimit: userMessageLimit.toUserMessageLimit(),
-        ),
+        rateCommitment: rateCommitment.toRateCommitment(),
         index: index.toMembershipIndex(),
       )
     )
@@ -324,11 +299,11 @@ proc getRawEvents(
   initializedGuard(g)
 
   let ethRpc = g.ethRpc.get()
-  let rlnContract = g.rlnContract.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
 
   var events: JsonNode
   g.retryWrapper(events, "Failed to get the events"):
-    await rlnContract.getJsonLogs(
+    await wakuRlnContract.getJsonLogs(
       MemberRegistered,
       fromBlock = some(fromBlock.blockId()),
       toBlock = some(toBlock.blockId()),
@@ -376,7 +351,7 @@ proc handleEvents(
         toRemoveIndices = removalIndices,
       )
       g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
-      trace "new members added to the Merkle tree", commitments = rateCommitments
+      trace "new members added to the Merkle tree", commitments = rateCommitments.mapIt(it.inHex)
 
     except CatchableError:
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
@@ -579,23 +554,11 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     ethRpc.defaultAccount =
       ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
 
-  let registryAddress = web3.fromHex(web3.Address, g.ethContractAddress)
-  let registryContract = ethRpc.contractSender(WakuRlnRegistry, registryAddress)
-
-  # get the current storage index
-  var usingStorageIndex: Uint16
-  g.retryWrapper(usingStorageIndex, "Failed to get the storage index"):
-    await registryContract.usingStorageIndex().call()
-
-  g.usingStorageIndex = some(usingStorageIndex)
-  var rlnContractAddress: Address
-  g.retryWrapper(rlnContractAddress, "Failed to get the rln contract address"):
-    await registryContract.storages(usingStorageIndex).call()
-  let rlnContract = ethRpc.contractSender(RlnStorage, rlnContractAddress)
-
+  let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
+  let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
+  
   g.ethRpc = some(ethRpc)
-  g.rlnContract = some(rlnContract)
-  g.registryContract = some(registryContract)
+  g.wakuRlnContract = some(wakuRlnContract)
 
   if g.keystorePath.isSome() and g.keystorePassword.isSome():
     if not fileExists(g.keystorePath.get()):
@@ -621,7 +584,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.userMessageLimit = some(keystoreCred.userMessageLimit)
     # now we check on the contract if the commitment actually has a membership
     try:
-      let membershipExists = await rlnContract
+      let membershipExists = await wakuRlnContract
       .memberExists(keystoreCred.identityCredential.idCommitment.toUInt256())
       .call()
       if membershipExists == 0:
@@ -644,16 +607,10 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.latestProcessedBlock = metadata.lastProcessedBlock
     g.validRoots = metadata.validRoots.toDeque()
 
-  # check if the contract exists by calling a static function
-  var membershipFee: Uint256
-  g.retryWrapper(membershipFee, "Failed to get the membership deposit"):
-    await rlnContract.MEMBERSHIP_DEPOSIT().call()
-  g.membershipFee = some(membershipFee)
-
   var deployedBlockNumber: Uint256
   g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number"):
-    await rlnContract.deployedBlockNumber().call()
-  debug "using rln storage", deployedBlockNumber, rlnContractAddress
+    await wakuRlnContract.deployedBlockNumber().call()
+  debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
 
