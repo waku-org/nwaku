@@ -136,7 +136,7 @@ proc getPage(
     if predicate.isNil() or predicate(key, data):
       numberOfItems += 1
 
-      outSeq.add((key.hash, key.topic, data))
+      outSeq.add((key.hash, key.pubsubTopic, data))
 
     currentEntry =
       if forward:
@@ -232,7 +232,8 @@ method put*(
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  let index = Index(time: message.timestamp, hash: messageHash, topic: pubsubTopic)
+  let index =
+    Index(time: message.timestamp, hash: messageHash, pubsubTopic: pubsubTopic)
 
   return driver.add(index, message)
 
@@ -266,7 +267,7 @@ method getMessages*(
 
   let matchesQuery: QueryFilterMatcher =
     func (index: Index, msg: WakuMessage): bool =
-      if pubsubTopic.isSome() and index.topic != pubsubTopic.get():
+      if pubsubTopic.isSome() and index.pubsubTopic != pubsubTopic.get():
         return false
 
       if contentTopics.len > 0 and msg.contentTopic notin contentTopics:
