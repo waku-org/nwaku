@@ -9,7 +9,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/[strformat, strutils, times, options, random]
+import std/[strformat, strutils, times, options, random, sequtils]
 import
   confutils,
   chronicles,
@@ -379,7 +379,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
     raise newException(ConfigurationError, "rln-relay-cred-path MUST be passed")
 
   if conf.relay:
-    await node.mountRelay(conf.topics.split(" "))
+    let pubsubTopics =
+      conf.shards.mapIt(NsPubsubTopic(clusterId: conf.clusterId, shardId: uint16(it)))
+    await node.mountRelay(pubsubTopics)
 
   await node.mountLibp2pPing()
 
