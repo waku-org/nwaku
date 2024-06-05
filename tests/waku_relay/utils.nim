@@ -53,7 +53,7 @@ proc setupRln*(node: WakuNode, identifier: uint) {.async.} =
   )
 
 proc setupRelayWithRln*(
-    node: WakuNode, identifier: uint, pubsubTopics: seq[string]
+    node: WakuNode, identifier: uint, pubsubTopics: seq[NsPubsubTopic]
 ) {.async.} =
   await node.mountRelay(pubsubTopics)
   await setupRln(node, identifier)
