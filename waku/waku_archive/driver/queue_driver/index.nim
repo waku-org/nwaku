@@ -7,7 +7,7 @@ type Index* = object
   ## This type contains the  description of an Index used in the pagination of WakuMessages
   time*: Timestamp # the time at which the message is generated
   hash*: WakuMessageHash
-  topic*: PubsubTopic
+  pubsubTopic*: PubsubTopic
 
 proc `==`*(x, y: Index): bool =
   return x.hash == y.hash
