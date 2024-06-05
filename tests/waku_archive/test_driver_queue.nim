@@ -17,9 +17,10 @@ proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
 
   let
     message = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
-    topic = "test-pubsub-topic"
-    cursor =
-      Index(time: Timestamp(i), hash: computeMessageHash(topic, message), topic: topic)
+    pubsubTopic = "test-pubsub-topic"
+    cursor = Index(
+      time: Timestamp(i), hash: computeMessageHash(topic, message), topic: pubsubTopic
+    )
 
   (cursor, message)
 
