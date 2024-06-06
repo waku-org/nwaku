@@ -87,10 +87,11 @@ func version*(waku: Waku): string =
   waku.version
 
 proc validateShards(conf: WakuNodeConf): Result[void, string] =
+  let networkShards = getNetworkShards(conf)
+
   for shard in conf.shards:
-    if shard >= conf.networkShards:
-      let msg =
-        "Invalid shard: " & $shard & " when networkShards: " & $conf.networkShards
+    if shard >= networkShards:
+      let msg = "Invalid shard: " & $shard & " when networkShards: " & $networkShards
         # fmt doesn't work
       error "validateShards failed", error = msg
       return err(msg)

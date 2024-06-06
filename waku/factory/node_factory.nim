@@ -110,6 +110,12 @@ proc initNode(
 
 ## Mount protocols
 
+proc getNetworkShards*(conf: WakuNodeConf): uint32 =
+  if conf.networkShards != 0:
+    return conf.networkShards
+  # If conf.networkShards is not set, use the number of shards configured as networkShards
+  return uint32(conf.shards.len)
+
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
 ): Future[Result[void, string]] {.async.} =
@@ -121,9 +127,7 @@ proc setupProtocols(
     return err("failed to mount waku metadata protocol: " & error)
 
   # If conf.networkShards is not set, use the number of shards configured as networkShards
-  var networkShards = conf.networkShards
-  if networkShards == uint32(0):
-    networkShards = uint32(conf.shards.len)
+  let networkShards = getNetworkShards(conf)
 
   node.mountSharding(conf.clusterId, networkShards).isOkOr:
     return err("failed to mount waku sharding: " & error)
