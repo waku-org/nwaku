@@ -34,7 +34,7 @@ template nanosecondTime*(collector: Gauge, body: untyped) =
   else:
     body
 
-# Unused yet
+# Unused yet. Kept for future use in Waku Sync.
 #[ proc timestampInSeconds*(time: Timestamp): Timestamp =
   let timeStr = $time
   var timestamp: Timestamp = time

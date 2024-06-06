@@ -5,7 +5,7 @@ else:
 
 from os import DirSep
 
-import std/[strutils], chronicles, std/options, stew/[results, byteutils], confutils
+import std/[strutils], chronicles, std/options, stew/byteutils, confutils, results
 import ../waku_core/message
 
 const negentropyPath =
@@ -271,7 +271,7 @@ type
 
   NegentropyPayload* = distinct seq[byte]
 
-method delete*(self: Negentropy) {.base.} =
+method delete*(self: Negentropy) {.base, gcsafe.} =
   discard
 
 method initiate*(self: Negentropy): Result[NegentropyPayload, string] {.base.} =

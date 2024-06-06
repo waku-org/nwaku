@@ -84,7 +84,6 @@ endif
 endif
 ## end of Heaptracker options
 
-
 ##################
 ## Dependencies ##
 ##################
@@ -172,7 +171,7 @@ clean: | clean-librln
 #################
 .PHONY: testcommon
 
-testcommon: | build deps
+testcommon: | build deps negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
 
@@ -191,7 +190,7 @@ wakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
-benchmarks: | build deps librln
+benchmarks: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim benchmarks $(NIM_PARAMS) waku.nims
 
@@ -199,23 +198,23 @@ testwakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) waku.nims
 
-example2: | build deps librln
+example2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
-chat2: | build deps librln
+chat2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
-rln-db-inspector: | build deps librln
+rln-db-inspector: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) waku.nims
 
-chat2bridge: | build deps librln
+chat2bridge: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
-liteprotocoltester: | build deps librln
+liteprotocoltester: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
 
@@ -234,11 +233,11 @@ test/%: | build deps librln
 
 tools: networkmonitor wakucanary
 
-wakucanary: | build deps librln
+wakucanary: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakucanary $(NIM_PARAMS) waku.nims
 
-networkmonitor: | build deps librln
+networkmonitor: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
@@ -292,7 +291,7 @@ docker-push:
 
 STATIC ?= false
 
-libwaku: | build deps librln
+libwaku: | build deps librln negentropy
 		rm -f build/libwaku*
 ifeq ($(STATIC), true)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
