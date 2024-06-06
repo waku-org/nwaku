@@ -18,7 +18,7 @@ suite "Waku ENR -  Capabilities bitfield":
   test "bitfield to capabilities list":
     ## Given
     let bitfield = CapabilitiesBitfield.init(
-      relay = true, store = false, lightpush = true, filter = true, sync = false
+      relay = true, store = false, lightpush = true, filter = true
     )
 
     ## When

@@ -38,7 +38,7 @@ suite "Waku Peer Exchange":
       let
         # todo: px flag
         flags = CapabilitiesBitfield.init(
-          lightpush = false, filter = false, store = false, relay = true, sync = false
+          lightpush = false, filter = false, store = false, relay = true
         )
         bindIp = parseIpAddress("0.0.0.0")
         extIp = parseIpAddress("127.0.0.1")
