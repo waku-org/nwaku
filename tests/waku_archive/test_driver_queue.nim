@@ -19,7 +19,9 @@ proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
     message = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
     pubsubTopic = "test-pubsub-topic"
     cursor = Index(
-      time: Timestamp(i), hash: computeMessageHash(topic, message), topic: pubsubTopic
+      time: Timestamp(i),
+      hash: computeMessageHash(pubsubTopic, message),
+      pubsubTopic: pubsubTopic,
     )
 
   (cursor, message)
