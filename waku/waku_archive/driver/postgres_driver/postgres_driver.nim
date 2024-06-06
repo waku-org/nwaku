@@ -866,7 +866,7 @@ proc acquireDatabaseLock*(
 proc releaseDatabaseLock*(
     s: PostgresDriver, lockId: int = 841886
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  ## Release an advisory lock (useful to avoid more than one application running migrations at the same time)
   let unlocked = (
     await s.getStr(
       fmt"""
