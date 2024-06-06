@@ -913,6 +913,16 @@ proc addPartition(
     "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
     "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
 
+  # Lock the db
+  (await self.acquireDatabaseLock()).isOkOr:
+    error "failed to acquire lock", error = error
+    return err("failed to lock the db")
+
+  defer:
+    (await self.releaseDatabaseLock()).isOkOr:
+      error "failed to release lock", error = error
+      return err("failed to unlock the db.")
+
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
     if error.contains("already exists"):
       debug "skip create new partition as it already exists: ", skipped_error = $error
