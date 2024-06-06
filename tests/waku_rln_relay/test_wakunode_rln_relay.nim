@@ -37,7 +37,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic])
+    await node1.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -60,7 +60,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic])
+    await node2.mountRelay(@[DefaultNsPubsubTopic])
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
       let wakuRlnConfig2 = WakuRlnConfig(
@@ -82,7 +82,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic])
+    await node3.mountRelay(@[DefaultNsPubsubTopic])
 
     when defined(rln_v2):
       let wakuRlnConfig3 = WakuRlnConfig(
@@ -148,8 +148,8 @@ procSuite "WakuNode - RLN relay":
 
     let pubsubTopics =
       @[
-        PubsubTopic("/waku/2/pubsubtopic-a/proto"),
-        PubsubTopic("/waku/2/pubsubtopic-b/proto"),
+        NsPubsubTopic(clusterId: DefaultClusterId, shardId: 0),
+        NsPubsubTopic(clusterId: DefaultClusterId, shardId: 1),
       ]
     let contentTopics =
       @[
@@ -198,8 +198,8 @@ procSuite "WakuNode - RLN relay":
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
     # mount the relay handlers
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[0]), some(relayHandler))
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[1]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: $pubsubTopics[0]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: $pubsubTopics[1]), some(relayHandler))
     await sleepAsync(1000.millis)
 
     # generate some messages with rln proofs first. generating
@@ -229,9 +229,9 @@ procSuite "WakuNode - RLN relay":
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
     # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
     for msg in messages1:
-      discard await nodes[0].publish(some(pubsubTopics[0]), msg)
+      discard await nodes[0].publish(some($pubsubTopics[0]), msg)
     for msg in messages2:
-      discard await nodes[1].publish(some(pubsubTopics[1]), msg)
+      discard await nodes[1].publish(some($pubsubTopics[1]), msg)
 
     # wait for gossip to propagate
     await sleepAsync(5000.millis)
@@ -260,7 +260,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic])
+    await node1.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -283,7 +283,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic])
+    await node2.mountRelay(@[DefaultNsPubsubTopic])
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
       let wakuRlnConfig2 = WakuRlnConfig(
@@ -305,7 +305,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic])
+    await node3.mountRelay(@[DefaultNsPubsubTopic])
 
     when defined(rln_v2):
       let wakuRlnConfig3 = WakuRlnConfig(
@@ -403,7 +403,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up three nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic])
+    await node1.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -426,7 +426,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic])
+    await node2.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -448,7 +448,7 @@ procSuite "WakuNode - RLN relay":
     await node2.start()
 
     # node 3
-    await node3.mountRelay(@[DefaultPubsubTopic])
+    await node3.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -489,6 +489,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node3.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node3.wakuRlnRelay.rlnEpochSizeSec)
     ).isOkOr:
@@ -559,7 +560,7 @@ procSuite "WakuNode - RLN relay":
 
     # set up 2 nodes
     # node1
-    await node1.mountRelay(@[DefaultPubsubTopic])
+    await node1.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -582,7 +583,7 @@ procSuite "WakuNode - RLN relay":
     await node1.start()
 
     # node 2
-    await node2.mountRelay(@[DefaultPubsubTopic])
+    await node2.mountRelay(@[DefaultNsPubsubTopic])
 
     # mount rlnrelay in off-chain mode
     when defined(rln_v2):
@@ -620,6 +621,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node1.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2)
     ).isOkOr:
