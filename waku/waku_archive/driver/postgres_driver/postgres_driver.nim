@@ -168,16 +168,21 @@ proc timeCursorCallbackImpl(pqResult: ptr PGresult, timeCursor: var Option[Times
     error "Wrong number of fields"
     return
 
+  let rawTimestamp = $(pqgetvalue(pqResult, 0, 0))
+
+  trace "db output", rawTimestamp
+
+  if rawTimestamp.len < 1:
+    return
+
   let catchable = catch:
-    parseInt($(pqgetvalue(pqResult, 0, 1)))
+    parseBiggestInt(rawTimestamp)
 
   if catchable.isErr():
     error "could not parse correctly", error = catchable.error.msg
     return
 
-  let timestamp: Timestamp = catchable.get()
-
-  timeCursor = some(timestamp)
+  timeCursor = some(catchable.get())
 
 proc hashCallbackImpl(
     pqResult: ptr PGresult, rows: var seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
@@ -191,8 +196,15 @@ proc hashCallbackImpl(
     return
 
   for iRow in 0 ..< pqResult.pqNtuples():
+    let rawHash = $(pqgetvalue(pqResult, iRow, 0))
+
+    trace "db output", rawHash
+
+    if rawHash.len < 1:
+      return
+
     let catchable = catch:
-      parseHexStr($(pqgetvalue(pqResult, iRow, 1)))
+      parseHexStr(rawHash)
 
     if catchable.isErr():
       error "could not parse correctly", error = catchable.error.msg
@@ -220,6 +232,12 @@ proc rowCallbackImpl(
 
   for iRow in 0 ..< pqResult.pqNtuples():
     var
+      rawHash: string
+      rawPayload: string
+      rawVersion: string
+      rawTimestamp: string
+      rawMeta: string
+
       hashHex: string
       msgHash: WakuMessageHash
 
@@ -232,19 +250,27 @@ proc rowCallbackImpl(
       meta: string
       wakuMessage: WakuMessage
 
+    rawHash = $(pqgetvalue(pqResult, iRow, 0))
+    pubSubTopic = $(pqgetvalue(pqResult, iRow, 1))
+    contentTopic = $(pqgetvalue(pqResult, iRow, 2))
+    rawPayload = $(pqgetvalue(pqResult, iRow, 3))
+    rawVersion = $(pqgetvalue(pqResult, iRow, 4))
+    rawTimestamp = $(pqgetvalue(pqResult, iRow, 5))
+    rawMeta = $(pqgetvalue(pqResult, iRow, 6))
+
+    trace "db output",
+      rawHash, pubSubTopic, contentTopic, rawPayload, rawVersion, rawTimestamp, rawMeta
+
     try:
-      hashHex = parseHexStr($(pqgetvalue(pqResult, iRow, 1)))
-      msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
-
-      pubSubTopic = $(pqgetvalue(pqResult, iRow, 2))
-
-      contentTopic = $(pqgetvalue(pqResult, iRow, 3))
-      payload = parseHexStr($(pqgetvalue(pqResult, iRow, 4)))
-      version = parseUInt($(pqgetvalue(pqResult, iRow, 5)))
-      timestamp = parseInt($(pqgetvalue(pqResult, iRow, 6)))
-      meta = parseHexStr($(pqgetvalue(pqResult, iRow, 7)))
+      hashHex = parseHexStr(rawHash)
+      payload = parseHexStr(rawPayload)
+      version = parseUInt(rawVersion)
+      timestamp = parseInt(rawTimestamp)
+      meta = parseHexStr(rawMeta)
     except ValueError:
       error "could not parse correctly", error = getCurrentExceptionMsg()
+
+    msgHash = fromBytes(hashHex.toOpenArrayByte(0, 31))
 
     wakuMessage.contentTopic = contentTopic
     wakuMessage.payload = @(payload.toOpenArrayByte(0, payload.high))
@@ -268,7 +294,8 @@ method put*(
   let timestamp = $message.timestamp
   let meta = toHex(message.meta)
 
-  trace "put PostgresDriver", timestamp = timestamp
+  trace "put PostgresDriver",
+    messageHash, contentTopic, payload, version, timestamp, meta
 
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,
