@@ -14,7 +14,7 @@ import
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/testasync,
-  ../testlib/postgres
+  ../testlib/postgres_legacy
 
 logScope:
   topics = "test archive postgres driver"
