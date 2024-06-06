@@ -25,7 +25,7 @@ proc getTestQueueDriver(numMessages: int): QueueDriver =
     let index = Index(
       time: Timestamp(i),
       hash: computeMessageHash(DefaultPubsubTopic, msg),
-      topic: DefaultPubsubTopic,
+      pubsubTopic: DefaultPubsubTopic,
     )
 
     discard testQueueDriver.add(index, msg)
