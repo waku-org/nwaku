@@ -323,6 +323,12 @@ type WakuNodeConf* = object
       desc: "Enable/disable waku store protocol", defaultValue: false, name: "store"
     .}: bool
 
+    legacyStore* {.
+      desc: "Enable/disable waku store legacy mode",
+      defaultValue: true,
+      name: "legacy-store"
+    .}: bool
+
     storenode* {.
       desc: "Peer multiaddress to query for storage",
       defaultValue: "",
