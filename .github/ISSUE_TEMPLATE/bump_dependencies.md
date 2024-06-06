@@ -44,4 +44,4 @@ Update `nwaku` "vendor" dependencies.
 - [ ] nim-web3
 - [ ] nim-websock
 - [ ] nim-zlib
-- [ ] zerokit ( this should be kept in version `v0.3.4` )
+- [ ] zerokit ( this should be kept in version `v0.5.1` )
