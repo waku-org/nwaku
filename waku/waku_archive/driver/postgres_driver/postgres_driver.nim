@@ -34,8 +34,11 @@ const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
-const SelectClause = """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
-const SelectNoCursorAscStmtDef = SelectClause & """
+const SelectClause =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
+const SelectNoCursorAscStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         messageHash IN ($2) AND
         pubsubTopic = $3 AND
@@ -44,7 +47,9 @@ const SelectNoCursorAscStmtDef = SelectClause & """
   ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
-const SelectNoCursorDescStmtDef = SelectClause & """
+const SelectNoCursorDescStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         messageHash IN ($2) AND
         pubsubTopic = $3 AND
@@ -53,7 +58,9 @@ const SelectNoCursorDescStmtDef = SelectClause & """
   ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
-const SelectWithCursorDescStmtDef = SelectClause & """
+const SelectWithCursorDescStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         messageHash IN ($2) AND
         pubsubTopic = $3 AND
@@ -63,7 +70,9 @@ const SelectWithCursorDescStmtDef = SelectClause & """
   ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
-const SelectWithCursorAscStmtDef = SelectClause & """
+const SelectWithCursorAscStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         messageHash IN ($2) AND
         pubsubTopic = $3 AND
@@ -76,7 +85,9 @@ const SelectMessageByHashName = "SelectMessageByHash"
 const SelectMessageByHashDef = SelectClause & """WHERE messageHash = $1"""
 
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
-const SelectNoCursorV2AscStmtDef = SelectClause & """
+const SelectNoCursorV2AscStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         pubsubTopic = $2 AND
         storedAt >= $3 AND
@@ -84,7 +95,9 @@ const SelectNoCursorV2AscStmtDef = SelectClause & """
   ORDER BY storedAt ASC LIMIT $5;"""
 
 const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
-const SelectNoCursorV2DescStmtDef = SelectClause & """
+const SelectNoCursorV2DescStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         pubsubTopic = $2 AND
         storedAt >= $3 AND
@@ -92,7 +105,9 @@ const SelectNoCursorV2DescStmtDef = SelectClause & """
   ORDER BY storedAt DESC LIMIT $5;"""
 
 const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
-const SelectWithCursorV2DescStmtDef = SelectClause & """
+const SelectWithCursorV2DescStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         pubsubTopic = $2 AND
         (storedAt, id) < ($3,$4) AND
@@ -101,7 +116,9 @@ const SelectWithCursorV2DescStmtDef = SelectClause & """
   ORDER BY storedAt DESC LIMIT $7;"""
 
 const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
-const SelectWithCursorV2AscStmtDef = SelectClause & """
+const SelectWithCursorV2AscStmtDef =
+  SelectClause &
+  """
   WHERE contentTopic IN ($1) AND
         pubsubTopic = $2 AND
         (storedAt, id) > ($3,$4) AND
