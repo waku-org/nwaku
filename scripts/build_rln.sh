@@ -19,9 +19,9 @@ host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
 
 tarball="${host_triplet}"
 
-# use arkzkey feature for v0.4.4
+# use arkzkey feature for v0.5.1
 # TODO: update this script in the future when arkzkey is default
-if [[ "${rln_version}" == "v0.4.4" ]]; then
+if [[ "${rln_version}" == "v0.5.1" ]]; then
     tarball+="-arkzkey-rln.tar.gz"
 else
     tarball+="-rln.tar.gz"
@@ -52,6 +52,6 @@ else
         exit 1
     fi
     # if submodule version = version in Makefile, build rln
-    cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml"
+    cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" --features arkzkey
     cp "${build_dir}/target/release/librln.a" "${output_filename}"
 fi
