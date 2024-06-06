@@ -188,7 +188,7 @@ suite "Waku Peer Exchange with discv5":
     let
       # todo: px flag
       flags = CapabilitiesBitfield.init(
-        lightpush = false, filter = false, store = false, relay = true
+        lightpush = false, filter = false, store = false, relay = true, sync = false
       )
       bindIp = parseIpAddress("0.0.0.0")
       extIp = parseIpAddress("127.0.0.1")

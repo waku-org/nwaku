@@ -8,7 +8,7 @@ include ../../waku/node/config
 
 proc defaultTestWakuFlags(): CapabilitiesBitfield =
   CapabilitiesBitfield.init(
-    lightpush = false, filter = false, store = false, relay = true
+    lightpush = false, filter = false, store = false, relay = true, sync = false
   )
 
 suite "Waku NetConfig":
