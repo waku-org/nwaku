@@ -66,7 +66,7 @@ suite "WakuNode - Relay":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -95,10 +95,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    var res = await node1.publish(some(pubSubTopic), message)
+    var res = await node1.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     ## Then
@@ -127,7 +127,7 @@ suite "WakuNode - Relay":
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic1 = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
@@ -181,16 +181,16 @@ suite "WakuNode - Relay":
       # relay handler is called
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    var res = await node1.publish(some(pubSubTopic), message1)
+    var res = await node1.publish(some($pubSubTopic), message1)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
 
     # message2 never gets relayed because of the validator
-    res = await node1.publish(some(pubSubTopic), message2)
+    res = await node1.publish(some($pubSubTopic), message2)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -261,7 +261,7 @@ suite "WakuNode - Relay":
         wsBindPort = Port(0),
         wsEnabled = true,
       )
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -284,10 +284,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -309,7 +309,7 @@ suite "WakuNode - Relay":
       )
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), bindPort = Port(0))
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -332,10 +332,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -357,7 +357,7 @@ suite "WakuNode - Relay":
         wsBindPort = Port(0),
         wsEnabled = true,
       )
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -384,10 +384,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -411,7 +411,7 @@ suite "WakuNode - Relay":
       )
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), bindPort = Port(0))
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -434,10 +434,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -469,7 +469,7 @@ suite "WakuNode - Relay":
       )
 
     let
-      pubSubTopic = "test"
+      pubSubTopic = DefaultNsPubsubTopic
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -492,10 +492,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $pubsubTopic), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($pubSubTopic), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)

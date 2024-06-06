@@ -7,7 +7,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/strutils, stew/[results, base10]
+import std/[strutils, strformat], stew/[results, base10]
 import ./parsing
 
 export parsing
@@ -16,15 +16,17 @@ export parsing
 
 type PubsubTopic* = string
 
-const DefaultPubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
-const DefaultShards* = @[uint16(0)]
-const DefaultClusterId* = uint16(0)
-
 ## Namespaced pub-sub topic
 
 type NsPubsubTopic* = object
   clusterId*: uint16
   shardId*: uint16
+
+const DefaultShardId* = uint16(0)
+const DefaultClusterId* = uint16(0)
+const DefaultNsPubsubTopic* =
+  NsPubsubTopic(clusterId: DefaultClusterId, shardId: DefaultShardId)
+const DefaultPubsubTopic* = PubsubTopic($DefaultNsPubsubTopic)
 
 proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
   return NsPubsubTopic(clusterId: clusterId, shardId: shardId)
