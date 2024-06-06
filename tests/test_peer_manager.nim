@@ -416,7 +416,8 @@ procSuite "Peer Manager":
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/3/0"],
+        clusterId = 3,
+        shards = @[uint16(0)],
       )
 
       # same network
@@ -424,13 +425,15 @@ procSuite "Peer Manager":
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/4/0"],
+        clusterId = 4,
+        shards = @[uint16(0)],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/4/0"],
+        clusterId = 4,
+        shards = @[uint16(0)],
       )
 
     node1.mountMetadata(3).expect("Mounted Waku Metadata")

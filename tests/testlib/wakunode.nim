@@ -62,6 +62,8 @@ proc newTestWakuNode*(
     discv5UdpPort = none(Port),
     agentString = none(string),
     peerStoreCapacity = none(int),
+    clusterId = DefaultClusterId,
+    shards = @[DefaultShardId],
 ): WakuNode =
   var resolvedExtIp = extIp
 
@@ -73,6 +75,9 @@ proc newTestWakuNode*(
       extPort
 
   var conf = defaultTestWakuNodeConf()
+
+  conf.clusterId = clusterId
+  conf.shards = shards
 
   if dns4DomainName.isSome() and extIp.isNone():
     # If there's an error resolving the IP, an exception is thrown and test fails
