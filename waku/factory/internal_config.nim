@@ -45,7 +45,7 @@ proc enrConfiguration*(
     shards = toSeq(conf.shards.mapIt(uint16(it)))
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: uint16(conf.clusterId), shardIds: shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 

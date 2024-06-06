@@ -24,7 +24,7 @@ import
 
 procSuite "Waku Metadata Protocol":
   asyncTest "request() returns the supported metadata of the peer":
-    let clusterId = 10.uint32
+    let clusterId = 10.uint16
     let
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
