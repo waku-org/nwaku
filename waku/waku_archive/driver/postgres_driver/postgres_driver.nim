@@ -34,8 +34,6 @@ const SelectClause =
   """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta FROM messages """
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
-const SelectClause =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
 const SelectNoCursorAscStmtDef =
   SelectClause &
   """WHERE contentTopic IN ($1) AND
