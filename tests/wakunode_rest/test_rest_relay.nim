@@ -52,12 +52,11 @@ suite "Waku v2 Rest API - Relay":
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics =
-      @[
-        PubSubTopic("pubsub-topic-1"),
-        PubSubTopic("pubsub-topic-2"),
-        PubSubTopic("pubsub-topic-3"),
-      ]
+    let pubsubTopic1 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 0)
+    let pubsubTopic2 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 1)
+    let pubsubTopic3 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 2)
+
+    let pubSubTopics = @[$pubsubTopic1, $pubsubTopic2, $pubsubTopic3]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -70,9 +69,9 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      cache.isPubsubSubscribed("pubsub-topic-1")
-      cache.isPubsubSubscribed("pubsub-topic-2")
-      cache.isPubsubSubscribed("pubsub-topic-3")
+      cache.isPubsubSubscribed($pubsubTopic1)
+      cache.isPubsubSubscribed($pubsubTopic2)
+      cache.isPubsubSubscribed($pubsubTopic3)
 
     check:
       toSeq(node.wakuRelay.subscribedTopics).len == pubSubTopics.len
@@ -84,10 +83,15 @@ suite "Waku v2 Rest API - Relay":
   asyncTest "Unsubscribe a node from an array of pubsub topics - DELETE /relay/v1/subscriptions":
     # Given
     let node = testWakuNode()
+    let
+      pubsubTopic0 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 0)
+      pubsubTopic1 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 1)
+      pubsubTopic2 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 2)
+      pubsubTopic3 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 3)
+      pubsubTopic4 = NsPubsubTopic(clusterId: DefaultClusterId, shardId: 4)
+
     await node.start()
-    await node.mountRelay(
-      @["pubsub-topic-1", "pubsub-topic-2", "pubsub-topic-3", "pubsub-topic-x"]
-    )
+    await node.mountRelay(@[pubsubTopic0, pubsubTopic1, pubsubTopic2, pubsubTopic3])
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -96,21 +100,15 @@ suite "Waku v2 Rest API - Relay":
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
-    cache.pubsubSubscribe("pubsub-topic-1")
-    cache.pubsubSubscribe("pubsub-topic-2")
-    cache.pubsubSubscribe("pubsub-topic-3")
-    cache.pubsubSubscribe("pubsub-topic-x")
+    cache.pubsubSubscribe($pubsubTopic0)
+    cache.pubsubSubscribe($pubsubTopic1)
+    cache.pubsubSubscribe($pubsubTopic2)
+    cache.pubsubSubscribe($pubsubTopic3)
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics =
-      @[
-        PubSubTopic("pubsub-topic-1"),
-        PubSubTopic("pubsub-topic-2"),
-        PubSubTopic("pubsub-topic-3"),
-        PubSubTopic("pubsub-topic-y"),
-      ]
+    let pubSubTopics = @[$pubsubTopic0, $pubsubTopic1, $pubsubTopic2, $pubsubTopic4]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
@@ -123,16 +121,16 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      not cache.isPubsubSubscribed("pubsub-topic-1")
-      not node.wakuRelay.isSubscribed("pubsub-topic-1")
-      not cache.isPubsubSubscribed("pubsub-topic-2")
-      not node.wakuRelay.isSubscribed("pubsub-topic-2")
-      not cache.isPubsubSubscribed("pubsub-topic-3")
-      not node.wakuRelay.isSubscribed("pubsub-topic-3")
-      cache.isPubsubSubscribed("pubsub-topic-x")
-      node.wakuRelay.isSubscribed("pubsub-topic-x")
-      not cache.isPubsubSubscribed("pubsub-topic-y")
-      not node.wakuRelay.isSubscribed("pubsub-topic-y")
+      not cache.isPubsubSubscribed($pubsubTopic0)
+      not node.wakuRelay.isSubscribed($pubsubTopic0)
+      not cache.isPubsubSubscribed($pubsubTopic1)
+      not node.wakuRelay.isSubscribed($pubsubTopic1)
+      not cache.isPubsubSubscribed($pubsubTopic2)
+      not node.wakuRelay.isSubscribed($pubsubTopic2)
+      cache.isPubsubSubscribed($pubsubTopic3)
+      node.wakuRelay.isSubscribed($pubsubTopic3)
+      not cache.isPubsubSubscribed($pubsubTopic4)
+      not node.wakuRelay.isSubscribed($pubsubTopic4)
 
     await restServer.stop()
     await restServer.closeWait()
