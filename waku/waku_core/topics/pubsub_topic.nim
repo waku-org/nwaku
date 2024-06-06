@@ -26,10 +26,6 @@ const DefaultShardId* = uint16(0)
 const DefaultClusterId* = uint16(0)
 const DefaultNsPubsubTopic* =
   NsPubsubTopic(clusterId: DefaultClusterId, shardId: DefaultShardId)
-const DefaultPubsubTopic* = PubsubTopic($DefaultNsPubsubTopic)
-
-proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
-  return NsPubsubTopic(clusterId: clusterId, shardId: shardId)
 
 # Serialization
 
@@ -37,6 +33,11 @@ proc `$`*(topic: NsPubsubTopic): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/waku/2/rs/<cluster-id>/<shard-id>
   return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
+
+const DefaultPubsubTopic* = $DefaultNsPubsubTopic
+
+proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
+  return NsPubsubTopic(clusterId: clusterId, shardId: shardId)
 
 # Deserialization
 
