@@ -38,10 +38,13 @@ type NetworkMonitorConf* = object
     name: "dns-discovery-url"
   .}: string
 
-  pubsubTopics* {.
-    desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
-    name: "pubsub-topic"
-  .}: seq[string]
+  shards* {.
+    desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+    name: "shard"
+  .}: seq[uint16]
+
+  networkShards* {.desc: "Number of shards in the network", name: "network-shards".}:
+    uint32
 
   refreshInterval* {.
     desc: "How often new peers are discovered and connected to (in seconds)",
@@ -55,7 +58,7 @@ type NetworkMonitorConf* = object
       "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
     defaultValue: 1,
     name: "cluster-id"
-  .}: uint32
+  .}: uint16
 
   rlnRelay* {.
     desc: "Enable spam protection through rln-relay: true|false",
