@@ -627,10 +627,10 @@ suite "Postgres driver - queries":
     )
 
     ## Then
-    assert res.isOk(), res.error
+    assert res.isErr(), $res.value
 
     check:
-      res.value.len == 0
+      res.error == "cursor not found"
 
   asyncTest "content topic and cursor":
     ## Given
