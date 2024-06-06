@@ -167,7 +167,7 @@ proc clientReconcile*(
 
     return ok(res)
 
-  let payload = SyncPayload(negentropy: seq[byte](response), hashes: haves)
+  let payload = SyncPayload(negentropy: seq[byte](response))
 
   let res = Result[Reconciled[ClientSync], Completed[ClientSync]].ok(
     Reconciled[ClientSync](

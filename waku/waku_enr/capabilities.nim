@@ -21,7 +21,7 @@ type
     Sync = 4
 
 func init*(
-    T: type CapabilitiesBitfield, lightpush, filter, store, relay, sync: bool
+    T: type CapabilitiesBitfield, lightpush, filter, store, relay, sync: bool = false
 ): T =
   ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
   var bitfield: uint8
