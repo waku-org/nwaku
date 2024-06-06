@@ -198,6 +198,7 @@ proc initProtocolHandler(self: WakuSync) =
 
 proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
   if wakuArchive.isNil():
+    error "waku archive unavailable"
     return
 
   self.pruneCallBack = some(
@@ -246,7 +247,12 @@ proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
 proc initTransferHandler(
     self: WakuSync, wakuArchive: WakuArchive, wakuStoreClient: WakuStoreClient
 ) =
-  if wakuArchive.isNil() or wakuStoreClient.isNil():
+  if wakuArchive.isNil():
+    error "waku archive unavailable"
+    return
+
+  if wakuStoreClient.isNil():
+    error "waku store client unavailable"
     return
 
   self.transferCallBack = some(
@@ -292,7 +298,7 @@ proc initFillStorage(
     self: WakuSync, wakuArchive: WakuArchive
 ): Future[Result[void, string]] {.async.} =
   if wakuArchive.isNil():
-    return ok()
+    return err("waku archive unavailable")
 
   let endTime = getNowInNanosecondTime()
   let starTime = endTime - self.syncInterval.nanos
@@ -338,7 +344,7 @@ proc new*(
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
     relayJitter: relayJitter,
-    pruneOffset: syncInterval div 2,
+    pruneOffset: syncInterval div 100,
   )
 
   sync.initProtocolHandler()
@@ -436,7 +442,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
       for (hash, timestamp) in elements:
         self.storage.erase(timestamp, hash).isOkOr:
           error "storage erase failed",
-            timestamp = timestamp, msg_hash = hash, error = $error
+            timestamp = timestamp, msg_hash = hash.to0xHex(), error = $error
           continue
 
       if cursor.isNone():
