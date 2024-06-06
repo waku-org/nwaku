@@ -8,7 +8,7 @@ import
   ../../../waku/waku_core/message/digest,
   ../testlib/wakucore,
   ../testlib/testasync,
-  ../testlib/postgres
+  ../testlib/postgres_legacy
 
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
   ArchiveCursor(
