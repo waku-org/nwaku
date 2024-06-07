@@ -308,8 +308,7 @@ proc publish*(
 ): Future[int] {.async.} =
   let data = message.encode().buffer
 
-  when defined(logMessageHashes):
-    let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
-    info "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
+  let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
+  notice "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
   return await procCall GossipSub(w).publish(pubsubTopic, data)
