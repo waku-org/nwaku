@@ -7,7 +7,7 @@ on:
       - master
 
 concurrency:
-  group:  ${{ github.workflow }}-${{ matrix.os }}-rln-v${{ matrix.rln_version }}-${{ github.head_ref || github.run_id }} # ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 env:
