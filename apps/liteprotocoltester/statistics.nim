@@ -17,6 +17,7 @@ type
     prevArrivedAt: Moment
     lostIndices: HashSet[uint32]
     seenIndices: HashSet[uint32]
+    maxIndex: uint32
 
   Statistics* = object
     allMessageCount*: uint32
@@ -42,6 +43,7 @@ func `$`*(a: Duration): string {.inline.} =
 
 proc init*(T: type Statistics, expectedMessageCount: int = 1000): T =
   result.helper.prevIndex = 0
+  result.helper.maxIndex = 0
   result.helper.seenIndices.init(expectedMessageCount)
   result.minLatency = nanos(0)
   result.maxLatency = nanos(0)
@@ -100,6 +102,7 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage) =
     warn "Negative latency detected",
       index = msg.index, expected = expectedDelay, actual = delaySincePrevArrived
 
+  self.helper.maxIndex = max(self.helper.maxIndex, msg.index)
   self.helper.prevIndex = msg.index
   self.helper.prevArrivedAt = currentArrivedAt
   inc(self.receivedMessages)
@@ -114,7 +117,7 @@ proc addMessage*(
     self[peerId].addMessage(msg)
 
 proc lossCount*(self: Statistics): uint32 =
-  self.allMessageCount - self.receivedMessages
+  self.helper.maxIndex - self.receivedMessages
 
 proc averageLatency*(self: Statistics): Duration =
   if self.receivedMessages == 0:
@@ -123,15 +126,15 @@ proc averageLatency*(self: Statistics): Duration =
 
 proc echoStat*(self: Statistics) =
   let printable = catch:
-    """*-----------------------------------------------------------------------------*
-|  Expected  |  Reveived  |    Loss    |  Misorder  |    Late    |  Duplicate |
-|{self.allMessageCount:>11} |{self.receivedMessages:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
-*-----------------------------------------------------------------------------*
-| Latency stat:                                                               |
-|    avg latency: {$self.averageLatency():<60}|
-|    min latency: {$self.maxLatency:<60}|
-|    max latency: {$self.minLatency:<60}|
-*-----------------------------------------------------------------------------*""".fmt()
+    """*------------------------------------------------------------------------------------------*
+|  Expected  |  Received  |   Target   |    Loss    |  Misorder  |    Late    |  Duplicate |
+|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.allMessageCount:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
+*------------------------------------------------------------------------------------------*
+| Latency stat:                                                                            |
+|    avg latency: {$self.averageLatency():<73}|
+|    min latency: {$self.maxLatency:<73}|
+|    max latency: {$self.minLatency:<73}|
+*------------------------------------------------------------------------------------------*""".fmt()
 
   if printable.isErr():
     echo "Error while printing statistics: " & printable.error().msg
@@ -140,8 +143,9 @@ proc echoStat*(self: Statistics) =
 
 proc jsonStat*(self: Statistics): string =
   let json = catch:
-    """{{"expected":{self.allMessageCount},
+    """{{"expected":{self.helper.maxIndex},
          "received": {self.receivedMessages},
+         "target": {self.allMessageCount},
          "loss": {self.lossCount()},
          "misorder": {self.misorderCount},
          "late": {self.lateCount},

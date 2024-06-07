@@ -213,7 +213,7 @@ proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
 
 ## Waku Sharding
 proc mountSharding*(
-    node: WakuNode, clusterId: uint32, shardCount: uint32
+    node: WakuNode, clusterId: uint16, shardCount: uint32
 ): Result[void, string] =
   info "mounting sharding", clusterId = clusterId, shardCount = shardCount
   node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
