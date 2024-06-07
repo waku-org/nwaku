@@ -6,7 +6,7 @@ This folder contains code related to Waku, both as a node and as a protocol.
 
 This is an implementation in Nim of the Waku suite of protocols.
 
-See [specifications](https://rfc.vac.dev/spec/10/).
+See [specifications](https://rfc.vac.dev/waku/standards/core/10/waku2).
 
 ## How to Build & Run
 
