@@ -73,6 +73,8 @@ when isMainModule:
 
   ## Logging setup
 
+  ## Simple change to allow create a PR
+
   # Adhere to NO_COLOR initiative: https://no-color.org/
   let color =
     try:
