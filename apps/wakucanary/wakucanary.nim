@@ -84,6 +84,14 @@ type WakuCanaryConf* = object
     desc: "Ping the peer node to measure latency", defaultValue: true, name: "ping"
   .}: bool
 
+  clusterId* {.
+    desc:
+      "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
+    defaultValue: 1,
+    name: "cluster-id",
+    abbr: "c"
+  .}: uint16
+
 proc parseCmdArg*(T: type chronos.Duration, p: string): T =
   try:
     result = chronos.seconds(parseInt(p))
@@ -221,6 +229,9 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     except CatchableError:
       error "failed to mount libp2p ping protocol: " & getCurrentExceptionMsg()
       return 1
+
+  node.mountMetadata(conf.clusterId).isOkOr:
+    error "failed to mount waku metadata protocol: ", err = error
 
   await node.start()
 
