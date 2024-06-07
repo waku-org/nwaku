@@ -56,29 +56,11 @@ suite "Waku Lightpush - End To End":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    # mount rln-relay
-    when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-      )
-    else:
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-      )
-
     await allFutures(server.start(), client.start())
     await server.start()
 
     await server.mountRelay()
-    await server.mountRlnRelay(wakuRlnConfig)
-    await server.mountLightpush()
+    await server.mountLightpush() # without rln-relay
     client.mountLightpushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
@@ -123,3 +105,82 @@ suite "Waku Lightpush - End To End":
       check:
         publishResponse.isErr()
         publishResponse.error == fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
+
+suite "RLN Proofs as a Lightpush Service":
+  var
+    handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
+    handler {.threadvar.}: PushMessageHandler
+
+    server {.threadvar.}: WakuNode
+    client {.threadvar.}: WakuNode
+
+    serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    pubsubTopic {.threadvar.}: PubsubTopic
+    contentTopic {.threadvar.}: ContentTopic
+    message {.threadvar.}: WakuMessage
+
+  asyncSetup:
+    handlerFuture = newPushHandlerFuture()
+    handler = proc(
+        peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+    ): Future[WakuLightPushResult[void]] {.async.} =
+      handlerFuture.complete((pubsubTopic, message))
+      return ok()
+
+    let
+      serverKey = generateSecp256k1Key()
+      clientKey = generateSecp256k1Key()
+
+    server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+    client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
+
+    # mount rln-relay
+    when defined(rln_v2):
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      )
+    else:
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(1.uint),
+        rlnEpochSizeSec: 1,
+        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+      )
+
+    await allFutures(server.start(), client.start())
+    await server.start()
+
+    await server.mountRelay()
+    await server.mountRlnRelay(wakuRlnConfig)
+    await server.mountLightpush()
+    client.mountLightpushClient()
+
+    serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
+    pubsubTopic = DefaultPubsubTopic
+    contentTopic = DefaultContentTopic
+    message = fakeWakuMessage()
+
+  asyncTeardown:
+    await server.stop()
+
+  suite "Lightpush attaching RLN proofs":
+    asyncTest "Message is published when RLN enabled":
+      # Given a light lightpush client
+      let lightpushClient =
+        newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
+      lightpushClient.mountLightpushClient()
+
+      # When the client publishes a message
+      let publishResponse = await lightpushClient.lightpushPublish(
+        some(pubsubTopic), message, serverRemotePeerInfo
+      )
+
+      if not publishResponse.isOk():
+        echo "Publish failed: ", publishResponse.error()
+
+      # Then the message is relayed to the server
+      assertResultOk publishResponse

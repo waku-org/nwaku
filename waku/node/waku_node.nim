@@ -44,6 +44,7 @@ import
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
   ../waku_lightpush/self_req_handler,
+  ../waku_lightpush/callbacks,
   ../waku_enr,
   ../waku_peer_exchange,
   ../waku_rln_relay,
@@ -931,33 +932,6 @@ proc mountLightPush*(
 ) {.async.} =
   info "mounting light push"
 
-  var pushHandler: PushMessageHandler
-  if node.wakuRelay.isNil():
-    debug "mounting lightpush without relay (nil)"
-    pushHandler = proc(
-        peer: PeerId, pubsubTopic: string, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
-      return err("no waku relay found")
-  else:
-    pushHandler = proc(
-        peer: PeerId, pubsubTopic: string, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
-      let validationRes = await node.wakuRelay.validateMessage(pubSubTopic, message)
-      if validationRes.isErr():
-        return err(validationRes.error)
-
-      let publishedCount =
-        await node.wakuRelay.publish(pubsubTopic, message.encode().buffer)
-
-      if publishedCount == 0:
-        ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
-        let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
-        debug "Lightpush request has not been published to any peers",
-          msg_hash = msgHash
-
-      return ok()
-
-  debug "mounting lightpush with relay"
   let rlnPeer = 
     if node.wakuRlnRelay.isNil:
       debug "mounting lightpush without rln-relay"
@@ -965,9 +939,11 @@ proc mountLightPush*(
     else:
       debug "mounting lightpush with rln-relay"
       some(node.wakuRlnRelay)
+  
+  var pushHandler = getPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush =
-    WakuLightPush.new(node.peerManager, node.rng, pushHandler, rlnPeer, some(rateLimit))
+    WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
 
   if node.started:
     # Node has started already. Let's start lightpush too.
