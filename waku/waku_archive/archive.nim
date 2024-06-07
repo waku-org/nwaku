@@ -29,7 +29,7 @@ const
   WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
 
   # Metrics reporting
-  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
+  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(30)
 
   # Message validation
   # 20 seconds maximum allowable sender timestamp "drift"
