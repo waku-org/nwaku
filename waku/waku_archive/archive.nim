@@ -103,7 +103,7 @@ proc handleMessage*(
       else:
         getNanosecondTime(getTime().toUnixFloat())
 
-  trace "handling message",
+  notice "archive handling message",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
@@ -117,7 +117,7 @@ proc handleMessage*(
     waku_archive_errors.inc(labelValues = [insertFailure])
     error "failed to insert message", error = error
 
-  debug "message archived",
+  notice "message archived",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
