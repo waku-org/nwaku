@@ -115,14 +115,14 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
 
   var tx: EthSend
   tx.source = accounts[0]
-  tx.value = some(ethToWei(10.u256))
+  tx.value = some(ethToWei(100.u256))
   tx.to = some(acc)
   tx.gasPrice = some(gasPrice)
 
   # Send 10 eth to acc
   discard await web3.send(tx)
   let balance = await web3.provider.eth_getBalance(acc, "latest")
-  assert(balance == ethToWei(10.u256))
+  assert(balance == ethToWei(100.u256))
 
   return (pk, acc)
 
@@ -149,8 +149,8 @@ proc runAnvil(): Process =
     let runAnvil = startProcess(
       anvilPath,
       args = [
-        "--port", "8540", "--gas-limit", "300000000000000", "--balance",
-        "100000000000000", "--chain-id", "1337",
+        "--port", "8540", "--gas-limit", "300000000000000", "--balance", "1000000000",
+        "--chain-id", "1337",
       ],
       options = {poUsePath},
     )
