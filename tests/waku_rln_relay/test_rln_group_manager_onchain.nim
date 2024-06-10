@@ -149,8 +149,8 @@ proc runAnvil(): Process =
     let runAnvil = startProcess(
       anvilPath,
       args = [
-        "--port", "8540", "--gas-limit", "300000000000000", "--balance", "10000",
-        "--chain-id", "1337",
+        "--port", "8540", "--gas-limit", "300000000000000", "--balance",
+        "100000000000000", "--chain-id", "1337",
       ],
       options = {poUsePath},
     )
