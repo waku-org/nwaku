@@ -11,9 +11,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NPROC: 2
-  MAKEFLAGS: "-j${NPROC}"
-  NIMFLAGS: "--parallelBuild:${NPROC} --colors:off -d:chronicles_colors:none"
+  NPROC: 1
+  MAKEFLAGS: ""
+  NIMFLAGS: "--colors:off -d:chronicles_colors:none"
 
 jobs:
   changes: # changes detection
