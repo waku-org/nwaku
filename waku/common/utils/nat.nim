@@ -9,6 +9,15 @@ import chronicles, eth/net/nat, stew/results, nativesockets
 logScope:
   topics = "nat"
 
+## Do to the design of nim-eth/nat module we must ensure it is only initialized once.
+## see: https://github.com/waku-org/nwaku/issues/2628
+## Details: nim-eth/nat module starts a meaintenance thread for refreshing the NAT mappings, but everything in the module is global,
+## there is no room to store multiple configurations.
+## Exact mean: redirectPorts cannot be called twice in a program lifetime.
+## During waku tests we happen to start several node instances parallel thus result in multiple NAT configurations and multiple threads.
+## Those threads will dead lock each other in tear down.
+var singletonNat: bool = false
+
 proc setupNat*(
     natConf, clientId: string, tcpPort, udpPort: Port
 ): Result[
@@ -26,26 +35,35 @@ proc setupNat*(
     tuple[ip: Option[IpAddress], tcpPort: Option[Port], udpPort: Option[Port]]
 
   if strategy != NatNone:
-    let extIp = getExternalIP(strategy)
-    if extIP.isSome():
-      endpoint.ip = some(extIp.get())
-      # RedirectPorts in considered a gcsafety violation
-      # because it obtains the address of a non-gcsafe proc?
-      var extPorts: Option[(Port, Port)]
-      try:
-        extPorts = (
-          {.gcsafe.}:
-            redirectPorts(tcpPort = tcpPort, udpPort = udpPort, description = clientId)
-        )
-      except CatchableError:
-        # TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
-        error "unable to determine external ports"
-        extPorts = none((Port, Port))
+    ## Only initialize the NAT module once
+    ## redirectPorts cannot be called twice in a program lifetime.
+    ## We can do it as same happens if getExternalIP fails and returns None
+    if singletonNat:
+      warn "NAT already initialized, skipping as cannot be done multiple times"
+    else:
+      singletonNat = true
+      let extIp = getExternalIP(strategy)
+      if extIP.isSome():
+        endpoint.ip = some(extIp.get())
+        # RedirectPorts in considered a gcsafety violation
+        # because it obtains the address of a non-gcsafe proc?
+        var extPorts: Option[(Port, Port)]
+        try:
+          extPorts = (
+            {.gcsafe.}:
+              redirectPorts(
+                tcpPort = tcpPort, udpPort = udpPort, description = clientId
+              )
+          )
+        except CatchableError:
+          # TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
+          error "unable to determine external ports"
+          extPorts = none((Port, Port))
 
-      if extPorts.isSome():
-        let (extTcpPort, extUdpPort) = extPorts.get()
-        endpoint.tcpPort = some(extTcpPort)
-        endpoint.udpPort = some(extUdpPort)
+        if extPorts.isSome():
+          let (extTcpPort, extUdpPort) = extPorts.get()
+          endpoint.tcpPort = some(extTcpPort)
+          endpoint.udpPort = some(extUdpPort)
   else: # NatNone
     if not natConf.startsWith("extip:"):
       return err("not a valid NAT mechanism: " & $natConf)
