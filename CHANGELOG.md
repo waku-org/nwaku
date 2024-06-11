@@ -1,3 +1,62 @@
+## v0.29.0 (2024-06-11)
+
+## What's Changed
+
+
+Notes:
+
+* Start deprecate named sharding ([PR](https://github.com/waku-org/nwaku/pull/2723))
+
+
+Release highlights:
+
+* Android support in libwaku
+* Discovery is available in libwaku
+* New LiteProcotolTester tool
+
+### Features
+
+- Push newly released nwaku image with latest-release tag ([#2732](https://github.com/waku-org/nwaku/issues/2732)) ([736ce1cb](https://github.com/waku-org/nwaku/commit/736ce1cb))
+- Rln-relay: use arkzkey variant of zerokit ([#2681](https://github.com/waku-org/nwaku/issues/2681)) ([e7b0777d](https://github.com/waku-org/nwaku/commit/e7b0777d))
+
+### Bug Fixes
+
+- Increase on chain group manager starting balance ([#2795](https://github.com/waku-org/nwaku/issues/2795)) ([e72bb7e7](https://github.com/waku-org/nwaku/commit/e72bb7e7))
+- More detailed logs to differentiate shards with peers ([#2794](https://github.com/waku-org/nwaku/issues/2794)) ([55a87d21](https://github.com/waku-org/nwaku/commit/55a87d21))
+- waku_archive: only allow a single instance to execute migrations ([#2736](https://github.com/waku-org/nwaku/issues/2736)) ([88b8e186](https://github.com/waku-org/nwaku/commit/88b8e186))
+- Move postgres related tests under linux conditional ([57ecb3e0](https://github.com/waku-org/nwaku/commit/57ecb3e0))
+- Invalid cursor returning messages ([#2724](https://github.com/waku-org/nwaku/issues/2724)) ([a65b13fc](https://github.com/waku-org/nwaku/commit/a65b13fc))
+- Do not print the db url on error ([#2725](https://github.com/waku-org/nwaku/issues/2725)) ([40296f9d](https://github.com/waku-org/nwaku/commit/40296f9d))
+- Use `when` instead of `if` for adding soname on linux ([#2721](https://github.com/waku-org/nwaku/issues/2721)) ([cbaefeb3](https://github.com/waku-org/nwaku/commit/cbaefeb3))
+- Store v3 bug fixes ([#2718](https://github.com/waku-org/nwaku/issues/2718)) ([4a6ec468](https://github.com/waku-org/nwaku/commit/4a6ec468))
+
+### Changes
+
+- Set msg_hash logs to notice level ([#2737](https://github.com/waku-org/nwaku/issues/2737)) ([f5d87c5b](https://github.com/waku-org/nwaku/commit/f5d87c5b))
+- Minor enhancements ([#2789](https://github.com/waku-org/nwaku/issues/2789)) ([31bd6d71](https://github.com/waku-org/nwaku/commit/31bd6d71))
+- postgres_driver - acquire/release advisory lock when creating partitions ([#2784](https://github.com/waku-org/nwaku/issues/2784)) ([c5d19c44](https://github.com/waku-org/nwaku/commit/c5d19c44))
+- Setting fail-fast to false in matrixed github actions ([#2787](https://github.com/waku-org/nwaku/issues/2787)) ([005349cc](https://github.com/waku-org/nwaku/commit/005349cc))
+- Simple link refactor ([#2781](https://github.com/waku-org/nwaku/issues/2781)) ([77adfccd](https://github.com/waku-org/nwaku/commit/77adfccd))
+- Improving liteprotocolteseter stats ([#2750](https://github.com/waku-org/nwaku/issues/2750)) ([4c7c8a15](https://github.com/waku-org/nwaku/commit/4c7c8a15))
+- Extract common prefixes into a constant for multiple query ([#2747](https://github.com/waku-org/nwaku/issues/2747)) ([dfc979a8](https://github.com/waku-org/nwaku/commit/dfc979a8))
+- wakucanary: fix fitler protocol, add storev3 ([#2735](https://github.com/waku-org/nwaku/issues/2735)) ([e0079cd0](https://github.com/waku-org/nwaku/commit/e0079cd0))
+- Bump nim-libp2p version ([#2661](https://github.com/waku-org/nwaku/issues/2661)) ([6fbab633](https://github.com/waku-org/nwaku/commit/6fbab633))
+- Link validation process docs to the release process file ([#2714](https://github.com/waku-org/nwaku/issues/2714)) ([ebe69be8](https://github.com/waku-org/nwaku/commit/ebe69be8))
+- Android support ([#2554](https://github.com/waku-org/nwaku/issues/2554)) ([1e2aa57a](https://github.com/waku-org/nwaku/commit/1e2aa57a))
+- Discovery in libwaku ([#2711](https://github.com/waku-org/nwaku/issues/2711)) ([74646848](https://github.com/waku-org/nwaku/commit/74646848))
+- libwaku - allow to properly set the log level in libwaku and unify a little ([#2708](https://github.com/waku-org/nwaku/issues/2708)) ([3faffdbc](https://github.com/waku-org/nwaku/commit/3faffdbc))
+- waku_discv5, peer_manager - add more logs help debug discovery issues ([#2705](https://github.com/waku-org/nwaku/issues/2705)) ([401630ee](https://github.com/waku-org/nwaku/commit/401630ee))
+- Generic change to reduce the number of compilation warnings ([#2696](https://github.com/waku-org/nwaku/issues/2696)) ([78132dc1](https://github.com/waku-org/nwaku/commit/78132dc1))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
 ## v0.28.1 (2024-05-29)
 
 This patch release fixes the following bug:
