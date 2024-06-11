@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[tables, strutils, os], stew/results, chronicles, chronos
+import std/strutils, stew/results, chronicles, chronos
 import
   ../../../common/databases/common,
   ../../../../migrations/message_store_postgres/pg_migration_manager,
@@ -9,7 +9,7 @@ import
 logScope:
   topics = "waku archive migration"
 
-const SchemaVersion* = 4 # increase this when there is an update in the database schema
+const SchemaVersion* = 5 # increase this when there is an update in the database schema
 
 proc breakIntoStatements*(script: string): seq[string] =
   ## Given a full migration script, that can potentially contain a list
@@ -71,6 +71,16 @@ proc migrate*(
 
   # Load migration scripts
   let scripts = pg_migration_manager.getMigrationScripts(currentVersion, targetVersion)
+
+  # Lock the db
+  (await driver.acquireDatabaseLock()).isOkOr:
+    error "failed to acquire lock", error = error
+    return err("failed to lock the db")
+
+  defer:
+    (await driver.releaseDatabaseLock()).isOkOr:
+      error "failed to release lock", error = error
+      return err("failed to unlock the db.")
 
   # Run the migration scripts
   for script in scripts:

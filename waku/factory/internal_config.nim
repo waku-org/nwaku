@@ -4,9 +4,8 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils],
-  stew/results,
-  stew/shims/net
+  std/[options, sequtils, net],
+  stew/results
 import
   ./external_config,
   ../common/utils/nat,
@@ -46,7 +45,7 @@ proc enrConfiguration*(
     shards = toSeq(conf.shards.mapIt(uint16(it)))
 
   enrBuilder.withWakuRelaySharding(
-    RelayShards(clusterId: uint16(conf.clusterId), shardIds: shards)
+    RelayShards(clusterId: conf.clusterId, shardIds: shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
 

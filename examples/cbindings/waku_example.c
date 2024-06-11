@@ -247,6 +247,7 @@ void handle_user_input() {
 // End of UI program logic
 
 int main(int argc, char** argv) {
+    waku_setup();
 
     struct ConfigNode cfgNode;
     // default values
@@ -267,8 +268,8 @@ int main(int argc, char** argv) {
         show_help_and_exit();
     }
 
-    char jsonConfig[2048];
-    snprintf(jsonConfig, 2048, "{ \
+    char jsonConfig[5000];
+    snprintf(jsonConfig, 5000, "{ \
                                     \"listenAddress\": \"%s\",    \
                                     \"tcpPort\": %d,        \
                                     \"nodekey\": \"%s\",     \
@@ -276,7 +277,15 @@ int main(int argc, char** argv) {
                                     \"store\": %s,       \
                                     \"storeMessageDbUrl\": \"%s\",  \
                                     \"storeMessageRetentionPolicy\": \"%s\",  \
-                                    \"storeMaxNumDbConnections\": %d \
+                                    \"storeMaxNumDbConnections\": %d , \
+                                    \"logLevel\": \"DEBUG\", \
+                                    \"discv5Discovery\": true, \
+                                    \"discv5BootstrapNodes\": \
+                                        [\"enr:-QESuEB4Dchgjn7gfAvwB00CxTA-nGiyk-aALI-H4dYSZD3rUk7bZHmP8d2U6xDiQ2vZffpo45Jp7zKNdnwDUx6g4o6XAYJpZIJ2NIJpcIRA4VDAim11bHRpYWRkcnO4XAArNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwAtNiZub2RlLTAxLmRvLWFtczMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQOvD3S3jUNICsrOILlmhENiWAMmMVlAl6-Q8wRB7hidY4N0Y3CCdl-DdWRwgiMohXdha3UyDw\", \"enr:-QEkuEBIkb8q8_mrorHndoXH9t5N6ZfD-jehQCrYeoJDPHqT0l0wyaONa2-piRQsi3oVKAzDShDVeoQhy0uwN1xbZfPZAYJpZIJ2NIJpcIQiQlleim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQKnGt-GSgqPSf3IAPM7bFgTlpczpMZZLF3geeoNNsxzSoN0Y3CCdl-DdWRwgiMohXdha3UyDw\"], \
+                                    \"discv5UdpPort\": 9999, \
+                                    \"dnsDiscovery\": true, \
+                                    \"dnsDiscoveryUrl\": \"enrtree://AOGYWMBYOUIMOENHXCHILPKY3ZRFEULMFI4DOM442QSZ73TT2A7VI@test.waku.nodes.status.im\", \
+                                    \"dnsDiscoveryNameServers\": [\"8.8.8.8\", \"1.0.0.1\"] \
                                 }", cfgNode.host,
                                     cfgNode.port,
                                     cfgNode.key,
@@ -311,6 +320,11 @@ int main(int argc, char** argv) {
                                     "/waku/2/default-waku/proto",
                                     event_handler,
                                     userData) );
+
+    WAKU_CALL( waku_discv5_update_bootnodes(ctx,
+                                  "[\"enr:-QEkuEBIkb8q8_mrorHndoXH9t5N6ZfD-jehQCrYeoJDPHqT0l0wyaONa2-piRQsi3oVKAzDShDVeoQhy0uwN1xbZfPZAYJpZIJ2NIJpcIQiQlleim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmdjLXVzLWNlbnRyYWwxLWEud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQKnGt-GSgqPSf3IAPM7bFgTlpczpMZZLF3geeoNNsxzSoN0Y3CCdl-DdWRwgiMohXdha3UyDw\",\"enr:-QEkuEB3WHNS-xA3RDpfu9A2Qycr3bN3u7VoArMEiDIFZJ66F1EB3d4wxZN1hcdcOX-RfuXB-MQauhJGQbpz3qUofOtLAYJpZIJ2NIJpcIQI2SVcim11bHRpYWRkcnO4bgA0Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQZ2XwA2Ni9ub2RlLTAxLmFjLWNuLWhvbmdrb25nLWMud2FrdS5zYW5kYm94LnN0YXR1cy5pbQYfQN4DgnJzkwABCAAAAAEAAgADAAQABQAGAAeJc2VjcDI1NmsxoQPK35Nnz0cWUtSAhBp7zvHEhyU_AqeQUlqzLiLxfP2L4oN0Y3CCdl-DdWRwgiMohXdha3UyDw\"]",
+                                  event_handler,
+                                  userData) );
 
     show_main_menu();
     while(1) {

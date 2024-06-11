@@ -4,16 +4,15 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils],
+  std/[options, sequtils, strutils, net],
   stew/results,
-  stew/shims/net,
   libp2p/[multiaddress, multicodec]
 import ../../waku/waku_core/peers
 import ../waku_enr
 
 type NetConfig* = object
   hostAddress*: MultiAddress
-  clusterId*: uint32
+  clusterId*: uint16
   wsHostAddress*: Option[MultiAddress]
   hostExtAddress*: Option[MultiAddress]
   wsExtAddress*: Option[MultiAddress]
@@ -79,7 +78,7 @@ proc init*(
     wssEnabled: bool = false,
     dns4DomainName = none(string),
     discv5UdpPort = none(Port),
-    clusterId: uint32 = 0,
+    clusterId: uint16 = 0,
     wakuFlags = none(CapabilitiesBitfield),
 ): NetConfigResult =
   ## Initialize and validate waku node network configuration

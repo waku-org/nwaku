@@ -199,6 +199,7 @@ auto cify(F&& f) {
 }
 
 int main(int argc, char** argv) {
+    waku_setup();
 
     struct ConfigNode cfgNode;
     // default values
@@ -219,6 +220,7 @@ int main(int argc, char** argv) {
                                     \"port\": %d,       \
                                     \"key\": \"%s\",    \
                                     \"relay\": %s,      \
+                                    \"logLevel\": \"DEBUG\" \
                                 }", cfgNode.host,
                                     cfgNode.port,
                                     cfgNode.key,

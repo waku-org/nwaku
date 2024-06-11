@@ -4,9 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, strutils, options, sets],
+  std/[sequtils, strutils, options, sets, net, json],
   stew/results,
-  stew/shims/net,
   chronos,
   chronicles,
   metrics,
@@ -200,8 +199,26 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
   while wd.listening:
     trace "running discv5 discovery loop"
     let discoveredRecords = await wd.findRandomPeers()
-    let discoveredPeers =
-      discoveredRecords.mapIt(it.toRemotePeerInfo()).filterIt(it.isOk()).mapIt(it.value)
+
+    var discoveredPeers: seq[RemotePeerInfo]
+    var wrongRecordsReasons: seq[tuple[record: string, errorDescription: string]]
+      ## this is to store the reasons why certain records could not be converted to RemotePeerInfo
+
+    for record in discoveredRecords:
+      let peerInfo = record.toRemotePeerInfo().valueOr:
+        ## in case of error, we keep track of it for debugging purposes
+        wrongRecordsReasons.add(($record, $error))
+        continue
+
+      discoveredPeers.add(peerInfo)
+
+    trace "discv5 discovered peers",
+      num_discovered_peers = discoveredPeers.len,
+      peers = toSeq(discoveredPeers.mapIt(shortLog(it.peerId)))
+
+    trace "discv5 discarded wrong records",
+      wrong_records =
+        wrongRecordsReasons.mapIt("(" & it.record & "," & it.errorDescription & ")")
 
     for peer in discoveredPeers:
       # Peers added are filtered by the peer manager
@@ -356,3 +373,28 @@ proc setupDiscoveryV5*(
   WakuDiscoveryV5.new(
     rng, discv5Conf, some(myENR), some(nodePeerManager), nodeTopicSubscriptionQueue
   )
+
+proc updateBootstrapRecords*(
+    self: var WakuDiscoveryV5, newRecordsString: string
+): Result[void, string] =
+  ## newRecordsString - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
+  var newRecords = newSeq[waku_enr.Record]()
+
+  var jsonNode: JsonNode
+  try:
+    jsonNode = parseJson(newRecordsString)
+  except Exception:
+    return err("exception parsing json enr records: " & getCurrentExceptionMsg())
+
+  if jsonNode.kind != JArray:
+    return err("updateBootstrapRecords should receive a json array containing ENRs")
+
+  for enr in jsonNode:
+    let enrWithoutQuotes = ($enr).replace("\"", "")
+    var bootstrapNodeEnr: waku_enr.Record
+    if not bootstrapNodeEnr.fromURI(enrWithoutQuotes):
+      return err("wrong enr given: " & enrWithoutQuotes)
+
+  self.protocol.bootstrapRecords = newRecords
+
+  return ok()

@@ -2,17 +2,11 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-import std/[json, sequtils, times, strformat, options, atomics, strutils, os]
+import std/[options, atomics, os, net]
 import
-  chronicles,
-  chronos,
-  chronos/threadsync,
-  taskpools/channels_spsc_single,
-  stew/results,
-  stew/shims/net
+  chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, stew/results
 import
   ../../../waku/factory/waku,
-  ../events/[json_message_event, json_base_event],
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
 
@@ -30,35 +24,21 @@ const git_version* {.strdefine.} = "n/a"
 const versionString = "version / git commit hash: " & waku.git_version
 
 # To control when the thread is running
+# TODO: this should be part of the context so multiple instances can be executed
 var running: Atomic[bool]
 
-# Every Nim library must have this function called - the name is derived from
-# the `--nimMainPrefix` command line option
-proc NimMain() {.importc.}
-var initialized: Atomic[bool]
-
-proc waku_init() =
-  if not initialized.exchange(true):
-    NimMain() # Every Nim library needs to call `NimMain` once exactly
-  when declared(setupForeignThreadGc):
-    setupForeignThreadGc()
-  when declared(nimGC_setStackBottom):
-    var locals {.volatile, noinit.}: pointer
-    locals = addr(locals)
-    nimGC_setStackBottom(locals)
-
-proc run(ctx: ptr Context) {.thread.} =
-  ## This is the worker thread body. This thread runs the Waku node
+proc runWaku(ctx: ptr Context) {.async.} =
+  ## This is the worker body. This runs the Waku node
   ## and attends library user requests (stop, connect_to, etc.)
   info "Starting Waku", version = versionString
 
   var waku: Waku
 
   while running.load == true:
-    ## Trying to get a request from the libwaku main thread
+    await ctx.reqSignal.wait()
 
+    # Trying to get a request from the libwaku main thread
     var request: ptr InterThreadRequest
-    waitFor ctx.reqSignal.wait()
     let recvOk = ctx.reqChannel.tryRecv(request)
     if recvOk == true:
       let resultResponse = waitFor InterThreadRequest.process(request, addr waku)
@@ -70,14 +50,13 @@ proc run(ctx: ptr Context) {.thread.} =
       discard ctx.respChannel.trySend(threadSafeResp)
       discard ctx.respSignal.fireSync()
 
-  tearDownForeignThreadGc()
+proc run(ctx: ptr Context) {.thread.} =
+  ## Launch waku worker
+  waitFor runWaku(ctx)
 
 proc createWakuThread*(): Result[ptr Context, string] =
   ## This proc is called from the main thread and it creates
   ## the Waku working thread.
-
-  waku_init()
-
   var ctx = createShared(Context, 1)
   ctx.reqSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqSignal ThreadSignalPtr")
@@ -101,9 +80,9 @@ proc stopWakuThread*(ctx: ptr Context): Result[void, string] =
   let fireRes = ctx.reqSignal.fireSync()
   if fireRes.isErr():
     return err("error in stopWakuThread: " & $fireRes.error)
-  joinThread(ctx.thread)
   discard ctx.reqSignal.close()
   discard ctx.respSignal.close()
+  joinThread(ctx.thread)
   freeShared(ctx)
   return ok()
 
@@ -111,7 +90,6 @@ proc sendRequestToWakuThread*(
     ctx: ptr Context, reqType: RequestType, reqContent: pointer
 ): Result[string, string] =
   let req = InterThreadRequest.createShared(reqType, reqContent)
-
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
@@ -124,8 +102,10 @@ proc sendRequestToWakuThread*(
   if fireSyncRes.get() == false:
     return err("Couldn't fireSync in time")
 
-  ## Waiting for the response
-  waitFor ctx.respSignal.wait()
+  # Waiting for the response
+  let res = waitSync(ctx.respSignal)
+  if res.isErr():
+    return err("Couldnt receive response signal")
 
   var response: ptr InterThreadResponse
   var recvOk = ctx.respChannel.tryRecv(response)

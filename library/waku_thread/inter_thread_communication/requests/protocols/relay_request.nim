@@ -1,5 +1,5 @@
-import std/[options, sequtils, strutils]
-import chronicles, chronos, stew/byteutils, stew/results, stew/shims/net
+import std/net
+import chronicles, chronos, stew/byteutils, stew/results
 import
   ../../../../../waku/waku_core/message/message,
   ../../../../../waku/factory/waku,

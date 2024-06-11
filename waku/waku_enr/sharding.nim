@@ -4,9 +4,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, bitops, sequtils],
+  std/[options, bitops, sequtils, net],
   stew/[endians2, results],
-  stew/shims/net,
   chronicles,
   eth/keys,
   libp2p/[multiaddress, multicodec],
@@ -261,7 +260,7 @@ proc containsShard*(r: Record, topic: PubsubTopic | string): bool =
 
   containsShard(r, parseRes.value)
 
-proc isClusterMismatched*(record: Record, clusterId: uint32): bool =
+proc isClusterMismatched*(record: Record, clusterId: uint16): bool =
   ## Check the ENR sharding info for matching cluster id
   if (let typedRecord = record.toTyped(); typedRecord.isOk()):
     if (let relayShard = typedRecord.get().relaySharding(); relayShard.isSome()):

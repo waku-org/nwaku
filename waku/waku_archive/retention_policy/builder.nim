@@ -19,7 +19,7 @@ proc new*(
   if retPolicy == "" or retPolicy == "none":
     return ok(none(RetentionPolicy))
 
-  const StoreMessageRetentionPolicyRegex = re"^\w+:\d*\.?\d+((g|m)b)?$"
+  const StoreMessageRetentionPolicyRegex = re2"^\w+:\d*\.?\d+((g|m)b)?$"
   if not retPolicy.match(StoreMessageRetentionPolicyRegex):
     return err("invalid 'store message retention policy' format: " & retPolicy)
 

@@ -17,14 +17,19 @@ import
   ./waku_archive/test_driver_sqlite_query,
   ./waku_archive/test_driver_sqlite,
   ./waku_archive/test_retention_policy,
-  ./waku_archive/test_waku_archive
+  ./waku_archive/test_waku_archive,
+  ./waku_archive/test_partition_manager
 
 const os* {.strdefine.} = ""
 when os == "Linux" and
     # GitHub only supports container actions on Linux
     # and we need to start a postgress database in a docker container
     defined(postgres):
-  import ./waku_archive/test_driver_postgres_query, ./waku_archive/test_driver_postgres
+  import
+    ./waku_archive/test_driver_postgres_query,
+    ./waku_archive/test_driver_postgres,
+    ./factory/test_node_factory,
+    ./wakunode_rest/test_rest_store
 
 # Waku store test suite
 import
@@ -80,7 +85,6 @@ import
   ./wakunode_rest/test_rest_relay,
   ./wakunode_rest/test_rest_relay_serdes,
   ./wakunode_rest/test_rest_serdes,
-  ./wakunode_rest/test_rest_store,
   ./wakunode_rest/test_rest_filter,
   ./wakunode_rest/test_rest_lightpush,
   ./wakunode_rest/test_rest_admin,
@@ -90,4 +94,3 @@ import
 import ./waku_rln_relay/test_all
 
 # Node Factory
-import ./factory/test_node_factory

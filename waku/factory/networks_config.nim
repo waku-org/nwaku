@@ -5,7 +5,7 @@ else:
 
 type ClusterConf* = object
   maxMessageSize*: string
-  clusterId*: uint32
+  clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
   rlnRelayDynamic*: bool
@@ -21,7 +21,7 @@ type ClusterConf* = object
 # overrides existing cli configuration
 proc ClusterZeroConf*(T: type ClusterConf): ClusterConf =
   return ClusterConf(
-    clusterId: 0.uint32,
+    clusterId: 0,
     pubsubTopics:
       @["/waku/2/default-waku/proto"] # TODO: Add more config such as bootstrap, etc
     ,
@@ -33,7 +33,7 @@ proc ClusterZeroConf*(T: type ClusterConf): ClusterConf =
 proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
   return ClusterConf(
     maxMessageSize: "150KiB",
-    clusterId: 1.uint32,
+    clusterId: 1,
     rlnRelay: true,
     rlnRelayEthContractAddress: "0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4",
     rlnRelayDynamic: true,

@@ -5,7 +5,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, math],
+  std/options,
   chronos,
   chronicles,
   eth/keys,

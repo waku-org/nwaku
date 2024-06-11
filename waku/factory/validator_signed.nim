@@ -4,14 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/math,
   chronicles,
   chronos,
   metrics,
   stew/byteutils,
   stew/endians2,
   libp2p/protocols/pubsub/gossipsub,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/errors,
   nimcrypto/sha2,
   secp256k1

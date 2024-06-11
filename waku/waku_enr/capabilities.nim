@@ -4,11 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, bitops, sequtils],
-  stew/results,
-  stew/shims/net,
-  eth/keys,
-  libp2p/crypto/crypto
+  std/[options, bitops, sequtils, net], stew/results, eth/keys, libp2p/crypto/crypto
 import ../common/enr
 
 const CapabilitiesEnrField* = "waku2"

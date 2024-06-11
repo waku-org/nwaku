@@ -62,7 +62,9 @@ func decodeRequestBody[T](
 
   return ok(requestResult.get())
 
-proc getStatusDesc(protocolClientRes: filter_protocol_type.FilterSubscribeResult): string =
+proc getStatusDesc(
+    protocolClientRes: filter_protocol_type.FilterSubscribeResult
+): string =
   ## Retrieve proper error cause of FilterSubscribeError - due stringify make some parts of text double
   if protocolClientRes.isOk:
     return "OK"
@@ -84,8 +86,7 @@ proc convertResponse(
 ): T =
   ## Properly convert filter protocol's response to rest response
   return FilterSubscriptionResponse(
-    requestId: requestId,
-    statusDesc: getStatusDesc(protocolClientRes),
+    requestId: requestId, statusDesc: getStatusDesc(protocolClientRes)
   )
 
 proc convertResponse(
@@ -94,10 +95,8 @@ proc convertResponse(
     protocolClientRes: filter_protocol_type.FilterSubscribeError,
 ): T =
   ## Properly convert filter protocol's response to rest response in case of error
-  return FilterSubscriptionResponse(
-    requestId: requestId,
-    statusDesc: $protocolClientRes,
-  )
+  return
+    FilterSubscriptionResponse(requestId: requestId, statusDesc: $protocolClientRes)
 
 proc convertErrorKindToHttpStatus(
     kind: filter_protocol_type.FilterSubscribeErrorKind
@@ -117,8 +116,6 @@ proc convertErrorKindToHttpStatus(
     return Http404
   of filter_protocol_type.FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
     return Http503
-  else:
-    return Http500
 
 proc makeRestResponse(
     requestId: string, protocolClientRes: filter_protocol_type.FilterSubscribeResult

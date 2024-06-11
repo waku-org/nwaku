@@ -163,7 +163,7 @@ when defined(rln_v2):
       start: MembershipIndex,
       rateCommitments = newSeq[RateCommitment](),
       toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]).} =
+  ): Future[void] {.async: (raises: [Exception]), base.} =
     initializedGuard(g)
 
     # convert the rateCommitment struct to a leaf value
@@ -197,7 +197,7 @@ else:
       start: MembershipIndex,
       idCommitments = newSeq[IDCommitment](),
       toRemoveIndices = newSeq[MembershipIndex](),
-  ): Future[void] {.async: (raises: [Exception]).} =
+  ): Future[void] {.async: (raises: [Exception]), base.} =
     initializedGuard(g)
 
     waku_rln_membership_insertion_duration_seconds.nanosecondTime:

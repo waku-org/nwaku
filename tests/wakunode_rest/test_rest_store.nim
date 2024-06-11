@@ -1,9 +1,10 @@
 {.used.}
 
 import
-  std/[options, times, sugar],
+  std/[options, sugar],
   stew/shims/net as stewNet,
   chronicles,
+  chronos/timer,
   testutils/unittests,
   eth/keys,
   presto,
@@ -24,8 +25,10 @@ import
   ../../../waku/waku_api/rest/store/types,
   ../../../waku/waku_archive,
   ../../../waku/waku_archive/driver/queue_driver,
+  ../../../waku/waku_archive/driver/sqlite_driver,
+  ../../../waku/common/databases/db_sqlite,
+  ../../../waku/waku_archive/driver/postgres_driver,
   ../../../waku/waku_store as waku_store,
-  ../../../waku/common/base64,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -42,7 +45,7 @@ proc put(
       if message.timestamp > 0:
         message.timestamp
       else:
-        getNanosecondTime(getTime().toUnixFloat())
+        getNowInNanosecondTime()
 
   store.put(pubsubTopic, message, digest, msgHash, receivedTime)
 
@@ -83,6 +86,84 @@ procSuite "Waku Rest API - Store v3":
 
     check:
       expected.get() == msgHashRes.get().get().toRestStringWakuMessageHash()
+
+  asyncTest "invalid cursor":
+    let node = testWakuNode()
+    await node.start()
+    await node.mountRelay()
+
+    let restPort = Port(58011)
+    let restAddress = parseIpAddress("0.0.0.0")
+    let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+
+    installStoreApiHandlers(restServer.router, node)
+    restServer.start()
+
+    # WakuStore setup
+    let db: SqliteDatabase =
+      SqliteDatabase.new(string.none().get(":memory:")).expect("valid DB")
+    let driver: ArchiveDriver = SqliteDriver.new(db).expect("valid driver")
+    let mountArchiveRes = node.mountArchive(driver)
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+
+    await node.mountStore()
+    node.mountStoreClient()
+
+    let key = generateEcdsaKey()
+    var peerSwitch = newStandardSwitch(some(key))
+    await peerSwitch.start()
+
+    peerSwitch.mount(node.wakuStore)
+
+    await sleepAsync(1.seconds())
+
+    # Now prime it with some history before tests
+    let msgList =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = ContentTopic("ct1"), ts = 0),
+        fakeWakuMessage(@[byte 1], ts = 1),
+        fakeWakuMessage(@[byte 1, byte 2], ts = 2),
+        fakeWakuMessage(@[byte 1], ts = 3),
+        fakeWakuMessage(@[byte 1], ts = 4),
+        fakeWakuMessage(@[byte 1], ts = 5),
+        fakeWakuMessage(@[byte 1], ts = 6),
+        fakeWakuMessage(@[byte 9], contentTopic = ContentTopic("c2"), ts = 9),
+      ]
+    for msg in msgList:
+      require (await driver.put(DefaultPubsubTopic, msg)).isOk()
+
+    let client = newRestHttpClient(initTAddress(restAddress, restPort))
+
+    let remotePeerInfo = peerSwitch.peerInfo.toRemotePeerInfo()
+    let fullAddr = $remotePeerInfo.addrs[0] & "/p2p/" & $remotePeerInfo.peerId
+
+    await sleepAsync(1.seconds())
+
+    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let encodedCursor = fakeCursor.toRestStringWakuMessageHash()
+
+    # Apply filter by start and end timestamps
+    var response = await client.getStoreMessagesV3(
+      encodeUrl(fullAddr),
+      "true", # include data
+      "", # pubsub topic
+      "ct1,c2", # empty content topics.
+      "", # start time
+      "", # end time
+      "", # hashes
+      encodedCursor, # base64-encoded hash
+      "true", # ascending
+      "5", # empty implies default page size
+    )
+
+    check:
+      response.status == 200
+      $response.contentType == $MIMETYPE_JSON
+      response.data.messages.len == 0
+
+    await restServer.stop()
+    await restServer.closeWait()
+    await node.stop()
 
   asyncTest "Filter by start and end time":
     let node = testWakuNode()
