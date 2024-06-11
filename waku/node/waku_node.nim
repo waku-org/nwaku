@@ -931,16 +931,21 @@ proc mountLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
   info "mounting light push"
-
-  let rlnPeer = 
-    if node.wakuRlnRelay.isNil:
-      debug "mounting lightpush without rln-relay"
-      none(WakuRLNRelay)
-    else:
-      debug "mounting lightpush with rln-relay"
-      some(node.wakuRlnRelay)
   
-  var pushHandler = getPushHandler(node.wakuRelay, rlnPeer)
+  var pushHandler = 
+    if node.wakuRelay.isNil:
+      debug "mounting lightpush without relay (nil)"
+      getNilPushHandler()
+    else:
+      debug "mounting lightpush with relay"
+      let rlnPeer = 
+        if node.wakuRlnRelay.isNil:
+          debug "mounting lightpush without rln-relay"
+          none(WakuRLNRelay)
+        else:
+          debug "mounting lightpush with rln-relay"
+          some(node.wakuRlnRelay)
+      getRelayPushHandler(node.wakuRelay, rlnPeer)
 
   node.wakuLightPush =
     WakuLightPush.new(node.peerManager, node.rng, pushHandler, some(rateLimit))
