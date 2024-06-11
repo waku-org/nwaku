@@ -389,9 +389,31 @@ proc startRelay*(node: WakuNode) {.async.} =
 
   info "relay started successfully"
 
-proc generateRelayObserver(): PubSubObserver =
-  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
-    echo "-------------- Received message --------------"
+proc generateRelayObserver(w: WakuRelay): PubSubObserver =
+  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
+    for msg in msgs.messages:
+      let msg_id = w.msgIdProvider(msg).valueOr:
+        warn "Error generating message id",
+          from_peer = msg.fromPeer, topic = msg.topic, peer_id = peer.peerId
+        continue
+
+      let wakuMessage = WakuMessage.decode(msg.data).valueOr:
+        error "Error decoding to Waku Message",
+          msg_id = msg_id,
+          from_peer = msg.fromPeer,
+          topic = msg.topic,
+          peer_id = peer.peerId,
+          error = $error
+        continue
+
+      let msg_hash = computeMessageHash(msg.topic, wakuMessage).to0xHex()
+
+      info "received message",
+        msg_hash = msg_hash,
+        msg_id = msg_id,
+        from_peer = msg.fromPeer,
+        topic = msg.topic,
+        peer_id = peer.peerId
 
   proc onSend(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
     echo "-------------- Sent message --------------"
@@ -420,7 +442,7 @@ proc mountRelay*(
 
   # register rln validator as default validator
   debug "Registering Relay observers"
-  let observerLogger = generateRelayObserver()
+  let observerLogger = node.wakuRelay.generateRelayObserver()
   node.wakuRelay.addObserver(observerLogger)
 
   ## Add peer exchange handler
