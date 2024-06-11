@@ -50,11 +50,11 @@ proc handleRequest*(
       pubSubTopic = request.get().pubSubTopic
       message = request.get().message
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
-    debug "push request",
-      peerId = peerId,
+    notice "lightpush request",
+      peer_id = peerId,
       requestId = requestId,
       pubsubTopic = pubsubTopic,
-      hash = pubsubTopic.computeMessageHash(message).to0xHex()
+      msg_hash = pubsubTopic.computeMessageHash(message).to0xHex()
 
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
     isSuccess = handleRes.isOk()

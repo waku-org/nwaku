@@ -883,7 +883,7 @@ proc acquireDatabaseLock*(
 proc releaseDatabaseLock*(
     s: PostgresDriver, lockId: int = 841886
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  ## Release an advisory lock (useful to avoid more than one application running migrations at the same time)
   let unlocked = (
     await s.getStr(
       fmt"""
@@ -929,6 +929,16 @@ proc addPartition(
   let createPartitionQuery =
     "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
     "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
+
+  # Lock the db
+  (await self.acquireDatabaseLock()).isOkOr:
+    error "failed to acquire lock", error = error
+    return err("failed to lock the db")
+
+  defer:
+    (await self.releaseDatabaseLock()).isOkOr:
+      error "failed to release lock", error = error
+      return err("failed to unlock the db.")
 
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
     if error.contains("already exists"):
