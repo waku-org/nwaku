@@ -400,9 +400,11 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
           error = $error
         continue
 
+      let msg_id_short = shortLog(msg_id)
+
       let wakuMessage = WakuMessage.decode(msg.data).valueOr:
         warn "Error decoding to Waku Message",
-          msg_id = msg_id,
+          msg_id = msg_id_short,
           from_peer = msg.fromPeer,
           topic = msg.topic,
           peer_id = peer.peerId,
@@ -413,7 +415,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
 
       info "received message",
         msg_hash = msg_hash,
-        msg_id = msg_id,
+        msg_id = msg_id_short,
         from_peer = msg.fromPeer,
         topic = msg.topic,
         peer_id = peer.peerId
