@@ -394,11 +394,14 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
     for msg in msgs.messages:
       let msg_id = w.msgIdProvider(msg).valueOr:
         warn "Error generating message id",
-          from_peer = msg.fromPeer, topic = msg.topic, peer_id = peer.peerId
+          from_peer = msg.fromPeer,
+          topic = msg.topic,
+          peer_id = peer.peerId,
+          error = $error
         continue
 
       let wakuMessage = WakuMessage.decode(msg.data).valueOr:
-        error "Error decoding to Waku Message",
+        warn "Error decoding to Waku Message",
           msg_id = msg_id,
           from_peer = msg.fromPeer,
           topic = msg.topic,
