@@ -389,6 +389,15 @@ proc startRelay*(node: WakuNode) {.async.} =
 
   info "relay started successfully"
 
+proc generateRelayObserver(): PubSubObserver =
+  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
+    echo "-------------- Received message --------------"
+
+  proc onSend(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
+    echo "-------------- Sent message --------------"
+
+  return PubSubObserver(onRecv: onRecv, onSend: onSend)
+
 proc mountRelay*(
     node: WakuNode,
     pubsubTopics: seq[string] = @[],
@@ -408,6 +417,11 @@ proc mountRelay*(
     return
 
   node.wakuRelay = initRes.value
+
+  # register rln validator as default validator
+  debug "Registering Relay observers"
+  let observerLogger = generateRelayObserver()
+  node.wakuRelay.addObserver(observerLogger)
 
   ## Add peer exchange handler
   if peerExchangeHandler.isSome():
