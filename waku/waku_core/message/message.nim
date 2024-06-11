@@ -11,7 +11,7 @@ else:
 import ../topics, ../time
 
 const MaxMetaAttrLength* = 64 # 64 bytes
-
+#### naive comment
 type WakuMessage* = object # Data payload transmitted.
   payload*: seq[byte]
   # String identifier that can be used for content-based filtering.
