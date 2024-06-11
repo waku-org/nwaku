@@ -58,6 +58,6 @@ proc getRelayPushHandler*(
     if publishedCount == 0:
       ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
-      debug "Lightpush request has not been published to any peers", msg_hash = msgHash
+      notice "Lightpush request has not been published to any peers", msg_hash = msgHash
 
     return ok()
