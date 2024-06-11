@@ -674,16 +674,18 @@ proc selectMessagesByStoreQueryWithLimit*(
     if cursor.isSome() and cursor.get() != EmptyWakuMessageHash:
       let hash: WakuMessageHash = cursor.get()
 
-      var wakuMessage: WakuMessage
+      var wakuMessage: Option[WakuMessage]
 
       proc queryRowCallback(s: ptr sqlite3_stmt) =
-        wakuMessage = queryRowWakuMessageCallback(
-          s,
-          contentTopicCol = 0,
-          payloadCol = 1,
-          versionCol = 2,
-          senderTimestampCol = 3,
-          metaCol = 4,
+        wakuMessage = some(
+          queryRowWakuMessageCallback(
+            s,
+            contentTopicCol = 0,
+            payloadCol = 1,
+            versionCol = 2,
+            senderTimestampCol = 3,
+            metaCol = 4,
+          )
         )
 
       let query = selectMessageByHashQuery()
@@ -691,9 +693,12 @@ proc selectMessagesByStoreQueryWithLimit*(
       ?dbStmt.execSelectMessageByHash(hash, queryRowCallback)
       dbStmt.dispose()
 
-      let time: Timestamp = wakuMessage.timestamp
+      if wakuMessage.isSome():
+        let time = wakuMessage.get().timestamp
 
-      some((time, hash))
+        some((time, hash))
+      else:
+        return err("cursor not found")
     else:
       none((Timestamp, WakuMessageHash))
 

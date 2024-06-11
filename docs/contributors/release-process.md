@@ -56,6 +56,8 @@ Ensure all items in this list are ticked:
     git push origin v0.1.0-rc.1
     ```
 
+1. Validate the release. For the release validation process, please refer to the following [guide](https://www.notion.so/Release-Process-61234f335b904cd0943a5033ed8f42b4#47af557e7f9744c68fdbe5240bf93ca9)
+
 1. Once the release-candidate has been validated, create a final release tag and push it.
 We also need to merge release branch back to master as a final step.
 
@@ -93,6 +95,7 @@ We also need to merge release branch back to master as a final step.
    - Deploy release to the `waku.sandbox` fleet from [Jenkins](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox/).
    - Ensure that nodes successfully start up and monitor health using [Grafana](https://grafana.infra.status.im/d/qrp_ZCTGz/nim-waku-v2?orgId=1) and [Kibana](https://kibana.infra.status.im/goto/a7728e70-eb26-11ec-81d1-210eb3022c76).
    - If necessary, revert by deploying the previous release. Download logs and open a bug report issue.
+5. Submit a PR to merge the release branch back to `master`. Make sure you use the option `Merge pull request (Create a merge commit)` to perform such merge.
 
 ### Performing a patch release
 

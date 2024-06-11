@@ -21,9 +21,10 @@ import
 # protocols and their tag
 const ProtocolsTable = {
   "store": "/vac/waku/store/",
+  "storev3": "/vac/waku/store-query/3",
   "relay": "/vac/waku/relay/",
   "lightpush": "/vac/waku/lightpush/",
-  "filter": "/vac/waku/filter/",
+  "filter": "/vac/waku/filter-subscribe/2",
 }.toTable
 
 const WebSocketPortOffset = 1000

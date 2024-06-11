@@ -12,11 +12,11 @@ import nimcrypto, std/options, std/tables, stew/endians2, stew/results, stew/byt
 import ./content_topic, ./pubsub_topic
 
 type Sharding* = object
-  clusterId*: uint32
+  clusterId*: uint16
   # TODO: generations could be stored in a table here
   shardCountGenZero*: uint32
 
-proc new*(T: type Sharding, clusterId: uint32, shardCount: uint32): T =
+proc new*(T: type Sharding, clusterId: uint16, shardCount: uint32): T =
   return Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
 
 proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubTopic =
@@ -30,7 +30,7 @@ proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubT
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
 
-  NsPubsubTopic.staticSharding(uint16(s.clusterId), uint16(shard))
+  NsPubsubTopic.staticSharding(s.clusterId, uint16(shard))
 
 proc getShard*(s: Sharding, topic: NsContentTopic): Result[NsPubsubTopic, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.

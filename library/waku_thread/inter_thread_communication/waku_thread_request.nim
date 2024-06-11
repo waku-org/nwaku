@@ -10,7 +10,8 @@ import
   ./requests/peer_manager_request,
   ./requests/protocols/relay_request,
   ./requests/protocols/store_request,
-  ./requests/debug_node_request
+  ./requests/debug_node_request,
+  ./requests/discovery_request
 
 type RequestType* {.pure.} = enum
   LIFECYCLE
@@ -18,6 +19,7 @@ type RequestType* {.pure.} = enum
   RELAY
   STORE
   DEBUG
+  DISCOVERY
 
 type InterThreadRequest* = object
   reqType: RequestType
@@ -52,6 +54,8 @@ proc process*(
       cast[ptr StoreRequest](request[].reqContent).process(waku)
     of DEBUG:
       cast[ptr DebugNodeRequest](request[].reqContent).process(waku[])
+    of DISCOVERY:
+      cast[ptr DiscoveryRequest](request[].reqContent).process(waku)
 
   return await retFut
 

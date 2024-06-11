@@ -49,7 +49,8 @@ json_config = "{ \
                 \"host\": \"%s\",   \
                 \"port\": %d,       \
                 \"key\": \"%s\",    \
-                \"relay\": %s      \
+                \"relay\": %s      ,\
+                \"logLevel\": \"DEBUG\" \
             }" % (args.host,
                   int(args.port),
                   args.key,

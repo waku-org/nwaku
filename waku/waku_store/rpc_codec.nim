@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/options, stew/arrayops, nimcrypto/hash
+import std/options, stew/arrayops
 import ../common/[protobuf, paging], ../waku_core, ./common
 
 const DefaultMaxRpcSize* = -1

@@ -122,13 +122,14 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   ## Adds peer to manager for the specified protocol
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
-    # Do not attempt to manage our unmanageable self
+    trace "skipping to manage our unmanageable self"
     return
 
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
       pm.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
       pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
-    # Peer already managed and ENR info is already saved
+    trace "peer already managed and ENR info is already saved",
+      remote_peer_id = $remotePeerInfo.peerId
     return
 
   trace "Adding peer to manager",
@@ -379,7 +380,11 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       pm.peerStore.hasPeer(peerId, WakuRelayCodec) and
       not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
     ):
-      reason = "no shards in common"
+      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & "]"
+      let otherShardsString = "[ " & metadata.shards.join(", ") & "]"
+      reason =
+        "no shards in common: my_shards = " & myShardsString & " others_shards = " &
+        otherShardsString
       break guardClauses
 
     return

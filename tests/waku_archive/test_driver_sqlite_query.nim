@@ -669,6 +669,62 @@ suite "SQLite driver - query by cursor":
     ## Cleanup
     (await driver.close()).expect("driver to close")
 
+  asyncTest "only cursor - invalid":
+    ## Given
+    const contentTopic = "test-content-topic"
+
+    let driver = newSqliteArchiveDriver()
+
+    var messages =
+      @[
+        fakeWakuMessage(@[byte 0], ts = ts(00)),
+        fakeWakuMessage(@[byte 1], ts = ts(10)),
+        fakeWakuMessage(@[byte 2], contentTopic = contentTopic, ts = ts(20)),
+        fakeWakuMessage(@[byte 3], contentTopic = contentTopic, ts = ts(30)),
+        fakeWakuMessage(@[byte 4], contentTopic = contentTopic, ts = ts(40)),
+        fakeWakuMessage(@[byte 5], contentTopic = contentTopic, ts = ts(50)),
+        fakeWakuMessage(@[byte 6], contentTopic = contentTopic, ts = ts(60)),
+        fakeWakuMessage(@[byte 7], contentTopic = contentTopic, ts = ts(70)),
+      ]
+
+    shuffle(messages)
+    debug "randomized message insertion sequence", sequence = messages.mapIt(it.payload)
+
+    for msg in messages:
+      require (
+        await driver.put(
+          DefaultPubsubTopic,
+          msg,
+          computeDigest(msg),
+          computeMessageHash(DefaultPubsubTopic, msg),
+          msg.timestamp,
+        )
+      ).isOk()
+
+    let fakeCursor = computeMessageHash(DefaultPubsubTopic, fakeWakuMessage())
+    let cursor = ArchiveCursor(hash: fakeCursor)
+
+    ## When
+    let res = await driver.getMessages(
+      includeData = true,
+      contentTopic = @[DefaultContentTopic],
+      pubsubTopic = none(PubsubTopic),
+      cursor = some(cursor),
+      startTime = none(Timestamp),
+      endTime = none(Timestamp),
+      hashes = @[],
+      maxPageSize = 5,
+      ascendingOrder = true,
+    )
+
+    ## Then
+    check:
+      res.isErr()
+      res.error == "cursor not found"
+
+    ## Cleanup
+    (await driver.close()).expect("driver to close")
+
   asyncTest "content topic and cursor":
     ## Given
     const contentTopic = "test-content-topic"

@@ -3,12 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import
-  chronicles,
-  json_serialization,
-  json_serialization/std/options,
-  std/tables,
-  std/sequtils
+import chronicles, json_serialization, json_serialization/std/options
 import ../../../waku_node, ../serdes
 
 #### Serialization and deserialization

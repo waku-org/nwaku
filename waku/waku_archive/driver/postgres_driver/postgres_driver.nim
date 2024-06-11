@@ -34,84 +34,97 @@ const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CASE WHEN $9 = '' THEN NULL ELSE $9 END) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
+const SelectClause =
+  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages """
 const SelectNoCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          storedAt >= $4 AND
-          storedAt <= $5
-    ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        storedAt >= $4 AND
+        storedAt <= $5
+  ORDER BY storedAt ASC, messageHash ASC LIMIT $6;"""
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          storedAt >= $4 AND
-          storedAt <= $5
-    ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        storedAt >= $4 AND
+        storedAt <= $5
+  ORDER BY storedAt DESC, messageHash DESC LIMIT $6;"""
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (storedAt, messageHash) < ($4,$5) AND
-          storedAt >= $6 AND
-          storedAt <= $7
-    ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        (storedAt, messageHash) < ($4,$5) AND
+        storedAt >= $6 AND
+        storedAt <= $7
+  ORDER BY storedAt DESC, messageHash DESC LIMIT $8;"""
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          messageHash IN ($2) AND
-          pubsubTopic = $3 AND
-          (storedAt, messageHash) > ($4,$5) AND
-          storedAt >= $6 AND
-          storedAt <= $7
-    ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        messageHash IN ($2) AND
+        pubsubTopic = $3 AND
+        (storedAt, messageHash) > ($4,$5) AND
+        storedAt >= $6 AND
+        storedAt <= $7
+  ORDER BY storedAt ASC, messageHash ASC LIMIT $8;"""
+
+const SelectMessageByHashName = "SelectMessageByHash"
+const SelectMessageByHashDef = SelectClause & """WHERE messageHash = $1"""
 
 const SelectNoCursorV2AscStmtName = "SelectWithoutCursorV2Asc"
 const SelectNoCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          storedAt >= $3 AND
-          storedAt <= $4
-    ORDER BY storedAt ASC LIMIT $5;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        storedAt >= $3 AND
+        storedAt <= $4
+  ORDER BY storedAt ASC LIMIT $5;"""
 
 const SelectNoCursorV2DescStmtName = "SelectWithoutCursorV2Desc"
 const SelectNoCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          storedAt >= $3 AND
-          storedAt <= $4
-    ORDER BY storedAt DESC LIMIT $5;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        storedAt >= $3 AND
+        storedAt <= $4
+  ORDER BY storedAt DESC LIMIT $5;"""
 
 const SelectWithCursorV2DescStmtName = "SelectWithCursorV2Desc"
 const SelectWithCursorV2DescStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          (storedAt, id) < ($3,$4) AND
-          storedAt >= $5 AND
-          storedAt <= $6
-    ORDER BY storedAt DESC LIMIT $7;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        (storedAt, id) < ($3,$4) AND
+        storedAt >= $5 AND
+        storedAt <= $6
+  ORDER BY storedAt DESC LIMIT $7;"""
 
 const SelectWithCursorV2AscStmtName = "SelectWithCursorV2Asc"
 const SelectWithCursorV2AscStmtDef =
-  """SELECT storedAt, contentTopic, payload, pubsubTopic, version, timestamp, id, messageHash, meta FROM messages
-    WHERE contentTopic IN ($1) AND
-          pubsubTopic = $2 AND
-          (storedAt, id) > ($3,$4) AND
-          storedAt >= $5 AND
-          storedAt <= $6
-    ORDER BY storedAt ASC LIMIT $7;"""
+  SelectClause &
+  """
+  WHERE contentTopic IN ($1) AND
+        pubsubTopic = $2 AND
+        (storedAt, id) > ($3,$4) AND
+        storedAt >= $5 AND
+        storedAt <= $6
+  ORDER BY storedAt ASC LIMIT $7;"""
 
 const DefaultMaxNumConns = 50
 
@@ -347,10 +360,33 @@ proc getMessagesArbitraryQuery(
     args.add(pubsubTopic.get())
 
   if cursor.isSome():
+    let hashHex = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hashHex],
+        @[int32(hashHex.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storetime = entree[0][3]
+
     let comp = if ascendingOrder: ">" else: "<"
     statements.add("(storedAt, messageHash) " & comp & " (?,?)")
-    args.add($cursor.get().storeTime)
-    args.add(toHex(cursor.get().hash))
+    args.add($storetime)
+    args.add(hashHex)
 
   if startTime.isSome():
     statements.add("storedAt >= ?")
@@ -472,13 +508,34 @@ proc getMessagesPreparedStmt(
   let limit = $maxPageSize
 
   if cursor.isSome():
+    let hash = toHex(cursor.get().hash)
+
+    var entree: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+
+    proc entreeCallback(pqResult: ptr PGresult) =
+      rowCallbackImpl(pqResult, entree)
+
+    (
+      await s.readConnPool.runStmt(
+        SelectMessageByHashName,
+        SelectMessageByHashDef,
+        @[hash],
+        @[int32(hash.len)],
+        @[int32(0)],
+        entreeCallback,
+      )
+    ).isOkOr:
+      return err("failed to run query with cursor: " & $error)
+
+    if entree.len == 0:
+      return ok(entree)
+
+    let storeTime = $entree[0][3]
+
     var stmtName =
       if ascOrder: SelectWithCursorAscStmtName else: SelectWithCursorDescStmtName
     var stmtDef =
       if ascOrder: SelectWithCursorAscStmtDef else: SelectWithCursorDescStmtDef
-
-    let hash = toHex(cursor.get().hash)
-    let storeTime = $cursor.get().storeTime
 
     (
       await s.readConnPool.runStmt(
@@ -805,6 +862,42 @@ proc sleep*(
 
   return ok()
 
+proc acquireDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Acquire an advisory lock (useful to avoid more than one application running migrations at the same time)
+  let locked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_try_advisory_lock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error acquiring a lock: " & error)
+
+  if locked == "f":
+    return err("another waku instance is currently executing a migration")
+
+  return ok()
+
+proc releaseDatabaseLock*(
+    s: PostgresDriver, lockId: int = 841886
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Release an advisory lock (useful to avoid more than one application running migrations at the same time)
+  let unlocked = (
+    await s.getStr(
+      fmt"""
+    SELECT pg_advisory_unlock({lockId})
+    """
+    )
+  ).valueOr:
+    return err("error releasing a lock: " & error)
+
+  if unlocked == "f":
+    return err("could not release advisory lock")
+
+  return ok()
+
 proc performWriteQuery*(
     s: PostgresDriver, query: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -816,14 +909,14 @@ proc performWriteQuery*(
   return ok()
 
 proc addPartition(
-    self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
+    self: PostgresDriver, startTime: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= storedAt < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
 
   let beginning = startTime
-  let `end` = (startTime + duration.seconds)
+  let `end` = partitions_manager.calcEndPartitionTime(startTime)
 
   let fromInSec: string = $beginning
   let untilInSec: string = $`end`
@@ -837,7 +930,22 @@ proc addPartition(
     "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
     "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
 
+  # Lock the db
+  (await self.acquireDatabaseLock()).isOkOr:
+    error "failed to acquire lock", error = error
+    return err("failed to lock the db")
+
+  defer:
+    (await self.releaseDatabaseLock()).isOkOr:
+      error "failed to release lock", error = error
+      return err("failed to unlock the db.")
+
   (await self.performWriteQuery(createPartitionQuery)).isOkOr:
+    if error.contains("already exists"):
+      debug "skip create new partition as it already exists: ", skipped_error = $error
+      return ok()
+
+    ## for any different error, just consider it
     return err(fmt"error adding partition [{partitionName}]: " & $error)
 
   debug "new partition added", query = createPartitionQuery
@@ -877,7 +985,6 @@ proc initializePartitionsInfo(
     return ok()
 
 const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
-const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
 
 proc loopPartitionFactory(
     self: PostgresDriver, onFatalError: OnFatalErrorHandler
@@ -886,11 +993,6 @@ proc loopPartitionFactory(
   ## Notice that the deletion of partitions is handled by the retention policy modules.
 
   debug "starting loopPartitionFactory"
-
-  if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
-    onFatalError(
-      "partition factory partition range interval should be bigger than check interval"
-    )
 
   ## First of all, let's make the 'partition_manager' aware of the current partitions
   (await self.initializePartitionsInfo()).isOkOr:
@@ -903,7 +1005,7 @@ proc loopPartitionFactory(
 
     if self.partitionMngr.isEmpty():
       debug "adding partition because now there aren't more partitions"
-      (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+      (await self.addPartition(now)).isOkOr:
         onFatalError("error when creating a new partition from empty state: " & $error)
     else:
       let newestPartitionRes = self.partitionMngr.getNewestPartition()
@@ -916,18 +1018,14 @@ proc loopPartitionFactory(
         ## The current used partition is the last one that was created.
         ## Thus, let's create another partition for the future.
 
-        (
-          await self.addPartition(
-            newestPartition.getLastMoment(), PartitionsRangeInterval
-          )
-        ).isOkOr:
+        (await self.addPartition(newestPartition.getLastMoment())).isOkOr:
           onFatalError("could not add the next partition for 'now': " & $error)
       elif now >= newestPartition.getLastMoment():
         debug "creating a new partition to contain current messages"
         ## There is no partition to contain the current time.
         ## This happens if the node has been stopped for quite a long time.
         ## Then, let's create the needed partition to contain 'now'.
-        (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
+        (await self.addPartition(now)).isOkOr:
           onFatalError("could not add the next partition: " & $error)
 
     await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)

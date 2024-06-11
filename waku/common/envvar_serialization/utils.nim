@@ -42,7 +42,9 @@ proc getValue*(key: string, outVal: var string) {.raises: [ValueError].} =
   outVal.setLen(size)
   decodePaddedHex(hex, cast[ptr UncheckedArray[byte]](outVal[0].addr), size)
 
-proc getValue*[T: SomePrimitives](key: string, outVal: var seq[T]) =
+proc getValue*[T: SomePrimitives](
+    key: string, outVal: var seq[T]
+) {.raises: [ValueError].} =
   let hex = os.getEnv(key)
   let byteSize = (hex.len div 2) + (hex.len and 0x01)
   let size = (byteSize + sizeof(T) - 1) div sizeof(T)

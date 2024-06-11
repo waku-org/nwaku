@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/strutils, stew/shims/net
+import std/[strutils, net]
 import ../../../envvar_serialization
 
 export net, envvar_serialization

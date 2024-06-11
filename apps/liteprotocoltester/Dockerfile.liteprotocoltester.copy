@@ -1,0 +1,35 @@
+  # TESTING IMAGE --------------------------------------------------------------
+
+    ## NOTICE: This is a short cut build file for ubuntu users who compiles nwaku in ubuntu distro.
+    ##         This is used for faster turnaround time for testing the compiled binary.
+    ##         Prerequisites: compiled liteprotocoltester binary in build/ directory
+
+  FROM ubuntu:noble as prod
+
+  LABEL maintainer="jakub@status.im"
+  LABEL source="https://github.com/waku-org/nwaku"
+  LABEL description="Lite Protocol Tester: Waku light-client"
+  LABEL commit="unknown"
+  LABEL version="unknown"
+
+  # DevP2P, LibP2P, and JSON RPC ports
+  EXPOSE 30303 60000 8545
+
+  # Referenced in the binary
+  RUN apt-get update && apt-get install -y --no-install-recommends \
+      libgcc1 \
+      libpcre3 \
+      libpq-dev \
+      wget \
+      iproute2 \
+      && rm -rf /var/lib/apt/lists/*
+
+  # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
+  RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
+
+  COPY build/liteprotocoltester /usr/bin/
+
+  ENTRYPOINT ["/usr/bin/liteprotocoltester"]
+
+  # # By default just show help if called without arguments
+  CMD ["--help"]

@@ -1,7 +1,7 @@
 ## This code has been copied and addapted from `status-im/nimbu-eth2` project.
 ## Link: https://github.com/status-im/nimbus-eth2/blob/c585b0a5b1ae4d55af38ad7f4715ad455e791552/beacon_chain/nimbus_binary_common.nim
 import
-  std/[strutils, typetraits],
+  std/[typetraits, os, strutils],
   chronicles,
   chronicles/log_output,
   chronicles/topics_registry
@@ -65,11 +65,11 @@ proc writeAndFlush(f: File, s: LogOutputStr) =
 
 ## Setup
 
-proc setupLogLevel*(level: LogLevel) =
+proc setupLogLevel(level: LogLevel) =
   # TODO: Support per topic level configuratio
   topics_registry.setLogLevel(level)
 
-proc setupLogFormat*(format: LogFormat, color = true) =
+proc setupLogFormat(format: LogFormat, color = true) =
   proc noOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
     discard
 
@@ -94,3 +94,15 @@ proc setupLogFormat*(format: LogFormat, color = true) =
         "the present module should be compiled with '-d:chronicles_default_output_device=dynamic' " &
         "and '-d:chronicles_sinks=\"textlines,json\"' options"
     .}
+
+proc setupLog*(level: LogLevel, format: LogFormat) =
+  ## Logging setup
+  # Adhere to NO_COLOR initiative: https://no-color.org/
+  let color =
+    try:
+      not parseBool(os.getEnv("NO_COLOR", "false"))
+    except CatchableError:
+      true
+
+  setupLogLevel(level)
+  setupLogFormat(format, color)

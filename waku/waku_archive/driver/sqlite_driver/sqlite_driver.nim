@@ -94,8 +94,6 @@ method getMessagesV2*(
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
-  echo "here"
-
   let cursor = cursor.map(toDbCursor)
 
   let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(

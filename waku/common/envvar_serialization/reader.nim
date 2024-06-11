@@ -72,7 +72,12 @@ proc readValue*[T](r: var EnvvarReader, value: var T) {.raises: [SerializationEr
   elif T is (seq or array):
     when uTypeIsPrimitives(T):
       let key = constructKey(r.prefix, r.key)
-      getValue(key, value)
+      try:
+        getValue(key, value)
+      except ValueError:
+        raise newException(
+          SerializationError, "Couldn't get value: " & getCurrentExceptionMsg()
+        )
     else:
       let key = r.key[^1]
       for i in 0 ..< value.len:

@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, sequtils],
+  std/[options, sequtils],
   stew/results,
   chronicles,
   chronos,
@@ -21,20 +21,10 @@ import
   ../../waku/common/logging,
   ../../waku/waku_core,
   ../../waku/waku_node,
-  ../../waku/node/waku_metrics,
   ../../waku/node/peer_manager,
   ../../waku/node/health_monitor,
   ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/handlers,
   ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
-  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
-  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
-  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
-  ../../waku/waku_api/rest/store/handlers as rest_store_api,
-  ../../waku/waku_api/rest/legacy_store/handlers as rest_legacy_store_api,
-  ../../waku/waku_api/rest/health/handlers as rest_health_api,
-  ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
   ../../waku/waku_archive,
   ../../waku/discovery/waku_dnsdisc,
   ../../waku/discovery/waku_discv5,
@@ -102,7 +92,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   var confCopy = conf
   let rng = crypto.newRng()
 
-  logging.setupLogLevel(confCopy.logLevel)
+  logging.setupLog(conf.logLevel, conf.logFormat)
 
   case confCopy.clusterId
 

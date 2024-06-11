@@ -95,6 +95,7 @@ pipeline {
           /* If Git ref is a tag push it as Docker tag too. */
           if (params.GIT_REF ==~ /v\d+\.\d+\.\d+.*/) {
             image.push(params.GIT_REF)
+            image.push('latest-release')
           }
         }
       } }

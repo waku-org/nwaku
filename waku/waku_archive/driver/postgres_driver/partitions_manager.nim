@@ -4,8 +4,9 @@
 ## The created partitions are referenced by the 'storedAt' field.
 ##
 
-import std/deques
+import std/[deques, times]
 import chronos, chronicles
+import ../../../waku_core/time
 
 logScope:
   topics = "waku archive partitions_manager"
@@ -94,6 +95,36 @@ proc containsMoment*(partition: Partition, time: int64): bool =
     return true
 
   return false
+
+proc calcEndPartitionTime*(startTime: Timestamp): Timestamp =
+  ## Each partition has an "startTime" and "end" time. This proc calculates the "end" time so that
+  ## it precisely matches the next o'clock time.
+  ## This considers that the partitions should be 1 hour long.
+  ## For example, if `startTime` == 14:28 , then the returned end time should be 15:00.
+  ## Notice both `startTime` and returned time are in seconds since Epoch.
+  ##
+  ## startTime - seconds from Epoch that represents the partition start time
+
+  let startDateTime: DateTime = times.fromUnix(startTime).utc()
+
+  let maxPartitionDuration: times.Duration = times.initDuration(hours = 1)
+    ## Max time range covered by each parition
+    ## It is max because we aim to make the partition times synced to
+    ## o'clock hours. i.e. each partition edge will have min == sec == nanosec == 0
+
+  let endDateTime = startDateTime + maxPartitionDuration
+  let endDateTimeOClock = times.dateTime(
+    year = endDateTime.year,
+    month = endDateTime.month,
+    monthday = endDateTime.monthday,
+    hour = endDateTime.hour,
+    minute = 0,
+    second = 0,
+    nanosecond = 0,
+    zone = utc(),
+  )
+
+  return Timestamp(endDateTimeOClock.toTime().toUnix())
 
 proc getName*(partition: Partition): string =
   return partition.name

@@ -152,7 +152,7 @@ proc handleSubscribeRequest*(
     return FilterSubscribeResponse.ok(request.requestId)
 
 proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
-  trace "pushing message to subscribed peer", peer = peer
+  trace "pushing message to subscribed peer", peer_id = shortLog(peer)
 
   if not wf.peerManager.peerStore.hasPeer(peer, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
@@ -176,7 +176,7 @@ proc pushToPeers(
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
-  debug "pushing message to subscribed peers",
+  notice "pushing message to subscribed peers",
     pubsubTopic = messagePush.pubsubTopic,
     contentTopic = messagePush.wakuMessage.contentTopic,
     target_peer_ids = targetPeerIds,
@@ -216,8 +216,7 @@ proc handleMessage*(
 ) {.async.} =
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  debug "handling message",
-    pubsubTopic = pubsubTopic, msg_hash = msgHash
+  notice "handling message", pubsubTopic = pubsubTopic, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
 
@@ -226,8 +225,10 @@ proc handleMessage*(
     let subscribedPeers =
       wf.subscriptions.findSubscribedPeers(pubsubTopic, message.contentTopic)
     if subscribedPeers.len == 0:
-      debug "no subscribed peers found",
-        pubsubTopic = pubsubTopic, contentTopic = message.contentTopic
+      notice "no subscribed peers found",
+        pubsubTopic = pubsubTopic,
+        contentTopic = message.contentTopic,
+        msg_hash = msgHash
       return
 
     let messagePush = MessagePush(pubsubTopic: pubsubTopic, wakuMessage: message)
@@ -243,7 +244,7 @@ proc handleMessage*(
         target_peer_ids = subscribedPeers.mapIt(shortLog(it))
       waku_filter_errors.inc(labelValues = [pushTimeoutFailure])
     else:
-      debug "pushed message succesfully to all subscribers",
+      notice "pushed message succesfully to all subscribers",
         pubsubTopic = pubsubTopic,
         contentTopic = message.contentTopic,
         msg_hash = msgHash,
@@ -312,13 +313,13 @@ proc startMaintainingSubscriptions(wf: WakuFilter, interval: Duration) =
 
   wf.maintenanceTask = setTimer(Moment.fromNow(interval), maintainSubs)
 
-method start*(wf: WakuFilter) {.async.} =
+method start*(wf: WakuFilter) {.async, base.} =
   debug "starting filter protocol"
   wf.startMaintainingSubscriptions(MaintainSubscriptionsInterval)
 
   await procCall LPProtocol(wf).start()
 
-method stop*(wf: WakuFilter) {.async.} =
+method stop*(wf: WakuFilter) {.async, base.} =
   debug "stopping filter protocol"
   if not wf.maintenanceTask.isNil():
     wf.maintenanceTask.clearTimer()
