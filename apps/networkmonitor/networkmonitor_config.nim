@@ -169,7 +169,6 @@ proc parseCmdArg*(T: type EthRpcUrl, s: string): T =
   var wsPattern =
     re2"^(wss?):\/\/((localhost)|([\w_-]+(?:(?:\.[\w_-]+)+)))(:[0-9]{1,5})?([\w.,@?^=%&:\/~+#-]*[\w@?^=%&\/~+#-])*"
   if regex.match(s, wsPattern):
-    echo "here"
     raise newException(
       ValueError, "Websocket RPC URL is not supported, Please use an HTTP URL"
     )

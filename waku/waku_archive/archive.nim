@@ -29,7 +29,7 @@ const
   WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
 
   # Metrics reporting
-  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(1)
+  WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(30)
 
   # Message validation
   # 20 seconds maximum allowable sender timestamp "drift"
@@ -103,7 +103,7 @@ proc handleMessage*(
       else:
         getNanosecondTime(getTime().toUnixFloat())
 
-  trace "handling message",
+  notice "archive handling message",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
@@ -117,7 +117,7 @@ proc handleMessage*(
     waku_archive_errors.inc(labelValues = [insertFailure])
     error "failed to insert message", error = error
 
-  debug "message archived",
+  notice "message archived",
     msg_hash = msgHashHex,
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,

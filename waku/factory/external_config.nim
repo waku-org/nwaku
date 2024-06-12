@@ -366,13 +366,6 @@ type WakuNodeConf* = object
       name: "filternode"
     .}: string
 
-    filterTimeout* {.
-      desc:
-        "Filter clients will be wiped out if not able to receive push messages within this timeout. In seconds.",
-      defaultValue: 14400, # 4 hours
-      name: "filter-timeout"
-    .}: int64
-
     filterSubscriptionTimeout* {.
       desc:
         "Timeout for filter subscription without ping or refresh it, in seconds. Only for v2 filter protocol.",
