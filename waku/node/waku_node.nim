@@ -419,7 +419,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
         info "sent message",
           msg_hash = msg_hash,
           msg_id = msg_id_short,
-          from_peer = peer.peerId,
+          to_peer = peer.peerId,
           topic = msg.topic
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
