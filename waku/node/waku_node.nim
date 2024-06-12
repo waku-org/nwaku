@@ -390,7 +390,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   info "relay started successfully"
 
 proc generateRelayObserver(w: WakuRelay): PubSubObserver =
-  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
+  proc logMessageInfo(peer: PubSubPeer, msgs: var RPCMsg, onRecv: bool) =
     for msg in msgs.messages:
       let msg_id = w.msgIdProvider(msg).valueOr:
         warn "Error generating message id",
@@ -409,14 +409,24 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
 
       let msg_hash = computeMessageHash(msg.topic, wakuMessage).to0xHex()
 
-      info "received message",
-        msg_hash = msg_hash,
-        msg_id = msg_id_short,
-        from_peer = peer.peerId,
-        topic = msg.topic
+      if onRecv:
+        info "received message",
+          msg_hash = msg_hash,
+          msg_id = msg_id_short,
+          from_peer = peer.peerId,
+          topic = msg.topic
+      else:
+        info "sent message",
+          msg_hash = msg_hash,
+          msg_id = msg_id_short,
+          from_peer = peer.peerId,
+          topic = msg.topic
 
-  proc onSend(peer: PubSubPeer, msgs: var RPCMsg) {.gcsafe, raises: [].} =
-    echo "-------------- Sent message --------------"
+  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
+    logMessageInfo(peer, msgs, onRecv = true)
+
+  proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
+    logMessageInfo(peer, msgs, onRecv = false)
 
   return PubSubObserver(onRecv: onRecv, onSend: onSend)
 
