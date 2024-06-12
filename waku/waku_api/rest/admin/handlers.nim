@@ -109,6 +109,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuSyncCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, syncPeers)

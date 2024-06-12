@@ -171,7 +171,7 @@ clean: | clean-librln
 #################
 .PHONY: testcommon
 
-testcommon: | build deps
+testcommon: | build deps negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
 
