@@ -12,6 +12,7 @@ import
   system/ansi_c,
   libp2p/crypto/crypto
 import
+  ./spammer,
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../tools/rln_db_inspector/rln_db_inspector,
   ../../waku/common/logging,
@@ -131,5 +132,11 @@ when isMainModule:
       c_signal(ansi_c.SIGSEGV, handleSigsegv)
 
     info "Node setup complete"
+
+    if not conf.rlnRelay:
+      error "RLN not configured!"
+      quit(QuitFailure)
+
+    asyncSpawn runSpammer(waku)
 
     runForever()
