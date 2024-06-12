@@ -27,7 +27,7 @@ proc testWakuNode(): WakuNode =
     privkey = crypto.PrivateKey.random(Secp256k1, rng[]).tryGet()
     bindIp = parseIpAddress("0.0.0.0")
     extIp = parseIpAddress("127.0.0.1")
-    port = Port(58000)
+    port = Port(0)
 
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
@@ -86,8 +86,7 @@ proc checkResponse(
       expectedOrigin.isSome() and
       response.headers.contains("Access-Control-Allow-Origin") and
       response.headers.getLastString("Access-Control-Allow-Origin") ==
-        expectedOrigin.get() and
-      response.headers.contains("Access-Control-Allow-Headers") and
+      expectedOrigin.get() and response.headers.contains("Access-Control-Allow-Headers") and
       response.headers.getLastString("Access-Control-Allow-Headers") == "Content-Type"
     )
   ):
@@ -106,7 +105,7 @@ suite "Waku v2 REST API CORS Handling":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58001)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef
       .init(
@@ -116,6 +115,7 @@ suite "Waku v2 REST API CORS Handling":
           some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
       )
       .tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -158,7 +158,7 @@ suite "Waku v2 REST API CORS Handling":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58001)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef
       .init(
@@ -168,6 +168,7 @@ suite "Waku v2 REST API CORS Handling":
           some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
       )
       .tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -213,10 +214,11 @@ suite "Waku v2 REST API CORS Handling":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58001)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer =
       WakuRestServerRef.init(restAddress, restPort, allowedOrigin = some("*")).tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()
@@ -259,7 +261,7 @@ suite "Waku v2 REST API CORS Handling":
     await node.start()
     await node.mountRelay()
 
-    let restPort = Port(58001)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef
       .init(
@@ -269,6 +271,7 @@ suite "Waku v2 REST API CORS Handling":
           some("test.net:1234,https://localhost:*,http://127.0.0.1:?8,?waku*.net:*80*"),
       )
       .tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installDebugApiHandlers(restServer.router, node)
     restServer.start()

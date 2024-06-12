@@ -59,13 +59,17 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
     testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuFilterSubscribeCodec
   )
 
-  let restPort = Port(58011)
+  var restPort = Port(0)
   let restAddress = parseIpAddress("127.0.0.1")
   testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+  restPort = testSetup.restServer.httpServer.address.port
+    # update with bound port for client use
 
-  let restPort2 = Port(58012)
+  var restPort2 = Port(0)
   testSetup.restServerForService =
     WakuRestServerRef.init(restAddress, restPort2).tryGet()
+  restPort2 = testSetup.restServerForService.httpServer.address.port
+    # update with bound port for client use
 
   # through this one we will see if messages are pushed according to our content topic sub
   testSetup.messageCache = MessageCache.init()

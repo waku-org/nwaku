@@ -74,9 +74,11 @@ proc init(
     testSetup.serviceNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
   )
 
-  let restPort = Port(58011)
+  var restPort = Port(0)
   let restAddress = parseIpAddress("127.0.0.1")
   testSetup.restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+  restPort = testSetup.restServer.httpServer.address.port
+    # update with bound port for client use
 
   installLightPushRequestHandler(testSetup.restServer.router, testSetup.pushNode)
 
