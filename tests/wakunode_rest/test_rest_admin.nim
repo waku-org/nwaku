@@ -48,9 +48,10 @@ suite "Waku v2 Rest API - Admin":
     await allFutures(node1.start(), node2.start(), node3.start())
     await allFutures(node1.mountRelay(), node2.mountRelay(), node3.mountRelay())
 
-    let restPort = Port(58011)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("127.0.0.1")
     restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installAdminApiHandlers(restServer.router, node1)
 
