@@ -45,9 +45,10 @@ suite "Waku v2 REST API - health":
 
     healthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-    let restPort = Port(58001)
+    var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
     let restServer = WakuRestServerRef.init(restAddress, restPort).tryGet()
+    restPort = restServer.httpServer.address.port # update with bound port for client use
 
     installHealthApiHandler(restServer.router, healthMonitor)
     restServer.start()
