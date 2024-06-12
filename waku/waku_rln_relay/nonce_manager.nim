@@ -45,12 +45,13 @@ proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
 
   if now - n.lastNonceTime >= n.epoch:
     retNonce = 0
+    n.lastNonceTime = now
+
   n.nextNonce = retNonce + 1
-  n.lastNonceTime = now
 
   if retNonce >= n.nonceLimit:
     return err(
-      NonceManagerError(
+      NonceManagerError( 
         kind: NonceLimitReached,
         error:
           "Nonce limit reached. Please wait for the next epoch. requested nonce: " &
