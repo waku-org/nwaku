@@ -939,7 +939,7 @@ proc mountLightPush*(
     else:
       debug "mounting lightpush with relay"
       let rlnPeer = 
-        if node.wakuRlnRelay.isNil:
+        if isNil(node.wakuRlnRelay):
           debug "mounting lightpush without rln-relay"
           none(WakuRLNRelay)
         else:

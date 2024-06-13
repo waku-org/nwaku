@@ -16,21 +16,22 @@ import
  libp2p/peerid,
  stew/byteutils
 
-proc generateAndValidateRLNProof*(rlnPeer: Option[WakuRLNRelay], message: WakuMessage): Result[WakuMessage, string] =
-  # TODO: check and validate if the message already has RLN proof?
+proc checkAndGenerateRLNProof*(rlnPeer: Option[WakuRLNRelay], message: WakuMessage): Result[WakuMessage, string] =
+  # check if the message already has RLN proof
+  if message.proof.len > 0:
+    return ok(message)
+  
   if rlnPeer.isNone():
-    return ok(message) # publishing message without RLN proof
-
+    notice "Publishing message without RLN proof"
+    return ok(message)
   # generate and append RLN proof
   let
     time = getTime().toUnix()
     senderEpochTime = float64(time)
   var msgWithProof = message
-  let appendProofRes = rlnPeer.get().appendRLNProof(msgWithProof, senderEpochTime)
-  if appendProofRes.isOk():
-    return ok(msgWithProof)
-  
-  return err("RLN proof generation failed: " & appendProofRes.error)
+  rlnPeer.get().appendRLNProof(msgWithProof, senderEpochTime).isOkOr:
+    return err(error)
+  return ok(msgWithProof)
 
 proc getNilPushHandler*(): PushMessageHandler =
   return proc(
@@ -46,13 +47,12 @@ proc getRelayPushHandler*(
     peer: PeerId, pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult[void]] {.async.} =
     # append RLN proof
-    let msgWithProof = generateAndValidateRLNProof(rlnPeer, message)
+    let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message)
     if msgWithProof.isErr():
       return err(msgWithProof.error)
 
-    let validationRes = await wakuRelay.validateMessage(pubSubTopic, msgWithProof.value)
-    if validationRes.isErr():
-      return err(validationRes.error)
+    (await wakuRelay.validateMessage(pubSubTopic, msgWithProof.value)).isOkOr:
+      return err(error)
 
     let publishedCount = await wakuRelay.publish(pubsubTopic, msgWithProof.value)
     if publishedCount == 0:
