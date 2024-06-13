@@ -375,18 +375,22 @@ proc startRelay*(node: WakuNode) {.async.} =
 
   info "relay started successfully"
 
-proc generateRelayObserver(w: WakuRelay): PubSubObserver =
+proc generateRelayObserver(node: WakuNode): PubSubObserver =
   proc logMessageInfo(peer: PubSubPeer, msgs: var RPCMsg, onRecv: bool) =
     for msg in msgs.messages:
-      let msg_id = w.msgIdProvider(msg).valueOr:
+      let msg_id = node.wakuRelay.msgIdProvider(msg).valueOr:
         warn "Error generating message id",
-          from_peer_id = peer.peerId, topic = msg.topic, error = $error
+          my_peer_id = node.peerId,
+          from_peer_id = peer.peerId,
+          topic = msg.topic,
+          error = $error
         continue
 
       let msg_id_short = shortLog(msg_id)
 
       let wakuMessage = WakuMessage.decode(msg.data).valueOr:
         warn "Error decoding to Waku Message",
+          my_peer_id = node.peerId,
           msg_id = msg_id_short,
           from_peer_id = peer.peerId,
           topic = msg.topic,
@@ -397,6 +401,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
 
       if onRecv:
         notice "received relay message",
+          my_peer_id = node.peerId,
           msg_hash = msg_hash,
           msg_id = msg_id_short,
           from_peer_id = peer.peerId,
@@ -409,6 +414,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
         waku_histogram_message_size.observe(msgSizeKB)
       else:
         notice "sent relay message",
+          my_peer_id = node.peerId,
           msg_hash = msg_hash,
           msg_id = msg_id_short,
           to_peer_id = peer.peerId,
@@ -420,7 +426,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
     logMessageInfo(peer, msgs, onRecv = true)
 
   proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
-    logMessageInfo(peer, msgs, onRecv = false)
+    discard
 
   return PubSubObserver(onRecv: onRecv, onSend: onSend)
 
@@ -446,7 +452,7 @@ proc mountRelay*(
 
   # register relay observers for logging
   debug "Registering Relay observers"
-  let observerLogger = node.wakuRelay.generateRelayObserver()
+  let observerLogger = node.generateRelayObserver()
   node.wakuRelay.addObserver(observerLogger)
 
   ## Add peer exchange handler
