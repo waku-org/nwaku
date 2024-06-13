@@ -224,19 +224,6 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
-  proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
-    notice "waku.relay received",
-      my_peer_id = node.peerId,
-      pubsubTopic = topic,
-      msg_hash = topic.computeMessageHash(msg).to0xHex(),
-      receivedTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
-
-    let msgSizeKB = msg.payload.len / 1000
-
-    waku_node_messages.inc(labelValues = ["relay"])
-    waku_histogram_message_size.observe(msgSizeKB)
-
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
       return
@@ -252,7 +239,6 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
-    await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
 
@@ -414,13 +400,21 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
           msg_hash = msg_hash,
           msg_id = msg_id_short,
           from_peer_id = peer.peerId,
-          topic = msg.topic
+          topic = msg.topic,
+          receivedTime = getNowInNanosecondTime(),
+          payloadSizeBytes = wakuMessage.payload.len
+
+        let msgSizeKB = wakuMessage.payload.len / 1000
+        waku_node_messages.inc(labelValues = ["relay"])
+        waku_histogram_message_size.observe(msgSizeKB)
       else:
         notice "sent relay message",
           msg_hash = msg_hash,
           msg_id = msg_id_short,
           to_peer_id = peer.peerId,
-          topic = msg.topic
+          topic = msg.topic,
+          sentTime = getNowInNanosecondTime(),
+          payloadSizeBytes = wakuMessage.payload.len
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
     logMessageInfo(peer, msgs, onRecv = true)
