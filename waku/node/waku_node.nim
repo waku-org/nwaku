@@ -394,7 +394,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
     for msg in msgs.messages:
       let msg_id = w.msgIdProvider(msg).valueOr:
         warn "Error generating message id",
-          from_peer = peer.peerId, topic = msg.topic, error = $error
+          from_peer_id = peer.peerId, topic = msg.topic, error = $error
         continue
 
       let msg_id_short = shortLog(msg_id)
@@ -402,7 +402,7 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
       let wakuMessage = WakuMessage.decode(msg.data).valueOr:
         warn "Error decoding to Waku Message",
           msg_id = msg_id_short,
-          from_peer = peer.peerId,
+          from_peer_id = peer.peerId,
           topic = msg.topic,
           error = $error
         continue
@@ -410,16 +410,16 @@ proc generateRelayObserver(w: WakuRelay): PubSubObserver =
       let msg_hash = computeMessageHash(msg.topic, wakuMessage).to0xHex()
 
       if onRecv:
-        info "received message",
+        notice "received relay message",
           msg_hash = msg_hash,
           msg_id = msg_id_short,
-          from_peer = peer.peerId,
+          from_peer_id = peer.peerId,
           topic = msg.topic
       else:
-        info "sent message",
+        notice "sent relay message",
           msg_hash = msg_hash,
           msg_id = msg_id_short,
-          to_peer = peer.peerId,
+          to_peer_id = peer.peerId,
           topic = msg.topic
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
