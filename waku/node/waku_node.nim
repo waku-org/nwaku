@@ -450,7 +450,7 @@ proc mountRelay*(
 
   node.wakuRelay = initRes.value
 
-  # register rln validator as default validator
+  # register relay observers for logging
   debug "Registering Relay observers"
   let observerLogger = node.wakuRelay.generateRelayObserver()
   node.wakuRelay.addObserver(observerLogger)
