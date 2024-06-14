@@ -19,7 +19,7 @@ The following options are available:
      --websocket-secure-key-path  Secure websocket key path:   '/path/to/key.txt' .
      --websocket-secure-cert-path  Secure websocket Certificate path:   '/path/to/cert.txt' .
  -c, --cluster-id     Cluster ID of the fleet node to check status [Default=1]
- -s, --shards         Shards index to subscribe to topics [ Argument may be repeated ]
+ -s, --shard         Shards index to subscribe to topics [ Argument may be repeated ]
 
 ```
 
