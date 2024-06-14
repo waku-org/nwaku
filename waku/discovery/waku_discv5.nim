@@ -66,7 +66,7 @@ proc shardingPredicate*(
 
   let predicate = proc(record: waku_enr.Record): bool =
     echo "-------- analyzing discv5 returned node ----------"
-    echo "record: ", record
+    echo "record: ", record.toURI()
     echo "capabilities: ", record.getCapabilities()
 
     let typedRecord = record.toTyped().valueOr:
@@ -198,6 +198,7 @@ proc findRandomPeers*(
   echo "------------- DISCV5 FOUND PEERS ---------------"
   for enr in discoveredRecords:
     echo "Found Peer: ", $enr
+    echo "enr: ", enr.toURI()
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
