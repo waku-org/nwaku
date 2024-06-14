@@ -81,12 +81,17 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
 
     stats.addMessage(testerMessage.sender, testerMessage)
 
-    trace "message received",
+    let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
+
+    notice "message received",
       index = testerMessage.index,
       count = testerMessage.count,
       startedAt = $testerMessage.startedAt,
       sinceStart = $testerMessage.sinceStart,
-      sincePrev = $testerMessage.sincePrev
+      sincePrev = $testerMessage.sincePrev,
+      size = $testerMessage.size,
+      pubsubTopic = pubsubTopic,
+      hash = msgHash
 
   wakuNode.wakuFilterClient.registerPushHandler(pushHandler)
 

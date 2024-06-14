@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -x
+
 if test -f .env; then
   echo "Using .env file"
   . $(pwd)/.env
@@ -16,10 +18,22 @@ NODE_INDEX=$((FOURTH_OCTET + 256 * THIRD_OCTET))
 
 echo "NODE_INDEX $NODE_INDEX"
 
+FUNCTION=$1
+if [ "${FUNCTION}" = "SENDER" ]; then
+  FUNCTION=--test-func=SENDER
+  SERVICENAME=lightpush-service
+fi
+
+if [ "${FUNCTION}" = "RECEIVER" ]; then
+  FUNCTION=--test-func=RECEIVER
+  SERVICENAME=filter-service
+fi
+
+
 RETRIES=${RETRIES:=10}
 
 while [ -z "${SERIVCE_NODE_ADDR}" ] && [ ${RETRIES} -ge 0 ]; do
-  SERIVCE_NODE_ADDR=$(wget -qO- http://servicenode:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"listenAddresses":\["\([^"]*\)".*/\1/');
+  SERIVCE_NODE_ADDR=$(wget -qO- http://${SERVICENAME}:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"listenAddresses":\["\([^"]*\)".*/\1/');
   echo "Service node not ready, retrying (retries left: ${RETRIES})"
   sleep 1
   RETRIES=$(( $RETRIES - 1 ))
@@ -30,47 +44,43 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
    exit 1
 fi
 
-
 if [ -n "${PUBSUB}" ]; then
     PUBSUB=--pubsub-topic="${PUBSUB}"
+else
+    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
 fi
 
 if [ -n "${CONTENT_TOPIC}" ]; then
     CONTENT_TOPIC=--content-topic="${CONTENT_TOPIC}"
 fi
 
-FUNCTION=$1
+if [ -n "${START_PUBLISHING_AFTER}" ]; then
+    START_PUBLISHING_AFTER=--start-publishing-after="${START_PUBLISHING_AFTER}"
+fi
+
+if [ -n "${MIN_MESSAGE_SIZE}" ]; then
+    MIN_MESSAGE_SIZE=--min-test-msg-size="${MIN_MESSAGE_SIZE}"
+fi
+
+if [ -n "${MAX_MESSAGE_SIZE}" ]; then
+    MAX_MESSAGE_SIZE=--max-test-msg-size="${MAX_MESSAGE_SIZE}"
+fi
+
 
 echo "Tester node: ${FUNCTION}"
-
-REST_PORT=--rest-port=8647
-
-if [ "${FUNCTION}" = "SENDER" ]; then
-  FUNCTION=--test-func=SENDER
-  REST_PORT=--rest-port=8646
-fi
-
-if [ "${FUNCTION}" = "RECEIVER" ]; then
-  FUNCTION=--test-func=RECEIVER
-  REST_PORT=--rest-port=8647
-fi
-
-if [ -z "${FUNCTION}" ]; then
-  FUNCTION=--test-func=RECEIVER
-fi
-
 echo "Using service node: ${SERIVCE_NODE_ADDR}"
+
 exec /usr/bin/liteprotocoltester\
-      --log-level=DEBUG\
+      --log-level=INFO\
       --service-node="${SERIVCE_NODE_ADDR}"\
-      --pubsub-topic=/waku/2/rs/0/0\
-      --cluster-id=0\
+      --cluster-id=66\
       --num-messages=${NUM_MESSAGES}\
       --delay-messages=${DELAY_MESSAGES}\
       --nat=extip:${IP}\
-      ${FUNCTION}\
       ${PUBSUB}\
       ${CONTENT_TOPIC}\
-      ${REST_PORT}
-
+      ${FUNCTION}\
+      ${START_PUBLISHING_AFTER}\
+      ${MIN_MESSAGE_SIZE}\
+      ${MAX_MESSAGE_SIZE}
       # --config-file=config.toml\

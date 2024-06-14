@@ -37,6 +37,9 @@ At this stage we can only configure number of messages and fixed frequency of th
 
 ### Phase 1
 
+> NOTICE: This part is obsolate due integration with waku-simulator.
+> It needs some rework to make it work again standalone.
+
 Lite Protocol Tester application is built under name `liteprotocoltester` in apps/liteprotocoltester folder.
 
 Starting from nwaku repository root:
@@ -48,6 +51,51 @@ docker compose up -d
 docker compose logs -f receivernode
 ```
 
+### Phase 2
+
+> Integration with waku-simulator!
+
+- For convenient integration is done in cooperation with waku-simulator repository, but nothing is tightly coupled.
+- waku-simulator must be started separately with its own configuration.
+- To enable waku-simulator working without RLN currently a separate branch is to be used.
+- When waku-simulator is configured and up and running, lite-protocol-tester composite docker setup can be started.
+
+```bash
+
+# Start waku-simulator
+
+git clone https://github.com/waku-org/waku-simulator.git ../waku-simulator
+cd ../waku-simulator
+git checkout chore-integrate-liteprotocoltester
+
+# optionally edit .env file
+
+docker compose -f docker-compose-norln.yml up -d
+
+# navigate localhost:30001 to see the waku-simulator dashboard
+
+cd ../{your-repository}
+
+make  LOG_LEVEL=DEBUG liteprotocoltester
+
+cd apps/liteprotocoltester
+
+# optionally edit .env file
+
+docker compose -f docker-compose-on-simularor.yml build
+docker compose -f docker-compose-on-simularor.yml up -d
+docker compose -f docker-compose-on-simularor.yml logs -f receivernode
+```
+#### Current setup
+
+- waku-simulator is configured to run with 25 full node
+- liteprotocoltester is configured to run with 3 publisher and 1 receiver
+- liteprotocoltester is configured to run 1 lightpush service and a filter service node
+  - light clients are connected accordingly
+- publishers will send 250 messages in every 200ms with size between 1KiB and 120KiB
+- Notice there is a configurable wait before start publishing messages as it is noticed time is needed for the service nodes to get connected to full nodes from simulator
+- light clients will print report on their and the connected service node's connectivity to the network in every 20 secs.
+
 ## Configure
 
 ### Environment variables for docker compose runs
@@ -56,8 +104,16 @@ docker compose logs -f receivernode
 | ---: | :--- | :--- |
 | NUM_MESSAGES   | Number of message to publish | 120 |
 | DELAY_MESSAGES | Frequency of messages in milliseconds | 1000 |
+<<<<<<< HEAD
 | PUBSUB | Used pubsub_topic for testing | /waku/2/rs/0/0 |
+=======
+| PUBSUB | Used pubsub_topic for testing | /waku/2/rs/66/0 |
+>>>>>>> 32cc23ff (Added phase 2 - waku-simulatior integration in README.md)
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
+| START_PUBLISHING_AFTER | Delay in seconds before starting to publish to let service node connected | 5 |
+| MIN_MESSAGE_SIZE | Minimum message size in bytes | 1KiB |
+| MAX_MESSAGE_SIZE | Maximum message size in bytes | 120KiB |
+
 
 ### Lite Protocol Tester application cli options
 
@@ -67,7 +123,14 @@ docker compose logs -f receivernode
 | --service-node| Address of the service node to use for lightpush and/or filter service | - |
 | --num-messages | Number of message to publish | 120 |
 | --delay-messages | Frequency of messages in milliseconds | 1000 |
+<<<<<<< HEAD
 | --pubsub-topic | Used pubsub_topic for testing | /waku/2/rs/0/0 |
+=======
+| --min-message-size | Minimum message size in bytes | 1KiB |
+| --max-message-size | Maximum message size in bytes | 120KiB |
+| --start-publishing-after | Delay in seconds before starting to publish to let service node connected in seconds | 5 |
+| --pubsub-topic | Used pubsub_topic for testing | /waku/2/default-waku/proto |
+>>>>>>> 32cc23ff (Added phase 2 - waku-simulatior integration in README.md)
 | --content_topic | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | --cluster-id | Cluster id for the test | 0 |
 | --config-file | TOML configuration file to fine tune the light waku node<br>Note that some configurations (full node services) are not taken into account | - |
