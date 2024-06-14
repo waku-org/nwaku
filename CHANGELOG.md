@@ -2,25 +2,27 @@
 
 ## What's Changed
 
-
 Notes:
 
 * Start deprecate named sharding ([PR](https://github.com/waku-org/nwaku/pull/2723))
-
 
 Release highlights:
 
 * Android support in libwaku
 * Discovery is available in libwaku
 * New LiteProcotolTester tool
+* RLN proofs as a lightpush service
 
 ### Features
 
+- RLN proofs as a lightpush service ([#2768](https://github.com/waku-org/nwaku/issues/2768)) ([0561e5bd](https://github.com/waku-org/nwaku/commit/0561e5bd))
 - Push newly released nwaku image with latest-release tag ([#2732](https://github.com/waku-org/nwaku/issues/2732)) ([736ce1cb](https://github.com/waku-org/nwaku/commit/736ce1cb))
 - Rln-relay: use arkzkey variant of zerokit ([#2681](https://github.com/waku-org/nwaku/issues/2681)) ([e7b0777d](https://github.com/waku-org/nwaku/commit/e7b0777d))
 
 ### Bug Fixes
 
+- Better sync lock in partition creation ([#2783](https://github.com/waku-org/nwaku/issues/2783)) ([8d3bbb1b](https://github.com/waku-org/nwaku/pull/2809/commits/8d3bbb1b4e79b15c8cf18bb91d366e9ec1153301))
+- Multi nat initialization causing dead lock in waku tests + serialize test runs to avoid timing and port occupied issues ([#2799](https://github.com/waku-org/nwaku/issues/2799)) ([5989de88](https://github.com/waku-org/nwaku/commit/5989de88))
 - Increase on chain group manager starting balance ([#2795](https://github.com/waku-org/nwaku/issues/2795)) ([e72bb7e7](https://github.com/waku-org/nwaku/commit/e72bb7e7))
 - More detailed logs to differentiate shards with peers ([#2794](https://github.com/waku-org/nwaku/issues/2794)) ([55a87d21](https://github.com/waku-org/nwaku/commit/55a87d21))
 - waku_archive: only allow a single instance to execute migrations ([#2736](https://github.com/waku-org/nwaku/issues/2736)) ([88b8e186](https://github.com/waku-org/nwaku/commit/88b8e186))
@@ -30,8 +32,10 @@ Release highlights:
 - Use `when` instead of `if` for adding soname on linux ([#2721](https://github.com/waku-org/nwaku/issues/2721)) ([cbaefeb3](https://github.com/waku-org/nwaku/commit/cbaefeb3))
 - Store v3 bug fixes ([#2718](https://github.com/waku-org/nwaku/issues/2718)) ([4a6ec468](https://github.com/waku-org/nwaku/commit/4a6ec468))
 
+
 ### Changes
 
+- Adding observers for message logging ([#2800](https://github.com/waku-org/nwaku/issues/2800)) ([b5228652](https://github.com/waku-org/nwaku/commit/b5228652))
 - Set msg_hash logs to notice level ([#2737](https://github.com/waku-org/nwaku/issues/2737)) ([f5d87c5b](https://github.com/waku-org/nwaku/commit/f5d87c5b))
 - Minor enhancements ([#2789](https://github.com/waku-org/nwaku/issues/2789)) ([31bd6d71](https://github.com/waku-org/nwaku/commit/31bd6d71))
 - postgres_driver - acquire/release advisory lock when creating partitions ([#2784](https://github.com/waku-org/nwaku/issues/2784)) ([c5d19c44](https://github.com/waku-org/nwaku/commit/c5d19c44))
@@ -47,6 +51,7 @@ Release highlights:
 - libwaku - allow to properly set the log level in libwaku and unify a little ([#2708](https://github.com/waku-org/nwaku/issues/2708)) ([3faffdbc](https://github.com/waku-org/nwaku/commit/3faffdbc))
 - waku_discv5, peer_manager - add more logs help debug discovery issues ([#2705](https://github.com/waku-org/nwaku/issues/2705)) ([401630ee](https://github.com/waku-org/nwaku/commit/401630ee))
 - Generic change to reduce the number of compilation warnings ([#2696](https://github.com/waku-org/nwaku/issues/2696)) ([78132dc1](https://github.com/waku-org/nwaku/commit/78132dc1))
+
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
