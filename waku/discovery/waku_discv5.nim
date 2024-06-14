@@ -180,11 +180,19 @@ proc findRandomPeers*(
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
+  echo "------------- DISCV5 FOUND PEERS ---------------"
+  for enr in discoveredRecords:
+    echo "Found Peer: ", $enr
+
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
     discoveredRecords = discoveredRecords.filter(overridePred.get())
   elif wd.predicate.isSome():
     discoveredRecords = discoveredRecords.filter(wd.predicate.get())
+
+  echo "------------- DISCV5 PEERS AFTER FILTERING ---------------"
+  for enr in discoveredRecords:
+    echo "Found Peer: ", $enr
 
   return discoveredRecords
 
