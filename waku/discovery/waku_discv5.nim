@@ -65,6 +65,21 @@ proc shardingPredicate*(
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
+    echo "-------- analyzing discv5 returned node ----------"
+    echo "record: ", record
+    echo "capabilities: ", record.getCapabilities()
+
+    let typedRecord = record.toTyped().valueOr:
+      echo "could not parse to typed record. error: ", error
+      return false
+
+    echo "typed record: ", typedRecord
+    let rs = typedRecord.relaySharding()
+    if rs.isSome():
+      echo "shards: ", rs.get()
+    else:
+      echo "no shards found"
+
     bootnodes.contains(record) or # Temp. Bootnode exception
     (
       record.getCapabilities().len > 0 and #RFC 31 requirement
