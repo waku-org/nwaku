@@ -274,6 +274,7 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   wd.topicSubscriptionQueue.unregister(key)
 
 proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises: []).} =
+  echo "----------- start*(wd: WakuDiscoveryV5) -----------------"
   if wd.listening:
     return err("already listening")
 

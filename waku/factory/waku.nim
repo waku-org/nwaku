@@ -224,6 +224,7 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
   return ok()
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: []).} =
+  echo "-------------- startWaku -------------"
   (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
     return err("error while calling startNode: " & $error)
 
@@ -233,13 +234,16 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
 
   ## Discv5
   if waku[].conf.discv5Discovery:
+    echo "-------------- startWaku: setting up discv5 -------------"
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
       waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
       waku.dynamicBootstrapNodes, waku.rng, waku.key,
     )
 
+    echo "-------------- startWaku: starting discv5 -------------"
     (await waku.wakuDiscV5.start()).isOkOr:
       return err("failed to start waku discovery v5: " & $error)
+    echo "-------------- startWaku: started discv5 -------------"
 
   return ok()
 
