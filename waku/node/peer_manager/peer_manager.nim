@@ -380,8 +380,8 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       pm.peerStore.hasPeer(peerId, WakuRelayCodec) and
       not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
     ):
-      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & "]"
-      let otherShardsString = "[ " & metadata.shards.join(", ") & "]"
+      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & " ]"
+      let otherShardsString = "[ " & metadata.shards.join(", ") & " ]"
       reason =
         "no shards in common: my_shards = " & myShardsString & " others_shards = " &
         otherShardsString

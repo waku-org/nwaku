@@ -15,9 +15,11 @@ The following options are available:
  -p, --protocol       Protocol required to be supported: store,relay,lightpush,filter (can be used
                       multiple times).
  -l, --log-level      Sets the log level [=LogLevel.DEBUG].
- -np, --node-port      Listening port for waku node [=60000].
+ -np, --node-port     Listening port for waku node [=60000].
      --websocket-secure-key-path  Secure websocket key path:   '/path/to/key.txt' .
      --websocket-secure-cert-path  Secure websocket Certificate path:   '/path/to/cert.txt' .
+ -c, --cluster-id     Cluster ID of the fleet node to check status [Default=1]
+ -s, --shards         Shards index to subscribe to topics [ Argument may be repeated ]
 
 ```
 
