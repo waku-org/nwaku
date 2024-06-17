@@ -133,10 +133,6 @@ when isMainModule:
 
     info "Node setup complete"
 
-    if not conf.rlnRelay:
-      error "RLN not configured!"
-      quit(QuitFailure)
-
-    asyncSpawn runSpammer(waku)
+    asyncSpawn runSpammer(waku, conf)
 
     runForever()

@@ -6,54 +6,84 @@ else:
 import
   chronos,
   chronicles,
-  confutils,
-  confutils/defs,
-  confutils/std/net,
-  confutils/toml/defs as confTomlDefs,
-  confutils/toml/std/net as confTomlNet,
   stew/[byteutils, results],
   std/times,
-  libp2p/protocols/pubsub/gossipsub
+  libp2p/protocols/pubsub/gossipsub,
+  strutils
 
 import
   ../../waku/factory/waku,
+  ../../waku/factory/external_config,
   ../../waku/waku_core,
+  ../../waku/waku_relay,
   ../../waku/node/waku_node,
-  ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
-  ../../waku/common/confutils/envvar/std/net as confEnvvarNet
+  ../../waku/node/peer_manager/peer_manager,
+  ../../waku/waku_rln_relay/rln_relay,
+  ../../tests/waku_rln_relay/rln/waku_rln_relay_utils
 
-type SpammerConfig* = object
-  enable* {.desc: "Enable spammer", defaultValue: false, name: "spammer".}: bool
-  msgRate* {.
-    desc: "Number of messages published per second",
-    defaultValue: 10,
-    name: "spammer-msg-rate"
-  .}: uint64
+proc send(
+    waku: Waku, contentTopic: ContentTopic
+): Future[Result[void, string]] {.async.} =
+  var ephemeral = true
+
+  var message = WakuMessage(
+    payload: toBytes("Hello World!" & intToStr(int(getTime().toUnix()))),
+    contentTopic: contentTopic,
+    #      meta: metaBytes,
+    version: 2,
+    timestamp: getNanosecondTime(getTime().toUnixFloat()),
+    ephemeral: ephemeral,
+  )
+
+  let rlnRes =
+    waku.node.wakuRlnRelay.unsafeAppendRLNProof(message, float64(getTime().toUnix()))
+  if rlnRes.isOk:
+    let pubRes = await waku.node.publish(none(PubsubTopic), message)
+    if pubRes.isErr():
+      error "failed to publish", msg = pubRes.error
+      return err(pubRes.error)
+  else:
+    error "failed to append RLNProof", err = rlnRes.error
+    return err(rlnRes.error)
+
+  return ok()
 
 proc runSpammer*(
-    waku: Waku, contentTopic: ContentTopic = "/spammer/0/test/plain"
+    waku: Waku, conf: WakuNodeConf, contentTopic: ContentTopic = "/spammer/0/test/plain"
 ) {.async.} =
-  try:
-    var conf = SpammerConfig.load()
+  if not conf.enable:
+    return
 
-    if not conf.enable:
-      return
-    var ephemeral = true
-    while true:
-      var message = WakuMessage(
-        payload: toBytes("Hello World!"),
-        contentTopic: contentTopic,
-        #      meta: metaBytes,
-        version: 2,
-        timestamp: getNanosecondTime(getTime().toUnixFloat()),
-        ephemeral: ephemeral,
-      )
-
-      let pubRes = await waku.node.publish(none(PubsubTopic), message)
-      if pubRes.isErr():
-        error "failed to publish", msg = pubRes.error
-      #echo await (waku.node.isReady())
-      await sleepAsync(80)
-  except CatchableError:
-    error "Failed to load config", err = err(getCurrentExceptionMsg())
+  if not conf.rlnRelay:
+    error "RLN not configured!"
     quit(QuitFailure)
+
+  var gotPeers = false
+  while not gotPeers:
+    var (inRelayPeers, outRelayPeers) =
+      waku.node.peerManager.connectedPeers(WakuRelayCodec)
+
+    var numPeers = len(inRelayPeers) + len(outRelayPeers)
+    if numPeers > 0:
+      gotPeers = true
+    info "Waiting for peers", numPeers = numPeers
+    await sleepAsync(1000)
+  #var rate = int(float(1000) / float(conf.msgRate))
+  #var delayBetweenMsg =
+  #  float(conf.rlnEpochSizeSec * 1000) /
+  #  (float(conf.rlnRelayUserMessageLimit) * conf.msgRateMultiplier)
+
+  info "Sending message with delay", delay = conf.delay
+
+  while true:
+    var start = getTime().toUnix()
+
+    (await send(waku, contentTopic)).isOkOr:
+      error "Failed to publish", err = error
+
+    #echo await (waku.node.isReady())
+    var current = getTime().toUnix()
+    var tillNextMsg = int(int64(conf.delay) - (current - start))
+    info "Published messages", sleep = tillNextMsg
+
+    await sleepAsync(tillNextMsg)
