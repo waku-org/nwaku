@@ -135,21 +135,14 @@ suite "RLN Proofs as a Lightpush Service":
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     # mount rln-relay
-    when defined(rln_v2):
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnRelayUserMessageLimit: 1,
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-      )
-    else:
-      let wakuRlnConfig = WakuRlnConfig(
-        rlnRelayDynamic: false,
-        rlnRelayCredIndex: some(1.uint),
-        rlnEpochSizeSec: 1,
-        rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
-      )
+    let wakuRlnConfig = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(1.uint),
+      rlnRelayUserMessageLimit: 1,
+      rlnEpochSizeSec: 1,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
+    )
+
 
     await allFutures(server.start(), client.start())
     await server.start()
