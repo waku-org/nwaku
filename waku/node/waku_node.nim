@@ -226,10 +226,12 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    let msg_hash = topic.computeMessageHash(msg).to0xHex()
+
     notice "waku.relay received",
       my_peer_id = node.peerId,
       pubsubTopic = topic,
-      msg_hash = topic.computeMessageHash(msg).to0xHex(),
+      msg_hash = msg_hash,
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
 
@@ -931,14 +933,14 @@ proc mountLightPush*(
     node: WakuNode, rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit
 ) {.async.} =
   info "mounting light push"
-  
-  var pushHandler = 
+
+  var pushHandler =
     if node.wakuRelay.isNil:
       debug "mounting lightpush without relay (nil)"
       getNilPushHandler()
     else:
       debug "mounting lightpush with relay"
-      let rlnPeer = 
+      let rlnPeer =
         if isNil(node.wakuRlnRelay):
           debug "mounting lightpush without rln-relay"
           none(WakuRLNRelay)
