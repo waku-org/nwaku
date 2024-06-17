@@ -70,6 +70,9 @@ proc addPartitionInfo*(
   trace "Adding partition info"
   self.partitions.addLast(partitionInfo)
 
+proc clearPartitionInfo*(self: PartitionManager) =
+  self.partitions.clear()
+
 proc removeOldestPartitionName*(self: PartitionManager) =
   ## Simply removed the partition from the tracked/known partitions queue.
   ## Just remove it and ignore it.

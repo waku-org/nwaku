@@ -6,7 +6,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles],
+  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
   stew/[results, byteutils],
   testutils/unittests,
   chronos,
@@ -108,10 +108,11 @@ proc createEthAccount(): Future[(keys.PrivateKey, Address)] {.async.} =
   tx.to = some(acc)
   tx.gasPrice = some(gasPrice)
 
-  # Send 10 eth to acc
+  # Send 1000 eth to acc
   discard await web3.send(tx)
   let balance = await web3.provider.eth_getBalance(acc, "latest")
-  assert(balance == ethToWei(1000.u256))
+  assert balance == ethToWei(1000.u256),
+    fmt"Balance is {balance} but expected {ethToWei(1000.u256)}"
 
   return (pk, acc)
 
