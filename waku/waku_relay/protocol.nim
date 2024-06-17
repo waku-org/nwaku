@@ -180,9 +180,6 @@ proc addValidator*(
 ) {.gcsafe.} =
   w.wakuValidators.add((handler, errorMessage))
 
-proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
-  procCall GossipSub(w).addObserver(observer)
-
 method start*(w: WakuRelay) {.async, base.} =
   debug "start"
   await procCall GossipSub(w).start()
