@@ -132,7 +132,10 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
       trace "peer already managed and incoming ENR is empty"
       return
 
-    if remotePeerInfo.enr.get().raw == pm.peerStore[ENRBook][remotePeerInfo.peerId].raw:
+    let incomingEnr = remotePeerInfo.enr.get()
+
+    if pm.peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
+        pm.peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
       trace "peer already managed and ENR info is already saved",
         remote_peer_id = $remotePeerInfo.peerId
       return
