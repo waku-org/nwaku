@@ -128,9 +128,14 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
       pm.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
       pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
-    trace "peer already managed and ENR info is already saved",
-      remote_peer_id = $remotePeerInfo.peerId
-    return
+    if remotePeerInfo.enr.isNone():
+      trace "peer already managed and incoming ENR is empty"
+      return
+
+    if remotePeerInfo.enr.get().raw == pm.peerStore[ENRBook][remotePeerInfo.peerId].raw:
+      trace "peer already managed and ENR info is already saved",
+        remote_peer_id = $remotePeerInfo.peerId
+      return
 
   trace "Adding peer to manager",
     peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
