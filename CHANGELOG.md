@@ -35,7 +35,6 @@ Release highlights:
 
 ### Changes
 
-- Adding observers for message logging ([#2800](https://github.com/waku-org/nwaku/issues/2800)) ([b5228652](https://github.com/waku-org/nwaku/commit/b5228652))
 - Set msg_hash logs to notice level ([#2737](https://github.com/waku-org/nwaku/issues/2737)) ([f5d87c5b](https://github.com/waku-org/nwaku/commit/f5d87c5b))
 - Minor enhancements ([#2789](https://github.com/waku-org/nwaku/issues/2789)) ([31bd6d71](https://github.com/waku-org/nwaku/commit/31bd6d71))
 - postgres_driver - acquire/release advisory lock when creating partitions ([#2784](https://github.com/waku-org/nwaku/issues/2784)) ([c5d19c44](https://github.com/waku-org/nwaku/commit/c5d19c44))
