@@ -66,6 +66,8 @@ proc prepareMessage(
 
   return (message, renderSize)
 
+var sentMessages {.threadvar.}: OrderedTable[uint32, tuple[hash: string, relayed: bool]]
+
 proc publishMessages(
     wakuNode: WakuNode,
     lightpushPubsubTopic: PubsubTopic,
@@ -97,6 +99,7 @@ proc publishMessages(
     let msgHash = computeMessageHash(lightpushPubsubTopic, message).to0xHex
 
     if wlpRes.isOk():
+      sentMessages[messagesSent] = (hash: msgHash, relayed: true)
       notice "published message using lightpush",
         index = messagesSent,
         count = numMessages,
@@ -104,6 +107,7 @@ proc publishMessages(
         pubsubTopic = lightpushPubsubTopic,
         hash = msgHash
     else:
+      sentMessages[messagesSent] = (hash: msgHash, relayed: false)
       error "failed to publish message using lightpush",
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
@@ -121,6 +125,12 @@ proc publishMessages(
     echo "Error while printing statistics"
   else:
     echo report.get()
+
+  echo "*--------------------------------------------------------------------------------------------------*"
+  echo "|  Index   | Relayed | Hash                                                                        |"
+  for (index, info) in sentMessages.pairs:
+    echo fmt"|{index:>10}|{info.relayed:<9}| {info.hash}"
+  echo "*--------------------------------------------------------------------------------------------------*"
 
   discard c_raise(ansi_c.SIGTERM)
 
@@ -145,6 +155,7 @@ proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
 
   info "Start sending messages to service node using lightpush"
 
+  sentMessages.sort(system.cmp)
   # Start maintaining subscription
   asyncSpawn publishMessages(
     wakuNode,

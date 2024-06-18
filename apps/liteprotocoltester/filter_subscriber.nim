@@ -102,7 +102,7 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
     proc(udata: pointer) {.gcsafe.} =
       stats.echoStats()
 
-      if stats.checkIfAllMessagesReceived():
+      if waitFor stats.checkIfAllMessagesReceived():
         waitFor unsubscribe(
           wakuNode, remotePeer, conf.pubsubTopics[0], conf.contentTopics[0]
         )
