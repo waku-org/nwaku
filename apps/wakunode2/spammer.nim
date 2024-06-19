@@ -48,42 +48,71 @@ proc send(
 
   return ok()
 
+proc burstPublish(
+    waku: Waku, conf: WakuNodeConf, contentTopic: ContentTopic
+) {.async.} =
+  var futures: seq[Future[Result[void, string]]]
+  var i: uint64 = 0
+  var start = getTime().toUnixFloat()
+
+  while i < conf.rlnRelayUserMessageLimit:
+    futures.add(send(waku, contentTopic))
+    inc i
+
+  let results = await allFinished(futures)
+
+  var current = getTime().toUnixFloat()
+  var tillNextBurst =
+    int(int64(conf.rlnEpochSizeSec * 1000) - int64((current - start) * 1000))
+  info "Published messages",
+    sleep = tillNextBurst, msgCount = conf.rlnRelayUserMessageLimit
+
+  await sleepAsync(tillNextBurst)
+
+proc iterativePublish(
+    waku: Waku, conf: WakuNodeConf, contentTopic: ContentTopic
+) {.async.} =
+  var start = getTime().toUnixFloat()
+
+  (await send(waku, contentTopic)).isOkOr:
+    error "Failed to publish", err = error
+
+  #echo await (waku.node.isReady())
+  var current = getTime().toUnixFloat()
+  var tillNextMsg = int(int64(conf.spammerDelay) - int64((current - start) * 1000))
+  info "Published message", sleep = tillNextMsg
+
+  await sleepAsync(tillNextMsg)
+
 proc runSpammer*(
     waku: Waku, conf: WakuNodeConf, contentTopic: ContentTopic = "/spammer/0/test/plain"
 ) {.async.} =
-  if not conf.enable:
+  if not conf.spammerEnable:
     return
 
   if not conf.rlnRelay:
     error "RLN not configured!"
     quit(QuitFailure)
 
-  var gotPeers = false
-  while not gotPeers:
+  while true:
     var (inRelayPeers, outRelayPeers) =
       waku.node.peerManager.connectedPeers(WakuRelayCodec)
 
     var numPeers = len(inRelayPeers) + len(outRelayPeers)
     if numPeers > 0:
-      gotPeers = true
+      break
     info "Waiting for peers", numPeers = numPeers
     await sleepAsync(1000)
+
   #var rate = int(float(1000) / float(conf.msgRate))
   #var delayBetweenMsg =
   #  float(conf.rlnEpochSizeSec * 1000) /
   #  (float(conf.rlnRelayUserMessageLimit) * conf.msgRateMultiplier)
 
-  info "Sending message with delay", delay = conf.delay
+  info "Sending message with delay", delay = conf.spammerDelay
 
   while true:
-    var start = getTime().toUnix()
-
-    (await send(waku, contentTopic)).isOkOr:
-      error "Failed to publish", err = error
-
-    #echo await (waku.node.isReady())
-    var current = getTime().toUnix()
-    var tillNextMsg = int(int64(conf.delay) - (current - start))
-    info "Published messages", sleep = tillNextMsg
-
-    await sleepAsync(tillNextMsg)
+    if conf.spammerBurst:
+      await burstPublish(waku, conf, contentTopic)
+    else:
+      await iterativePublish(waku, conf, contentTopic)

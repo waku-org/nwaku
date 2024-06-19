@@ -595,7 +595,8 @@ type WakuNodeConf* = object
       name: "request-rate-period"
     .}: int64
 
-    enable* {.desc: "Enable spammer", defaultValue: false, name: "spammer".}: bool
+    spammerEnable* {.desc: "Enable spammer", defaultValue: false, name: "spammer".}:
+      bool
     # msgRate* {.
     #   desc: "Number of messages published per epoch",
     #   defaultValue: 10,
@@ -607,11 +608,17 @@ type WakuNodeConf* = object
     #   defaultValue: 1,
     #   name: "spammer-msg-multiplier"
     # .}: float
-    delay* {.
+    spammerDelay* {.
       desc: "Delay between spawning a publish method (in miliseconds)",
       defaultValue: 0,
       name: "spammer-delay-between-msg"
     .}: int
+
+    spammerBurst* {.
+      desc: "Send messages in burst instead of one by one",
+      defaultValue: false,
+      name: "spammer-burst"
+    .}: bool
 
 ## Parsing
 

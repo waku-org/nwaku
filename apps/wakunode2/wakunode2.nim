@@ -53,6 +53,8 @@ when isMainModule:
   of inspectRlnDb:
     doInspectRlnDb(conf)
   of noCommand:
+    if conf.spammerEnable:
+      doRlnKeystoreGenerator(conf, false)
     # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
     # It will always be called from main thread anyway.
     # Ref: https://nim-lang.org/docs/manual.html#threads-gc-safety
