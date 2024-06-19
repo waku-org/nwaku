@@ -4,7 +4,7 @@
 
 Notes:
 
-* Start deprecate named sharding ([PR](https://github.com/waku-org/nwaku/pull/2723))
+* Named sharding will be deprecated in favor of static sharding. Topics in formats other than `/waku/2/rs/<cluster>/<shard>` will stop being supported starting from `v0.31.0`
 
 Release highlights:
 
