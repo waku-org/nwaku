@@ -144,7 +144,7 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  if conf.relay:
+  if conf.relay or conf.filter:
     let shards =
       conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
     let pubsubTopics = conf.pubsubTopics & shards
