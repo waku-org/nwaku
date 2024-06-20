@@ -732,7 +732,8 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   shuffle(outsideBackoffPeers)
 
   var index = 0
-  var numPendingConnReqs = outsideBackoffPeers.len
+  var numPendingConnReqs =
+    min(outsideBackoffPeers.len, pm.outRelayPeersTarget - outRelayPeers.len)
     ## number of outstanding connection requests
 
   while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:
