@@ -64,7 +64,7 @@ const
   MaxParallelDials = 10
 
   # Delay between consecutive relayConnectivityLoop runs
-  ConnectivityLoopInterval = chronos.minutes(1)
+  ConnectivityLoopInterval = chronos.seconds(15)
 
   # How often the peer store is pruned
   PrunePeerStoreInterval = chronos.minutes(10)
