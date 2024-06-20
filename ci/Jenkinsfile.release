@@ -1,5 +1,5 @@
 #!/usr/bin/env groovy
-library 'status-jenkins-lib@v1.8.9'
+library 'status-jenkins-lib@v1.8.17'
 
 pipeline {
   agent { label 'linux' }
@@ -68,7 +68,7 @@ pipeline {
           "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
           "--label=build='${env.BUILD_URL}' " +
           "--label=commit='${git.commit()}' " +
-          "--label=version='${git.describe()}' " +
+          "--label=version='${git.describe('--tags')}' " +
           "--build-arg=MAKE_TARGET='${params.MAKE_TARGET}' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS} -d:postgres ' " +
           "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +

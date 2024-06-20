@@ -21,3 +21,6 @@ Add any other context or screenshots about the feature request here.
 
 ### Acceptance criteria
 A list of tasks that need to be done for the issue to be considered resolved.
+
+### Epic
+Epic title and link the feature refers to.
