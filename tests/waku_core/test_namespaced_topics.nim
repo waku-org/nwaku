@@ -69,7 +69,7 @@ suite "Waku Message - Content topics namespacing":
     let err = ns.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
-      err.cause == "topic must start with slash"
+      err.cause == "content-topic '" & topic & "' must start with slash"
 
   test "Parse content topic string - Invalid string: not namespaced":
     ## Given
