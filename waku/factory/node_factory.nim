@@ -135,11 +135,12 @@ proc setupProtocols(
         # only peers with populated records
         .mapIt(toRemotePeerInfo(it.record.get()))
 
-      debug "connecting to exchanged peers",
+      debug "adding exchanged peers",
         src = peer, topic = topic, numPeers = exchangedPeers.len
 
-      # asyncSpawn, as we don't want to block here
-      asyncSpawn node.connectToNodes(exchangedPeers, "peer exchange")
+      for peer in exchangedPeers:
+        # Peers added are filtered by the peer manager
+        node.peerManager.addPeer(peer, PeerOrigin.PeerExchange)
 
     peerExchangeHandler = some(handlePeerExchange)
 
