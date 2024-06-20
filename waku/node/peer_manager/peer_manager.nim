@@ -45,6 +45,8 @@ logScope:
 
 randomize()
 
+# Test comment
+
 const
   # TODO: Make configurable
   DefaultDialTimeout* = chronos.seconds(10)
