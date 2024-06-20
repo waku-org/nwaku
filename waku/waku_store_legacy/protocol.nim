@@ -118,8 +118,8 @@ proc initProtocolHandler(ws: WakuStore) =
         error "Connection read error", error = error.msg
         return
 
-      waku_service_inbound_network_bytes.inc(
-        amount = reqBuf.len().int64, labelValues = [WakuLegacyStoreCodec]
+      waku_service_network_bytes.inc(
+        amount = reqBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "in"]
       )
 
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
@@ -135,8 +135,8 @@ proc initProtocolHandler(ws: WakuStore) =
       error "Connection write error", error = writeRes.error.msg
       return
 
-    waku_service_outbound_network_bytes.inc(
-      amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec]
+    waku_service_network_bytes.inc(
+      amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]
     )
 
   ws.handler = handler

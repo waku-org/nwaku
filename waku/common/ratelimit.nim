@@ -43,10 +43,10 @@ template checkUsageLimit*(
     bodyWithinLimit, bodyRejected: untyped,
 ) =
   if t.checkUsage(proto, conn):
-    waku_service_requests.inc(labelValues = [proto])
+    waku_service_requests.inc(labelValues = [proto, "served"])
     bodyWithinLimit
   else:
-    waku_service_requests_rejected.inc(labelValues = [proto])
+    waku_service_requests.inc(labelValues = [proto, "rejected"])
     bodyRejected
 
 func `$`*(ob: Option[TokenBucket]): string {.inline.} =
