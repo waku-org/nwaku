@@ -36,7 +36,7 @@ proc send(
   )
 
   let rlnRes =
-    waku.node.wakuRlnRelay.unsafeAppendRLNProof(message, float64(getTime().toUnix()))
+    waku.node.wakuRlnRelay.appendRLNProof(message, float64(getTime().toUnix()))
   if rlnRes.isOk:
     let pubRes = await waku.node.publish(none(PubsubTopic), message)
     if pubRes.isErr():
