@@ -136,14 +136,10 @@ clean: | clean-libbacktrace
 ##################
 ##     RLN      ##
 ##################
-.PHONY: librln shouldUseRLNV2
+.PHONY: librln
 
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
-ifeq ($(RLN_V2),true)
-LIBRLN_VERSION := v0.4.4
-else
-LIBRLN_VERSION := v0.3.7
-endif
+LIBRLN_VERSION := v0.5.1
 
 ifeq ($(OS),Windows_NT)
 LIBRLN_FILE := rln.lib
@@ -155,12 +151,7 @@ $(LIBRLN_FILE):
 	echo -e $(BUILD_MSG) "$@" && \
 		./scripts/build_rln.sh $(LIBRLN_BUILDDIR) $(LIBRLN_VERSION) $(LIBRLN_FILE)
 
-shouldUseRLNV2:
-ifeq ($(RLN_V2),true)
-	$(eval NIM_PARAMS += -d:rln_v2)
-endif
-
-librln: | $(LIBRLN_FILE) shouldUseRLNV2
+librln: | $(LIBRLN_FILE)
 	$(eval NIM_PARAMS += --passL:$(LIBRLN_FILE) --passL:-lm)
 
 clean-librln:
@@ -320,7 +311,7 @@ endif
 
 rebuild-nat-libs: | clean-cross nat-libs
 
-libwaku-android-precheck: shouldUseRLNV2
+libwaku-android-precheck:
 ifndef ANDROID_NDK_HOME
 		$(error ANDROID_NDK_HOME is not set)
 endif

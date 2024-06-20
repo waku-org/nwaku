@@ -33,25 +33,18 @@ method init*(g: StaticGroupManager): Future[GroupManagerResult[void]] {.async.} 
       "Invalid membership index. Must be within 0 and " & $(groupSize - 1) & "but was " &
         $membershipIndex
     )
-  when defined(rln_v2):
-    g.userMessageLimit = some(DefaultUserMessageLimit)
+  g.userMessageLimit = some(DefaultUserMessageLimit)
 
   g.idCredentials = some(groupKeys[membershipIndex])
   # Seed the received commitments into the merkle tree
-  when defined(rln_v2):
-    let rateCommitments = groupKeys.mapIt(
-      RateCommitment(
-        idCommitment: it.idCommitment, userMessageLimit: g.userMessageLimit.get()
-      )
+  let rateCommitments = groupKeys.mapIt(
+    RateCommitment(
+      idCommitment: it.idCommitment, userMessageLimit: g.userMessageLimit.get()
     )
-    let leaves = rateCommitments.toLeaves().valueOr:
-      return err("Failed to convert rate commitments to leaves: " & $error)
-    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, leaves)
-  else:
-    let idCommitments = groupKeys.mapIt(it.idCommitment)
-    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, idCommitments)
-    if not membersInserted:
-      return err("Failed to insert members into the merkle tree")
+  )
+  let leaves = rateCommitments.toLeaves().valueOr:
+    return err("Failed to convert rate commitments to leaves: " & $error)
+  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex, leaves)
 
   discard g.slideRootQueue()
 
@@ -68,127 +61,65 @@ method startGroupSync*(
   # No-op
   return ok()
 
-when defined(rln_v2):
-  method register*(
-      g: StaticGroupManager, rateCommitment: RateCommitment
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+method register*(
+    g: StaticGroupManager, rateCommitment: RateCommitment
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-    await g.registerBatch(@[rateCommitment])
+  let leaf = rateCommitment.toLeaf().get()
 
-else:
-  method register*(
-      g: StaticGroupManager, idCommitment: IDCommitment
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+  await g.registerBatch(@[leaf])
 
-    await g.registerBatch(@[idCommitment])
 
-when defined(rln_v2):
-  method registerBatch*(
-      g: StaticGroupManager, rateCommitments: seq[RateCommitment]
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+method registerBatch*(
+    g: StaticGroupManager, rateCommitments: seq[RawRateCommitment]
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-    let leavesRes = rateCommitments.toLeaves()
-    if not leavesRes.isOk():
-      raise newException(ValueError, "Failed to convert rate commitments to leaves")
-    let leaves = cast[seq[seq[byte]]](leavesRes.get())
+  let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, rateCommitments)
+  if not membersInserted:
+    raise newException(ValueError, "Failed to insert members into the merkle tree")
 
-    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, leaves)
-    if not membersInserted:
-      raise newException(ValueError, "Failed to insert members into the merkle tree")
-
-    if g.registerCb.isSome():
-      var memberSeq = newSeq[Membership]()
-      for i in 0 ..< rateCommitments.len:
-        memberSeq.add(
-          Membership(
-            rateCommitment: rateCommitments[i],
-            index: g.latestIndex + MembershipIndex(i) + 1,
-          )
+  if g.registerCb.isSome():
+    var memberSeq = newSeq[Membership]()
+    for i in 0 ..< rateCommitments.len:
+      memberSeq.add(
+        Membership(
+          rateCommitment: rateCommitments[i],
+          index: g.latestIndex + MembershipIndex(i) + 1,
         )
-      await g.registerCb.get()(memberSeq)
+      )
+    await g.registerCb.get()(memberSeq)
 
-    discard g.slideRootQueue()
+  discard g.slideRootQueue()
 
-    g.latestIndex += MembershipIndex(rateCommitments.len)
+  g.latestIndex += MembershipIndex(rateCommitments.len)
+  return
 
-    return
+method withdraw*(
+    g: StaticGroupManager, idSecretHash: IdentitySecretHash
+): Future[void] {.async: (raises: [Exception]).} =
+  initializedGuard(g)
 
-else:
-  method registerBatch*(
-      g: StaticGroupManager, idCommitments: seq[IDCommitment]
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
+  let groupKeys = g.groupKeys
 
-    let membersInserted = g.rlnInstance.insertMembers(g.latestIndex + 1, idCommitments)
-    if not membersInserted:
-      raise newException(ValueError, "Failed to insert members into the merkle tree")
+  for i in 0 ..< groupKeys.len:
+    if groupKeys[i].idSecretHash == idSecretHash:
+      let idCommitment = groupKeys[i].idCommitment
+      let index = MembershipIndex(i)
+      let rateCommitment = RateCommitment(
+        idCommitment: idCommitment, userMessageLimit: g.userMessageLimit.get()
+      ).toLeaf().valueOr:
+        raise newException(ValueError, "Failed to parse rateCommitment")
+      let memberRemoved = g.rlnInstance.removeMember(index)
+      if not memberRemoved:
+        raise newException(ValueError, "Failed to remove member from the merkle tree")
 
-    if g.registerCb.isSome():
-      var memberSeq = newSeq[Membership]()
-      for i in 0 ..< idCommitments.len:
-        memberSeq.add(
-          Membership(
-            idCommitment: idCommitments[i],
-            index: g.latestIndex + MembershipIndex(i) + 1,
-          )
-        )
-      await g.registerCb.get()(memberSeq)
+      if g.withdrawCb.isSome():
+        let withdrawCb = g.withdrawCb.get()
+        await withdrawCb(@[Membership(rateCommitment: rateCommitment, index: index)])
 
-    discard g.slideRootQueue()
-
-    g.latestIndex += MembershipIndex(idCommitments.len)
-
-    return
-
-when defined(rln_v2):
-  method withdraw*(
-      g: StaticGroupManager, idSecretHash: IdentitySecretHash
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
-
-    let groupKeys = g.groupKeys
-
-    for i in 0 ..< groupKeys.len:
-      if groupKeys[i].idSecretHash == idSecretHash:
-        let idCommitment = groupKeys[i].idCommitment
-        let index = MembershipIndex(i)
-        let rateCommitment = RateCommitment(
-          idCommitment: idCommitment, userMessageLimit: g.userMessageLimit.get()
-        )
-        let memberRemoved = g.rlnInstance.removeMember(index)
-        if not memberRemoved:
-          raise newException(ValueError, "Failed to remove member from the merkle tree")
-
-        if g.withdrawCb.isSome():
-          let withdrawCb = g.withdrawCb.get()
-          await withdrawCb(@[Membership(rateCommitment: rateCommitment, index: index)])
-
-        return
-
-else:
-  method withdraw*(
-      g: StaticGroupManager, idSecretHash: IdentitySecretHash
-  ): Future[void] {.async: (raises: [Exception]).} =
-    initializedGuard(g)
-
-    let groupKeys = g.groupKeys
-
-    for i in 0 ..< groupKeys.len:
-      if groupKeys[i].idSecretHash == idSecretHash:
-        let idCommitment = groupKeys[i].idCommitment
-        let index = MembershipIndex(i)
-        let memberRemoved = g.rlnInstance.removeMember(index)
-        if not memberRemoved:
-          raise newException(ValueError, "Failed to remove member from the merkle tree")
-
-        if g.withdrawCb.isSome():
-          let withdrawCb = g.withdrawCb.get()
-          await withdrawCb((@[Membership(idCommitment: idCommitment, index: index)]))
-
-        return
+      return
 
 method withdrawBatch*(
     g: StaticGroupManager, idSecretHashes: seq[IdentitySecretHash]

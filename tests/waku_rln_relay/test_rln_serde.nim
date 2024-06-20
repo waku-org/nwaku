@@ -6,10 +6,10 @@ else:
   {.push raises: [].}
 
 import
-  ../rln/waku_rln_relay_utils,
-  ../../../waku/waku_keystore/protocol_types,
-  ../../../waku/waku_rln_relay,
-  ../../../waku/waku_rln_relay/rln
+  ./rln/waku_rln_relay_utils,
+  ../../waku/waku_keystore/protocol_types,
+  ../../waku/waku_rln_relay,
+  ../../waku/waku_rln_relay/rln
 
 import testutils/unittests
 import stew/results, stint

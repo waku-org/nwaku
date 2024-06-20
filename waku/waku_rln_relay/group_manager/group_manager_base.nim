@@ -15,10 +15,7 @@ export options, chronos, results, protocol_types, protocol_metrics, deques
 
 type Membership* = object
   index*: MembershipIndex
-  when defined(rln_v2):
-    rateCommitment*: RateCommitment
-  else:
-    idCommitment*: IDCommitment
+  rateCommitment*: RawRateCommitment
 
 type OnRegisterCallback* = proc(registrations: seq[Membership]): Future[void] {.gcsafe.}
 type OnWithdrawCallback* = proc(withdrawals: seq[Membership]): Future[void] {.gcsafe.}
@@ -35,8 +32,7 @@ type GroupManager* = ref object of RootObj
   latestIndex*: MembershipIndex
   validRoots*: Deque[MerkleNode]
   onFatalErrorAction*: OnFatalErrorHandler
-  when defined(rln_v2):
-    userMessageLimit*: Option[UserMessageLimit]
+  userMessageLimit*: Option[UserMessageLimit]
 
 # This proc is used to initialize the group manager
 # Any initialization logic should be implemented here
@@ -53,61 +49,35 @@ method startGroupSync*(
 # This proc is used to register a new identity commitment into the merkle tree
 # The user may or may not have the identity secret to this commitment
 # It should be used when detecting new members in the group, and syncing the group state
-when defined(rln_v2):
-  method register*(
-      g: GroupManager, rateCommitment: RateCommitment
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "register proc for " & $g.type & " is not implemented yet"
-    )
-
-else:
-  method register*(
-      g: GroupManager, idCommitment: IDCommitment
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "register proc for " & $g.type & " is not implemented yet"
-    )
+method register*(
+    g: GroupManager, rateCommitment: RateCommitment
+): Future[void] {.base, async: (raises: [Exception]).} =
+  raise newException(
+    CatchableError, "register proc for " & $g.type & " is not implemented yet"
+  )
 
 # This proc is used to register a new identity commitment into the merkle tree
 # The user should have the identity secret to this commitment
 # It should be used when the user wants to join the group
-when defined(rln_v2):
-  method register*(
-      g: GroupManager,
-      credentials: IdentityCredential,
-      userMessageLimit: UserMessageLimit,
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "register proc for " & $g.type & " is not implemented yet"
-    )
+method register*(
+    g: GroupManager,
+    credentials: IdentityCredential,
+    userMessageLimit: UserMessageLimit,
+): Future[void] {.base, async: (raises: [Exception]).} =
+  raise newException(
+    CatchableError, "register proc for " & $g.type & " is not implemented yet"
+  )
 
-else:
-  method register*(
-      g: GroupManager, credentials: IdentityCredential
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "register proc for " & $g.type & " is not implemented yet"
-    )
 
 # This proc is used to register a batch of new identity commitments into the merkle tree
 # The user may or may not have the identity secret to these commitments
 # It should be used when detecting a batch of new members in the group, and syncing the group state
-when defined(rln_v2):
-  method registerBatch*(
-      g: GroupManager, rateCommitments: seq[RateCommitment]
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet"
-    )
-
-else:
-  method registerBatch*(
-      g: GroupManager, idCommitments: seq[IDCommitment]
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet"
-    )
+method registerBatch*(
+    g: GroupManager, rateCommitments: seq[RawRateCommitment]
+): Future[void] {.base, async: (raises: [Exception]).} =
+  raise newException(
+    CatchableError, "registerBatch proc for " & $g.type & " is not implemented yet"
+  )
 
 # This proc is used to set a callback that will be called when a new identity commitment is registered
 # The callback may be called multiple times, and should be used to for any post processing
@@ -133,25 +103,15 @@ method withdrawBatch*(
   )
 
 # This proc is used to insert and remove a set of commitments from the merkle tree
-when defined(rln_v2):
-  method atomicBatch*(
-      g: GroupManager,
-      rateCommitments: seq[RateCommitment],
-      toRemoveIndices: seq[MembershipIndex],
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet"
-    )
+method atomicBatch*(
+    g: GroupManager,
+    rateCommitments: seq[RateCommitment],
+    toRemoveIndices: seq[MembershipIndex],
+): Future[void] {.base, async: (raises: [Exception]).} =
+  raise newException(
+    CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet"
+  )
 
-else:
-  method atomicBatch*(
-      g: GroupManager,
-      idCommitments: seq[IDCommitment],
-      toRemoveIndices: seq[MembershipIndex],
-  ): Future[void] {.base, async: (raises: [Exception]).} =
-    raise newException(
-      CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet"
-    )
 
 method stop*(g: GroupManager): Future[void] {.base, async.} =
   raise
@@ -216,55 +176,34 @@ method verifyProof*(
     return err("proof verification failed: " & $proofVerifyRes.error())
   return ok(proofVerifyRes.value())
 
-when defined(rln_v2):
-  method generateProof*(
-      g: GroupManager,
-      data: openArray[byte],
-      epoch: Epoch,
-      messageId: MessageId,
-      rlnIdentifier = DefaultRlnIdentifier,
-  ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
-    ## generates a proof for the given data and epoch
-    ## the proof is generated using the current merkle root
-    if g.idCredentials.isNone():
-      return err("identity credentials are not set")
-    if g.membershipIndex.isNone():
-      return err("membership index is not set")
-    if g.userMessageLimit.isNone():
-      return err("user message limit is not set")
-    waku_rln_proof_generation_duration_seconds.nanosecondTime:
-      let proof = proofGen(
-        rlnInstance = g.rlnInstance,
-        data = data,
-        membership = g.idCredentials.get(),
-        index = g.membershipIndex.get(),
-        epoch = epoch,
-        userMessageLimit = g.userMessageLimit.get(),
-        messageId = messageId,
-      ).valueOr:
-        return err("proof generation failed: " & $error)
-    return ok(proof)
+method generateProof*(
+    g: GroupManager,
+    data: openArray[byte],
+    epoch: Epoch,
+    messageId: MessageId,
+    rlnIdentifier = DefaultRlnIdentifier,
+): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
+  ## generates a proof for the given data and epoch
+  ## the proof is generated using the current merkle root
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  if g.userMessageLimit.isNone():
+    return err("user message limit is not set")
+  waku_rln_proof_generation_duration_seconds.nanosecondTime:
+    let proof = proofGen(
+      rlnInstance = g.rlnInstance,
+      data = data,
+      membership = g.idCredentials.get(),
+      index = g.membershipIndex.get(),
+      epoch = epoch,
+      userMessageLimit = g.userMessageLimit.get(),
+      messageId = messageId,
+    ).valueOr:
+      return err("proof generation failed: " & $error)
+  return ok(proof)
 
-else:
-  method generateProof*(
-      g: GroupManager, data: openArray[byte], epoch: Epoch
-  ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
-    ## generates a proof for the given data and epoch
-    ## the proof is generated using the current merkle root
-    if g.idCredentials.isNone():
-      return err("identity credentials are not set")
-    if g.membershipIndex.isNone():
-      return err("membership index is not set")
-    waku_rln_proof_generation_duration_seconds.nanosecondTime:
-      let proof = proofGen(
-        rlnInstance = g.rlnInstance,
-        data = data,
-        memKeys = g.idCredentials.get(),
-        memIndex = g.membershipIndex.get(),
-        epoch = epoch,
-      ).valueOr:
-        return err("proof generation failed: " & $error)
-    return ok(proof)
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
   raise newException(
