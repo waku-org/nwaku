@@ -15,9 +15,7 @@ type
   IdentitySecretHash* = seq[byte] #array[32, byte]
   # hash of identity key as defined ed in https://hackmd.io/tMTLMYmTR5eynw2lwK9n1w?view#Membership
   IDCommitment* = seq[byte] #array[32, byte]
-
-when defined(rln_v2):
-  type UserMessageLimit* = uint64
+  UserMessageLimit* = uint64
 
 type IdentityCredential* = object
   idTrapdoor*: IdentityTrapdoor
@@ -103,45 +101,24 @@ type KeystoreMembership* = ref object of RootObj
   membershipContract*: MembershipContract
   treeIndex*: MembershipIndex
   identityCredential*: IdentityCredential
-  when defined(rln_v2):
-    userMessageLimit*: UserMessageLimit
+  userMessageLimit*: UserMessageLimit
 
-when defined(rln_v2):
-  proc `$`*(m: KeystoreMembership): string =
-    return
-      "KeystoreMembership(chainId: " & m.membershipContract.chainId &
-      ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
-      $m.treeIndex & ", userMessageLimit: " & $m.userMessageLimit &
-      ", identityCredential: " & $m.identityCredential & ")"
+proc `$`*(m: KeystoreMembership): string =
+  return
+    "KeystoreMembership(chainId: " & m.membershipContract.chainId &
+    ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
+    $m.treeIndex & ", userMessageLimit: " & $m.userMessageLimit &
+    ", identityCredential: " & $m.identityCredential & ")"
 
-else:
-  proc `$`*(m: KeystoreMembership): string =
-    return
-      "KeystoreMembership(chainId: " & m.membershipContract.chainId &
-      ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
-      $m.treeIndex & ", identityCredential: " & $m.identityCredential & ")"
-
-when defined(rln_v2):
-  proc `==`*(x, y: KeystoreMembership): bool =
-    return
-      x.membershipContract.chainId == y.membershipContract.chainId and
-      x.membershipContract.address == y.membershipContract.address and
-      x.treeIndex == y.treeIndex and x.userMessageLimit == y.userMessageLimit and
-      x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
-      x.identityCredential.idNullifier == y.identityCredential.idNullifier and
-      x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
-      x.identityCredential.idCommitment == y.identityCredential.idCommitment
-
-else:
-  proc `==`*(x, y: KeystoreMembership): bool =
-    return
-      x.membershipContract.chainId == y.membershipContract.chainId and
-      x.membershipContract.address == y.membershipContract.address and
-      x.treeIndex == y.treeIndex and
-      x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
-      x.identityCredential.idNullifier == y.identityCredential.idNullifier and
-      x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
-      x.identityCredential.idCommitment == y.identityCredential.idCommitment
+proc `==`*(x, y: KeystoreMembership): bool =
+  return
+    x.membershipContract.chainId == y.membershipContract.chainId and
+    x.membershipContract.address == y.membershipContract.address and
+    x.treeIndex == y.treeIndex and x.userMessageLimit == y.userMessageLimit and
+    x.identityCredential.idTrapdoor == y.identityCredential.idTrapdoor and
+    x.identityCredential.idNullifier == y.identityCredential.idNullifier and
+    x.identityCredential.idSecretHash == y.identityCredential.idSecretHash and
+    x.identityCredential.idCommitment == y.identityCredential.idCommitment
 
 proc hash*(m: KeystoreMembership): string =
   # hash together the chainId, address and treeIndex

@@ -54,12 +54,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rln_version: [1, 2]
         os: [ubuntu-latest, macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
-    name: build-${{ matrix.os }}-rln-v${{ matrix.rln_version }}
+    name: build-${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -78,7 +77,7 @@ jobs:
           key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
       - name: Build binaries
-        run: make RLN_V${{matrix.rln_version}}=true V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
+        run: make V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
 
   test:
     needs: changes
@@ -86,12 +85,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rln_version: [1, 2]
         os: [ubuntu-latest, macos-13]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
-    name: test-${{ matrix.os }}-rln-v${{ matrix.rln_version }}
+    name: test-${{ matrix.os }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -120,7 +118,7 @@ jobs:
           export MAKEFLAGS="-j1"
           export NIMFLAGS="--colors:off -d:chronicles_colors:none"
           
-          make RLN_V${{matrix.rln_version}}=true V=1 LOG_LEVEL=DEBUG QUICK_AND_DIRTY_COMPILER=1 POSTGRES=$postgres_enabled test testwakunode2
+          make V=1 LOG_LEVEL=DEBUG QUICK_AND_DIRTY_COMPILER=1 POSTGRES=$postgres_enabled test testwakunode2
 
   build-docker-image:
     needs: changes

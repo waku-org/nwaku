@@ -22,12 +22,11 @@ jobs:
   build-docker-image:
     strategy:
       matrix:
-        rln_version : [1, 2]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
 
-    name: docker-build-${{ matrix.os }}-rln-v${{ matrix.rln_version }}
+    name: docker-build-${{ matrix.os }}
     outputs:
       image: ${{ steps.build.outputs.image }}
     steps:
@@ -67,12 +66,12 @@ jobs:
         if: ${{ steps.secrets.outcome == 'success' }}
         run: |
 
-          make RLN_V${{matrix.rln_version}}=true -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
+          make -j${NPROC} V=1 QUICK_AND_DIRTY_COMPILER=1 NIMFLAGS="-d:disableMarchNative -d:postgres" wakunode2
 
           SHORT_REF=$(git rev-parse --short HEAD)
 
           TAG=$([ "${PR_NUMBER}" == "" ] && echo "${SHORT_REF}" || echo "${PR_NUMBER}")
-          IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}-rln-v${{matrix.rln_version}}
+          IMAGE=quay.io/wakuorg/nwaku-pr:${TAG}
 
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "commit_hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT

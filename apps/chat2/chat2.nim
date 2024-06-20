@@ -542,27 +542,16 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
       echo "rln-relay preparation is in progress..."
 
-      when defined(rln_v2):
-        let rlnConf = WakuRlnConfig(
-          rlnRelayDynamic: conf.rlnRelayDynamic,
-          rlnRelayCredIndex: conf.rlnRelayCredIndex,
-          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-          rlnRelayCredPath: conf.rlnRelayCredPath,
-          rlnRelayCredPassword: conf.rlnRelayCredPassword,
-          rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
-          rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        )
-      else:
-        let rlnConf = WakuRlnConfig(
-          rlnRelayDynamic: conf.rlnRelayDynamic,
-          rlnRelayCredIndex: conf.rlnRelayCredIndex,
-          rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
-          rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
-          rlnRelayCredPath: conf.rlnRelayCredPath,
-          rlnRelayCredPassword: conf.rlnRelayCredPassword,
-          rlnEpochSizeSec: conf.rlnEpochSizeSec,
-        )
+      let rlnConf = WakuRlnConfig(
+        rlnRelayDynamic: conf.rlnRelayDynamic,
+        rlnRelayCredIndex: conf.rlnRelayCredIndex,
+        rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+        rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
+        rlnRelayCredPath: conf.rlnRelayCredPath,
+        rlnRelayCredPassword: conf.rlnRelayCredPassword,
+        rlnRelayUserMessageLimit: conf.rlnRelayUserMessageLimit,
+        rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      )
 
       waitFor node.mountRlnRelay(rlnConf, spamHandler = some(spamHandler))
 
