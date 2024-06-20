@@ -68,7 +68,9 @@ proc parse*(
   ## Autosharding adds 1 optional prefix `/<gen#>
 
   if not topic.startsWith("/"):
-    return err(ParsingError.invalidFormat("topic must start with slash"))
+    return err(
+      ParsingError.invalidFormat("content-topic '" & topic & "' must start with slash")
+    )
 
   let parts = topic[1 ..< topic.len].split("/")
 
