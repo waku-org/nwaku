@@ -15,15 +15,15 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 ### Items to complete
 
-- [ ] create release branch
-- [ ] assign release candidate tag
-- [ ] generate and edit releases notes
+- [ ] Create release branch
+- [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.30.0-rc.0
+- [ ] Generate and edit releases notes
 - [ ] _End user impact_: Summarize impact of changes on Status end users (can be a comment in this issue).
-- [ ] **validate release candidate**
+- [ ] **Validate release candidate**
 
   - [ ] **On Waku fleets**
     - [ ] Lock `waku.test` fleet to release candidate version
-    - [ ] Continuously stress `waku.test` fleet for a week (e.g. from `waku.sandbox`)
+    - [ ] Continuously stress `waku.test` fleet for a week (e.g. from `waku-dev`)
     - [ ] Search _Kibana_ logs from the previous month (since last release was deployed), for possible crashes or errors in `waku.test` and `waku.sandbox`.
       - Most relevant logs are `(fleet: "waku.test" OR fleet: "waku.sandbox") AND message: "SIGSEGV"`
     - [ ] Run release candidate with `waku-simulator`, ensure that nodes connected to each other
@@ -43,18 +43,20 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
     - [ ] Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
     - [ ] Get Status/QA sign-off
 
-- [ ] **proceed with release**
+- [ ] **Proceed with release**
 
-  - [ ] open PR and merge release notes to master
-  - [ ] cherry-pick release notes to the release branch
-  - [ ] assign release tag to the cherry-picked release notes commit
-  - [ ] create GitHub release
-  - [ ] deploy the release to DockerHub
-  - [ ] [deploy release to `waku.sandbox` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox)
-  - [ ] announce the release
+  - [ ] Assign a release tag to the same commit that contains the validated release-candidate tag
+  - [ ] Create GitHub release
+  - [ ] Deploy the release to DockerHub
+  - [ ] Announce the release
+  - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
 
 - [ ] **Promote release to fleets**.
+  - [ ] [Deploy final release to `waku.sandbox` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox)
   - [ ] Deploy final release to `waku.prod`
   - [ ] Deploy final release to `status.staging`
   - [ ] Deploy final release to `status.test` (soon to be `status.prod`)
 
+post release
+
+    Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
