@@ -146,11 +146,11 @@ proc setupProtocols(
 
   let shards =
     conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
+  debug "Shards created from content topics",
+    contentTopics = conf.contentTopics, shards = shards
+
   if conf.relay:
     let pubsubTopics = conf.pubsubTopics & shards
-
-    debug "Shards created from content topics",
-      contentTopics = conf.contentTopics, shards = shards
 
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
