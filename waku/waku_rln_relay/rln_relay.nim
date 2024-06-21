@@ -316,7 +316,7 @@ proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
   # if more than MaxEpochGap epochs are in the log
   # note: the epochs are ordered ascendingly
-  if rlnPeer.nullifierLog.len().uint < rlnPeer.rlnMaxEpochGap:
+  if rlnPeer.nullifierLog.len().uint <= rlnPeer.rlnMaxEpochGap:
     return
 
   trace "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
