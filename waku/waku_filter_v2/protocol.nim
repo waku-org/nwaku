@@ -188,18 +188,18 @@ proc pushToPeers(
   var pushFuts: seq[Future[void]]
   var skipMessageToPeers: seq[PeerId]
   for peerId in peers:
-    if wf.messageArchive.hasKey(peerId):
-      if msgHash notin wf.messageArchive[peerId]:
-        let pushFut = wf.pushToPeer(peerId, bufferToPublish)
-        pushFuts.add(pushFut)
-        wf.messageArchive[peerId].incl(msgHash)
-      else:
-        skipMessageToPeers.add(peerId)
-    else:
+    if not wf.messageArchive.hasKey(peerId):
+      wf.messageArchive[peerId] = initHashSet[string]()
+
+    if not wf.messageArchive[peerId].contains(msgHash):
       wf.messageArchive[peerId].incl(msgHash)
+      let pushFut = wf.pushToPeer(peerId, bufferToPublish)
+      pushFuts.add(pushFut)
+    else:
+      skipMessageToPeers.add(peerId)
 
   if skipMessageToPeers.len > 0:
-    notice "skipping message to peers: duplicate message detected",
+    notice "skipping message to these peers: duplicate message detected",
       peer_ids = skipMessageToPeers, msg_hash = msgHash
 
   await allFutures(pushFuts)
