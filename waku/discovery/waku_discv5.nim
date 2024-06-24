@@ -65,21 +65,6 @@ proc shardingPredicate*(
   debug "peer filtering updated"
 
   let predicate = proc(record: waku_enr.Record): bool =
-    echo "-------- analyzing discv5 returned node ----------"
-    echo "record: ", record.toURI()
-    echo "capabilities: ", record.getCapabilities()
-
-    let typedRecord = record.toTyped().valueOr:
-      echo "could not parse to typed record. error: ", error
-      return false
-
-    echo "typed record: ", typedRecord
-    let rs = typedRecord.relaySharding()
-    if rs.isSome():
-      echo "shards: ", rs.get()
-    else:
-      echo "no shards found"
-
     bootnodes.contains(record) or # Temp. Bootnode exception
     (
       record.getCapabilities().len > 0 and #RFC 31 requirement
@@ -187,6 +172,25 @@ proc updateENRShards(
 
   return ok()
 
+proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
+  for record in discoveredRecords:
+    let recordUri = record.toURI()
+    let capabilities = record.getCapabilities()
+
+    let typedRecord = record.toTyped().valueOr:
+      trace "could not parse to typed record. error: ", error = error, enr = recordUri
+      return
+
+    let rs = typedRecord.relaySharding()
+    let shardsStr =
+      if rs.isSome():
+        $rs.get()
+      else:
+        "no shards found"
+
+    trace "Recieved discv5 node",
+      enr = recordUri, capabilities = capabilities, shards = shardsStr
+
 proc findRandomPeers*(
     wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)
 ): Future[seq[waku_enr.Record]] {.async.} =
@@ -195,20 +199,13 @@ proc findRandomPeers*(
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
-  echo "------------- DISCV5 FOUND PEERS ---------------"
-  for enr in discoveredRecords:
-    echo "Found Peer: ", $enr
-    echo "enr: ", enr.toURI()
+  logDiscv5FoundPeers(discoveredRecords)
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
     discoveredRecords = discoveredRecords.filter(overridePred.get())
   elif wd.predicate.isSome():
     discoveredRecords = discoveredRecords.filter(wd.predicate.get())
-
-  echo "------------- DISCV5 PEERS AFTER FILTERING ---------------"
-  for enr in discoveredRecords:
-    echo "Found Peer: ", $enr
 
   return discoveredRecords
 
@@ -290,7 +287,6 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   wd.topicSubscriptionQueue.unregister(key)
 
 proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises: []).} =
-  echo "----------- start*(wd: WakuDiscoveryV5) -----------------"
   if wd.listening:
     return err("already listening")
 
