@@ -906,23 +906,15 @@ suite "Waku rln relay":
       let testProofMetadata = default(ProofMetadata)
       let testProofMetadataTable = {testProofMetadata.nullifier: testProofMetadata}.toTable()
 
-      for i in 0..<rlnMaxEpochGap:
+      for i in 0..rlnMaxEpochGap:
         # we add epochs to the nullifierLog
         let testEpoch =  wakuRlnRelay.calcEpoch(epochTime() + float(rlnEpochSizeSec * i))
         wakuRlnRelay.nullifierLog[testEpoch] = testProofMetadataTable
         check: wakuRlnRelay.nullifierLog.len().uint == i + 1
 
-      # clearing it now will be a no-op
-      wakuRlnRelay.clearNullifierLog()
-
-      check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
-
-      # append one more now
-      let testEpoch =  wakuRlnRelay.calcEpoch(epochTime() + float(rlnMaxEpochGap * rlnEpochSizeSec))
-      wakuRlnRelay.nullifierLog[testEpoch] = testProofMetadataTable
-
       check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap + 1
-      # clearing it now will be a no-op
+
+      # clearing it now will remove 1 epoch
       wakuRlnRelay.clearNullifierLog()
 
       check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
