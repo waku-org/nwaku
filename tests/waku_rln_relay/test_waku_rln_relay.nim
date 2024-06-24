@@ -886,3 +886,40 @@ suite "Waku rln relay":
     check:
       buckets.len == 5
       buckets == [2.0, 4.0, 6.0, 8.0, 10.0]
+  
+  asyncTest "nullifierLog clearing only after epoch has passed":
+    let index = MembershipIndex(0)
+
+    proc runTestForEpochSizeSec(rlnEpochSizeSec: uint) {.async.} =
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: false,
+        rlnRelayCredIndex: some(index),
+        rlnRelayUserMessageLimit: 1,
+        rlnEpochSizeSec: rlnEpochSizeSec,
+        rlnRelayTreePath: genTempPath("rln_tree", "waku_rln_relay_4"),
+      )
+
+      let wakuRlnRelay = (await WakuRlnRelay.new(wakuRlnConfig)).valueOr:
+        raiseAssert $error
+
+      let rlnMaxEpochGap = wakuRlnRelay.rlnMaxEpochGap
+      let testProofMetadata = default(ProofMetadata)
+      let testProofMetadataTable = {testProofMetadata.nullifier: testProofMetadata}.toTable()
+
+      for i in 0..rlnMaxEpochGap:
+        # we add epochs to the nullifierLog
+        let testEpoch =  wakuRlnRelay.calcEpoch(epochTime() + float(rlnEpochSizeSec * i))
+        wakuRlnRelay.nullifierLog[testEpoch] = testProofMetadataTable
+        check: wakuRlnRelay.nullifierLog.len().uint == i + 1
+
+      check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap + 1
+
+      # clearing it now will remove 1 epoch
+      wakuRlnRelay.clearNullifierLog()
+
+      check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
+
+    var testEpochSizes: seq[uint] = @[1,5,10,30,60]
+    for i in testEpochSizes:
+      await runTestForEpochSizeSec(i)
+
