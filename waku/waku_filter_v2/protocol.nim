@@ -31,6 +31,7 @@ type WakuFilter* = ref object of LPProtocol
     # a mapping of peer ids to a sequence of filter criteria
   peerManager: PeerManager
   maintenanceTask: TimerCallback
+  messageArchive: Table[PeerID, HashSet[string]]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId = peerId
@@ -185,9 +186,21 @@ proc pushToPeers(
   let bufferToPublish = messagePush.encode().buffer
 
   var pushFuts: seq[Future[void]]
+  var skipMessageToPeers: seq[PeerId]
   for peerId in peers:
-    let pushFut = wf.pushToPeer(peerId, bufferToPublish)
-    pushFuts.add(pushFut)
+    if wf.messageArchive.hasKey(peerId):
+      if msgHash notin wf.messageArchive[peerId]:
+        let pushFut = wf.pushToPeer(peerId, bufferToPublish)
+        pushFuts.add(pushFut)
+        wf.messageArchive[peerId].incl(msgHash)
+      else:
+        skipMessageToPeers.add(peerId)
+    else:
+      wf.messageArchive[peerId].incl(msgHash)
+
+  if skipMessageToPeers.len > 0:
+    notice "skipping message to peers: duplicate message detected",
+      peer_ids = skipMessageToPeers, msg_hash = msgHash
 
   await allFutures(pushFuts)
 
