@@ -442,7 +442,9 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
   if not pm.storage.isNil:
     var remotePeerInfo = pm.peerStore.get(peerId)
-    remotePeerInfo.disconnectTime = getTime().toUnix
+
+    if event.kind == PeerEventKind.Left:
+      remotePeerInfo.disconnectTime = getTime().toUnix
 
     pm.storage.insertOrReplace(remotePeerInfo)
 
