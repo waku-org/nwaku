@@ -178,7 +178,7 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
     let capabilities = record.getCapabilities()
 
     let typedRecord = record.toTyped().valueOr:
-      trace "could not parse to typed record. error: ", error = error, enr = recordUri
+      notice "could not parse to typed record. error: ", error = error, enr = recordUri
       return
 
     let rs = typedRecord.relaySharding()
@@ -188,7 +188,7 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
       else:
         "no shards found"
 
-    trace "Recieved discv5 node",
+    notice "Recieved discv5 node",
       enr = recordUri, capabilities = capabilities, shards = shardsStr
 
 proc findRandomPeers*(
@@ -199,7 +199,8 @@ proc findRandomPeers*(
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
-  logDiscv5FoundPeers(discoveredRecords)
+  when defined(debugDiscv5):
+    logDiscv5FoundPeers(discoveredRecords)
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
