@@ -188,7 +188,7 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
       else:
         "no shards found"
 
-    notice "Recieved discv5 node",
+    notice "Received discv5 node",
       enr = recordUri, capabilities = capabilities, shards = shardsStr
 
 proc findRandomPeers*(
