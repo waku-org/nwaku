@@ -8,7 +8,7 @@ import
   json_serialization,
   json_serialization/std/options,
   json_serialization/lexer
-import ../serdes
+import ../serdes, ../../../waku_core
 
 #### Types
 
@@ -19,6 +19,7 @@ type ProtocolState* = object
 type WakuPeer* = object
   multiaddr*: string
   protocols*: seq[ProtocolState]
+  origin*: PeerOrigin
 
 type WakuPeers* = seq[WakuPeer]
 
@@ -196,10 +197,17 @@ func `==`*(a: ProtocolState, b: string): bool {.inline.} =
 func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr
 
-proc add*(peers: var WakuPeers, multiaddr: string, protocol: string, connected: bool) =
+proc add*(
+    peers: var WakuPeers,
+    multiaddr: string,
+    protocol: string,
+    connected: bool,
+    origin: PeerOrigin,
+) =
   var peer: WakuPeer = WakuPeer(
     multiaddr: multiaddr,
     protocols: @[ProtocolState(protocol: protocol, connected: connected)],
+    origin: origin,
   )
   let idx = peers.find(peer)
 
