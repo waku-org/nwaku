@@ -186,7 +186,6 @@ proc pushToPeers(
       target_peer_ids = targetPeerIds,
       msg_hash = msgHash
   else:
-    discard wf.messageCache.put(msgHash, Moment.now())
     notice "pushing message to subscribed peers",
       pubsubTopic = messagePush.pubsubTopic,
       contentTopic = messagePush.wakuMessage.contentTopic,
@@ -199,8 +198,10 @@ proc pushToPeers(
     for peerId in peers:
       let pushFut = wf.pushToPeer(peerId, bufferToPublish)
       pushFuts.add(pushFut)
-
     await allFutures(pushFuts)
+
+  ## expiration refreshed that's why update cache every time, even if it has a value.
+  discard wf.messageCache.put(msgHash, Moment.now())
 
 proc maintainSubscriptions*(wf: WakuFilter) =
   trace "maintaining subscriptions"
