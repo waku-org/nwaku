@@ -178,8 +178,8 @@ proc pushToPeers(
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
-  wf.messageCache.expire(Moment.now())
-  if wf.messageCache.contains(msgHash):
+  ## it's also refresh expire of msghash, that's why update cache every time, even if it has a value.
+  if wf.messageCache.put(msgHash, Moment.now()):
     notice "duplicate message found, not-pushing message to subscribed peers",
       pubsubTopic = messagePush.pubsubTopic,
       contentTopic = messagePush.wakuMessage.contentTopic,
@@ -199,9 +199,6 @@ proc pushToPeers(
       let pushFut = wf.pushToPeer(peerId, bufferToPublish)
       pushFuts.add(pushFut)
     await allFutures(pushFuts)
-
-  ## expiration refreshed that's why update cache every time, even if it has a value.
-  discard wf.messageCache.put(msgHash, Moment.now())
 
 proc maintainSubscriptions*(wf: WakuFilter) =
   trace "maintaining subscriptions"
@@ -301,13 +298,14 @@ proc new*(
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+    timeout: Duration = 2.minutes,
 ): T =
   let wf = WakuFilter(
     subscriptions: FilterSubscriptions.init(
       subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
     ),
     peerManager: peerManager,
-    messageCache: init(TimedCache[string], timeout = 2.minutes),
+    messageCache: init(TimedCache[string], timeout),
   )
 
   wf.initProtocolHandler()
