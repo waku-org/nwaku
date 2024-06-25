@@ -737,8 +737,7 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let notConnectedPeers =
-    pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers()
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 
