@@ -11,7 +11,8 @@ import
   chronicles,
   chronos,
   libp2p/peerid,
-  libp2p/protocols/protocol
+  libp2p/protocols/protocol,
+  libp2p/protocols/pubsub/timedcache
 import
   ../node/peer_manager,
   ../waku_core,
@@ -31,7 +32,7 @@ type WakuFilter* = ref object of LPProtocol
     # a mapping of peer ids to a sequence of filter criteria
   peerManager: PeerManager
   maintenanceTask: TimerCallback
-  messageArchive: Table[PeerID, HashSet[string]]
+  messageCache: TimedCache[string]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId = peerId
@@ -177,32 +178,31 @@ proc pushToPeers(
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
-  notice "pushing message to subscribed peers",
-    pubsubTopic = messagePush.pubsubTopic,
-    contentTopic = messagePush.wakuMessage.contentTopic,
-    target_peer_ids = targetPeerIds,
-    msg_hash = msgHash
+  wf.messageCache.expire(Moment.now())
+  let isDuplicate = wf.messageCache.contains(msgHash)
 
-  let bufferToPublish = messagePush.encode().buffer
+  if isDuplicate:
+    notice "duplicate message found, not-pushing message to subscribed peers",
+      pubsubTopic = messagePush.pubsubTopic,
+      contentTopic = messagePush.wakuMessage.contentTopic,
+      target_peer_ids = targetPeerIds,
+      msg_hash = msgHash
+  else:
+    discard wf.messageCache.put(msgHash, Moment.now())
+    notice "pushing message to subscribed peers",
+      pubsubTopic = messagePush.pubsubTopic,
+      contentTopic = messagePush.wakuMessage.contentTopic,
+      target_peer_ids = targetPeerIds,
+      msg_hash = msgHash
 
-  var pushFuts: seq[Future[void]]
-  var skipMessageToPeers: seq[PeerId]
-  for peerId in peers:
-    if not wf.messageArchive.hasKey(peerId):
-      wf.messageArchive[peerId] = initHashSet[string]()
+    let bufferToPublish = messagePush.encode().buffer
+    var pushFuts: seq[Future[void]]
 
-    if not wf.messageArchive[peerId].contains(msgHash):
-      wf.messageArchive[peerId].incl(msgHash)
+    for peerId in peers:
       let pushFut = wf.pushToPeer(peerId, bufferToPublish)
       pushFuts.add(pushFut)
-    else:
-      skipMessageToPeers.add(peerId)
 
-  if skipMessageToPeers.len > 0:
-    notice "skipping message to these peers: duplicate message detected",
-      peer_ids = skipMessageToPeers, msg_hash = msgHash
-
-  await allFutures(pushFuts)
+    await allFutures(pushFuts)
 
 proc maintainSubscriptions*(wf: WakuFilter) =
   trace "maintaining subscriptions"
@@ -308,6 +308,7 @@ proc new*(
       subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
     ),
     peerManager: peerManager,
+    messageCache: init(TimedCache[string], timeout = 2.minutes),
   )
 
   wf.initProtocolHandler()
