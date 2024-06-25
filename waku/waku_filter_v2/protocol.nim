@@ -179,7 +179,7 @@ proc pushToPeers(
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
   wf.messageCache.expire(Moment.now())
-  let wf.messageCache.contains(msgHash):
+  if wf.messageCache.contains(msgHash):
     notice "duplicate message found, not-pushing message to subscribed peers",
       pubsubTopic = messagePush.pubsubTopic,
       contentTopic = messagePush.wakuMessage.contentTopic,
