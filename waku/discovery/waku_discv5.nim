@@ -178,8 +178,14 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
     let capabilities = record.getCapabilities()
 
     let typedRecord = record.toTyped().valueOr:
-      notice "could not parse to typed record. error: ", error = error, enr = recordUri
+      warn "could not parse to typed record. error: ", error = error, enr = recordUri
       return
+
+    let peerInfo = record.toRemotePeerInfo().valueOr:
+      warn "could not get generate remote peer info", error = error, enr = recordUri
+      return
+
+    let addrs = peerInfo.constructMultiaddrStr()
 
     let rs = typedRecord.relaySharding()
     let shardsStr =
@@ -188,18 +194,8 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
       else:
         "no shards found"
 
-    let multiaddress = typedRecord.multiaddrs()
-    let multiaddressStr =
-      if multiaddress.isSome():
-        $multiaddress.get()
-      else:
-        "could not parse multiaddress"
-
     notice "Received discv5 node",
-      multiaddress = multiaddressStr,
-      enr = recordUri,
-      capabilities = capabilities,
-      shards = shardsStr
+      addrs = addrs, enr = recordUri, capabilities = capabilities, shards = shardsStr
 
 proc findRandomPeers*(
     wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)
