@@ -188,8 +188,18 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
       else:
         "no shards found"
 
+    let multiaddress = typedRecord.multiaddrs()
+    let multiaddressStr =
+      if multiaddress.isSome():
+        $multiaddress.get()
+      else:
+        "could not parse multiaddress"
+
     notice "Received discv5 node",
-      enr = recordUri, capabilities = capabilities, shards = shardsStr
+      multiaddress = multiaddressStr,
+      enr = recordUri,
+      capabilities = capabilities,
+      shards = shardsStr
 
 proc findRandomPeers*(
     wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)
