@@ -178,12 +178,12 @@ proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
     let capabilities = record.getCapabilities()
 
     let typedRecord = record.toTyped().valueOr:
-      warn "could not parse to typed record. error: ", error = error, enr = recordUri
-      return
+      warn "Could not parse to typed record", error = error, enr = recordUri
+      continue
 
     let peerInfo = record.toRemotePeerInfo().valueOr:
-      warn "could not get generate remote peer info", error = error, enr = recordUri
-      return
+      warn "Could not generate remote peer info", error = error, enr = recordUri
+      continue
 
     let addrs = peerInfo.constructMultiaddrStr()
 
