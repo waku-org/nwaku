@@ -141,7 +141,7 @@ proc findMessages*(
 
   let isAscendingOrder = query.direction.into()
 
-  if query.contentTopics.len > 10:
+  if query.contentTopics.len > 100:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
   if query.cursor.isSome() and query.cursor.get().hash.len != 32:
@@ -229,7 +229,7 @@ proc findMessagesV2*(
 
   let isAscendingOrder = query.direction.into()
 
-  if query.contentTopics.len > 10:
+  if query.contentTopics.len > 100:
     return err(ArchiveError.invalidQuery("too many content topics"))
 
   let queryStartTime = getTime().toUnixFloat()
