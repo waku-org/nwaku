@@ -649,18 +649,29 @@ proc connectToNodes*(
   info "Dialing multiple peers", numOfPeers = nodes.len
 
   var futConns: seq[Future[bool]]
+  var connectedPeers: seq[RemotePeerInfo]
   for node in nodes:
     let node = parsePeerInfo(node)
     if node.isOk():
       futConns.add(pm.connectRelay(node.value))
+      connectedPeers.add(node.value)
     else:
       error "Couldn't parse node info", error = node.error
 
   await allFutures(futConns)
-  let successfulConns = futConns.mapIt(it.read()).countIt(it == true)
+
+  # Filtering successful connectedPeers based on futConns
+  let combined = zip(connectedPeers, futConns)
+  connectedPeers = combined.filterIt(it[1].read() == true).mapIt(it[0])
+
+  when defined(debugDiscv5):
+    let peerIds = connectedPeers.mapIt(it.peerId)
+    let origin = connectedPeers.mapIt(it.origin)
+    notice "established connections with found peers",
+      peerIds = peerIds, origin = origin
 
   info "Finished dialing multiple peers",
-    successfulConns = successfulConns, attempted = nodes.len
+    successfulConns = connectedPeers.len, attempted = nodes.len
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
@@ -726,8 +737,7 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let notConnectedPeers =
-    pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers()
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 

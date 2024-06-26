@@ -130,6 +130,10 @@ ifeq ($(POSTGRES), 1)
 NIM_PARAMS := $(NIM_PARAMS) -d:postgres -d:nimDebugDlOpen
 endif
 
+ifeq ($(DEBUG_DISCV5), 1)
+NIM_PARAMS := $(NIM_PARAMS) -d:debugDiscv5
+endif
+
 clean: | clean-libbacktrace
 
 
