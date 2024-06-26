@@ -660,7 +660,7 @@ proc connectToNodes*(
 
   await allFutures(futConns)
 
-  # Filtering connectedPeers based on futConns
+  # Filtering successful connectedPeers based on futConns
   let combined = zip(connectedPeers, futConns)
   connectedPeers = combined.filterIt(it[1].read() == true).mapIt(it[0])
 
