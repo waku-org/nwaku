@@ -233,13 +233,13 @@ procSuite "Waku Archive - find messages":
       response.messages.anyIt(it == msg1)
       response.messages.anyIt(it == msg3)
 
-  test "handle query with more than 10 content filters":
+  test "handle query with more than 100 content filters":
     ## Setup
     let
       driver = newSqliteArchiveDriver()
       archive = newWakuArchive(driver)
 
-    let queryTopics = toSeq(1 .. 15).mapIt(ContentTopic($it))
+    let queryTopics = toSeq(1 .. 150).mapIt(ContentTopic($it))
 
     ## Given
     let req = ArchiveQuery(contentTopics: queryTopics)
