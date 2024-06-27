@@ -327,7 +327,7 @@ proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
       epochsToRemove.add(epoch)
   
   for epochRemove in epochsToRemove:
-    trace "clearing epochs from the nullifier log", currentEpoch = currentEpoch, cleanedEpoch = epochInt
+    trace "clearing epochs from the nullifier log", currentEpoch = currentEpoch, cleanedEpoch = fromEpoch(epochRemove)
     rlnPeer.nullifierLog.del(epochRemove)
 
 proc generateRlnValidator*(
