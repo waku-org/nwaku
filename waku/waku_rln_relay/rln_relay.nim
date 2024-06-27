@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, tables, times, deques],
+  std/[sequtils, tables, times, deques, algorithm],
   chronicles,
   options,
   chronos,
@@ -144,7 +144,7 @@ proc updateLog*(
   try:
     # check if an identical record exists
     if rlnPeer.nullifierLog[epoch].hasKeyOrPut(proofMetadata.nullifier, proofMetadata):
-      # the above condition could be `discarded` but it is kept for clarity, that slashing will 
+      # the above condition could be `discarded` but it is kept for clarity, that slashing will
       # be implemented here
       # TODO: slashing logic
       return ok()
@@ -280,7 +280,7 @@ proc validateMessageAndUpdateLog*(
     return MessageValidationResult.Invalid
 
   # insert the message to the log (never errors)
-  discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
+  #discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return isValidMessage
 
@@ -308,9 +308,16 @@ proc appendRLNProof*(
   let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
 
-
   msg.proof = proof.encode().buffer
   return ok()
+
+proc compareKeys(a, b: Epoch): int =
+  for i in 0..<32:
+    if a[i] < b[i]:
+      return -1
+    elif a[i] > b[i]:
+      return 1
+  return 0
 
 proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
@@ -319,10 +326,23 @@ proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   if rlnPeer.nullifierLog.len().uint <= rlnPeer.rlnMaxEpochGap:
     return
 
+  echo "elements in nullifier log"
+  for i in rlnPeer.nullifierLog.keys().toSeq():
+    echo i
   let countToClear = rlnPeer.nullifierLog.len().uint - rlnPeer.rlnMaxEpochGap
   trace "clearing epochs from the nullifier log", count = countToClear
-  let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0 ..< countToClear]
+
+  #let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0 ..< countToClear]
+  #let epochsToClear = rlnPeer.nullifierLog.keys().toSeq().sort(compareKeys)[0 ..< countToClear]
+
+  var epochsToClear = rlnPeer.nullifierLog.keys().toSeq()
+  epochsToClear.sort(compareKeys)
+  epochsToClear = epochsToClear[0 ..< countToClear]
+
+  info "ordered: ", ordered=epochsToClear
+  
   for epoch in epochsToClear:
+    info "removing epoch", epoch = epoch
     rlnPeer.nullifierLog.del(epoch)
 
 proc generateRlnValidator*(
@@ -358,6 +378,12 @@ proc generateRlnValidator*(
       payload = string.fromBytes(message.payload)
     case validationRes
     of Valid:
+      let proofMetadataRes = msgProof.extractMetadata()
+      if proofMetadataRes.isErr():
+        # dirty should never happen
+        return pubsub.ValidationResult.Reject
+      # insert the message to the log (never errors)
+      discard wakuRlnRelay.updateLog(msgProof.epoch, proofMetadataRes.get())
       trace "message validity is verified, relaying:",
         proof = proof,
         root = root,
