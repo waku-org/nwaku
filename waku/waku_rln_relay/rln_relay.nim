@@ -318,13 +318,17 @@ proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   # if more than MaxEpochGap epochs are in the log
   let currentEpoch = fromEpoch(rlnPeer.getCurrentEpoch())
 
+  var epochsToRemove: seq[Epoch] = @[]
   for epoch in rlnPeer.nullifierLog.keys():
     let epochInt = fromEpoch(epoch)
 
     # clean all epochs that are +- rlnMaxEpochGap from the current epoch
-    if (currentEpoch+rlnPeer.rlnMaxEpochGap) < epochInt and epochInt < (currentEpoch-rlnPeer.rlnMaxEpochGap):
-      trace "clearing epochs from the nullifier log", cleanedEpoch = epochInt
-      rlnPeer.nullifierLog.del(epoch)
+    if (currentEpoch+rlnPeer.rlnMaxEpochGap) <= epochInt or epochInt <= (currentEpoch-rlnPeer.rlnMaxEpochGap):
+      epochsToRemove.add(epoch)
+  
+  for epochRemove in epochsToRemove:
+    trace "clearing epochs from the nullifier log", currentEpoch = currentEpoch, cleanedEpoch = epochInt
+    rlnPeer.nullifierLog.del(epochRemove)
 
 proc generateRlnValidator*(
     wakuRlnRelay: WakuRLNRelay, spamHandler = none(SpamHandler)
