@@ -4,7 +4,7 @@ else:
   {.push raises: [].}
 
 import
-  std/[sequtils, tables, times, deques, algorithm],
+  std/[sequtils, tables, times, deques],
   chronicles,
   options,
   chronos,
@@ -312,14 +312,6 @@ proc appendRLNProof*(
 
   msg.proof = proof.encode().buffer
   return ok()
-
-proc compareKeys(a, b: Epoch): int =
-  for i in 0..<32:
-    if a[i] < b[i]:
-      return -1
-    elif a[i] > b[i]:
-      return 1
-  return 0
 
 proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
