@@ -53,7 +53,7 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
 
   await testSetup.serviceNode.mountRelay()
-  await testSetup.serviceNode.mountFilter(cacheTTL = 1.seconds)
+  await testSetup.serviceNode.mountFilter(messageCacheTTL = 1.seconds)
   await testSetup.subscriberNode.mountFilterClient()
 
   testSetup.subscriberNode.peerManager.addServicePeer(

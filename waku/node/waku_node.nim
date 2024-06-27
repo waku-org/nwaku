@@ -437,14 +437,14 @@ proc mountFilter*(
       filter_subscriptions.DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer,
-    cacheTTL: Duration = 2.minutes,
+    messageCacheTTL: Duration = filter_subscriptions.MessageCacheTTL,
 ) {.async: (raises: []).} =
   ## Mounting filter v2 protocol
 
   info "mounting filter protocol"
   node.wakuFilter = WakuFilter.new(
     node.peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer,
-    cacheTTL,
+    messageCacheTTL,
   )
 
   if node.started:
