@@ -919,7 +919,7 @@ suite "Waku rln relay":
 
       check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
 
-    var testEpochSizes: seq[uint] = @[1,5,10,30,60]
+    var testEpochSizes: seq[uint] = @[1,5,10,30,60,600]
     for i in testEpochSizes:
       await runTestForEpochSizeSec(i)
 
