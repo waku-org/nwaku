@@ -53,7 +53,7 @@ proc init(T: type RestFilterTest): Future[T] {.async.} =
   await allFutures(testSetup.serviceNode.start(), testSetup.subscriberNode.start())
 
   await testSetup.serviceNode.mountRelay()
-  await testSetup.serviceNode.mountFilter()
+  await testSetup.serviceNode.mountFilter(cacheTTL = 2.minutes)
   await testSetup.subscriberNode.mountFilterClient()
 
   testSetup.subscriberNode.peerManager.addServicePeer(
@@ -444,7 +444,7 @@ suite "Waku v2 Rest API - Filter V2":
       len(messages1.data) == 1
 
     # Pause execution for 2 minutes to test TimeCache functionality of service node
-    sleep(120000)
+    sleep(1)
 
     # second - message push from service node to subscriber client
     let postMsgResponse2 = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(

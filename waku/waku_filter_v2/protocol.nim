@@ -298,14 +298,14 @@ proc new*(
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
-    timeout: Duration = 2.minutes,
+    cacheTTL: Duration = 2.minutes,
 ): T =
   let wf = WakuFilter(
     subscriptions: FilterSubscriptions.init(
       subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
     ),
     peerManager: peerManager,
-    messageCache: init(TimedCache[string], timeout),
+    messageCache: init(TimedCache[string], cacheTTL),
   )
 
   wf.initProtocolHandler()
