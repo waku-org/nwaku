@@ -1,13 +1,14 @@
 {.used.}
 
 import
-  std/[os, times],
+  std/[os],
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  chronos/timer
 import
   ../../waku/waku_api/message_cache,
   ../../waku/waku_core,
