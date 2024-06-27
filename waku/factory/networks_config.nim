@@ -35,7 +35,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xTODO",
+    rlnRelayEthContractAddress: "0x4976Df0f61135EF3E5720D92eadE2e5F47A68Ef9",
     rlnRelayDynamic: true,
     rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
