@@ -279,8 +279,10 @@ proc validateMessageAndUpdateLog*(
   if proofMetadataRes.isErr():
     return MessageValidationResult.Invalid
 
-  # insert the message to the log (never errors)
-  #discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
+  # insert the message to the log (never errors) only if the 
+  # message is valid.
+  if isValidMessage == MessageValidationResult.Valid:
+    discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return isValidMessage
 
@@ -322,28 +324,15 @@ proc compareKeys(a, b: Epoch): int =
 proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
   # if more than MaxEpochGap epochs are in the log
-  # note: the epochs are ordered ascendingly
-  if rlnPeer.nullifierLog.len().uint <= rlnPeer.rlnMaxEpochGap:
-    return
+  let currentEpoch = fromEpoch(rlnPeer.getCurrentEpoch())
 
-  echo "elements in nullifier log"
-  for i in rlnPeer.nullifierLog.keys().toSeq():
-    echo i
-  let countToClear = rlnPeer.nullifierLog.len().uint - rlnPeer.rlnMaxEpochGap
-  trace "clearing epochs from the nullifier log", count = countToClear
+  for epoch in rlnPeer.nullifierLog.keys():
+    let epochInt = fromEpoch(epoch)
 
-  #let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0 ..< countToClear]
-  #let epochsToClear = rlnPeer.nullifierLog.keys().toSeq().sort(compareKeys)[0 ..< countToClear]
-
-  var epochsToClear = rlnPeer.nullifierLog.keys().toSeq()
-  epochsToClear.sort(compareKeys)
-  epochsToClear = epochsToClear[0 ..< countToClear]
-
-  info "ordered: ", ordered=epochsToClear
-  
-  for epoch in epochsToClear:
-    info "removing epoch", epoch = epoch
-    rlnPeer.nullifierLog.del(epoch)
+    # clean all epochs that are +- rlnMaxEpochGap from the current epoch
+    if (currentEpoch+rlnPeer.rlnMaxEpochGap) < epochInt and epochInt < (currentEpoch-rlnPeer.rlnMaxEpochGap):
+      trace "clearing epochs from the nullifier log", cleanedEpoch = epochInt
+      rlnPeer.nullifierLog.del(epoch)
 
 proc generateRlnValidator*(
     wakuRlnRelay: WakuRLNRelay, spamHandler = none(SpamHandler)
@@ -378,12 +367,6 @@ proc generateRlnValidator*(
       payload = string.fromBytes(message.payload)
     case validationRes
     of Valid:
-      let proofMetadataRes = msgProof.extractMetadata()
-      if proofMetadataRes.isErr():
-        # dirty should never happen
-        return pubsub.ValidationResult.Reject
-      # insert the message to the log (never errors)
-      discard wakuRlnRelay.updateLog(msgProof.epoch, proofMetadataRes.get())
       trace "message validity is verified, relaying:",
         proof = proof,
         root = root,
