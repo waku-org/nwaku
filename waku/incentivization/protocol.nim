@@ -10,7 +10,8 @@ import
   ../waku_core,
   ./common,
   ./rpc_codec,
-  ./rpc
+  ./rpc,
+  ./eligibility
 
 logScope:
   topics = "waku incentivization PoC"
@@ -29,7 +30,7 @@ proc handleRequest*(
     let dummyRequest = reqDecodeRes.get()
     let eligibilityProof = dummyRequest.eligibilityProof
     requestId = dummyRequest.requestId
-    isProofValid = isEligible(eligibilityProof)
+    isProofValid = await isEligible(eligibilityProof)
   let response = genDummyResponseWithEligibilityStatus(isProofValid, requestId)
   return response
 

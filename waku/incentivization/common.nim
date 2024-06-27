@@ -1,16 +1,16 @@
 import
   std/options,
   std/strscans,
+  std/sequtils,
   testutils/unittests,
   chronicles,
   chronos,
   libp2p/crypto/crypto
 
-import stew/results, chronos, libp2p/peerid
+import stew/results, libp2p/peerid
 
 import
-  ../../../waku/incentivization/rpc,
-  ../../../waku/incentivization/rpc_codec
+  ../../../waku/incentivization/rpc
 
 const DummyCodec* = "/vac/waku/dummy/0.0.1"
 
@@ -42,15 +42,6 @@ type
 
   DummyProtocolResult* = Result[void, DummyProtocolError]
 
-
-proc genEligibilityProof*(startsWithOne: bool): EligibilityProof = 
-  let byteSequence: seq[byte] = (
-    if startsWithOne:
-      @[1, 2, 3, 4, 5, 6, 7, 8]
-    else:
-      @[0, 2, 3, 4, 5, 6, 7, 8])
-  EligibilityProof(proofOfPayment: some(byteSequence))
-
 proc genEligibilityStatus*(isEligible: bool): EligibilityStatus = 
   if isEligible:
     EligibilityStatus(
@@ -60,24 +51,3 @@ proc genEligibilityStatus*(isEligible: bool): EligibilityStatus =
     EligibilityStatus(
       statusCode: uint32(402),
       statusDesc: some("Payment Required"))
-
-proc genDummyRequestWithEligibilityProof*(proofValid: bool, requestId: string = ""): DummyRequest =
-  let eligibilityProof = genEligibilityProof(proofValid)
-  result.requestId = requestId
-  result.eligibilityProof = eligibilityProof
-
-proc genDummyResponseWithEligibilityStatus*(proofValid: bool, requestId: string = ""): DummyResponse = 
-  let eligibilityStatus = genEligibilityStatus(proofValid)
-  result.requestId = requestId
-  result.eligibilityStatus = eligibilityStatus
-
-proc dummyEligibilityCriteriaMet(eligibilityProof: EligibilityProof): bool = 
-  # a dummy criterion: the first element of the proof byte array equals 1
-  let proofOfPayment = eligibilityProof.proofOfPayment
-  if proofOfPayment.isSome:
-    return (proofOfPayment.get()[0] == 1)
-  else:
-    return false
-
-proc isEligible*(eligibilityProof: EligibilityProof): bool =
-  dummyEligibilityCriteriaMet(eligibilityProof)

@@ -19,6 +19,7 @@ import
     common,
     client,
     protocol,
+    txid_proof
   ]
 
 
@@ -73,14 +74,14 @@ suite "Waku Incentivization PoC Dummy Protocol":
   asyncTeardown:
     await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
-  asyncTest "incentivization PoC: dummy protocol with a valid eligibility proof":
-    let request = genDummyRequestWithEligibilityProof(true)
+  asyncTest "incentivization PoC: dummy protocol with a valid txid eligibility proof":
+    let request = genDummyRequestWithTxIdEligibilityProof(true)
     let response = await client.sendRequest(request, serverRemotePeerInfo)
     check:
       response.isOk()
   
-  asyncTest "incentivization PoC: dummy protocol client with an invalid eligibility proof":
-    let request = genDummyRequestWithEligibilityProof(false)
+  asyncTest "incentivization PoC: dummy protocol client with an invalid txid eligibility proof":
+    let request = genDummyRequestWithTxIdEligibilityProof(false)
     let response = await client.sendRequest(request, serverRemotePeerInfo)
     check:
       response.isErr()

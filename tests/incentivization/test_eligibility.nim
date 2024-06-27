@@ -4,21 +4,19 @@ import
   chronos
 
 import
-  ../../../waku/incentivization/[
-    rpc,common
-  ]
+  ../../../waku/incentivization/[rpc, common, txid_proof]
 
 
 suite "Waku Incentivization Eligibility Testing":
 
-    asyncTest "check eligibility success":
-      var byteSequence: seq[byte] = @[1, 2, 3, 4, 5, 6, 7, 8]
-      let eligibilityProof = EligibilityProof(proofOfPayment: some(byteSequence))
+    asyncTest "check eligibility success with a txid-based proof":
+      let eligibilityProof = genTxIdEligibilityProof(true)
+      let isValid = await txidEligiblityCriteriaMet(eligibilityProof)
       check:
-          isEligible(eligibilityProof)
+        isValid
 
-    asyncTest "check eligibility failure":
-      var byteSequence: seq[byte] = @[0, 2, 3, 4, 5, 6, 7, 8]
-      let eligibilityProof = EligibilityProof(proofOfPayment: some(byteSequence))
+    asyncTest "check eligibility failure with a txid-based proof":
+      let eligibilityProof = genTxIdEligibilityProof(false)
+      let isValid = await txidEligiblityCriteriaMet(eligibilityProof)
       check:
-          not isEligible(eligibilityProof)
+        not isValid

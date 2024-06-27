@@ -1,20 +1,22 @@
 import
   std/options,
-  std/strscans,
   testutils/unittests,
-  chronicles,
   chronos,
   libp2p/crypto/crypto
 
 import
-  ../../../waku/incentivization/rpc,
-  ../../../waku/incentivization/rpc_codec,
-  ../../../waku/incentivization/common
+  ../../../waku/incentivization/[
+    rpc,
+    rpc_codec,
+    common,
+    txid_proof,
+    eligibility
+  ]
 
 suite "Waku Incentivization Eligibility Codec":
 
     asyncTest "encode eligibility proof":
-      let eligibilityProof = genEligibilityProof(true)
+      let eligibilityProof = genTxIdEligibilityProof(true)
       let encoded = encode(eligibilityProof)
       let decoded = EligibilityProof.decode(encoded.buffer).get()
       check:
@@ -28,7 +30,7 @@ suite "Waku Incentivization Eligibility Codec":
         eligibilityStatus == decoded
 
     asyncTest "encode dummy request":
-      let dummyRequest = genDummyRequestWithEligibilityProof(true)
+      let dummyRequest = genDummyRequestWithTxIdEligibilityProof(true)
       let encoded = encode(dummyRequest)
       let decoded = DummyRequest.decode(encoded.buffer).get()
       check:
