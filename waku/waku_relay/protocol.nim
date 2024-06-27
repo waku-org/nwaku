@@ -163,7 +163,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
       warn "Error generating message id",
         my_peer_id = w.switch.peerInfo.peerId,
         from_peer_id = peer.peerId,
-        topic = msg.topic,
+        pubsub_topic = msg.topic,
         error = $error
       return err()
 
@@ -174,7 +174,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
         my_peer_id = w.switch.peerInfo.peerId,
         msg_id = msg_id_short,
         from_peer_id = peer.peerId,
-        topic = msg.topic,
+        pubsub_topic = msg.topic,
         error = $error
       return err()
 
@@ -182,32 +182,18 @@ proc initRelayMetricObserver(w: WakuRelay) =
     return ok((msg_id_short, msg.topic, wakuMessage, msgSize))
 
   proc logMessageInfo(
-      peer: PubSubPeer,
-      topic: string,
-      msg_id_short: string,
-      msg: WakuMessage,
-      onRecv: bool,
+      peer: PubSubPeer, topic: string, msg_id_short: string, msg: WakuMessage
   ) =
     let msg_hash = computeMessageHash(topic, msg).to0xHex()
 
-    if onRecv:
-      notice "received relay message",
-        my_peer_id = w.switch.peerInfo.peerId,
-        msg_hash = msg_hash,
-        msg_id = msg_id_short,
-        from_peer_id = peer.peerId,
-        topic = topic,
-        receivedTime = getNowInNanosecondTime(),
-        payloadSizeBytes = msg.payload.len
-    else:
-      notice "sent relay message",
-        my_peer_id = w.switch.peerInfo.peerId,
-        msg_hash = msg_hash,
-        msg_id = msg_id_short,
-        to_peer_id = peer.peerId,
-        topic = topic,
-        sentTime = getNowInNanosecondTime(),
-        payloadSizeBytes = msg.payload.len
+    notice "sent relay message",
+      my_peer_id = w.switch.peerInfo.peerId,
+      msg_hash = msg_hash,
+      msg_id = msg_id_short,
+      to_peer_id = peer.peerId,
+      topic = topic,
+      sentTime = getNowInNanosecondTime(),
+      payloadSizeBytes = msg.payload.len
 
   proc updateMetrics(
       peer: PubSubPeer,
@@ -216,8 +202,6 @@ proc initRelayMetricObserver(w: WakuRelay) =
       msgSize: int,
       onRecv: bool,
   ) =
-    # TODO: Calculate the size of the message
-
     waku_relay_network_bytes.inc(
       msgSize.int64, labelValues = [pubsub_topic, if onRecv: "in" else: "out"]
     )
@@ -226,7 +210,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
         continue
-      # logMessageInfo(peer, topic, msg_id_short, wakuMessage, onRecv = true)
+      # message receive log happens in treaceHandler as this one is called before checks
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = true)
     discard
 
@@ -234,7 +218,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
         continue
-      logMessageInfo(peer, topic, msg_id_short, wakuMessage, onRecv = false)
+      logMessageInfo(peer, topic, msg_id_short, wakuMessage)
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = false)
 
   let administrativeObserver = PubSubObserver(onRecv: onRecv, onSend: onSend)
