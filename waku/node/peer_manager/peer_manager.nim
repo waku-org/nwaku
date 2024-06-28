@@ -142,6 +142,8 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
   pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
+  pm.peerStore[ProtoVersionBook][remotePeerInfo.peerId] = remotePeerInfo.protoVersion
+  pm.peerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
 
   if remotePeerInfo.protocols.len > 0:
     pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
