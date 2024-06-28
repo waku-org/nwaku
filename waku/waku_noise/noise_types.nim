@@ -5,10 +5,7 @@
 ## Implementation partially inspired by noise-libp2p:
 ## https://github.com/status-im/nim-libp2p/blob/master/libp2p/protocols/secure/noise.nim
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[options, tables]
 import chronos

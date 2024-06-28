@@ -1,9 +1,6 @@
 ## Waku Filter client for subscribing and receiving filtered messages
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, chronicles, chronos, libp2p/protocols/protocol, bearssl/rand
 import

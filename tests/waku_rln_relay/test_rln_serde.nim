@@ -1,9 +1,6 @@
 {.used.}
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   ./rln/waku_rln_relay_utils,

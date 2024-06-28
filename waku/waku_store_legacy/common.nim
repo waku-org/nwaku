@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[options, sequtils], stew/results, stew/byteutils, nimcrypto/sha2
 import ../waku_core, ../common/paging

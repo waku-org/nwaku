@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import stew/shims/macros, serialization
 import ./envvar_serialization/reader, ./envvar_serialization/writer

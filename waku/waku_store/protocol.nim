@@ -1,10 +1,7 @@
 ## Waku Store protocol for historical messaging support.
 ## See spec for more details:
 ## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/options,

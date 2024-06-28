@@ -2,10 +2,7 @@
 ##
 ## See https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md
 ## for spec.
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/strformat,
