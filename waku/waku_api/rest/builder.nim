@@ -29,7 +29,7 @@ import
 var restServerNotInstalledTab {.threadvar.}: TableRef[string, string]
 restServerNotInstalledTab = newTable[string, string]()
 
-proc startRestServerEsentials*(
+proc startRestServerEssentials*(
     nodeHealthMonitor: WakuNodeHealthMonitor, conf: WakuNodeConf
 ): Result[WakuRestServerRef, string] =
   if not conf.rest:
