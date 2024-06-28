@@ -303,7 +303,7 @@ type WakuNodeConf* = object
 
     shards* {.
       desc: "Shards index to subscribe to [0.." & $MaxShardIndex & "]. Argument may be repeated.",
-      defaultValue: @[],
+      defaultValue: @[0.uint16, 1.uint16, 2.uint16, 3.uint16, 4.uint16, 5.uint16, 6.uint16, 7.uint16],
       name: "shard"
     .}: seq[uint16]
 
