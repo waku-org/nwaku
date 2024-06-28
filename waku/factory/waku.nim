@@ -99,19 +99,6 @@ proc logConfig(conf: WakuNodeConf) =
 func version*(waku: Waku): string =
   waku.version
 
-proc validateShards(conf: WakuNodeConf): Result[void, string] =
-  let numShardsInNetwork = getNumShardsInNetwork(conf)
-
-  for shard in conf.shards:
-    if shard >= numShardsInNetwork:
-      let msg =
-        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
-        $numShardsInNetwork # fmt doesn't work
-      error "validateShards failed", error = msg
-      return err(msg)
-
-  return ok()
-
 proc setupSwitchServices(
     waku: Waku, conf: WakuNodeConf, circuitRelay: Relay, rng: ref HmacDrbgContext
 ) =
@@ -214,46 +201,28 @@ proc new*(
         shards.add(shard)
       confCopy.shards = shards
 
-  case confCopy.clusterId
+  # Why can't I replace this block with a concise `.valueOr`?
+  confCopy = block:
+    let res = applyPresetConfiguration(confCopy)
+    if res.isErr():
+      error "Failed to complete the config", error = res.error
+      return err("Failed to complete the config:" & $res.error)
+    res.get()
 
-  # cluster-id=1 (aka The Waku Network)
-  of 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-
-    # Override configuration
-    confCopy.maxMessageSize = twnClusterConf.maxMessageSize
-    confCopy.clusterId = twnClusterConf.clusterId
-    confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
-    confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    confCopy.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    confCopy.discv5Discovery = twnClusterConf.discv5Discovery
-    confCopy.discv5BootstrapNodes =
-      confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-    confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    confCopy.numShardsInNetwork = twnClusterConf.numShardsInNetwork
-
-    # Only set rlnRelay to true if relay is configured
-    if confCopy.relay:
-      confCopy.rlnRelay = twnClusterConf.rlnRelay
-  else:
-    discard
+  logConfig(confCopy)
 
   info "Running nwaku node", version = git_version
-  logConfig(confCopy)
 
   let validateShardsRes = validateShards(confCopy)
   if validateShardsRes.isErr():
     error "Failed validating shards", error = $validateShardsRes.error
     return err("Failed validating shards: " & $validateShardsRes.error)
 
-  if not confCopy.nodekey.isSome():
-    let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
-    if keyRes.isErr():
-      error "Failed to generate key", error = $keyRes.error
-      return err("Failed to generate key: " & $keyRes.error)
-    confCopy.nodekey = some(keyRes.get())
+  let keyRes = getNodeKey(confCopy, rng)
+  if keyRes.isErr():
+    error "Failed to generate key", error = $keyRes.error
+    return err("Failed to generate key: " & $keyRes.error)
+  confCopy.nodeKey = some(keyRes.get())
 
   var relay = newCircuitRelay(confCopy.isRelayClient)
 
@@ -284,6 +253,7 @@ proc new*(
 
   var waku = Waku(
     version: git_version,
+    # TODO: WakuNodeConf is re-used for too many context, `conf` here should be a dedicated subtype
     conf: confCopy,
     rng: rng,
     key: confCopy.nodekey.get(),
