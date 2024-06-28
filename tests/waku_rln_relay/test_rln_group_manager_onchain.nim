@@ -26,6 +26,8 @@ import
   ../testlib/common,
   ./utils
 
+const CHAIN_ID = 1337
+
 proc generateCredentials(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
   return credRes.get()
@@ -140,7 +142,7 @@ proc runAnvil(): Process =
       anvilPath,
       args = [
         "--port", "8540", "--gas-limit", "300000000000000", "--balance", "1000000000",
-        "--chain-id", "1337",
+        "--chain-id", $CHAIN_ID,
       ],
       options = {poUsePath},
     )
@@ -195,6 +197,7 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
   let manager = OnchainGroupManager(
     ethClientUrl: EthClient,
     ethContractAddress: $contractAddress,
+    chainId: CHAIN_ID,
     ethPrivateKey: pk,
     rlnInstance: rlnInstance,
   )
@@ -217,6 +220,20 @@ suite "Onchain group manager":
       manager.rlnContractDeployedBlockNumber > 0
 
     await manager.stop()
+
+  asyncTest "should error on initialization when chainId does not match":
+    let manager = await setup()
+    manager.chainId = CHAIN_ID + 1
+
+    (await manager.init()).isErrOr:
+      raiseAssert "Expected error when chainId does not match"
+
+  asyncTest "should initialize when chainId is set to 0":
+    let manager = await setup()
+    manager.chainId = 0
+
+    (await manager.init()).isOkOr:
+      raiseAssert $error
 
   asyncTest "should error on initialization when loaded metadata does not match":
     let manager = await setup()

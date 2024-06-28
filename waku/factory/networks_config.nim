@@ -8,6 +8,7 @@ type ClusterConf* = object
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
+  rlnRelayChainId*: uint
   rlnRelayDynamic*: bool
   rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
@@ -37,6 +38,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelay: true,
     rlnRelayEthContractAddress: "0x4976Df0f61135EF3E5720D92eadE2e5F47A68Ef9",
     rlnRelayDynamic: true,
+    rlnRelayChainId: 2442, # https://chainlist.org/chain/2442
     rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 20,
