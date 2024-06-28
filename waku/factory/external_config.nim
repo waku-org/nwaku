@@ -141,12 +141,6 @@ type WakuNodeConf* = object
       name: "cluster-id"
     .}: uint16
 
-    agentString* {.
-      defaultValue: "nwaku",
-      desc: "Node agent string which is used as identifier in network",
-      name: "agent-string"
-    .}: string
-
     nodekey* {.desc: "P2P node private key as 64 char hex string.", name: "nodekey".}:
       Option[PrivateKey]
 
