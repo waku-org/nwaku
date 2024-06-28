@@ -247,12 +247,6 @@ type WakuNodeConf* = object
       desc: "Enable relay protocol: true|false", defaultValue: true, name: "relay"
     .}: bool
 
-    relayPeerExchange* {.
-      desc: "Enable gossipsub peer exchange in relay protocol: true|false",
-      defaultValue: false,
-      name: "relay-peer-exchange"
-    .}: bool
-
     relayShardedPeerManagement* {.
       desc:
         "Enable experimental shard aware peer manager for relay protocol: true|false",
