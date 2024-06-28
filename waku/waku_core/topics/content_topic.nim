@@ -2,10 +2,7 @@
 ##
 ## See 23/WAKU2-TOPICS RFC: https://rfc.vac.dev/spec/23/
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, std/strutils, stew/results
 import ./parsing

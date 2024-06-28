@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, nimcrypto/hash
 import ../common/[protobuf, paging], ../waku_core, ./common, ./rpc

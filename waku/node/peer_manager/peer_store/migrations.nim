@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[tables, strutils, os], stew/results, chronicles
 import ../../../common/databases/db_sqlite, ../../../common/databases/common

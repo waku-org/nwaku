@@ -2,10 +2,7 @@
 # See:
 # - RFC 14: https://rfc.vac.dev/spec/14/
 # - Proto definition: https://github.com/vacp2p/waku/blob/main/waku/message/v1/message.proto
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import ../../common/protobuf, ../topics, ../time, ./message
 

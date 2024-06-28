@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
 import ../waku_core, ../utils/tableutils

@@ -3,10 +3,7 @@
 # - allow storage of multiple keyfiles (encrypted with different passwords) in same file and iteration among successful decryptions
 # - enable/disable at compilation time the keyfile id and version fields
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[os, strutils, json, sequtils],
