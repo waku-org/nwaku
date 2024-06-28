@@ -2,7 +2,7 @@
 
 import chronos, testutils/unittests, libp2p, libp2p/protocols/rendezvous
 
-import ../../waku/node/waku_switch, ./testlib/common, ./testlib/wakucore
+import node/waku_switch, ./testlib/common, ./testlib/wakucore
 
 proc newRendezvousClientSwitch(rdv: RendezVous): Switch =
   SwitchBuilder

@@ -13,9 +13,9 @@ import
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode,
-  ../../waku/node/waku_metrics
+  node/waku_metrics
 
-include ../../waku/factory/waku
+include factory/waku
 
 suite "Wakunode2 - Waku":
   test "compilation version should be reported":

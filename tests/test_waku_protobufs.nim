@@ -2,8 +2,8 @@
 
 import std/[options, sequtils, tables], testutils/unittests, chronos, chronicles
 import
-  ../../waku/waku_metadata,
-  ../../waku/waku_metadata/rpc,
+  waku_metadata,
+  waku_metadata/rpc,
   ./testlib/wakucore,
   ./testlib/wakunode
 

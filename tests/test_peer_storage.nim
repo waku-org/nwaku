@@ -2,10 +2,10 @@
 
 import std/options, testutils/unittests, eth/p2p/discoveryv5/enr, libp2p/crypto/crypto
 import
-  ../../waku/common/databases/db_sqlite,
-  ../../waku/node/peer_manager/peer_manager,
-  ../../waku/node/peer_manager/peer_store/waku_peer_storage,
-  ../../waku/waku_enr,
+  common/databases/db_sqlite,
+  node/peer_manager/peer_manager,
+  node/peer_manager/peer_store/waku_peer_storage,
+  waku_enr,
   ./testlib/wakucore
 
 suite "Peer Storage":

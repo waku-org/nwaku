@@ -3,7 +3,7 @@
 import std/options, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[node/peer_manager, waku_core, waku_store, waku_store/client],
+  [node/peer_manager, waku_core, waku_store, waku_store/client],
   ../testlib/[common, wakucore]
 
 proc newTestWakuStore*(

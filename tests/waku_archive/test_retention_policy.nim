@@ -2,14 +2,14 @@
 
 import std/[sequtils, times], stew/results, testutils/unittests, chronos
 import
-  ../../../waku/common/databases/db_sqlite,
-  ../../../waku/waku_core,
-  ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver/sqlite_driver,
-  ../../../waku/waku_archive/retention_policy,
-  ../../../waku/waku_archive/retention_policy/retention_policy_capacity,
-  ../../../waku/waku_archive/retention_policy/retention_policy_size,
+  common/databases/db_sqlite,
+  waku_core,
+  waku_core/message/digest,
+  waku_archive,
+  waku_archive/driver/sqlite_driver,
+  waku_archive/retention_policy,
+  waku_archive/retention_policy/retention_policy_capacity,
+  waku_archive/retention_policy/retention_policy_size,
   ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore

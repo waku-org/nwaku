@@ -9,14 +9,14 @@ import
   libp2p/crypto/crypto as libp2p_keys,
   eth/keys as eth_keys
 import
-  ../../../waku/waku_node,
-  ../../../waku/waku_core/topics,
-  ../../../waku/node/peer_manager,
-  ../../../waku/waku_enr,
-  ../../../waku/discovery/waku_discv5,
-  ../../../waku/factory/external_config,
-  ../../../waku/factory/internal_config,
-  ../../../waku/factory/builder,
+  waku_node,
+  waku_core/topics,
+  node/peer_manager,
+  waku_enr,
+  discovery/waku_discv5,
+  factory/external_config,
+  factory/internal_config,
+  factory/builder,
   ./common
 
 # Waku node

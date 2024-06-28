@@ -9,17 +9,17 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../waku/waku_core,
-  ../../waku/waku_node,
-  ../../waku/waku_filter_v2/client,
-  ../../waku/node/peer_manager,
-  ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/client,
-  ../../waku/waku_api/rest/responses,
-  ../../waku/waku_api/rest/admin/types,
-  ../../waku/waku_api/rest/admin/handlers as admin_api,
-  ../../waku/waku_api/rest/admin/client as admin_api_client,
-  ../../waku/waku_relay,
+  waku_core,
+  waku_node,
+  waku_filter_v2/client,
+  node/peer_manager,
+  waku_api/rest/server,
+  waku_api/rest/client,
+  waku_api/rest/responses,
+  waku_api/rest/admin/types,
+  waku_api/rest/admin/handlers as admin_api,
+  waku_api/rest/admin/client as admin_api_client,
+  waku_relay,
   ../testlib/wakucore,
   ../testlib/wakunode,
   ../testlib/testasync

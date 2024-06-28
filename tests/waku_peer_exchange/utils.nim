@@ -11,7 +11,7 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  ../../../waku/[
+  [
     waku_node,
     discovery/waku_discv5,
     waku_peer_exchange,

@@ -12,7 +12,7 @@ import
   libp2p/stream/connection,
   libp2p/crypto/crypto
 import
-  ../../waku/waku_core, ../../waku/waku_node, ./testlib/wakucore, ./testlib/wakunode
+  waku_core, waku_node, ./testlib/wakucore, ./testlib/wakunode
 
 suite "Waku Keepalive":
   asyncTest "handle ping keepalives":

@@ -14,12 +14,12 @@ import
   libp2p/crypto/crypto,
   eth/keys
 import
-  ../../../waku/waku_rln_relay/protocol_types,
-  ../../../waku/waku_rln_relay/constants,
-  ../../../waku/waku_rln_relay/contract,
-  ../../../waku/waku_rln_relay/rln,
-  ../../../waku/waku_rln_relay/conversion_utils,
-  ../../../waku/waku_rln_relay/group_manager/on_chain/group_manager,
+  waku_rln_relay/protocol_types,
+  waku_rln_relay/constants,
+  waku_rln_relay/contract,
+  waku_rln_relay/rln,
+  waku_rln_relay/conversion_utils,
+  waku_rln_relay/group_manager/on_chain/group_manager,
   ../testlib/common,
   ./utils
 

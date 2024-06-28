@@ -1,6 +1,6 @@
 import std/tempfiles
 
-import ../../../waku/waku_rln_relay, ../../../waku/waku_rln_relay/[rln, protocol_types]
+import waku_rln_relay, waku_rln_relay/[rln, protocol_types]
 
 proc createRLNInstanceWrapper*(): RLNResult =
   return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))

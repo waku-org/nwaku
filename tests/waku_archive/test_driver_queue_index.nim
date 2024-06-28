@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[times, random], stew/byteutils, testutils/unittests, nimcrypto
-import ../../../waku/waku_core, ../../../waku/waku_archive/driver/queue_driver/index
+import waku_core, waku_archive/driver/queue_driver/index
 
 var rng = initRand()
 

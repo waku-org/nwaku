@@ -12,7 +12,7 @@ import
 from std/times import epochTime
 
 import
-  ../../../waku/
+  
     [
       waku_relay,
       node/waku_node,

@@ -9,8 +9,8 @@ import
   nimcrypto/utils
 
 import
-  ../../../../waku/waku_core/peers,
-  ../../../../waku/node/peer_manager/peer_store/waku_peer_storage
+  waku_core/peers,
+  node/peer_manager/peer_store/waku_peer_storage
 
 proc `==`(a, b: RemotePeerInfo): bool =
   let comparisons =

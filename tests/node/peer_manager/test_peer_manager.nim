@@ -6,10 +6,11 @@ import
   testutils/unittests
 
 import
-  ../../../waku/[node/waku_node, waku_core],
+  node/waku_node,
+  waku_core,
   ../../waku_lightpush/[lightpush_utils],
   ../../testlib/[wakucore, wakunode, futures, testasync],
-  ../../../../waku/node/peer_manager/peer_manager
+  node/peer_manager/peer_manager
 
 suite "Peer Manager":
   suite "onPeerMetadata":
