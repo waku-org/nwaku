@@ -979,7 +979,7 @@ proc mountStoreClient*(node: WakuNode) =
   node.wakuStoreClient = store_client.WakuStoreClient.new(node.peerManager, node.rng)
 
 proc query*(
-    node: WakuNode, request: store_common.StoreQueryRequest, peer: RemotePeerInfo
+    node: WakuNode, request: store_common.StoreQueryRequest
 ): Future[store_common.WakuStoreResult[store_common.StoreQueryResponse]] {.
     async, gcsafe
 .} =
@@ -987,7 +987,7 @@ proc query*(
   if node.wakuStoreClient.isNil():
     return err("waku store v3 client is nil")
 
-  let response = (await node.wakuStoreClient.query(request, peer)).valueOr:
+  let response = (await node.wakuStoreClient.query(request)).valueOr:
     var res = StoreQueryResponse()
     res.statusCode = uint32(error.kind)
     res.statusDesc = $error

@@ -18,7 +18,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   libp2p/switch
-import ../waku_core, ./message_id
+import ../waku_core, ./message_id, ../node/delivery_monitor/publish_observer
 
 logScope:
   topics = "waku relay"
@@ -128,6 +128,7 @@ type
     wakuValidators: seq[tuple[handler: WakuValidatorHandler, errorMessage: string]]
     # a map of validators to error messages to return when validation fails
     validatorInserted: Table[PubsubTopic, bool]
+    publishObservers: seq[PublishObserver]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -254,7 +255,14 @@ proc addValidator*(
 ) {.gcsafe.} =
   w.wakuValidators.add((handler, errorMessage))
 
+proc addPublishObserver*(w: WakuRelay, obs: PublishObserver) =
+  ## Observer when whe api client performed a publish operation. This
+  ## is initially aimed for bringing an additional layer of delivery reliability thanks
+  ## to store
+  w.publishObservers.add(obs)
+
 proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
+  ## Observes when a message is sent/received from the GossipSub PoV
   procCall GossipSub(w).addObserver(observer)
 
 method start*(w: WakuRelay) {.async, base.} =
@@ -390,5 +398,9 @@ proc publish*(
   notice "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
+
+  if relayedPeerCount > 0:
+    for obs in w.publishObservers:
+      obs.onMessagePublished(pubSubTopic, message)
 
   return relayedPeerCount

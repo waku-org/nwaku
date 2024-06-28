@@ -26,9 +26,9 @@ const NoPeerNoDiscError* =
 # Queries the store-node with the query parameters and
 # returns a RestApiResponse that is sent back to the api client.
 proc performStoreQuery(
-    selfNode: WakuNode, storeQuery: StoreQueryRequest, storePeer: RemotePeerInfo
+    selfNode: WakuNode, storeQuery: StoreQueryRequest
 ): Future[RestApiResponse] {.async.} =
-  let queryFut = selfNode.query(storeQuery, storePeer)
+  let queryFut = selfNode.query(storeQuery)
 
   if not await queryFut.withTimeout(futTimeout):
     const msg = "No history response received (timeout)"
@@ -45,7 +45,7 @@ proc performStoreQuery(
   let res = futRes.get()
 
   if res.statusCode == uint32(ErrorCode.TOO_MANY_REQUESTS):
-    debug "Request rate limit reached on peer ", storePeer
+    debug "Request rate limit reached on peer "
     return RestApiResponse.tooManyRequests("Request rate limit reached")
 
   let resp = RestApiResponse.jsonResponse(res, status = Http200).valueOr:
@@ -222,7 +222,7 @@ proc installStoreApiHandlers*(
     let parsedPeerAddr = parseUrlPeerAddr(peer).valueOr:
       return RestApiResponse.badRequest(error)
 
-    let peerInfo = parsedPeerAddr.valueOr:
+    let _ = parsedPeerAddr.valueOr:
       node.peerManager.selectPeer(WakuStoreCodec).valueOr:
         let handler = discHandler.valueOr:
           return NoPeerNoDiscError
@@ -235,4 +235,4 @@ proc installStoreApiHandlers*(
             "No suitable service peer & none discovered"
           )
 
-    return await node.performStoreQuery(storeQuery, peerInfo)
+    return await node.performStoreQuery(storeQuery)

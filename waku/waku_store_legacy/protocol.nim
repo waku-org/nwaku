@@ -26,9 +26,6 @@ import
 logScope:
   topics = "waku legacy store"
 
-const MaxMessageTimestampVariance* = getNanoSecondTime(20)
-  # 20 seconds maximum allowable sender timestamp "drift"
-
 type HistoryQueryHandler* =
   proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.}
 

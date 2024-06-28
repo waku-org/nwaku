@@ -463,6 +463,15 @@ type WakuNodeConf* = object
       name: "lightpushnode"
     .}: string
 
+    ## Reliability config
+    reliabilityEnabled* {.
+      desc:
+        """Adds an extra effort in the delivery/reception of messages by leveraging store-v3 requests.
+with the drawback of consuming some more bandwitdh.""",
+      defaultValue: false,
+      name: "reliability"
+    .}: bool
+
     ## REST HTTP config
     rest* {.
       desc: "Enable Waku REST HTTP server: true|false", defaultValue: true, name: "rest"

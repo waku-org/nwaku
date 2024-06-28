@@ -4,7 +4,13 @@
 
 import std/options, chronicles, chronos, libp2p/protocols/protocol, bearssl/rand
 import
-  ../node/peer_manager, ../waku_core, ./common, ./protocol_metrics, ./rpc_codec, ./rpc
+  ../node/peer_manager,
+  ../node/delivery_monitor/subscriptions_observer,
+  ../waku_core,
+  ./common,
+  ./protocol_metrics,
+  ./rpc_codec,
+  ./rpc
 
 logScope:
   topics = "waku filter client"
@@ -13,11 +19,15 @@ type WakuFilterClient* = ref object of LPProtocol
   rng: ref HmacDrbgContext
   peerManager: PeerManager
   pushHandlers: seq[FilterPushHandler]
+  subscrObservers: seq[SubscriptionObserver]
 
 func generateRequestId(rng: ref HmacDrbgContext): string =
   var bytes: array[10, byte]
   hmacDrbgGenerate(rng[], bytes)
   return toHex(bytes)
+
+proc addSubscrObserver*(wfc: WakuFilterClient, obs: SubscriptionObserver) =
+  wfc.subscrObservers.add(obs)
 
 proc sendSubscribeRequest(
     wfc: WakuFilterClient,
@@ -113,7 +123,10 @@ proc subscribe*(
     requestId = requestId, pubsubTopic = pubsubTopic, contentTopics = contentTopicSeq
   )
 
-  return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+  ?await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+
+  for obs in wfc.subscrObservers:
+    obs.onSubscribe(pubSubTopic, contentTopicSeq)
 
 proc unsubscribe*(
     wfc: WakuFilterClient,
@@ -132,7 +145,9 @@ proc unsubscribe*(
     requestId = requestId, pubsubTopic = pubsubTopic, contentTopics = contentTopicSeq
   )
 
-  return await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+  ?await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+  for obs in wfc.subscrObservers:
+    obs.onUnsubscribe(pubSubTopic, contentTopicSeq)
 
 proc unsubscribeAll*(
     wfc: WakuFilterClient, servicePeer: RemotePeerInfo
