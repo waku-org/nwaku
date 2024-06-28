@@ -40,6 +40,7 @@ type WakuRlnConfig* = object
   rlnRelayCredIndex*: Option[uint]
   rlnRelayEthContractAddress*: string
   rlnRelayEthClientAddress*: string
+  rlnRelayChainId*: uint
   rlnRelayCredPath*: string
   rlnRelayCredPassword*: string
   rlnRelayTreePath*: string
@@ -429,6 +430,7 @@ proc mount(
     groupManager = OnchainGroupManager(
       ethClientUrl: string(conf.rlnRelayethClientAddress),
       ethContractAddress: $conf.rlnRelayEthContractAddress,
+      chainId: conf.rlnRelayChainId,
       rlnInstance: rlnInstance,
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,

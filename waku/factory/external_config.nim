@@ -76,6 +76,12 @@ type WakuNodeConf* = object
     name: "rln-relay-eth-contract-address"
   .}: string
 
+  rlnRelayChainId* {.
+    desc: "Chain ID of the provided contract (optional, will fetch from RPC provider if not used)",
+    defaultValue: 0,
+    name: "rln-relay-chain-id"
+  .}: uint
+
   rlnRelayCredPassword* {.
     desc: "Password for encrypting RLN credentials",
     defaultValue: "",

@@ -116,6 +116,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     confCopy.clusterId = twnClusterConf.clusterId
     confCopy.rlnRelay = twnClusterConf.rlnRelay
     confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
     confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
     confCopy.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
     confCopy.discv5Discovery = twnClusterConf.discv5Discovery
