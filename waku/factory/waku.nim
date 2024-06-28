@@ -1,3 +1,4 @@
+
 {.push raises: [].}
 
 import
@@ -20,6 +21,7 @@ import
   ../waku_node,
   ../node/peer_manager,
   ../node/health_monitor,
+  ../waku/node/reliability_monitor,
   ../waku_api/message_cache,
   ../waku_api/rest/server,
   ../waku_archive,
@@ -50,6 +52,8 @@ type Waku* = object
   dynamicBootstrapNodes: seq[RemotePeerInfo]
 
   node*: WakuNode
+
+  deliveryMonitor: DeliveryMonitor
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
