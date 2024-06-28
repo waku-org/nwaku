@@ -1,14 +1,14 @@
 {.used.}
 
 import
-  std/[os],
+  std/os,
+  chronos/timer,
   stew/byteutils,
   stew/shims/net,
   testutils/unittests,
   presto,
   presto/client as presto_client,
   libp2p/crypto/crypto,
-  chronos/timer
 import
   ../../waku/waku_api/message_cache,
   ../../waku/waku_core,
@@ -445,7 +445,7 @@ suite "Waku v2 Rest API - Filter V2":
       len(messages1.data) == 1
 
     # Pause execution for 2 minutes to test TimeCache functionality of service node
-    sleep(1)
+    sleep(2)
 
     # second - message push from service node to subscriber client
     let postMsgResponse2 = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(
