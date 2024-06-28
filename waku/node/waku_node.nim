@@ -423,7 +423,7 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  info "relay mounted successfully"
+  info "relay mounted successfully", pubsubTopics
 
   # Subscribe to topics
   for pubsubTopic in pubsubTopics:
