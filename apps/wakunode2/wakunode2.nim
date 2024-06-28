@@ -42,7 +42,7 @@ when isMainModule:
     error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  ## Also called within Waku.init. The call to startRestServerEsentials needs the following line
+  ## Also called within Waku.init. The call to startRestServerEssentials needs the following line
   logging.setupLog(conf.logLevel, conf.logFormat)
 
   case conf.cmd
@@ -58,10 +58,10 @@ when isMainModule:
     nodeHealthMonitor = WakuNodeHealthMonitor()
     nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-    let restServer = rest_server_builder.startRestServerEsentials(
+    let restServer = rest_server_builder.startRestServerEssentials(
       nodeHealthMonitor, conf
     ).valueOr:
-      error "Starting esential REST server failed.", error = $error
+      error "Starting essential REST server failed.", error = $error
       quit(QuitFailure)
 
     var waku = Waku.init(conf).valueOr:
