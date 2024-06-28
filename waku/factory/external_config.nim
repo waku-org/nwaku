@@ -76,7 +76,7 @@ type WakuNodeConf* = object
   .}: EthRpcUrl
 
   rlnRelayEthContractAddress* {.
-    desc: "Address of membership contract on an Ethereum testnet",
+    desc: "Address of membership contract on an Ethereum testnet. Part of presets.",
     defaultValue: "",
     name: "rln-relay-eth-contract-address"
   .}: string
@@ -102,21 +102,21 @@ type WakuNodeConf* = object
 
   rlnRelayUserMessageLimit* {.
     desc:
-      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1. Part of presets.",
     defaultValue: 1,
     name: "rln-relay-user-message-limit"
   .}: uint64
 
   rlnEpochSizeSec* {.
     desc:
-      "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second. Part of presets.",
     defaultValue: 1,
     name: "rln-relay-epoch-sec"
   .}: uint64
 
   maxMessageSize* {.
     desc:
-      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
+      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc. Part of presets.",
     defaultValue: DefaultMaxWakuMessageSizeStr,
     name: "max-msg-size"
   .}: string
@@ -145,9 +145,15 @@ type WakuNodeConf* = object
     .}: seq[ProtectedShard]
 
     ## General node config
+    preset* {.
+      desc: "Network preset to use." & "Must be one of 'default', ''",
+      defaultValue: "",
+      name: "preset"
+    .}: string
+
     clusterId* {.
       desc:
-        "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
+        "Cluster id that the node is running in. Node in a different cluster id is disconnected. Part of presets.",
       defaultValue: 0,
       name: "cluster-id"
     .}: uint16
@@ -276,7 +282,7 @@ hence would have reachability issues.""",
     .}: bool
 
     rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
+      desc: "Enable spam protection through rln-relay: true|false. Part of presets.",
       defaultValue: false,
       name: "rln-relay"
     .}: bool
@@ -287,7 +293,8 @@ hence would have reachability issues.""",
     .}: Option[uint]
 
     rlnRelayDynamic* {.
-      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      desc:
+        "Enable  waku-rln-relay with on-chain dynamic group management: true|false. Part of presets.",
       defaultValue: false,
       name: "rln-relay-dynamic"
     .}: bool
@@ -311,7 +318,8 @@ hence would have reachability issues.""",
     .}: string
 
     rlnRelayBandwidthThreshold* {.
-      desc: "Message rate in bytes/sec after which verification of proofs should happen",
+      desc:
+        "Message rate in bytes/sec after which verification of proofs should happen. Part of presets.",
       defaultValue: 0, # to maintain backwards compatibility
       name: "rln-relay-bandwidth-threshold"
     .}: int
@@ -327,6 +335,7 @@ hence would have reachability issues.""",
       name: "keep-alive"
     .}: bool
 
+    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
     # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
       desc: "Number of shards in the network",
@@ -590,7 +599,7 @@ with the drawback of consuming some more bandwidth.""",
 
     ## Discovery v5 config
     discv5Discovery* {.
-      desc: "Enable discovering nodes via Node Discovery v5",
+      desc: "Enable discovering nodes via Node Discovery v5. Part of presets.",
       defaultValue: false,
       name: "discv5-discovery"
     .}: bool
@@ -603,7 +612,7 @@ with the drawback of consuming some more bandwidth.""",
 
     discv5BootstrapNodes* {.
       desc:
-        "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated.",
+        "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated. Part of presets.",
       name: "discv5-bootstrap-node"
     .}: seq[string]
 

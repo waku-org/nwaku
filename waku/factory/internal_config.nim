@@ -12,7 +12,8 @@ import
   ../node/config,
   ../waku_enr/capabilities,
   ../waku_enr,
-  ../waku_core
+  ../waku_core,
+  ./networks_config
 
 proc enrConfiguration*(
     conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey
@@ -157,3 +158,81 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
   )
 
   return netConfigRes
+
+proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, string] =
+  var resConf = srcConf
+
+  if resConf.clusterId == 1:
+    warn(
+      "Sandbox (The Waku Network) configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=sandbox` instead."
+    )
+    resConf.preset = "default"
+
+  case resConf.preset
+  of "default":
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+
+    # Override configuration
+    resConf.maxMessageSize = twnClusterConf.maxMessageSize
+    resConf.clusterId = twnClusterConf.clusterId
+    resConf.rlnRelay = twnClusterConf.rlnRelay
+    resConf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    resConf.rlnRelayChainId = twnClusterConf.rlnRelayChainId
+    resConf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    resConf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+    resConf.discv5Discovery = twnClusterConf.discv5Discovery
+    resConf.discv5BootstrapNodes =
+      resConf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+    resConf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    resConf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    resConf.numShardsInNetwork = twnClusterConf.numShardsInNetwork
+
+    if resConf.relay:
+      resConf.rlnRelay = twnClusterConf.rlnRelay
+  else:
+    discard
+
+  return ok(resConf)
+
+# TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
+proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+  if conf.numShardsInNetwork != 0:
+    return conf.numShardsInNetwork
+  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
+  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
+  return uint32(MaxShardIndex + 1)
+
+proc validateShards*(conf: WakuNodeConf): Result[void, string] =
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
+
+  for shard in conf.shards:
+    if shard >= numShardsInNetwork:
+      let msg =
+        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
+        $numShardsInNetwork # fmt doesn't work
+      error "validateShards failed", error = msg
+      return err(msg)
+
+  return ok()
+
+proc nodeKeyConfiguration*(
+    conf: WakuNodeConf, rng: Option[ref HmacDrbgContext] = none(ref HmacDrbgContext)
+): Result[PrivateKey, string] =
+  if conf.nodeKey.isSome:
+    return ok(conf.nodeKey.get())
+
+  let key =
+    if conf.nodeKey.isSome() and rng.isSome():
+      conf.nodeKey.get()
+    else:
+      warn "missing key or rng, generating new set"
+      var nodeRng =
+        if rng.isSome():
+          rng.get()
+        else:
+          crypto.newRng()
+      crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
+        error "Failed to generate key", error = error
+        return err("Failed to generate key: " & $error)
+
+  return ok(key)

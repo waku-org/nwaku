@@ -137,13 +137,6 @@ proc initNode(
 
 ## Mount protocols
 
-proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
-  if conf.numShardsInNetwork != 0:
-    return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
-  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
-  return uint32(MaxShardIndex + 1)
-
 proc getAutoshards*(
     node: WakuNode, contentTopics: seq[string]
 ): Result[seq[RelayShard], string] =
@@ -265,6 +258,7 @@ proc setupProtocols(
 
   if conf.numShardsInNetwork == 0:
     warn "Number of shards in network not configured, setting it to",
+      # TODO: If not configured, it mounts 1024 shards! Make it a mandatory configuration instead
       numShardsInNetwork = $numShardsInNetwork
 
   node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
@@ -484,15 +478,9 @@ proc startNode*(
 proc setupNode*(
     conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
-  # Use provided key only if corresponding rng is also provided
-  let key =
-    if conf.nodeKey.isSome():
-      conf.nodeKey.get()
-    else:
-      warn "missing key, generating new"
-      crypto.PrivateKey.random(Secp256k1, rng[]).valueOr:
-        error "Failed to generate key", error = error
-        return err("Failed to generate key: " & $error)
+  let key = nodeKeyConfiguration(conf).valueOr:
+    error "Failed to set node key", error = error
+    return err("Failed to set node key: " & error)
 
   let netConfig = networkConfiguration(conf, clientId).valueOr:
     error "failed to create internal config", error = error
