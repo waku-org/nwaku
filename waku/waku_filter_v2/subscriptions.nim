@@ -10,6 +10,7 @@ const
   MaxFilterPeers* = 1000
   MaxFilterCriteriaPerPeer* = 1000
   DefaultSubscriptionTimeToLiveSec* = 5.minutes
+  MessageCacheTTL* = 2.minutes
 
 type
   # a single filter criterion is fully defined by a pubsub topic and content topic
