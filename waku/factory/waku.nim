@@ -99,19 +99,6 @@ proc logConfig(conf: WakuNodeConf) =
 func version*(waku: Waku): string =
   waku.version
 
-proc validateShards(conf: WakuNodeConf): Result[void, string] =
-  let numShardsInNetwork = getNumShardsInNetwork(conf)
-
-  for shard in conf.shards:
-    if shard >= numShardsInNetwork:
-      let msg =
-        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
-        $numShardsInNetwork # fmt doesn't work
-      error "validateShards failed", error = msg
-      return err(msg)
-
-  return ok()
-
 proc setupSwitchServices(
     waku: Waku, conf: WakuNodeConf, circuitRelay: Relay, rng: ref HmacDrbgContext
 ) =
@@ -184,16 +171,16 @@ proc setupAppCallbacks(
   return ok()
 
 proc new*(
-    T: type Waku, confCopy: var WakuNodeConf, appCallbacks: AppCallbacks = nil
+    T: type Waku, srcConf: var WakuNodeConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(confCopy.logLevel, confCopy.logFormat)
+  logging.setupLog(srcConf.logLevel, srcConf.logFormat)
 
   # TODO: remove after pubsubtopic config gets removed
   var shards = newSeq[uint16]()
-  if confCopy.pubsubTopics.len > 0:
-    let shardsRes = topicsToRelayShards(confCopy.pubsubTopics)
+  if srcConf.pubsubTopics.len > 0:
+    let shardsRes = topicsToRelayShards(srcConf.pubsubTopics)
     if shardsRes.isErr():
       error "failed to parse pubsub topic, please format according to static shard specification",
         error = shardsRes.error
@@ -203,75 +190,59 @@ proc new*(
 
     if shardsOpt.isSome():
       let relayShards = shardsOpt.get()
-      if relayShards.clusterId != confCopy.clusterId:
+      if relayShards.clusterId != srcConf.clusterId:
         error "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22",
-          nodeCluster = confCopy.clusterId, pubsubCluster = relayShards.clusterId
+          nodeCluster = srcConf.clusterId, pubsubCluster = relayShards.clusterId
         return err(
           "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22"
         )
 
       for shard in relayShards.shardIds:
         shards.add(shard)
-      confCopy.shards = shards
+      srcConf.shards = shards
 
-  case confCopy.clusterId
+  # Why can't I replace this block with a concise `.valueOr`?
+  let finalConf = block:
+    let res = applyPresetConfiguration(srcConf)
+    if res.isErr():
+      error "Failed to complete the config", error = res.error
+      return err("Failed to complete the config:" & $res.error)
+    res.get()
 
-  # cluster-id=1 (aka The Waku Network)
-  of 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-
-    # Override configuration
-    confCopy.maxMessageSize = twnClusterConf.maxMessageSize
-    confCopy.clusterId = twnClusterConf.clusterId
-    confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
-    confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    confCopy.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    confCopy.discv5Discovery = twnClusterConf.discv5Discovery
-    confCopy.discv5BootstrapNodes =
-      confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-    confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    confCopy.numShardsInNetwork = twnClusterConf.numShardsInNetwork
-
-    # Only set rlnRelay to true if relay is configured
-    if confCopy.relay:
-      confCopy.rlnRelay = twnClusterConf.rlnRelay
-  else:
-    discard
+  logConfig(finalConf)
 
   info "Running nwaku node", version = git_version
-  logConfig(confCopy)
 
-  let validateShardsRes = validateShards(confCopy)
+  let validateShardsRes = validateShards(finalConf)
   if validateShardsRes.isErr():
     error "Failed validating shards", error = $validateShardsRes.error
     return err("Failed validating shards: " & $validateShardsRes.error)
 
-  if not confCopy.nodekey.isSome():
+  # TODO: We are also generating a node key in setupNode
+  if not finalConf.nodekey.isSome():
     let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
     if keyRes.isErr():
       error "Failed to generate key", error = $keyRes.error
       return err("Failed to generate key: " & $keyRes.error)
-    confCopy.nodekey = some(keyRes.get())
+    finalConf.nodekey = some(keyRes.get())
 
-  var relay = newCircuitRelay(confCopy.isRelayClient)
+  var relay = newCircuitRelay(finalConf.isRelayClient)
 
-  let nodeRes = setupNode(confCopy, rng, relay)
+  let nodeRes = setupNode(finalConf, rng, relay)
   if nodeRes.isErr():
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
   let node = nodeRes.get()
 
-  node.setupAppCallbacks(confCopy, appCallbacks).isOkOr:
+  node.setupAppCallbacks(finalConf, appCallbacks).isOkOr:
     error "Failed setting up app callbacks", error = error
     return err("Failed setting up app callbacks: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
-  if confCopy.reliabilityEnabled:
-    if confCopy.storenode == "":
+  if finalConf.reliabilityEnabled:
+    if finalConf.storenode == "":
       return err("A storenode should be set when reliability mode is on")
 
     let deliveryMonitorRes = DeliveryMonitor.new(
@@ -284,15 +255,15 @@ proc new*(
 
   var waku = Waku(
     version: git_version,
-    conf: confCopy,
+    conf: finalConf,
     rng: rng,
-    key: confCopy.nodekey.get(),
+    key: finalConf.nodekey.get(),
     node: node,
     deliveryMonitor: deliveryMonitor,
     appCallbacks: appCallbacks,
   )
 
-  waku.setupSwitchServices(confCopy, relay, rng)
+  waku.setupSwitchServices(finalConf, relay, rng)
 
   ok(waku)
 
