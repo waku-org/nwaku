@@ -444,8 +444,8 @@ suite "Waku v2 Rest API - Filter V2":
       postMsgResponse1.data == "OK"
       len(messages1.data) == 1
 
-    # Pause execution for 2 minutes to test TimeCache functionality of service node
-    sleep(1000)
+    # Pause execution for 1 seconds to test TimeCache functionality of service node
+    await sleepAsync(1.seconds)
 
     # second - message push from service node to subscriber client
     let postMsgResponse2 = await restFilterTest.clientTwdServiceNode.relayPostMessagesV1(
