@@ -1,8 +1,5 @@
 ## Nim wrappers for the functions defined in librln
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import stew/results
 
