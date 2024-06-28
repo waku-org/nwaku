@@ -31,7 +31,7 @@ import
 const os* {.strdefine.} = ""
 when os == "Linux" and
     # GitHub only supports container actions on Linux
-    # and we need to start a postgress database in a docker container
+    # and we need to start a postgres database in a docker container
     defined(postgres):
   import
     ./waku_archive/test_driver_postgres_query,
@@ -103,3 +103,4 @@ import
 import ./waku_rln_relay/test_all
 
 # Node Factory
+import ./factory/test_config
