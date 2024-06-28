@@ -5,7 +5,8 @@ import
   libp2p/peerid,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/nameresolving/dnsresolver,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  system/ansi_c
 
 import
   ./internal_config,
@@ -144,14 +145,23 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  let shards =
-    conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
-  debug "Shards created from content topics",
-    contentTopics = conf.contentTopics, shards = shards
+  var pubsubTopics: seq[string] = conf.pubsubTopics
+  for shard in conf.shards:
+    pubsubTopics.add($NsPubsubTopic.staticSharding(conf.clusterId, shard))
+
+  if conf.shards.len == 0:
+    # If shards are not configured but content topics are, then assume autosharding is expected
+    # and derive shards from content topics
+    # This currently does not work as pubsub topic might be defined as well.
+    # Why are we doing this? Looks like it's because we are aiming for wakunode2 to be both client and server
+    let shards =
+      conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
+    for shard in shards:
+      pubsubTopics.add($shard)
+    debug "Shards created from content topics",
+      contentTopics = conf.contentTopics, shards = shards
 
   if conf.relay:
-    let pubsubTopics = conf.pubsubTopics & shards
-
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
 
