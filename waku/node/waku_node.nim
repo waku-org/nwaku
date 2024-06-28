@@ -446,7 +446,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(
     node: WakuNode,
     pubsubTopics: seq[string] = @[],
-    peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
@@ -462,12 +461,6 @@ proc mountRelay*(
     return
 
   node.wakuRelay = initRes.value
-
-  ## Add peer exchange handler
-  if peerExchangeHandler.isSome():
-    node.wakuRelay.parameters.enablePX = true
-      # Feature flag for peer exchange in nim-libp2p
-    node.wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   if node.started:
     await node.startRelay()
