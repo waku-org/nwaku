@@ -12,7 +12,8 @@ import
   ../node/config,
   ../waku_enr/capabilities,
   ../waku_enr,
-  ../waku_core
+  ../waku_core,
+  ./networks_config
 
 proc enrConfiguration*(
     conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey
@@ -178,3 +179,60 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
   )
 
   return netConfigRes
+
+proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, string] =
+  var resConf = srcConf
+
+  if resConf.clusterId == 1:
+    warn(
+      "TWN configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=default` instead."
+    )
+    resConf.preset = "default"
+
+  case resConf.preset
+  of "default":
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+    for shard in resConf.shards:
+      if not (shard.int < twnClusterConf.pubsubTopics.len):
+        return err(
+          "Invalid shard received: " & $shard & " is not part of the available shards: " &
+            $toSeq(0 .. twnClusterConf.pubsubTopics.len - 1)
+        )
+      else:
+        resConf.pubsubTopics.add(twnClusterConf.pubsubTopics[shard.uint16])
+
+    # Override configuration
+    resConf.maxMessageSize = twnClusterConf.maxMessageSize
+    resConf.clusterId = twnClusterConf.clusterId
+    resConf.rlnRelay = twnClusterConf.rlnRelay
+    resConf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    resConf.rlnRelayChainId = twnClusterConf.rlnRelayChainId
+    resConf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    resConf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+    resConf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    resConf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    resConf.discv5Discovery = twnClusterConf.discv5Discovery
+    resConf.discv5BootstrapNodes =
+      resConf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+  else:
+    discard
+
+  return ok(resConf)
+
+proc nodeKeyConfiguration*(
+    conf: WakuNodeConf, rng: Option[ref HmacDrbgContext] = none(ref HmacDrbgContext)
+): Result[PrivateKey, string] =
+  if conf.nodeKey.isSome:
+    return ok(conf.nodeKey.get())
+
+  var nodeRng =
+    if rng.isSome():
+      rng.get()
+    else:
+      crypto.newRng()
+
+  let key = crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
+    error "Failed to generate key", error = $error
+    return err("Failed to generate key: " & $error)
+
+  return ok(key)

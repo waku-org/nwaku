@@ -85,55 +85,25 @@ func version*(waku: Waku): string =
 
 ## Initialisation
 
-proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
-  var confCopy = conf
+proc init*(T: type Waku, srcConf: WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(conf.logLevel, conf.logFormat)
+  logConfig(srcConf)
+  logging.setupLog(srcConf.logLevel, srcConf.logFormat)
 
-  case confCopy.clusterId
-
-  # cluster-id=1 (aka The Waku Network)
-  of 1:
-    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(confCopy.shards) != 0:
-      confCopy.pubsubTopics =
-        confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      confCopy.pubsubTopics = twnClusterConf.pubsubTopics
-
-    # Override configuration
-    confCopy.maxMessageSize = twnClusterConf.maxMessageSize
-    confCopy.clusterId = twnClusterConf.clusterId
-    confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
-    confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
-    confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
-    confCopy.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
-    confCopy.discv5Discovery = twnClusterConf.discv5Discovery
-    confCopy.discv5BootstrapNodes =
-      confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
-    confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
-    confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-
-    # Only set rlnRelay to true if relay is configured
-    if confCopy.relay:
-      confCopy.rlnRelay = twnClusterConf.rlnRelay
-  else:
-    discard
+  # Why can't I replace this block with a concise `.valueOr`?
+  let finalConf = block:
+    let res = applyPresetConfiguration(srcConf)
+    if res.isErr():
+      error "Failed to complete the config", error = res.error
+      return err("Failed to complete the config:" & $res.error)
+    res.get()
 
   info "Running nwaku node", version = git_version
-  logConfig(confCopy)
-
-  if not confCopy.nodekey.isSome():
-    let keyRes = crypto.PrivateKey.random(Secp256k1, rng[])
-    if keyRes.isErr():
-      error "Failed to generate key", error = $keyRes.error
-      return err("Failed to generate key: " & $keyRes.error)
-    confCopy.nodekey = some(keyRes.get())
 
   debug "Retrieve dynamic bootstrap nodes"
   let dynamicBootstrapNodesRes = waku_dnsdisc.retrieveDynamicBootstrapNodes(
-    confCopy.dnsDiscovery, confCopy.dnsDiscoveryUrl, confCopy.dnsDiscoveryNameServers
+    finalConf.dnsDiscovery, finalConf.dnsDiscoveryUrl, finalConf.dnsDiscoveryNameServers
   )
   if dynamicBootstrapNodesRes.isErr():
     error "Retrieving dynamic bootstrap nodes failed",
@@ -142,16 +112,16 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
       "Retrieving dynamic bootstrap nodes failed: " & dynamicBootstrapNodesRes.error
     )
 
-  let nodeRes = setupNode(confCopy, some(rng))
+  let nodeRes = setupNode(finalConf, some(rng))
   if nodeRes.isErr():
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
   var waku = Waku(
     version: git_version,
-    conf: confCopy,
+    conf: finalConf,
     rng: rng,
-    key: confCopy.nodekey.get(),
+    key: finalConf.nodekey.get(),
     node: nodeRes.get(),
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
   )

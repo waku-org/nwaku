@@ -399,15 +399,9 @@ proc setupNode*(
     else:
       crypto.newRng()
 
-  # Use provided key only if corresponding rng is also provided
-  let key =
-    if conf.nodeKey.isSome() and rng.isSome():
-      conf.nodeKey.get()
-    else:
-      warn "missing key or rng, generating new set"
-      crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
-        error "Failed to generate key", error = error
-        return err("Failed to generate key: " & $error)
+  let key = nodeKeyConfiguration(conf).valueOr:
+    error "Failed to generate key", error = error
+    return err("Failed to generate key: " & error)
 
   let netConfig = networkConfiguration(conf, clientId).valueOr:
     error "failed to create internal config", error = error
