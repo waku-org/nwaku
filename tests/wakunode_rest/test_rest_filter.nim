@@ -8,7 +8,7 @@ import
   testutils/unittests,
   presto,
   presto/client as presto_client,
-  libp2p/crypto/crypto,
+  libp2p/crypto/crypto
 import
   ../../waku/waku_api/message_cache,
   ../../waku/waku_core,
