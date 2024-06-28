@@ -15,7 +15,7 @@ import ../common/enr, ../waku_core
 logScope:
   topics = "waku enr sharding"
 
-const MaxShardIndex: uint16 = 1023
+const MaxShardIndex*: uint16 = 1023
 
 const
   ShardingIndicesListEnrField* = "rs"
