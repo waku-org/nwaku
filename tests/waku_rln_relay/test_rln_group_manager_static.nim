@@ -6,10 +6,10 @@ import
   testutils/unittests,
   stew/results,
   options,
-  ../../../waku/waku_rln_relay/protocol_types,
-  ../../../waku/waku_rln_relay/rln,
-  ../../../waku/waku_rln_relay/conversion_utils,
-  ../../../waku/waku_rln_relay/group_manager/static/group_manager
+  waku_rln_relay/protocol_types,
+  waku_rln_relay/rln,
+  waku_rln_relay/conversion_utils,
+  waku_rln_relay/group_manager/static/group_manager
 
 import stew/shims/net, chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
 

@@ -8,12 +8,12 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../../waku/common/databases/db_sqlite,
-  ../../../waku/common/paging,
-  ../../../waku/waku_core,
-  ../../../waku/waku_core/message/digest,
-  ../../../waku/waku_archive/driver/sqlite_driver,
-  ../../../waku/waku_archive,
+  common/databases/db_sqlite,
+  common/paging,
+  waku_core,
+  waku_core/message/digest,
+  waku_archive/driver/sqlite_driver,
+  waku_archive,
   ../waku_archive/archive_utils,
   ../testlib/common,
   ../testlib/wakucore

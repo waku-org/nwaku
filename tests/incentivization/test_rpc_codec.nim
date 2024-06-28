@@ -7,8 +7,8 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../../waku/incentivization/rpc,
-  ../../../waku/incentivization/rpc_codec
+  incentivization/rpc,
+  incentivization/rpc_codec
 
 
 suite "Waku Incentivization Eligibility Codec":

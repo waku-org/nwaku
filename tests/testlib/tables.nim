@@ -1,6 +1,6 @@
 import std/[tables, sequtils, options]
 
-import ../../../waku/waku_core/topics, ../testlib/wakucore
+import waku_core/topics, ../testlib/wakucore
 
 proc `==`*(
     table: Table[pubsub_topic.NsPubsubTopic, seq[NsContentTopic]],

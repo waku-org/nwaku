@@ -12,7 +12,7 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  ../../../waku/[
+  [
     node/peer_manager,
     discovery/waku_discv5,
     waku_peer_exchange/rpc,

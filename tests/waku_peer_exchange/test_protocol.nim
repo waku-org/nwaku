@@ -10,7 +10,7 @@ import
   eth/[keys, p2p/discoveryv5/enr]
 
 import
-  ../../../waku/[
+  [
     waku_node,
     node/peer_manager,
     discovery/waku_discv5,

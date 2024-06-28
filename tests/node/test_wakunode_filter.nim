@@ -10,14 +10,12 @@ import
   libp2p/[peerstore, crypto/crypto]
 
 import
-  ../../../waku/[
-    waku_core,
-    node/peer_manager,
-    node/waku_node,
-    waku_filter_v2,
-    waku_filter_v2/client,
-    waku_filter_v2/subscriptions,
-  ],
+  waku_core,
+  node/peer_manager,
+  node/waku_node,
+  waku_filter_v2,
+  waku_filter_v2/client,
+  waku_filter_v2/subscriptions,
   ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]
 
 suite "Waku Filter - End to End":

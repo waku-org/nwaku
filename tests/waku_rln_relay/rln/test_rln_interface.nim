@@ -1,6 +1,6 @@
 import testutils/unittests
 
-import ../../../../waku/waku_rln_relay/rln/rln_interface, ./buffer_utils
+import waku_rln_relay/rln/rln_interface, ./buffer_utils
 
 suite "Buffer":
   suite "toBuffer":
