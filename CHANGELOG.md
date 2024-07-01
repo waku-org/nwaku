@@ -1,11 +1,23 @@
 ## v0.30.0 (2024-07-01)
 
-### Features
+### Notes
 
-- rlnv2: clean fork of rlnv2 ([#2828](https://github.com/waku-org/nwaku/issues/2828)) ([a02832fe](https://github.com/waku-org/nwaku/commit/a02832fe))
+* Before upgrading to this version, if you are currently using RLN, make sure to remove your existing `keystore` folder and `rln_tree`
+and start your installation from scratch, as
+explained in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/1b56575df9ddb904af0941a19ea1df3d36bfddfa/README.md).
+
+### Release highlights
+
+* RLN_v2 is used. The maximum rate can be set to
+`N` messages per epoch, instead of just one meessage per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details.
 
 ### Changes
 
+- rln-relay: add chain-id flag to wakunode and restrict usage if mismatches rpc provider ([#2858](https://github.com/waku-org/nwaku/pull/2858))
+- rln: nullifierlog vulnerability ([#2855](https://github.com/waku-org/nwaku/pull/2855))
+- chore: add TWN parameters for RLNv2 ([#2843](https://github.com/waku-org/nwaku/pull/2843))
+- fix(rln-relay): clear nullifier log only if length is over max epoch gap ([#2836](https://github.com/waku-org/nwaku/pull/2836))
+- rlnv2: clean fork of rlnv2 ([#2828](https://github.com/waku-org/nwaku/issues/2828)) ([a02832fe](https://github.com/waku-org/nwaku/commit/a02832fe))
 - zerokit: bump submodule ([#2830](https://github.com/waku-org/nwaku/issues/2830)) ([bd064882](https://github.com/waku-org/nwaku/commit/bd064882))
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
