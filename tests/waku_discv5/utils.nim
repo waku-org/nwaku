@@ -6,8 +6,10 @@ import
   eth/keys as eth_keys
 
 import
-  
-    [waku_core/topics, waku_enr, discovery/waku_discv5, node/peer_manager/peer_manager],
+  waku_core/topics,
+  waku_enr,
+  discovery/waku_discv5,
+  node/peer_manager/peer_manager,
   ../testlib/[common, wakucore]
 
 proc newTestDiscv5*(

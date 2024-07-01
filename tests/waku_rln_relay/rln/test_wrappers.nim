@@ -11,7 +11,9 @@ import
   metrics/chronos_httpserver
 
 import
-  [waku_rln_relay, waku_rln_relay/rln, waku_rln_relay/rln/wrappers],
+  waku_rln_relay,
+  waku_rln_relay/rln,
+  waku_rln_relay/rln/wrappers,
   ./waku_rln_relay_utils,
   ../../testlib/[simple_mock]
 

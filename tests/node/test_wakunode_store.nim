@@ -8,18 +8,16 @@ import
   libp2p/crypto/crypto
 
 import
-  [
-    common/paging,
-    node/waku_node,
-    node/peer_manager,
-    waku_core,
-    waku_core/message/digest,
-    waku_store,
-    waku_store/client,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite,
-  ],
+  common/paging,
+  node/waku_node,
+  node/peer_manager,
+  waku_core,
+  waku_core/message/digest,
+  waku_store,
+  waku_store/client,
+  waku_archive,
+  waku_archive/driver/sqlite_driver,
+  common/databases/db_sqlite,
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]

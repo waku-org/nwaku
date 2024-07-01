@@ -3,13 +3,11 @@
 import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  [
-    node/peer_manager,
-    waku_core,
-    waku_store_legacy,
-    waku_store_legacy/client,
-    common/paging,
-  ],
+  node/peer_manager,
+  waku_core,
+  waku_store_legacy,
+  waku_store_legacy/client,
+  common/paging,
   ../testlib/[common, wakucore, testasync, futures],
   ./store_utils
 

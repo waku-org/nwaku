@@ -22,7 +22,7 @@ import
   waku_lightpush/client,
   waku_lightpush/protocol_metrics,
   waku_lightpush/rpc,
-  waku_rln_relay
+  waku_rln_relay,
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
 
@@ -89,12 +89,11 @@ suite "Waku Lightpush - End To End":
 
   suite "Waku LightPush Validation Tests":
     asyncTest "Validate message size exceeds limit":
-      let 
-        msgOverLimit = fakeWakuMessage(
-          contentTopic = contentTopic,
-          payload = getByteSequence(DefaultMaxWakuMessageSize + 64 * 1024),
-        )
-      
+      let msgOverLimit = fakeWakuMessage(
+        contentTopic = contentTopic,
+        payload = getByteSequence(DefaultMaxWakuMessageSize + 64 * 1024),
+      )
+
       # When the client publishes an over-limit message
       let publishResponse = await client.lightpushPublish(
         some(pubsubTopic), msgOverLimit, serverRemotePeerInfo
@@ -102,7 +101,8 @@ suite "Waku Lightpush - End To End":
 
       check:
         publishResponse.isErr()
-        publishResponse.error == fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
+        publishResponse.error ==
+          fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
 
 suite "RLN Proofs as a Lightpush Service":
   var
@@ -140,7 +140,6 @@ suite "RLN Proofs as a Lightpush Service":
       rlnEpochSizeSec: 1,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode"),
     )
-
 
     await allFutures(server.start(), client.start())
     await server.start()
