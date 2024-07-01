@@ -351,7 +351,7 @@ suite "Peer Manager":
         await server2.stop()
 
     suite "Tracked Peer Metadata":
-      xasyncTest "Metadata Recording":
+      asyncTest "Metadata Recording":
         # When adding a peer other than self to the peer store
         serverRemotePeerInfo.enr = some(server.enr)
         client.peerManager.addPeer(serverRemotePeerInfo)
