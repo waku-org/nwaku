@@ -10,7 +10,7 @@ import
   nimcrypto/utils,
   std/strutils,
   regex
-import ../../../waku/waku_core
+import waku_core
 
 type
   Fleet* = enum
