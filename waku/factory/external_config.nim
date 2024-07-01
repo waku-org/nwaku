@@ -194,7 +194,7 @@ type WakuNodeConf* = object
     ## Peer connection config
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections.",
-      defaultValue: 50,
+      defaultValue: 300,
       name: "max-connections"
     .}: uint16
 
