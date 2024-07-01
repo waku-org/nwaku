@@ -2,7 +2,7 @@
 
 import testutils/unittests, chronos
 
-import ../testlib/wakunode, factory/node_factory, waku_node
+import ../testlib/wakunode, waku/factory/node_factory, waku/waku_node
 
 suite "Node Factory":
   test "Set up a node based on default configurations":

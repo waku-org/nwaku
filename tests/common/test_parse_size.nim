@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests, stew/results
-import common/utils/parse_size_units
+import waku/common/utils/parse_size_units
 
 suite "Size serialization test":
   test "parse normal sizes":

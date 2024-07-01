@@ -1,7 +1,7 @@
 {.used.}
 
 import testutils/unittests
-import common/protobuf
+import waku/common/protobuf
 
 ## Fixtures
 

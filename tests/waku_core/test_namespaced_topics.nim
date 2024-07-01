@@ -1,7 +1,7 @@
 {.used.}
 
 import std/options, stew/results, testutils/unittests
-import waku_core/topics
+import waku/waku_core/topics
 
 suite "Waku Message - Content topics namespacing":
   test "Stringify namespaced content topic":

@@ -2,7 +2,7 @@
 
 import
   stew/results, testutils/unittests, libp2p/multiaddress, libp2p/peerid, libp2p/errors
-import waku_core
+import waku/waku_core
 
 suite "Waku Core - Peers":
   test "Peer info parses correctly":
