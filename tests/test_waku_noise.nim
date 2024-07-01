@@ -9,12 +9,12 @@ import
   libp2p/protobuf/minprotobuf,
   stew/endians2
 import
-  utils/noise as waku_message_utils,
-  waku_noise/noise_types,
-  waku_noise/noise_utils,
-  waku_noise/noise,
-  waku_noise/noise_handshake_processing,
-  waku_core,
+  waku/utils/noise as waku_message_utils,
+  waku/waku_noise/noise_types,
+  waku/waku_noise/noise_utils,
+  waku/waku_noise/noise,
+  waku/waku_noise/noise_handshake_processing,
+  waku/waku_core,
   ./testlib/common
 
 procSuite "Waku Noise":

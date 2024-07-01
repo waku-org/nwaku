@@ -10,9 +10,9 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 import
-  waku_core,
-  waku_node,
-  waku_rln_relay,
+  waku/waku_core,
+  waku/waku_node,
+  waku/waku_rln_relay,
   ../testlib/wakucore,
   ../testlib/wakunode,
   ./rln/waku_rln_relay_utils

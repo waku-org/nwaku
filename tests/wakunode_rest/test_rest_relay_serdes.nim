@@ -2,10 +2,10 @@
 
 import stew/[results, byteutils], chronicles, unittest2, json_serialization
 import
-  common/base64,
-  waku_api/rest/serdes,
-  waku_api/rest/relay/types,
-  waku_core
+  waku/common/base64,
+  waku/waku_api/rest/serdes,
+  waku/waku_api/rest/relay/types,
+  waku/waku_core
 
 suite "Waku v2 Rest API - Relay - serialization":
   suite "RelayWakuMessage - decode":

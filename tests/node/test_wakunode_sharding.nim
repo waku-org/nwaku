@@ -17,14 +17,14 @@ import
   libp2p/protocols/pubsub/pubsub
 
 import
-  waku_core/topics/pubsub_topic,
-  waku_core/topics/sharding,
-  node/waku_node,
-  common/paging,
-  waku_core,
-  waku_store/common,
-  node/peer_manager,
-  waku_filter_v2/client,
+  waku/waku_core/topics/pubsub_topic,
+  waku/waku_core/topics/sharding,
+  waku/node/waku_node,
+  waku/common/paging,
+  waku/waku_core,
+  waku/waku_store/common,
+  waku/node/peer_manager,
+  waku/waku_filter_v2/client,
   ../waku_relay/utils,
   ../waku_archive/archive_utils,
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]

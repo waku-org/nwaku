@@ -1,8 +1,8 @@
 import stew/results, testutils/unittests
 
 import
-  node/peer_manager/peer_store/peer_storage,
-  waku_core/peers
+  waku/node/peer_manager/peer_store/peer_storage,
+  waku/waku_core/peers
 
 suite "PeerStorage":
   var peerStorage {.threadvar.}: PeerStorage

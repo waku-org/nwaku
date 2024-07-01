@@ -10,11 +10,11 @@ import
   stint,
   libp2p/crypto/crypto
 import
-  waku_core,
-  waku_rln_relay,
-  waku_rln_relay/rln,
-  waku_rln_relay/protocol_metrics,
-  waku_keystore,
+  waku/waku_core,
+  waku/waku_rln_relay,
+  waku/waku_rln_relay/rln,
+  waku/waku_rln_relay/protocol_metrics,
+  waku/waku_keystore,
   ../testlib/common,
   ./rln/waku_rln_relay_utils
 

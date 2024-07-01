@@ -13,7 +13,7 @@ import
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode,
-  node/waku_metrics
+  waku/node/waku_metrics
 
 include factory/waku
 

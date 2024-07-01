@@ -3,8 +3,8 @@
 import testutils/unittests
 import
   stew/results,
-  waku_core/message,
-  waku_core/time,
+  waku/waku_core/message,
+  waku/waku_core/time,
   ./testlib/common
 
 suite "Waku Payload":
