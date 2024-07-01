@@ -10,20 +10,18 @@ import
   eth/[keys, p2p/discoveryv5/enr]
 
 import
-  [
-    waku_node,
-    node/peer_manager,
-    discovery/waku_discv5,
-    waku_peer_exchange,
-    waku_peer_exchange/rpc,
-    waku_peer_exchange/rpc_codec,
-    waku_peer_exchange/protocol,
-    node/peer_manager,
-    waku_relay/protocol,
-    waku_relay,
-    waku_core,
-    waku_core/message/codec,
-  ],
+  waku_node,
+  node/peer_manager,
+  discovery/waku_discv5,
+  waku_peer_exchange,
+  waku_peer_exchange/rpc,
+  waku_peer_exchange/rpc_codec,
+  waku_peer_exchange/protocol,
+  node/peer_manager,
+  waku_relay/protocol,
+  waku_relay,
+  waku_core,
+  waku_core/message/codec,
   ../testlib/[wakucore, wakunode, simple_mock, assertions],
   ./utils.nim
 

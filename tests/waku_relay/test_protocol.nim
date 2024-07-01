@@ -12,13 +12,11 @@ import
   std/json
 
 import
-  [
-    node/peer_manager,
-    waku_relay/protocol,
-    waku_relay,
-    waku_core,
-    waku_core/message/codec,
-  ],
+  node/peer_manager,
+  waku_relay/protocol,
+  waku_relay,
+  waku_core,
+  waku_core/message/codec,
   ../testlib/[wakucore, testasync, testutils, futures, sequtils],
   ./utils,
   ../resources/payloads

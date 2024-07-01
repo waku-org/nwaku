@@ -3,14 +3,12 @@
 import std/options, stew/results, chronos, libp2p/crypto/crypto
 
 import
-  [
-    node/peer_manager,
-    waku_core,
-    waku_archive,
-    waku_archive/common,
-    waku_archive/driver/sqlite_driver,
-    common/databases/db_sqlite,
-  ],
+  node/peer_manager,
+  waku_core,
+  waku_archive,
+  waku_archive/common,
+  waku_archive/driver/sqlite_driver,
+  common/databases/db_sqlite,
   ../testlib/[wakucore]
 
 proc newSqliteDatabase*(path: Option[string] = string.none()): SqliteDatabase =
