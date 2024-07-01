@@ -171,7 +171,7 @@ clean: | clean-librln
 #################
 .PHONY: testcommon
 
-testcommon: | build deps
+testcommon: | build deps negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
 
@@ -182,39 +182,39 @@ testcommon: | build deps
 .PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
 
 # install anvil only for the testwaku target
-testwaku: | build deps anvil librln
+testwaku: | build deps anvil librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim test -d:os=$(shell uname) $(NIM_PARAMS) waku.nims
 
-wakunode2: | build deps librln
+wakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
 
-benchmarks: | build deps librln
+benchmarks: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim benchmarks $(NIM_PARAMS) waku.nims
 
-testwakunode2: | build deps librln
+testwakunode2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testwakunode2 $(NIM_PARAMS) waku.nims
 
-example2: | build deps librln
+example2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim example2 $(NIM_PARAMS) waku.nims
 
-chat2: | build deps librln
+chat2: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2 $(NIM_PARAMS) waku.nims
 
-rln-db-inspector: | build deps librln
+rln-db-inspector: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 	$(ENV_SCRIPT) nim rln_db_inspector $(NIM_PARAMS) waku.nims
 
-chat2bridge: | build deps librln
+chat2bridge: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim chat2bridge $(NIM_PARAMS) waku.nims
 
-liteprotocoltester: | build deps librln
+liteprotocoltester: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
 
@@ -226,11 +226,11 @@ liteprotocoltester: | build deps librln
 
 tools: networkmonitor wakucanary
 
-wakucanary: | build deps librln
+wakucanary: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakucanary $(NIM_PARAMS) waku.nims
 
-networkmonitor: | build deps librln
+networkmonitor: | build deps librln negentropy
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
@@ -284,7 +284,7 @@ docker-push:
 
 STATIC ?= false
 
-libwaku: | build deps librln
+libwaku: | build deps librln negentropy
 		rm -f build/libwaku*
 ifeq ($(STATIC), true)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
@@ -404,3 +404,22 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+
+######################
+###   NEGENTROPY   ###
+######################
+.PHONY: negentropy
+
+## Pass libnegentropy to linker.
+NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
+
+all: | negentropy
+
+clean: | negentropy-clean
+
+negentropy:
+	$(MAKE) -C vendor/negentropy/cpp && \
+		cp vendor/negentropy/cpp/libnegentropy.so ./
+negentropy-clean:
+	$(MAKE) -C vendor/negentropy/cpp clean && \
+		rm libnegentropy.so

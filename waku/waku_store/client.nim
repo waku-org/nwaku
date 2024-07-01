@@ -48,7 +48,7 @@ proc sendStoreRequest(
   return ok(res)
 
 proc query*(
-    self: WakuStoreClient, request: StoreQueryRequest, peer: RemotePeerInfo
+    self: WakuStoreClient, request: StoreQueryRequest, peer: RemotePeerInfo | PeerId
 ): Future[StoreQueryResult] {.async, gcsafe.} =
   if request.paginationCursor.isSome() and request.paginationCursor.get() == EmptyCursor:
     return err(StoreError(kind: ErrorCode.BAD_REQUEST, cause: "invalid cursor"))
