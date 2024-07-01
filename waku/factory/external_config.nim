@@ -60,14 +60,14 @@ type WakuNodeConf* = object
 
   ## RLN Relay configuration
   rlnRelayCredPath* {.
-    desc: "The path for peristing rln-relay credential",
+    desc: "The path for persisting rln-relay credential",
     defaultValue: "",
     name: "rln-relay-cred-path"
   .}: string
 
   rlnRelayEthClientAddress* {.
     desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-    defaultValue: "http://localhost:8540/",
+    defaultValue: "",
     name: "rln-relay-eth-client-address"
   .}: EthRpcUrl
 
