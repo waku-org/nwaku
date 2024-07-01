@@ -421,6 +421,8 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   of Left:
     direction = UnknownDirection
     connectedness = CanConnect
+  else:
+    discard
 
     # note we cant access the peerId ip here as the connection was already closed
     for ip, peerIds in pm.ipTable.pairs:
