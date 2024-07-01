@@ -11,12 +11,12 @@ import
 import
   ../../tools/rln_keystore_generator/rln_keystore_generator,
   ../../tools/rln_db_inspector/rln_db_inspector,
-  ../../waku/common/logging,
-  ../../waku/factory/external_config,
-  ../../waku/factory/waku,
-  ../../waku/node/health_monitor,
-  ../../waku/node/waku_metrics,
-  ../../waku/waku_api/rest/builder as rest_server_builder
+  common/logging,
+  factory/external_config,
+  factory/waku,
+  node/health_monitor,
+  node/waku_metrics,
+  waku_api/rest/builder as rest_server_builder
 
 logScope:
   topics = "wakunode main"

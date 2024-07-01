@@ -12,11 +12,11 @@ import
   libp2p/multicodec
 import
   ./certsgenerator,
-  ../../waku/waku_enr,
-  ../../waku/node/peer_manager,
-  ../../waku/waku_core,
-  ../../waku/waku_node,
-  ../../waku/factory/builder
+  waku_enr,
+  node/peer_manager,
+  waku_core,
+  waku_node,
+  factory/builder
 
 # protocols and their tag
 const ProtocolsTable = {
