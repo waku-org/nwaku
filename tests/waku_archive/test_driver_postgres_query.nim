@@ -6,11 +6,11 @@ import
   chronos,
   chronicles
 import
-  waku_archive,
-  waku_archive/driver as driver_module,
-  waku_archive/driver/postgres_driver,
-  waku_core,
-  waku_core/message/digest,
+  waku/waku_archive,
+  waku/waku_archive/driver as driver_module,
+  waku/waku_archive/driver/postgres_driver,
+  waku/waku_core,
+  waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/testasync,

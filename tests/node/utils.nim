@@ -1,9 +1,9 @@
 import std/options, results
 import
-  node/peer_manager,
-  node/waku_node,
-  waku_enr/sharding,
-  common/enr/typed_record,
+  waku/node/peer_manager,
+  waku/node/waku_node,
+  waku/waku_enr/sharding,
+  waku/common/enr/typed_record,
   ../testlib/[wakucore]
 
 proc relayShards*(node: WakuNode): RelayShards =

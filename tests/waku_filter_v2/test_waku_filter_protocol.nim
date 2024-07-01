@@ -7,11 +7,11 @@ import
   chronicles,
   libp2p/peerstore
 import
-  node/peer_manager,
-  waku_filter_v2,
-  waku_filter_v2/rpc,
-  waku_filter_v2/subscriptions,
-  waku_core,
+  waku/node/peer_manager,
+  waku/waku_filter_v2,
+  waku/waku_filter_v2/rpc,
+  waku/waku_filter_v2/subscriptions,
+  waku/waku_core,
   ../testlib/common,
   ../testlib/wakucore,
   ./waku_filter_utils

@@ -11,9 +11,9 @@ import
   eth/keys,
   dnsdisc/builder
 import
-  node/peer_manager,
-  waku_node,
-  discovery/waku_dnsdisc,
+  waku/node/peer_manager,
+  waku/waku_node,
+  waku/discovery/waku_dnsdisc,
   ./testlib/common,
   ./testlib/wakucore,
   ./testlib/wakunode

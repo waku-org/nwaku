@@ -13,16 +13,16 @@ import
   eth/net/nat,
   json_rpc/rpcserver,
   # Matterbridge client imports
-  common/utils/matterbridge_client,
+  waku/common/utils/matterbridge_client,
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
   ../../../waku/waku_core,
   ../../../waku/waku_node,
   ../../../waku/node/peer_manager,
-  waku_filter_v2,
-  waku_store,
-  factory/builder,
+  waku/waku_filter_v2,
+  waku/waku_store,
+  waku/factory/builder,
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config

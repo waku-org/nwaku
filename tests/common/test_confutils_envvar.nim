@@ -9,8 +9,8 @@ import
   confutils/defs,
   confutils/std/net
 import
-  common/confutils/envvar/defs as confEnvvarDefs,
-  common/confutils/envvar/std/net as confEnvvarNet
+  waku/common/confutils/envvar/defs as confEnvvarDefs,
+  waku/common/confutils/envvar/std/net as confEnvvarNet
 
 type ConfResult[T] = Result[T, string]
 

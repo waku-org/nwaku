@@ -2,10 +2,10 @@
 
 import std/[sequtils, options], testutils/unittests, chronos
 import
-  waku_archive,
-  waku_archive/driver/postgres_driver,
-  waku_core,
-  waku_core/message/digest,
+  waku/waku_archive,
+  waku/waku_archive/driver/postgres_driver,
+  waku/waku_core,
+  waku/waku_core/message/digest,
   ../testlib/wakucore,
   ../testlib/testasync,
   ../testlib/postgres

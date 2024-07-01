@@ -11,18 +11,18 @@ import
   libp2p/[peerstore, crypto/crypto]
 
 import
-  waku_core,
-  node/peer_manager,
-  node/waku_node,
-  waku_filter_v2,
-  waku_filter_v2/client,
-  waku_filter_v2/subscriptions,
-  waku_lightpush,
-  waku_lightpush/common,
-  waku_lightpush/client,
-  waku_lightpush/protocol_metrics,
-  waku_lightpush/rpc,
-  waku_rln_relay,
+  waku/waku_core,
+  waku/node/peer_manager,
+  waku/node/waku_node,
+  waku/waku_filter_v2,
+  waku/waku_filter_v2/client,
+  waku/waku_filter_v2/subscriptions,
+  waku/waku_lightpush,
+  waku/waku_lightpush/common,
+  waku/waku_lightpush/client,
+  waku/waku_lightpush/protocol_metrics,
+  waku/waku_lightpush/rpc,
+  waku/waku_rln_relay,
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
 

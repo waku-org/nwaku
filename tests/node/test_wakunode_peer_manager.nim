@@ -13,13 +13,13 @@ import
 from times import getTime, toUnix
 
 import
-  waku_core,
-  node/peer_manager,
-  node/waku_node,
-  waku_enr/sharding,
-  discovery/waku_discv5,
-  waku_filter_v2/common,
-  waku_relay/protocol,
+  waku/waku_core,
+  waku/node/peer_manager,
+  waku/node/waku_node,
+  waku/waku_enr/sharding,
+  waku/discovery/waku_discv5,
+  waku/waku_filter_v2/common,
+  waku/waku_relay/protocol,
   ../testlib/
     [wakucore, wakunode, testasync, testutils, assertions, comparisons, futures],
   ../waku_enr/utils,
