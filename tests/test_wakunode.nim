@@ -165,7 +165,7 @@ suite "WakuNode":
         bindPort = Port(61004),
         wsBindPort = Port(8000),
         wssEnabled = true,
-        secureKey = "node/key_dummy.txt",
+        secureKey = "../../waku/node/key_dummy.txt",
       )
 
   asyncTest "Peer info updates with correct announced addresses":

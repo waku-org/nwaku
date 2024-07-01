@@ -1,4 +1,4 @@
-import waku_rln_relay/rln/rln_interface
+import waku/waku_rln_relay/rln/rln_interface
 
 proc `==`*(a: Buffer, b: seq[uint8]): bool =
   if a.len != uint(b.len):

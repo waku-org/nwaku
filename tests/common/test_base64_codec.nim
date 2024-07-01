@@ -1,7 +1,7 @@
 {.used.}
 
 import std/strutils, stew/[results, byteutils], testutils/unittests
-import common/base64
+import waku/common/base64
 
 suite "Waku Common - stew base64 wrapper":
   const TestData =

@@ -7,7 +7,7 @@ import
 
 import std/[tables, strutils, os], stew/results, chronicles
 
-import common/databases/db_sqlite, common/databases/common
+import waku/common/databases/db_sqlite, waku/common/databases/common
 
 suite "Migrations":
   test "migrate ok":

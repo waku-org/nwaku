@@ -10,12 +10,9 @@ import
   libp2p/multiaddress,
   libp2p/switch
 import
-  ../testlib/common,
-  ../testlib/wakucore,
-  ../testlib/wakunode,
-  waku/node/waku_metrics
+  ../testlib/common, ../testlib/wakucore, ../testlib/wakunode, waku/node/waku_metrics
 
-include factory/waku
+include waku/factory/waku
 
 suite "Wakunode2 - Waku":
   test "compilation version should be reported":
