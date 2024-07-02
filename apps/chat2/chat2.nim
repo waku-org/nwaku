@@ -31,18 +31,20 @@ import
     nameresolving/dnsresolver,
   ] # define DNS resolution
 import
-  ../../waku/waku_core,
-  ../../waku/waku_lightpush/common,
-  ../../waku/waku_lightpush/rpc,
-  ../../waku/waku_enr,
-  ../../waku/discovery/waku_dnsdisc,
-  ../../waku/waku_store_legacy,
-  ../../waku/waku_node,
-  ../../waku/node/waku_metrics,
-  ../../waku/node/peer_manager,
-  ../../waku/factory/builder,
-  ../../waku/common/utils/nat,
-  ../../waku/waku_relay,
+  waku/[
+    waku_core,
+    waku_lightpush/common,
+    waku_lightpush/rpc,
+    waku_enr,
+    discovery/waku_dnsdisc,
+    waku_store_legacy,
+    waku_node,
+    node/waku_metrics,
+    node/peer_manager,
+    factory/builder,
+    common/utils/nat,
+    waku_relay,
+  ],
   ./config_chat2
 
 import libp2p/protocols/pubsub/rpc/messages, libp2p/protocols/pubsub/pubsub

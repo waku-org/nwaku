@@ -10,7 +10,7 @@ import
   libp2p/[peerstore, crypto/crypto]
 
 import
-  ../../../waku/[
+  waku/[
     waku_core,
     node/peer_manager,
     node/waku_node,

@@ -1,7 +1,7 @@
 import std/[options, tables, sets, sequtils, algorithm], chronos, chronicles, os
 
 import
-  ../../../waku/[
+  waku/[
     node/peer_manager,
     waku_filter_v2,
     waku_filter_v2/client,

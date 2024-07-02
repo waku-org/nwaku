@@ -12,7 +12,7 @@ import
   std/json
 
 import
-  ../../../waku/[
+  waku/[
     node/peer_manager,
     waku_relay/protocol,
     waku_relay,

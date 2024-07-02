@@ -9,14 +9,16 @@ import
   libp2p/multiaddress,
   libp2p/crypto/crypto
 import
-  ../../waku/waku_node,
-  ../../waku/node/waku_node as waku_node2,
-    # TODO: Remove after moving `git_version` to the app code.
-  ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/client,
-  ../../waku/waku_api/rest/responses,
-  ../../waku/waku_api/rest/debug/handlers as debug_api,
-  ../../waku/waku_api/rest/debug/client as debug_api_client,
+  waku/[
+    waku_node,
+    node/waku_node as waku_node2,
+      # TODO: Remove after moving `git_version` to the app code.
+    waku_api/rest/server,
+    waku_api/rest/client,
+    waku_api/rest/responses,
+    waku_api/rest/debug/handlers as debug_api,
+    waku_api/rest/debug/client as debug_api_client,
+  ],
   ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode

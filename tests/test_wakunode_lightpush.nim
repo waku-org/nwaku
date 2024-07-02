@@ -2,10 +2,7 @@
 
 import std/options, stew/shims/net as stewNet, testutils/unittests, chronos
 import
-  ../../waku/waku_core,
-  ../../waku/waku_lightpush/common,
-  ../../waku/node/peer_manager,
-  ../../waku/waku_node,
+  waku/[waku_core, waku_lightpush/common, node/peer_manager, waku_node],
   ./testlib/wakucore,
   ./testlib/wakunode
 

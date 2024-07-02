@@ -2,12 +2,14 @@
 
 import std/tables, stew/[results, byteutils], testutils/unittests
 import
-  ../../waku/common/protobuf,
-  ../../waku/utils/noise as waku_message_utils,
-  ../../waku/waku_noise/noise_types,
-  ../../waku/waku_noise/noise_utils,
-  ../../waku/waku_noise/noise_handshake_processing,
-  ../../waku/waku_core,
+  waku/[
+    common/protobuf,
+    utils/noise as waku_message_utils,
+    waku_noise/noise_types,
+    waku_noise/noise_utils,
+    waku_noise/noise_handshake_processing,
+    waku_core,
+  ],
   ./testlib/common
 
 procSuite "Waku Noise Sessions":
