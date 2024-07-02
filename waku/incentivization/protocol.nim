@@ -19,6 +19,7 @@ logScope:
 type DummyProtocol* = ref object of LPProtocol
   peerManager*: PeerManager
   dummyHandler*: DummyHandler
+  ethClient*: string
 
 proc handleRequest*(
     dummyProtocol: DummyProtocol, peerId: PeerId, buffer: seq[byte]
@@ -30,7 +31,7 @@ proc handleRequest*(
     let dummyRequest = reqDecodeRes.get()
     let eligibilityProof = dummyRequest.eligibilityProof
     requestId = dummyRequest.requestId
-    isProofValid = await isEligible(eligibilityProof)
+    isProofValid = await isEligible(eligibilityProof, dummyProtocol.ethClient)
   let response = genDummyResponseWithEligibilityStatus(isProofValid, requestId)
   return response
 
@@ -47,10 +48,12 @@ proc new*(
     T: type DummyProtocol,
     peerManager: PeerManager,
     dummyHandler: DummyHandler,
+    ethClient: string,
   ): T =
   let dummyProtocol = DummyProtocol(
     peerManager: peerManager,
     dummyHandler: dummyHandler,
+    ethClient: ethClient
   )
   dummyProtocol.initProtocolHandler()
   return dummyProtocol
