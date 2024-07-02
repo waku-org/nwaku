@@ -3,10 +3,12 @@
 import
   std/[options, sequtils, algorithm], testutils/unittests, libp2p/protobuf/minprotobuf
 import
-  waku/waku_archive,
-  waku/waku_archive/driver/queue_driver/queue_driver {.all.},
-  waku/waku_archive/driver/queue_driver/index,
-  waku/waku_core,
+  waku/[
+    waku_archive,
+    waku_archive/driver/queue_driver/queue_driver {.all.},
+    waku_archive/driver/queue_driver/index,
+    waku_core,
+  ],
   ../testlib/common,
   ../testlib/wakucore
 

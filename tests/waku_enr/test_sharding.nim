@@ -9,10 +9,7 @@ import
   eth/keys as eth_keys
 
 import
-  waku/waku_enr,
-  waku/discovery/waku_discv5,
-  waku/waku_core,
-  waku/common/enr,
+  waku/[waku_enr, discovery/waku_discv5, waku_core, common/enr],
   ../testlib/wakucore,
   ../waku_discv5/utils,
   ./utils

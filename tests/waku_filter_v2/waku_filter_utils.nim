@@ -1,11 +1,13 @@
 import std/[options, tables, sets, sequtils, algorithm], chronos, chronicles, os
 
 import
-  waku/node/peer_manager,
-  waku/waku_filter_v2,
-  waku/waku_filter_v2/client,
-  waku/waku_filter_v2/subscriptions,
-  waku/waku_core,
+  waku/[
+    node/peer_manager,
+    waku_filter_v2,
+    waku_filter_v2/client,
+    waku_filter_v2/subscriptions,
+    waku_core,
+  ],
   ../testlib/[common, wakucore]
 
 proc newTestWakuFilter*(

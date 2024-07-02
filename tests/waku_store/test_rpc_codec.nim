@@ -2,11 +2,8 @@
 
 import std/options, testutils/unittests, chronos
 import
-  waku/common/protobuf,
-  waku/common/paging,
-  waku/waku_core,
-  waku/waku_store/common,
-  waku/waku_store/rpc_codec,
+  waku/
+    [common/protobuf, common/paging, waku_core, waku_store/common, waku_store/rpc_codec],
   ../testlib/wakucore
 
 procSuite "Waku Store - RPC codec":

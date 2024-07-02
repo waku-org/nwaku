@@ -11,13 +11,15 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  waku/waku_node,
-  waku/discovery/waku_discv5,
-  waku/waku_peer_exchange,
-  waku/waku_peer_exchange/rpc,
-  waku/waku_peer_exchange/protocol,
-  waku/node/peer_manager,
-  waku/waku_core,
+  waku/[
+    waku_node,
+    discovery/waku_discv5,
+    waku_peer_exchange,
+    waku_peer_exchange/rpc,
+    waku_peer_exchange/protocol,
+    node/peer_manager,
+    waku_core,
+  ],
   ../testlib/[futures, wakucore, assertions]
 
 proc dialForPeerExchange*(
