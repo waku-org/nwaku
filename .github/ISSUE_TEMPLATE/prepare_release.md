@@ -35,7 +35,7 @@ Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
     - [ ] Search _Kibana_ logs from the previous month (since last release was deployed), for possible crashes or errors in `waku.test` and `waku.sandbox`.
       - Most relevant logs are `(fleet: "waku.test" OR fleet: "waku.sandbox") AND message: "SIGSEGV"`
     - [ ] Run release candidate with `waku-simulator`, ensure that nodes connected to each other
-    - [ ] Unlock `waku.test`
+    - [ ] Unlock `waku.test` to resume auto-deployment of latest `master` commit
 
   - [ ] **On Status fleet**
     - [ ] Deploy release candidate to `status.staging`
