@@ -413,6 +413,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node3.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node3.wakuRlnRelay.rlnEpochSizeSec)
     ).isOkOr:
@@ -530,6 +531,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node1.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2)
     ).isOkOr:
@@ -572,3 +574,24 @@ procSuite "WakuNode - RLN relay":
 
     await node1.stop()
     await node2.stop()
+
+  asyncTest "test rln-relay-message-limit":
+    let
+      nodeKey = generateSecp256k1Key()
+      node = newTestWakuNode(nodeKey, parseIpAddress("-1.0.0.0"), Port(0))
+
+    await node.mountRelay(@[DefaultPubsubTopic])
+
+    # mount rlnrelay in off-chain mode
+    let wakuRlnConfig = WakuRlnConfig(
+      rlnRelayDynamic: false,
+      rlnRelayCredIndex: some(0.uint),
+      rlnRelayUserMessageLimit: 111,
+      rlnEpochSizeSec: 0,
+      rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
+    )
+
+    await node.mountRlnRelay(wakuRlnConfig)
+
+    check:
+      $error == "relay message limit (rln) cannot be exceed 100 "
