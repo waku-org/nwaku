@@ -46,7 +46,7 @@ Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
       - [ ] Close one instance, send messages with second instance, reopen first instance and confirm messages sent while offline are retrieved from store
     - [ ] Perform checks based _end user impact_
     - [ ] Ask other (Waku and Status) CCs to point their instance to `status.staging` for a week and use the app as usual.
-    - [ ] Ask Status-QA to perform sanity checks (as described above) + checks based on _end user impact_
+    - [ ] Ask Status-QA to perform sanity checks (as described above) + checks based on _end user impact_; do specify the version being tested
     - [ ] Ask Status-QA or infra to run the automated Status e2e tests against `status.staging`
     - [ ] Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
     - [ ] **Get Status-QA sign-off**. Ensuring that `status.test` update will not disturb ongoing activities.
