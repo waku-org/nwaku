@@ -15,3 +15,13 @@ type
   EligibilityStatus* = object
     statusCode*: uint32
     statusDesc*: Option[string]
+
+  DummyRequest* = object
+    requestId*: string
+    # request content goes here
+    eligibilityProof*: EligibilityProof
+
+  DummyResponse* = object
+    requestId*: string
+    # response content goes here
+    eligibilityStatus*: EligibilityStatus

@@ -5,6 +5,7 @@ import
   ../waku_core,
   ./rpc
 
+const DefaultMaxRpcSize* = -1
 
 # Codec for EligibilityProof
 
@@ -27,7 +28,6 @@ proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] =
   else:
     epRpc.proofOfPayment = some(proofOfPayment)
   ok(epRpc)
-
 
 # Codec for EligibilityStatus
 
@@ -57,3 +57,47 @@ proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] =
   ok(esRpc)
   
 
+# Codec for DummyRequest
+
+proc encode*(request: DummyRequest): ProtoBuffer = 
+  var pb = initProtoBuffer()
+  pb.write3(1, request.requestId)
+  pb.write3(10, request.eligibilityProof.encode())
+  pb
+
+proc decode*(T: type DummyRequest, buffer: seq[byte]): ProtobufResult[T] = 
+  let pb = initProtoBuffer(buffer)
+  var request = DummyRequest()
+
+  if not ?pb.getField(1,request.requestId):
+    return err(ProtobufError.missingRequiredField("requestId"))
+
+  var eligibilityProofBytes: seq[byte]
+  if not ?pb.getField(10, eligibilityProofBytes):
+    return err(ProtobufError.missingRequiredField("eligibilityProof"))
+  else:
+    request.eligibilityProof = ?EligibilityProof.decode(eligibilityProofBytes)
+  ok(request)
+
+
+# Codec for DummyResponse
+
+proc encode*(response: DummyResponse): ProtoBuffer = 
+  var pb = initProtoBuffer()
+  pb.write3(1, response.requestId)
+  pb.write3(5, response.eligibilityStatus.encode())
+  pb
+
+proc decode*(T: type DummyResponse, buffer: seq[byte]): ProtobufResult[T] = 
+  let pb = initProtoBuffer(buffer)
+  var response = DummyResponse()
+
+  if not ?pb.getField(1,response.requestId):
+    return err(ProtobufError.missingRequiredField("requestId"))
+
+  var eligibilityStatusBytes: seq[byte]
+  if not ?pb.getField(5, eligibilityStatusBytes):
+    return err(ProtobufError.missingRequiredField("eligibilityStatus"))
+  else:
+    response.eligibilityStatus = ?EligibilityStatus.decode(eligibilityStatusBytes)
+  ok(response)
