@@ -25,5 +25,5 @@ exec /usr/bin/wakunode\
       --metrics-server-address=0.0.0.0\
       --nodekey=e3f5e64568b3a612dee609f6e7c0203c501dab6131662922bdcbcabd474281d5\
       --nat=extip:${IP}\
-      --pubsub-topic=/waku/2/default-waku/proto\
+      --pubsub-topic=/waku/2/rs/0/0\
       --cluster-id=0

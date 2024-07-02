@@ -93,12 +93,6 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
 
   case confCopy.clusterId
 
-  # cluster-id=0
-  of 0:
-    let clusterZeroConf = ClusterConf.ClusterZeroConf()
-    confCopy.pubsubTopics = clusterZeroConf.pubsubTopics
-    # TODO: Write some template to "merge" the configs
-
   # cluster-id=1 (aka The Waku Network)
   of 1:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()

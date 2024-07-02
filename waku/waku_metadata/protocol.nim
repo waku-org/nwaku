@@ -130,9 +130,6 @@ proc subscriptionsListener(wm: WakuMetadata) {.async.} =
       let parsedTopic = NsPubsubTopic.parse(event.topic).valueOr:
         continue
 
-      if parsedTopic.kind != NsPubsubTopicKind.StaticSharding:
-        continue
-
       if parsedTopic.clusterId != wm.clusterId:
         continue
 

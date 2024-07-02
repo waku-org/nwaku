@@ -63,7 +63,7 @@ echo "Using service node: ${SERIVCE_NODE_ADDR}"
 exec /usr/bin/liteprotocoltester\
       --log-level=DEBUG\
       --service-node="${SERIVCE_NODE_ADDR}"\
-      --pubsub-topic=/waku/2/default-waku/proto\
+      --pubsub-topic=/waku/2/rs/0/0\
       --cluster-id=0\
       --num-messages=${NUM_MESSAGES}\
       --delay-messages=${DELAY_MESSAGES}\

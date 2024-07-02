@@ -134,17 +134,6 @@ suite "Waku Message - Content topics namespacing":
       err.cause == "generation should be a numeric value"
 
 suite "Waku Message - Pub-sub topics namespacing":
-  test "Stringify named sharding pub-sub topic":
-    ## Given
-    var ns = NsPubsubTopic.named("waku-dev")
-
-    ## When
-    let topic = $ns
-
-    ## Then
-    check:
-      topic == "/waku/2/waku-dev"
-
   test "Stringify static sharding pub-sub topic":
     ## Given
     var ns = NsPubsubTopic.staticSharding(clusterId = 0, shardId = 2)
@@ -156,7 +145,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     check:
       topic == "/waku/2/rs/0/2"
 
-  test "Parse named pub-sub topic string - Valid string":
+  test "Parse invalid pub-sub topic string":
     ## Given
     let topic = "/waku/2/waku-dev"
 
@@ -164,11 +153,10 @@ suite "Waku Message - Pub-sub topics namespacing":
     let nsRes = NsPubsubTopic.parse(topic)
 
     ## Then
-    check nsRes.isOk()
-
-    let ns = nsRes.get()
+    check nsRes.isErr()
+    let err = nsRes.tryError()
     check:
-      ns.name == "waku-dev"
+      err.kind == ParsingErrorKind.InvalidFormat
 
   test "Parse static sharding pub-sub topic string - Valid string":
     ## Given

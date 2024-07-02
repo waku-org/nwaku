@@ -317,7 +317,7 @@ int main(int argc, char** argv) {
                             userData) );
 
     WAKU_CALL( waku_relay_subscribe(ctx,
-                                    "/waku/2/default-waku/proto",
+                                    "/waku/2/rs/0/0",
                                     event_handler,
                                     userData) );
 

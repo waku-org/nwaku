@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, strutils],
+  std/[options, sequtils, strutils, strformat],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronicles,
@@ -430,8 +430,8 @@ suite "Waku Relay":
     asyncTest "How multiple interconnected nodes work":
       # Given two other pubsub topics
       let
-        pubsubTopicB = "pubsub-topic-b"
-        pubsubTopicC = "pubsub-topic-c"
+        pubsubTopicB = "/waku/2/rs/0/1"
+        pubsubTopicC = "/waku/2/rs/0/2"
 
       # Given two other nodes connected to the first one
       let
@@ -767,13 +767,17 @@ suite "Waku Relay":
 
     asyncTest "Single Node with Multiple Pubsub Topics":
       # Given other pubsub topic 
-      let pubsubTopicB = "pubsub-topic-b"
+      let pubsubTopicB = "/waku/2/rs/0/1"
 
       # Given a node subscribed to multiple pubsub topics
       let
         topicHandler = node.subscribe(pubsubTopic, simpleFutureHandler)
         topicHandlerB = node.subscribe(pubsubTopicB, simpleFutureHandler)
-      check node.subscribedTopics == @[pubsubTopic, pubsubTopicB]
+
+      assert pubsubTopic in node.subscribedTopics,
+        fmt"Node is not subscribed to {pubsubTopic}"
+      assert pubsubTopicB in node.subscribedTopics,
+        fmt"Node is not subscribed to {pubsubTopicB}"
 
       # When unsubscribing from one of the pubsub topics
       node.unsubscribe(pubsubTopic, topicHandler)
@@ -811,14 +815,17 @@ suite "Waku Relay":
 
     asyncTest "Single Node with Multiple Pubsub Topics":
       # Given other pubsub topic
-      let pubsubTopicB = "pubsub-topic-b"
+      let pubsubTopicB = "/waku/2/rs/0/1"
 
       # Given a node subscribed to multiple pubsub topics
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       discard node.subscribe(pubsubTopic, simpleFutureHandler)
       discard node.subscribe(pubsubTopicB, simpleFutureHandler)
 
-      check node.subscribedTopics == @[pubsubTopic, pubsubTopicB]
+      assert pubsubTopic in node.subscribedTopics,
+        fmt"Node is not subscribed to {pubsubTopic}"
+      assert pubsubTopicB in node.subscribedTopics,
+        fmt"Node is not subscribed to {pubsubTopicB}"
 
       # When unsubscribing all handlers from pubsubTopic
       node.unsubscribeAll(pubsubTopic)
@@ -1042,11 +1049,11 @@ suite "Waku Relay":
         ) # 100KiB
         msg4 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 38),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 26),
         ) # Max Size (Inclusive Limit)
         msg5 = fakeWakuMessage(
           contentTopic = contentTopic,
-          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 37),
+          payload = getByteSequence(DefaultMaxWakuMessageSize - sizeEmptyMsg - 25),
         ) # Max Size (Exclusive Limit)
         msg6 = fakeWakuMessage(
           contentTopic = contentTopic,

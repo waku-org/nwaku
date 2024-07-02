@@ -18,7 +18,7 @@ By default a nwaku node will:
 See [this tutorial](./configure-key.md) if you want to generate and configure a persistent private key.
 - listen for incoming libp2p connections on the default TCP port (`60000`)
 - enable `relay` protocol
-- subscribe to the default pubsub topic, namely `/waku/2/default-waku/proto`
+- subscribe to the default pubsub topic, namely `/waku/2/rs/0/0`
 - enable `store` protocol, but only as a client.
 This implies that the nwaku node will not persist any historical messages itself,
 but can query `store` service peers who do so.
@@ -107,7 +107,7 @@ enr=enr:-IO4QDxToTg86pPCK2KvMeVCXC2ADVZWrxXSvNZeaoa0JhShbM5qed69RQz1s1mWEEqJ3aok
 ## Typical configuration (relay node)
 
 The typical configuration for a nwaku node is to run the `relay` protocol,
-subscribed to the default pubsub topic `/waku/2/default-waku/proto`,
+subscribed to the default pubsub topic `/waku/2/rs/0/0`,
 and connecting to one or more existing peers.
 We assume below that running nodes also participate in Discovery v5
 to continually discover and connect to random peers for a more robust mesh.

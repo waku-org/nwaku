@@ -19,7 +19,7 @@ At a high level, when a chat2 client is run with Waku-RLN-Relay mounted in on-ch
 Under the hood, the chat2 client constantly listens to the membership contract and keeps itself updated with the latest state of the group.
 
 In the following test setting, the chat2 clients are to be connected to the Waku test fleets as their first hop.
-The test fleets will act as routers and are also set to run Waku-RLN-Relay over the same pubsub topic and content topic as chat2 clients i.e., the default pubsub topic of `/waku/2/default-waku/proto` and the content topic of `/toy-chat/3/mingde/proto`.
+The test fleets will act as routers and are also set to run Waku-RLN-Relay over the same pubsub topic and content topic as chat2 clients i.e., the default pubsub topic of `/waku/2/rs/0/0` and the content topic of `/toy-chat/3/mingde/proto`.
 Spam messages published on the said combination of topics will be caught by the test fleet nodes and will not be routed.
 Note that spam protection does not rely on the presence of the test fleets.
 In fact, all the chat2 clients are also capable of catching and dropping spam messages if they receive any.

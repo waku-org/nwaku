@@ -58,7 +58,7 @@ suite "Peer Manager":
 
       # When making an operation that triggers onPeerMetadata
       discard await client.filterSubscribe(
-        some("/waku/2/default-waku/proto"), "waku/lightpush/1", serverRemotePeerInfo
+        some("/waku/2/rs/0/0"), "waku/lightpush/1", serverRemotePeerInfo
       )
       await sleepAsync(FUTURE_TIMEOUT)
 
