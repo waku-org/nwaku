@@ -305,7 +305,6 @@ proc appendRLNProof*(
   let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
 
-
   msg.proof = proof.encode().buffer
   return ok()
 
@@ -435,18 +434,19 @@ proc mount(
   (await groupManager.startGroupSync()).isOkOr:
     return err("could not start the group sync: " & $error)
 
+  if (conf.rlnRelayUserMessageLimit > 20):
+    return err("relay message limit (rln) cannot be exceed 20 ")
+
   return ok(
     WakuRLNRelay(
       groupManager: groupManager,
       nonceManager:
         NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
       rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap:
-        max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
       onFatalErrorAction: conf.onFatalErrorAction,
     )
   )
-
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages
