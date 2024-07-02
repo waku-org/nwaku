@@ -1,46 +1,15 @@
 {.push raises: [].}
 
-import std/options, stew/results, stew/byteutils, stew/arrayops, nimcrypto/sha2
+import std/options, stew/results
 import ../waku_core, ../common/paging
-
-## Waku message digest
-
-type MessageDigest* = MDigest[256]
-
-proc fromBytes*(T: type MessageDigest, src: seq[byte]): T =
-  var data: array[32, byte]
-
-  let byteCount = copyFrom[byte](data, src)
-
-  assert byteCount == 32
-
-  return MessageDigest(data: data)
-
-proc computeDigest*(msg: WakuMessage): MessageDigest =
-  var ctx: sha256
-  ctx.init()
-  defer:
-    ctx.clear()
-
-  ctx.update(msg.contentTopic.toBytes())
-  ctx.update(msg.payload)
-
-  # Computes the hash
-  return ctx.finish()
 
 ## Public API types
 
 type
-  #TODO Once Store v2 is removed, the cursor becomes the hash of the last message
-  ArchiveCursor* = object
-    digest*: MessageDigest
-    storeTime*: Timestamp
-    senderTime*: Timestamp
-    pubsubTopic*: PubsubTopic
-    hash*: WakuMessageHash
+  ArchiveCursor* = WakuMessageHash
 
   ArchiveQuery* = object
-    includeData*: bool # indicate if messages should be returned in addition to hashes.
+    includeData*: bool
     pubsubTopic*: Option[PubsubTopic]
     contentTopics*: seq[ContentTopic]
     cursor*: Option[ArchiveCursor]

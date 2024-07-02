@@ -9,7 +9,6 @@ import
   ../../../waku_core/message/digest,
   ../../common,
   ../../driver,
-  ./cursor,
   ./queries
 
 logScope:
@@ -28,11 +27,7 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
   # Create indices, if don't exist
   let resRtIndex = createOldestMessageTimestampIndex(db)
   if resRtIndex.isErr():
-    return err("failed to create i_rt index: " & resRtIndex.error())
-
-  let resMsgIndex = createHistoryQueryIndex(db)
-  if resMsgIndex.isErr():
-    return err("failed to create i_query index: " & resMsgIndex.error())
+    return err("failed to create i_ts index: " & resRtIndex.error())
 
   return ok()
 
@@ -52,24 +47,20 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
 method put*(
     s: SqliteDriver,
+    messageHash: WakuMessageHash,
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
-    digest: MessageDigest,
-    messageHash: WakuMessageHash,
-    receivedTime: Timestamp,
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Inserts a message into the store
   let res = s.insertStmt.exec(
     (
-      @(digest.data), # id
-      @(messageHash), # messageHash
-      receivedTime, # storedAt
-      toBytes(message.contentTopic), # contentTopic
-      message.payload, # payload
-      toBytes(pubsubTopic), # pubsubTopic
-      int64(message.version), # version
-      message.timestamp, # senderTimestamp
-      message.meta, # meta
+      @(messageHash),
+      toBytes(pubsubTopic),
+      toBytes(message.contentTopic),
+      message.payload,
+      int64(message.version),
+      message.timestamp,
+      message.meta,
     )
   )
 
@@ -81,34 +72,10 @@ method getAllMessages*(
   ## Retrieve all messages from the store.
   return s.db.selectAllMessages()
 
-method getMessagesV2*(
-    s: SqliteDriver,
-    contentTopic = newSeq[ContentTopic](0),
-    pubsubTopic = none(PubsubTopic),
-    cursor = none(ArchiveCursor),
-    startTime = none(Timestamp),
-    endTime = none(Timestamp),
-    maxPageSize = DefaultPageSize,
-    ascendingOrder = true,
-): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
-  let cursor = cursor.map(toDbCursor)
-
-  let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
-    contentTopic,
-    pubsubTopic,
-    cursor,
-    startTime,
-    endTime,
-    limit = maxPageSize,
-    ascending = ascendingOrder,
-  )
-
-  return rowsRes
-
 method getMessages*(
     s: SqliteDriver,
-    includeData = false,
-    contentTopic = newSeq[ContentTopic](0),
+    includeData = true,
+    contentTopics = newSeq[ContentTopic](0),
     pubsubTopic = none(PubsubTopic),
     cursor = none(ArchiveCursor),
     startTime = none(Timestamp),
@@ -117,14 +84,20 @@ method getMessages*(
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  let cursor =
-    if cursor.isSome():
-      some(cursor.get().hash)
-    else:
-      none(WakuMessageHash)
+  if not includeData:
+    return s.db.selectMessageHashesByStoreQueryWithLimit(
+      contentTopics,
+      pubsubTopic,
+      cursor,
+      startTime,
+      endTime,
+      hashes,
+      limit = maxPageSize,
+      ascending = ascendingOrder,
+    )
 
-  let rowsRes = s.db.selectMessagesByStoreQueryWithLimit(
-    contentTopic,
+  return s.db.selectMessagesByStoreQueryWithLimit(
+    contentTopics,
     pubsubTopic,
     cursor,
     startTime,
@@ -133,8 +106,6 @@ method getMessages*(
     limit = maxPageSize,
     ascending = ascendingOrder,
   )
-
-  return rowsRes
 
 method getMessagesCount*(
     s: SqliteDriver
@@ -156,12 +127,12 @@ method performVacuum*(s: SqliteDriver): Future[ArchiveDriverResult[void]] {.asyn
 method getOldestMessageTimestamp*(
     s: SqliteDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return s.db.selectOldestReceiverTimestamp()
+  return s.db.selectOldestTimestamp()
 
 method getNewestMessageTimestamp*(
     s: SqliteDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  return s.db.selectnewestReceiverTimestamp()
+  return s.db.selectnewestTimestamp()
 
 method deleteMessagesOlderThanTimestamp*(
     s: SqliteDriver, ts: Timestamp
