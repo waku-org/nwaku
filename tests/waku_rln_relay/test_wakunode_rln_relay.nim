@@ -586,7 +586,7 @@ procSuite "WakuNode - RLN relay":
     let wakuRlnConfig = WakuRlnConfig(
       rlnRelayDynamic: false,
       rlnRelayCredIndex: some(0.uint),
-      rlnRelayUserMessageLimit: 30,
+      rlnRelayUserMessageLimit: 111,
       rlnEpochSizeSec: 0,
       rlnRelayTreePath: genTempPath("rln_tree", "wakunode_9"),
     )
@@ -594,4 +594,4 @@ procSuite "WakuNode - RLN relay":
     await node.mountRlnRelay(wakuRlnConfig)
 
     check:
-      $error == "relay message limit (rln) cannot be exceed 20 "
+      $error == "relay message limit (rln) cannot be exceed 100 "

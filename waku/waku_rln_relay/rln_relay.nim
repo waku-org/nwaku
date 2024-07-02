@@ -434,8 +434,8 @@ proc mount(
   (await groupManager.startGroupSync()).isOkOr:
     return err("could not start the group sync: " & $error)
 
-  if (conf.rlnRelayUserMessageLimit > 20):
-    return err("relay message limit (rln) cannot be exceed 20 ")
+  if (conf.rlnRelayUserMessageLimit > 100):
+    return err("relay message limit (rln) cannot be exceed 100 ")
 
   return ok(
     WakuRLNRelay(
