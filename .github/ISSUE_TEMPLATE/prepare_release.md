@@ -17,6 +17,8 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
+Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
+
 - [ ] Create release branch
 - [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.30.0-rc.0
 - [ ] Generate and edit releases notes in CHANGELOG.md
