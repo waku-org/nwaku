@@ -41,6 +41,7 @@ All items below are to be completed by the owner of the given release.
     - [ ] Perform checks based _end user impact_
     - [ ] Ask other (Waku and Status) CCs to point their instance to `status.staging` for a week and use the app as usual.
     - [ ] Ask Status/QA to perform sanity checks (as described above) + checks based on _end user impact_
+    - [ ] Ask Status/QA or infra to run the automated Status e2e tests against `status.staging`
     - [ ] Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
     - [ ] **Get Status/QA sign-off**. Ensuring that `status.test` update will not disturb ongoing activities.
 
@@ -53,10 +54,11 @@ All items below are to be completed by the owner of the given release.
   - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
 
 - [ ] **Promote release to fleets**.
+  - [ ] Update infra config with any deprecated arguments or changed options
   - [ ] [Deploy final release to `waku.sandbox` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox)
-  - [ ] Deploy final release to `waku.prod`
   - [ ] [Deploy final release to `status.staging` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-shards-staging/)
   - [ ] [Deploy final release to `status.test` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-shards-test/) ([soon to be `status.prod`](https://github.com/status-im/infra-shards/issues/33))
 
 - [ ] **Post release**
   - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
+  - [ ] Update waku-org/nwaku-compose with the new release version.
