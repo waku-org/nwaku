@@ -58,7 +58,7 @@ type
     wakuRlnContract*: Option[WakuRlnContractWithSender]
     latestProcessedBlock*: BlockNumber
     registrationTxHash*: Option[TxHash]
-    chainId*: Option[Quantity]
+    chainId*: uint
     keystorePath*: Option[string]
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
@@ -103,7 +103,7 @@ proc setMetadata*(
     let metadataSetRes = g.rlnInstance.setMetadata(
       RlnMetadata(
         lastProcessedBlock: normalizedBlock,
-        chainId: uint64(g.chainId.get()),
+        chainId: g.chainId,
         contractAddress: g.ethContractAddress,
         validRoots: g.validRoots.toSeq(),
       )
@@ -537,11 +537,18 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   g.retryWrapper(ethRpc, "Failed to connect to the Ethereum client"):
     await newWeb3(g.ethClientUrl)
 
+  var fetchedChainId: uint
+  g.retryWrapper(fetchedChainId, "Failed to get the chain id"):
+    uint(await ethRpc.provider.eth_chainId())
+
   # Set the chain id
-  var chainId: Quantity
-  g.retryWrapper(chainId, "Failed to get the chain id"):
-    await ethRpc.provider.eth_chainId()
-  g.chainId = some(chainId)
+  if g.chainId == 0:
+    warn "Chain ID not set in config, using RPC Provider's Chain ID", providerChainId = fetchedChainId
+
+  if g.chainId != 0 and g.chainId != fetchedChainId:
+    return err("The RPC Provided a Chain ID which is different than the provided Chain ID: provided = " & $g.chainId & ", actual = " & $fetchedChainId)
+
+  g.chainId = fetchedChainId
 
   if g.ethPrivateKey.isSome():
     let pk = g.ethPrivateKey.get()
@@ -564,7 +571,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
     var keystoreQuery = KeystoreMembership(
       membershipContract:
-        MembershipContract(chainId: $g.chainId.get(), address: g.ethContractAddress)
+        MembershipContract(chainId: $g.chainId, address: g.ethContractAddress)
     )
     if g.membershipIndex.isSome():
       keystoreQuery.treeIndex = MembershipIndex(g.membershipIndex.get())
@@ -596,7 +603,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     warn "could not initialize with persisted rln metadata"
   elif metadataGetOptRes.get().isSome():
     let metadata = metadataGetOptRes.get().get()
-    if metadata.chainId != uint64(g.chainId.get()):
+    if metadata.chainId != uint(g.chainId):
       return err("persisted data: chain id mismatch")
 
     if metadata.contractAddress != g.ethContractAddress.toLower():
