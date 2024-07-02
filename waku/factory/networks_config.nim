@@ -5,6 +5,7 @@ type ClusterConf* = object
   clusterId*: uint16
   rlnRelay*: bool
   rlnRelayEthContractAddress*: string
+  rlnRelayChainId*: uint
   rlnRelayDynamic*: bool
   rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
@@ -32,12 +33,12 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xF471d71E9b1455bBF4b85d475afb9BB0954A29c4",
+    rlnRelayEthContractAddress: "0x4976Df0f61135EF3E5720D92eadE2e5F47A68Ef9",
     rlnRelayDynamic: true,
+    rlnRelayChainId: 2442, # https://chainlist.org/chain/2442
     rlnRelayBandwidthThreshold: 0,
-    rlnEpochSizeSec: 1,
-    # parameter to be defined with rln_v2
-    rlnRelayUserMessageLimit: 1,
+    rlnEpochSizeSec: 600,
+    rlnRelayUserMessageLimit: 20,
     pubsubTopics:
       @[
         "/waku/2/rs/1/0", "/waku/2/rs/1/1", "/waku/2/rs/1/2", "/waku/2/rs/1/3",
