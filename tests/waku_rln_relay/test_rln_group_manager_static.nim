@@ -6,10 +6,12 @@ import
   testutils/unittests,
   stew/results,
   options,
-  waku/waku_rln_relay/protocol_types,
-  waku/waku_rln_relay/rln,
-  waku/waku_rln_relay/conversion_utils,
-  waku/waku_rln_relay/group_manager/static/group_manager
+  waku/[
+    waku_rln_relay/protocol_types,
+    waku_rln_relay/rln,
+    waku_rln_relay/conversion_utils,
+    waku_rln_relay/group_manager/static/group_manager,
+  ]
 
 import stew/shims/net, chronos, libp2p/crypto/crypto, eth/keys, dnsdisc/builder
 
@@ -137,7 +139,9 @@ suite "Static group manager":
         registrations[0].rateCommitment ==
           RateCommitment(
             idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit
-          ).toLeaf().get()
+          )
+          .toLeaf()
+          .get()
       callbackCalled = true
       fut.complete()
 
@@ -201,7 +205,9 @@ suite "Static group manager":
         withdrawals[0].rateCommitment ==
           RateCommitment(
             idCommitment: idCommitment, userMessageLimit: DefaultUserMessageLimit
-          ).toLeaf().get()
+          )
+          .toLeaf()
+          .get()
 
       callbackCalled = true
       fut.complete()

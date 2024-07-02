@@ -13,12 +13,14 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  waku/waku_node,
-  waku/discovery/waku_discv5,
-  waku/waku_peer_exchange,
-  waku/node/peer_manager,
-  waku/waku_relay/protocol,
-  waku/waku_core,
+  waku/[
+    waku_node,
+    discovery/waku_discv5,
+    waku_peer_exchange,
+    node/peer_manager,
+    waku_relay/protocol,
+    waku_core,
+  ],
   ../waku_peer_exchange/utils,
   ../testlib/[wakucore, wakunode, testasync]
 

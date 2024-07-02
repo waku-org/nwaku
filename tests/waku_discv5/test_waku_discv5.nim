@@ -11,10 +11,7 @@ import
   eth/keys as eth_keys
 
 import
-  waku/waku_core/topics,
-  waku/waku_enr,
-  waku/discovery/waku_discv5,
-  waku/common/enr,
+  waku/[waku_core/topics, waku_enr, discovery/waku_discv5, common/enr],
   ../testlib/[wakucore, testasync, assertions, futures],
   ../waku_enr/utils,
   ./utils

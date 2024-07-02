@@ -13,12 +13,14 @@ import
   libp2p/multihash,
   secp256k1
 import
-  waku/waku_core,
-  waku/node/peer_manager,
-  waku/waku_node,
-  waku/waku_relay,
-  waku/factory/external_config,
-  waku/factory/validator_signed,
+  waku/[
+    waku_core,
+    node/peer_manager,
+    waku_node,
+    waku_relay,
+    factory/external_config,
+    factory/validator_signed,
+  ],
   ../testlib/wakucore,
   ../testlib/wakunode
 

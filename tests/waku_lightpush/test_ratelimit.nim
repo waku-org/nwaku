@@ -8,15 +8,17 @@ import
   libp2p/crypto/crypto
 
 import
-  waku/node/peer_manager,
-  waku/common/ratelimit,
-  waku/waku_core,
-  waku/waku_lightpush,
-  waku/waku_lightpush/client,
-  waku/waku_lightpush/common,
-  waku/waku_lightpush/protocol_metrics,
-  waku/waku_lightpush/rpc,
-  waku/waku_lightpush/rpc_codec,
+  waku/[
+    node/peer_manager,
+    common/ratelimit,
+    waku_core,
+    waku_lightpush,
+    waku_lightpush/client,
+    waku_lightpush/common,
+    waku_lightpush/protocol_metrics,
+    waku_lightpush/rpc,
+    waku_lightpush/rpc_codec,
+  ],
   ../testlib/[assertions, wakucore, testasync, futures, testutils],
   ./lightpush_utils,
   ../resources/[pubsub_topics, content_topics, payloads]

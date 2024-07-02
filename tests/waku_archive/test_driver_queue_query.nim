@@ -3,10 +3,13 @@
 import
   std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 import
-  waku/waku_archive,
-  waku/waku_archive/driver/queue_driver,
-  waku/waku_core,
-  waku/waku_core/message/digest,
+  waku/
+    [
+      waku_archive,
+      waku_archive/driver/queue_driver,
+      waku_core,
+      waku_core/message/digest,
+    ],
   ../testlib/common,
   ../testlib/wakucore
 
