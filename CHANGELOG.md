@@ -1,4 +1,35 @@
-## v0.29.0 (2024-06-11)
+## v0.30.0 (2024-07-01)
+
+### Notes
+
+* Before upgrading to this version, if you are currently using RLN, make sure to remove your existing `keystore` folder and `rln_tree`
+and start your installation from scratch, as
+explained in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/1b56575df9ddb904af0941a19ea1df3d36bfddfa/README.md).
+
+### Release highlights
+
+* RLN_v2 is used. The maximum rate can be set to
+`N` messages per epoch, instead of just one meessage per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details.
+
+### Changes
+
+- rln-relay: add chain-id flag to wakunode and restrict usage if mismatches rpc provider ([#2858](https://github.com/waku-org/nwaku/pull/2858))
+- rln: nullifierlog vulnerability ([#2855](https://github.com/waku-org/nwaku/pull/2855))
+- chore: add TWN parameters for RLNv2 ([#2843](https://github.com/waku-org/nwaku/pull/2843))
+- fix(rln-relay): clear nullifier log only if length is over max epoch gap ([#2836](https://github.com/waku-org/nwaku/pull/2836))
+- rlnv2: clean fork of rlnv2 ([#2828](https://github.com/waku-org/nwaku/issues/2828)) ([a02832fe](https://github.com/waku-org/nwaku/commit/a02832fe))
+- zerokit: bump submodule ([#2830](https://github.com/waku-org/nwaku/issues/2830)) ([bd064882](https://github.com/waku-org/nwaku/commit/bd064882))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+## v0.29.0 (2024-06-19)
 
 ## What's Changed
 

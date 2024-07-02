@@ -203,6 +203,7 @@ proc setupProtocols(
       rlnRelayDynamic: conf.rlnRelayDynamic,
       rlnRelayCredIndex: conf.rlnRelayCredIndex,
       rlnRelayEthContractAddress: conf.rlnRelayEthContractAddress,
+      rlnRelayChainId: conf.rlnRelayChainId,
       rlnRelayEthClientAddress: string(conf.rlnRelayethClientAddress),
       rlnRelayCredPath: conf.rlnRelayCredPath,
       rlnRelayCredPassword: conf.rlnRelayCredPassword,
