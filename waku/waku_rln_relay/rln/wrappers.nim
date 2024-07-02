@@ -92,10 +92,10 @@ proc createRLNInstanceLocal(
   let rln_config = RlnConfig(
     resources_folder: "tree_height_" & $d & "/",
     tree_config: RlnTreeConfig(
-      cache_capacity: 15_000,
+      cache_capacity: 1024,
       mode: "high_throughput",
       compression: false,
-      flush_every_ms: 500,
+      flush_every_ms: 12_000, # 12 seconds
       path: if tree_path != "": tree_path else: DefaultRlnTreePath,
     ),
   )
