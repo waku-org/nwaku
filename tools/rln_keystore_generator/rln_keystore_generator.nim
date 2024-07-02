@@ -76,7 +76,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
   debug "Transaction hash", txHash = groupManager.registrationTxHash.get()
 
   info "Your membership has been registered on-chain.",
-    chainId = $groupManager.chainId.get(),
+    chainId = $groupManager.chainId,
     contractAddress = conf.rlnRelayEthContractAddress,
     membershipIndex = groupManager.membershipIndex.get()
   info "Your user message limit is", userMessageLimit = conf.rlnRelayUserMessageLimit
@@ -84,7 +84,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
   # 6. write to keystore
   let keystoreCred = KeystoreMembership(
     membershipContract: MembershipContract(
-      chainId: $groupManager.chainId.get(), address: conf.rlnRelayEthContractAddress
+      chainId: $groupManager.chainId, address: conf.rlnRelayEthContractAddress
     ),
     treeIndex: groupManager.membershipIndex.get(),
     identityCredential: credential,

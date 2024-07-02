@@ -1,3 +1,4 @@
+
 {.push raises: [].}
 
 import
@@ -37,6 +38,7 @@ type WakuRlnConfig* = object
   rlnRelayCredIndex*: Option[uint]
   rlnRelayEthContractAddress*: string
   rlnRelayEthClientAddress*: string
+  rlnRelayChainId*: uint
   rlnRelayCredPath*: string
   rlnRelayCredPassword*: string
   rlnRelayTreePath*: string
@@ -141,7 +143,7 @@ proc updateLog*(
   try:
     # check if an identical record exists
     if rlnPeer.nullifierLog[epoch].hasKeyOrPut(proofMetadata.nullifier, proofMetadata):
-      # the above condition could be `discarded` but it is kept for clarity, that slashing will 
+      # the above condition could be `discarded` but it is kept for clarity, that slashing will
       # be implemented here
       # TODO: slashing logic
       return ok()
@@ -276,8 +278,10 @@ proc validateMessageAndUpdateLog*(
   if proofMetadataRes.isErr():
     return MessageValidationResult.Invalid
 
-  # insert the message to the log (never errors)
-  discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
+  # insert the message to the log (never errors) only if the 
+  # message is valid.
+  if isValidMessage == MessageValidationResult.Valid:
+    discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
 
   return isValidMessage
 
@@ -305,21 +309,25 @@ proc appendRLNProof*(
   let proof = rlnPeer.groupManager.generateProof(input, epoch, nonce).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
 
-
   msg.proof = proof.encode().buffer
   return ok()
 
-proc clearNullifierLog(rlnPeer: WakuRlnRelay) =
+proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
   # clear the first MaxEpochGap epochs of the nullifer log
   # if more than MaxEpochGap epochs are in the log
-  # note: the epochs are ordered ascendingly
-  if rlnPeer.nullifierLog.len().uint < rlnPeer.rlnMaxEpochGap:
-    return
+  let currentEpoch = fromEpoch(rlnPeer.getCurrentEpoch())
 
-  trace "clearing epochs from the nullifier log", count = rlnPeer.rlnMaxEpochGap
-  let epochsToClear = rlnPeer.nullifierLog.keys().toSeq()[0 ..< rlnPeer.rlnMaxEpochGap]
-  for epoch in epochsToClear:
-    rlnPeer.nullifierLog.del(epoch)
+  var epochsToRemove: seq[Epoch] = @[]
+  for epoch in rlnPeer.nullifierLog.keys():
+    let epochInt = fromEpoch(epoch)
+
+    # clean all epochs that are +- rlnMaxEpochGap from the current epoch
+    if (currentEpoch+rlnPeer.rlnMaxEpochGap) <= epochInt or epochInt <= (currentEpoch-rlnPeer.rlnMaxEpochGap):
+      epochsToRemove.add(epoch)
+  
+  for epochRemove in epochsToRemove:
+    trace "clearing epochs from the nullifier log", currentEpoch = currentEpoch, cleanedEpoch = fromEpoch(epochRemove)
+    rlnPeer.nullifierLog.del(epochRemove)
 
 proc generateRlnValidator*(
     wakuRlnRelay: WakuRLNRelay, spamHandler = none(SpamHandler)
@@ -420,6 +428,7 @@ proc mount(
     groupManager = OnchainGroupManager(
       ethClientUrl: string(conf.rlnRelayethClientAddress),
       ethContractAddress: $conf.rlnRelayEthContractAddress,
+      chainId: conf.rlnRelayChainId,
       rlnInstance: rlnInstance,
       registrationHandler: registrationHandler,
       keystorePath: rlnRelayCredPath,
