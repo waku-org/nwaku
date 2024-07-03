@@ -72,7 +72,7 @@ type
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
-const DefaultBlockPollRate* = 6.seconds
+const DefaultBlockPollRate* = 2.seconds
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
