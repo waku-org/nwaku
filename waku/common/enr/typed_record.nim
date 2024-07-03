@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/options, stew/results, eth/keys as eth_keys, libp2p/crypto/crypto as libp2p_crypto

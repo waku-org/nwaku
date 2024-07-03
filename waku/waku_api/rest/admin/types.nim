@@ -1,14 +1,11 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   chronicles,
   json_serialization,
   json_serialization/std/options,
   json_serialization/lexer
-import ../serdes
+import ../serdes, ../../../waku_core
 
 #### Types
 
@@ -19,6 +16,7 @@ type ProtocolState* = object
 type WakuPeer* = object
   multiaddr*: string
   protocols*: seq[ProtocolState]
+  origin*: PeerOrigin
 
 type WakuPeers* = seq[WakuPeer]
 
@@ -46,6 +44,7 @@ proc writeValue*(
   writer.beginRecord()
   writer.writeField("multiaddr", value.multiaddr)
   writer.writeField("protocols", value.protocols)
+  writer.writeField("origin", value.origin)
   writer.endRecord()
 
 proc writeValue*(
@@ -100,6 +99,7 @@ proc readValue*(
   var
     multiaddr: Option[string]
     protocols: Option[seq[ProtocolState]]
+    origin: Option[PeerOrigin]
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -111,6 +111,10 @@ proc readValue*(
       if protocols.isSome():
         reader.raiseUnexpectedField("Multiple `protocols` fields found", "WakuPeer")
       protocols = some(reader.readValue(seq[ProtocolState]))
+    of "origin":
+      if origin.isSome():
+        reader.raiseUnexpectedField("Multiple `origin` fields found", "WakuPeer")
+      origin = some(reader.readValue(PeerOrigin))
     else:
       unrecognizedFieldWarning()
 
@@ -120,7 +124,12 @@ proc readValue*(
   if protocols.isNone():
     reader.raiseUnexpectedValue("Field `protocols` are missing")
 
-  value = WakuPeer(multiaddr: multiaddr.get(), protocols: protocols.get())
+  if origin.isNone():
+    reader.raiseUnexpectedValue("Field `origin` is missing")
+
+  value = WakuPeer(
+    multiaddr: multiaddr.get(), protocols: protocols.get(), origin: origin.get()
+  )
 
 proc readValue*(
     reader: var JsonReader[RestJson], value: var FilterTopic
@@ -196,10 +205,17 @@ func `==`*(a: ProtocolState, b: string): bool {.inline.} =
 func `==`*(a, b: WakuPeer): bool {.inline.} =
   return a.multiaddr == b.multiaddr
 
-proc add*(peers: var WakuPeers, multiaddr: string, protocol: string, connected: bool) =
+proc add*(
+    peers: var WakuPeers,
+    multiaddr: string,
+    protocol: string,
+    connected: bool,
+    origin: PeerOrigin,
+) =
   var peer: WakuPeer = WakuPeer(
     multiaddr: multiaddr,
     protocols: @[ProtocolState(protocol: protocol, connected: connected)],
+    origin: origin,
   )
   let idx = peers.find(peer)
 

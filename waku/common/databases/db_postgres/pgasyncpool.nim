@@ -1,9 +1,6 @@
 # Simple async pool driver for postgress.
 # Inspired by: https://github.com/treeform/pg/
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[sequtils, nre, strformat, sets], stew/results, chronos
 import ./dbconn, ../common

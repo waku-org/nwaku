@@ -1,9 +1,6 @@
 # Extensions for libp2p's protobuf library implementation
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, libp2p/protobuf/minprotobuf, libp2p/varint
 

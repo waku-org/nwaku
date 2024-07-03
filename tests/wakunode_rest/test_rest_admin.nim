@@ -37,16 +37,17 @@ suite "Waku v2 Rest API - Admin":
   asyncSetup:
     node1 =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60600))
-    peerInfo1 = node1.switch.peerInfo
     node2 =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60602))
-    peerInfo2 = node2.switch.peerInfo
     node3 =
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
-    peerInfo3 = node3.switch.peerInfo
 
     await allFutures(node1.start(), node2.start(), node3.start())
     await allFutures(node1.mountRelay(), node2.mountRelay(), node3.mountRelay())
+
+    peerInfo1 = node1.switch.peerInfo
+    peerInfo2 = node2.switch.peerInfo
+    peerInfo3 = node3.switch.peerInfo
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("127.0.0.1")
@@ -165,3 +166,29 @@ suite "Waku v2 Rest API - Admin":
     check:
       getRes.status == 400
       getRes.data == "Error: Filter Protocol is not mounted to the node"
+
+  asyncTest "Get peer origin":
+    # Adding peers to the Peer Store  
+    node1.peerManager.addPeer(peerInfo2, Discv5)
+    node1.peerManager.addPeer(peerInfo3, PeerExchange)
+
+    # Connecting to both peers
+    let conn2 = await node1.peerManager.connectRelay(peerInfo2)
+    let conn3 = await node1.peerManager.connectRelay(peerInfo3)
+
+    # Check successful connections
+    check:
+      conn2 == true
+      conn3 == true
+
+    # Query peers REST endpoint
+    let getRes = await client.getPeers()
+
+    check:
+      getRes.status == 200
+      $getRes.contentType == $MIMETYPE_JSON
+      getRes.data.len() == 2
+      # Check peer 2
+      getRes.data.anyIt(it.origin == Discv5)
+      # Check peer 3
+      getRes.data.anyIt(it.origin == PeerExchange)

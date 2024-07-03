@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, sets, sequtils, times, strutils, math, random],
@@ -128,9 +125,16 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
       pm.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
       pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
-    trace "peer already managed and ENR info is already saved",
-      remote_peer_id = $remotePeerInfo.peerId
-    return
+    let incomingEnr = remotePeerInfo.enr.valueOr:
+      trace "peer already managed and incoming ENR is empty",
+        remote_peer_id = $remotePeerInfo.peerId
+      return
+
+    if pm.peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
+        pm.peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
+      trace "peer already managed and ENR info is already saved",
+        remote_peer_id = $remotePeerInfo.peerId
+      return
 
   trace "Adding peer to manager",
     peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
@@ -138,6 +142,8 @@ proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownO
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
   pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
+  pm.peerStore[ProtoVersionBook][remotePeerInfo.peerId] = remotePeerInfo.protoVersion
+  pm.peerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
 
   if remotePeerInfo.protocols.len > 0:
     pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
@@ -380,8 +386,8 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       pm.peerStore.hasPeer(peerId, WakuRelayCodec) and
       not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
     ):
-      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & "]"
-      let otherShardsString = "[ " & metadata.shards.join(", ") & "]"
+      let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & " ]"
+      let otherShardsString = "[ " & metadata.shards.join(", ") & " ]"
       reason =
         "no shards in common: my_shards = " & myShardsString & " others_shards = " &
         otherShardsString
@@ -435,7 +441,9 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
 
   if not pm.storage.isNil:
     var remotePeerInfo = pm.peerStore.get(peerId)
-    remotePeerInfo.disconnectTime = getTime().toUnix
+
+    if event.kind == PeerEventKind.Left:
+      remotePeerInfo.disconnectTime = getTime().toUnix
 
     pm.storage.insertOrReplace(remotePeerInfo)
 
@@ -640,18 +648,29 @@ proc connectToNodes*(
   info "Dialing multiple peers", numOfPeers = nodes.len
 
   var futConns: seq[Future[bool]]
+  var connectedPeers: seq[RemotePeerInfo]
   for node in nodes:
     let node = parsePeerInfo(node)
     if node.isOk():
       futConns.add(pm.connectRelay(node.value))
+      connectedPeers.add(node.value)
     else:
       error "Couldn't parse node info", error = node.error
 
   await allFutures(futConns)
-  let successfulConns = futConns.mapIt(it.read()).countIt(it == true)
+
+  # Filtering successful connectedPeers based on futConns
+  let combined = zip(connectedPeers, futConns)
+  connectedPeers = combined.filterIt(it[1].read() == true).mapIt(it[0])
+
+  when defined(debugDiscv5):
+    let peerIds = connectedPeers.mapIt(it.peerId)
+    let origin = connectedPeers.mapIt(it.origin)
+    notice "established connections with found peers",
+      peerIds = peerIds, origin = origin
 
   info "Finished dialing multiple peers",
-    successfulConns = successfulConns, attempted = nodes.len
+    successfulConns = connectedPeers.len, attempted = nodes.len
 
   # The issue seems to be around peers not being fully connected when
   # trying to subscribe. So what we do is sleep to guarantee nodes are
@@ -717,15 +736,15 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let notConnectedPeers =
-    pm.peerStore.getNotConnectedPeers().mapIt(RemotePeerInfo.init(it.peerId, it.addrs))
+  let notConnectedPeers = pm.peerStore.getNotConnectedPeers()
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 
   shuffle(outsideBackoffPeers)
 
   var index = 0
-  var numPendingConnReqs = outsideBackoffPeers.len
+  var numPendingConnReqs =
+    min(outsideBackoffPeers.len, pm.outRelayPeersTarget - outRelayPeers.len)
     ## number of outstanding connection requests
 
   while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:

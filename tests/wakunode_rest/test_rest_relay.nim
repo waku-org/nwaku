@@ -511,11 +511,12 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
+    let invalidContentTopic = "invalidContentTopic"
     # When
     let response = await client.relayPostAutoMessagesV1(
       RelayWakuMessage(
         payload: base64.encode("TEST-PAYLOAD"),
-        contentTopic: some("invalidContentTopic"),
+        contentTopic: some(invalidContentTopic),
         timestamp: some(int64(2022)),
       )
     )
@@ -525,7 +526,8 @@ suite "Waku v2 Rest API - Relay":
       response.status == 400
       $response.contentType == $MIMETYPE_TEXT
       response.data ==
-        "Failed to publish. Autosharding error: invalid format: topic must start with slash"
+        "Failed to publish. Autosharding error: invalid format: content-topic '" &
+        invalidContentTopic & "' must start with slash"
 
     await restServer.stop()
     await restServer.closeWait()

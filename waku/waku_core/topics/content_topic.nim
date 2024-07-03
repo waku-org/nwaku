@@ -2,10 +2,7 @@
 ##
 ## See 23/WAKU2-TOPICS RFC: https://rfc.vac.dev/spec/23/
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, std/strutils, stew/results
 import ./parsing
@@ -68,7 +65,9 @@ proc parse*(
   ## Autosharding adds 1 optional prefix `/<gen#>
 
   if not topic.startsWith("/"):
-    return err(ParsingError.invalidFormat("topic must start with slash"))
+    return err(
+      ParsingError.invalidFormat("content-topic '" & topic & "' must start with slash")
+    )
 
   let parts = topic[1 ..< topic.len].split("/")
 

@@ -8,13 +8,13 @@ explained in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/1b56
 
 ### Release highlights
 
-* RLN_v2 is used. The maximum rate can be set to
-`N` messages per epoch, instead of just one message per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details. Notice that we established an epoch of 10 minutes.
+* RLN_v2 is used. The maximum rate can be set to `N` messages per epoch, instead of just one message per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details. Notice that we established an epoch of 10 minutes.
+
 
 ### Changes
 
 - rln-relay: add chain-id flag to wakunode and restrict usage if mismatches rpc provider ([#2858](https://github.com/waku-org/nwaku/pull/2858))
-- rln: nullifierlog vulnerability ([#2855](https://github.com/waku-org/nwaku/pull/2855))
+- rln: fix nullifierlog vulnerability ([#2855](https://github.com/waku-org/nwaku/pull/2855))
 - chore: add TWN parameters for RLNv2 ([#2843](https://github.com/waku-org/nwaku/pull/2843))
 - fix(rln-relay): clear nullifier log only if length is over max epoch gap ([#2836](https://github.com/waku-org/nwaku/pull/2836))
 - rlnv2: clean fork of rlnv2 ([#2828](https://github.com/waku-org/nwaku/issues/2828)) ([a02832fe](https://github.com/waku-org/nwaku/commit/a02832fe))

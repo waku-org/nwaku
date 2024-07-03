@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[strformat, sequtils, tables],
@@ -32,11 +29,12 @@ logScope:
 const ROUTE_ADMIN_V1_PEERS* = "/admin/v1/peers"
 const ROUTE_ADMIN_V1_FILTER_SUBS* = "/admin/v1/filter/subscriptions"
 
-type PeerProtocolTuple = tuple[multiaddr: string, protocol: string, connected: bool]
+type PeerProtocolTuple =
+  tuple[multiaddr: string, protocol: string, connected: bool, origin: PeerOrigin]
 
 proc tuplesToWakuPeers(peers: var WakuPeers, peersTup: seq[PeerProtocolTuple]) =
   for peer in peersTup:
-    peers.add(peer.multiaddr, peer.protocol, peer.connected)
+    peers.add(peer.multiaddr, peer.protocol, peer.connected, peer.origin)
 
 proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
@@ -48,6 +46,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuRelayCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, relayPeers)
@@ -60,6 +59,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuFilterSubscribeCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, filterV2Peers)
@@ -70,6 +70,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuStoreCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, storePeers)
@@ -82,6 +83,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuLegacyStoreCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, legacyStorePeers)
@@ -93,6 +95,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
             multiaddr: constructMultiaddrStr(it),
             protocol: WakuLightPushCodec,
             connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
           )
         )
       tuplesToWakuPeers(peers, lightpushPeers)

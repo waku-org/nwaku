@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
 import ../waku_core, ../utils/tableutils
@@ -13,6 +10,7 @@ const
   MaxFilterPeers* = 1000
   MaxFilterCriteriaPerPeer* = 1000
   DefaultSubscriptionTimeToLiveSec* = 5.minutes
+  MessageCacheTTL* = 2.minutes
 
 type
   # a single filter criterion is fully defined by a pubsub topic and content topic
