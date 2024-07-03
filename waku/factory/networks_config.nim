@@ -36,9 +36,9 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0x4976Df0f61135EF3E5720D92eadE2e5F47A68Ef9",
+    rlnRelayEthContractAddress: "0xCB33Aa5B38d79E3D9Fa8B10afF38AA201399a7e3",
     rlnRelayDynamic: true,
-    rlnRelayChainId: 2442, # https://chainlist.org/chain/2442
+    rlnRelayChainId: 11155111,
     rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 20,
