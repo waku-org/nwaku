@@ -1,10 +1,7 @@
 ## Nim wrappers for the functions defined in librln
 import ../protocol_types
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 ## Buffer struct is taken from
 # https://github.com/celo-org/celo-threshold-bls-rs/blob/master/crates/threshold-bls-ffi/src/ffi.rs

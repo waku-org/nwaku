@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, sequtils, net],
@@ -55,7 +52,8 @@ func decodeMultiaddrs(buffer: seq[byte]): EnrResult[seq[MultiAddress]] =
       return err("malformed multiaddr field: invalid length")
 
     let addrRaw = ?readBytes(buffer, addrLen.int, pos)
-    let address = MultiAddress.init(addrRaw).get()
+    let address = MultiAddress.init(addrRaw).valueOr:
+      continue # Not a valid multiaddress
 
     multiaddrs.add(address)
 

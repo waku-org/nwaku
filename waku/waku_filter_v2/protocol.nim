@@ -1,9 +1,6 @@
 ## Waku Filter protocol for subscribing and filtering messages
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, sequtils, sets, strutils, tables],
@@ -11,7 +8,8 @@ import
   chronicles,
   chronos,
   libp2p/peerid,
-  libp2p/protocols/protocol
+  libp2p/protocols/protocol,
+  libp2p/protocols/pubsub/timedcache
 import
   ../node/peer_manager,
   ../waku_core,
@@ -31,6 +29,7 @@ type WakuFilter* = ref object of LPProtocol
     # a mapping of peer ids to a sequence of filter criteria
   peerManager: PeerManager
   maintenanceTask: TimerCallback
+  messageCache: TimedCache[string]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId = peerId
@@ -176,20 +175,27 @@ proc pushToPeers(
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
 
-  notice "pushing message to subscribed peers",
-    pubsubTopic = messagePush.pubsubTopic,
-    contentTopic = messagePush.wakuMessage.contentTopic,
-    target_peer_ids = targetPeerIds,
-    msg_hash = msgHash
+  ## it's also refresh expire of msghash, that's why update cache every time, even if it has a value.
+  if wf.messageCache.put(msgHash, Moment.now()):
+    notice "duplicate message found, not-pushing message to subscribed peers",
+      pubsubTopic = messagePush.pubsubTopic,
+      contentTopic = messagePush.wakuMessage.contentTopic,
+      target_peer_ids = targetPeerIds,
+      msg_hash = msgHash
+  else:
+    notice "pushing message to subscribed peers",
+      pubsubTopic = messagePush.pubsubTopic,
+      contentTopic = messagePush.wakuMessage.contentTopic,
+      target_peer_ids = targetPeerIds,
+      msg_hash = msgHash
 
-  let bufferToPublish = messagePush.encode().buffer
+    let bufferToPublish = messagePush.encode().buffer
+    var pushFuts: seq[Future[void]]
 
-  var pushFuts: seq[Future[void]]
-  for peerId in peers:
-    let pushFut = wf.pushToPeer(peerId, bufferToPublish)
-    pushFuts.add(pushFut)
-
-  await allFutures(pushFuts)
+    for peerId in peers:
+      let pushFut = wf.pushToPeer(peerId, bufferToPublish)
+      pushFuts.add(pushFut)
+    await allFutures(pushFuts)
 
 proc maintainSubscriptions*(wf: WakuFilter) =
   trace "maintaining subscriptions"
@@ -289,12 +295,14 @@ proc new*(
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+    messageCacheTTL: Duration = MessageCacheTTL,
 ): T =
   let wf = WakuFilter(
     subscriptions: FilterSubscriptions.init(
       subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
     ),
     peerManager: peerManager,
+    messageCache: init(TimedCache[string], messageCacheTTL),
   )
 
   wf.initProtocolHandler()

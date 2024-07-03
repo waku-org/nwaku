@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import chronicles, json_serialization, presto/route
 import ../../../waku_node, ../responses, ../serdes, ./types

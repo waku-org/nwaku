@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import json_serialization, std/options
 import ../waku_core

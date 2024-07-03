@@ -2,10 +2,7 @@
 ##
 ## See 51/WAKU2-RELAY-SHARDING RFC: https://rfc.vac.dev/spec/51/#automatic-sharding
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import nimcrypto, std/options, std/tables, stew/endians2, stew/results, stew/byteutils
 

@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/options, stew/results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
@@ -73,8 +70,8 @@ proc initProtocolHandler(wl: WakuLightPush) =
     wl.requestRateLimiter.checkUsageLimit(WakuLightPushCodec, conn):
       let buffer = await conn.readLp(DefaultMaxRpcSize)
 
-      waku_service_inbound_network_bytes.inc(
-        amount = buffer.len().int64, labelValues = [WakuLightPushCodec]
+      waku_service_network_bytes.inc(
+        amount = buffer.len().int64, labelValues = [WakuLightPushCodec, "in"]
       )
 
       rpc = await handleRequest(wl, conn.peerId, buffer)

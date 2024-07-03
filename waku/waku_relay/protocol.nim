@@ -2,10 +2,7 @@
 ##
 ## See https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-relay.md
 ## for spec.
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/strformat,
@@ -58,6 +55,9 @@ const TopicParameters = TopicParams(
   invalidMessageDeliveriesWeight: -100.0,
   invalidMessageDeliveriesDecay: 0.5,
 )
+
+declareCounter waku_relay_network_bytes,
+  "total traffic per topic", labels = ["topic", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -150,6 +150,78 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
+proc initRelayMetricObserver(w: WakuRelay) =
+  proc decodeRpcMessageInfo(
+      peer: PubSubPeer, msg: Message
+  ): Result[
+      tuple[msgId: string, topic: string, wakuMessage: WakuMessage, msgSize: int], void
+  ] =
+    let msg_id = w.msgIdProvider(msg).valueOr:
+      warn "Error generating message id",
+        my_peer_id = w.switch.peerInfo.peerId,
+        from_peer_id = peer.peerId,
+        pubsub_topic = msg.topic,
+        error = $error
+      return err()
+
+    let msg_id_short = shortLog(msg_id)
+
+    let wakuMessage = WakuMessage.decode(msg.data).valueOr:
+      warn "Error decoding to Waku Message",
+        my_peer_id = w.switch.peerInfo.peerId,
+        msg_id = msg_id_short,
+        from_peer_id = peer.peerId,
+        pubsub_topic = msg.topic,
+        error = $error
+      return err()
+
+    let msgSize = msg.data.len + msg.topic.len
+    return ok((msg_id_short, msg.topic, wakuMessage, msgSize))
+
+  proc logMessageInfo(
+      peer: PubSubPeer, topic: string, msg_id_short: string, msg: WakuMessage
+  ) =
+    let msg_hash = computeMessageHash(topic, msg).to0xHex()
+
+    notice "sent relay message",
+      my_peer_id = w.switch.peerInfo.peerId,
+      msg_hash = msg_hash,
+      msg_id = msg_id_short,
+      to_peer_id = peer.peerId,
+      topic = topic,
+      sentTime = getNowInNanosecondTime(),
+      payloadSizeBytes = msg.payload.len
+
+  proc updateMetrics(
+      peer: PubSubPeer,
+      pubsub_topic: string,
+      msg: WakuMessage,
+      msgSize: int,
+      onRecv: bool,
+  ) =
+    waku_relay_network_bytes.inc(
+      msgSize.int64, labelValues = [pubsub_topic, if onRecv: "in" else: "out"]
+    )
+
+  proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
+    for msg in msgs.messages:
+      let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
+        continue
+      # message receive log happens in treaceHandler as this one is called before checks
+      updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = true)
+    discard
+
+  proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
+    for msg in msgs.messages:
+      let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
+        continue
+      logMessageInfo(peer, topic, msg_id_short, wakuMessage)
+      updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = false)
+
+  let administrativeObserver = PubSubObserver(onRecv: onRecv, onSend: onSend)
+
+  w.addObserver(administrativeObserver)
+
 proc new*(
     T: type WakuRelay, switch: Switch, maxMessageSize = int(DefaultMaxWakuMessageSize)
 ): WakuRelayResult[T] =
@@ -170,6 +242,7 @@ proc new*(
 
     procCall GossipSub(w).initPubSub()
     w.initProtocolHandler()
+    w.initRelayMetricObserver()
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
@@ -179,6 +252,9 @@ proc addValidator*(
     w: WakuRelay, handler: WakuValidatorHandler, errorMessage: string = ""
 ) {.gcsafe.} =
   w.wakuValidators.add((handler, errorMessage))
+
+proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
+  procCall GossipSub(w).addObserver(observer)
 
 method start*(w: WakuRelay) {.async, base.} =
   debug "start"
@@ -311,4 +387,6 @@ proc publish*(
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
   notice "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
-  return await procCall GossipSub(w).publish(pubsubTopic, data)
+  let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
+
+  return relayedPeerCount

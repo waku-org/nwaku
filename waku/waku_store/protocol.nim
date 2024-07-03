@@ -1,10 +1,7 @@
 ## Waku Store protocol for historical messaging support.
 ## See spec for more details:
 ## https://github.com/vacp2p/specs/blob/master/specs/waku/v2/waku-store.md
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/options,
@@ -103,8 +100,8 @@ proc initProtocolHandler(self: WakuStore) =
         error "Connection read error", error = error.msg
         return
 
-      waku_service_inbound_network_bytes.inc(
-        amount = reqBuf.len().int64, labelValues = [WakuStoreCodec]
+      waku_service_network_bytes.inc(
+        amount = reqBuf.len().int64, labelValues = [WakuStoreCodec, "in"]
       )
 
       resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
@@ -120,8 +117,8 @@ proc initProtocolHandler(self: WakuStore) =
       error "Connection write error", error = writeRes.error.msg
       return
 
-    waku_service_outbound_network_bytes.inc(
-      amount = resBuf.len().int64, labelValues = [WakuStoreCodec]
+    waku_service_network_bytes.inc(
+      amount = resBuf.len().int64, labelValues = [WakuStoreCodec, "out"]
     )
 
   self.handler = handler

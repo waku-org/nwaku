@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/options, stew/arrayops
 import ../common/[protobuf, paging], ../waku_core, ./common

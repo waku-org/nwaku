@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 ## Notice that the REST /lightpush requests normally assume that the node
 ## is acting as a lightpush-client that will trigger the service provider node

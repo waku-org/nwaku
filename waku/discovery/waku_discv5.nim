@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[sequtils, strutils, options, sets, net, json],
@@ -172,6 +169,31 @@ proc updateENRShards(
 
   return ok()
 
+proc logDiscv5FoundPeers(discoveredRecords: seq[waku_enr.Record]) =
+  for record in discoveredRecords:
+    let recordUri = record.toURI()
+    let capabilities = record.getCapabilities()
+
+    let typedRecord = record.toTyped().valueOr:
+      warn "Could not parse to typed record", error = error, enr = recordUri
+      continue
+
+    let peerInfo = record.toRemotePeerInfo().valueOr:
+      warn "Could not generate remote peer info", error = error, enr = recordUri
+      continue
+
+    let addrs = peerInfo.constructMultiaddrStr()
+
+    let rs = typedRecord.relaySharding()
+    let shardsStr =
+      if rs.isSome():
+        $rs.get()
+      else:
+        "no shards found"
+
+    notice "Received discv5 node",
+      addrs = addrs, enr = recordUri, capabilities = capabilities, shards = shardsStr
+
 proc findRandomPeers*(
     wd: WakuDiscoveryV5, overridePred = none(WakuDiscv5Predicate)
 ): Future[seq[waku_enr.Record]] {.async.} =
@@ -179,6 +201,9 @@ proc findRandomPeers*(
   let discoveredNodes = await wd.protocol.queryRandom()
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
+
+  when defined(debugDiscv5):
+    logDiscv5FoundPeers(discoveredRecords)
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():

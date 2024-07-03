@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[options, tables, deques], stew/arrayops, stint, chronos, web3, eth/keys
 import ../waku_core, ../waku_keystore, ../common/protobuf
