@@ -1,72 +1,87 @@
 const ContentScriptVersion_6* =
   """
-ALTER TABLE IF EXISTS messages_backup RENAME TO messages;
-ALTER TABLE messages RENAME TO messages_backup;
-ALTER TABLE messages_backup DROP CONSTRAINT messageIndex;
+-- Rename old table
+ALTER TABLE IF EXISTS MESSAGES
+RENAME TO OLD_MESSAGES;
 
-CREATE TABLE IF NOT EXISTS messages (
-   messageHash VARCHAR NOT NULL,
-   pubsubTopic VARCHAR NOT NULL,
-   contentTopic VARCHAR NOT NULL,
-   payload VARCHAR,
-   version INTEGER NOT NULL,
-   timestamp BIGINT NOT NULL,
-   meta VARCHAR,
-   id VARCHAR,
-   storedAt BIGINT,
-	CONSTRAINT messageIndex PRIMARY KEY (timestamp, messageHash)
-  ) PARTITION BY RANGE (timestamp);
+-- Remove old message index
+ALTER TABLE IF EXISTS OLD_MESSAGES
+DROP CONSTRAINT MESSAGEINDEX;
+
+-- Create new empty table
+CREATE TABLE IF NOT EXISTS NEW_MESSAGES (
+	MESSAGEHASH VARCHAR NOT NULL,
+	PUBSUBTOPIC VARCHAR NOT NULL,
+	CONTENTTOPIC VARCHAR NOT NULL,
+	PAYLOAD VARCHAR,
+	VERSION INTEGER NOT NULL,
+	TIMESTAMP BIGINT NOT NULL,
+	META VARCHAR,
+	ID VARCHAR,
+	STOREDAT BIGINT,
+	CONSTRAINT MESSAGEINDEX PRIMARY KEY (TIMESTAMP, MESSAGEHASH)
+)
+PARTITION BY
+	RANGE (TIMESTAMP);
 
 DO $$
 DECLARE
-     min_timestamp numeric;
-     max_timestamp numeric;
-     min_timestampSeconds integer = 0;
-     max_timestampSeconds integer = 0;
-     partition_name TEXT;
-     create_partition_stmt TEXT;
+	partition_name TEXT;
+	partition_count numeric;
+	min_timestamp numeric;
+	max_timestamp numeric;
 BEGIN
-    SELECT MIN(timestamp) into min_timestamp
-    FROM messages_backup;
+    FOR partition_name in 
+		(SELECT child.relname AS partition_name FROM pg_inherits
+		JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
+		JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
+		JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
+		JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
+		WHERE parent.relname='old_messages'
+		ORDER BY partition_name ASC)
+    LOOP
 
-    SELECT MAX(timestamp) into max_timestamp
-    FROM messages_backup;
+	-- Get the number of rows of this partition
+	EXECUTE format('SELECT COUNT(1) FROM %I', partition_name) INTO partition_count;
 
-    min_timestampSeconds := min_timestamp / 1000000000;
-    max_timestampSeconds := max_timestamp / 1000000000;
+	IF partition_count > 0 THEN
 
-    partition_name := 'messages_' || min_timestampSeconds || '_' || max_timestampSeconds;
-    create_partition_stmt := 'CREATE TABLE ' || partition_name ||
-                            ' PARTITION OF messages FOR VALUES FROM (' ||
-                            min_timestamp || ') TO (' || (max_timestamp + 1) || ')';
-    IF min_timestampSeconds > 0 AND max_timestampSeconds > 0 THEN
-    	EXECUTE create_partition_stmt USING partition_name, min_timestamp, max_timestamp;
-    END IF;
+	-- Get the smallest timestamp of this partition
+	EXECUTE format('SELECT MIN(timestamp) FROM %I', partition_name) INTO min_timestamp;
+
+	-- Get the largest timestamp of this partition
+	EXECUTE format('SELECT MAX(timestamp) FROM %I', partition_name) INTO max_timestamp;
+
+	-- Rename old partition
+	EXECUTE format('ALTER TABLE %I RENAME TO old_%I', partition_name, partition_name);
+
+	-- Create new partition with the same name and bounds
+	EXECUTE format('CREATE TABLE %I PARTITION OF new_messages FOR VALUES FROM (%L) TO (%L)', partition_name, min_timestamp, max_timestamp + 1);
+	
+	-- Insert partition rows into new table
+	EXECUTE format('INSERT INTO %I (messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta, id, storedAt)
+		SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta, id, storedAt
+		FROM old_%I', partition_name, partition_name);
+
+	-- Drop old partition.
+	EXECUTE format('DROP TABLE old_%I', partition_name);
+	
+	END IF;
+	
+	END LOOP;
 END $$;
 
-INSERT INTO messages (
-                        messageHash,
-                        pubsubTopic,
-                        contentTopic,
-                        payload,
-                        version,
-                        timestamp,
-                        meta,
-                        id,
-                        storedAt
-                     )
-                SELECT messageHash,
-                        pubsubTopic,
-                        contentTopic,
-                        payload,
-                        version,
-                        timestamp,
-                        meta,
-                        id,
-                        storedAt
-                   FROM messages_backup;
+-- Remove old table
+DROP TABLE IF EXISTS OLD_MESSAGES;
 
-DROP TABLE messages_backup;
+-- Rename new table
+ALTER TABLE IF EXISTS NEW_MESSAGES
+RENAME TO MESSAGES;
 
-UPDATE version SET version = 6 WHERE version = 5;
+-- Update to new version 
+UPDATE VERSION
+SET
+	VERSION = 6
+WHERE
+	VERSION = 5;
 """
