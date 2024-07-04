@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import chronos, std/[options, sequtils], stew/results
+import chronos, std/[options, sequtils], results
 import ../discovery/waku_discv5, ../waku_relay, ../waku_core, ./message_cache
 
 ### Discovery

@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results
+import results
 import ../../../waku_core, ../waku_peer_store
 
 ## This module defines a peer storage interface. Implementations of

@@ -2,7 +2,7 @@
 
 import
   std/[options, net],
-  stew/results,
+  results,
   chronicles,
   libp2p/crypto/crypto,
   libp2p/builders,

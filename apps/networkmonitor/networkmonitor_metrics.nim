@@ -10,7 +10,7 @@ import
   metrics/chronos_httpserver,
   presto/route,
   presto/server,
-  stew/results,
+  results,
   stew/shims/net
 
 logScope:

@@ -1,5 +1,5 @@
 import std/[sequtils, strutils]
-import chronicles, chronos, stew/results
+import chronicles, chronos, results
 import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
 
 type PeerManagementMsgType* = enum

@@ -1,4 +1,4 @@
-import std/[times, strutils], stew/results, chronos
+import std/[times, strutils], results, chronos
 
 include db_postgres
 

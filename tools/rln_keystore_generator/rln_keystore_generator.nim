@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronicles, stew/[results], std/tempfiles
+import chronicles, results, std/tempfiles
 
 import
   waku/[

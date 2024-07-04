@@ -4,7 +4,7 @@
 #
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
-import std/[os, strutils, sequtils, algorithm], stew/results, chronicles, sqlite3_abi
+import std/[os, strutils, sequtils, algorithm], results, chronicles, sqlite3_abi
 import ./common
 
 logScope:

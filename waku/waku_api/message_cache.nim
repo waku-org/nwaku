@@ -2,7 +2,7 @@
 
 import
   std/[sequtils, sugar, algorithm, options],
-  stew/results,
+  results,
   chronicles,
   chronos,
   libp2p/protocols/pubsub

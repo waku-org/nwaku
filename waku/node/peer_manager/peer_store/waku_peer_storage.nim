@@ -2,7 +2,7 @@
 
 import
   std/[sets, options],
-  stew/results,
+  results,
   sqlite3_abi,
   eth/p2p/discoveryv5/enr,
   libp2p/protobuf/minprotobuf

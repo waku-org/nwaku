@@ -8,7 +8,7 @@ import std/[options, strutils, tables]
 import chronos
 import chronicles
 import bearssl/rand
-import stew/results
+import results
 
 import libp2p/crypto/[chacha20poly1305, curve25519]
 

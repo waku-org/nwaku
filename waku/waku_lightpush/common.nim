@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results, chronos, libp2p/peerid
+import results, chronos, libp2p/peerid
 import ../waku_core
 
 const WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"

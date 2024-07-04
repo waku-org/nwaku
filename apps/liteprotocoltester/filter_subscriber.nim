@@ -8,7 +8,7 @@ import
   chronos,
   chronos/timer as chtimer,
   stew/byteutils,
-  stew/results,
+  results,
   serialization,
   json_serialization as js,
   times

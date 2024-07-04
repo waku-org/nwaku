@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[tables, strutils, os], stew/results, chronicles
+import std/[tables, strutils, os], results, chronicles
 import ../../../common/databases/db_sqlite, ../../../common/databases/common
 
 logScope:

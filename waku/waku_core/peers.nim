@@ -2,7 +2,7 @@
 
 import
   std/[options, sequtils, strutils, uri, net],
-  stew/results,
+  results,
   chronos,
   eth/keys,
   eth/p2p/discoveryv5/enr,

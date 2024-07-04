@@ -2,7 +2,7 @@
 
 import
   std/[tables, strutils, times, sequtils, random],
-  stew/results,
+  results,
   stew/shims/net,
   chronicles,
   chronicles/topics_registry,

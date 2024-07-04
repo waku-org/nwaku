@@ -2,7 +2,7 @@
 # Inspired by: https://github.com/treeform/pg/
 {.push raises: [].}
 
-import std/[sequtils, nre, strformat, sets], stew/results, chronos
+import std/[sequtils, nre, strformat, sets], results, chronos
 import ./dbconn, ../common
 
 type PgAsyncPoolState {.pure.} = enum

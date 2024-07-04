@@ -1,7 +1,7 @@
 ## Example showing how a resource restricted client may
 ## use lightpush to publish messages without relay
 
-import chronicles, chronos, stew/byteutils, stew/results
+import chronicles, chronos, stew/byteutils, results
 import waku/[common/logging, node/peer_manager, waku_core, waku_lightpush/client]
 
 const

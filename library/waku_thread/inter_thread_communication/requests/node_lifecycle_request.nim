@@ -1,5 +1,5 @@
 import std/[options, sequtils, json, strutils, net]
-import chronos, chronicles, stew/results, confutils, confutils/std/net
+import chronos, chronicles, results, confutils, confutils/std/net
 
 import
   ../../../../waku/node/peer_manager/peer_manager,

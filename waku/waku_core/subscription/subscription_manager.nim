@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/tables, stew/results, chronicles, chronos
+import std/tables, results, chronicles, chronos
 
 import ./push_handler, ../topics, ../message
 

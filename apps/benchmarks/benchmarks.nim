@@ -1,7 +1,7 @@
 import
   math,
   std/sequtils,
-  stew/results,
+  results,
   options,
   waku/[
     waku_rln_relay/protocol_types,

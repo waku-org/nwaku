@@ -2,7 +2,7 @@
 
 import
   std/[options, net],
-  stew/results,
+  results,
   eth/keys as eth_keys,
   eth/p2p/discoveryv5/enr,
   libp2p/crypto/crypto as libp2p_crypto

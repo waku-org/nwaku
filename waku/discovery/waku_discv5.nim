@@ -2,7 +2,7 @@
 
 import
   std/[sequtils, strutils, options, sets, net, json],
-  stew/results,
+  results,
   chronos,
   chronicles,
   metrics,

@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/options, stew/results, chronicles, chronos, metrics, bearssl/rand
+import std/options, results, chronicles, chronos, metrics, bearssl/rand
 import
   ../node/peer_manager, ../utils/requests, ./protocol_metrics, ./common, ./rpc_codec
 

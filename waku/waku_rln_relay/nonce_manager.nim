@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import chronos, stew/results, times
+import chronos, results, times
 import ./constants
 
 export chronos, times, results, constants
@@ -48,7 +48,7 @@ proc getNonce*(n: NonceManager): NonceManagerResult[Nonce] =
 
   if retNonce >= n.nonceLimit:
     return err(
-      NonceManagerError( 
+      NonceManagerError(
         kind: NonceLimitReached,
         error:
           "Nonce limit reached. Please wait for the next epoch. requested nonce: " &

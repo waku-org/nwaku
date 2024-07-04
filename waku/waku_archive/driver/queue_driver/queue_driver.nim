@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/options, stew/results, stew/sorted_set, chronicles, chronos
+import std/options, results, stew/sorted_set, chronicles, chronos
 import ../../../waku_core, ../../common, ../../driver, ./index
 
 logScope:
