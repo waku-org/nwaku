@@ -46,14 +46,22 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     info "not executing, exiting"
     quit(0)
 
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+    ## Action to be taken when an internal error occurs during the node run.
+    ## e.g. the connection with the database is lost and not recovered.
+    error "Unrecoverable error occurred", error = msg
+    quit(QuitFailure)
+
   # 4. initialize OnchainGroupManager
   let groupManager = OnchainGroupManager(
     ethClientUrl: string(conf.rlnRelayethClientAddress),
+    chainId: conf.rlnRelayChainId,
     ethContractAddress: conf.rlnRelayEthContractAddress,
     rlnInstance: rlnInstance,
     keystorePath: none(string),
     keystorePassword: none(string),
     ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
+    onFatalErrorAction: onFatalErrorAction
   )
   try:
     (waitFor groupManager.init()).isOkOr:
