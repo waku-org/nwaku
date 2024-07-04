@@ -10,7 +10,7 @@ import
 
 # Waku archive test suite
 import
-  #[ ./waku_archive/test_driver_queue_index,
+  ./waku_archive/test_driver_queue_index,
   ./waku_archive/test_driver_queue_pagination,
   ./waku_archive/test_driver_queue_query,
   ./waku_archive/test_driver_queue,
@@ -18,7 +18,7 @@ import
   ./waku_archive/test_driver_sqlite,
   ./waku_archive/test_retention_policy,
   ./waku_archive/test_waku_archive,
-  ./waku_archive/test_partition_manager, ]#
+  ./waku_archive/test_partition_manager,
   ./waku_archive_legacy/test_driver_queue_index,
   ./waku_archive_legacy/test_driver_queue_pagination,
   ./waku_archive_legacy/test_driver_queue_query,
