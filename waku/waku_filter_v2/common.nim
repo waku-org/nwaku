@@ -12,6 +12,7 @@ type
     BAD_RESPONSE = uint32(300)
     BAD_REQUEST = uint32(400)
     NOT_FOUND = uint32(404)
+    TOO_MANY_REQUESTS = uint32(429)
     SERVICE_UNAVAILABLE = uint32(503)
     PEER_DIAL_FAILURE = uint32(504)
 
@@ -19,7 +20,7 @@ type
     case kind*: FilterSubscribeErrorKind
     of PEER_DIAL_FAILURE:
       address*: string
-    of BAD_RESPONSE, BAD_REQUEST, NOT_FOUND, SERVICE_UNAVAILABLE:
+    of BAD_RESPONSE, BAD_REQUEST, NOT_FOUND, TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE:
       cause*: string
     else:
       discard
@@ -49,6 +50,11 @@ proc notFound*(
 ): FilterSubscribeError =
   FilterSubscribeError(kind: FilterSubscribeErrorKind.NOT_FOUND, cause: cause)
 
+proc tooManyRequests*(
+    T: type FilterSubscribeError, cause = "too many requests"
+): FilterSubscribeError =
+  FilterSubscribeError(kind: FilterSubscribeErrorKind.TOO_MANY_REQUESTS, cause: cause)
+
 proc serviceUnavailable*(
     T: type FilterSubscribeError, cause = "service unavailable"
 ): FilterSubscribeError =
@@ -56,7 +62,7 @@ proc serviceUnavailable*(
 
 proc parse*(T: type FilterSubscribeErrorKind, kind: uint32): T =
   case kind
-  of 000, 200, 300, 400, 404, 503:
+  of 000, 200, 300, 400, 404, 429, 503:
     FilterSubscribeErrorKind(kind)
   else:
     FilterSubscribeErrorKind.UNKNOWN
@@ -66,7 +72,7 @@ proc parse*(T: type FilterSubscribeError, kind: uint32, cause = "", address = ""
   case kind
   of PEER_DIAL_FAILURE:
     FilterSubscribeError(kind: kind, address: address)
-  of BAD_RESPONSE, BAD_REQUEST, NOT_FOUND, SERVICE_UNAVAILABLE:
+  of BAD_RESPONSE, BAD_REQUEST, NOT_FOUND, TOO_MANY_REQUESTS, SERVICE_UNAVAILABLE:
     FilterSubscribeError(kind: kind, cause: cause)
   else:
     FilterSubscribeError(kind: kind)
@@ -81,6 +87,8 @@ proc `$`*(err: FilterSubscribeError): string =
     "BAD_REQUEST: " & err.cause
   of FilterSubscribeErrorKind.NOT_FOUND:
     "NOT_FOUND: " & err.cause
+  of FilterSubscribeErrorKind.TOO_MANY_REQUESTS:
+    "TOO_MANY_REQUESTS: " & err.cause
   of FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
     "SERVICE_UNAVAILABLE: " & err.cause
   of FilterSubscribeErrorKind.UNKNOWN:

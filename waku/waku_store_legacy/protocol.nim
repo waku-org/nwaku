@@ -21,8 +21,7 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/ratelimit,
-  ../common/waku_service_metrics
+  ../common/ratelimit/requestratelimiter
 
 logScope:
   topics = "waku legacy store"
@@ -37,7 +36,7 @@ type WakuStore* = ref object of LPProtocol
   peerManager: PeerManager
   rng: ref rand.HmacDrbgContext
   queryHandler*: HistoryQueryHandler
-  requestRateLimiter*: Option[TokenBucket]
+  requestRateLimiter*: RequestRateLimiter
 
 ## Protocol
 
@@ -122,7 +121,7 @@ proc initProtocolHandler(ws: WakuStore) =
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
-        peerId = conn.peerId, limit = $ws.requestRateLimiter
+        peerId = conn.peerId, limit = $ws.requestRateLimiter.setting
       resBuf = rejectResponseBuf
 
     let writeRes = catch:
@@ -154,7 +153,7 @@ proc new*(
     rng: rng,
     peerManager: peerManager,
     queryHandler: queryHandler,
-    requestRateLimiter: newTokenBucket(rateLimitSetting),
+    requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   ws.initProtocolHandler()
   ws

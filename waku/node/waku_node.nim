@@ -47,7 +47,7 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../common/ratelimit
+  ../common/ratelimit/ratelimitsetting
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -435,13 +435,18 @@ proc mountFilter*(
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer,
     messageCacheTTL: Duration = filter_subscriptions.MessageCacheTTL,
+    rateLimitSetting: RateLimitSetting = FilterPerPeerRateLimit,
 ) {.async: (raises: []).} =
   ## Mounting filter v2 protocol
 
   info "mounting filter protocol"
   node.wakuFilter = WakuFilter.new(
-    node.peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer,
+    node.peerManager,
+    subscriptionTimeout,
+    maxFilterPeers,
+    maxFilterCriteriaPerPeer,
     messageCacheTTL,
+    some(rateLimitSetting),
   )
 
   if node.started:

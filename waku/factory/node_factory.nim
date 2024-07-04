@@ -31,7 +31,7 @@ import
   ../waku_archive/driver/builder,
   ../waku_archive/retention_policy/builder,
   ../common/utils/parse_size_units,
-  ../common/ratelimit
+  ../common/ratelimit/ratelimitsetting
 
 ## Peer persistence
 

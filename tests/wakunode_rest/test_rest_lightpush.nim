@@ -23,7 +23,7 @@ import
     waku_api/rest/lightpush/handlers as lightpush_api,
     waku_api/rest/lightpush/client as lightpush_api_client,
     waku_relay,
-    common/ratelimit,
+    common/ratelimit/ratelimitsetting,
   ],
   ../testlib/wakucore,
   ../testlib/wakunode,

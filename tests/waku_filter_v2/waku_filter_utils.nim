@@ -7,6 +7,7 @@ import
     waku_filter_v2/client,
     waku_filter_v2/subscriptions,
     waku_core,
+    common/ratelimit/ratelimitsetting,
   ],
   ../testlib/[common, wakucore]
 
@@ -15,11 +16,16 @@ proc newTestWakuFilter*(
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): Future[WakuFilter] {.async.} =
   let
     peerManager = PeerManager.new(switch)
     proto = WakuFilter.new(
-      peerManager, subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
+      peerManager,
+      subscriptionTimeout,
+      maxFilterPeers,
+      maxFilterCriteriaPerPeer,
+      rateLimitSetting = rateLimitSetting,
     )
 
   await proto.start()

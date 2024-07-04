@@ -1,23 +1,22 @@
 {.push raises: [].}
 
 import
- ../waku_core,
- ../waku_relay,
- ./common,
- ./protocol,
- ../waku_rln_relay,
- ../waku_rln_relay/protocol_types,
- ../common/ratelimit
-import
- std/times,
- libp2p/peerid,
- stew/byteutils
+  ../waku_core,
+  ../waku_relay,
+  ./common,
+  ./protocol,
+  ../waku_rln_relay,
+  ../waku_rln_relay/protocol_types
 
-proc checkAndGenerateRLNProof*(rlnPeer: Option[WakuRLNRelay], message: WakuMessage): Result[WakuMessage, string] =
+import std/times, libp2p/peerid, stew/byteutils
+
+proc checkAndGenerateRLNProof*(
+    rlnPeer: Option[WakuRLNRelay], message: WakuMessage
+): Result[WakuMessage, string] =
   # check if the message already has RLN proof
   if message.proof.len > 0:
     return ok(message)
-  
+
   if rlnPeer.isNone():
     notice "Publishing message without RLN proof"
     return ok(message)
@@ -32,16 +31,15 @@ proc checkAndGenerateRLNProof*(rlnPeer: Option[WakuRLNRelay], message: WakuMessa
 
 proc getNilPushHandler*(): PushMessageHandler =
   return proc(
-    peer: PeerId, pubsubTopic: string, message: WakuMessage
+      peer: PeerId, pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult[void]] {.async.} =
     return err("no waku relay found")
 
 proc getRelayPushHandler*(
-  wakuRelay: WakuRelay,
-  rlnPeer: Option[WakuRLNRelay] = none[WakuRLNRelay]()
+    wakuRelay: WakuRelay, rlnPeer: Option[WakuRLNRelay] = none[WakuRLNRelay]()
 ): PushMessageHandler =
   return proc(
-    peer: PeerId, pubsubTopic: string, message: WakuMessage
+      peer: PeerId, pubsubTopic: string, message: WakuMessage
   ): Future[WakuLightPushResult[void]] {.async.} =
     # append RLN proof
     let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message)

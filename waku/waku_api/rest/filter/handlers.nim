@@ -71,7 +71,8 @@ proc getStatusDesc(
   of FilterSubscribeErrorKind.PEER_DIAL_FAILURE:
     err.address
   of FilterSubscribeErrorKind.BAD_RESPONSE, FilterSubscribeErrorKind.BAD_REQUEST,
-      FilterSubscribeErrorKind.NOT_FOUND, FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
+      FilterSubscribeErrorKind.NOT_FOUND, FilterSubscribeErrorKind.TOO_MANY_REQUESTS,
+      FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
     err.cause
   of FilterSubscribeErrorKind.UNKNOWN:
     "UNKNOWN"
@@ -111,6 +112,8 @@ proc convertErrorKindToHttpStatus(
     return Http400
   of filter_protocol_type.FilterSubscribeErrorKind.NOT_FOUND:
     return Http404
+  of filter_protocol_type.FilterSubscribeErrorKind.TOO_MANY_REQUESTS:
+    return Http429
   of filter_protocol_type.FilterSubscribeErrorKind.SERVICE_UNAVAILABLE:
     return Http503
 

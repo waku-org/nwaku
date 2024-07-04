@@ -5,4 +5,7 @@ import
   ./test_envvar_serialization,
   ./test_protobuf_validation,
   ./test_sqlite_migrations,
-  ./test_parse_size
+  ./test_parse_size,
+  ./test_tokenbucket,
+  ./test_requestratelimiter,
+  ./test_timedmap
