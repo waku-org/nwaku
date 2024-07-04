@@ -14,14 +14,12 @@ import
   libp2p/crypto/crypto,
   eth/keys
 import
-  waku/[
-    waku_rln_relay/protocol_types,
-    waku_rln_relay/constants,
-    waku_rln_relay/contract,
-    waku_rln_relay/rln,
-    waku_rln_relay/conversion_utils,
-    waku_rln_relay/group_manager/on_chain/group_manager,
-  ],
+  waku/[waku_rln_relay/protocol_types,
+  waku_rln_relay/constants,
+  waku_rln_relay/contract,
+  waku_rln_relay/rln,
+  waku_rln_relay/conversion_utils,
+  waku_rln_relay/group_manager/on_chain/group_manager,],
   ../testlib/common,
   ./utils
 
@@ -67,18 +65,12 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   let poseidonAddressStripped = strip0xPrefix($poseidonT3Address)
 
   # deploy lazy imt bytecode
-  let lazyImtReceipt = await web3.deployContract(
-    LazyIMT.replace("__$PoseidonT3$__", poseidonAddressStripped)
-  )
+  let lazyImtReceipt = await web3.deployContract(LazyIMT.replace("__$PoseidonT3$__", poseidonAddressStripped))
   let lazyImtAddress = lazyImtReceipt.contractAddress.get()
   let lazyImtAddressStripped = strip0xPrefix($lazyImtAddress)
 
   # deploy waku rlnv2 contract
-  let wakuRlnContractReceipt = await web3.deployContract(
-    WakuRlnV2Contract.replace("__$PoseidonT3$__", poseidonAddressStripped).replace(
-      "__$LazyIMT$__", lazyImtAddressStripped
-    )
-  )
+  let wakuRlnContractReceipt = await web3.deployContract(WakuRlnV2Contract.replace("__$PoseidonT3$__", poseidonAddressStripped).replace("__$LazyIMT$__", lazyImtAddressStripped))
   let wakuRlnContractAddress = wakuRlnContractReceipt.contractAddress.get()
   let wakuRlnAddressStripped = strip0xPrefix($wakuRlnContractAddress)
 
@@ -87,9 +79,8 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   # need to send concat: impl & init_bytes
   let contractInput = encode(wakuRlnContractAddress).data & Erc1967ProxyContractInput
   debug "contractInput", contractInput
-  let proxyReceipt =
-    await web3.deployContract(Erc1967Proxy, contractInput = contractInput)
-
+  let proxyReceipt = await web3.deployContract(Erc1967Proxy, contractInput = contractInput)
+  
   debug "proxy receipt", proxyReceipt
   let proxyAddress = proxyReceipt.contractAddress.get()
 
@@ -357,8 +348,7 @@ suite "Onchain group manager":
     ): OnRegisterCallback =
       var futureIndex = 0
       proc callback(registrations: seq[Membership]): Future[void] {.async.} =
-        let rateCommitment =
-          getRateCommitment(credentials[futureIndex], UserMessageLimit(1))
+        let rateCommitment = getRateCommitment(credentials[futureIndex], UserMessageLimit(1))
         if registrations.len == 1 and
             registrations[0].rateCommitment == rateCommitment.get() and
             registrations[0].index == MembershipIndex(futureIndex):
@@ -495,6 +485,7 @@ suite "Onchain group manager":
         manager.idCredentials = some(credentials)
         fut.complete()
 
+
     manager.onRegister(callback)
 
     try:
@@ -577,6 +568,7 @@ suite "Onchain group manager":
         manager.idCredentials = some(credentials)
         fut.complete()
 
+
     manager.onRegister(callback)
 
     try:
@@ -603,8 +595,7 @@ suite "Onchain group manager":
     let verified = manager.verifyProof(messageBytes, validProof).valueOr:
       raiseAssert $error
 
-    check:
-      verified
+    check: verified
     await manager.stop()
 
   asyncTest "verifyProof: should reject invalid proof":
@@ -617,11 +608,8 @@ suite "Onchain group manager":
     let idCredential = generateCredentials(manager.rlnInstance)
 
     try:
-      await manager.register(
-        RateCommitment(
-          idCommitment: idCredential.idCommitment, userMessageLimit: UserMessageLimit(1)
-        )
-      )
+      await manager.register(RateCommitment(idCommitment: idCredential.idCommitment,
+                                            userMessageLimit: UserMessageLimit(1)))
     except Exception, CatchableError:
       assert false,
         "exception raised when calling startGroupSync: " & getCurrentExceptionMsg()
