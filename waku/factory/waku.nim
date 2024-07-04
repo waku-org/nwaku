@@ -65,7 +65,7 @@ proc logConfig(conf: WakuNodeConf) =
 
   info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
 
-  for shard in conf.shards:
+  for shard in conf.pubsubTopics:
     info "Configuration. Shards", shard = shard
 
   for i in conf.discv5BootstrapNodes:
