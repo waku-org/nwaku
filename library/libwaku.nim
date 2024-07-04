@@ -8,11 +8,13 @@ when defined(linux):
 import std/[json, sequtils, atomics, times, strformat, options, atomics, strutils, os]
 import chronicles, chronos
 import
-  ../../waku/common/base64,
-  ../../waku/waku_core/message/message,
-  ../../waku/node/waku_node,
-  ../../waku/waku_core/topics/pubsub_topic,
-  ../../../waku/waku_relay/protocol,
+  waku/[
+    common/base64,
+    waku_core/message/message,
+    node/waku_node,
+    waku_core/topics/pubsub_topic,
+  ],
+  waku/waku_relay/protocol,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
