@@ -34,10 +34,10 @@ when os == "Linux" and
     # and we need to start a postgress database in a docker container
     defined(postgres):
   import
-    ./waku_archive/test_driver_postgres_query,
-    ./waku_archive/test_driver_postgres,
-    ./waku_archive_legacy/test_driver_postgres_query,
     ./waku_archive_legacy/test_driver_postgres,
+    ./waku_archive_legacy/test_driver_postgres_query,
+    ./waku_archive/test_driver_postgres,
+    ./waku_archive/test_driver_postgres_query,
     ./factory/test_node_factory,
     ./wakunode_rest/test_rest_store
 
