@@ -10,15 +10,13 @@ import
   eth/p2p/discoveryv5/enr
 
 import
-  waku/[
-    common/logging,
-    node/peer_manager,
-    waku_core,
-    waku_node,
-    waku_enr,
-    discovery/waku_discv5,
-    factory/builder,
-  ]
+  ../../../waku/common/logging,
+  ../../../waku/node/peer_manager,
+  ../../../waku/waku_core,
+  ../../../waku/waku_node,
+  ../../../waku/waku_enr,
+  ../../../waku/discovery/waku_discv5,
+  ../../../waku/factory/builder
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())

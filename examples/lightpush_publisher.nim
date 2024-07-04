@@ -2,7 +2,11 @@
 ## use lightpush to publish messages without relay
 
 import chronicles, chronos, stew/byteutils, stew/results
-import waku/[common/logging, node/peer_manager, waku_core, waku_lightpush/client]
+import
+  ../../../waku/common/logging,
+  ../../../waku/node/peer_manager,
+  ../../../waku/waku_core,
+  ../../../waku/waku_lightpush/client
 
 const
   LightpushPeer =
