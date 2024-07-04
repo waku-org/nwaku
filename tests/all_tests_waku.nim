@@ -41,12 +41,12 @@ when os == "Linux" and
     ./factory/test_node_factory,
     ./wakunode_rest/test_rest_store
 
-#[ # Waku store test suite
+# Waku store test suite
 import
   ./waku_store/test_client,
   ./waku_store/test_rpc_codec,
   ./waku_store/test_waku_store,
-  ./waku_store/test_wakunode_store ]#
+  ./waku_store/test_wakunode_store
 
 # Waku legacy store test suite
 import
