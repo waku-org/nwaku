@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  ../../waku/common/logging, ../../waku/factory/[waku, networks_config, external_config]
+  waku/[common/logging, factory/[waku, networks_config, external_config]]
 import
   std/[options, strutils, os, sequtils],
   stew/shims/net as stewNet,
