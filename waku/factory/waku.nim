@@ -15,24 +15,24 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  waku/[common/logging,
-    waku_core,
-    waku_node,
-    node/peer_manager,
-    node/health_monitor,
-    waku_api/message_cache,
-    waku_api/rest/server,
-    waku_archive,
-    discovery/waku_dnsdisc,
-    discovery/waku_discv5,
-    waku_enr/sharding,
-    waku_rln_relay,
-    waku_store,
-    waku_filter_v2,
-    factory/networks_config,
-    factory/node_factory,
-    factory/internal_config,
-    factory/external_config,]
+  ../common/logging,
+  ../waku_core,
+  ../waku_node,
+  ../node/peer_manager,
+  ../node/health_monitor,
+  ../waku_api/message_cache,
+  ../waku_api/rest/server,
+  ../waku_archive,
+  ../discovery/waku_dnsdisc,
+  ../discovery/waku_discv5,
+  ../waku_enr/sharding,
+  ../waku_rln_relay,
+  ../waku_store,
+  ../waku_filter_v2,
+  ../factory/networks_config,
+  ../factory/node_factory,
+  ../factory/internal_config,
+  ../factory/external_config
 
 logScope:
   topics = "wakunode waku"

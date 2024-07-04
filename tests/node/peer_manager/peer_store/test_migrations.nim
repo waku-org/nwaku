@@ -1,7 +1,7 @@
 import std/[options], stew/results, testutils/unittests
 
 import
-  waku/node/peer_manager/peer_store/migrations
+  waku/node/peer_manager/peer_store/migrations,
   ../../waku_archive/archive_utils,
   ../../testlib/[simple_mock]
 

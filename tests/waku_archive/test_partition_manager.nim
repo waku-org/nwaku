@@ -1,9 +1,7 @@
 {.used.}
 
 import testutils/unittests, chronos
-import
-  waku/waku_archive/driver/postgres_driver/partitions_manager,
-  waku/waku_core/time
+import waku/waku_archive/driver/postgres_driver/partitions_manager, waku/waku_core/time
 
 suite "Partition Manager":
   test "Calculate end partition time":
