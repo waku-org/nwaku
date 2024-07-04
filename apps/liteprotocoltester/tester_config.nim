@@ -15,11 +15,11 @@ import
   secp256k1,
   json
 import
-  ../../waku/common/confutils/envvar/defs as confEnvvarDefs,
-  ../../waku/common/confutils/envvar/std/net as confEnvvarNet,
-  ../../waku/common/logging,
-  ../../waku/factory/external_config,
-  ../../waku/waku_core
+  waku/[common/confutils/envvar/defs as confEnvvarDefs,
+    common/confutils/envvar/std/net as confEnvvarNet,
+    common/logging,
+    factory/external_config,
+    waku/waku_core],
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 

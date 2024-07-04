@@ -11,12 +11,12 @@ import
   confutils
 
 import
-  ../../waku/common/logging,
-  ../../waku/factory/waku,
-  ../../waku/factory/external_config,
-  ../../waku/node/health_monitor,
-  ../../waku/node/waku_metrics,
-  ../../waku/waku_api/rest/builder as rest_server_builder,
+  waku/[common/logging,
+    factory/waku,
+    factory/external_config,
+    node/health_monitor,
+    node/waku_metrics,
+    waku_api/rest/builder as rest_server_builder,],
   ./tester_config,
   ./lightpush_publisher,
   ./filter_subscriber
