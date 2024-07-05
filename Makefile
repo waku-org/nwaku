@@ -222,7 +222,7 @@ liteprotocoltester: | build deps librln
 ################
 ## Waku tools ##
 ################
-.PHONY: tools wakucanary networkmonitor
+.PHONY: tools wakucanary networkmonitor sonda
 
 tools: networkmonitor wakucanary
 
@@ -233,6 +233,10 @@ wakucanary: | build deps librln
 networkmonitor: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
+
+sonda: | build deps librln
+	echo -e $(BUILD_MSG) "build/$@" && \
+		$(ENV_SCRIPT) nim sonda $(NIM_PARAMS) waku.nims
 
 
 ###################

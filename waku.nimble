@@ -88,6 +88,10 @@ task networkmonitor, "Build network monitor tool":
   let name = "networkmonitor"
   buildBinary name, "apps/networkmonitor/"
 
+task sonda, "Build sonda tool":
+  let name = "sonda"
+  buildBinary name, "apps/sonda/"
+
 task rln_db_inspector, "Build the rln db inspector":
   let name = "rln_db_inspector"
   buildBinary name, "tools/rln_db_inspector/"

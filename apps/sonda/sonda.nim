@@ -10,12 +10,12 @@ import
   libp2p/crypto/crypto,
   confutils
 
-import ../../waku/common/logging, ../../waku/factory/waku
+import ./sonda_config, ../../waku/common/logging, ../../waku/factory/waku
 
 logScope:
   topics = "sonda main"
 
-proc logConfig(conf: LiteProtocolTesterConf) =
+proc logConfig(conf: SondaConf) =
   info "Configuration: Sonda", conf = $conf
 
 {.pop.}

@@ -1,4 +1,4 @@
-import confutils/defs
+import confutils/defs, stew/results
 
 import ../../waku/common/logging
 
@@ -26,9 +26,9 @@ type SondaConf* = object ## Log configuration
 
 {.push warning[ProveInit]: off.}
 
-proc load*(T: type SondaConf): Result[T, string] =
+proc load*(T: type SondaConf, version = ""): Result[T, string] =
   try:
-    let conf = SondaConf.load(version = git_version)
+    let conf = SondaConf.load(version = version)
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
