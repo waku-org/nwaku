@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[strutils, os], stew/results, testutils/unittests
-import ../../waku/common/databases/db_sqlite {.all.}, ../waku_archive/archive_utils
+import waku/common/databases/db_sqlite {.all.}, ../waku_archive/archive_utils
 
 template sourceDir(): string =
   currentSourcePath.rsplit(DirSep, 1)[0]

@@ -3,7 +3,7 @@
 import std/options, testutils/unittests, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[
+  waku/[
     node/peer_manager,
     waku_core,
     waku_store_legacy,

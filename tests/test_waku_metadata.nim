@@ -14,11 +14,14 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr
 import
-  ../../waku/waku_node,
-  ../../waku/waku_core/topics,
-  ../../waku/node/peer_manager,
-  ../../waku/discovery/waku_discv5,
-  ../../waku/waku_metadata,
+  waku/
+    [
+      waku_node,
+      waku_core/topics,
+      node/peer_manager,
+      discovery/waku_discv5,
+      waku_metadata,
+    ],
   ./testlib/wakucore,
   ./testlib/wakunode
 

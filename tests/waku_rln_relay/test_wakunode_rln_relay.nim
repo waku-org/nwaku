@@ -10,9 +10,7 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 import
-  ../../../waku/waku_core,
-  ../../../waku/waku_node,
-  ../../../waku/waku_rln_relay,
+  waku/[waku_core, waku_node, waku_rln_relay],
   ../testlib/wakucore,
   ../testlib/wakunode,
   ./rln/waku_rln_relay_utils
@@ -413,6 +411,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node3.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node3.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node3.wakuRlnRelay.rlnEpochSizeSec)
     ).isOkOr:
@@ -530,6 +529,7 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
       raiseAssert $error
+
     node1.wakuRlnRelay.unsafeAppendRLNProof(
       wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2)
     ).isOkOr:
