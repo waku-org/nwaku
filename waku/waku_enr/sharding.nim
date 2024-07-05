@@ -2,7 +2,8 @@
 
 import
   std/[options, bitops, sequtils, net],
-  stew/[endians2, results],
+  stew/endians2,
+  results,
   chronicles,
   eth/keys,
   libp2p/[multiaddress, multicodec],

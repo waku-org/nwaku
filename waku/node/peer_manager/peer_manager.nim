@@ -108,14 +108,16 @@ proc calculateBackoff(
 # Helper functions #
 ####################
 
-proc insertOrReplace(ps: PeerStorage, remotePeerInfo: RemotePeerInfo) =
+proc insertOrReplace(ps: PeerStorage, remotePeerInfo: RemotePeerInfo) {.gcsafe.} =
   ## Insert peer entry into persistent storage, or replace existing entry with updated info
   ps.put(remotePeerInfo).isOkOr:
     warn "failed to store peers", err = error
     waku_peers_errors.inc(labelValues = ["storage_failure"])
     return
 
-proc addPeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownOrigin) =
+proc addPeer*(
+    pm: PeerManager, remotePeerInfo: RemotePeerInfo, origin = UnknownOrigin
+) {.gcsafe.} =
   ## Adds peer to manager for the specified protocol
 
   if remotePeerInfo.peerId == pm.switch.peerInfo.peerId:
@@ -435,6 +437,8 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         if pm.ipTable[ip].len == 0:
           pm.ipTable.del(ip)
         break
+  of Identified:
+    debug "event identified", peerId = peerId
 
   pm.peerStore[ConnectionBook][peerId] = connectedness
   pm.peerStore[DirectionBook][peerId] = direction

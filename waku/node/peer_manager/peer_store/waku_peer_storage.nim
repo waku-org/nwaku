@@ -126,7 +126,7 @@ proc new*(T: type WakuPeerStorage, db: SqliteDatabase): PeerStorageResult[T] =
 
 method put*(
     db: WakuPeerStorage, remotePeerInfo: RemotePeerInfo
-): PeerStorageResult[void] =
+): PeerStorageResult[void] {.gcsafe.} =
   ## Adds a peer to storage or replaces existing entry if it already exists
 
   let encoded = remotePeerInfo.encode().valueOr:
@@ -142,7 +142,7 @@ method getAll*(
 ): PeerStorageResult[void] =
   ## Retrieves all peers from storage
 
-  proc peer(s: ptr sqlite3_stmt) {.raises: [ResultError[ProtoError]].} =
+  proc peer(s: ptr sqlite3_stmt) {.gcsafe, raises: [ResultError[ProtoError]].} =
     let
       # Stored Info
       sTo = cast[ptr UncheckedArray[byte]](sqlite3_column_blob(s, 1))

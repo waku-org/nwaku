@@ -3,7 +3,8 @@ import
   chronicles,
   options,
   eth/keys,
-  stew/[arrayops, byteutils, results, endians2],
+  stew/[arrayops, byteutils, endians2],
+  results,
   std/[sequtils, strutils, tables]
 
 import ./rln_interface, ../conversion_utils, ../protocol_types, ../protocol_metrics

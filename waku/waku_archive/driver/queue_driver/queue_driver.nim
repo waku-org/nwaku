@@ -9,7 +9,8 @@ logScope:
 const QueueDriverDefaultMaxCapacity* = 25_000
 
 type
-  QueryFilterMatcher = proc(index: Index, msg: WakuMessage): bool {.gcsafe, closure.}
+  QueryFilterMatcher =
+    proc(index: Index, msg: WakuMessage): bool {.gcsafe, raises: [], closure.}
 
   QueueDriver* = ref object of ArchiveDriver
     ## Bounded repository for indexed messages
@@ -81,7 +82,7 @@ proc getPage(
     forward: bool = true,
     cursor: Option[Index] = none(Index),
     predicate: QueryFilterMatcher = nil,
-): QueueDriverGetPageResult =
+): QueueDriverGetPageResult {.raises: [].} =
   ## Populate a single page in forward direction
   ## Start at the `startCursor` (exclusive), or first entry (inclusive) if not defined.
   ## Page size must not exceed `maxPageSize`
