@@ -3,21 +3,21 @@
 import net, tables
 import presto
 import
-  ../../waku/waku_node,
-  ../../waku/discovery/waku_discv5,
-  ../../waku/factory/external_config,
-  ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/handlers,
-  ../../waku/waku_api/rest/server,
-  ../../waku/waku_api/rest/debug/handlers as rest_debug_api,
-  ../../waku/waku_api/rest/relay/handlers as rest_relay_api,
-  ../../waku/waku_api/rest/filter/handlers as rest_filter_api,
-  ../../waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
-  ../../waku/waku_api/rest/store/handlers as rest_store_api,
-  ../../waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
-  ../../waku/waku_api/rest/health/handlers as rest_health_api,
-  ../../waku/waku_api/rest/admin/handlers as rest_admin_api,
-  ../../waku/waku_core/topics
+  waku/waku_node,
+  waku/discovery/waku_discv5,
+  waku/factory/external_config,
+  waku/waku_api/message_cache,
+  waku/waku_api/handlers,
+  waku/waku_api/rest/server,
+  waku/waku_api/rest/debug/handlers as rest_debug_api,
+  waku/waku_api/rest/relay/handlers as rest_relay_api,
+  waku/waku_api/rest/filter/handlers as rest_filter_api,
+  waku/waku_api/rest/lightpush/handlers as rest_lightpush_api,
+  waku/waku_api/rest/store/handlers as rest_store_api,
+  waku/waku_api/rest/legacy_store/handlers as rest_store_legacy_api,
+  waku/waku_api/rest/health/handlers as rest_health_api,
+  waku/waku_api/rest/admin/handlers as rest_admin_api,
+  waku/waku_core/topics
 
 ## Monitoring and external interfaces
 

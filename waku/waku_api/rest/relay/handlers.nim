@@ -2,7 +2,8 @@
 
 import
   std/sequtils,
-  stew/[byteutils, results],
+  stew/byteutils,
+  results,
   chronicles,
   json_serialization,
   json_serialization/std/options,
