@@ -1,7 +1,7 @@
 {.used.}
 
 import std/options, stew/results, stew/shims/net, testutils/unittests
-import ../../waku/common/enr, ../testlib/wakucore
+import waku/common/enr, ../testlib/wakucore
 
 suite "nim-eth ENR - builder and typed record":
   test "Non-supported private key (ECDSA)":

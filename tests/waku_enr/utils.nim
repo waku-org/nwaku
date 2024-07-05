@@ -7,7 +7,7 @@ import
   eth/keys as eth_keys
 
 import
-  ../../../waku/[waku_core/topics, waku_enr, discovery/waku_discv5, waku_enr/sharding],
+  waku/[waku_core/topics, waku_enr, discovery/waku_discv5, waku_enr/sharding],
   ../testlib/[common, wakucore]
 
 proc newTestEnrRecord*(

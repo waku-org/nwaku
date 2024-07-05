@@ -1,9 +1,11 @@
 import chronicles, chronos
 import
-  ../../../waku/waku_archive,
-  ../../../waku/waku_archive/driver as driver_module,
-  ../../../waku/waku_archive/driver/builder,
-  ../../../waku/waku_archive/driver/postgres_driver
+  waku/[
+    waku_archive,
+    waku_archive/driver as driver_module,
+    waku_archive/driver/builder,
+    waku_archive/driver/postgres_driver,
+  ]
 
 const storeMessageDbUrl = "postgres://postgres:test123@localhost:5432/postgres"
 

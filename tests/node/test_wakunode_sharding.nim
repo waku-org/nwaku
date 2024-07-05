@@ -17,7 +17,7 @@ import
   libp2p/protocols/pubsub/pubsub
 
 import
-  ../../../waku/[
+  waku/[
     waku_core/topics/pubsub_topic,
     waku_core/topics/sharding,
     node/waku_node,
@@ -31,7 +31,7 @@ import
   ../waku_archive/archive_utils,
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils]
 
-import ../../../waku/waku_relay/protocol
+import waku_relay/protocol
 
 const
   listenIp = ValidIpAddress.init("0.0.0.0")

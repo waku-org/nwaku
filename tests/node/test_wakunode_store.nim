@@ -8,7 +8,7 @@ import
   libp2p/crypto/crypto
 
 import
-  ../../../waku/[
+  waku/[
     common/paging,
     node/waku_node,
     node/peer_manager,

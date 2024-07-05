@@ -1,6 +1,6 @@
 import std/tempfiles
 
-import ../../../waku/waku_rln_relay, ../../../waku/waku_rln_relay/[rln, protocol_types]
+import waku/waku_rln_relay, waku/waku_rln_relay/[rln, protocol_types]
 
 proc createRLNInstanceWrapper*(): RLNResult =
   return createRlnInstance(tree_path = genTempPath("rln_tree", "waku_rln_relay"))
@@ -18,7 +18,6 @@ proc unsafeAppendRLNProof*(
   # instead we use 0 as the nonce
   let proof = rlnPeer.groupManager.generateProof(input, epoch, 0).valueOr:
     return err("could not generate rln-v2 proof: " & $error)
-
 
   msg.proof = proof.encode().buffer
   return ok()
