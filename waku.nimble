@@ -1,14 +1,14 @@
 mode = ScriptMode.Verbose
 
 ### Package
-version       = "0.1.0"
-author        = "Status Research & Development GmbH"
-description   = "Waku, Private P2P Messaging for Resource-Restricted Devices"
-license       = "MIT or Apache License 2.0"
+version = "0.1.0"
+author = "Status Research & Development GmbH"
+description = "Waku, Private P2P Messaging for Resource-Restricted Devices"
+license = "MIT or Apache License 2.0"
 #bin           = @["build/waku"]
 
 ### Dependencies
-requires "nim >= 1.6.0",
+requires "nim >= 2.0.8",
   "chronicles",
   "confutils",
   "chronos",
@@ -22,7 +22,8 @@ requires "nim >= 1.6.0",
   "libp2p", # Only for Waku v2
   "web3",
   "presto",
-  "regex"
+  "regex",
+  "db_connector"
 
 ### Helper functions
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
@@ -30,21 +31,26 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
   var extra_params = params
-  for i in 2..<paramCount():
+  for i in 2 ..< paramCount():
     extra_params &= " " & paramStr(i)
-  exec "nim " & lang & " --out:build/" & name & " " & extra_params & " " & srcDir & name & ".nim"
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " & srcDir & name &
+    ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
   if not dirExists "build":
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
   var extra_params = params
-  for i in 2..<paramCount():
+  for i in 2 ..< paramCount():
     extra_params &= " " & paramStr(i)
   if `type` == "static":
-    exec "nim c" & " --out:build/" & name & ".a --threads:on --app:staticlib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+    exec "nim c" & " --out:build/" & name &
+      ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header " & extra_params &
+      " " & srcDir & name & ".nim"
   else:
-    exec "nim c" & " --out:build/" & name & ".so --threads:on --app:lib --opt:size --noMain --header " & extra_params & " " & srcDir & name & ".nim"
+    exec "nim c" & " --out:build/" & name &
+      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header " & extra_params & " " &
+      srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")
@@ -55,10 +61,13 @@ proc buildMobileAndroid(srcDir = ".", params = "") =
     mkDir outDir
 
   var extra_params = params
-  for i in 2..<paramCount():
+  for i in 2 ..< paramCount():
     extra_params &= " " & paramStr(i)
 
-  exec "nim c" & " --out:" & outDir & "/libwaku.so --threads:on --app:lib --opt:size --noMain -d:chronicles_sinks=textlines[dynamic] --header --passL:-L" & outdir & " --passL:-lrln --passL:-llog --cpu:" & cpu & " --os:android -d:androidNDK " & extra_params & " " & srcDir & "/libwaku.nim"
+  exec "nim c" & " --out:" & outDir &
+    "/libwaku.so --threads:on --app:lib --opt:size --noMain --mm:refc -d:chronicles_sinks=textlines[dynamic] --header --passL:-L" &
+    outdir & " --passL:-lrln --passL:-llog --cpu:" & cpu & " --os:android -d:androidNDK " &
+    extra_params & " " & srcDir & "/libwaku.nim"
 
 proc test(name: string, params = "-d:chronicles_log_level=DEBUG", lang = "c") =
   # XXX: When running `> NIM_PARAMS="-d:chronicles_log_level=INFO" make test2`
@@ -140,4 +149,3 @@ task libWakuAndroid, "Build the mobile bindings for Android":
   let srcDir = "./library"
   let extraParams = "-d:chronicles_log_level=ERROR"
   buildMobileAndroid srcDir, extraParams
-
