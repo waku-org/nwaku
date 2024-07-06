@@ -5,7 +5,7 @@
 import std/[options, atomics, os, net]
 import chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, results
 import
-  ../../../waku/factory/waku,
+  waku/factory/waku,
   ./inter_thread_communication/waku_thread_request,
   ./inter_thread_communication/waku_thread_response
 
