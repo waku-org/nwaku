@@ -19,5 +19,7 @@ method put*(
 ): PeerStorageResult[void] {.base, gcsafe.} =
   return err("Unimplemented")
 
-method getAll*(db: PeerStorage, onData: DataProc): PeerStorageResult[void] {.base.} =
+method getAll*(
+    db: PeerStorage, onData: DataProc
+): PeerStorageResult[void] {.base, gcsafe.} =
   return err("Unimplemented")

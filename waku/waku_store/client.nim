@@ -16,7 +16,7 @@ type WakuStoreClient* = ref object
 
 proc new*(
     T: type WakuStoreClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
-): T =
+): T {.gcsafe.} =
   WakuStoreClient(peerManager: peerManager, rng: rng)
 
 proc sendStoreRequest(

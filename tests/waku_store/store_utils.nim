@@ -18,6 +18,6 @@ proc newTestWakuStore*(
 
   return proto
 
-proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient =
+proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient {.gcsafe.} =
   let peerManager = PeerManager.new(switch)
   WakuStoreClient.new(peerManager, rng)

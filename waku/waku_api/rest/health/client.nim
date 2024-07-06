@@ -2,7 +2,7 @@
 
 import
   chronicles, json_serialization, json_serialization/std/options, presto/[route, client]
-import ./types, ../serdes, ../responses, ../rest_serdes, ../../waku/node/health_monitor
+import ./types, ../serdes, ../responses, ../rest_serdes, waku/node/health_monitor
 
 logScope:
   topics = "waku node rest health_api"

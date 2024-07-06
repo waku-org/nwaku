@@ -1,6 +1,6 @@
 {.used.}
 
-import std/options, stew/results, testutils/unittests
+import std/options, results, testutils/unittests
 import waku/waku_core/topics
 
 suite "Waku Message - Content topics namespacing":

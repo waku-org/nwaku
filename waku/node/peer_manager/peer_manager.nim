@@ -259,7 +259,7 @@ proc dialPeer(
 
   return none(Connection)
 
-proc loadFromStorage(pm: PeerManager) =
+proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
   ## Load peers from storage, if available
 
   trace "loading peers from storage"
@@ -462,7 +462,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
-): PeerManager =
+): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
   if maxConnections > capacity:
