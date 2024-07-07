@@ -218,83 +218,109 @@ procSuite "WakuNode - Store":
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
 
-  # test "Store protocol returns expected message when relay is disabled and filter enabled":
-  #   ## ivan: it seems this tests makes macos ci to fail
+  test "Store protocol returns expected message when relay is disabled and filter enabled":
+    debug "ivan"
+    ## ivan: it seems this tests makes macos ci to fail
 
-  #   ## See nwaku issue #937: 'Store: ability to decouple store from relay'
-  #   ## Setup
-  #   let
-  #     filterSourceKey = generateSecp256k1Key()
-  #     filterSource =
-  #       newTestWakuNode(filterSourceKey, parseIpAddress("0.0.0.0"), Port(0))
-  #     serverKey = generateSecp256k1Key()
-  #     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
-  #     clientKey = generateSecp256k1Key()
-  #     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+    ## See nwaku issue #937: 'Store: ability to decouple store from relay'
+    ## Setup
+    let
+      filterSourceKey = generateSecp256k1Key()
+      filterSource =
+        newTestWakuNode(filterSourceKey, parseIpAddress("0.0.0.0"), Port(0))
+      serverKey = generateSecp256k1Key()
+      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+      clientKey = generateSecp256k1Key()
+      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+    debug "ivan"
 
-  #   waitFor allFutures(client.start(), server.start(), filterSource.start())
+    waitFor allFutures(client.start(), server.start(), filterSource.start())
+    debug "ivan"
 
-  #   waitFor filterSource.mountFilter()
-  #   let driver = newSqliteArchiveDriver()
+    waitFor filterSource.mountFilter()
+    debug "ivan"
+    let driver = newSqliteArchiveDriver()
+    debug "ivan"
 
-  #   let mountArchiveRes = server.mountArchive(driver)
-  #   assert mountArchiveRes.isOk(), mountArchiveRes.error
+    let mountArchiveRes = server.mountArchive(driver)
+    debug "ivan"
+    assert mountArchiveRes.isOk(), mountArchiveRes.error
+    debug "ivan"
 
-  #   waitFor server.mountStore()
-  #   waitFor server.mountFilterClient()
-  #   client.mountStoreClient()
+    waitFor server.mountStore()
+    debug "ivan"
+    waitFor server.mountFilterClient()
+    debug "ivan"
+    client.mountStoreClient()
+    debug "ivan"
 
-  #   ## Given
-  #   let message = fakeWakuMessage()
-  #   let hash = computeMessageHash(DefaultPubSubTopic, message)
-  #   let
-  #     serverPeer = server.peerInfo.toRemotePeerInfo()
-  #     filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
+    ## Given
+    let message = fakeWakuMessage()
+    debug "ivan"
+    let hash = computeMessageHash(DefaultPubSubTopic, message)
+    let
+      serverPeer = server.peerInfo.toRemotePeerInfo()
+      filterSourcePeer = filterSource.peerInfo.toRemotePeerInfo()
+    debug "ivan"
 
-  #   ## Then
-  #   let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
-  #   proc filterHandler(
-  #       pubsubTopic: PubsubTopic, msg: WakuMessage
-  #   ) {.async, gcsafe, closure.} =
-  #     await server.wakuArchive.handleMessage(pubsubTopic, msg)
-  #     filterFut.complete((pubsubTopic, msg))
+    ## Then
+    let filterFut = newFuture[(PubsubTopic, WakuMessage)]()
+    debug "ivan"
+    proc filterHandler(
+        pubsubTopic: PubsubTopic, msg: WakuMessage
+    ) {.async, gcsafe, closure.} =
+      await server.wakuArchive.handleMessage(pubsubTopic, msg)
+      filterFut.complete((pubsubTopic, msg))
 
-  #   server.wakuFilterClient.registerPushHandler(filterHandler)
-  #   let resp = waitFor server.filterSubscribe(
-  #     some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
-  #   )
+    debug "ivan"
 
-  #   waitFor sleepAsync(100.millis)
+    server.wakuFilterClient.registerPushHandler(filterHandler)
+    debug "ivan"
+    let resp = waitFor server.filterSubscribe(
+      some(DefaultPubsubTopic), DefaultContentTopic, peer = filterSourcePeer
+    )
+    debug "ivan"
 
-  #   waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    waitFor sleepAsync(100.millis)
+    debug "ivan"
 
-  #   # Wait for the server filter to receive the push message
-  #   require waitFor filterFut.withTimeout(5.seconds)
+    waitFor filterSource.wakuFilter.handleMessage(DefaultPubsubTopic, message)
+    debug "ivan"
 
-  #   let req =
-  #     StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
-  #   let res = waitFor client.query(req, serverPeer)
+    # Wait for the server filter to receive the push message
+    require waitFor filterFut.withTimeout(5.seconds)
+    debug "ivan"
 
-  #   ## Then
-  #   check res.isOk()
+    let req =
+      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
+    debug "ivan"
+    let res = waitFor client.query(req, serverPeer)
+    debug "ivan"
 
-  #   let response = res.get()
-  #   check:
-  #     response.messages.len == 1
-  #     response.messages[0] ==
-  #       WakuMessageKeyValue(
-  #         messageHash: hash,
-  #         message: some(message),
-  #         pubsubTopic: some(DefaultPubSubTopic),
-  #       )
+    ## Then
+    check res.isOk()
+    debug "ivan"
 
-  #   let (handledPubsubTopic, handledMsg) = filterFut.read()
-  #   check:
-  #     handledPubsubTopic == DefaultPubsubTopic
-  #     handledMsg == message
+    let response = res.get()
+    check:
+      response.messages.len == 1
+      response.messages[0] ==
+        WakuMessageKeyValue(
+          messageHash: hash,
+          message: some(message),
+          pubsubTopic: some(DefaultPubSubTopic),
+        )
+    debug "ivan"
 
-  #   ## Cleanup
-  #   waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+    let (handledPubsubTopic, handledMsg) = filterFut.read()
+    check:
+      handledPubsubTopic == DefaultPubsubTopic
+      handledMsg == message
+
+    debug "ivan"
+    ## Cleanup
+    waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
+    debug "ivan"
 
   test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
     ## Setup
