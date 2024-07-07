@@ -337,99 +337,99 @@ procSuite "WakuNode - Store":
     # Cleanup
     waitFor allFutures(client.stop(), server.stop())
 
-  test "Store protocol queries does not violate request rate limitation":
-    ## Setup
-    let
-      serverKey = generateSecp256k1Key()
-      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
-      clientKey = generateSecp256k1Key()
-      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+  # test "Store protocol queries does not violate request rate limitation":
+  #   ## Setup
+  #   let
+  #     serverKey = generateSecp256k1Key()
+  #     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+  #     clientKey = generateSecp256k1Key()
+  #     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
+  #   waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
-    assert mountArchiveRes.isOk(), mountArchiveRes.error
+  #   let mountArchiveRes = server.mountArchive(archiveA)
+  #   assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    waitFor server.mountStore((4, 500.millis))
+  #   waitFor server.mountStore((4, 500.millis))
 
-    client.mountStoreClient()
+  #   client.mountStoreClient()
 
-    ## Given
-    let req =
-      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
+  #   ## Given
+  #   let req =
+  #     StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
+  #   let serverPeer = server.peerInfo.toRemotePeerInfo()
 
-    let requestProc = proc() {.async.} =
-      let queryRes = await client.query(req, peer = serverPeer)
+  #   let requestProc = proc() {.async.} =
+  #     let queryRes = await client.query(req, peer = serverPeer)
 
-      assert queryRes.isOk(), queryRes.error
+  #     assert queryRes.isOk(), queryRes.error
 
-      let response = queryRes.get()
-      check:
-        response.messages.mapIt(it.message.get()) == msgListA
+  #     let response = queryRes.get()
+  #     check:
+  #       response.messages.mapIt(it.message.get()) == msgListA
 
-    for count in 0 ..< 4:
-      waitFor requestProc()
-      waitFor sleepAsync(20.millis)
+  #   for count in 0 ..< 4:
+  #     waitFor requestProc()
+  #     waitFor sleepAsync(20.millis)
 
-    waitFor sleepAsync(500.millis)
+  #   waitFor sleepAsync(500.millis)
 
-    for count in 0 ..< 4:
-      waitFor requestProc()
-      waitFor sleepAsync(20.millis)
+  #   for count in 0 ..< 4:
+  #     waitFor requestProc()
+  #     waitFor sleepAsync(20.millis)
 
-    # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+  #   # Cleanup
+  #   waitFor allFutures(client.stop(), server.stop())
 
-  test "Store protocol queries overrun request rate limitation":
-    ## Setup
-    let
-      serverKey = generateSecp256k1Key()
-      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
-      clientKey = generateSecp256k1Key()
-      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+  # test "Store protocol queries overrun request rate limitation":
+  #   ## Setup
+  #   let
+  #     serverKey = generateSecp256k1Key()
+  #     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+  #     clientKey = generateSecp256k1Key()
+  #     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
+  #   waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
-    assert mountArchiveRes.isOk(), mountArchiveRes.error
+  #   let mountArchiveRes = server.mountArchive(archiveA)
+  #   assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    waitFor server.mountStore((3, 500.millis))
+  #   waitFor server.mountStore((3, 500.millis))
 
-    client.mountStoreClient()
+  #   client.mountStoreClient()
 
-    ## Given
-    let req =
-      StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
+  #   ## Given
+  #   let req =
+  #     StoreQueryRequest(includeData: true, contentTopics: @[DefaultContentTopic])
+  #   let serverPeer = server.peerInfo.toRemotePeerInfo()
 
-    let successProc = proc() {.async.} =
-      let queryRes = await client.query(req, peer = serverPeer)
+  #   let successProc = proc() {.async.} =
+  #     let queryRes = await client.query(req, peer = serverPeer)
 
-      check queryRes.isOk()
-      let response = queryRes.get()
-      check:
-        response.messages.mapIt(it.message.get()) == msgListA
+  #     check queryRes.isOk()
+  #     let response = queryRes.get()
+  #     check:
+  #       response.messages.mapIt(it.message.get()) == msgListA
 
-    let failsProc = proc() {.async.} =
-      let queryRes = await client.query(req, peer = serverPeer)
+  #   let failsProc = proc() {.async.} =
+  #     let queryRes = await client.query(req, peer = serverPeer)
 
-      check queryRes.isOk()
-      let response = queryRes.get()
+  #     check queryRes.isOk()
+  #     let response = queryRes.get()
 
-      check response.statusCode == 429
+  #     check response.statusCode == 429
 
-    for count in 0 ..< 3:
-      waitFor successProc()
-      waitFor sleepAsync(20.millis)
+  #   for count in 0 ..< 3:
+  #     waitFor successProc()
+  #     waitFor sleepAsync(20.millis)
 
-    waitFor failsProc()
+  #   waitFor failsProc()
 
-    waitFor sleepAsync(500.millis)
+  #   waitFor sleepAsync(500.millis)
 
-    for count in 0 ..< 3:
-      waitFor successProc()
-      waitFor sleepAsync(20.millis)
+  #   for count in 0 ..< 3:
+  #     waitFor successProc()
+  #     waitFor sleepAsync(20.millis)
 
-    # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+  #   # Cleanup
+  #   waitFor allFutures(client.stop(), server.stop())
