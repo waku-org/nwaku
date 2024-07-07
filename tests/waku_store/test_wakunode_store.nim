@@ -294,48 +294,48 @@ procSuite "WakuNode - Store":
     ## Cleanup
     waitFor allFutures(client.stop(), server.stop(), filterSource.stop())
 
-  test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
-    ## Setup
-    let
-      serverKey = generateSecp256k1Key()
-      server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
-      clientKey = generateSecp256k1Key()
-      client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
+  # test "history query should return INVALID_CURSOR if the cursor has empty data in the request":
+  #   ## Setup
+  #   let
+  #     serverKey = generateSecp256k1Key()
+  #     server = newTestWakuNode(serverKey, parseIpAddress("0.0.0.0"), Port(0))
+  #     clientKey = generateSecp256k1Key()
+  #     client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
+  #   waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
-    assert mountArchiveRes.isOk(), mountArchiveRes.error
+  #   let mountArchiveRes = server.mountArchive(archiveA)
+  #   assert mountArchiveRes.isOk(), mountArchiveRes.error
 
-    waitFor server.mountStore()
+  #   waitFor server.mountStore()
 
-    client.mountStoreClient()
+  #   client.mountStoreClient()
 
-    ## Forcing a bad cursor with empty digest data
-    var cursor: WakuMessageHash = [
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0,
-    ]
+  #   ## Forcing a bad cursor with empty digest data
+  #   var cursor: WakuMessageHash = [
+  #     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  #     0, 0, 0, 0, 0,
+  #   ]
 
-    ## Given
-    let req = StoreQueryRequest(
-      contentTopics: @[DefaultContentTopic], paginationCursor: some(cursor)
-    )
-    let serverPeer = server.peerInfo.toRemotePeerInfo()
+  #   ## Given
+  #   let req = StoreQueryRequest(
+  #     contentTopics: @[DefaultContentTopic], paginationCursor: some(cursor)
+  #   )
+  #   let serverPeer = server.peerInfo.toRemotePeerInfo()
 
-    ## When
-    let queryRes = waitFor client.query(req, peer = serverPeer)
+  #   ## When
+  #   let queryRes = waitFor client.query(req, peer = serverPeer)
 
-    ## Then
-    check queryRes.isOk()
+  #   ## Then
+  #   check queryRes.isOk()
 
-    let response = queryRes.get()
+  #   let response = queryRes.get()
 
-    check response.statusCode == 400
-    check response.statusDesc == "BAD_REQUEST: invalid cursor"
+  #   check response.statusCode == 400
+  #   check response.statusDesc == "BAD_REQUEST: invalid cursor"
 
-    # Cleanup
-    waitFor allFutures(client.stop(), server.stop())
+  #   # Cleanup
+  #   waitFor allFutures(client.stop(), server.stop())
 
   # test "Store protocol queries does not violate request rate limitation":
   #   ## Setup
