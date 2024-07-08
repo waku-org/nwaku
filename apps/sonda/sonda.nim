@@ -8,9 +8,14 @@ import
   libbacktrace,
   system/ansi_c,
   libp2p/crypto/crypto,
-  confutils
+  confutils,
+  stew/results
 
-import ./sonda_config, ../../waku/common/logging, ../../waku/factory/waku
+import
+  ./sonda_config,
+  ../../waku/common/logging,
+  ../../waku/factory/waku,
+  ../../waku/factory/external_config
 
 logScope:
   topics = "sonda main"
@@ -34,3 +39,13 @@ when isMainModule:
 
   info "Running Sonda", version = waku.git_version
   logConfig(conf)
+
+  var wakuConf = defaultWakuNodeConf().valueOr:
+    error "failed retrieving default node configuration", error = confRes.error
+    quit(QuitFailure)
+
+  wakuConf.logLevel = conf.logLevel
+  wakuConf.logFormat = conf.logFormat
+  wakuConf.clusterId = conf.clusterId
+  wakuConf.shards = @[conf.shard]
+  wakuConf.staticnodes = conf.storenodes # connect directly to store nodes to query
