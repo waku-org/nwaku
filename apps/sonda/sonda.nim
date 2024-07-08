@@ -22,7 +22,7 @@ proc logConfig(conf: SondaConf) =
 when isMainModule:
   const versionString = "version / git commit hash: " & waku.git_version
 
-  let confRes = SondaConf.load(version = versionString)
+  let confRes = SondaConf.loadConfig(version = versionString)
   if confRes.isErr():
     error "failure while loading the configuration", error = confRes.error
     quit(QuitFailure)

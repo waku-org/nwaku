@@ -24,13 +24,9 @@ type SondaConf* = object ## Log configuration
     name: "cluster-id"
   .}: uint32
 
-{.push warning[ProveInit]: off.}
-
-proc load*(T: type SondaConf, version = ""): Result[T, string] =
+proc loadConfig*(T: type SondaConf, version = ""): Result[T, string] =
   try:
     let conf = SondaConf.load(version = version)
-    ok(conf)
+    return ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())
-
-{.pop.}
