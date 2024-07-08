@@ -954,6 +954,24 @@ proc performWriteQueryWithLock*(
       debug "skip performWriteQuery because the advisory lock is acquired by other"
       return ok()
 
+    if error.contains("already exists"):
+      ## expected to happen when trying to add a partition table constraint that already exists
+      ## e.g., constraint "constraint_name" for relation "messages_1720364735_1720364740" already exists
+      debug "skip already exists error", error = error
+      return ok()
+
+    if error.contains("is already a partition"):
+      ## expected to happen when a node tries to add a partition that is already attached,
+      ## e.g., "messages_1720364735_1720364740" is already a partition
+      debug "skip is already a partition error", error = error
+      return ok()
+
+    if error.contains("does not exist"):
+      ## expected to happen when trying to drop a constraint that has already been dropped by other
+      ## constraint "constraint_name" of relation "messages_1720364735_1720364740" does not exist
+      debug "skip does not exist error", error = error
+      return ok()
+
     debug "protected query ended with error", error = $error
     return err("protected query ended with error:" & $error)
 
@@ -984,10 +1002,6 @@ proc addPartition(
     " (LIKE messages INCLUDING DEFAULTS INCLUDING CONSTRAINTS);"
 
   (await self.performWriteQueryWithLock(createPartitionQuery)).isOkOr:
-    if error.contains("already exists"):
-      debug "skip create new partition as it already exists: ", skipped_error = $error
-      return ok()
-
     return err(fmt"error adding partition [{partitionName}]: " & $error)
 
   ## Add constraint to the partition table so that EXCLUSIVE ACCESS is not performed when
