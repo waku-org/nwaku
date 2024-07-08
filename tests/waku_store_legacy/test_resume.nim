@@ -13,8 +13,8 @@ when defined(waku_exp_store_resume):
   import
     waku/[
       common/databases/db_sqlite,
-      waku_archive/driver,
-      waku_archive/driver/sqlite_driver/sqlite_driver,
+      waku_archive_legacy/driver,
+      waku_archive_legacy/driver/sqlite_driver/sqlite_driver,
       node/peer_manager,
       waku_core,
       waku_core/message/digest,

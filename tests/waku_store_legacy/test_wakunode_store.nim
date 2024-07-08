@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet,
+  std/net,
   testutils/unittests,
   chronicles,
   chronos,
@@ -9,19 +9,15 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p/switch,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
   waku/[
-    common/databases/db_sqlite,
     common/paging,
     waku_core,
     waku_core/message/digest,
-    waku_core/subscription,
     node/peer_manager,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
+    waku_archive_legacy,
     waku_filter_v2,
     waku_filter_v2/client,
     waku_store_legacy,
@@ -29,7 +25,6 @@ import
   ],
   ../waku_store_legacy/store_utils,
   ../waku_archive_legacy/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore,
   ../testlib/wakunode
 
