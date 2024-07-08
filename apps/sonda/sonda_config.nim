@@ -1,4 +1,4 @@
-import confutils/defs, stew/results
+import confutils/defs, results
 
 import ../../waku/common/logging
 
