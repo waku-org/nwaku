@@ -1,0 +1,92 @@
+
+version: "3.7"
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 1000m
+
+# Environment variable definitions
+x-rln-relay-eth-client-address: &rln_relay_eth_client_address ${RLN_RELAY_ETH_CLIENT_ADDRESS:-} # Add your RLN_RELAY_ETH_CLIENT_ADDRESS after the "-"
+
+x-rln-environment: &rln_env
+  RLN_RELAY_CONTRACT_ADDRESS: ${RLN_RELAY_CONTRACT_ADDRESS:-0xCB33Aa5B38d79E3D9Fa8B10afF38AA201399a7e3}
+  RLN_RELAY_CRED_PATH: ${RLN_RELAY_CRED_PATH:-} # Optional: Add your RLN_RELAY_CRED_PATH after the "-"
+  RLN_RELAY_CRED_PASSWORD: ${RLN_RELAY_CRED_PASSWORD:-} # Optional: Add your RLN_RELAY_CRED_PASSWORD after the "-"
+
+# Services definitions
+services:
+  nwaku:
+    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:v0.30.1}
+    restart: on-failure
+    ports:
+      - 30304:30304/tcp
+      - 30304:30304/udp
+      - 9005:9005/udp
+      - 127.0.0.1:8003:8003
+      - 80:80 #Let's Encrypt
+      - 8000:8000/tcp #WSS
+      - 127.0.0.1:8645:8645
+    <<:
+      - *logging
+    environment:
+      DOMAIN: ${DOMAIN}
+      NODEKEY: ${NODEKEY}
+      RLN_RELAY_CRED_PASSWORD: "${RLN_RELAY_CRED_PASSWORD}"
+      RLN_RELAY_ETH_CLIENT_ADDRESS: *rln_relay_eth_client_address
+      EXTRA_ARGS: ${EXTRA_ARGS}
+      STORAGE_SIZE: ${STORAGE_SIZE}
+      <<:
+        - *rln_env
+    volumes:
+      - ./run_node.sh:/opt/run_node.sh:Z
+      - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
+      - ./rln_tree:/etc/rln_tree/:Z
+      - ./keystore:/keystore:Z
+    entrypoint: sh
+    command:
+      - /opt/run_node.sh
+
+  rest-traffic:
+    build:
+      context: .
+      dockerfile: Dockerfile.rest-traffic
+    command: >
+      python /opt/traffic.py
+      --msg-size-kbytes=${MSG_SIZE_KBYTES:-10}
+      --delay-seconds=${TRAFFIC_DELAY_SECONDS:-15}
+    volumes:
+      - ./traffic.py:/opt/traffic.py:Z
+    depends_on:
+      - nwaku
+  
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    # ports:
+    #   - 127.0.0.1:9090:9090
+    restart: on-failure:5
+    depends_on:
+      - nwaku
+
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    env_file:
+      - ./monitoring/configuration/grafana-plugins.env
+    volumes:
+      - ./monitoring/configuration/grafana.ini:/etc/grafana/grafana.ini:Z
+      - ./monitoring/configuration/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:Z
+      - ./monitoring/configuration/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:Z
+      - ./monitoring/configuration/dashboards:/var/lib/grafana/dashboards/:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_icon.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
+    ports:
+      - 0.0.0.0:3000:3000
+    restart: on-failure:5
+    depends_on:
+      - prometheus
+
