@@ -2,10 +2,12 @@
 
 ### Release highlights
 
-* Patch to avoid exclusive access when creating new partitions in the postgres messages table.
+* RLN message limit to 100 mesages per epoch.
+* Avoid exclusive access when creating new partitions in the postgres messages table.
 
 ### Changes
 
+- chore(rln): rln message limit to 100 ([#2883](https://github.com/waku-org/nwaku/pull/2883))
 - fix: postgres_driver better partition creation without exclusive access [28bdb70b](https://github.com/waku-org/nwaku/commit/28bdb70be46d3fb3a6f992b3f9f2de1defd85a30)
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
