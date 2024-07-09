@@ -7,11 +7,12 @@ import sys
 import urllib.parse
 import requests
 import argparse
-from prometheus_client import Counter, start_http_server
+from prometheus_client import Counter, Gauge, start_http_server
 
 # Initialize Prometheus metrics
 successful_sonda_msgs = Counter('successful_sonda_msgs', 'Number of successful Sonda messages sent')
-successful_store_queries = Counter('successful_store_queries', 'Number of successful store queries')
+successful_store_queries = Counter('successful_store_queries', 'Number of successful store queries', ['node'])
+store_query_latency = Gauge('store_query_latency', 'Latency of store queries in milliseconds', ['node'])
 
 def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
     
@@ -73,7 +74,8 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
         response.status_code, response.text, elapsed_ms))
       
       if(response.status_code == 200):
-        successful_store_queries.inc() # Increment the counter
+        successful_store_queries.labels(node=store_node).inc()  # Increment the counter with node label
+        store_query_latency.labels(node=store_node).set(elapsed_ms)  # Set the latency gauge with node label
         return True
     
     return False
