@@ -1,7 +1,6 @@
 {.push raises: [].}
 
-import
-  std/options, stew/results, eth/keys as eth_keys, libp2p/crypto/crypto as libp2p_crypto
+import std/options, results, eth/keys as eth_keys, libp2p/crypto/crypto as libp2p_crypto
 
 import eth/p2p/discoveryv5/enr except TypedRecord, toTypedRecord
 

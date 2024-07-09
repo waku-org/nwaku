@@ -2,7 +2,7 @@
 
 import
   std/[options, sequtils],
-  stew/results,
+  results,
   chronicles,
   chronos,
   libp2p/wire,

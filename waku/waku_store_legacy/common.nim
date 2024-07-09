@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[options, sequtils], stew/results, stew/byteutils, nimcrypto/sha2
+import std/[options, sequtils], results, stew/byteutils, nimcrypto/sha2
 import ../waku_core, ../common/paging
 
 const

@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[httpclient, json, uri, options], stew/results
+import std/[httpclient, json, uri, options], results
 
 const
   # Resource locators

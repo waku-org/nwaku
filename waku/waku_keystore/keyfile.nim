@@ -8,7 +8,7 @@
 import
   std/[os, strutils, json, sequtils],
   nimcrypto/[bcmode, hmac, rijndael, pbkdf2, sha2, sysrand, utils, keccak, scrypt],
-  stew/results,
+  results,
   eth/keys,
   eth/keyfile/uuid
 

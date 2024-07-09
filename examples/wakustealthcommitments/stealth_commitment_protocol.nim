@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  stew/results,
+  results,
   waku/[common/logging,
     waku_node,
     waku_rln_relay,],

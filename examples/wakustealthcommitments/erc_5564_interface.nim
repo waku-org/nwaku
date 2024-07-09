@@ -1,7 +1,7 @@
 ## Nim wrappers for the functions defined in librln
 {.push raises: [].}
 
-import stew/results
+import results
 
 ######################################################################
 ## ERC-5564-BN254 module APIs

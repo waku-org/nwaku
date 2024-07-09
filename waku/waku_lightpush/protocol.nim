@@ -1,7 +1,6 @@
 {.push raises: [].}
 
-import
-  std/options, stew/results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
+import std/options, results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
 import
   ../node/peer_manager/peer_manager,
   ../waku_core,

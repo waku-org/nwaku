@@ -2,7 +2,7 @@
 
 import std/net
 import
-  stew/results,
+  results,
   chronicles,
   chronos,
   chronos/apps/http/httpserver,

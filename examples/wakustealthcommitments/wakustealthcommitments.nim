@@ -1,7 +1,6 @@
 {.push raises: [].}
 
-import
-  stew/results, chronicles, ./node_spec as Waku, ./stealth_commitment_protocol as SCP
+import results, chronicles, ./node_spec as Waku, ./stealth_commitment_protocol as SCP
 
 logScope:
   topics = "waku stealthcommitments"

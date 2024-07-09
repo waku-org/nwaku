@@ -4,7 +4,7 @@ import
   ../protocol_metrics,
   ../constants,
   ../rln
-import options, chronos, stew/results, std/[deques, sequtils]
+import options, chronos, results, std/[deques, sequtils]
 
 export options, chronos, results, protocol_types, protocol_metrics, deques
 
@@ -60,14 +60,11 @@ method register*(
 # The user should have the identity secret to this commitment
 # It should be used when the user wants to join the group
 method register*(
-    g: GroupManager,
-    credentials: IdentityCredential,
-    userMessageLimit: UserMessageLimit,
+    g: GroupManager, credentials: IdentityCredential, userMessageLimit: UserMessageLimit
 ): Future[void] {.base, async: (raises: [Exception]).} =
   raise newException(
     CatchableError, "register proc for " & $g.type & " is not implemented yet"
   )
-
 
 # This proc is used to register a batch of new identity commitments into the merkle tree
 # The user may or may not have the identity secret to these commitments
@@ -111,7 +108,6 @@ method atomicBatch*(
   raise newException(
     CatchableError, "atomicBatch proc for " & $g.type & " is not implemented yet"
   )
-
 
 method stop*(g: GroupManager): Future[void] {.base, async.} =
   raise
@@ -203,7 +199,6 @@ method generateProof*(
     ).valueOr:
       return err("proof generation failed: " & $error)
   return ok(proof)
-
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
   raise newException(

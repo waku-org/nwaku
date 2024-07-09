@@ -2,7 +2,7 @@
 
 import
   std/[options, sequtils, sets],
-  stew/results,
+  results,
   chronicles,
   chronos,
   metrics,

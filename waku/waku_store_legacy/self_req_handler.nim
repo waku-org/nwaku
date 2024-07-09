@@ -13,7 +13,7 @@
 ## stored by that local store node.
 ##
 
-import stew/results, chronos
+import results, chronos
 import ./protocol, ./common
 
 proc handleSelfStoreRequest*(

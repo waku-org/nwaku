@@ -4,7 +4,7 @@ import
   chronicles,
   chronos,
   stew/byteutils,
-  stew/results,
+  results,
   json_serialization as js
 import
   waku/[common/logging, waku_node, node/peer_manager, waku_core, waku_lightpush/client],

@@ -1,6 +1,6 @@
 import
   std/[strutils, strformat],
-  stew/results,
+  results,
   chronos,
   regex,
   confutils,
@@ -77,7 +77,8 @@ type WakuNodeConf* = object
   .}: string
 
   rlnRelayChainId* {.
-    desc: "Chain ID of the provided contract (optional, will fetch from RPC provider if not used)",
+    desc:
+      "Chain ID of the provided contract (optional, will fetch from RPC provider if not used)",
     defaultValue: 0,
     name: "rln-relay-chain-id"
   .}: uint

@@ -1,6 +1,6 @@
-import std/[times, strutils], stew/results, chronos
+import std/[times, strutils], results, chronos
 
-include db_postgres
+include db_connector/db_postgres
 
 type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 

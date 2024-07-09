@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results
+import results
 
 const
   WakuFilterSubscribeCodec* = "/vac/waku/filter-subscribe/2.0.0-beta1"

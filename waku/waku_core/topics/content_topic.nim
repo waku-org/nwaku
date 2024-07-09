@@ -4,7 +4,7 @@
 
 {.push raises: [].}
 
-import std/options, std/strutils, stew/results
+import std/options, std/strutils, results
 import ./parsing
 
 export parsing

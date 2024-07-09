@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results
+import results
 
 type
   ParsingErrorKind* {.pure.} = enum

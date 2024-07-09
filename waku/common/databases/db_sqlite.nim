@@ -4,7 +4,7 @@
 #
 # Most of it is a direct copy, the only unique functions being `get` and `put`.
 
-import std/[os, strutils, sequtils, algorithm], stew/results, chronicles, sqlite3_abi
+import std/[os, strutils, sequtils, algorithm], results, chronicles, sqlite3_abi
 import ./common
 
 logScope:
@@ -50,10 +50,10 @@ template checkErr*(op) =
 type SqliteDatabase* = ref object of RootObj
   env*: Sqlite
 
-type DataProc* = proc(s: RawStmtPtr) {.closure.}
+type DataProc* = proc(s: RawStmtPtr) {.closure, gcsafe.}
   # the nim-eth definition is different; one more indirection
 
-const NoopRowHandler* = proc(s: RawStmtPtr) {.closure.} =
+const NoopRowHandler* = proc(s: RawStmtPtr) {.closure, gcsafe.} =
   discard
 
 proc new*(T: type SqliteDatabase, path: string, readOnly = false): DatabaseResult[T] =
@@ -214,7 +214,9 @@ proc exec*[Params, Res](
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
 
-proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult[bool] =
+proc query*(
+    db: SqliteDatabase, query: string, onData: DataProc
+): DatabaseResult[bool] {.gcsafe.} =
   var s = prepare(db.env, query):
     discard
 
@@ -231,7 +233,7 @@ proc query*(db: SqliteDatabase, query: string, onData: DataProc): DatabaseResult
       else:
         return err($sqlite3_errstr(v))
     return ok gotResults
-  finally:
+  except Exception, CatchableError:
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible

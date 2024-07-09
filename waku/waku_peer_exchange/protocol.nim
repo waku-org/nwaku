@@ -1,6 +1,6 @@
 import
   std/[options, sequtils, random],
-  stew/results,
+  results,
   chronicles,
   chronos,
   metrics,

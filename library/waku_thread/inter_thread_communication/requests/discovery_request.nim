@@ -1,5 +1,5 @@
 import std/[json, sequtils]
-import chronos, stew/results, libp2p/multiaddress
+import chronos, results, libp2p/multiaddress
 import
   ../../../../waku/factory/waku,
   ../../../../waku/discovery/waku_dnsdisc,

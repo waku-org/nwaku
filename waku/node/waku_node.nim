@@ -5,7 +5,7 @@ import
   chronos,
   chronicles,
   metrics,
-  stew/results,
+  results,
   stew/byteutils,
   eth/keys,
   nimcrypto,

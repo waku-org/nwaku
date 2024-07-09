@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/strformat, stew/results, chronicles, uri, json_serialization, presto/route
+import std/strformat, results, chronicles, uri, json_serialization, presto/route
 import
   ../../../waku_core,
   ../../../waku_store/common,

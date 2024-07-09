@@ -3,7 +3,7 @@
 import
   std/typetraits,
   std/os,
-  stew/results,
+  results,
   chronicles,
   serialization,
   json_serialization,

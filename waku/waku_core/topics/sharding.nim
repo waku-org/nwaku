@@ -4,7 +4,7 @@
 
 {.push raises: [].}
 
-import nimcrypto, std/options, std/tables, stew/endians2, stew/results, stew/byteutils
+import nimcrypto, std/options, std/tables, stew/endians2, results, stew/byteutils
 
 import ./content_topic, ./pubsub_topic
 

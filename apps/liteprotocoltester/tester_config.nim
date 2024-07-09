@@ -1,6 +1,6 @@
 import
   std/[strutils, strformat],
-  stew/results,
+  results,
   chronos,
   regex,
   confutils,

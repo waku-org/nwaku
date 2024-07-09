@@ -1,4 +1,3 @@
-
 {.push raises: [].}
 
 import
@@ -13,7 +12,7 @@ import
   eth/keys,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
-  stew/results,
+  results,
   stew/[byteutils, arrayops]
 import
   ./group_manager,
@@ -322,11 +321,13 @@ proc clearNullifierLog*(rlnPeer: WakuRlnRelay) =
     let epochInt = fromEpoch(epoch)
 
     # clean all epochs that are +- rlnMaxEpochGap from the current epoch
-    if (currentEpoch+rlnPeer.rlnMaxEpochGap) <= epochInt or epochInt <= (currentEpoch-rlnPeer.rlnMaxEpochGap):
+    if (currentEpoch + rlnPeer.rlnMaxEpochGap) <= epochInt or
+        epochInt <= (currentEpoch - rlnPeer.rlnMaxEpochGap):
       epochsToRemove.add(epoch)
-  
+
   for epochRemove in epochsToRemove:
-    trace "clearing epochs from the nullifier log", currentEpoch = currentEpoch, cleanedEpoch = fromEpoch(epochRemove)
+    trace "clearing epochs from the nullifier log",
+      currentEpoch = currentEpoch, cleanedEpoch = fromEpoch(epochRemove)
     rlnPeer.nullifierLog.del(epochRemove)
 
 proc generateRlnValidator*(
@@ -450,12 +451,10 @@ proc mount(
       nonceManager:
         NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
       rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap:
-        max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
       onFatalErrorAction: conf.onFatalErrorAction,
     )
   )
-
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages

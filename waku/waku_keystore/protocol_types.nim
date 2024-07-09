@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[sequtils, tables], stew/[results, endians2], nimcrypto, stint
+import std/[sequtils, tables], results, stew/endians2, nimcrypto, stint
 
 # NOTE: 256-bytes long credentials are due to the use of BN254 in RLN. Other implementations/curves might have a different byte size
 const CredentialByteSize* = 256
@@ -102,10 +102,10 @@ type KeystoreMembership* = ref object of RootObj
 
 proc `$`*(m: KeystoreMembership): string =
   return
-    "KeystoreMembership(chainId: " & m.membershipContract.chainId &
-    ", contractAddress: " & m.membershipContract.address & ", treeIndex: " &
-    $m.treeIndex & ", userMessageLimit: " & $m.userMessageLimit &
-    ", identityCredential: " & $m.identityCredential & ")"
+    "KeystoreMembership(chainId: " & m.membershipContract.chainId & ", contractAddress: " &
+    m.membershipContract.address & ", treeIndex: " & $m.treeIndex &
+    ", userMessageLimit: " & $m.userMessageLimit & ", identityCredential: " &
+    $m.identityCredential & ")"
 
 proc `==`*(x, y: KeystoreMembership): bool =
   return

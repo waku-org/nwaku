@@ -1,7 +1,7 @@
 ## This code has been copied and addapted from `status-im/nimbu-eth2` project.
 ## Link: https://github.com/status-im/nimbus-eth2/blob/c585b0a5b1ae4d55af38ad7f4715ad455e791552/beacon_chain/nimbus_binary_common.nim
 import
-  std/[typetraits, os, strutils],
+  std/[typetraits, os, strutils, syncio],
   chronicles,
   chronicles/log_output,
   chronicles/topics_registry
@@ -53,7 +53,7 @@ proc stripAnsi(v: string): string =
 
   res
 
-proc writeAndFlush(f: File, s: LogOutputStr) =
+proc writeAndFlush(f: syncio.File, s: LogOutputStr) =
   try:
     f.write(s)
     f.flushFile()
@@ -71,10 +71,10 @@ proc setupLogFormat(format: LogFormat, color = true) =
     discard
 
   proc stdoutOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
-    writeAndFlush(io.stdout, msg)
+    writeAndFlush(syncio.stdout, msg)
 
   proc stdoutNoColorOutputWriter(logLevel: LogLevel, msg: LogOutputStr) =
-    writeAndFlush(io.stdout, stripAnsi(msg))
+    writeAndFlush(syncio.stdout, stripAnsi(msg))
 
   when defaultChroniclesStream.outputs.type.arity == 2:
     case format

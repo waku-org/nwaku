@@ -1,5 +1,5 @@
 import std/[times, options]
-import confutils, chronicles, chronos, stew/results
+import confutils, chronicles, chronos, results
 
 import waku/[waku_core, common/protobuf]
 import libp2p/protobuf/minprotobuf
