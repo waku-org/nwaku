@@ -90,7 +90,6 @@ def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, t
 
 
 parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default='/waku/2/rs/1/0')
-parser.add_argument('-s', '--msg-size-kbytes', type=int, help='message size in kBytes', default=10)
 parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
 parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
 args = parser.parse_args()

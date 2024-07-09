@@ -64,12 +64,12 @@ services:
       <<:
         - *sonda_env
     command: >
-      python -u /opt/traffic.py
+      python -u /opt/sonda.py
       --delay-seconds=${QUERY_PERIOD}
       --pubsub-topic=/waku/2/rs/${CLUSTER_ID}/${SHARD}
       --store-nodes=${STORE_NODES}
     volumes:
-      - ./traffic.py:/opt/traffic.py:Z
+      - ./sonda.py:/opt/sonda.py:Z
     depends_on:
       - nwaku
   
