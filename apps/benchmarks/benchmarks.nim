@@ -1,13 +1,15 @@
 import
   math,
   std/sequtils,
-  stew/results,
+  results,
   options,
-  ../../waku/waku_rln_relay/protocol_types,
-  ../../waku/waku_rln_relay/rln,
-  ../../waku/waku_rln_relay,
-  ../../waku/waku_rln_relay/conversion_utils,
-  ../../waku/waku_rln_relay/group_manager/static/group_manager
+  waku/[
+    waku_rln_relay/protocol_types,
+    waku_rln_relay/rln,
+    waku_rln_relay,
+    waku_rln_relay/conversion_utils,
+    waku_rln_relay/group_manager/static/group_manager,
+  ]
 
 import std/[times, os]
 

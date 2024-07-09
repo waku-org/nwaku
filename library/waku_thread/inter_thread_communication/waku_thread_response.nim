@@ -2,7 +2,7 @@
 ## The response will be created from the Waku Thread and processed in
 ## the main thread.
 
-import std/json, stew/results
+import std/json, results
 import ../../alloc
 
 type ResponseType {.pure.} = enum

@@ -2,7 +2,7 @@
 ## The requests are created by the main thread and processed by
 ## the Waku Thread.
 
-import std/json, stew/results
+import std/json, results
 import chronos
 import
   ../../../waku/factory/waku,

@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[options], stew/results
+import std/[options], results
 import ../waku_core, ../common/paging
 
 const

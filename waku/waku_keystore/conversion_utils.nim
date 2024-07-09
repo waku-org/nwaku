@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import json, stew/[results, byteutils], ./protocol_types
+import json, results, stew/byteutils, ./protocol_types
 
 # Encodes a KeystoreMembership credential to a byte sequence
 proc encode*(credential: KeystoreMembership): seq[byte] =

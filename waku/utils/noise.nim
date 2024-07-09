@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results
+import results
 import ../waku_core, ../waku_noise/noise_types, ../waku_noise/noise_utils
 
 # Decodes a WakuMessage to a PayloadV2

@@ -10,11 +10,13 @@ import
   stint,
   libp2p/crypto/crypto
 import
-  ../../../waku/waku_core,
-  ../../../waku/waku_rln_relay,
-  ../../../waku/waku_rln_relay/rln,
-  ../../../waku/waku_rln_relay/protocol_metrics,
-  ../../../waku/waku_keystore,
+  waku/[
+    waku_core,
+    waku_rln_relay,
+    waku_rln_relay/rln,
+    waku_rln_relay/protocol_metrics,
+    waku_keystore,
+  ],
   ../testlib/common,
   ./rln/waku_rln_relay_utils
 
@@ -886,7 +888,7 @@ suite "Waku rln relay":
     check:
       buckets.len == 5
       buckets == [2.0, 4.0, 6.0, 8.0, 10.0]
-  
+
   asyncTest "nullifierLog clearing only after epoch has passed":
     let index = MembershipIndex(0)
 
@@ -904,22 +906,25 @@ suite "Waku rln relay":
 
       let rlnMaxEpochGap = wakuRlnRelay.rlnMaxEpochGap
       let testProofMetadata = default(ProofMetadata)
-      let testProofMetadataTable = {testProofMetadata.nullifier: testProofMetadata}.toTable()
+      let testProofMetadataTable =
+        {testProofMetadata.nullifier: testProofMetadata}.toTable()
 
-      for i in 0..rlnMaxEpochGap:
+      for i in 0 .. rlnMaxEpochGap:
         # we add epochs to the nullifierLog
-        let testEpoch =  wakuRlnRelay.calcEpoch(epochTime() + float(rlnEpochSizeSec * i))
+        let testEpoch = wakuRlnRelay.calcEpoch(epochTime() + float(rlnEpochSizeSec * i))
         wakuRlnRelay.nullifierLog[testEpoch] = testProofMetadataTable
-        check: wakuRlnRelay.nullifierLog.len().uint == i + 1
+        check:
+          wakuRlnRelay.nullifierLog.len().uint == i + 1
 
-      check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap + 1
+      check:
+        wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap + 1
 
       # clearing it now will remove 1 epoch
       wakuRlnRelay.clearNullifierLog()
 
-      check: wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
+      check:
+        wakuRlnRelay.nullifierLog.len().uint == rlnMaxEpochGap
 
-    var testEpochSizes: seq[uint] = @[1,5,10,30,60,600]
+    var testEpochSizes: seq[uint] = @[1, 5, 10, 30, 60, 600]
     for i in testEpochSizes:
       await runTestForEpochSizeSec(i)
-

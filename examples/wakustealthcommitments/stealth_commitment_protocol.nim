@@ -1,10 +1,10 @@
 {.push raises: [].}
 
 import
-  stew/results,
-  ../../waku/common/logging,
-  ../../waku/waku_node,
-  ../../waku/waku_rln_relay,
+  results,
+  waku/[common/logging,
+    waku_node,
+    waku_rln_relay,],
   ./erc_5564_interface as StealthCommitmentFFI,
   ./node_spec,
   ./wire_spec

@@ -31,6 +31,7 @@ Update `nwaku` "vendor" dependencies.
 - [ ] nim-nat-traversal
 - [ ] nim-presto
 - [ ] nim-regex ( update to the latest tag version )
+- [ ] nim-results
 - [ ] nim-secp256k1
 - [ ] nim-serialization
 - [ ] nim-sqlite3-abi ( update to the latest tag version )

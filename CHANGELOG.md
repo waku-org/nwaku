@@ -1,4 +1,4 @@
-## v0.30.0 (2024-07-01)
+## v0.30.1 (2024-07-03)
 
 ### Notes
 
@@ -8,8 +8,8 @@ explained in [nwaku-compose](https://github.com/waku-org/nwaku-compose/blob/1b56
 
 ### Release highlights
 
-* RLN_v2 is used. The maximum rate can be set to
-`N` messages per epoch, instead of just one message per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details.
+* RLN_v2 is used. The maximum rate can be set to `N` messages per epoch, instead of just one message per epoch. See [this](https://github.com/waku-org/nwaku/issues/2345) for more details. Notice that we established an epoch of 10 minutes.
+
 
 ### Changes
 

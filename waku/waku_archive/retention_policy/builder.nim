@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[strutils, options], regex, stew/results
+import std/[strutils, options], regex, results
 import
   ../retention_policy,
   ./retention_policy_time,

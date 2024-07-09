@@ -1,9 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, net],
-  stew/results,
-  libp2p/[multiaddress, multicodec]
+  std/[options, sequtils, strutils, net], results, libp2p/[multiaddress, multicodec]
 import ../../waku/waku_core/peers
 import ../waku_enr
 

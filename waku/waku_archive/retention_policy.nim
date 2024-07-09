@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results, chronos
+import results, chronos
 import ./driver
 
 type RetentionPolicyResult*[T] = Result[T, string]

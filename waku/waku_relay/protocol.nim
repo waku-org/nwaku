@@ -6,7 +6,8 @@
 
 import
   std/strformat,
-  stew/[results, byteutils],
+  stew/byteutils,
+  results,
   sequtils,
   chronos,
   chronicles,

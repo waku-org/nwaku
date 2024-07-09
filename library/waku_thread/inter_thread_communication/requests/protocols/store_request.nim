@@ -1,4 +1,4 @@
-import chronos, stew/results
+import chronos, results
 import ../../../../../waku/factory/waku, ../../../../alloc, ../../../../callback
 
 type StoreReqType* = enum

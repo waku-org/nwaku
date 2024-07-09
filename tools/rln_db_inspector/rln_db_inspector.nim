@@ -3,12 +3,10 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronicles, sequtils, stew/[results]
+import chronicles, sequtils, results
 
 import
-  ../../waku/waku_rln_relay/rln,
-  ../../waku/waku_rln_relay/conversion_utils,
-  ../../waku/factory/external_config
+  waku/[waku_rln_relay/rln, waku_rln_relay/conversion_utils, factory/external_config]
 
 logScope:
   topics = "rln_db_inspector"

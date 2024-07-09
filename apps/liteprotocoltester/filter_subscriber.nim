@@ -8,16 +8,12 @@ import
   chronos,
   chronos/timer as chtimer,
   stew/byteutils,
-  stew/results,
+  results,
   serialization,
   json_serialization as js,
   times
 import
-  ../../../waku/common/logging,
-  ../../../waku/node/peer_manager,
-  ../../../waku/waku_node,
-  ../../../waku/waku_core,
-  ../../../waku/waku_filter_v2/client,
+  waku/[common/logging, node/peer_manager, waku_node, waku_core, waku_filter_v2/client],
   ./tester_config,
   ./tester_message,
   ./statistics

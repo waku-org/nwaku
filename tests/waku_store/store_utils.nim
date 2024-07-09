@@ -3,7 +3,7 @@
 import std/options, chronos, chronicles, libp2p/crypto/crypto
 
 import
-  ../../../waku/[node/peer_manager, waku_core, waku_store, waku_store/client],
+  waku/[node/peer_manager, waku_core, waku_store, waku_store/client],
   ../testlib/[common, wakucore]
 
 proc newTestWakuStore*(
@@ -18,6 +18,6 @@ proc newTestWakuStore*(
 
   return proto
 
-proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient =
+proc newTestWakuStoreClient*(switch: Switch): WakuStoreClient {.gcsafe.} =
   let peerManager = PeerManager.new(switch)
   WakuStoreClient.new(peerManager, rng)

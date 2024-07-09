@@ -4,7 +4,7 @@ import
   nimcrypto/sha2,
   libp2p/protocols/pubsub/rpc/messages
 
-import ../../../waku/waku_relay/message_id, ../testlib/sequtils
+import waku/waku_relay/message_id, ../testlib/sequtils
 
 suite "Message ID Provider":
   test "Non-empty string":

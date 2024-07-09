@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[options, sequtils], stew/results
+import std/[options, sequtils], results
 import ../waku_core, ../common/paging, ./common
 
 ## Wire protocol

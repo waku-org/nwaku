@@ -2,7 +2,7 @@
 # https://github.com/status-im/nim-eth/blob/master/eth/db/kvstore_sqlite3.nim
 {.push raises: [].}
 
-import std/options, stew/[byteutils, results], chronicles, chronos
+import std/options, stew/byteutils, chronicles, chronos, results
 import
   ../../../common/databases/db_sqlite,
   ../../../waku_core,

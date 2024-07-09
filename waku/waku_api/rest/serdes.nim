@@ -2,7 +2,7 @@
 
 import
   std/typetraits,
-  stew/results,
+  results,
   stew/byteutils,
   chronicles,
   serialization,

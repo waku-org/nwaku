@@ -13,16 +13,18 @@ import
   eth/net/nat,
   json_rpc/rpcserver,
   # Matterbridge client imports
-  ../../waku/common/utils/matterbridge_client,
   # Waku v2 imports
   libp2p/crypto/crypto,
   libp2p/errors,
-  ../../../waku/waku_core,
-  ../../../waku/waku_node,
-  ../../../waku/node/peer_manager,
-  ../../waku/waku_filter_v2,
-  ../../waku/waku_store,
-  ../../waku/factory/builder,
+  waku/[
+    waku_core,
+    waku_node,
+    node/peer_manager,
+    waku_filter_v2,
+    waku_store,
+    factory/builder,
+    common/utils/matterbridge_client,
+  ],
   # Chat 2 imports
   ../chat2/chat2,
   # Common cli config
@@ -178,6 +180,7 @@ proc new*(
   let nodev2 = block:
     var builder = WakuNodeBuilder.init()
     builder.withNodeKey(nodev2Key)
+
     builder
     .withNetworkConfigurationDetails(
       nodev2BindIp, nodev2BindPort, nodev2ExtIp, nodev2ExtPort
@@ -239,7 +242,7 @@ proc stop*(cmb: Chat2MatterBridge) {.async: (raises: [Exception]).} =
 {.pop.}
   # @TODO confutils.nim(775, 17) Error: can raise an unlisted exception: ref IOError
 when isMainModule:
-  import ../../../waku/common/utils/nat, ../../waku/waku_api/message_cache
+  import waku/common/utils/nat, waku/waku_api/message_cache
 
   let
     rng = newRng()

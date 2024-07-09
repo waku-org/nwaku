@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/[options, sequtils], stew/[results, byteutils], sqlite3_abi
+import std/[options, sequtils], stew/byteutils, sqlite3_abi, results
 import
   ../../../common/databases/db_sqlite,
   ../../../common/databases/common,
@@ -261,7 +261,7 @@ proc selectAllMessages*(
     db: SqliteDatabase
 ): DatabaseResult[
     seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
-] =
+] {.gcsafe.} =
   ## Retrieve all messages from the store.
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc queryRowCallback(s: ptr sqlite3_stmt) =
@@ -426,7 +426,7 @@ proc execSelectMessagesV2WithLimitStmt(
         return ok()
       else:
         return err($sqlite3_errstr(v))
-  finally:
+  except Exception, CatchableError:
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible
@@ -497,7 +497,7 @@ proc execSelectMessageByHash(
         return ok()
       else:
         return err($sqlite3_errstr(v))
-  finally:
+  except Exception, CatchableError:
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible  
@@ -628,7 +628,7 @@ proc execSelectMessagesWithLimitStmt(
         return ok()
       else:
         return err($sqlite3_errstr(v))
-  finally:
+  except Exception, CatchableError:
     # release implicit transaction
     discard sqlite3_reset(s) # same return information as step
     discard sqlite3_clear_bindings(s) # no errors possible

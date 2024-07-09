@@ -2,7 +2,7 @@
 
 import
   std/[options, sequtils],
-  stew/results,
+  results,
   chronicles,
   chronos,
   libp2p/wire,
@@ -15,24 +15,24 @@ import
   metrics,
   metrics/chronos_httpserver
 import
-  ../../waku/common/logging,
-  ../../waku/waku_core,
-  ../../waku/waku_node,
-  ../../waku/node/peer_manager,
-  ../../waku/node/health_monitor,
-  ../../waku/waku_api/message_cache,
-  ../../waku/waku_api/rest/server,
-  ../../waku/waku_archive,
-  ../../waku/discovery/waku_dnsdisc,
-  ../../waku/discovery/waku_discv5,
-  ../../waku/waku_enr/sharding,
-  ../../waku/waku_rln_relay,
-  ../../waku/waku_store,
-  ../../waku/waku_filter_v2,
-  ../../waku/factory/networks_config,
-  ../../waku/factory/node_factory,
-  ../../waku/factory/internal_config,
-  ../../waku/factory/external_config
+  ../common/logging,
+  ../waku_core,
+  ../waku_node,
+  ../node/peer_manager,
+  ../node/health_monitor,
+  ../waku_api/message_cache,
+  ../waku_api/rest/server,
+  ../waku_archive,
+  ../discovery/waku_dnsdisc,
+  ../discovery/waku_discv5,
+  ../waku_enr/sharding,
+  ../waku_rln_relay,
+  ../waku_store,
+  ../waku_filter_v2,
+  ../factory/networks_config,
+  ../factory/node_factory,
+  ../factory/internal_config,
+  ../factory/external_config
 
 logScope:
   topics = "wakunode waku"

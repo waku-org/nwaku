@@ -1,5 +1,5 @@
 import std/json
-import chronicles, chronos, stew/results
+import chronicles, chronos, results
 import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
 
 type DebugNodeMsgType* = enum

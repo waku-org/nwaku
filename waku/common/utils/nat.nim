@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[options, strutils, net]
-import chronicles, eth/net/nat, stew/results, nativesockets
+import chronicles, eth/net/nat, results, nativesockets
 
 logScope:
   topics = "nat"

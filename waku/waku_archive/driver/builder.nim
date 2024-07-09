@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/results, chronicles, chronos
+import results, chronicles, chronos
 import
   ../driver,
   ../../common/databases/dburl,

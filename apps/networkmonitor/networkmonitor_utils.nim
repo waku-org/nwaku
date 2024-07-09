@@ -2,7 +2,7 @@
 
 import
   std/json,
-  stew/results,
+  results,
   stew/shims/net,
   chronicles,
   chronicles/topics_registry,

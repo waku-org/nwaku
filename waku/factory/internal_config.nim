@@ -5,7 +5,7 @@ import
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
   std/[options, sequtils, net],
-  stew/results
+  results
 import
   ./external_config,
   ../common/utils/nat,

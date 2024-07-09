@@ -3,14 +3,16 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronicles, stew/[results], std/tempfiles
+import chronicles, results, std/tempfiles
 
 import
-  ../../waku/waku_keystore,
-  ../../waku/waku_rln_relay/rln,
-  ../../waku/waku_rln_relay/conversion_utils,
-  ../../waku/waku_rln_relay/group_manager/on_chain,
-  ../../waku/factory/external_config
+  waku/[
+    waku_keystore,
+    waku_rln_relay/rln,
+    waku_rln_relay/conversion_utils,
+    waku_rln_relay/group_manager/on_chain,
+    factory/external_config,
+  ]
 
 logScope:
   topics = "rln_keystore_generator"
@@ -90,7 +92,6 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     identityCredential: credential,
     userMessageLimit: conf.rlnRelayUserMessageLimit,
   )
-
 
   let persistRes = addMembershipCredentials(
     conf.rlnRelayCredPath, keystoreCred, conf.rlnRelayCredPassword, RLNAppInfo

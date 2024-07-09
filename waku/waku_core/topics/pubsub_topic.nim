@@ -4,7 +4,7 @@
 
 {.push raises: [].}
 
-import std/strutils, stew/[results, base10]
+import std/strutils, stew/base10, results
 import ./parsing
 
 export parsing

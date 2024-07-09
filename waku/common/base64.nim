@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import stew/[results, byteutils, base64]
+import stew/[byteutils, base64], results
 
 type Base64String* = distinct string
 

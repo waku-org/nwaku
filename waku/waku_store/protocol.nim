@@ -5,7 +5,7 @@
 
 import
   std/options,
-  stew/results,
+  results,
   chronicles,
   chronos,
   bearssl/rand,

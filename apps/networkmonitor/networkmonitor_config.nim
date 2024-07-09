@@ -4,7 +4,7 @@ import
   confutils,
   chronos,
   std/strutils,
-  stew/results,
+  results,
   stew/shims/net,
   regex
 

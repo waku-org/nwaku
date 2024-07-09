@@ -1,10 +1,7 @@
 {.push raises: [].}
 
 import
-  stew/results,
-  nimcrypto/sha2,
-  libp2p/protocols/pubsub,
-  libp2p/protocols/pubsub/rpc/messages
+  results, nimcrypto/sha2, libp2p/protocols/pubsub, libp2p/protocols/pubsub/rpc/messages
 
 ## Message ID provider
 
