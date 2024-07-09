@@ -18,6 +18,7 @@ x-sonda-env: &sonda_env
   CLUSTER_ID: ${CLUSTER_ID:-1} # Add your CLUSTER_ID after the "-"
   SHARD: ${SHARD:-0} # Add your SHARD after the "-"
   STORE_NODES: ${STORE_NODES:-}
+  QUERY_PERIOD: ${QUERY_PERIOD-60}
 
 # Services definitions
 services:
@@ -62,8 +63,7 @@ services:
         - *sonda_env
     command: >
       python -u /opt/traffic.py
-      --msg-size-kbytes=${MSG_SIZE_KBYTES:-10}
-      --delay-seconds=${TRAFFIC_DELAY_SECONDS:-15}
+      --delay-seconds=${QUERY_PERIOD}
       --pubsub-topic=/waku/2/rs/${CLUSTER_ID}/${SHARD}
       --store-nodes=${STORE_NODES}
     volumes:

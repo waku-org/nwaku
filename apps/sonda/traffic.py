@@ -8,12 +8,12 @@ import urllib.parse
 import requests
 import argparse
 
-def send_waku_msg(node_address, kbytes, pubsub_topic, content_topic):
-    # TODO dirty trick .replace("=", "")
-    base64_payload = (base64.b64encode(os.urandom(kbytes*1000)).decode('ascii')).replace("=", "")
-    print("size message kBytes", len(base64_payload) *(3/4)/1000, "KBytes")
+def send_sonda_msg(node_address, pubsub_topic, content_topic):
+    
+    message = "Hi, I'm Sonda"
+    base64_message = base64.b64encode(message.encode('utf-8')).decode('ascii')
     body = {
-        "payload": base64_payload,
+        "payload": base64_message,
         "contentTopic": content_topic,
         "version": 1,  # You can adjust the version as needed
         #"timestamp": int(time.time())
@@ -61,7 +61,7 @@ while True:
     # calls are blocking
     # limited by the time it takes the REST API to reply
 
-    send_waku_msg('http://nwaku:8645', args.msg_size_kbytes, args.pubsub_topic, "random_content_topic")
+    send_sonda_msg('http://nwaku:8645', args.pubsub_topic, "random_content_topic")
 
     print("sleeping: ", args.delay_seconds, " seconds")
     time.sleep(args.delay_seconds)
