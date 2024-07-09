@@ -1017,7 +1017,7 @@ proc addPartition(
     self: PostgresDriver, startTime: Timestamp
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Creates a partition table that will store the messages that fall in the range
-  ## `startTime` <= storedAt < `startTime + duration`.
+  ## `startTime` <= timestamp < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
 
   let beginning = startTime
@@ -1048,7 +1048,8 @@ proc addPartition(
   let constraintName = partitionName & "_by_range_check"
   let addTimeConstraintQuery =
     "ALTER TABLE " & partitionName & " ADD CONSTRAINT " & constraintName &
-    " CHECK ( storedAt >= " & fromInNanoSec & " AND storedAt < " & untilInNanoSec & " );"
+    " CHECK ( timestamp >= " & fromInNanoSec & " AND timestamp < " & untilInNanoSec &
+    " );"
 
   (await self.performWriteQueryWithLock(addTimeConstraintQuery)).isOkOr:
     return err(fmt"error creating constraint [{partitionName}]: " & $error)
