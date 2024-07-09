@@ -44,7 +44,7 @@ parser = argparse.ArgumentParser(description='')
 
 
 
-parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default="/waku/2/rs/2/0")
+parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default="/waku/2/rs/1/0")
 parser.add_argument('-s', '--msg-size-kbytes', type=int, help='message size in kBytes', default=10)
 parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
 args = parser.parse_args()
