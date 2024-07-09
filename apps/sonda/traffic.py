@@ -50,7 +50,7 @@ parser = argparse.ArgumentParser(description='')
 def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_content_topic, timestamp):
     url = f'{rest_address}/store/v3/messages'
     params = {'peerAddr': urllib.parse.quote(store_node, safe=''), 'pubsubTopic': encoded_pubsub_topic, \
-      'contentTopics': encoded_content_topic, 'includeData': 'true'}
+      'contentTopics': encoded_content_topic, 'includeData': 'true', 'startTime': timestamp}
     
     s_time = time.time()
     response = None
@@ -101,7 +101,7 @@ while True:
     # calls are blocking
     # limited by the time it takes the REST API to reply
 
-    timestamp = int(time.time())
+    timestamp = time.time_ns()
     
     res = send_sonda_msg(node_rest_address, args.pubsub_topic, sonda_content_topic, timestamp)
 
