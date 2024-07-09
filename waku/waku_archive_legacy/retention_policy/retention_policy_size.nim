@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import stew/results, chronicles, chronos
+import results, chronicles, chronos
 import ../driver, ../retention_policy
 
 logScope:

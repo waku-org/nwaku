@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/options, stew/results, chronos
+import std/options, results, chronos
 import ../waku_core, ./common
 
 const DefaultPageSize*: uint = 25
