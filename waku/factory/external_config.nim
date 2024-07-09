@@ -305,12 +305,23 @@ type WakuNodeConf* = object
 
     pubsubTopics* {.
       desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
+      defaultValue: @[],
       name: "pubsub-topic"
     .}: seq[string]
 
     shards* {.
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
-      defaultValue: @[],
+      defaultValue:
+        @[
+          uint16(0),
+          uint16(1),
+          uint16(2),
+          uint16(3),
+          uint16(4),
+          uint16(5),
+          uint16(6),
+          uint16(7),
+        ],
       name: "shard"
     .}: seq[uint16]
 

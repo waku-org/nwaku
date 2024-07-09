@@ -30,19 +30,24 @@ proc enrConfiguration*(
 
   var shards = newSeq[uint16]()
 
-  # no shards configured
-  if conf.shards.len == 0:
-    let shardsOpt = topicsToRelayShards(conf.pubsubTopics).valueOr:
-      error "failed to parse pubsub topic, please format according to static shard specification",
-        error = $error
-      return err("failed to parse pubsub topic: " & $error)
-    if shardsOpt.isSome():
-      shards = shardsOpt.get().shardIds
-    else:
-      info "no pubsub topics specified or pubsubtopic is of type Named sharding "
-  # some shards configured
-  else:
+  let shardsOpt = topicsToRelayShards(conf.pubsubTopics).valueOr:
+    error "failed to parse pubsub topic, please format according to static shard specification",
+      error = $error
+    return err("failed to parse pubsub topic: " & $error)
+
+  if shardsOpt.isSome():
+    let relayShards = shardsOpt.get()
+
+    if relayShards.clusterid != conf.clusterId:
+      error "pubsub topic corresponds to different shard than configured",
+        nodeCluster = conf.clusterId, pubsubCluster = relayShards.clusterid
+      return err("pubsub topic corresponds to different shard than configured")
+
+    shards = relayShards.shardIds
+  elif conf.shards.len > 0:
     shards = toSeq(conf.shards.mapIt(uint16(it)))
+  else:
+    info "no pubsub topics specified"
 
   enrBuilder.withWakuRelaySharding(
     RelayShards(clusterId: conf.clusterId, shardIds: shards)
