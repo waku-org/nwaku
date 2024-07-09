@@ -14,17 +14,6 @@ type ClusterConf* = object
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
 
-# cluster-id=0
-# Cluster configuration for the default pubsub topic. Note that it
-# overrides existing cli configuration
-proc ClusterZeroConf*(T: type ClusterConf): ClusterConf =
-  return ClusterConf(
-    clusterId: 0,
-    pubsubTopics:
-      @["/waku/2/default-waku/proto"] # TODO: Add more config such as bootstrap, etc
-    ,
-  )
-
 # cluster-id=1 (aka The Waku Network)
 # Cluster configuration corresponding to The Waku Network. Note that it
 # overrides existing cli configuration

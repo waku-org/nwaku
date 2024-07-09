@@ -28,7 +28,7 @@ suite "WakuNode":
       node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(61000))
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(61002))
-      pubSubTopic = "/waku/2/default-waku/proto"
+      pubSubTopic = "/waku/2/rs/0/0"
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)

@@ -67,12 +67,6 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
     if res.isErr():
       return err("failed to parse topic: " & $res.error)
 
-  if parsedTopicsRes.allIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
-    return ok(none(RelayShards))
-
-  if parsedTopicsRes.anyIt(it.get().kind == NsPubsubTopicKind.NamedSharding):
-    return err("use named (/waku/2/*) OR static (/waku/2/rs/*/*) shards not both.")
-
   if parsedTopicsRes.anyIt(it.get().clusterId != parsedTopicsRes[0].get().clusterId):
     return err("use shards with the same cluster Id.")
 
@@ -84,15 +78,12 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
   return ok(some(relayShard))
 
 func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
-  rs.clusterId == clusterId and rs.shardIds.contains(shardId)
+  return rs.clusterId == clusterId and rs.shardIds.contains(shardId)
 
 func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
-  if topic.kind != NsPubsubTopicKind.StaticSharding:
-    return false
+  return rs.contains(topic.clusterId, topic.shardId)
 
-  rs.contains(topic.clusterId, topic.shardId)
-
-func contains*(rs: RelayShards, topic: PubsubTopic | string): bool =
+func contains*(rs: RelayShards, topic: PubsubTopic): bool =
   let parseRes = NsPubsubTopic.parse(topic)
   if parseRes.isErr():
     return false
@@ -245,12 +236,9 @@ proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
   rs.contains(clusterId, shardId)
 
 proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
-  if topic.kind != NsPubsubTopicKind.StaticSharding:
-    return false
+  return containsShard(r, topic.clusterId, topic.shardId)
 
-  containsShard(r, topic.clusterId, topic.shardId)
-
-proc containsShard*(r: Record, topic: PubsubTopic | string): bool =
+proc containsShard*(r: Record, topic: PubsubTopic): bool =
   let parseRes = NsPubsubTopic.parse(topic)
   if parseRes.isErr():
     debug "invalid static sharding topic", topic = topic, error = parseRes.error
