@@ -4,11 +4,11 @@ import
   std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 
 import
-  ../../../waku/common/databases/db_sqlite,
-  ../../../waku/waku_archive_legacy,
-  ../../../waku/waku_archive_legacy/driver/sqlite_driver,
-  ../../../waku/waku_core,
-  ../../../waku/waku_core/message/digest,
+  waku/common/databases/db_sqlite,
+  waku/waku_archive_legacy,
+  waku/waku_archive_legacy/driver/sqlite_driver,
+  waku/waku_core,
+  waku/waku_core/message/digest,
   ../testlib/common,
   ../testlib/wakucore,
   ../waku_archive_legacy/archive_utils
