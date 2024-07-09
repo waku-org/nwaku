@@ -47,10 +47,15 @@ parser = argparse.ArgumentParser(description='')
 parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default="/waku/2/rs/1/0")
 parser.add_argument('-s', '--msg-size-kbytes', type=int, help='message size in kBytes', default=10)
 parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
+parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
 args = parser.parse_args()
 
 print(args)
 
+nodes = []
+if args.store_nodes is not None:
+    nodes = [s.strip() for s in args.store_nodes.split(",")]
+print(nodes)
 
 while True:
     # calls are blocking
