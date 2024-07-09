@@ -64,32 +64,80 @@ def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
     return False
 
 
+# We return true if both our node and the queried Store node returned a 200
+# If our message isn't found but we did get a store 200 response, this function still returns true
+def check_store_response(json_response, store_node, timestamp):
+  # Check for the store node status code
+  if json_response.get('statusCode') != 200:
+    error = f"{json_response.get('statusCode')} {json_response.get('statusDesc')}"
+    print(f'Failed performing store query {error}')
+    failed_store_queries.labels(node=store_node, error=error).inc()
+     return False
+  
+  messages = json_response.get('messages')
+  # If there's no message in the response, increase counters and return
+  if not messages:
+    print("No messages in store response")
+    empty_store_responses.labels(node=store_node).inc()
+    return True
+
+  # Search for the Sonda message in the returned messages
+  for message in messages:
+    # If message field is missing in current message, continue
+    if not message.get("message"):
+      print("Could not retrieve message")
+      continue
+    
+    # If a message is found with the same timestamp as sonda message, increase counters and return
+    if timestamp == message.get('message').get('timestamp'):
+      print(f'Found Sonda message in store response node={store_node}')
+      successful_store_queries.labels(node=store_node).inc()
+      return True
+
+  # If our message wasn't found in the returned messages, increase counter and return
+  empty_store_responses.labels(node=store_node).inc()
+  return True
+
+
 def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_content_topic, timestamp):
     url = f'{rest_address}/store/v3/messages'
-    params = {'peerAddr': urllib.parse.quote(store_node, safe=''), 'pubsubTopic': encoded_pubsub_topic, \
-      'contentTopics': encoded_content_topic, 'includeData': 'true', 'startTime': timestamp}
+    params = {
+        'peerAddr': urllib.parse.quote(store_node, safe=''), 
+        'pubsubTopic': encoded_pubsub_topic,
+        'contentTopics': encoded_content_topic, 
+        'includeData': 'true', 
+        'startTime': timestamp
+    }
     
     s_time = time.time()
-    response = None
     
     try:
-      print(f'Sending store request to {store_node}')
-      response = requests.get(url, params=params)
+        print(f'Sending store request to {store_node}')
+        response = requests.get(url, params=params)
     except Exception as e:
       print(f'Error sending request: {e}')
-    
-    if(response != None):
-      elapsed_seconds = (time.time() - s_time)
-      print('Response from %s: status:%s content:%s [%.4f s.]' % (rest_address, \
-        response.status_code, response.text, elapsed_seconds))
-      
-      if(response.status_code == 200):
-        successful_store_queries.labels(node=store_node).inc()  # Increment the counter with node label
-        store_query_latency.labels(node=store_node).observe(elapsed_seconds)  # Observe the latency
-        return True
-    
-    return False
+      failed_store_queries.labels(node=store_node, error=str(e)).inc()
+      return False
 
+    elapsed_seconds = time.time() - s_time
+    print(f'Response from {rest_address}: status:{response.status_code} [{elapsed_seconds:.4f} s.]')
+
+    if response.status_code != 200:
+        failed_store_queries.labels(node=store_node, error=f'{response.status_code} {response.content}').inc()
+        return False
+
+    try:
+        json_response = response.json()
+    except Exception as e:
+        print(f'Error parsing response JSON: {e}')
+        failed_store_queries.labels(node=store_node, error="JSON parse error").inc()
+        return False
+
+    if not check_store_response(json_response, store_node, timestamp):
+        return False
+
+    store_query_latency.labels(node=store_node).observe(elapsed_seconds)
+    return True
 
 def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, timestamp):
     print(f'Sending store queries. nodes = {store_nodes}')
