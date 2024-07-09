@@ -5,10 +5,10 @@ else:
 
 import
   std/[nre, options, sequtils, strutils, strformat, times],
-  stew/[results, byteutils, arrayops],
-  db_postgres,
-  postgres,
+  stew/[byteutils, arrayops],
+  results,
   chronos,
+  db_connector/[postgres, db_common],
   chronicles
 import
   ../../../common/error_handling,

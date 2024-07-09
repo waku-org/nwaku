@@ -5,7 +5,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/options, stew/[byteutils, results], chronicles, chronos
+import std/options, stew/byteutils, chronicles, chronos, results
 import
   ../../../common/databases/db_sqlite,
   ../../../waku_core,

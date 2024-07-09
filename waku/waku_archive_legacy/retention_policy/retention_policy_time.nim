@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import std/times, stew/results, chronicles, chronos
+import std/times, results, chronicles, chronos
 import ../../waku_core, ../driver, ../retention_policy
 
 logScope:

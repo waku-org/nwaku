@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import chronos, stew/results
+import chronos, results
 import ../../../common/databases/db_postgres, ../../../common/error_handling
 
 ## Simple query to validate that the postgres is working and attending requests

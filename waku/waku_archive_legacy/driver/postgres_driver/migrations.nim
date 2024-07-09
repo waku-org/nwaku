@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/strutils, stew/results, chronicles, chronos
+import std/strutils, results, chronicles, chronos
 import
   ../../../common/databases/common,
   ../../../../migrations/message_store_postgres/pg_migration_manager,
