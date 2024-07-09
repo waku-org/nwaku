@@ -7,15 +7,25 @@ import sys
 import urllib.parse
 import requests
 import argparse
-from prometheus_client import Counter, Gauge, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
-# Initialize Prometheus metrics
+# Prometheus metrics
 successful_sonda_msgs = Counter('successful_sonda_msgs', 'Number of successful Sonda messages sent')
+failed_sonda_msgs = Counter('failed_sonda_msgs', 'Number of failed Sonda messages attempts')
 successful_store_queries = Counter('successful_store_queries', 'Number of successful store queries', ['node'])
-store_query_latency = Gauge('store_query_latency', 'Latency of store queries in milliseconds', ['node'])
+failed_store_queries = Counter('failed_store_queries', 'Number of failed store queries', ['node', 'error'])
+empty_store_responses = Counter('empty_store_responses', "Number of store responses without the latest Sonda message", ['node'])
+store_query_latency = Histogram('store_query_latency', 'Latency of store queries in seconds', ['node'],
+                                buckets=(0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, float('inf')))
+
+# Argparser configuration
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default='/waku/2/rs/1/0')
+parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
+parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
+args = parser.parse_args()
 
 def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
-    
     message = "Hi, I'm Sonda"
     base64_message = base64.b64encode(message.encode('utf-8')).decode('ascii')
     body = {
@@ -42,17 +52,17 @@ def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
       print(f'Error sending request: {e}')
 
     if(response != None):
-      elapsed_ms = (time.time() - s_time) * 1000
-      print('Response from %s: status:%s content:%s [%.4f ms.]' % (rest_address, \
-        response.status_code, response.text, elapsed_ms))
+      elapsed_seconds = (time.time() - s_time)
+      print('Response from %s: status:%s content:%s [%.4f s.]' % (rest_address, \
+        response.status_code, response.text, elapsed_seconds))
     
       if(response.status_code == 200):
-        successful_sonda_msgs.inc()  # Increment the counter
+        successful_sonda_msgs.inc()
         return True
     
+    failed_sonda_msgs.inc()
     return False
 
-parser = argparse.ArgumentParser(description='')
 
 def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_content_topic, timestamp):
     url = f'{rest_address}/store/v3/messages'
@@ -69,17 +79,16 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
       print(f'Error sending request: {e}')
     
     if(response != None):
-      elapsed_ms = (time.time() - s_time) * 1000
-      print('Response from %s: status:%s content:%s [%.4f ms.]' % (rest_address, \
-        response.status_code, response.text, elapsed_ms))
+      elapsed_seconds = (time.time() - s_time)
+      print('Response from %s: status:%s content:%s [%.4f s.]' % (rest_address, \
+        response.status_code, response.text, elapsed_seconds))
       
       if(response.status_code == 200):
         successful_store_queries.labels(node=store_node).inc()  # Increment the counter with node label
-        store_query_latency.labels(node=store_node).set(elapsed_ms)  # Set the latency gauge with node label
+        store_query_latency.labels(node=store_node).observe(elapsed_seconds)  # Observe the latency
         return True
     
     return False
-    
 
 
 def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, timestamp):
@@ -91,34 +100,33 @@ def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, t
       send_store_query(rest_address, node, encoded_pubsub_topic, encoded_content_topic, timestamp)
 
 
-parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default='/waku/2/rs/1/0')
-parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
-parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
-args = parser.parse_args()
+def main():
+  print(f'Running Sonda with args={args}')
 
-print(args)
+  store_nodes = []
+  if args.store_nodes is not None:
+      store_nodes = [s.strip() for s in args.store_nodes.split(",")]
+  print(f'Store nodes to query: {store_nodes}')
 
-store_nodes = []
-if args.store_nodes is not None:
-    store_nodes = [s.strip() for s in args.store_nodes.split(",")]
-print(store_nodes)
+  # Start Prometheus HTTP server at port 8004
+  start_http_server(8004)
 
-# Start Prometheus HTTP server at port 8004
-start_http_server(8004)
+  sonda_content_topic = '/sonda/2/polls/proto'
+  node_rest_address = 'http://nwaku:8645'
+  while True:
+      # calls are blocking
+      # limited by the time it takes the REST API to reply
 
-sonda_content_topic = '/sonda/2/polls/proto'
-node_rest_address = 'http://nwaku:8645'
-while True:
-    # calls are blocking
-    # limited by the time it takes the REST API to reply
+      timestamp = time.time_ns()
+      
+      res = send_sonda_msg(node_rest_address, args.pubsub_topic, sonda_content_topic, timestamp)
 
-    timestamp = time.time_ns()
-    
-    res = send_sonda_msg(node_rest_address, args.pubsub_topic, sonda_content_topic, timestamp)
+      print(f'sleeping: {args.delay_seconds} seconds')
+      time.sleep(args.delay_seconds)
 
-    print(f'sleeping: {args.delay_seconds} seconds')
-    time.sleep(args.delay_seconds)
+      # Only send store query if message was successfully published
+      if(res):
+        send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, sonda_content_topic, timestamp)
 
-    # Only send store query if message was successfully published
-    if(res):
-      send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, sonda_content_topic, timestamp)
+
+main()
