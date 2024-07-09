@@ -7,6 +7,11 @@ import sys
 import urllib.parse
 import requests
 import argparse
+from prometheus_client import Counter, start_http_server
+
+# Initialize Prometheus metrics
+successful_sonda_msgs = Counter('successful_sonda_msgs', 'Number of successful Sonda messages sent')
+successful_store_queries = Counter('successful_store_queries', 'Number of successful store queries')
 
 def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
     
@@ -41,6 +46,7 @@ def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
         response.status_code, response.text, elapsed_ms))
     
       if(response.status_code == 200):
+        successful_sonda_msgs.inc()  # Increment the counter
         return True
     
     return False
@@ -67,6 +73,7 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
         response.status_code, response.text, elapsed_ms))
       
       if(response.status_code == 200):
+        successful_store_queries.inc() # Increment the counter
         return True
     
     return False
@@ -94,6 +101,9 @@ store_nodes = []
 if args.store_nodes is not None:
     store_nodes = [s.strip() for s in args.store_nodes.split(",")]
 print(store_nodes)
+
+# Start Prometheus HTTP server at port 8004
+start_http_server(8004)
 
 sonda_content_topic = '/sonda/2/polls/proto'
 node_rest_address = 'http://nwaku:8645'
