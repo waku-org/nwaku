@@ -14,6 +14,9 @@ x-rln-environment: &rln_env
   RLN_RELAY_CRED_PATH: ${RLN_RELAY_CRED_PATH:-} # Optional: Add your RLN_RELAY_CRED_PATH after the "-"
   RLN_RELAY_CRED_PASSWORD: ${RLN_RELAY_CRED_PASSWORD:-} # Optional: Add your RLN_RELAY_CRED_PASSWORD after the "-"
 
+x-sonda-env: &sonda_env
+  CLUSTER_ID: ${CLUSTER_ID:-2} # Add your CLUSTER_ID after the "-"
+
 # Services definitions
 services:
   nwaku:
@@ -38,6 +41,7 @@ services:
       STORAGE_SIZE: ${STORAGE_SIZE}
       <<:
         - *rln_env
+        - *sonda_env
     volumes:
       - ./run_node.sh:/opt/run_node.sh:Z
       - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
@@ -51,6 +55,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.rest-traffic
+    environment:
+      <<:
+        - *sonda_env
     command: >
       python /opt/traffic.py
       --msg-size-kbytes=${MSG_SIZE_KBYTES:-10}
