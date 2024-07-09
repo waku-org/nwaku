@@ -2,10 +2,10 @@
 
 import std/options, stew/results, testutils/unittests
 import
-  ../../../waku/waku_archive_legacy,
-  ../../../waku/waku_archive_legacy/driver/queue_driver/queue_driver {.all.},
-  ../../../waku/waku_archive_legacy/driver/queue_driver/index,
-  ../../../waku/waku_core
+  waku/waku_archive_legacy,
+  waku/waku_archive_legacy/driver/queue_driver/queue_driver {.all.},
+  waku/waku_archive_legacy/driver/queue_driver/index,
+  waku/waku_core
 
 # Helper functions
 
