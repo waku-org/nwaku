@@ -2,7 +2,7 @@
 
 import std/options, chronos, chronicles, libp2p/crypto/crypto
 
-import ../../../waku/[node/peer_manager, waku_core, waku_sync], ../testlib/wakucore
+import waku/[node/peer_manager, waku_core, waku_sync], ../testlib/wakucore
 
 proc newTestWakuSync*(
     switch: Switch,
