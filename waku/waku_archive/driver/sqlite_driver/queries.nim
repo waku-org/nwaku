@@ -1,6 +1,7 @@
 {.push raises: [].}
 
 import std/[options, sequtils], stew/byteutils, sqlite3_abi, results
+import chronicles
 import
   ../../../common/databases/db_sqlite,
   ../../../common/databases/common,
