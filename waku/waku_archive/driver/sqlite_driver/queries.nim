@@ -1,6 +1,7 @@
 {.push raises: [].}
 
 import std/[options, sequtils], stew/byteutils, sqlite3_abi, results
+import chronicles
 import
   ../../../common/databases/db_sqlite,
   ../../../common/databases/common,
@@ -427,9 +428,12 @@ proc execSelectMessagesV2WithLimitStmt(
       else:
         return err($sqlite3_errstr(v))
   except Exception, CatchableError:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible
+    error "exception in execSelectMessagesV2WithLimitStmt",
+      error = getCurrentExceptionMsg()
+
+  # release implicit transaction
+  discard sqlite3_reset(s) # same return information as step
+  discard sqlite3_clear_bindings(s) # no errors possible
 
 proc selectMessagesByHistoryQueryWithLimit*(
     db: SqliteDatabase,
@@ -498,9 +502,11 @@ proc execSelectMessageByHash(
       else:
         return err($sqlite3_errstr(v))
   except Exception, CatchableError:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible  
+    error "exception in execSelectMessageByHash", error = getCurrentExceptionMsg()
+
+  # release implicit transaction
+  discard sqlite3_reset(s) # same return information as step
+  discard sqlite3_clear_bindings(s) # no errors possible
 
 proc selectMessageByHashQuery(): SqlQueryStr =
   var query: string
@@ -629,9 +635,12 @@ proc execSelectMessagesWithLimitStmt(
       else:
         return err($sqlite3_errstr(v))
   except Exception, CatchableError:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible
+    error "exception in execSelectMessagesWithLimitStmt",
+      error = getCurrentExceptionMsg()
+
+  # release implicit transaction
+  discard sqlite3_reset(s) # same return information as step
+  discard sqlite3_clear_bindings(s) # no errors possible
 
 proc selectMessagesWithLimitQuery(
     table: string, where: Option[string], limit: uint, ascending = true, v3 = false
