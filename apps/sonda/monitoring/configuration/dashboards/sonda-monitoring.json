@@ -313,7 +313,7 @@
                 "options": {
                   "mode": "exclude",
                   "names": [
-                    "{__name__=\"successful_store_queries_total\", instance=\"sonda:8004\", job=\"nwaku\", node=\"/dns4/store-01.ac-cn-hongkong-c.shards.test.status.im/tcp/30303/p2p/16Uiu2HAm2M7xs7cLPc3jamawkEqbr7cUJX11uvY7LxQ6WFUdUKUT\"}"
+                    "{__name__=\"successful_store_queries_total\" , node=\"/dns4/store-02.gc-us-central1-a.shards.test.status.im/tcp/30303/p2p/16Uiu2HAmJnVR7ZzFaYvciPVafUXuYGLHPzSUigqAmeNw9nJUVGeM\"}"
                   ],
                   "prefix": "All except:",
                   "readOnly": true
@@ -363,7 +363,7 @@
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "{__name__=\"{{__name__}}\" , node=\"{{node}}\"}",
             "range": true,
             "refId": "A",
             "useBackend": false
@@ -438,7 +438,7 @@
                 "options": {
                   "mode": "exclude",
                   "names": [
-                    "failed_store_queries_total {__name__=\"failed_store_queries_total\", error=\"300 BAD_RESPONSE: Future operation cancelled!\", instance=\"sonda:8004\", job=\"nwaku\", node=\"/dns4/store-01.ac-cn-hongkong-c.shards.test.status.im/tcp/30303/p2p/16Uiu2HAm2M7xs7cLPc3jamawkEqbr7cUJX11uvY7LxQ6WFUdUKUT\"}"
+                    "{__name__=\"failed_store_queries_total\" , error=\"300 BAD_RESPONSE: Future operation cancelled!\", node=\"/dns4/store-01.ac-cn-hongkong-c.shards.test.status.im/tcp/30303/p2p/16Uiu2HAm2M7xs7cLPc3jamawkEqbr7cUJX11uvY7LxQ6WFUdUKUT\"}"
                   ],
                   "prefix": "All except:",
                   "readOnly": true
@@ -488,7 +488,7 @@
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "{{label_name}}",
+            "legendFormat": "{__name__=\"{{__name__}}\" , error=\"{{error}}\", node=\"{{node}}\"}",
             "range": true,
             "refId": "A",
             "useBackend": false
@@ -563,7 +563,7 @@
                 "options": {
                   "mode": "exclude",
                   "names": [
-                    "{__name__=\"empty_store_responses_total\", instance=\"sonda:8004\", job=\"nwaku\", node=\"/dns4/store-02.gc-us-central1-a.shards.test.status.im/tcp/30303/p2p/16Uiu2HAmJnVR7ZzFaYvciPVafUXuYGLHPzSUigqAmeNw9nJUVGeM\"}"
+                    "{__name__=\"empty_store_responses_total\" , node=\"/dns4/store-01.do-ams3.shards.test.status.im/tcp/30303/p2p/16Uiu2HAmAUdrQ3uwzuE4Gy4D56hX6uLKEeerJAnhKEHZ3DxF1EfT\"}"
                   ],
                   "prefix": "All except:",
                   "readOnly": true
@@ -613,7 +613,7 @@
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "{__name__=\"{{__name__}}\" , node=\"{{node}}\"}",
             "range": true,
             "refId": "A",
             "useBackend": false
@@ -738,7 +738,7 @@
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "{__name__=\"{{__name__}}\" , node=\"{{node}}\"}",
             "range": true,
             "refId": "A",
             "useBackend": false
@@ -791,7 +791,7 @@
                 "options": {
                   "mode": "exclude",
                   "names": [
-                    "{__name__=\"store_query_latency\", instance=\"sonda:8004\", job=\"nwaku\", node=\"/dns4/store-01.ac-cn-hongkong-c.shards.test.status.im/tcp/30303/p2p/16Uiu2HAm2M7xs7cLPc3jamawkEqbr7cUJX11uvY7LxQ6WFUdUKUT\"}"
+                    "{__name__=\"store_query_latency\" , node=\"/dns4/store-01.do-ams3.shards.test.status.im/tcp/30303/p2p/16Uiu2HAmAUdrQ3uwzuE4Gy4D56hX6uLKEeerJAnhKEHZ3DxF1EfT\"}"
                   ],
                   "prefix": "All except:",
                   "readOnly": true
@@ -838,7 +838,7 @@
             "fullMetaSearch": false,
             "includeNullMetadata": true,
             "instant": false,
-            "legendFormat": "__auto",
+            "legendFormat": "{__name__=\"{{__name__}}\" , node=\"{{node}}\"}",
             "range": true,
             "refId": "A",
             "useBackend": false
