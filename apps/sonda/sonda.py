@@ -9,6 +9,9 @@ import requests
 import argparse
 from prometheus_client import Counter, Gauge, start_http_server
 
+# Content topic where Sona messages are going to be sent
+SONDA_CONTENT_TOPIC = '/sonda/2/polls/proto'
+
 # Prometheus metrics
 successful_sonda_msgs = Counter('successful_sonda_msgs', 'Number of successful Sonda messages sent')
 failed_sonda_msgs = Counter('failed_sonda_msgs', 'Number of failed Sonda messages attempts')
@@ -16,48 +19,50 @@ successful_store_queries = Counter('successful_store_queries', 'Number of succes
 failed_store_queries = Counter('failed_store_queries', 'Number of failed store queries', ['node', 'error'])
 empty_store_responses = Counter('empty_store_responses', "Number of store responses without the latest Sonda message", ['node'])
 store_query_latency = Gauge('store_query_latency', 'Latency of the last store query in seconds', ['node'])
+consecutive_successful_responses = Gauge('consecutive_successful_responses', 'Consecutive successful store responses', ['node'])
+node_health = Gauge('node_health', "Binary indicator of a node's health. 1 is healthy, 0 is not", ['node'])
+
 
 # Argparser configuration
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default='/waku/2/rs/1/0')
 parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
 parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
+parser.add_argument('-t', '--health-threshold', type=int, help='consecutive successful store requests to consider a store node healthy', default=5)
 args = parser.parse_args()
 
+
+# Sends Sonda message. Returns True if successful, False otherwise
 def send_sonda_msg(rest_address, pubsub_topic, content_topic, timestamp):
     message = "Hi, I'm Sonda"
     base64_message = base64.b64encode(message.encode('utf-8')).decode('ascii')
     body = {
         'payload': base64_message,
         'contentTopic': content_topic,
-        'version': 1,  # You can adjust the version as needed
+        'version': 1,
         'timestamp': timestamp
     }
 
     encoded_pubsub_topic = urllib.parse.quote(pubsub_topic, safe='')
-
     url = f'{rest_address}/relay/v1/messages/{encoded_pubsub_topic}'
     headers = {'content-type': 'application/json'}
 
-    print('Waku REST API: %s PubSubTopic: %s, ContentTopic: %s' % (url, pubsub_topic, content_topic))
-    s_time = time.time()
+    print(f'Waku REST API: {url} PubSubTopic: {pubsub_topic}, ContentTopic: {content_topic}')
     
-    response = None
-
     try:
-      print('Sending request')
-      response = requests.post(url, json=body, headers=headers)
-    except Exception as e:
-      print(f'Error sending request: {e}')
-
-    if(response != None):
-      elapsed_seconds = (time.time() - s_time)
-      print('Response from %s: status:%s content:%s [%.4f s.]' % (rest_address, \
-        response.status_code, response.text, elapsed_seconds))
-    
-      if(response.status_code == 200):
-        successful_sonda_msgs.inc()
-        return True
+        start_time = time.time()
+        response = requests.post(url, json=body, headers=headers, timeout=10)
+        elapsed_seconds = time.time() - start_time
+        
+        print(f'Response from {rest_address}: status:{response.status_code} content:{response.text} [{elapsed_seconds:.4f} s.]')
+        
+        if response.status_code == 200:
+            successful_sonda_msgs.inc()
+            return True
+        else:
+            response.raise_for_status()
+    except requests.RequestException as e:
+        print(f'Error sending request: {e}')
     
     failed_sonda_msgs.inc()
     return False
@@ -138,6 +143,7 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
     store_query_latency.labels(node=store_node).set(elapsed_seconds)
     return True
 
+
 def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, timestamp):
     print(f'Sending store queries. nodes = {store_nodes}')
     encoded_pubsub_topic = urllib.parse.quote(pubsub_topic, safe='')
@@ -158,22 +164,19 @@ def main():
   # Start Prometheus HTTP server at port 8004
   start_http_server(8004)
 
-  sonda_content_topic = '/sonda/2/polls/proto'
   node_rest_address = 'http://nwaku:8645'
   while True:
-      # calls are blocking
-      # limited by the time it takes the REST API to reply
-
       timestamp = time.time_ns()
       
-      res = send_sonda_msg(node_rest_address, args.pubsub_topic, sonda_content_topic, timestamp)
+      # Send Sonda message
+      res = send_sonda_msg(node_rest_address, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
 
       print(f'sleeping: {args.delay_seconds} seconds')
       time.sleep(args.delay_seconds)
 
       # Only send store query if message was successfully published
       if(res):
-        send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, sonda_content_topic, timestamp)
+        send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
 
 
 main()

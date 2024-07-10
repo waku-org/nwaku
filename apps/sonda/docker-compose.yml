@@ -19,6 +19,7 @@ x-sonda-env: &sonda_env
   SHARD: ${SHARD:-0} # Add your SHARD after the "-"
   STORE_NODES: ${STORE_NODES:-}
   QUERY_DELAY: ${QUERY_DELAY-60}
+  HEALTH_THRESHOLD: ${HEALTH_THRESHOLD-5}
 
 # Services definitions
 services:
@@ -68,6 +69,7 @@ services:
       --delay-seconds=${QUERY_DELAY}
       --pubsub-topic=/waku/2/rs/${CLUSTER_ID}/${SHARD}
       --store-nodes=${STORE_NODES}
+      --health-threshold=${HEALTH_THRESHOLD}
     volumes:
       - ./sonda.py:/opt/sonda.py:Z
     depends_on:
