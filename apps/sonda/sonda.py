@@ -7,7 +7,7 @@ import sys
 import urllib.parse
 import requests
 import argparse
-from prometheus_client import Counter, Gauge, Histogram, start_http_server
+from prometheus_client import Counter, Gauge, start_http_server
 
 # Prometheus metrics
 successful_sonda_msgs = Counter('successful_sonda_msgs', 'Number of successful Sonda messages sent')
@@ -15,8 +15,7 @@ failed_sonda_msgs = Counter('failed_sonda_msgs', 'Number of failed Sonda message
 successful_store_queries = Counter('successful_store_queries', 'Number of successful store queries', ['node'])
 failed_store_queries = Counter('failed_store_queries', 'Number of failed store queries', ['node', 'error'])
 empty_store_responses = Counter('empty_store_responses', "Number of store responses without the latest Sonda message", ['node'])
-store_query_latency = Histogram('store_query_latency', 'Latency of store queries in seconds', ['node'],
-                                buckets=(0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0, float('inf')))
+store_query_latency = Gauge('store_query_latency', 'Latency of the last store query in seconds', ['node'])
 
 # Argparser configuration
 parser = argparse.ArgumentParser(description='')
@@ -136,7 +135,7 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
     if not check_store_response(json_response, store_node, timestamp):
         return False
 
-    store_query_latency.labels(node=store_node).observe(elapsed_seconds)
+    store_query_latency.labels(node=store_node).set(elapsed_seconds)
     return True
 
 def send_store_queries(rest_address, store_nodes, pubsub_topic, content_topic, timestamp):
