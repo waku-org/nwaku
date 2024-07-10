@@ -15,8 +15,8 @@ x-rln-environment: &rln_env
   RLN_RELAY_CRED_PASSWORD: ${RLN_RELAY_CRED_PASSWORD:-} # Optional: Add your RLN_RELAY_CRED_PASSWORD after the "-"
 
 x-sonda-env: &sonda_env
-  CLUSTER_ID: ${CLUSTER_ID:-1} # Add your CLUSTER_ID after the "-"
-  SHARD: ${SHARD:-0} # Add your SHARD after the "-"
+  CLUSTER_ID: ${CLUSTER_ID:-1}
+  SHARD: ${SHARD:-0}
   STORE_NODES: ${STORE_NODES:-}
   QUERY_DELAY: ${QUERY_DELAY-60}
   HEALTH_THRESHOLD: ${HEALTH_THRESHOLD-5}
