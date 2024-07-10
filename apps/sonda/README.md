@@ -48,5 +48,5 @@ It works by running a `nwaku` node, publishing a message from it every fixed int
 
 4. Browse to http://localhost:3000/dashboards and monitor the performance
 
-    There's two Grafana dashboards, `nwaku-monitoring` to track the stats of your node that is publishing messages and performing queries, and `sonda-monitoring` to monitor the responses of the store nodes.
+    There's two Grafana dashboards: `nwaku-monitoring` to track the stats of your node that is publishing messages and performing queries, and `sonda-monitoring` to monitor the responses of the store nodes.
 
