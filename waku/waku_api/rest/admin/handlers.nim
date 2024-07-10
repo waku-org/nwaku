@@ -9,7 +9,6 @@ import
 
 import
   ../../../waku_core,
-  ../../../waku_store_legacy/common,
   ../../../waku_store/common,
   ../../../waku_filter_v2,
   ../../../waku_lightpush/common,
@@ -74,19 +73,6 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
           )
         )
       tuplesToWakuPeers(peers, storePeers)
-
-    if not node.wakuLegacyStore.isNil():
-      let legacyStorePeers = node.peerManager.peerStore
-        .peers(WakuLegacyStoreCodec)
-        .mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuLegacyStoreCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
-        )
-      tuplesToWakuPeers(peers, legacyStorePeers)
 
     if not node.wakuLightPush.isNil():
       # Map WakuStore peers to WakuPeers and add to return list

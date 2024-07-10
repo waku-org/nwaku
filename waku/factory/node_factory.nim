@@ -21,14 +21,8 @@ import
   ../waku_archive/retention_policy/builder as policy_builder,
   ../waku_archive/driver as driver,
   ../waku_archive/driver/builder as driver_builder,
-  ../waku_archive_legacy/retention_policy as legacy_policy,
-  ../waku_archive_legacy/retention_policy/builder as legacy_policy_builder,
-  ../waku_archive_legacy/driver as legacy_driver,
-  ../waku_archive_legacy/driver/builder as legacy_driver_builder,
   ../waku_store,
   ../waku_store/common as store_common,
-  ../waku_store_legacy,
-  ../waku_store_legacy/common as legacy_common,
   ../waku_filter_v2,
   ../waku_peer_exchange,
   ../node/peer_manager,
@@ -223,35 +217,7 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
-  if conf.store and conf.legacyStore:
-    let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
-      conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
-      conf.storeMaxNumDbConnections, onFatalErrorAction,
-    )
-    if archiveDriverRes.isErr():
-      return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
-
-    let retPolicyRes =
-      legacy_policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
-    if retPolicyRes.isErr():
-      return err("failed to create retention policy: " & retPolicyRes.error)
-
-    let mountArcRes =
-      node.mountLegacyArchive(archiveDriverRes.get(), retPolicyRes.get())
-    if mountArcRes.isErr():
-      return err("failed to mount waku legacy archive protocol: " & mountArcRes.error)
-
-    # Store setup
-    let rateLimitSetting: RateLimitSetting =
-      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-
-    try:
-      await mountLegacyStore(node, rateLimitSetting)
-    except CatchableError:
-      return
-        err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
-
-  if conf.store and not conf.legacyStore:
+  if conf.store:
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
       conf.storeMaxNumDbConnections, onFatalErrorAction,
@@ -282,16 +248,6 @@ proc setupProtocols(
       node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
     else:
       return err("failed to set node waku store peer: " & storeNode.error)
-
-  mountLegacyStoreClient(node)
-  if conf.storenode != "":
-    let storeNode = parsePeerInfo(conf.storenode)
-    if storeNode.isOk():
-      node.peerManager.addServicePeer(
-        storeNode.value, legacy_common.WakuLegacyStoreCodec
-      )
-    else:
-      return err("failed to set node waku legacy store peer: " & storeNode.error)
 
   # NOTE Must be mounted after relay
   if conf.lightpush:
