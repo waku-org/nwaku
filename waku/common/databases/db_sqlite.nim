@@ -234,11 +234,13 @@ proc query*(
         return err($sqlite3_errstr(v))
     return ok gotResults
   except Exception, CatchableError:
-    # release implicit transaction
-    discard sqlite3_reset(s) # same return information as step
-    discard sqlite3_clear_bindings(s) # no errors possible
-    discard sqlite3_finalize(s)
-      # NB: dispose of the prepared query statement and free associated memory
+    error "exception in query", query = query, error = getCurrentExceptionMsg()
+
+  # release implicit transaction
+  discard sqlite3_reset(s) # same return information as step
+  discard sqlite3_clear_bindings(s) # no errors possible
+  discard sqlite3_finalize(s)
+    # NB: dispose of the prepared query statement and free associated memory
 
 proc prepareStmt*(
     db: SqliteDatabase, stmt: string, Params: type, Res: type
