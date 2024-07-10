@@ -73,7 +73,7 @@ jobs:
             tools
 
           tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/wakunode2 ./build/chat2
-          tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor ./build/sonda
+          tar -cvzf ${{steps.vars.outputs.nwakutools}} ./build/wakucanary ./build/networkmonitor
 
       - name: upload artifacts
         uses: actions/upload-artifact@v3
