@@ -188,15 +188,12 @@ def main():
     if(res):
       send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
     
+    # Update node health metrics
     for store_node in store_nodes:
-      print("-------------------")
-      print(f"node: {store_node}, consecutive: {consecutive_successful_responses.labels(node=store_node)._value.get()} threshold: {args.health_threshold}")
       if consecutive_successful_responses.labels(node=store_node)._value.get() >= args.health_threshold:
         node_health.labels(node=store_node).set(1)
       else:
         node_health.labels(node=store_node).set(0)
-
-  
 
 
 main()
