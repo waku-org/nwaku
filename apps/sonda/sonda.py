@@ -76,6 +76,8 @@ def check_store_response(json_response, store_node, timestamp):
     error = f"{json_response.get('statusCode')} {json_response.get('statusDesc')}"
     print(f'Failed performing store query {error}')
     failed_store_queries.labels(node=store_node, error=error).inc()
+    consecutive_successful_responses.labels(node=store_node).set(0)
+    
     return False
   
   messages = json_response.get('messages')
@@ -83,6 +85,7 @@ def check_store_response(json_response, store_node, timestamp):
   if not messages:
     print("No messages in store response")
     empty_store_responses.labels(node=store_node).inc()
+    consecutive_successful_responses.labels(node=store_node).set(0)
     return True
 
   # Search for the Sonda message in the returned messages
@@ -96,10 +99,12 @@ def check_store_response(json_response, store_node, timestamp):
     if timestamp == message.get('message').get('timestamp'):
       print(f'Found Sonda message in store response node={store_node}')
       successful_store_queries.labels(node=store_node).inc()
+      consecutive_successful_responses.labels(node=store_node).inc()
       return True
 
   # If our message wasn't found in the returned messages, increase counter and return
   empty_store_responses.labels(node=store_node).inc()
+  consecutive_successful_responses.labels(node=store_node).set(0)
   return True
 
 
@@ -121,6 +126,7 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
     except Exception as e:
       print(f'Error sending request: {e}')
       failed_store_queries.labels(node=store_node, error=str(e)).inc()
+      consecutive_successful_responses.labels(node=store_node).set(0)
       return False
 
     elapsed_seconds = time.time() - s_time
@@ -128,15 +134,19 @@ def send_store_query(rest_address, store_node, encoded_pubsub_topic, encoded_con
 
     if response.status_code != 200:
         failed_store_queries.labels(node=store_node, error=f'{response.status_code} {response.content}').inc()
+        consecutive_successful_responses.labels(node=store_node).set(0)
         return False
 
+    # Parse REST response into JSON
     try:
         json_response = response.json()
     except Exception as e:
         print(f'Error parsing response JSON: {e}')
         failed_store_queries.labels(node=store_node, error="JSON parse error").inc()
+        consecutive_successful_responses.labels(node=store_node).set(0)
         return False
 
+    # Analyze Store response. Return false if response is incorrect or has an error status
     if not check_store_response(json_response, store_node, timestamp):
         return False
 
@@ -166,17 +176,27 @@ def main():
 
   node_rest_address = 'http://nwaku:8645'
   while True:
-      timestamp = time.time_ns()
+    timestamp = time.time_ns()
       
-      # Send Sonda message
-      res = send_sonda_msg(node_rest_address, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
+    # Send Sonda message
+    res = send_sonda_msg(node_rest_address, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
 
-      print(f'sleeping: {args.delay_seconds} seconds')
-      time.sleep(args.delay_seconds)
+    print(f'sleeping: {args.delay_seconds} seconds')
+    time.sleep(args.delay_seconds)
 
-      # Only send store query if message was successfully published
-      if(res):
-        send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
+    # Only send store query if message was successfully published
+    if(res):
+      send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
+    
+    for store_node in store_nodes:
+      print("-------------------")
+      print(f"node: {store_node}, consecutive: {consecutive_successful_responses.labels(node=store_node)._value.get()} threshold: {args.health_threshold}")
+      if consecutive_successful_responses.labels(node=store_node)._value.get() >= args.health_threshold:
+        node_health.labels(node=store_node).set(1)
+      else:
+        node_health.labels(node=store_node).set(0)
+
+  
 
 
 main()
