@@ -17,6 +17,8 @@ template retryWrapper*(
     errCallback: OnFatalErrorHandler,
     body: untyped,
 ): auto =
+  if errCallback == nil:
+    raise newException(CatchableError, "Ensure that the errCallback is set")
   var retryCount = retryStrategy.retryCount
   var shouldRetry = retryStrategy.shouldRetry
   var exceptionMessage = ""

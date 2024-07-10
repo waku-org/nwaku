@@ -212,6 +212,8 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
     chainId: CHAIN_ID,
     ethPrivateKey: pk,
     rlnInstance: rlnInstance,
+    onFatalErrorAction: proc (errStr: string) =
+      raiseAssert errStr
   )
 
   return manager
@@ -271,6 +273,8 @@ suite "Onchain group manager":
       ethClientUrl: EthClient,
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
+      onFatalErrorAction: proc (errStr: string) =
+        raiseAssert errStr
     )
     (await manager2.init()).isErrOr:
       raiseAssert "Expected error when contract address doesn't match"

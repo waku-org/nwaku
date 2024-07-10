@@ -612,7 +612,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.validRoots = metadata.validRoots.toDeque()
 
   var deployedBlockNumber: Uint256
-  g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number"):
+  g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number. Have you set the correct contract address?"):
     await wakuRlnContract.deployedBlockNumber().call()
   debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
