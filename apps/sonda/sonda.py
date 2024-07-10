@@ -72,7 +72,7 @@ def check_store_response(json_response, store_node, timestamp):
     error = f"{json_response.get('statusCode')} {json_response.get('statusDesc')}"
     print(f'Failed performing store query {error}')
     failed_store_queries.labels(node=store_node, error=error).inc()
-     return False
+    return False
   
   messages = json_response.get('messages')
   # If there's no message in the response, increase counters and return
