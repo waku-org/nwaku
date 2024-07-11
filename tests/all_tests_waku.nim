@@ -19,6 +19,14 @@ import
   ./waku_archive/test_retention_policy,
   ./waku_archive/test_waku_archive,
   ./waku_archive/test_partition_manager,
+  ./waku_archive_legacy/test_driver_queue_index,
+  ./waku_archive_legacy/test_driver_queue_pagination,
+  ./waku_archive_legacy/test_driver_queue_query,
+  ./waku_archive_legacy/test_driver_queue,
+  ./waku_archive_legacy/test_driver_sqlite_query,
+  ./waku_archive_legacy/test_driver_sqlite,
+  ./waku_archive_legacy/test_retention_policy,
+  ./waku_archive_legacy/test_waku_archive
 
 const os* {.strdefine.} = ""
 when os == "Linux" and
@@ -28,6 +36,8 @@ when os == "Linux" and
   import
     ./waku_archive/test_driver_postgres_query,
     ./waku_archive/test_driver_postgres,
+    #./waku_archive_legacy/test_driver_postgres_query,
+    #./waku_archive_legacy/test_driver_postgres,
     ./factory/test_node_factory,
     ./wakunode_rest/test_rest_store
 
@@ -37,6 +47,17 @@ import
   ./waku_store/test_rpc_codec,
   ./waku_store/test_waku_store,
   ./waku_store/test_wakunode_store
+
+# Waku legacy store test suite
+import
+  ./waku_store_legacy/test_client,
+  ./waku_store_legacy/test_rpc_codec,
+  ./waku_store_legacy/test_waku_store,
+  ./waku_store_legacy/test_wakunode_store
+
+when defined(waku_exp_store_resume):
+  # TODO: Review store resume test cases (#1282)
+  import ./waku_store_legacy/test_resume
 
 import
   ./node/test_all,
