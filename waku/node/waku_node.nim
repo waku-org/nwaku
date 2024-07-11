@@ -247,6 +247,9 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuArchive.isNil():
+      if not node.wakuLegacyArchive.isNil():
+        ## we try to store with legacy archive
+        await node.wakuLegacyArchive.handleMessage(topic, msg)
       return
 
     await node.wakuArchive.handleMessage(topic, msg)
