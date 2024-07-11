@@ -27,8 +27,8 @@ type PostgresDriver* = ref object of ArchiveDriver
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
-  """INSERT INTO messages (messageHash, pubsubTopic, contentTopic, payload,
-  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $7 = '' THEN NULL ELSE $7 END) ON CONFLICT DO NOTHING;"""
+  """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
+  version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $8 = '' THEN NULL ELSE $8 END) ON CONFLICT DO NOTHING;"""
 
 const SelectClause =
   """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta FROM messages """
@@ -297,11 +297,16 @@ method put*(
   trace "put PostgresDriver",
     messageHash, contentTopic, payload, version, timestamp, meta
 
+  ## this is not needed for store-v3. Nevertheless, we will keep that temporarily
+  ## until we completely remove the store/archive-v2 logic
+  let fakeId = "0"
+
   return await s.writeConnPool.runStmt(
     InsertRowStmtName,
     InsertRowStmtDefinition,
-    @[messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta],
+    @[fakeId, messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta],
     @[
+      int32(fakeId.len),
       int32(messageHash.len),
       int32(pubsubTopic.len),
       int32(contentTopic.len),
@@ -310,7 +315,7 @@ method put*(
       int32(timestamp.len),
       int32(meta.len),
     ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
   )
 
 method getAllMessages*(
