@@ -214,6 +214,7 @@ proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, stri
     resConf.discv5Discovery = twnClusterConf.discv5Discovery
     resConf.discv5BootstrapNodes =
       resConf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+    resConf.keepAlive = twnClusterConf.keepAlive
   else:
     discard
 
