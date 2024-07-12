@@ -179,7 +179,7 @@ testcommon: | build deps
 ##########
 ## Waku ##
 ##########
-.PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
+.PHONY: testwaku wakunode2 run-wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
 # install anvil only for the testwaku target
 testwaku: | build deps anvil librln
@@ -189,6 +189,9 @@ testwaku: | build deps anvil librln
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
+
+run-wakunode2: | wakunode2
+	./build/wakunode2 $(ARGS)
 
 benchmarks: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
