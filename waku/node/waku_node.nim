@@ -1288,8 +1288,11 @@ proc start*(node: WakuNode) {.async.} =
     return node.announcedAddresses
   node.switch.peerInfo.addressMappers.add(addressMapper)
 
-  ## The switch will update addresses after start using the addressMapper
-  await node.switch.start()
+  # Start the switch only if there's libp2p protocols mounted
+  # TO DO: verify rest of protocols. Maybe write a proc isBootstrapOnly() that checks it
+  if not node.wakuRelay.isNil() or not node.wakuStore.isNil():
+    ## The switch will update addresses after start using the addressMapper
+    await node.switch.start()
 
   node.started = true
 
