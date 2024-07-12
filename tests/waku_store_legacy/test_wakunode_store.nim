@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  stew/shims/net as stewNet,
+  std/net,
   testutils/unittests,
   chronicles,
   chronos,
@@ -9,27 +9,22 @@ import
   libp2p/peerid,
   libp2p/multiaddress,
   libp2p/switch,
-  libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub
 import
   waku/[
-    common/databases/db_sqlite,
     common/paging,
     waku_core,
     waku_core/message/digest,
-    waku_core/subscription,
     node/peer_manager,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
+    waku_archive_legacy,
     waku_filter_v2,
     waku_filter_v2/client,
     waku_store_legacy,
     waku_node,
   ],
   ../waku_store_legacy/store_utils,
-  ../waku_archive/archive_utils,
-  ../testlib/common,
+  ../waku_archive_legacy/archive_utils,
   ../testlib/wakucore,
   ../testlib/wakunode
 
@@ -54,7 +49,7 @@ procSuite "WakuNode - Store Legacy":
     let driver = newSqliteArchiveDriver()
 
     for msg in msgListA:
-      let msg_digest = waku_archive.computeDigest(msg)
+      let msg_digest = waku_archive_legacy.computeDigest(msg)
       let msg_hash = computeMessageHash(DefaultPubsubTopic, msg)
       require (
         waitFor driver.put(DefaultPubsubTopic, msg, msg_digest, msg_hash, msg.timestamp)
@@ -72,7 +67,7 @@ procSuite "WakuNode - Store Legacy":
 
     waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
+    let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
@@ -106,7 +101,7 @@ procSuite "WakuNode - Store Legacy":
 
     waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
+    let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
@@ -161,7 +156,7 @@ procSuite "WakuNode - Store Legacy":
 
     waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
+    let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
@@ -223,7 +218,7 @@ procSuite "WakuNode - Store Legacy":
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
 
-    let mountArchiveRes = server.mountArchive(driver)
+    let mountArchiveRes = server.mountLegacyArchive(driver)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
@@ -241,7 +236,7 @@ procSuite "WakuNode - Store Legacy":
     proc filterHandler(
         pubsubTopic: PubsubTopic, msg: WakuMessage
     ) {.async, gcsafe, closure.} =
-      await server.wakuArchive.handleMessage(pubsubTopic, msg)
+      await server.wakuLegacyArchive.handleMessage(pubsubTopic, msg)
       filterFut.complete((pubsubTopic, msg))
 
     server.wakuFilterClient.registerPushHandler(filterHandler)
@@ -286,7 +281,7 @@ procSuite "WakuNode - Store Legacy":
 
     waitFor allFutures(client.start(), server.start())
 
-    let mountArchiveRes = server.mountArchive(archiveA)
+    let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
@@ -302,7 +297,7 @@ procSuite "WakuNode - Store Legacy":
       pubsubTopic: "pubsubTopic",
       senderTime: now(),
       storeTime: now(),
-      digest: waku_archive.MessageDigest(data: data),
+      digest: waku_archive_legacy.MessageDigest(data: data),
     )
 
     ## Given

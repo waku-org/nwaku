@@ -19,13 +19,11 @@ proc genIndexedWakuMessage(i: int8): (Index, WakuMessage) =
 
   let
     message = WakuMessage(payload: @[byte i], timestamp: Timestamp(i))
-    topic = "test-pubsub-topic"
+    pubsubTopic = "test-pubsub-topic"
     cursor = Index(
-      receiverTime: Timestamp(i),
-      senderTime: Timestamp(i),
-      digest: MessageDigest(data: data),
-      pubsubTopic: topic,
-      hash: computeMessageHash(topic, message),
+      time: Timestamp(i),
+      hash: computeMessageHash(pubsubTopic, message),
+      pubsubTopic: pubsubTopic,
     )
 
   (cursor, message)
@@ -72,7 +70,7 @@ procSuite "Sorted driver queue":
 
     # Attempt to add message with older value than oldest in queue should fail
     let
-      oldestTimestamp = driver.first().get().senderTime
+      oldestTimestamp = driver.first().get().time
       (index, message) = genIndexedWakuMessage(oldestTimestamp.int8 - 1)
       addRes = driver.add(index, message)
 
@@ -121,7 +119,7 @@ procSuite "Sorted driver queue":
 
     let first = firstRes.tryGet()
     check:
-      first.senderTime == Timestamp(1)
+      first.time == Timestamp(1)
 
   test "get first item from empty queue should fail":
     ## Given
@@ -152,7 +150,7 @@ procSuite "Sorted driver queue":
 
     let last = lastRes.tryGet()
     check:
-      last.senderTime == Timestamp(5)
+      last.time == Timestamp(5)
 
   test "get last item from empty queue should fail":
     ## Given
