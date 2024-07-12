@@ -1,9 +1,9 @@
-## v0.30.2 (2024-07-08)
+## v0.30.2 (2024-07-12)
 
 ### Release highlights
 
-* RLN message limit to 100 mesages per epoch.
-* Avoid exclusive access when creating new partitions in the postgres messages table.
+* RLN message limit to 100 messages per epoch.
+* Avoid exclusive access when creating new partitions in the PostgreSQL messages table.
 
 ### Changes
 
