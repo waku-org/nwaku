@@ -57,7 +57,6 @@ Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
   - [ ] Create GitHub release
   - [ ] Deploy the release to DockerHub
   - [ ] Announce the release
-  - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
 
 - [ ] **Promote release to fleets**.
   - [ ] Update infra config with any deprecated arguments or changed options
