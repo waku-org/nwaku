@@ -665,7 +665,7 @@ proc connectToNodes*(
   when defined(debugDiscv5):
     let peerIds = connectedPeers.mapIt(it.peerId)
     let origin = connectedPeers.mapIt(it.origin)
-    if peerIds.len:
+    if peerIds.len > 0:
       notice "established connections with found peers",
         peerIds = peerIds, origin = origin
     else:
