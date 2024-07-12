@@ -115,6 +115,10 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
       confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
     confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+
+    # Only set rlnRelay to true if relay is configured
+    if confCopy.relay:
+      confCopy.rlnRelay = twnClusterConf.rlnRelay
   else:
     discard
 
