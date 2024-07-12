@@ -105,7 +105,6 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     # Override configuration
     confCopy.maxMessageSize = twnClusterConf.maxMessageSize
     confCopy.clusterId = twnClusterConf.clusterId
-    confCopy.rlnRelay = twnClusterConf.rlnRelay
     confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
     confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
     confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
