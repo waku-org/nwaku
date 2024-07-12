@@ -189,6 +189,9 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
+proc key*(node: WakuNode): crypto.PrivateKey =
+  node.switch.peerInfo.privateKey
+
 proc connectToNodes*(
     node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api"
 ) {.async.} =

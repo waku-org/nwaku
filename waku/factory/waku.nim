@@ -44,7 +44,6 @@ type Waku* = object
   version: string
   conf: WakuNodeConf
   rng: ref HmacDrbgContext
-  key: crypto.PrivateKey
 
   wakuDiscv5*: WakuDiscoveryV5
   dynamicBootstrapNodes: seq[RemotePeerInfo]
@@ -53,6 +52,9 @@ type Waku* = object
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
+
+proc key*(waku: Waku): crypto.PrivateKey =
+  waku.node.key
 
 proc logConfig(conf: WakuNodeConf) =
   info "Configuration: Enabled protocols",
@@ -121,7 +123,6 @@ proc init*(T: type Waku, srcConf: WakuNodeConf): Result[Waku, string] =
     version: git_version,
     conf: finalConf,
     rng: rng,
-    key: finalConf.nodekey.get(),
     node: nodeRes.get(),
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
   )
@@ -200,8 +201,13 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
   ## Discv5
   if waku[].conf.discv5Discovery or waku[].conf.discv5Only:
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
-      waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
-      waku.dynamicBootstrapNodes, waku.rng, waku.key,
+      waku.node.enr,
+      waku.node.peerManager,
+      waku.node.topicSubscriptionQueue,
+      waku.conf,
+      waku.dynamicBootstrapNodes,
+      waku.rng,
+      waku[].key(),
     )
 
     (await waku.wakuDiscV5.start()).isOkOr:
