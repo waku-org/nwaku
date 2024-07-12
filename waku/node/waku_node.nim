@@ -1123,6 +1123,11 @@ proc mountRlnRelay*(
 ) {.async.} =
   info "mounting rln relay"
 
+  let validationRes = rlnConf.validate()
+  if validationRes.isErr():
+    echo "it is ERR"
+    raise newException(CatchableError, validationRes.error)
+
   if node.wakuRelay.isNil():
     raise newException(
       CatchableError, "WakuRelay protocol is not mounted, cannot mount WakuRlnRelay"
