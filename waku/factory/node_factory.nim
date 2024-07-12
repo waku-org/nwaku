@@ -263,12 +263,14 @@ proc setupProtocols(
 
     let rateLimitSetting: RateLimitSetting =
       (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-    # Store legacy setup
-    try:
-      await mountLegacyStore(node, rateLimitSetting)
-    except CatchableError:
-      return
-        err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
+
+    if conf.legacyStore:
+      # Store legacy setup
+      try:
+        await mountLegacyStore(node, rateLimitSetting)
+      except CatchableError:
+        return
+          err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
 
     # Store setup
     try:
