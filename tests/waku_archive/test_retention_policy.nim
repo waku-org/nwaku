@@ -13,7 +13,6 @@ import
     waku_archive/retention_policy/retention_policy_size,
   ],
   ../waku_archive/archive_utils,
-  ../testlib/common,
   ../testlib/wakucore
 
 suite "Waku Archive - Retention policy":
@@ -35,18 +34,13 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
-        )
+        driver.put(computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg)
       )
 
     discard waitFor allFinished(putFutures)
 
-    require (waitFor retentionPolicy.execute(driver)).isOk()
+    let res = waitFor retentionPolicy.execute(driver)
+    assert res.isOk(), $res.error
 
     ## Then
     let numMessages = (waitFor driver.getMessagesCount()).tryGet()
@@ -88,13 +82,7 @@ suite "Waku Archive - Retention policy":
         payload = @[byte i], contentTopic = DefaultContentTopic, ts = Timestamp(i)
       )
       putFutures.add(
-        driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
-        )
+        driver.put(computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg)
       )
 
     # waitFor is used to synchronously wait for the futures to complete.
@@ -150,11 +138,7 @@ suite "Waku Archive - Retention policy":
     for msg in messages:
       require (
         waitFor driver.put(
-          DefaultPubsubTopic,
-          msg,
-          computeDigest(msg),
-          computeMessageHash(DefaultPubsubTopic, msg),
-          msg.timestamp,
+          computeMessageHash(DefaultPubsubTopic, msg), DefaultPubsubTopic, msg
         )
       ).isOk()
       require (waitFor retentionPolicy.execute(driver)).isOk()
@@ -164,7 +148,7 @@ suite "Waku Archive - Retention policy":
     check:
       storedMsg.len == capacity
       storedMsg.all do(item: auto) -> bool:
-        let (pubsubTopic, msg, _, _, _) = item
+        let (_, pubsubTopic, msg) = item
         msg.contentTopic == contentTopic and pubsubTopic == DefaultPubsubTopic
 
     ## Cleanup

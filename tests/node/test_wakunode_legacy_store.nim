@@ -15,12 +15,12 @@ import
     waku_core,
     waku_store_legacy,
     waku_store_legacy/client,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
+    waku_archive_legacy,
+    waku_archive_legacy/driver/sqlite_driver,
     common/databases/db_sqlite,
   ],
   ../waku_store_legacy/store_utils,
-  ../waku_archive/archive_utils,
+  ../waku_archive_legacy/archive_utils,
   ../testlib/[common, wakucore, wakunode, testasync, futures, testutils]
 
 suite "Waku Store - End to End - Sorted Archive":
@@ -73,7 +73,7 @@ suite "Waku Store - End to End - Sorted Archive":
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
     archiveDriver = newArchiveDriverWithMessages(pubsubTopic, archiveMessages)
-    let mountArchiveResult = server.mountArchive(archiveDriver)
+    let mountArchiveResult = server.mountLegacyArchive(archiveDriver)
     assert mountArchiveResult.isOk()
 
     await server.mountLegacyStore()
@@ -445,7 +445,7 @@ suite "Waku Store - End to End - Sorted Archive":
           otherServer =
             newTestWakuNode(otherServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
           mountOtherArchiveResult =
-            otherServer.mountArchive(otherArchiveDriverWithMessages)
+            otherServer.mountLegacyArchive(otherArchiveDriverWithMessages)
         assert mountOtherArchiveResult.isOk()
 
         await otherServer.mountLegacyStore()
@@ -532,7 +532,7 @@ suite "Waku Store - End to End - Unsorted Archive":
       unsortedArchiveDriverWithMessages =
         newArchiveDriverWithMessages(pubsubTopic, unsortedArchiveMessages)
       mountUnsortedArchiveResult =
-        server.mountArchive(unsortedArchiveDriverWithMessages)
+        server.mountLegacyArchive(unsortedArchiveDriverWithMessages)
 
     assert mountUnsortedArchiveResult.isOk()
 
@@ -687,7 +687,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
     let archiveDriver = newSqliteArchiveDriver()
       .put(pubsubTopic, archiveMessages[0 ..< 6])
       .put(pubsubTopicB, archiveMessages[6 ..< 10])
-    let mountSortedArchiveResult = server.mountArchive(archiveDriver)
+    let mountSortedArchiveResult = server.mountLegacyArchive(archiveDriver)
 
     assert mountSortedArchiveResult.isOk()
 
@@ -932,7 +932,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         ephemeralServer =
           newTestWakuNode(ephemeralServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
         mountEphemeralArchiveResult =
-          ephemeralServer.mountArchive(ephemeralArchiveDriver)
+          ephemeralServer.mountLegacyArchive(ephemeralArchiveDriver)
       assert mountEphemeralArchiveResult.isOk()
 
       await ephemeralServer.mountLegacyStore()
@@ -974,7 +974,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         mixedServerKey = generateSecp256k1Key()
         mixedServer =
           newTestWakuNode(mixedServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-        mountMixedArchiveResult = mixedServer.mountArchive(mixedArchiveDriver)
+        mountMixedArchiveResult = mixedServer.mountLegacyArchive(mixedArchiveDriver)
       assert mountMixedArchiveResult.isOk()
 
       await mixedServer.mountLegacyStore()
@@ -1001,7 +1001,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         emptyServerKey = generateSecp256k1Key()
         emptyServer =
           newTestWakuNode(emptyServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
-        mountEmptyArchiveResult = emptyServer.mountArchive(emptyArchiveDriver)
+        mountEmptyArchiveResult = emptyServer.mountLegacyArchive(emptyArchiveDriver)
       assert mountEmptyArchiveResult.isOk()
 
       await emptyServer.mountLegacyStore()
@@ -1033,7 +1033,7 @@ suite "Waku Store - End to End - Archive with Multiple Topics":
         voluminousServer =
           newTestWakuNode(voluminousServerKey, ValidIpAddress.init("0.0.0.0"), Port(0))
         mountVoluminousArchiveResult =
-          voluminousServer.mountArchive(voluminousArchiveDriverWithMessages)
+          voluminousServer.mountLegacyArchive(voluminousArchiveDriverWithMessages)
       assert mountVoluminousArchiveResult.isOk()
 
       await voluminousServer.mountLegacyStore()
