@@ -281,12 +281,6 @@ proc prepareStmt(
   checkErr sqlite3_prepare_v2(db.env, stmt, stmt.len.cint, addr s, nil)
   return ok(SqliteStmt[void, void](s))
 
-    error "exception in execSelectMessagesV2WithLimitStmt",
-      error = getCurrentExceptionMsg()
-
-  # release implicit transaction
-  discard sqlite3_reset(s) # same return information as step
-  discard sqlite3_clear_bindings(s) # no errors possible
 proc execSelectMessageByHash(
     s: SqliteStmt, hash: WakuMessageHash, onRowCallback: DataProc
 ): DatabaseResult[void] =
