@@ -223,35 +223,29 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku RLN relay protocol: " & getCurrentExceptionMsg())
 
-  if conf.store and conf.legacyStore:
-    let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
-      conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
-      conf.storeMaxNumDbConnections, onFatalErrorAction,
-    )
-    if archiveDriverRes.isErr():
-      return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
+  if conf.store:
+    if conf.legacyStore:
+      let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
+        conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
+        conf.storeMaxNumDbConnections, onFatalErrorAction,
+      )
+      if archiveDriverRes.isErr():
+        return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
 
-    let retPolicyRes =
-      legacy_policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
-    if retPolicyRes.isErr():
-      return err("failed to create retention policy: " & retPolicyRes.error)
+      let retPolicyRes =
+        legacy_policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
+      if retPolicyRes.isErr():
+        return err("failed to create retention policy: " & retPolicyRes.error)
 
-    let mountArcRes =
-      node.mountLegacyArchive(archiveDriverRes.get(), retPolicyRes.get())
-    if mountArcRes.isErr():
-      return err("failed to mount waku legacy archive protocol: " & mountArcRes.error)
+      let mountArcRes =
+        node.mountLegacyArchive(archiveDriverRes.get(), retPolicyRes.get())
+      if mountArcRes.isErr():
+        return err("failed to mount waku legacy archive protocol: " & mountArcRes.error)
 
-    # Store setup
-    let rateLimitSetting: RateLimitSetting =
-      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-
-    try:
-      await mountLegacyStore(node, rateLimitSetting)
-    except CatchableError:
-      return
-        err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
-
-  if conf.store and not conf.legacyStore:
+    ## For now we always mount the future archive driver but if the legacy one is mounted,
+    ## then the legacy will be in charge of performing the archiving.
+    ## Regarding storage, the only diff between the current/future archive driver and the legacy
+    ## one, is that the legacy stores an extra field: the id (message digest.)
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
       conf.storeMaxNumDbConnections, onFatalErrorAction,
@@ -267,9 +261,18 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    # Store setup
     let rateLimitSetting: RateLimitSetting =
       (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
+
+    if conf.legacyStore:
+      # Store legacy setup
+      try:
+        await mountLegacyStore(node, rateLimitSetting)
+      except CatchableError:
+        return
+          err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
+
+    # Store setup
     try:
       await mountStore(node, rateLimitSetting)
     except CatchableError:

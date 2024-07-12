@@ -1,7 +1,7 @@
 ## This module is aimed to handle the creation and truncation of partition tables
 ## in order to limit the space occupied in disk by the database.
 ##
-## The created partitions are referenced by the 'storedAt' field.
+## The created partitions are referenced by the 'timestamp' field.
 ##
 
 import std/[deques, times]

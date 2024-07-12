@@ -44,6 +44,7 @@ import
     factory/builder,
     common/utils/nat,
     waku_relay,
+    waku_store/common,
   ],
   ./config_chat2
 
@@ -468,22 +469,30 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       # We have a viable storenode. Let's query it for historical messages.
       echo "Connecting to storenode: " & $(storenode.get())
 
-      node.mountLegacyStoreClient()
-      node.peerManager.addServicePeer(storenode.get(), WakuLegacyStoreCodec)
+      node.mountStoreClient()
+      node.peerManager.addServicePeer(storenode.get(), WakuStoreCodec)
 
-      proc storeHandler(response: HistoryResponse) {.gcsafe.} =
+      proc storeHandler(response: StoreQueryResponse) {.gcsafe.} =
         for msg in response.messages:
+          let payload =
+            if msg.message.isSome():
+              msg.message.get().payload
+            else:
+              newSeq[byte](0)
+
           let
-            pb = Chat2Message.init(msg.payload)
+            pb = Chat2Message.init(payload)
             chatLine =
               if pb.isOk:
                 pb[].toString()
               else:
-                string.fromBytes(msg.payload)
+                string.fromBytes(payload)
           echo &"{chatLine}"
         info "Hit store handler"
 
-      let queryRes = await node.query(HistoryQuery(contentTopics: @[chat.contentTopic]))
+      let queryRes = await node.query(
+        StoreQueryRequest(contentTopics: @[chat.contentTopic]), storenode.get()
+      )
       if queryRes.isOk():
         storeHandler(queryRes.value)
 
