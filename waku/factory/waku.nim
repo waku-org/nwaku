@@ -90,7 +90,6 @@ func version*(waku: Waku): string =
 proc init*(T: type Waku, srcConf: WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logConfig(srcConf)
   logging.setupLog(srcConf.logLevel, srcConf.logFormat)
 
   # Why can't I replace this block with a concise `.valueOr`?
@@ -100,6 +99,8 @@ proc init*(T: type Waku, srcConf: WakuNodeConf): Result[Waku, string] =
       error "Failed to complete the config", error = res.error
       return err("Failed to complete the config:" & $res.error)
     res.get()
+
+  logConfig(finalConf)
 
   info "Running nwaku node", version = git_version
 
