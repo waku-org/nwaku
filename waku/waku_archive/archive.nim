@@ -87,7 +87,6 @@ proc handleMessage*(
     return
 
   let msgHash = computeMessageHash(pubsubTopic, msg)
-
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
@@ -99,7 +98,7 @@ proc handleMessage*(
       timestamp = msg.timestamp,
       error = error
 
-  notice "message archived",
+  trace "message archived",
     hash_hash = msgHash.to0xHex(),
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
@@ -186,11 +185,10 @@ proc findMessages*(
   )
 
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
-  debug "executing message retention policy"
-
   let policy = self.retentionPolicy.get()
 
   while true:
+    debug "executing message retention policy"
     (await policy.execute(self.driver)).isOkOr:
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error = error

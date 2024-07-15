@@ -18,7 +18,10 @@ proc new*(T: type SizeRetentionPolicy, size = DefaultRetentionSize): T =
 method execute*(
     p: SizeRetentionPolicy, driver: ArchiveDriver
 ): Future[RetentionPolicyResult[void]] {.async.} =
+  debug "beginning of executing message retention policy - size"
+
   (await driver.decreaseDatabaseSize(p.sizeLimit)).isOkOr:
     return err("decreaseDatabaseSize failed: " & $error)
 
+  debug "end of executing message retention policy - size"
   return ok()
