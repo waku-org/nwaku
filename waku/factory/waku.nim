@@ -147,8 +147,17 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
-  let deliveryMonitor: DeliveryMonitor
-  if conf.reliabilityEnabled
+  var deliveryMonitor: DeliveryMonitor
+  if conf.reliabilityEnabled:
+    if conf.storenode == "":
+      return err("A storenode should be set when reliability mode is on")
+
+    let storeNode = parsePeerInfo(conf.storenode).valueOr:
+      return err(
+        "Could not parse storenode peer info when configuring reliability: " & $error
+      )
+
+    deliveryMonitor = DeliveryMonitor.new(storeNode)
 
   var waku = Waku(
     version: git_version,
@@ -157,6 +166,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     key: confCopy.nodekey.get(),
     node: nodeRes.get(),
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
+    deliveryMonitor: deliveryMonitor,
   )
 
   ok(waku)
@@ -238,6 +248,10 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
 
     (await waku.wakuDiscV5.start()).isOkOr:
       return err("failed to start waku discovery v5: " & $error)
+
+  ## Reliability
+  if not deliveryMonitor.isNil():
+    deliveryMonitor.startDeliveryMonitor()
 
   return ok()
 

@@ -70,10 +70,10 @@ proc confirmMessageDelivered(hashes: seq[WakuMessageHash]) =
   trace "Confirm message delivered", hashes = hashes.mapIt(shortLog(it))
   discard
 
-proc startDeliveryMonitor*(self: SendMonitor) =
+proc startSendMonitor*(self: SendMonitor) =
   self.msgStoredCheckerHandle = self.checkIfMessagesStored()
 
-proc stopDeliveryMonitor*(self: SendMonitor) =
+proc stopSendMonitor*(self: SendMonitor) =
   self.msgStoredCheckerHandle.cancel()
 
 proc onMessagePublishedRelay*(self: SendMonitor) =

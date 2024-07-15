@@ -59,3 +59,9 @@ proc removeTopicsOfInterest*(
     self: RecvMonitor, pubsubTopic: string, contentTopics = newSeq[string]()
 ) =
   discard
+
+proc startRecvMonitor*(sefl: RecvMonitor) =
+  discard
+
+proc stopRecvMonitor*(self: RecvMonitor) =
+  discard
