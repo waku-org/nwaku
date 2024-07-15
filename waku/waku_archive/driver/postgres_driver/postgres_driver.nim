@@ -1,4 +1,3 @@
-
 {.push raises: [].}
 
 import
@@ -1062,32 +1061,6 @@ proc addPartition(
 
   (await self.performWriteQueryWithLock(createPartitionQuery)).isOkOr:
     return err(fmt"error adding partition [{partitionName}]: " & $error)
-
-  ## Add constraint to the partition table so that EXCLUSIVE ACCESS is not performed when
-  ## the partition is attached to the main table.
-  let constraintName = partitionName & "_by_range_check"
-  let addTimeConstraintQuery =
-    "ALTER TABLE " & partitionName & " ADD CONSTRAINT " & constraintName &
-    " CHECK ( storedAt >= " & fromInNanoSec & " AND storedAt < " & untilInNanoSec & " );"
-
-  (await self.performWriteQueryWithLock(addTimeConstraintQuery)).isOkOr:
-    return err(fmt"error creating constraint [{partitionName}]: " & $error)
-
-  ## Attaching the new created table as a new partition. That does not require EXCLUSIVE ACCESS.
-  let attachPartitionQuery =
-    "ALTER TABLE messages ATTACH PARTITION " & partitionName & " FOR VALUES FROM (" &
-    fromInNanoSec & ") TO (" & untilInNanoSec & ");"
-
-  (await self.performWriteQueryWithLock(attachPartitionQuery)).isOkOr:
-    return err(fmt"error attaching partition [{partitionName}]: " & $error)
-
-  ## Dropping the check constraint as it was only necessary to prevent full scan,
-  ## and EXCLUSIVE ACCESS, to the whole messages table, when the new partition was attached.
-  let dropConstraint =
-    "ALTER TABLE " & partitionName & " DROP CONSTRAINT " & constraintName & ";"
-
-  (await self.performWriteQueryWithLock(dropConstraint)).isOkOr:
-    return err(fmt"error dropping constraint [{partitionName}]: " & $error)
 
   ## Add constraint to the partition table so that EXCLUSIVE ACCESS is not performed when
   ## the partition is attached to the main table.
