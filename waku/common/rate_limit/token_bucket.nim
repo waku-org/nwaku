@@ -7,7 +7,7 @@ const BUDGET_COMPENSATION_LIMIT_PERCENT = 0.25
 ## This is an extract from chronos/rate_limit.nim due to the found bug in the original implementation.
 ## Unfortunately that bug cannot be solved without harm the original features of TokenBucket class.
 ## So, this current shortcut is used to enable move ahead with nwaku rate limiter implementation.
-##
+## ref: https://github.com/status-im/nim-chronos/issues/500
 ##
 ## This version of TokenBucket is different from the original one in chronos/rate_limit.nim in many ways:
 ## - It has a new mode called `Compensating` which is the default mode.
