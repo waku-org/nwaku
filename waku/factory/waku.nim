@@ -1,4 +1,3 @@
-
 {.push raises: [].}
 
 import
@@ -21,7 +20,7 @@ import
   ../waku_node,
   ../node/peer_manager,
   ../node/health_monitor,
-  ../waku/node/reliability_monitor,
+  ../node/delivery_monitor/delivery_monitor,
   ../waku_api/message_cache,
   ../waku_api/rest/server,
   ../waku_archive,
@@ -147,6 +146,9 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   if nodeRes.isErr():
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
+
+  let deliveryMonitor: DeliveryMonitor
+  if conf.reliabilityEnabled
 
   var waku = Waku(
     version: git_version,
