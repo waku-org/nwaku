@@ -667,7 +667,7 @@ proc connectToNodes*(
     let origin = connectedPeers.mapIt(it.origin)
     if peerIds.len > 0:
       notice "established connections with found peers",
-        peerIds = peerIds, origin = origin
+        peerIds = peerIds.mapIt(shortLog(it)), origin = origin
     else:
       notice "could not connect to new peers", attempted = nodes.len
 
