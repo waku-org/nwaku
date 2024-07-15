@@ -665,8 +665,11 @@ proc connectToNodes*(
   when defined(debugDiscv5):
     let peerIds = connectedPeers.mapIt(it.peerId)
     let origin = connectedPeers.mapIt(it.origin)
-    notice "established connections with found peers",
-      peerIds = peerIds, origin = origin
+    if peerIds.len > 0:
+      notice "established connections with found peers",
+        peerIds = peerIds.mapIt(shortLog(it)), origin = origin
+    else:
+      notice "could not connect to new peers", attempted = nodes.len
 
   info "Finished dialing multiple peers",
     successfulConns = connectedPeers.len, attempted = nodes.len
