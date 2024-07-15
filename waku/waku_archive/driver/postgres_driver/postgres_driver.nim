@@ -769,7 +769,6 @@ method getMessages*(
     else:
       return await s.getMessageHashesPreparedStmt(
         contentTopics.join(","),
-  debug "beginning of getMessagesV2"
         PubsubTopic(pubsubTopic.get()),
         cursor,
         startTime.get(),
