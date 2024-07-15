@@ -27,7 +27,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayChainId: 11155111,
     rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
-    rlnRelayUserMessageLimit: 20,
+    rlnRelayUserMessageLimit: 100,
     pubsubTopics:
       @[
         "/waku/2/rs/1/0", "/waku/2/rs/1/1", "/waku/2/rs/1/2", "/waku/2/rs/1/3",
