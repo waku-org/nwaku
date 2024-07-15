@@ -4,9 +4,20 @@ import chronos, std/math, std/options
 
 const BUDGET_COMPENSATION_LIMIT_PERCENT = 0.25
 
-## This is an extract from chronos/ratelimit.nim due to the found bug in the original implementation.
+## This is an extract from chronos/rate_limit.nim due to the found bug in the original implementation.
 ## Unfortunately that bug cannot be solved without harm the original features of TokenBucket class.
 ## So, this current shortcut is used to enable move ahead with nwaku rate limiter implementation.
+##
+##
+## This version of TokenBucket is different from the original one in chronos/rate_limit.nim in many ways:
+## - It has a new mode called `Compensating` which is the default mode.
+##   Compensation is calculated as the not used bucket capacity in the last measured period(s) in average.
+##   or up until maximum the allowed compansation treshold (Currently it is const 25%).
+##   Also compensation takes care of the proper time period calculation to avoid non-usage periods that can lead to
+##   overcompensation.
+## - Strict mode is also available which will only replenish when time period is over but also will fill
+##   the bucket to the max capacity.
+
 type
   ReplenishMode* = enum
     Strict

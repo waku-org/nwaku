@@ -1,9 +1,11 @@
+## This module add usage check helpers for simple rate limiting with the use of TokenBucket.
+
 {.push raises: [].}
 
 import std/[options], chronos/timer, libp2p/stream/connection, libp2p/utility
 
-import ./[tokenbucket, ratelimitsetting, waku_service_metrics]
-export tokenbucket, ratelimitsetting, waku_service_metrics
+import ./[token_bucket, setting, service_metrics]
+export token_bucket, setting, service_metrics
 
 proc newTokenBucket*(
     setting: Option[RateLimitSetting],
@@ -18,7 +20,7 @@ proc newTokenBucket*(
   return some(TokenBucket.new(setting.get().volume, setting.get().period))
 
 proc checkUsage(
-    t: var TokenBucket, proto: string, conn: Connection, now = Moment.now()
+    t: var TokenBucket, proto: string, now = Moment.now()
 ): bool {.raises: [].} =
   if not t.tryConsume(1, now):
     return false
@@ -26,13 +28,13 @@ proc checkUsage(
   return true
 
 proc checkUsage(
-    t: var Option[TokenBucket], proto: string, conn: Connection, now = Moment.now()
+    t: var Option[TokenBucket], proto: string, now = Moment.now()
 ): bool {.raises: [].} =
   if t.isNone():
     return true
 
   var tokenBucket = t.get()
-  return checkUsage(tokenBucket, proto, conn, now)
+  return checkUsage(tokenBucket, proto, now)
 
 template checkUsageLimit*(
     t: var Option[TokenBucket] | var TokenBucket,
@@ -40,7 +42,7 @@ template checkUsageLimit*(
     conn: Connection,
     bodyWithinLimit, bodyRejected: untyped,
 ) =
-  if t.checkUsage(proto, conn):
+  if t.checkUsage(proto):
     waku_service_requests.inc(labelValues = [proto, "served"])
     bodyWithinLimit
   else:

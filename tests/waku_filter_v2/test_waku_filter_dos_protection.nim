@@ -13,8 +13,8 @@ import
   waku/[
     node/peer_manager,
     waku_core,
-    common/ratelimit/ratelimitsetting,
-    common/ratelimit/tokenbucket,
+    common/rate_limit/setting,
+    common/rate_limit/token_bucket,
   ],
   waku/waku_filter_v2/[common, client, subscriptions, protocol, rpc_codec],
   ../testlib/[wakucore, testasync, testutils, futures, sequtils],

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
-import ../waku_core, ../utils/tableutils, ../common/ratelimit/ratelimitsetting
+import ../waku_core, ../utils/tableutils, ../common/rate_limit/setting
 
 logScope:
   topics = "waku filter subscriptions"

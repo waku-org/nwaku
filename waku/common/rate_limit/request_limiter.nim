@@ -1,3 +1,18 @@
+## RequestRateLimiter
+##
+## RequestRateLimiter is a general service protection mechanism.
+## While applies an overall rate limit, it also ensure fair usage among peers.
+##
+## This is reached by reject peers that are constantly over using the service while allowing others to use it
+## within the global limit set.
+## Punished peers will also be recovered after a certain time period if not violating the limit.
+##
+## This is reached by calculating a ratio of the global limit and applying it to each peer.
+## This ratio is applied to the allowed tokens within a ratio * the global time period.
+## The allowed tokens for peers are limited to 75% of ratio * global token volume.
+##
+## This needs to be taken into account when setting the global limit for the specific service type and use cases.
+
 {.push raises: [].}
 
 import
@@ -7,9 +22,9 @@ import
   libp2p/stream/connection,
   libp2p/utility
 
-import ./[simpleratelimiter, waku_service_metrics], ../utils/timedmap
+import ./[single_token_limiter, service_metrics, timed_map]
 
-export tokenbucket, ratelimitsetting, waku_service_metrics
+export token_bucket, setting, service_metrics
 
 logScope:
   topics = "waku ratelimit"
@@ -24,7 +39,7 @@ proc mgetOrPut(
     requestRateLimiter: var RequestRateLimiter, peerId: PeerId
 ): var TokenBucket =
   let bucketForNew = newTokenBucket(some(requestRateLimiter.peerBucketSetting)).valueOr:
-    raiseAssert "This branch is not allowed to be reached."
+    raiseAssert "This branch is not allowed to be reached as it will not be called if the setting is None."
 
   return requestRateLimiter.peerUsage.mgetOrPut(peerId, bucketForNew)
 
@@ -79,7 +94,7 @@ func calcPeriodRatio(settingOpt: Option[RateLimitSetting]): int =
 # calculates peer cache items timeout
 # effectively if a peer does not issue any requests for this amount of time will be forgotten.
 func calcCacheTimeout(settingOpt: Option[RateLimitSetting], ratio: int): Duration =
-  settingopt.withValue(setting):
+  settingOpt.withValue(setting):
     if setting.isUnlimited():
       return 0.seconds
 

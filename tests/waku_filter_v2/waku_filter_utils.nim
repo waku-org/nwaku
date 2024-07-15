@@ -7,7 +7,7 @@ import
     waku_filter_v2/client,
     waku_filter_v2/subscriptions,
     waku_core,
-    common/ratelimit/ratelimitsetting,
+    common/rate_limit/setting,
   ],
   ../testlib/[common, wakucore]
 

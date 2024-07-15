@@ -10,7 +10,7 @@
 
 import testutils/unittests
 import chronos
-import ../../waku/common/ratelimit/tokenbucket
+import ../../waku/common/rate_limit/token_bucket
 
 suite "Token Bucket":
   test "TokenBucket Sync test - strict":

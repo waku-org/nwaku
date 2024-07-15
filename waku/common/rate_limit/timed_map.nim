@@ -1,11 +1,14 @@
-# Nim-LibP2P
-# Copyright (c) 2023 Status Research & Development GmbH
-# Licensed under either of
-#  * Apache License, version 2.0, ([LICENSE-APACHE](LICENSE-APACHE))
-#  * MIT license ([LICENSE-MIT](LICENSE-MIT))
-# at your option.
-# This file may not be copied, modified, or distributed except according to
-# those terms.
+## TimedMap
+## ===========
+## Inspired by nim-libp2p's TimedCache class. This is using the same approach to prune
+## untouched items from the map where the set timeout duration is reached.
+## But unlike TimedCache this TimedMap is capable to hold and return any type of value for a key.
+##
+## - `mgetOrPut` proc is similar to std/tables, but will renew the timeout for the key.
+## - For non-renewal check use `contains` proc.
+## - `expire` proc will remove all items that have expired.
+##
+## Choose your initial timeout for your needs to control the size of the map.
 
 {.push raises: [].}
 

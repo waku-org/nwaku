@@ -12,8 +12,8 @@ import testutils/unittests
 import chronos, libp2p/stream/connection
 import std/[sequtils, options]
 
-import ../../waku/common/ratelimit/requestratelimiter
-import ../../waku/common/utils/timedmap
+import ../../waku/common/rate_limit/request_limiter
+import ../../waku/common/rate_limit/timed_map
 
 let proto = "ProtocolDescriptor"
 

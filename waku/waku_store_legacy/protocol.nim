@@ -21,7 +21,7 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/ratelimit/requestratelimiter
+  ../common/rate_limit/request_limiter
 
 logScope:
   topics = "waku legacy store"

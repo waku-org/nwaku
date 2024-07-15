@@ -2,7 +2,7 @@
 
 import unittest2
 import chronos/timer
-import ../../waku/common/utils/timedmap
+import ../../waku/common/rate_limit/timed_map
 
 suite "TimedMap":
   test "put/get":

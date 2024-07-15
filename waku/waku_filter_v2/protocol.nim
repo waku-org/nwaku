@@ -13,7 +13,7 @@ import
 import
   ../node/peer_manager,
   ../waku_core,
-  ../common/ratelimit/peerratelimiter,
+  ../common/rate_limit/per_peer_limiter,
   ./[common, protocol_metrics, rpc_codec, rpc, subscriptions]
 
 logScope:
@@ -27,7 +27,7 @@ type WakuFilter* = ref object of LPProtocol
   peerManager: PeerManager
   maintenanceTask: TimerCallback
   messageCache: TimedCache[string]
-  peerRequestRateLimiter*: PeerRateLimiter
+  peerRequestRateLimiter*: PerPeerRateLimiter
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId = peerId
@@ -320,7 +320,7 @@ proc new*(
     ),
     peerManager: peerManager,
     messageCache: init(TimedCache[string], messageCacheTTL),
-    peerRequestRateLimiter: PeerRateLimiter(setting: rateLimitSetting),
+    peerRequestRateLimiter: PerPeerRateLimiter(setting: rateLimitSetting),
   )
 
   wf.initProtocolHandler()

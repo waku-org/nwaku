@@ -10,7 +10,7 @@ import
 import
   waku/[
     node/peer_manager,
-    common/ratelimit/ratelimitsetting,
+    common/rate_limit/setting,
     waku_core,
     waku_lightpush,
     waku_lightpush/client,
