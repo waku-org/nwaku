@@ -1004,8 +1004,6 @@ const COULD_NOT_ACQUIRE_ADVISORY_LOCK* = "could not acquire advisory lock"
 proc performWriteQueryWithLock*(
     self: PostgresDriver, queryToProtect: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  debug "beginning of performWriteQueryWithLock"
-
   ## This wraps the original query in a script so that we make sure a pg_advisory lock protects it
   debug "performWriteQueryWithLock", queryToProtect
   let query =
