@@ -292,6 +292,7 @@ proc generateOrderedValidator(w: WakuRelay): auto {.gcsafe.} =
         error "protocol generateOrderedValidator reject waku validator",
           msg_hash = msgHash,
           pubsubTopic = pubsubTopic,
+          contentTopic = msg.contentTopic,
           validatorRes = validatorRes,
           error = errorMessage
 
