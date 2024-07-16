@@ -36,7 +36,7 @@ import
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush/common,
   ../common/utils/parse_size_units,
-  ../common/ratelimit
+  ../common/rate_limit/setting
 
 ## Peer persistence
 

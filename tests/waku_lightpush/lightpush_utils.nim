@@ -7,6 +7,7 @@ import
   waku/waku_core,
   waku/waku_lightpush,
   waku/waku_lightpush/[client, common],
+  waku/common/rate_limit/setting,
   ../testlib/[common, wakucore]
 
 proc newTestWakuLightpushNode*(
