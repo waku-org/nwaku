@@ -26,6 +26,21 @@ requires "nim >= 2.0.8",
   "db_connector"
 
 ### Helper functions
+proc buildModule(filePath, params = "", lang = "c") =
+  if not dirExists "build":
+    mkDir "build"
+  # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
+  var extra_params = params
+  for i in 2 ..< paramCount() - 1:
+    extra_params &= " " & paramStr(i)
+
+  if not fileExists(filePath):
+    echo "File to build not found: " & filePath
+    return
+
+  exec "nim " & lang & " --out:build/" & filepath & ".bin --mm:refc " & extra_params &
+    " " & filePath
+
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
     mkDir "build"
@@ -33,8 +48,8 @@ proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   var extra_params = params
   for i in 2 ..< paramCount():
     extra_params &= " " & paramStr(i)
-  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " & srcDir & name &
-    ".nim"
+  exec "nim " & lang & " --out:build/" & name & " --mm:refc " & extra_params & " " &
+    srcDir & name & ".nim"
 
 proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
   if not dirExists "build":
@@ -45,12 +60,12 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
     extra_params &= " " & paramStr(i)
   if `type` == "static":
     exec "nim c" & " --out:build/" & name &
-      ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header " & extra_params &
-      " " & srcDir & name & ".nim"
+      ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header " &
+      extra_params & " " & srcDir & name & ".nim"
   else:
     exec "nim c" & " --out:build/" & name &
-      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header " & extra_params & " " &
-      srcDir & name & ".nim"
+      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header " & extra_params &
+      " " & srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")
@@ -128,6 +143,15 @@ task chat2bridge, "Build chat2bridge":
 task liteprotocoltester, "Build liteprotocoltester":
   let name = "liteprotocoltester"
   buildBinary name, "apps/liteprotocoltester/"
+
+task buildone, "Build custom target":
+  let filepath = paramStr(paramCount())
+  buildModule filepath
+
+task testone, "Test custom target":
+  let filepath = paramStr(paramCount())
+  buildModule filepath
+  exec "build/" & filepath & ".bin"
 
 ### C Bindings
 task libwakuStatic, "Build the cbindings waku node library":

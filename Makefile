@@ -179,7 +179,7 @@ testcommon: | build deps
 ##########
 ## Waku ##
 ##########
-.PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge
+.PHONY: testwaku wakunode2 testwakunode2 example2 chat2 chat2bridge liteprotocoltester
 
 # install anvil only for the testwaku target
 testwaku: | build deps anvil librln
@@ -218,6 +218,13 @@ liteprotocoltester: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim liteprotocoltester $(NIM_PARAMS) waku.nims
 
+build/%: | build deps librln
+	echo -e $(BUILD_MSG) "build/$*" && \
+		$(ENV_SCRIPT) nim buildone $(NIM_PARAMS) waku.nims $*
+
+test/%: | build deps librln
+	echo -e $(BUILD_MSG) "test/$*" && \
+		$(ENV_SCRIPT) nim testone $(NIM_PARAMS) waku.nims $*
 
 ################
 ## Waku tools ##
