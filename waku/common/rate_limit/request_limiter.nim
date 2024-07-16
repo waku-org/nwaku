@@ -29,6 +29,13 @@ export token_bucket, setting, service_metrics
 logScope:
   topics = "waku ratelimit"
 
+const PER_PEER_ALLOWED_PERCENT_OF_VOLUME = 0.75
+const UNLIMITED_RATIO = 0
+const UNLIMITED_TIMEOUT = 0.seconds
+const MILISECONDS_RATIO = 10
+const SECONDS_RATIO = 3
+const MINUTES_RATIO = 2
+
 type RequestRateLimiter* = ref object of RootObj
   tokenBucket: Option[TokenBucket]
   setting*: Option[RateLimitSetting]
@@ -79,28 +86,31 @@ template checkUsageLimit*(
 func calcPeriodRatio(settingOpt: Option[RateLimitSetting]): int =
   settingOpt.withValue(setting):
     if setting.isUnlimited():
-      return 0
+      return UNLIMITED_RATIO
 
     if setting.period <= 1.seconds:
-      return 10
+      return MILISECONDS_RATIO
 
     if setting.period <= 1.minutes:
-      return 3
+      return SECONDS_RATIO
 
-    return 2
+    return MINUTES_RATIO
   do:
-    return 0
+    # when setting is none
+    return UNLIMITED_RATIO
 
 # calculates peer cache items timeout
 # effectively if a peer does not issue any requests for this amount of time will be forgotten.
 func calcCacheTimeout(settingOpt: Option[RateLimitSetting], ratio: int): Duration =
   settingOpt.withValue(setting):
     if setting.isUnlimited():
-      return 0.seconds
+      return UNLIMITED_TIMEOUT
 
+    # CacheTimout for peers is double the replensih period for peers
     return setting.period * ratio * 2
   do:
-    return 0.seconds
+    # when setting is none
+    return UNLIMITED_TIMEOUT
 
 func calcPeerTokenSetting(
     setting: Option[RateLimitSetting], ratio: int
@@ -108,7 +118,8 @@ func calcPeerTokenSetting(
   let s = setting.valueOr:
     return (0, 0.minutes)
 
-  let peerVolume = trunc((s.volume * ratio).float * 0.75).int
+  let peerVolume =
+    trunc((s.volume * ratio).float * PER_PEER_ALLOWED_PERCENT_OF_VOLUME).int
   let peerPeriod = s.period * ratio
 
   return (peerVolume, peerPeriod)

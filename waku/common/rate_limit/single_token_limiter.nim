@@ -11,7 +11,7 @@ proc newTokenBucket*(
     setting: Option[RateLimitSetting],
     replenishMode: ReplenishMode = ReplenishMode.Compensating,
 ): Option[TokenBucket] =
-  if setting.isNone:
+  if setting.isNone():
     return none[TokenBucket]()
 
   if setting.get().isUnlimited():

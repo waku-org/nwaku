@@ -2,6 +2,7 @@
 
 import chronos/timer
 
+# Setting for TokenBucket defined as volume over period of time
 type RateLimitSetting* = tuple[volume: int, period: Duration]
 
 # Set the default to switch off rate limiting for now

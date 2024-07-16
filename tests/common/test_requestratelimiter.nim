@@ -20,10 +20,6 @@ let proto = "ProtocolDescriptor"
 let conn1 = Connection(peerId: PeerId.random().tryGet())
 let conn2 = Connection(peerId: PeerId.random().tryGet())
 let conn3 = Connection(peerId: PeerId.random().tryGet())
-let conn4 = Connection(peerId: PeerId.random().tryGet())
-let conn5 = Connection(peerId: PeerId.random().tryGet())
-
-let dummyBucket = TokenBucket.newCompensating(1000, 1.minutes)
 
 suite "RequestRateLimiter":
   test "RequestRateLimiter Allow up to main bucket":
@@ -32,7 +28,8 @@ suite "RequestRateLimiter":
     var limiter = newRequestRateLimiter(some(rateLimit))
     # per peer tokens will be 6 / 4min
     # as ratio is 2 in this case but max tokens are main tokens*ratio . 0.75
-    # notice meanwhile we have 8 tokens over 2 period in sum
+    # notice meanwhile we have 8 global tokens over 2 period (4 mins) in sum
+    # See: waku/common/rate_limit/request_limiter.nim #func calcPeriodRatio
 
     let now = Moment.now()
     # with first use we register the peer also and start its timer
@@ -57,6 +54,7 @@ suite "RequestRateLimiter":
     # per peer tokens will be 15 / 4min
     # as ratio is 2 in this case but max tokens are main tokens*ratio . 0.75
     # notice meanwhile we have 20 tokens over 2 period (4 mins) in sum
+    # See: waku/common/rate_limit/request_limiter.nim #func calcPeriodRatio
 
     let now = Moment.now()
     # with first use we register the peer also and start its timer
@@ -79,6 +77,7 @@ suite "RequestRateLimiter":
     check limiter.checkUsage(proto, conn3, now + 3.minutes) == true
 
     # conn1 gets replenished as the ratio was 2 giving twice as long replenish period than the main bucket
+    # see waku/common/rate_limit/request_limiter.nim #func calcPeriodRatio and calcPeerTokenSetting
     check limiter.checkUsage(proto, conn1, now + 4.minutes) == true
     # requests of other peers can also go
     check limiter.checkUsage(proto, conn2, now + 4100.milliseconds) == true

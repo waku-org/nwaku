@@ -277,6 +277,10 @@ proc initProtocolHandler(wf: WakuFilter) =
     wf.peerRequestRateLimiter.checkUsageLimit(WakuFilterSubscribeCodec, conn):
       let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
 
+      waku_service_network_bytes.inc(
+        amount = buf.len().int64, labelValues = [WakuFilterSubscribeCodec, "in"]
+      )
+
       let decodeRes = FilterSubscribeRequest.decode(buf)
       if decodeRes.isErr():
         error "Failed to decode filter subscribe request",
