@@ -1,3 +1,55 @@
+## v0.31.0 (2024-07-16)
+
+### Features
+
+- DOS protection of non relay protocols - rate limit phase3 (#2897) ([ba418ab5b](https://github.com/waku-org/nwaku/commit/ba418ab5b))
+- sonda tool (#2893) ([e269dca9c](https://github.com/waku-org/nwaku/commit/e269dca9c))
+- add proper per shard bandwidth metric calculation (#2851) ([8f14c0473](https://github.com/waku-org/nwaku/commit/8f14c0473))
+
+### Bug Fixes
+
+- bug(storev3): can't advance cursor [#2745](https://github.com/waku-org/nwaku/issues/2745)
+- chore(storev3): only select the messageHash column when using a store query with include_data: false [#2637](https://github.com/waku-org/nwaku/issues/2637)
+- rln_keystore_generator improve error handling for unrecoverable failure (#2881) ([1c9eb2741](https://github.com/waku-org/nwaku/commit/1c9eb2741))
+- duplicate message forwarding in filter service (#2842) ([99149ea9d](https://github.com/waku-org/nwaku/commit/99149ea9d))
+- only set disconnect time on left event (#2831) ([01050138c](https://github.com/waku-org/nwaku/commit/01050138c))
+- adding peer exchange peers to the peerStore (#2824) ([325e13169](https://github.com/waku-org/nwaku/commit/325e13169))
+- ci use --tags to match non-annotated tags (#2814) ([317c83dc1](https://github.com/waku-org/nwaku/commit/317c83dc1))
+- update peers ENRs in peer store in case they are updated (#2818) ([cda18f96c](https://github.com/waku-org/nwaku/commit/cda18f96c))
+- mount metadata in wakucanary (#2793) ([3b27aee82](https://github.com/waku-org/nwaku/commit/3b27aee82))
+
+### Changes
+
+- enhance postgres and retention policy logs (#2884) ([71ee42de5](https://github.com/waku-org/nwaku/commit/71ee42de5))
+- improving logging under debugDiscv5 flag (#2899) ([8578fb0c3](https://github.com/waku-org/nwaku/commit/8578fb0c3))
+- archive and drivers refactor (#2761) ([f54ba10bc](https://github.com/waku-org/nwaku/commit/f54ba10bc))
+- new release process to include Status fleets (#2825) ([4264666a3](https://github.com/waku-org/nwaku/commit/4264666a3))
+- sqlite make sure code is always run (#2891) ([4ac4ab2a4](https://github.com/waku-org/nwaku/commit/4ac4ab2a4))
+- deprecating named sharding (#2723) ([e1518cf9f](https://github.com/waku-org/nwaku/commit/e1518cf9f))
+- bump dependencies for v0.31.0 (#2885) ([fd6a71cdd](https://github.com/waku-org/nwaku/commit/fd6a71cdd))
+- refactor relative path to better absolute (#2861) ([8bfad3ab4](https://github.com/waku-org/nwaku/commit/8bfad3ab4))
+- saving agent and protoVersion in peerStore (#2860) ([cae0c7e37](https://github.com/waku-org/nwaku/commit/cae0c7e37))
+- unit test for duplicate message push (#2852) ([31c632e42](https://github.com/waku-org/nwaku/commit/31c632e42))
+- remove all pre-nim-1.6 deadcode from codebase (#2857) ([9bd8c33ae](https://github.com/waku-org/nwaku/commit/9bd8c33ae))
+- nim-chronos bump submodule (#2850) ([092add1ca](https://github.com/waku-org/nwaku/commit/092add1ca))
+- ignore arbitrary data stored in `multiaddrs` enr key (#2853) ([76d5b2642](https://github.com/waku-org/nwaku/commit/76d5b2642))
+- add origin to peers admin endpoint (#2848) ([7205f95cf](https://github.com/waku-org/nwaku/commit/7205f95cf))
+- add discv5 logs (#2811) ([974b8a39a](https://github.com/waku-org/nwaku/commit/974b8a39a))
+- archive.nim - increase the max limit of content topics per query to 100 (#2846) ([a05fa0691](https://github.com/waku-org/nwaku/commit/a05fa0691))
+- update content-topic parsing for filter (#2835) ([733edae43](https://github.com/waku-org/nwaku/commit/733edae43))
+- better descriptive log (#2826) ([94947a850](https://github.com/waku-org/nwaku/commit/94947a850))
+- zerokit: bump submodule (#2830) ([c483acee3](https://github.com/waku-org/nwaku/commit/c483acee3))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
+
 ## v0.30.2 (2024-07-12)
 
 ### Release highlights
