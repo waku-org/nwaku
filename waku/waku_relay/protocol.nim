@@ -184,7 +184,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
       topic: string,
       msg_id_short: string,
       msg: WakuMessage,
-      onRecv = true,
+      onRecv: bool,
   ) =
     let msg_hash = computeMessageHash(topic, msg).to0xHex()
 
@@ -247,7 +247,7 @@ proc initRelayMetricObserver(w: WakuRelay) =
         warn "onSend: failed decoding RPC info",
           my_peer_id = w.switch.peerInfo.peerId, to_peer_id = peer.peerId
         continue
-      logMessageInfo(peer, topic, msg_id_short, wakuMessage)
+      logMessageInfo(peer, topic, msg_id_short, wakuMessage, onRecv = false)
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = false)
 
   let administrativeObserver = PubSubObserver(
