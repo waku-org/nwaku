@@ -239,8 +239,6 @@ proc initRelayMetricObserver(w: WakuRelay) =
 
     logMessageInfo(peer, msg.topic, msg_id_short, wakuMessage, onRecv = true)
 
-    discard
-
   proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
