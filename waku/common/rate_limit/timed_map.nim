@@ -13,15 +13,15 @@
 {.push raises: [].}
 
 import std/[hashes, sets]
-import chronos/timer, stew/results
+import chronos/timer, results
 import libp2p/utility
 
 export results
 
 type
-  TimedEntry*[K, V] = ref object of RootObj
-    key*: K
-    value*: V
+  TimedEntry[K, V] = ref object of RootObj
+    key: K
+    value: V
     addedAt: Moment
     expiresAt: Moment
     next, prev: TimedEntry[K, V]
@@ -43,7 +43,7 @@ func hash*(a: TimedEntry): Hash =
   else:
     hash(a[].key)
 
-func `$`[T](a: T): string =
+func `$`*[T](a: T): string =
   if isNil(a):
     "nil"
 
@@ -65,8 +65,8 @@ func expire*(t: var TimedMap, now: Moment = Moment.now()) =
     if t.head == nil:
       t.tail = nil
 
-func del*[K, V](t: var TimedMap[K, V], key: K): Opt[TimedEntry[K, V]] =
-  # Removes existing key from cache, returning the previous value if present
+func del[K, V](t: var TimedMap[K, V], key: K): Opt[TimedEntry[K, V]] =
+  # Removes existing key from cache, returning the previous item if present
   let tmp = TimedEntry[K, V](key: key)
   if tmp in t.entries:
     let item =
@@ -88,6 +88,15 @@ func del*[K, V](t: var TimedMap[K, V], key: K): Opt[TimedEntry[K, V]] =
     Opt.some(item)
   else:
     Opt.none(TimedEntry[K, V])
+
+func remove*[K, V](t: var TimedMap[K, V], key: K): Opt[V] =
+  # Removes existing key from cache, returning the previous value if present
+  # public version of del without exporting TimedEntry
+  let deleted = t.del(key)
+  if deleted.isSome():
+    Opt.some(deleted[].value)
+  else:
+    Opt.none(V)
 
 proc mgetOrPut*[K, V](t: var TimedMap[K, V], k: K, v: V, now = Moment.now()): var V =
   # Puts k in cache, returning true if the item was already present and false

@@ -8,4 +8,4 @@ import
   ./test_parse_size,
   ./test_tokenbucket,
   ./test_requestratelimiter,
-  ./test_timedmap
+  ./test_timed_map

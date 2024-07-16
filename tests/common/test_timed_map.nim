@@ -39,7 +39,7 @@ suite "TimedMap":
       4 in cache
 
     check:
-      cache.del(4).isSome()
+      cache.remove(4).isSome()
       4 notin cache
 
     check:
