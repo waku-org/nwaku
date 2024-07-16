@@ -69,7 +69,9 @@ proc sendSubscribeRequest(
 
   let response = respDecodeRes.get()
 
-  if response.requestId != filterSubscribeRequest.requestId:
+  # DOS protection rate limit checks does not know about request id
+  if response.statusCode != FilterSubscribeErrorKind.TOO_MANY_REQUESTS.uint32 and
+      response.requestId != filterSubscribeRequest.requestId:
     trace "Filter subscribe response requestId mismatch", servicePeer, response
     waku_filter_errors.inc(labelValues = [requestIdMismatch])
     return err(FilterSubscribeError.badResponse(requestIdMismatch))

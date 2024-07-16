@@ -8,10 +8,7 @@ import
   ./rpc,
   ./rpc_codec,
   ./protocol_metrics,
-  ../common/ratelimit,
-  ../common/waku_service_metrics
-
-export ratelimit
+  ../common/rate_limit/request_limiter
 
 logScope:
   topics = "waku lightpush"
@@ -20,7 +17,7 @@ type WakuLightPush* = ref object of LPProtocol
   rng*: ref rand.HmacDrbgContext
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
-  requestRateLimiter*: Option[TokenBucket]
+  requestRateLimiter*: RequestRateLimiter
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -76,7 +73,7 @@ proc initProtocolHandler(wl: WakuLightPush) =
       rpc = await handleRequest(wl, conn.peerId, buffer)
     do:
       debug "lightpush request rejected due rate limit exceeded",
-        peerId = conn.peerId, limit = $wl.requestRateLimiter
+        peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
 
       rpc = static(
         PushRPC(
@@ -108,7 +105,7 @@ proc new*(
     rng: rng,
     peerManager: peerManager,
     pushHandler: pushHandler,
-    requestRateLimiter: newTokenBucket(rateLimitSetting),
+    requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   wl.initProtocolHandler()
   return wl

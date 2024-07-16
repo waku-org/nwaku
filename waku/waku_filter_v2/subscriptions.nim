@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
-import ../waku_core, ../utils/tableutils
+import ../waku_core, ../utils/tableutils, ../common/rate_limit/setting
 
 logScope:
   topics = "waku filter subscriptions"
@@ -11,6 +11,12 @@ const
   MaxFilterCriteriaPerPeer* = 1000
   DefaultSubscriptionTimeToLiveSec* = 5.minutes
   MessageCacheTTL* = 2.minutes
+
+  # Acceptable call frequence from one peer using filter service
+  # Assumption is having to set up a subscription with max 30 calls than using ping in every min
+  # While subscribe/unsubscribe events are distributed in time among clients, pings will happen regularly from
+  # all subscribed peers
+  FilterPerPeerRateLimit*: RateLimitSetting = (30, 1.minutes)
 
 type
   # a single filter criterion is fully defined by a pubsub topic and content topic

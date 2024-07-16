@@ -13,11 +13,8 @@ import
 import
   ../node/peer_manager,
   ../waku_core,
-  ./common,
-  ./protocol_metrics,
-  ./rpc_codec,
-  ./rpc,
-  ./subscriptions
+  ../common/rate_limit/per_peer_limiter,
+  ./[common, protocol_metrics, rpc_codec, rpc, subscriptions]
 
 logScope:
   topics = "waku filter"
@@ -30,6 +27,7 @@ type WakuFilter* = ref object of LPProtocol
   peerManager: PeerManager
   maintenanceTask: TimerCallback
   messageCache: TimedCache[string]
+  peerRequestRateLimiter*: PerPeerRateLimiter
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   trace "pinging subscriber", peerId = peerId
@@ -96,6 +94,9 @@ proc unsubscribe(
 
   wf.subscriptions.removeSubscription(peerId, filterCriteria).isOkOr:
     return err(FilterSubscribeError.notFound())
+
+  ## Note: do not remove from peerRequestRateLimiter to prevent trick with subscribe/unsubscribe loop
+  ## We remove only if peerManager removes the peer
 
   ok()
 
@@ -167,6 +168,9 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
     return
 
   await conn.get().writeLp(buffer)
+  waku_service_network_bytes.inc(
+    amount = buffer.len().int64, labelValues = [WakuFilterPushCodec, "out"]
+  )
 
 proc pushToPeers(
     wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush
@@ -210,6 +214,7 @@ proc maintainSubscriptions*(wf: WakuFilter) =
 
   if peersToRemove.len > 0:
     wf.subscriptions.removePeers(peersToRemove)
+    wf.peerRequestRateLimiter.unregister(peersToRemove)
 
   wf.subscriptions.cleanUp()
 
@@ -267,21 +272,36 @@ proc initProtocolHandler(wf: WakuFilter) =
   proc handler(conn: Connection, proto: string) {.async.} =
     trace "filter subscribe request handler triggered", peer_id = shortLog(conn.peerId)
 
-    let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
+    var response: FilterSubscribeResponse
 
-    let decodeRes = FilterSubscribeRequest.decode(buf)
-    if decodeRes.isErr():
-      error "Failed to decode filter subscribe request",
-        peer_id = conn.peerId, err = decodeRes.error
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
-      return
+    wf.peerRequestRateLimiter.checkUsageLimit(WakuFilterSubscribeCodec, conn):
+      let buf = await conn.readLp(int(DefaultMaxSubscribeSize))
 
-    let request = decodeRes.value #TODO: toAPI() split here
+      waku_service_network_bytes.inc(
+        amount = buf.len().int64, labelValues = [WakuFilterSubscribeCodec, "in"]
+      )
 
-    let response = wf.handleSubscribeRequest(conn.peerId, request)
+      let decodeRes = FilterSubscribeRequest.decode(buf)
+      if decodeRes.isErr():
+        error "Failed to decode filter subscribe request",
+          peer_id = conn.peerId, err = decodeRes.error
+        waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+        return
 
-    debug "sending filter subscribe response",
-      peer_id = shortLog(conn.peerId), response = response
+      let request = decodeRes.value #TODO: toAPI() split here
+
+      response = wf.handleSubscribeRequest(conn.peerId, request)
+
+      debug "sending filter subscribe response",
+        peer_id = shortLog(conn.peerId), response = response
+    do:
+      debug "filter request rejected due rate limit exceeded",
+        peerId = conn.peerId, limit = $wf.peerRequestRateLimiter.setting
+      response = FilterSubscribeResponse(
+        requestId: "N/A",
+        statusCode: FilterSubscribeErrorKind.TOO_MANY_REQUESTS.uint32,
+        statusDesc: some("filter request rejected due rate limit exceeded"),
+      )
 
     await conn.writeLp(response.encode().buffer) #TODO: toRPC() separation here
     return
@@ -296,6 +316,7 @@ proc new*(
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
     messageCacheTTL: Duration = MessageCacheTTL,
+    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wf = WakuFilter(
     subscriptions: FilterSubscriptions.init(
@@ -303,6 +324,7 @@ proc new*(
     ),
     peerManager: peerManager,
     messageCache: init(TimedCache[string], messageCacheTTL),
+    peerRequestRateLimiter: PerPeerRateLimiter(setting: rateLimitSetting),
   )
 
   wf.initProtocolHandler()
