@@ -20,6 +20,7 @@
 
 ### Changes
 
+- setting filter handling logs to trace (#2914) ([5c539fe13](https://github.com/waku-org/nwaku/commit/5c539fe13))
 - enhance postgres and retention policy logs (#2884) ([71ee42de5](https://github.com/waku-org/nwaku/commit/71ee42de5))
 - improving logging under debugDiscv5 flag (#2899) ([8578fb0c3](https://github.com/waku-org/nwaku/commit/8578fb0c3))
 - archive and drivers refactor (#2761) ([f54ba10bc](https://github.com/waku-org/nwaku/commit/f54ba10bc))
