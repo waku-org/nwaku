@@ -16,7 +16,7 @@ suite "Node Factory":
       node.wakuArchive.isNil()
       node.wakuStore.isNil()
       node.wakuFilter.isNil()
-      not node.wakuStoreClient.isNil()
+      node.wakuStoreClient.isNil()
       not node.rendezvous.isNil()
 
   test "Set up a node with Store enabled":
