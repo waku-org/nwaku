@@ -225,8 +225,6 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start(), filterSource.start())
-
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
 
@@ -236,6 +234,8 @@ procSuite "WakuNode - Store":
     waitFor server.mountStore()
     waitFor server.mountFilterClient()
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     ## Given
     let message = fakeWakuMessage()
@@ -297,14 +297,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore()
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Forcing a bad cursor with empty digest data
     var cursor: WakuMessageHash = [
@@ -340,14 +340,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore((4, 500.millis))
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req =
@@ -384,14 +384,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore((3, 500.millis))
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req =
