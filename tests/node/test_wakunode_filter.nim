@@ -52,10 +52,10 @@ suite "Waku Filter - End to End":
     clientClone = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(23451))
       # Used for testing client restarts
 
-    await allFutures(server.start(), client.start())
-
     await server.mountFilter()
     await client.mountFilterClient()
+
+    await allFutures(server.start(), client.start())
 
     client.wakuFilterClient.registerPushHandler(messagePushHandler)
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
