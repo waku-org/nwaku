@@ -1261,7 +1261,7 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
   info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
-proc isBootstrapOnly(node: WakuNode) =
+proc isBootstrapOnly(node: WakuNode): bool =
   # Check if no protocols are mounted
   if node.wakuRelay.isNil() and node.wakuStore.isNil() and node.wakuArchive.isNil() and
       node.wakuLegacyStore.isNil() and node.wakuFilter.isNil() and
