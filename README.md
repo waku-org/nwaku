@@ -68,6 +68,22 @@ If everything went well, you should see your prompt suffixed with `[Nimbus env]$
 make test
 ```
 
+### Building single test files
+
+During development it is handful to build and run a single test file.
+To support this make has a specific target:
+
+targets:
+- `build/<relative path to your test file.nim>`
+- `test/<relative path to your test file.nim>`
+
+Binary will be created as `<path to your test file.nim>.bin` under the `build` directory .
+
+```bash
+# Build and run your test file separately
+make test/tests/common/test_enr_builder.nim
+```
+
 ### Examples
 
 Examples can be found in the examples folder.
