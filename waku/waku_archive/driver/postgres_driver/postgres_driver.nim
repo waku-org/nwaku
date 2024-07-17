@@ -41,7 +41,7 @@ const SelectNoCursorAscStmtDef =
           pubsubTopic = $3 AND
           timestamp >= $4 AND
           timestamp <= $5
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
+    ORDER BY timestamp ASC LIMIT $6;"""
 
 const SelectNoCursorNoDataAscStmtName = "SelectWithoutCursorAndDataAsc"
 const SelectNoCursorNoDataAscStmtDef =
@@ -51,7 +51,7 @@ const SelectNoCursorNoDataAscStmtDef =
           pubsubTopic = $3 AND
           timestamp >= $4 AND
           timestamp <= $5
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $6;"""
+    ORDER BY timestamp ASC LIMIT $6;"""
 
 const SelectNoCursorDescStmtName = "SelectWithoutCursorDesc"
 const SelectNoCursorDescStmtDef =
@@ -61,7 +61,7 @@ const SelectNoCursorDescStmtDef =
           pubsubTopic = $3 AND
           timestamp >= $4 AND
           timestamp <= $5
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
+    ORDER BY timestamp DESC LIMIT $6;"""
 
 const SelectNoCursorNoDataDescStmtName = "SelectWithoutCursorAndDataDesc"
 const SelectNoCursorNoDataDescStmtDef =
@@ -71,7 +71,7 @@ const SelectNoCursorNoDataDescStmtDef =
           pubsubTopic = $3 AND
           timestamp >= $4 AND
           timestamp <= $5
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $6;"""
+    ORDER BY timestamp DESC LIMIT $6;"""
 
 const SelectWithCursorDescStmtName = "SelectWithCursorDesc"
 const SelectWithCursorDescStmtDef =
@@ -82,7 +82,7 @@ const SelectWithCursorDescStmtDef =
           (timestamp, messageHash) < ($4,$5) AND
           timestamp >= $6 AND
           timestamp <= $7
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
+    ORDER BY timestamp DESC LIMIT $8;"""
 
 const SelectWithCursorNoDataDescStmtName = "SelectWithCursorNoDataDesc"
 const SelectWithCursorNoDataDescStmtDef =
@@ -93,7 +93,7 @@ const SelectWithCursorNoDataDescStmtDef =
           (timestamp, messageHash) < ($4,$5) AND
           timestamp >= $6 AND
           timestamp <= $7
-    ORDER BY timestamp DESC, messageHash DESC LIMIT $8;"""
+    ORDER BY timestamp DESC LIMIT $8;"""
 
 const SelectWithCursorAscStmtName = "SelectWithCursorAsc"
 const SelectWithCursorAscStmtDef =
@@ -104,7 +104,7 @@ const SelectWithCursorAscStmtDef =
           (timestamp, messageHash) > ($4,$5) AND
           timestamp >= $6 AND
           timestamp <= $7
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
+    ORDER BY timestamp ASC LIMIT $8;"""
 
 const SelectWithCursorNoDataAscStmtName = "SelectWithCursorNoDataAsc"
 const SelectWithCursorNoDataAscStmtDef =
@@ -115,7 +115,7 @@ const SelectWithCursorNoDataAscStmtDef =
           (timestamp, messageHash) > ($4,$5) AND
           timestamp >= $6 AND
           timestamp <= $7
-    ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
+    ORDER BY timestamp ASC LIMIT $8;"""
 
 const SelectCursorByHashName = "SelectMessageByHash"
 const SelectCursorByHashDef =
@@ -331,7 +331,7 @@ method getAllMessages*(
     await s.readConnPool.pgQuery(
       """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta
         FROM messages
-        ORDER BY timestamp ASC, messageHash ASC""",
+        ORDER BY timestamp ASC""",
       newSeq[string](0),
       rowCallback,
     )
@@ -457,7 +457,7 @@ proc getMessagesArbitraryQuery(
   else:
     direction = "DESC"
 
-  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+  query &= " ORDER BY timestamp " & direction
 
   query &= " LIMIT ?"
   args.add($maxPageSize)
@@ -539,7 +539,7 @@ proc getMessageHashesArbitraryQuery(
   else:
     direction = "DESC"
 
-  query &= " ORDER BY timestamp " & direction & ", messageHash " & direction
+  query &= " ORDER BY timestamp " & direction
 
   query &= " LIMIT ?"
   args.add($maxPageSize)
