@@ -15,8 +15,8 @@ import
   libp2p/protocols/ping,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
-  libp2p/protocols/connectivity/autonat/client,
-  libp2p/protocols/connectivity/autonat/service,
+  libp2p/protocols/connectivity/autonat/[client, service, server],
+  libp2p/protocols/connectivity/relay/utils,
   libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
@@ -75,6 +75,10 @@ const git_version* {.strdefine.} = "n/a"
 const clientId* = "Nimbus Waku v2 node"
 
 const WakuNodeVersionString* = "version / git commit hash: " & git_version
+
+# Default protocols mounted into a Waku Switch 
+const DefaultSwitchProtocols*: seq[string] =
+  @[IdentifyCodec, AutonatCodec, RelayV2HopCodec]
 
 # key and crypto modules different
 type
@@ -1275,8 +1279,8 @@ proc isBootstrapOnly*(node: WakuNode): bool =
     if fieldValue is LPProtocol:
       echo "nodeField ", nodeField, " is of LPProtocol" ]#
 
-  echo "node.switch.peerInfo.protocols: ", node.switch.peerInfo.protocols
-
+  if toHashSet(node.switch.peerInfo.protocols) == toHashSet(DefaultSwitchProtocols):
+    return true
   return false
 
 proc start*(node: WakuNode) {.async.} =

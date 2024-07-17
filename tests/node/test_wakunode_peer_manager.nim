@@ -30,9 +30,6 @@ import
   ./peer_manager/peer_store/utils,
   ./utils
 
-const DEFAULT_PROTOCOLS: seq[string] =
-  @["/ipfs/id/1.0.0", "/libp2p/autonat/1.0.0", "/libp2p/circuit/relay/0.2.0/hop"]
-
 let
   listenIp = ValidIpAddress.init("0.0.0.0")
   listenPort = Port(0)
@@ -302,7 +299,7 @@ suite "Peer Manager":
         # Then the stored protocols should be the default (libp2p) ones
         check:
           clientPeerStore.peerExists(serverPeerId)
-          clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+          clientPeerStore.get(serverPeerId).protocols == DefaultSwitchProtocols
 
       asyncTest "Peer Protocol Support Verification (Before Connection)":
         # Given the server has mounted some Waku protocols
@@ -316,7 +313,7 @@ suite "Peer Manager":
         check:
           clientPeerStore.peerExists(serverPeerId)
           clientPeerStore.get(serverPeerId).protocols ==
-            DEFAULT_PROTOCOLS & @[WakuRelayCodec, WakuFilterSubscribeCodec]
+            DefaultSwitchProtocols & @[WakuRelayCodec, WakuFilterSubscribeCodec]
 
       asyncTest "Service-Specific Peer Addition":
         # Given a server mounts some Waku protocols
@@ -342,10 +339,10 @@ suite "Peer Manager":
         check:
           clientPeerStore.peerExists(serverPeerId)
           clientPeerStore.get(serverPeerId).protocols ==
-            DEFAULT_PROTOCOLS & @[WakuFilterSubscribeCodec]
+            DefaultSwitchProtocols & @[WakuFilterSubscribeCodec]
           clientPeerStore.peerExists(server2PeerId)
           clientPeerStore.get(server2PeerId).protocols ==
-            DEFAULT_PROTOCOLS & @[WakuRelayCodec]
+            DefaultSwitchProtocols & @[WakuRelayCodec]
 
         # Cleanup
         await server2.stop()
@@ -367,7 +364,7 @@ suite "Peer Manager":
           chainedComparison(
             clientPeerStore[ProtoBook][serverPeerId],
             serverRemotePeerInfo.protocols,
-            DEFAULT_PROTOCOLS,
+            DefaultSwitchProtocols,
           )
           chainedComparison(
             clientPeerStore[AgentBook][serverPeerId], # FIXME: Not assigned
@@ -433,7 +430,7 @@ suite "Peer Manager":
           chainedComparison(
             clientPeerStore[ProtoBook][serverPeerId],
             serverRemotePeerInfo.protocols,
-            DEFAULT_PROTOCOLS,
+            DefaultSwitchProtocols,
           )
           chainedComparison(
             clientPeerStore[AgentBook][serverPeerId], # FIXME: Not assigned
@@ -484,7 +481,7 @@ suite "Peer Manager":
           chainedComparison(
             clientPeerStore[ProtoBook][server2PeerId],
             server2RemotePeerInfo.protocols,
-            DEFAULT_PROTOCOLS,
+            DefaultSwitchProtocols,
           )
           chainedComparison(
             clientPeerStore[AgentBook][server2PeerId], # FIXME: Not assigned
@@ -833,7 +830,7 @@ suite "Mount Order":
     check:
       clientPeerStore.peerExists(serverPeerId)
       clientPeerStore.get(serverPeerId).protocols ==
-        DEFAULT_PROTOCOLS & @[WakuRelayCodec]
+        DefaultSwitchProtocols & @[WakuRelayCodec]
 
     # Cleanup
     await server.stop()
@@ -857,7 +854,7 @@ suite "Mount Order":
     check:
       clientPeerStore.peerExists(serverPeerId)
       clientPeerStore.get(serverPeerId).protocols ==
-        DEFAULT_PROTOCOLS & @[WakuRelayCodec]
+        DefaultSwitchProtocols & @[WakuRelayCodec]
 
     # Cleanup
     await server.stop()
@@ -881,7 +878,7 @@ suite "Mount Order":
     check:
       clientPeerStore.peerExists(serverPeerId)
       clientPeerStore.get(serverPeerId).protocols ==
-        DEFAULT_PROTOCOLS & @[WakuRelayCodec]
+        DefaultSwitchProtocols & @[WakuRelayCodec]
 
     # Cleanup
     await server.stop()
@@ -905,7 +902,7 @@ suite "Mount Order":
     check:
       clientPeerStore.peerExists(serverPeerId)
       clientPeerStore.get(serverPeerId).protocols ==
-        DEFAULT_PROTOCOLS & @[WakuRelayCodec]
+        DefaultSwitchProtocols & @[WakuRelayCodec]
 
     # Cleanup
     await server.stop()
@@ -928,7 +925,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer but not the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+      clientPeerStore.get(serverPeerId).protocols == DefaultSwitchProtocols
 
     # Cleanup
     await server.stop()
@@ -951,7 +948,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer but not the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+      clientPeerStore.get(serverPeerId).protocols == DefaultSwitchProtocols
 
     # Cleanup
     await server.stop()
