@@ -96,9 +96,7 @@ proc initNode(
     secureKey = some(conf.websocketSecureKeyPath),
     secureCert = some(conf.websocketSecureCertPath),
     nameResolver = dnsResolver,
-    sendSignedPeerRecord = conf.relayPeerExchange,
-      # We send our own signed peer record when peer exchange enabled
-    agentString = some(conf.agentString),
+    agentString = some("nwaku"),
   )
   builder.withColocationLimit(conf.colocationLimit)
   builder.withPeerManagerConfig(
@@ -129,26 +127,6 @@ proc setupProtocols(
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
-  var peerExchangeHandler = none(RoutingRecordsHandler)
-  if conf.relayPeerExchange:
-    proc handlePeerExchange(
-        peer: PeerId, topic: string, peers: seq[RoutingRecordsPair]
-    ) {.gcsafe.} =
-      ## Handle peers received via gossipsub peer exchange
-      # TODO: Only consider peers on pubsub topics we subscribe to
-      let exchangedPeers = peers.filterIt(it.record.isSome())
-        # only peers with populated records
-        .mapIt(toRemotePeerInfo(it.record.get()))
-
-      debug "adding exchanged peers",
-        src = peer, topic = topic, numPeers = exchangedPeers.len
-
-      for peer in exchangedPeers:
-        # Peers added are filtered by the peer manager
-        node.peerManager.addPeer(peer, PeerOrigin.PeerExchange)
-
-    peerExchangeHandler = some(handlePeerExchange)
-
   let shards =
     conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
   debug "Shards created from content topics",
@@ -166,7 +144,6 @@ proc setupProtocols(
       await mountRelay(
         node,
         pubsubTopics,
-        peerExchangeHandler = peerExchangeHandler,
         int(parsedMaxMsgSize),
       )
     except CatchableError:
@@ -412,15 +389,9 @@ proc setupNode*(
     else:
       crypto.newRng()
 
-  # Use provided key only if corresponding rng is also provided
-  let key =
-    if conf.nodeKey.isSome() and rng.isSome():
-      conf.nodeKey.get()
-    else:
-      warn "missing key or rng, generating new set"
-      crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
-        error "Failed to generate key", error = error
-        return err("Failed to generate key: " & $error)
+  let key = nodeKeyConfiguration(conf).valueOr:
+    error "Failed to generate key", error = error
+    return err("Failed to generate key: " & error)
 
   let netConfig = networkConfiguration(conf, clientId).valueOr:
     error "failed to create internal config", error = error

@@ -45,6 +45,11 @@ type WakuRlnConfig* = object
   onFatalErrorAction*: OnFatalErrorHandler
   rlnRelayUserMessageLimit*: uint64
 
+proc validate*(rlnConfig: WakuRlnConfig): Result[void, string] =
+  if rlnConfig.rlnRelayEthClientAddress == "":
+    return err("Rln Relay Eth Client address must be specified")
+  ok()
+
 proc createMembershipList*(
     rln: ptr RLN, n: int
 ): RlnRelayResult[(seq[RawMembershipCredentials], string)] =
