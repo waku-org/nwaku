@@ -1261,6 +1261,16 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
   info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
+proc isBootstrapOnly(node: WakuNode) =
+  # Check if no protocols are mounted
+  if node.wakuRelay.isNil() and node.wakuStore.isNil() and node.wakuArchive.isNil() and
+      node.wakuLegacyStore.isNil() and node.wakuFilter.isNil() and
+      node.wakuRlnRelay.isNil() and node.wakuLightPush.isNil() and
+      node.wakuMetadata.isNil():
+    return true
+  else:
+    return false
+
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
   ## all its mounted protocols.
@@ -1290,7 +1300,7 @@ proc start*(node: WakuNode) {.async.} =
 
   # Start the switch only if there's libp2p protocols mounted
   # TO DO: verify rest of protocols. Maybe write a proc isBootstrapOnly() that checks it
-  if not node.wakuRelay.isNil() or not node.wakuStore.isNil():
+  if not node.isBootstrapOnly():
     ## The switch will update addresses after start using the addressMapper
     await node.switch.start()
 
