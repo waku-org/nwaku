@@ -99,3 +99,13 @@ method existsTable*(
     driver: ArchiveDriver, tableName: string
 ): Future[ArchiveDriverResult[bool]] {.base, async.} =
   discard
+
+method setLastOnline*(
+    driver: ArchiveDriver, time: Timestamp
+): Future[ArchiveDriverResult[void]] {.base, async.} =
+  discard
+
+method getLastOnline*(
+    driver: ArchiveDriver
+): Future[ArchiveDriverResult[Timestamp]] {.base, async.} =
+  discard

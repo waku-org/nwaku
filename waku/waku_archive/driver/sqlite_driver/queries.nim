@@ -592,3 +592,53 @@ proc selectMessageHashesByStoreQueryWithLimit*(
   dbStmt.dispose()
 
   return ok(rows)
+
+proc createLastOnlineTableQuery*(): SqlQueryStr =
+  return "CREATE TABLE IF NOT EXISTS last_online (timestamp BIGINT NOT NULL);"
+
+proc insertDefaultQuery*(): SqlQueryStr =
+  return "INSERT INTO last_online VALUES(1);"
+
+proc createLastOnlineTable*(db: SqliteDatabase): DatabaseResult[void] =
+  var query = createLastOnlineTableQuery()
+  discard
+    ?db.query(
+      query,
+      proc(s: ptr sqlite3_stmt) =
+        discard
+      ,
+    )
+
+  query = insertDefaultQuery()
+
+  discard
+    ?db.query(
+      query,
+      proc(s: ptr sqlite3_stmt) =
+        discard
+      ,
+    )
+
+  return ok()
+
+proc selectLastOnlineQuery*(): SqlQueryStr =
+  return "SELECT MAX(timestamp) FROM last_online"
+
+proc execLastOnlineQuery*(db: SqliteDatabase): DatabaseResult[Timestamp] =
+  var timestamp: Timestamp
+  proc queryRowCallback(s: ptr sqlite3_stmt) =
+    timestamp = queryRowTimestampCallback(s, 0)
+
+  let query = selectLastOnlineQuery()
+  let res = db.query(query, queryRowCallback)
+  if res.isErr():
+    return err("failed to get the last online timestamp from the database")
+
+  return ok(timestamp)
+
+proc updateLastOnlineQuery*(): SqlQueryStr =
+  return "UPDATE last_online SET timestamp = (?);"
+
+proc prepareUpdateLastOnlineStmt*(db: SqliteDatabase): SqliteStmt[(Timestamp), void] =
+  let query = updateLastOnlineQuery()
+  return db.prepareStmt(query, (Timestamp), void).expect("this is a valid statement")

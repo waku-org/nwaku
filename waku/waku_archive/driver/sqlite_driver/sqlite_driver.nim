@@ -20,20 +20,23 @@ proc init(db: SqliteDatabase): ArchiveDriverResult[void] =
     return err("db not initialized")
 
   # Create table, if doesn't exist
-  let resCreate = createTable(db)
-  if resCreate.isErr():
-    return err("failed to create table: " & resCreate.error())
+  db.createTable().isOkOr:
+    return err("failed to create table: " & $error)
 
   # Create indices, if don't exist
-  let resRtIndex = createOldestMessageTimestampIndex(db)
-  if resRtIndex.isErr():
-    return err("failed to create i_ts index: " & resRtIndex.error())
+  db.createOldestMessageTimestampIndex().isOkOr:
+    return err("failed to create i_ts index: " & $error)
+
+  # Create another table, if doesn't exist
+  db.createLastOnlineTable().isOkOr:
+    return err("failed to create last online table: " & $error)
 
   return ok()
 
 type SqliteDriver* = ref object of ArchiveDriver
   db: SqliteDatabase
   insertStmt: SqliteStmt[InsertMessageParams, void]
+  lastOnlineStmt: SqliteStmt[(Timestamp), void]
 
 proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
   # Database initialization
@@ -43,7 +46,10 @@ proc new*(T: type SqliteDriver, db: SqliteDatabase): ArchiveDriverResult[T] =
 
   # General initialization
   let insertStmt = db.prepareInsertMessageStmt()
-  return ok(SqliteDriver(db: db, insertStmt: insertStmt))
+  let lastOnlineStmt = db.prepareUpdateLastOnlineStmt()
+
+  return
+    ok(SqliteDriver(db: db, insertStmt: insertStmt, lastOnlineStmt: lastOnlineStmt))
 
 method put*(
     s: SqliteDriver,
@@ -189,3 +195,16 @@ method existsTable*(
     s: SqliteDriver, tableName: string
 ): Future[ArchiveDriverResult[bool]] {.async.} =
   return err("existsTable method not implemented in sqlite_driver")
+
+method setLastOnline*(
+    self: SqliteDriver, time: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  return self.lastOnlineStmt.exec((time))
+
+method getLastOnline*(
+    self: SqliteDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  let time = self.db.execLastOnlineQuery().valueOr:
+    return err(error)
+
+  return ok(time)

@@ -2,7 +2,7 @@
 
 import
   std/[times, options, sequtils, algorithm],
-  stew/[results, byteutils],
+  stew/[byteutils],
   chronicles,
   chronos,
   metrics
@@ -28,6 +28,8 @@ const
   # Metrics reporting
   WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(30)
 
+  DefaultLastOnlineInterval = chronos.minutes(1)
+
   # Message validation
   # 20 seconds maximum allowable sender timestamp "drift"
   MaxMessageTimestampVariance* = getNanoSecondTime(20)
@@ -46,6 +48,9 @@ type WakuArchive* = ref object
 
   retentionPolicyHandle: Future[void]
   metricsHandle: Future[void]
+
+  lastOnlineInterval: timer.Duration
+  onlineHandle: Future[void]
 
 proc validate*(msg: WakuMessage): Result[void, string] =
   if msg.ephemeral:
@@ -70,12 +75,17 @@ proc new*(
     driver: ArchiveDriver,
     validator: MessageValidator = validate,
     retentionPolicy = none(RetentionPolicy),
+    lastOnlineInterval = DefaultLastOnlineInterval,
 ): Result[T, string] =
   if driver.isNil():
     return err("archive driver is Nil")
 
-  let archive =
-    WakuArchive(driver: driver, validator: validator, retentionPolicy: retentionPolicy)
+  let archive = WakuArchive(
+    driver: driver,
+    validator: validator,
+    retentionPolicy: retentionPolicy,
+    lastOnlineInterval: lastOnlineInterval,
+  )
 
   return ok(archive)
 
@@ -184,6 +194,12 @@ proc findMessages*(
     ArchiveResponse(cursor: cursor, topics: topics, hashes: hashes, messages: messages)
   )
 
+proc getLastOnline*(self: WakuArchive): Future[Result[Timestamp, string]] {.async.} =
+  let time = (await self.driver.getLastOnline()).valueOr:
+    return err($error)
+
+  return ok(time)
+
 proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
   let policy = self.retentionPolicy.get()
 
@@ -207,11 +223,23 @@ proc periodicMetricReport(self: WakuArchive) {.async.} =
 
     await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
 
+proc periodicSetLastOnline(self: WakuArchive) {.async.} =
+  ## Save a timestamp periodically
+  ## so that a node can know when it was last online
+  while true:
+    let ts = getNowInNanosecondTime()
+
+    (await self.driver.setLastOnline(ts)).isOkOr:
+      error "Failed to set last online timestamp", error, time = ts
+
+    await sleepAsync(self.lastOnlineInterval)
+
 proc start*(self: WakuArchive) =
   if self.retentionPolicy.isSome():
     self.retentionPolicyHandle = self.periodicRetentionPolicy()
 
   self.metricsHandle = self.periodicMetricReport()
+  self.onlineHandle = self.periodicSetLastOnline()
 
 proc stopWait*(self: WakuArchive) {.async.} =
   var futures: seq[Future[void]]
@@ -221,5 +249,8 @@ proc stopWait*(self: WakuArchive) {.async.} =
 
   if not self.metricsHandle.isNil:
     futures.add(self.metricsHandle.cancelAndWait())
+
+  if not self.onlineHandle.isNil:
+    futures.add(self.onlineHandle.cancelAndWait())
 
   await noCancel(allFutures(futures))

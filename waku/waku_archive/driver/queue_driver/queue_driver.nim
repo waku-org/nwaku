@@ -355,3 +355,9 @@ method decreaseDatabaseSize*(
 
 method close*(driver: QueueDriver): Future[ArchiveDriverResult[void]] {.async.} =
   return ok()
+
+method setLastOnline*(
+    driver: QueueDriver, time: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  ## return ok as it only make sense to save a timestamp to disk
+  return ok()

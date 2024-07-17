@@ -4,13 +4,7 @@ import
   std/[options, sequtils, random, algorithm], testutils/unittests, chronos, chronicles
 
 import
-  waku/[
-    common/databases/db_sqlite,
-    waku_archive,
-    waku_archive/driver/sqlite_driver,
-    waku_core,
-    waku_core/message/digest,
-  ],
+  waku/[waku_archive, waku_core, waku_core/message/digest],
   ../testlib/common,
   ../testlib/wakucore,
   ../waku_archive/archive_utils
@@ -20,6 +14,22 @@ logScope:
 
 # Initialize the random number generator
 common.randomize()
+
+suite "SQLite driver - query last online":
+  asyncTest "check last online":
+    let driver = newSqliteArchiveDriver()
+
+    let timestamp = getNowInNanosecondTime()
+
+    let setRes = await driver.setLastOnline(timestamp)
+    assert setRes.isOk(), setRes.error
+
+    let getRes = await driver.getLastOnline()
+    assert getRes.isOk(), getRes.error
+
+    let timeRes = getRes.get()
+
+    assert timestamp == timeRes
 
 suite "SQLite driver - query by content topic":
   asyncTest "no content topic":

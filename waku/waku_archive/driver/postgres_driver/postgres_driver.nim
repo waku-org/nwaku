@@ -122,6 +122,9 @@ const SelectCursorByHashDef =
   """SELECT timestamp FROM messages
     WHERE messageHash = $1"""
 
+const UpdateLastOnlineName = "UpdateLastOnline"
+const UpdateLastOnlineDef = """UPDATE last_online SET timestamp = ($1);"""
+
 const DefaultMaxNumConns = 50
 
 proc new*(
@@ -1402,3 +1405,24 @@ method deleteMessagesOlderThanTimestamp*(
     return err("error in deleteMessagesOlderThanTimestamp: " & $error)
 
   return ok()
+
+method setLastOnline*(
+    self: PostgresDriver, timestamp: Timestamp
+): Future[ArchiveDriverResult[void]] {.async.} =
+  let timestamp = $timestamp
+  
+  return await self.writeConnPool.runStmt(
+    UpdateLastOnlineName,
+    UpdateLastOnlineDef,
+    @[timestamp],
+    @[int32(timestamp.len)],
+    @[int32(0)],
+  )
+
+method getLastOnline*(
+    self: PostgresDriver
+): Future[ArchiveDriverResult[Timestamp]] {.async.} =
+  let time = (await self.getInt("SELECT MAX(timestamp) FROM last_online")).valueOr:
+    return err("error in getLastOnline: " & $error)
+
+  return ok(time)

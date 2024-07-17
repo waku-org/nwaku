@@ -45,6 +45,19 @@ suite "Postgres driver - queries":
 
     (await driver.close()).expect("driver to close")
 
+  asyncTest "check last online":
+    let timestamp = getNowInNanosecondTime()
+
+    let setRes = await driver.setLastOnline(timestamp)
+    assert setRes.isOk(), setRes.error
+
+    let getRes = await driver.getLastOnline()
+    assert getRes.isOk(), getRes.error
+
+    let timeRes = getRes.get()
+
+    assert timestamp == timeRes
+
   asyncTest "no content topic":
     ## Given
     const contentTopic = "test-content-topic"
