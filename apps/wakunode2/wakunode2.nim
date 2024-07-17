@@ -93,8 +93,11 @@ when isMainModule:
     ## Stop node gracefully on shutdown.
 
     proc asyncStopper(node: Waku) {.async: (raises: [Exception]).} =
+      echo "----------- asyncStopper 1 ------------"
       nodeHealthMonitor.setOverallHealth(HealthStatus.SHUTTING_DOWN)
+      echo "----------- asyncStopper 2 ------------"
       await node.stop()
+      echo "----------- asyncStopper 3 ------------"
       quit(QuitSuccess)
 
     # Handle Ctrl-C SIGINT

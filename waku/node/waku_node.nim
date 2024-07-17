@@ -1328,20 +1328,26 @@ proc start*(node: WakuNode) {.async.} =
   info "Node started successfully"
 
 proc stop*(node: WakuNode) {.async.} =
+  echo "--------------- STOP 1 -------------"
   ## By stopping the switch we are stopping all the underlying mounted protocols
-  await node.switch.stop()
+  if not node.isBootstrapOnly():
+    await node.switch.stop()
 
+  echo "--------------- STOP 2 -------------"
   node.peerManager.stop()
 
+  echo "--------------- STOP 3 -------------"
   if not node.wakuRlnRelay.isNil():
     try:
       await node.wakuRlnRelay.stop() ## this can raise an exception
     except Exception:
       error "exception stopping the node", error = getCurrentExceptionMsg()
 
+  echo "--------------- STOP 4 -------------"
   if not node.wakuArchive.isNil():
     await node.wakuArchive.stopWait()
 
+  echo "--------------- STOP 5 -------------"
   node.started = false
 
 proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =

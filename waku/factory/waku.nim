@@ -241,14 +241,22 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
 # Waku shutdown
 
 proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
+  echo "---------- Waku stop 1 --------"
+
   if not waku.restServer.isNil():
+    echo "---------- Waku stop 2 --------"
     await waku.restServer.stop()
 
+  echo "---------- Waku stop 3 --------"
   if not waku.metricsServer.isNil():
+    echo "---------- Waku stop 4 --------"
     await waku.metricsServer.stop()
 
+  echo "---------- Waku stop 5 --------"
   if not waku.wakuDiscv5.isNil():
+    echo "---------- Waku stop 6 --------"
     await waku.wakuDiscv5.stop()
 
+  echo "---------- Waku stop 7 --------"
   if not waku.node.isNil():
     await waku.node.stop()
