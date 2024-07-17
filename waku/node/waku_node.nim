@@ -1266,7 +1266,9 @@ proc isBootstrapOnly(node: WakuNode): bool =
   if node.wakuRelay.isNil() and node.wakuStore.isNil() and node.wakuArchive.isNil() and
       node.wakuLegacyStore.isNil() and node.wakuFilter.isNil() and
       node.wakuRlnRelay.isNil() and node.wakuLightPush.isNil() and
-      node.wakuMetadata.isNil():
+      node.wakuMetadata.isNil() and node.wakuStoreClient.isNil() and
+      node.wakuLegacyStoreClient.isNil() and node.wakuFilterClient.isNil() and
+      node.wakuLightpushClient.isNil():
     return true
   else:
     return false
