@@ -122,9 +122,6 @@ proc setupProtocols(
   ## Optionally include persistent message storage.
   ## No protocols are started yet.
 
-  node.mountMetadata(conf.clusterId).isOkOr:
-    return err("failed to mount waku metadata protocol: " & error)
-
   node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
@@ -190,12 +187,6 @@ proc setupProtocols(
     except CatchableError:
       return
         err("failed to mount waku rendezvous protocol: " & getCurrentExceptionMsg())
-
-  # Keepalive mounted on all nodes
-  try:
-    await mountLibp2pPing(node)
-  except CatchableError:
-    return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
   var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
     ## Action to be taken when an internal error occurs during the node run.
@@ -278,18 +269,18 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
-  mountStoreClient(node)
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
     if storeNode.isOk():
+      mountStoreClient(node)
       node.peerManager.addServicePeer(storeNode.value, store_common.WakuStoreCodec)
     else:
       return err("failed to set node waku store peer: " & storeNode.error)
 
-  mountLegacyStoreClient(node)
   if conf.storenode != "":
     let storeNode = parsePeerInfo(conf.storenode)
     if storeNode.isOk():
+      mountLegacyStoreClient(node)
       node.peerManager.addServicePeer(
         storeNode.value, legacy_common.WakuLegacyStoreCodec
       )
@@ -353,6 +344,16 @@ proc setupProtocols(
       else:
         return
           err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+
+  if not isBootstrapOnly(node):
+    node.mountMetadata(conf.clusterId).isOkOr:
+      return err("failed to mount waku metadata protocol: " & error)
+
+    # Keepalive mounted on all nodes
+    try:
+      await mountLibp2pPing(node)
+    except CatchableError:
+      return err("failed to mount libp2p ping protocol: " & getCurrentExceptionMsg())
 
   return ok()
 

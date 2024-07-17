@@ -1261,15 +1261,22 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
   info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 
-proc isBootstrapOnly(node: WakuNode): bool =
+proc isBootstrapOnly*(node: WakuNode): bool =
   # Check if no protocols are mounted
-  if node.wakuRelay.isNil() and node.wakuStore.isNil() and node.wakuArchive.isNil() and
+  #[ if node.wakuRelay.isNil() and node.wakuStore.isNil() and node.wakuArchive.isNil() and
       node.wakuLegacyStore.isNil() and node.wakuFilter.isNil() and
       node.wakuRlnRelay.isNil() and node.wakuLightPush.isNil() and
       node.wakuMetadata.isNil() and node.wakuStoreClient.isNil() and
       node.wakuLegacyStoreClient.isNil() and node.wakuFilterClient.isNil() and
       node.wakuLightpushClient.isNil():
-    return true
+    return true ]#
+  #[ for nodeField, fieldValue in fieldPairs(node[]):
+    # echo "nodeField ", nodeField
+    if fieldValue is LPProtocol:
+      echo "nodeField ", nodeField, " is of LPProtocol" ]#
+
+  echo "node.switch.peerInfo.protocols: ", node.switch.peerInfo.protocols
+
   return false
 
 proc start*(node: WakuNode) {.async.} =
