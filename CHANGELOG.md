@@ -1,4 +1,7 @@
 ## v0.31.0 (2024-07-16)
+### Notes
+
+* Named sharding has been deprecated in favor of static sharding. Topics in formats other than `/waku/2/rs/<cluster>/<shard>` are no longer supported
 
 ### Features
 
@@ -20,6 +23,7 @@
 
 ### Changes
 
+- setting filter handling logs to trace (#2914) ([5c539fe13](https://github.com/waku-org/nwaku/commit/5c539fe13))
 - enhance postgres and retention policy logs (#2884) ([71ee42de5](https://github.com/waku-org/nwaku/commit/71ee42de5))
 - improving logging under debugDiscv5 flag (#2899) ([8578fb0c3](https://github.com/waku-org/nwaku/commit/8578fb0c3))
 - archive and drivers refactor (#2761) ([f54ba10bc](https://github.com/waku-org/nwaku/commit/f54ba10bc))
@@ -45,6 +49,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 | ---: | :---: | :--- |
 | [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
 | [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`WAKU2-STORE`](https://github.com/waku-org/specs/blob/master/standards/core/store.md) | `draft` | `/vac/waku/store-query/3.0.0` |
 | [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
 | [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 | [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
