@@ -1,4 +1,7 @@
 ## v0.31.0 (2024-07-16)
+### Notes
+
+* Named sharding has been deprecated in favor of static sharding. Topics in formats other than `/waku/2/rs/<cluster>/<shard>` are no longer supported
 
 ### Features
 
