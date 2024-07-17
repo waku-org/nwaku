@@ -597,7 +597,7 @@ proc createLastOnlineTableQuery*(): SqlQueryStr =
   return "CREATE TABLE IF NOT EXISTS last_online (timestamp BIGINT NOT NULL);"
 
 proc insertDefaultQuery*(): SqlQueryStr =
-  return "INSERT INTO last_online VALUES(1);"
+  return "INSERT INTO last_online (timestamp) VALUES(1);"
 
 proc createLastOnlineTable*(db: SqliteDatabase): DatabaseResult[void] =
   var query = createLastOnlineTableQuery()
