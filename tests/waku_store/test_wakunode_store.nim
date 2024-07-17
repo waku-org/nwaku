@@ -74,14 +74,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore()
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req =
@@ -109,14 +109,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore()
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req = StoreQueryRequest(
@@ -165,14 +165,14 @@ procSuite "WakuNode - Store":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountStore()
 
     client.mountStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req = StoreQueryRequest(

@@ -1305,6 +1305,8 @@ proc start*(node: WakuNode) {.async.} =
   if not node.isBootstrapOnly():
     ## The switch will update addresses after start using the addressMapper
     await node.switch.start()
+  else:
+    warn "Did not start libp2p switch as no protocols are mounted"
 
   node.started = true
 

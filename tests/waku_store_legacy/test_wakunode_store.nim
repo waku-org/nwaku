@@ -65,14 +65,14 @@ procSuite "WakuNode - Store Legacy":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
 
     client.mountLegacyStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req = HistoryQuery(contentTopics: @[DefaultContentTopic])
@@ -99,14 +99,14 @@ procSuite "WakuNode - Store Legacy":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
 
     client.mountLegacyStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req = HistoryQuery(
@@ -154,14 +154,14 @@ procSuite "WakuNode - Store Legacy":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
 
     client.mountLegacyStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Given
     let req = HistoryQuery(
@@ -213,8 +213,6 @@ procSuite "WakuNode - Store Legacy":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start(), filterSource.start())
-
     waitFor filterSource.mountFilter()
     let driver = newSqliteArchiveDriver()
 
@@ -224,6 +222,8 @@ procSuite "WakuNode - Store Legacy":
     waitFor server.mountLegacyStore()
     waitFor server.mountFilterClient()
     client.mountLegacyStoreClient()
+
+    waitFor allFutures(client.start(), server.start(), filterSource.start())
 
     ## Given
     let message = fakeWakuMessage()
@@ -279,14 +279,14 @@ procSuite "WakuNode - Store Legacy":
       clientKey = generateSecp256k1Key()
       client = newTestWakuNode(clientKey, parseIpAddress("0.0.0.0"), Port(0))
 
-    waitFor allFutures(client.start(), server.start())
-
     let mountArchiveRes = server.mountLegacyArchive(archiveA)
     assert mountArchiveRes.isOk(), mountArchiveRes.error
 
     waitFor server.mountLegacyStore()
 
     client.mountLegacyStoreClient()
+
+    waitFor allFutures(client.start(), server.start())
 
     ## Forcing a bad cursor with empty digest data
     var data: array[32, byte] = [
