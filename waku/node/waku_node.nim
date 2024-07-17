@@ -1270,8 +1270,7 @@ proc isBootstrapOnly(node: WakuNode): bool =
       node.wakuLegacyStoreClient.isNil() and node.wakuFilterClient.isNil() and
       node.wakuLightpushClient.isNil():
     return true
-  else:
-    return false
+  return false
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
