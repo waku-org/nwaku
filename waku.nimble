@@ -26,7 +26,7 @@ requires "nim >= 2.0.8",
   "db_connector"
 
 ### Helper functions
-proc buildModule(filePath, params = "", lang = "c") =
+proc buildModule(filePath, params = "", lang = "c"): bool =
   if not dirExists "build":
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
@@ -36,10 +36,13 @@ proc buildModule(filePath, params = "", lang = "c") =
 
   if not fileExists(filePath):
     echo "File to build not found: " & filePath
-    return
+    return false
 
   exec "nim " & lang & " --out:build/" & filepath & ".bin --mm:refc " & extra_params &
     " " & filePath
+
+  # exec will raise exception if anything goes wrong
+  return true
 
 proc buildBinary(name: string, srcDir = "./", params = "", lang = "c") =
   if not dirExists "build":
@@ -146,12 +149,12 @@ task liteprotocoltester, "Build liteprotocoltester":
 
 task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
-  buildModule filepath
+  discard buildModule filepath
 
 task testone, "Test custom target":
   let filepath = paramStr(paramCount())
-  buildModule filepath
-  exec "build/" & filepath & ".bin"
+  if buildModule(filepath):
+    exec "build/" & filepath & ".bin"
 
 ### C Bindings
 task libwakuStatic, "Build the cbindings waku node library":
