@@ -296,6 +296,9 @@ proc setupProtocols(
     else:
       return err("failed to set node waku legacy store peer: " & storeNode.error)
 
+  if conf.store and conf.storeResume:
+    node.setupStoreResume()
+
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:

@@ -34,6 +34,7 @@ import
   ../waku_store/protocol as store,
   ../waku_store/client as store_client,
   ../waku_store/common as store_common,
+  ../waku_store/resume,
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
@@ -94,6 +95,7 @@ type
     wakuLegacyStoreClient*: legacy_store_client.WakuStoreClient
     wakuStore*: store.WakuStore
     wakuStoreClient*: store_client.WakuStoreClient
+    wakuStoreResume*: StoreResume
     wakuFilter*: waku_filter_v2.WakuFilter
     wakuFilterClient*: filter_client.WakuFilterClient
     wakuRlnRelay*: WakuRLNRelay
@@ -954,6 +956,13 @@ proc query*(
     return ok(res)
 
   return ok(response)
+
+proc setupStoreResume*(node: WakuNode) =
+  info "setting up store resume functionality"
+
+  node.wakuStoreResume = StoreResume.new().valueOr:
+    error "Failed to setup Store Resume", error
+    return 
 
 ## Waku lightpush
 
