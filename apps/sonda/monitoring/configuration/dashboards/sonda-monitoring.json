@@ -414,7 +414,7 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "{__name__=\"failed_sonda_msgs_total\", instance=\"sonda:8004\", job=\"nwaku\"}"
+                  "{instance=\"sonda:8004\", job=\"nwaku\"}"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -460,7 +460,7 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "increase(successful_sonda_msgs_total[5m]) / 5",
+          "expr": "increase(failed_sonda_msgs_total[5m]) / 5",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -584,7 +584,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "expr": "successful_store_queries_total",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
