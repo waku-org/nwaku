@@ -77,7 +77,7 @@ proc start*(self: StoreResume) =
   self.handle = self.periodicSetLastOnline()
 
 proc stopWait*(self: StoreResume) {.async.} =
-  if not self.handle.isNil:
+  if not self.handle.isNil():
     await noCancel(self.handle.cancelAndWait())
 
   self.replaceStmt.dispose()
