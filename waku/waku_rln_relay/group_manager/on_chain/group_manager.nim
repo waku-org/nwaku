@@ -46,6 +46,8 @@ contract(WakuRlnContract):
   proc commitmentIndex(): UInt256 {.view.}
   # this constant describes the block number this contract was deployed on
   proc deployedBlockNumber(): UInt256 {.view.}
+  # this constant describes max message limit of rln contract
+  proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -617,6 +619,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
+  g.rlnRelayMaxMessageLimit = cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
