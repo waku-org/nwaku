@@ -45,7 +45,7 @@ proc new*(
 
   return ok(resume)
 
-proc get*(self: StoreResume): Result[Timestamp, string] =
+proc getLastOnlineTimestamp*(self: StoreResume): Result[Timestamp, string] =
   var timestamp: Timestamp
 
   proc queryCallback(s: ptr sqlite3_stmt) =
@@ -56,7 +56,7 @@ proc get*(self: StoreResume): Result[Timestamp, string] =
 
   return ok(timestamp)
 
-proc set*(self: StoreResume, timestamp: Timestamp): Result[void, string] =
+proc setLastOnlineTimestamp*(self: StoreResume, timestamp: Timestamp): Result[void, string] =
   self.replaceStmt.exec((timestamp)).isOkOr:
     return err("Failed to execute replace stmt" & $error)
 
@@ -68,7 +68,7 @@ proc periodicSetLastOnline(self: StoreResume) {.async.} =
   while true:
     let ts = getNowInNanosecondTime()
 
-    self.set(ts).isOkOr:
+    self.setLastOnlineTimestamp(ts).isOkOr:
       error "Failed to set last online timestamp", error, time = ts
 
     await sleepAsync(self.interval)
@@ -77,7 +77,7 @@ proc start*(self: StoreResume) =
   self.handle = self.periodicSetLastOnline()
 
 proc stopWait*(self: StoreResume) {.async.} =
-  if not self.handle.isNil:
+  if not self.handle.isNil():
     await noCancel(self.handle.cancelAndWait())
 
   self.replaceStmt.dispose()

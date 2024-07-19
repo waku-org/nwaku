@@ -21,10 +21,10 @@ suite "Store Resume":
   asyncTest "get set roundtrip":
     let ts = getNowInNanosecondTime()
 
-    let setRes = resume.set(ts)
+    let setRes = resume.setLastOnlineTimestamp(ts)
     assert setRes.isOk(), $setRes.error
 
-    let getRes = resume.get()
+    let getRes = resume.getLastOnlineTimestamp()
     assert getRes.isOk(), $getRes.error
 
     let getTs = getRes.get()
