@@ -14,6 +14,7 @@ import
   ../../../waku_filter_v2,
   ../../../waku_lightpush/common,
   ../../../waku_relay,
+  ../../../waku_peer_exchange,
   ../../../waku_node,
   ../../../node/peer_manager,
   ../responses,
@@ -50,9 +51,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, relayPeers)
 
-    let filterV2Peers = node.peerManager.peerStore
-      .peers(WakuFilterSubscribeCodec)
-      .mapIt(
+    let filterV2Peers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuFilterSubscribeCodec,
@@ -72,9 +71,7 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, storePeers)
 
-    let legacyStorePeers = node.peerManager.peerStore
-      .peers(WakuLegacyStoreCodec)
-      .mapIt(
+    let legacyStorePeers = node.peerManager.peerStore.peers(WakuLegacyStoreCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
           protocol: WakuLegacyStoreCodec,
@@ -84,7 +81,6 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, legacyStorePeers)
 
-    # Map WakuStore peers to WakuPeers and add to return list
     let lightpushPeers = node.peerManager.peerStore.peers(WakuLightPushCodec).mapIt(
         (
           multiaddr: constructMultiaddrStr(it),
@@ -94,6 +90,16 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         )
       )
     tuplesToWakuPeers(peers, lightpushPeers)
+
+    let pxPeers = node.peerManager.peerStore.peers(WakuPeerExchangeCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuPeerExchangeCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
+        )
+      )
+    tuplesToWakuPeers(peers, pxPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
