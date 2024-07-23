@@ -21,6 +21,7 @@ import
     waku_api/rest/admin/handlers as admin_api,
     waku_api/rest/admin/client as admin_api_client,
     waku_relay,
+    waku_peer_exchange,
   ],
   ../testlib/wakucore,
   ../testlib/wakunode,
@@ -45,7 +46,12 @@ suite "Waku v2 Rest API - Admin":
       newTestWakuNode(generateSecp256k1Key(), parseIpAddress("127.0.0.1"), Port(60604))
 
     await allFutures(node1.start(), node2.start(), node3.start())
-    await allFutures(node1.mountRelay(), node2.mountRelay(), node3.mountRelay())
+    await allFutures(
+      node1.mountRelay(),
+      node2.mountRelay(),
+      node3.mountRelay(),
+      node3.mountPeerExchange(),
+    )
 
     peerInfo1 = node1.switch.peerInfo
     peerInfo2 = node2.switch.peerInfo
@@ -91,6 +97,12 @@ suite "Waku v2 Rest API - Admin":
       # Check peer 3
       getRes.data.anyIt(
         it.protocols.find(WakuRelayCodec) >= 0 and
+          it.multiaddr == constructMultiaddrStr(peerInfo3)
+      )
+
+      # Check peer 3
+      getRes.data.anyIt(
+        it.protocols.find(WakuPeerExchangeCodec) >= 0 and
           it.multiaddr == constructMultiaddrStr(peerInfo3)
       )
 
@@ -170,7 +182,7 @@ suite "Waku v2 Rest API - Admin":
       getRes.data == "Error: Filter Protocol is not mounted to the node"
 
   asyncTest "Get peer origin":
-    # Adding peers to the Peer Store  
+    # Adding peers to the Peer Store
     node1.peerManager.addPeer(peerInfo2, Discv5)
     node1.peerManager.addPeer(peerInfo3, PeerExchange)
 

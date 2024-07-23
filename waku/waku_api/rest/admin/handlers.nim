@@ -14,6 +14,7 @@ import
   ../../../waku_filter_v2,
   ../../../waku_lightpush/common,
   ../../../waku_relay,
+  ../../../waku_peer_exchange,
   ../../../waku_node,
   ../../../node/peer_manager,
   ../responses,
@@ -40,65 +41,65 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
   router.api(MethodGet, ROUTE_ADMIN_V1_PEERS) do() -> RestApiResponse:
     var peers: WakuPeers = @[]
 
-    if not node.wakuRelay.isNil():
-      let relayPeers = node.peerManager.peerStore.peers(WakuRelayCodec).mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuRelayCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
+    let relayPeers = node.peerManager.peerStore.peers(WakuRelayCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuRelayCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
         )
-      tuplesToWakuPeers(peers, relayPeers)
+      )
+    tuplesToWakuPeers(peers, relayPeers)
 
-    if not node.wakuFilter.isNil():
-      let filterV2Peers = node.peerManager.peerStore
-        .peers(WakuFilterSubscribeCodec)
-        .mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuFilterSubscribeCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
+    let filterV2Peers = node.peerManager.peerStore.peers(WakuFilterSubscribeCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuFilterSubscribeCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
         )
-      tuplesToWakuPeers(peers, filterV2Peers)
+      )
+    tuplesToWakuPeers(peers, filterV2Peers)
 
-    if not node.wakuStore.isNil():
-      let storePeers = node.peerManager.peerStore.peers(WakuStoreCodec).mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuStoreCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
+    let storePeers = node.peerManager.peerStore.peers(WakuStoreCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuStoreCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
         )
-      tuplesToWakuPeers(peers, storePeers)
+      )
+    tuplesToWakuPeers(peers, storePeers)
 
-    if not node.wakuLegacyStore.isNil():
-      let legacyStorePeers = node.peerManager.peerStore
-        .peers(WakuLegacyStoreCodec)
-        .mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuLegacyStoreCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
+    let legacyStorePeers = node.peerManager.peerStore.peers(WakuLegacyStoreCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuLegacyStoreCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
         )
-      tuplesToWakuPeers(peers, legacyStorePeers)
+      )
+    tuplesToWakuPeers(peers, legacyStorePeers)
 
-    if not node.wakuLightPush.isNil():
-      # Map WakuStore peers to WakuPeers and add to return list
-      let lightpushPeers = node.peerManager.peerStore.peers(WakuLightPushCodec).mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuLightPushCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
+    let lightpushPeers = node.peerManager.peerStore.peers(WakuLightPushCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuLightPushCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
         )
-      tuplesToWakuPeers(peers, lightpushPeers)
+      )
+    tuplesToWakuPeers(peers, lightpushPeers)
+
+    let pxPeers = node.peerManager.peerStore.peers(WakuPeerExchangeCodec).mapIt(
+        (
+          multiaddr: constructMultiaddrStr(it),
+          protocol: WakuPeerExchangeCodec,
+          connected: it.connectedness == Connectedness.Connected,
+          origin: it.origin,
+        )
+      )
+    tuplesToWakuPeers(peers, pxPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
