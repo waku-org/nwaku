@@ -23,6 +23,7 @@ type
   RateCommitment* = object
     idCommitment*: IDCommitment
     userMessageLimit*: UserMessageLimit
+
   RawRateCommitment* = seq[byte]
 
 proc toRateCommitment*(rateCommitmentUint: UInt256): RawRateCommitment =

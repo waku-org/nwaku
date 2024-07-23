@@ -70,7 +70,6 @@ method register*(
 
   await g.registerBatch(@[leaf])
 
-
 method registerBatch*(
     g: StaticGroupManager, rateCommitments: seq[RawRateCommitment]
 ): Future[void] {.async: (raises: [Exception]).} =
