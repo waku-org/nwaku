@@ -161,5 +161,5 @@ jobs:
           curl -L "https://github.com/arnetheduck/nph/releases/download/${VERSION}/${ARCHIVE}" -o ${ARCHIVE}
           tar -xzf ${ARCHIVE}
           shopt -s extglob  # Enable extended globbing
-          ./nph examples libp2p tests tools *.@(nim|nims|nimble)
+          ./nph examples waku tests tools apps *.@(nim|nims|nimble)
           git diff --exit-code
