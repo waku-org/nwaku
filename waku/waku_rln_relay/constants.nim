@@ -30,8 +30,8 @@ const DefaultRlnTreePath* = "rln_tree.db"
 const
   # pre-processed "rln/waku-rln-relay/v2.0.0" to array[32, byte]
   DefaultRlnIdentifier*: RlnIdentifier = [
-    114, 108, 110, 47, 119, 97, 107, 117, 45, 114, 108, 110, 45, 114, 101, 108, 97,
-    121, 47, 118, 50, 46, 48, 46, 48, 0, 0, 0, 0, 0, 0, 0,
+    114, 108, 110, 47, 119, 97, 107, 117, 45, 114, 108, 110, 45, 114, 101, 108, 97, 121,
+    47, 118, 50, 46, 48, 46, 48, 0, 0, 0, 0, 0, 0, 0,
   ]
   DefaultUserMessageLimit* = UserMessageLimit(20)
 
@@ -60051,7 +60051,6 @@ const StaticGroupKeys* =
 # the root is created locally, using createMembershipList proc from waku_rln_relay_utils module, and the result is hardcoded in here
 const StaticGroupMerkleRoot* =
   "2c149e48886b5ba3da2edf8db8d7a364ae7a25618489c04cf0c0380f7cdd4d6f"
-
 
 const MaxClockGapSeconds* = 20.0 # the maximum clock difference between peers in seconds
 
