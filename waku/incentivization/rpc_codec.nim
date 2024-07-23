@@ -1,14 +1,9 @@
-import
-  std/options
-import
-  ../common/protobuf,
-  ../waku_core,
-  ./rpc
-
+import std/options
+import ../common/protobuf, ../waku_core, ./rpc
 
 # Codec for EligibilityProof
 
-proc encode*(epRpc: EligibilityProof): ProtoBuffer = 
+proc encode*(epRpc: EligibilityProof): ProtoBuffer =
   var pb = initProtoBuffer()
   if epRpc.proofOfPayment.isSome():
     let proofOfPayment = epRpc.proofOfPayment.get()
@@ -18,7 +13,7 @@ proc encode*(epRpc: EligibilityProof): ProtoBuffer =
     discard
   pb
 
-proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] = 
+proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var epRpc = EligibilityProof()
   var proofOfPayment = newSeq[byte]()
@@ -28,17 +23,16 @@ proc decode*(T: type EligibilityProof, buffer: seq[byte]): ProtobufResult[T] =
     epRpc.proofOfPayment = some(proofOfPayment)
   ok(epRpc)
 
-
 # Codec for EligibilityStatus
 
-proc encode*(esRpc: EligibilityStatus): ProtoBuffer = 
+proc encode*(esRpc: EligibilityStatus): ProtoBuffer =
   var pb = initProtoBuffer()
   pb.write3(1, esRpc.statusCode)
   if esRpc.statusDesc.isSome():
     pb.write3(2, esRpc.statusDesc.get())
   pb
 
-proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] = 
+proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var esRpc = EligibilityStatus()
   # status code
@@ -55,5 +49,3 @@ proc decode*(T: type EligibilityStatus, buffer: seq[byte]): ProtobufResult[T] =
   else:
     esRpc.statusDesc = some(description)
   ok(esRpc)
-  
-

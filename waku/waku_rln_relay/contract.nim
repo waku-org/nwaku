@@ -1,4 +1,3 @@
-
 # This contract code is used in deployment, note: this is not the deployedBytecode, it includes constructor args.
 # Ref: https://github.com/waku-org/waku-rlnv2-contract
 const PoseidonT3* =

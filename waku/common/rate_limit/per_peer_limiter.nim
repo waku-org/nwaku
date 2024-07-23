@@ -4,8 +4,6 @@
 ## Rate limit is applied separately by each peer upon first use. Also time period is counted distinct per peer.
 ## It will use compensating replenish mode for peers to balance the load and allow fair usage of a service.
 
-
-
 {.push raises: [].}
 
 import std/[options, tables], chronos/timer, libp2p/stream/connection, libp2p/utility

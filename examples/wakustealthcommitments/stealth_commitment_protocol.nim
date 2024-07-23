@@ -2,9 +2,7 @@
 
 import
   results,
-  waku/[common/logging,
-    waku_node,
-    waku_rln_relay,],
+  waku/[common/logging, waku_node, waku_rln_relay],
   ./erc_5564_interface as StealthCommitmentFFI,
   ./node_spec,
   ./wire_spec

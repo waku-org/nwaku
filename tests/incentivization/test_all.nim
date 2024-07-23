@@ -1,2 +1,1 @@
-import
-  ./test_rpc_codec
+import ./test_rpc_codec

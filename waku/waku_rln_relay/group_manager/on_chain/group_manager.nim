@@ -30,15 +30,11 @@ logScope:
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(
-    idCommitment: UInt256, userMessageLimit: UInt32
-  )
+  proc register(idCommitment: UInt256, userMessageLimit: UInt32)
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(
-    rateCommitment: UInt256, index: Uint32
-  ) {.event.}
+  proc MemberRegistered(rateCommitment: UInt256, index: Uint32) {.event.}
 
   # this function denotes existence of a given user
   proc memberExists(idCommitment: Uint256): UInt256 {.view.}
@@ -136,7 +132,8 @@ method atomicBatch*(
     var membersSeq = newSeq[Membership]()
     for i in 0 ..< rateCommitments.len:
       var index = start + MembershipIndex(i)
-      debug "registering member to callback", rateCommitment = rateCommitments[i], index = index
+      debug "registering member to callback",
+        rateCommitment = rateCommitments[i], index = index
       let member = Membership(rateCommitment: rateCommitments[i], index: index)
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
@@ -153,7 +150,6 @@ method register*(
     await g.registerBatch(@[leaf])
   except CatchableError:
     raise newException(ValueError, getCurrentExceptionMsg())
-
 
 method registerBatch*(
     g: OnchainGroupManager, rateCommitments: seq[RawRateCommitment]
@@ -179,13 +175,12 @@ method register*(
   let idCommitment = identityCredential.idCommitment.toUInt256()
 
   debug "registering the member",
-    idCommitment = idCommitment,
-    userMessageLimit = userMessageLimit
+    idCommitment = idCommitment, userMessageLimit = userMessageLimit
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract
-    .register(idCommitment, userMessageLimit.stuint(32))
-    .send(gasPrice = gasPrice)
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32)).send(
+      gasPrice = gasPrice
+    )
 
   # wait for the transaction to be mined
   var tsReceipt: ReceiptObject
@@ -199,9 +194,7 @@ method register*(
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak256.digest(
-        "MemberRegistered(uint256,uint32)"
-      ).data):
+      cast[FixedBytes[32]](keccak256.digest("MemberRegistered(uint256,uint32)").data):
     raise newException(ValueError, "unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
@@ -218,7 +211,6 @@ method register*(
 
   # don't handle member insertion into the tree here, it will be handled by the event listener
   return
-
 
 method withdraw*(
     g: OnchainGroupManager, idCommitment: IDCommitment
@@ -260,7 +252,6 @@ proc parseEvent(
         index: index.toMembershipIndex(),
       )
     )
-
   except CatchableError:
     return err("failed to parse the data field of the MemberRegistered event")
 
@@ -350,8 +341,8 @@ proc handleEvents(
         toRemoveIndices = removalIndices,
       )
       g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
-      trace "new members added to the Merkle tree", commitments = rateCommitments.mapIt(it.inHex)
-
+      trace "new members added to the Merkle tree",
+        commitments = rateCommitments.mapIt(it.inHex)
     except CatchableError:
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
@@ -545,10 +536,14 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   # Set the chain id
   if g.chainId == 0:
-    warn "Chain ID not set in config, using RPC Provider's Chain ID", providerChainId = fetchedChainId
+    warn "Chain ID not set in config, using RPC Provider's Chain ID",
+      providerChainId = fetchedChainId
 
   if g.chainId != 0 and g.chainId != fetchedChainId:
-    return err("The RPC Provided a Chain ID which is different than the provided Chain ID: provided = " & $g.chainId & ", actual = " & $fetchedChainId)
+    return err(
+      "The RPC Provided a Chain ID which is different than the provided Chain ID: provided = " &
+        $g.chainId & ", actual = " & $fetchedChainId
+    )
 
   g.chainId = fetchedChainId
 
@@ -562,7 +557,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   let contractAddress = web3.fromHex(web3.Address, g.ethContractAddress)
   let wakuRlnContract = ethRpc.contractSender(WakuRlnContract, contractAddress)
-  
+
   g.ethRpc = some(ethRpc)
   g.wakuRlnContract = some(wakuRlnContract)
 
@@ -614,12 +609,16 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     g.validRoots = metadata.validRoots.toDeque()
 
   var deployedBlockNumber: Uint256
-  g.retryWrapper(deployedBlockNumber, "Failed to get the deployed block number. Have you set the correct contract address?"):
+  g.retryWrapper(
+    deployedBlockNumber,
+    "Failed to get the deployed block number. Have you set the correct contract address?",
+  ):
     await wakuRlnContract.deployedBlockNumber().call()
   debug "using rln contract", deployedBlockNumber, rlnContractAddress = contractAddress
   g.rlnContractDeployedBlockNumber = cast[BlockNumber](deployedBlockNumber)
   g.latestProcessedBlock = max(g.latestProcessedBlock, g.rlnContractDeployedBlockNumber)
-  g.rlnRelayMaxMessageLimit = cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
+  g.rlnRelayMaxMessageLimit =
+    cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
 
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"

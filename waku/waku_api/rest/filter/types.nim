@@ -426,6 +426,5 @@ proc readValue*(
     reader.raiseUnexpectedValue("Field `requestId` is missing")
 
   value = FilterSubscriptionResponse(
-    requestId: requestId.get(),
-    statusDesc: statusDesc.get(""),
+    requestId: requestId.get(), statusDesc: statusDesc.get("")
   )
