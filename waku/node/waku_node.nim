@@ -958,11 +958,11 @@ proc query*(
   return ok(response)
 
 proc setupStoreResume*(node: WakuNode) =
-  info "setting up store resume functionality"
-
-  node.wakuStoreResume = StoreResume.new().valueOr:
-    error "Failed to setup Store Resume", error
-    return 
+  node.wakuStoreResume = StoreResume.new(
+    node.peerManager, node.wakuArchive, node.wakuStoreClient
+  ).valueOr:
+    error "Failed to setup Store Resume", error = $error
+    return
 
 ## Waku lightpush
 
@@ -1285,6 +1285,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuMetadata.isNil():
     node.wakuMetadata.start()
 
+  if not node.wakuStoreResume.isNil():
+    await node.wakuStoreResume.start()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper = proc(
@@ -1319,6 +1322,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuArchive.isNil():
     await node.wakuArchive.stopWait()
+
+  if not node.wakuStoreResume.isNil():
+    await node.wakuStoreResume.stopWait()
 
   node.started = false
 
