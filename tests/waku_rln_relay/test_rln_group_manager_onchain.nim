@@ -215,8 +215,9 @@ proc setup(): Future[OnchainGroupManager] {.async.} =
     chainId: CHAIN_ID,
     ethPrivateKey: pk,
     rlnInstance: rlnInstance,
-    onFatalErrorAction: proc (errStr: string) =
+    onFatalErrorAction: proc(errStr: string) =
       raiseAssert errStr
+    ,
   )
 
   return manager
@@ -277,8 +278,9 @@ suite "Onchain group manager":
       ethClientUrl: EthClient,
       ethContractAddress: $differentContractAddress,
       rlnInstance: manager.rlnInstance,
-      onFatalErrorAction: proc (errStr: string) =
+      onFatalErrorAction: proc(errStr: string) =
         raiseAssert errStr
+      ,
     )
     (await manager2.init()).isErrOr:
       raiseAssert "Expected error when contract address doesn't match"
@@ -779,7 +781,7 @@ suite "Onchain group manager":
       isReady == true
 
     await manager.stop()
-  
+
   asyncTest "rln-relay-max-message-limit testing":
     let
       nodekey = generateSecp256k1Key()
@@ -797,9 +799,9 @@ suite "Onchain group manager":
     try:
       await node.mountRlnRelay(wakuRlnConfig)
     except CatchableError as e:
-      check e.msg == "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
+      check e.msg ==
+        "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
 
-    
   ################################
   ## Terminating/removing Anvil
   ################################

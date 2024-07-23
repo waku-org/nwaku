@@ -78,7 +78,6 @@ proc serialize*(
   )
   return output
 
-
 proc serialize*(proof: RateLimitProof, data: openArray[byte]): seq[byte] =
   ## a private proc to convert RateLimitProof and data to a byte seq
   ## this conversion is used in the proof verification proc

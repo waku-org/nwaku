@@ -63,7 +63,7 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     keystorePath: none(string),
     keystorePassword: none(string),
     ethPrivateKey: some(conf.rlnRelayEthPrivateKey),
-    onFatalErrorAction: onFatalErrorAction
+    onFatalErrorAction: onFatalErrorAction,
   )
   try:
     (waitFor groupManager.init()).isOkOr:

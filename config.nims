@@ -9,7 +9,8 @@ if defined(windows):
   # increase stack size
   switch("passL", "-Wl,--stack,8388608")
   # https://github.com/nim-lang/Nim/issues/4057
-  --tlsEmulation:off
+  --tlsEmulation:
+    off
   if defined(i386):
     # set the IMAGE_FILE_LARGE_ADDRESS_AWARE flag so we can use PAE, if enabled, and access more than 2 GiB of RAM
     switch("passL", "-Wl,--large-address-aware")
@@ -60,14 +61,18 @@ else:
     switch("passC", "-mno-avx512f")
     switch("passL", "-mno-avx512f")
 
-
---threads:on
---opt:speed
---excessiveStackTrace:on
+--threads:
+  on
+--opt:
+  speed
+--excessiveStackTrace:
+  on
 # enable metric collection
---define:metrics
+--define:
+  metrics
 # for heap-usage-by-instance-type metrics and object base-type strings
---define:nimTypeNames
+--define:
+  nimTypeNames
 
 switch("define", "withoutPCRE")
 
@@ -75,13 +80,17 @@ switch("define", "withoutPCRE")
 # "--debugger:native" build. It can be increased with `ulimit -n 1024`.
 if not defined(macosx) and not defined(android):
   # add debugging symbols and original files and line numbers
-  --debugger:native
+  --debugger:
+    native
   if not (defined(windows) and defined(i386)) and not defined(disable_libbacktrace):
     # light-weight stack traces using libbacktrace and libunwind
-    --define:nimStackTraceOverride
+    --define:
+      nimStackTraceOverride
     switch("import", "libbacktrace")
 
---define:nimOldCaseObjects # https://github.com/status-im/nim-confutils/issues/9
+--define:
+  nimOldCaseObjects
+  # https://github.com/status-im/nim-confutils/issues/9
 
 # `switch("warning[CaseTransition]", "off")` fails with "Error: invalid command line option: '--warning[CaseTransition]'"
 switch("warning", "CaseTransition:off")
