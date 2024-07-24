@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[json, tables, sequtils],
+  std/[net, json, tables, sequtils],
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -10,8 +10,7 @@ import
   metrics/chronos_httpserver,
   presto/route,
   presto/server,
-  results,
-  stew/shims/net
+  results
 
 logScope:
   topics = "networkmonitor_metrics"
@@ -25,6 +24,10 @@ logScope:
 declarePublicGauge networkmonitor_peer_type_as_per_enr,
   "Number of peers supporting each capability according to the ENR",
   labels = ["capability"]
+
+declarePublicGauge networkmonitor_peer_cluster_as_per_enr,
+  "Number of peers on each cluster according to the ENR",
+  labels = ["cluster"]
 
 declarePublicGauge networkmonitor_peer_type_as_per_protocol,
   "Number of peers supporting each protocol, after a successful connection) ",

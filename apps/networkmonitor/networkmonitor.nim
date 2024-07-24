@@ -1,9 +1,8 @@
 {.push raises: [].}
 
 import
-  std/[tables, strutils, times, sequtils, random],
+  std/[net, tables, strutils, times, sequtils, random],
   results,
-  stew/shims/net,
   chronicles,
   chronicles/topics_registry,
   chronos,
@@ -40,7 +39,7 @@ logScope:
 const ReconnectTime = 60
 const MaxConnectionRetries = 5
 const ResetRetriesAfter = 1200
-const AvgPingWindow = 10.0
+const PingSmoothing = 0.3
 const MaxConnectedPeers = 150
 
 const git_version* {.strdefine.} = "n/a"
@@ -54,6 +53,23 @@ proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
     networkmonitor_peer_type_as_per_enr.set(
       int64(nOfNodesWithCapability), labelValues = [$capability]
     )
+
+proc setDiscoveredPeersCluster(routingTableNodes: seq[Node]) =
+  var clusters: CountTable[uint16]
+
+  for node in routingTableNodes:
+    let typedRec = node.record.toTyped().valueOr:
+      clusters.inc(0)
+      continue
+
+    let relayShard = typedRec.relaySharding().valueOr:
+      clusters.inc(0)
+      continue
+
+    clusters.inc(relayShard.clusterId)
+
+  for (key, value) in clusters.pairs:
+    networkmonitor_peer_cluster_as_per_enr.set(int64(value), labelValues = [$key])
 
 proc analyzePeer(
     customPeerInfo: CustomPeerInfoRef,
@@ -87,16 +103,17 @@ proc analyzePeer(
   info "successfully pinged peer", peer = peerInfo, duration = pingDelay.millis
   networkmonitor_peer_ping.observe(pingDelay.millis)
 
-  if customPeerInfo.avgPingDuration == 0.millis:
-    customPeerInfo.avgPingDuration = pingDelay
+  # We are using a smoothed moving average
+  customPeerInfo.avgPingDuration =
+    if customPeerInfo.avgPingDuration.millis == 0:
+      pingDelay
+    else:
+      let newAvg =
+        (float64(pingDelay.millis) * PingSmoothing) +
+        float64(customPeerInfo.avgPingDuration.millis) * (1.0 - PingSmoothing)
 
-  # TODO: check why the calculation ends up losing precision
-  customPeerInfo.avgPingDuration = int64(
-    (
-      float64(customPeerInfo.avgPingDuration.millis) * (AvgPingWindow - 1.0) +
-      float64(pingDelay.millis)
-    ) / AvgPingWindow
-  ).millis
+      int64(newAvg).millis
+
   customPeerInfo.lastPingDuration = pingDelay
 
   return ok(customPeerInfo.peerId)
@@ -308,6 +325,9 @@ proc crawlNetwork(
 
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
     setDiscoveredPeersCapabilities(flatNodes)
+
+    # populate cluster metrics as advertised by the ENR
+    setDiscoveredPeersCluster(flatNodes)
 
     # tries to connect to all newly discovered nodes
     # and populates metrics related to peers we could connect
@@ -592,7 +612,7 @@ when isMainModule:
   waitFor node.mountRelay()
   waitFor node.mountLibp2pPing()
 
-  if conf.rlnRelayEthContractAddress != "":
+  if conf.rlnRelay and conf.rlnRelayEthContractAddress != "":
     let rlnConf = WakuRlnConfig(
       rlnRelayDynamic: conf.rlnRelayDynamic,
       rlnRelayCredIndex: some(uint(0)),
