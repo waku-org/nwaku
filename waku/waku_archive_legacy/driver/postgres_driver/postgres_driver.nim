@@ -812,14 +812,19 @@ method deleteOldestMessagesNotWithinLimit*(
   # if execRes.isErr():
   #   return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
 
-  execRes = await s.writeConnPool.pgQuery(
-    """DELETE FROM messages_lookup WHERE messageHash NOT IN
-                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
-    return err(
-      "error in deleteOldestMessagesNotWithinLimit messages_lookup: " & execRes.error
-    )
+  # execRes = await s.writeConnPool.pgQuery(
+  #   """DELETE FROM messages_lookup WHERE messageHash NOT IN
+  #                         (
+  #                       SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
+  #                         );""",
+  #   @[$limit],
+  # )
+  # if execRes.isErr():
+  #   return err(
+  #     "error in deleteOldestMessagesNotWithinLimit messages_lookup: " & execRes.error
+  #   )
 
-  debug "end of deleteOldestMessagesNotWithinLimit"
+  # debug "end of deleteOldestMessagesNotWithinLimit"
   return ok()
 
 method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -865,15 +870,6 @@ proc performWriteQuery*(
     return err("error in performWriteQuery: " & $error)
 
   return ok()
-
-  let partitionName = partition.getName()
-  ## Now delete rows from the messages_lookup table
-  let timeRange = partition.getTimeRange()
-  let deleteRowsQuery =
-    "DELETE FROM messages_lookup WHERE timestamp >= " & $timeRange.beginning &
-    " AND timestamp < " & $timeRange.`end`
-  (await self.performWriteQuery(deleteRowsQuery)).isOkOr:
-    return err(fmt"error in {deleteRowsQuery}: " & $error)
 method decreaseDatabaseSize*(
     driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
