@@ -1101,7 +1101,7 @@ proc mountRlnRelay*(
 
 ## Waku peer-exchange
 
-proc mountPeerExchange*(node: WakuNode, cluster: uint16) {.async: (raises: []).} =
+proc mountPeerExchange*(node: WakuNode, cluster: Option[uint16] = none(uint16)) {.async: (raises: []).} =
   info "mounting waku peer exchange"
 
   node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager, cluster)

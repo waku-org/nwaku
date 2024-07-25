@@ -1,5 +1,5 @@
 import
-  std/[options, sequtils, random],
+  std/[options, sequtils, random, sugar],
   results,
   chronicles,
   chronos,
@@ -50,7 +50,7 @@ type
   WakuPeerExchange* = ref object of LPProtocol
     peerManager*: PeerManager
     enrCache*: seq[enr.Record]
-    cluster*: uint16
+    cluster*: Option[uint16]
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
 proc request*(
@@ -131,10 +131,18 @@ proc getEnrsFromCache(
 
 proc populateEnrCache(wpx: WakuPeerExchange) =
   # share only peers that i) are reachable ii) come from discv5 iii) share cluster
-  let withEnr = wpx.peerManager.peerStore
-    .getReachablePeers()
-    .filterIt(it.origin == Discv5)
-    .filterIt(it.enr.isSome() and not it.enr.get().isClusterMismatched(wpx.cluster))
+  let withEnr = collect(newSeq):
+    for peer in wpx.peerManager.peerStore.getReachablePeers():
+      if peer.origin != Discv5:
+        continue
+
+      if peer.enr.isNone():
+        continue
+
+      if wpx.cluster.isSome() and peer.enr.get().isClusterMismatched(wpx.cluster.get()):
+        continue
+
+      peer
 
   # either what we have or max cache size
   var newEnrCache = newSeq[enr.Record](0)
@@ -182,7 +190,11 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec
 
-proc new*(T: type WakuPeerExchange, peerManager: PeerManager, cluster: uint16): T =
+proc new*(
+    T: type WakuPeerExchange,
+    peerManager: PeerManager,
+    cluster: Option[uint16] = none(uint16),
+): T =
   let wpx = WakuPeerExchange(peerManager: peerManager, cluster: cluster)
   wpx.initProtocolHandler()
   asyncSpawn wpx.updatePxEnrCache()
