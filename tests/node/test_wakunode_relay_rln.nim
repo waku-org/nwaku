@@ -163,7 +163,7 @@ suite "Waku RlnRelay - End to End":
       except CatchableError as e:
         check e.msg ==
           "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
-  
+
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic
