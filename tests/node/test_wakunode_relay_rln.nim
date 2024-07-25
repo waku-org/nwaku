@@ -16,6 +16,7 @@ import
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
   ../waku_relay/utils,
+  ../waku_rln_relay/test_rln_group_manager_onchain,
   ../testlib/[wakucore, wakunode, testasync, futures],
   ../resources/payloads
 
@@ -136,6 +137,33 @@ suite "Waku RlnRelay - End to End":
       check:
         not isCompleted2
 
+    asyncTest "rln-relay-max-message-limit testing":
+      let
+        nodekey = generateSecp256k1Key()
+        node = newTestWakuNode(nodekey, parseIpAddress("0.0.0.0"), Port(0))
+
+      await node.mountRelay(@[DefaultPubsubTopic])
+
+      let contractAddress = await uploadRLNContract(EthClient)
+      let wakuRlnConfig = WakuRlnConfig(
+        rlnRelayDynamic: true,
+        rlnRelayCredIndex: some(0.uint),
+        rlnRelayUserMessageLimit: 111,
+        rlnRelayTreepath: genTempPath("rln_tree", "wakunode_0"),
+        rlnRelayEthClientAddress: EthClient,
+        rlnRelayEthContractAddress: $contractAddress,
+        rlnRelayChainId: 1337,
+        onFatalErrorAction: proc(errStr: string) =
+          raiseAssert errStr
+        ,
+      )
+
+      try:
+        await node.mountRlnRelay(wakuRlnConfig)
+      except CatchableError as e:
+        check e.msg ==
+          "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
+  
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
       # Given the node enables Relay and Rln while subscribing to a pubsub topic

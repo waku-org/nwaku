@@ -1089,6 +1089,7 @@ proc mountRlnRelay*(
     raise
       newException(CatchableError, "failed to mount WakuRlnRelay: " & rlnRelayRes.error)
   let rlnRelay = rlnRelayRes.get()
+  echo "-----------------------> " & $rlnRelay.groupManager.rlnRelayMaxMessageLimit
   if (rlnConf.rlnRelayUserMessageLimit > rlnRelay.groupManager.rlnRelayMaxMessageLimit):
     error "rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
   let validator = generateRlnValidator(rlnRelay, spamHandler)
