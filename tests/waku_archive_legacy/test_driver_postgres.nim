@@ -4,11 +4,13 @@ import std/[sequtils, options], testutils/unittests, chronos
 import
   waku/waku_archive_legacy,
   waku/waku_archive_legacy/driver/postgres_driver,
+  waku/waku_archive/driver/postgres_driver as new_postgres_driver,
   waku/waku_core,
   waku/waku_core/message/digest,
   ../testlib/wakucore,
   ../testlib/testasync,
-  ../testlib/postgres_legacy
+  ../testlib/postgres_legacy,
+  ../testlib/postgres as new_postgres
 
 proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveCursor =
   ArchiveCursor(
@@ -21,21 +23,38 @@ proc computeTestCursor(pubsubTopic: PubsubTopic, message: WakuMessage): ArchiveC
 
 suite "Postgres driver":
   ## Unique driver instance
-  var driver {.threadvar.}: PostgresDriver
+  var driver {.threadvar.}: postgres_driver.PostgresDriver
+
+  ## We need to artificially create an instance of the "newDriver"
+  ## because this is the only one in charge of creating partitions
+  ## We will clean legacy store soon and this file will get removed.
+  var newDriver {.threadvar.}: new_postgres_driver.PostgresDriver
 
   asyncSetup:
-    let driverRes = await newTestPostgresDriver()
+    let driverRes = await postgres_legacy.newTestPostgresDriver()
     if driverRes.isErr():
       assert false, driverRes.error
 
-    driver = PostgresDriver(driverRes.get())
+    driver = postgres_driver.PostgresDriver(driverRes.get())
+
+    let newDriverRes = await new_postgres.newTestPostgresDriver()
+    if driverRes.isErr():
+      assert false, driverRes.error
+
+    newDriver = new_postgres_driver.PostgresDriver(newDriverRes.get())
 
   asyncTeardown:
-    let resetRes = await driver.reset()
+    var resetRes = await driver.reset()
     if resetRes.isErr():
       assert false, resetRes.error
 
     (await driver.close()).expect("driver to close")
+
+    resetRes = await newDriver.reset()
+    if resetRes.isErr():
+      assert false, resetRes.error
+
+    (await newDriver.close()).expect("driver to close")
 
   asyncTest "Asynchronous queries":
     var futures = newSeq[Future[ArchiveDriverResult[void]]](0)
