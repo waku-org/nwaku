@@ -162,7 +162,7 @@ suite "Waku RlnRelay - End to End":
         await node.mountRlnRelay(wakuRlnConfig)
       except CatchableError as e:
         check e.msg ==
-          "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
+          "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't exceed the MAX_MESSAGE_LIMIT in the rln contract"
 
   suite "Analysis of Bandwith Limitations":
     asyncTest "Valid Payload Sizes":
