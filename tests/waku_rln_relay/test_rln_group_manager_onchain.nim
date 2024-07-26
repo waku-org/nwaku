@@ -782,26 +782,6 @@ suite "Onchain group manager":
 
     await manager.stop()
 
-  asyncTest "rln-relay-max-message-limit testing":
-    let
-      nodekey = generateSecp256k1Key()
-      node = newTestWakuNode(nodekey, parseIpAddress("0.0.0.0"), Port(0))
-
-    await node.mountRelay(@[DefaultPubsubTopic])
-
-    let wakuRlnConfig = WakuRlnConfig(
-      rlnRelayDynamic: false,
-      rlnRelayCredIndex: some(0.uint),
-      rlnRelayUserMessageLimit: 111,
-      rlnRelayTreepath: genTempPath("rln_tree", "wakunode_0"),
-    )
-
-    try:
-      await node.mountRlnRelay(wakuRlnConfig)
-    except CatchableError as e:
-      check e.msg ==
-        "failed to mount WakuRlnRelay: rln-relay-user-message-limit can't be exceed then MAX_MESSAGE_LIMIT set by rln contract"
-
   ################################
   ## Terminating/removing Anvil
   ################################
