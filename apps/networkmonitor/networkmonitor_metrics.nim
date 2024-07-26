@@ -26,8 +26,7 @@ declarePublicGauge networkmonitor_peer_type_as_per_enr,
   labels = ["capability"]
 
 declarePublicGauge networkmonitor_peer_cluster_as_per_enr,
-  "Number of peers on each cluster according to the ENR",
-  labels = ["cluster"]
+  "Number of peers on each cluster according to the ENR", labels = ["cluster"]
 
 declarePublicGauge networkmonitor_peer_type_as_per_protocol,
   "Number of peers supporting each protocol, after a successful connection) ",
