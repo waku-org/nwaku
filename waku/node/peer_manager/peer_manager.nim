@@ -36,6 +36,7 @@ declarePublicGauge waku_streams_peers,
 declarePublicGauge waku_peer_store_size, "Number of peers managed by the peer store"
 declarePublicGauge waku_service_peers,
   "Service peer protocol and multiaddress ", labels = ["protocol", "peerId"]
+declarePublicGauge waku_total_unique_peers, "total number of unique peers"
 
 logScope:
   topics = "waku node peer_manager"
@@ -140,6 +141,8 @@ proc addPeer*(
 
   trace "Adding peer to manager",
     peerId = remotePeerInfo.peerId, addresses = remotePeerInfo.addrs
+
+  waku_total_unique_peers.inc()
 
   pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
   pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey

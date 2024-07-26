@@ -211,6 +211,8 @@ proc findRandomPeers*(
   elif wd.predicate.isSome():
     discoveredRecords = discoveredRecords.filter(wd.predicate.get())
 
+  waku_discv5_discovered.inc(discoveredRecords.len)
+
   return discoveredRecords
 
 proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
@@ -233,6 +235,7 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
       let peerInfo = record.toRemotePeerInfo().valueOr:
         ## in case of error, we keep track of it for debugging purposes
         wrongRecordsReasons.add(($record, $error))
+        waku_discv5_errors.inc(labelValues = [$error])
         continue
 
       discoveredPeers.add(peerInfo)
