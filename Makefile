@@ -98,7 +98,7 @@ ifeq (, $(shell which cargo))
 endif
 
 anvil: rustup
-ifeq (, $(shell which anvil))
+ifeq (, $(shell which anvil 2> /dev/null))
 # Install Anvil if it's not installed
 	./scripts/install_anvil.sh
 endif
@@ -256,6 +256,27 @@ coverage:
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) ./scripts/run_cov.sh -y
 
+################
+## Formatting ##
+################
+.PHONY: check_nph_installed check_precommit_hook install_nph_prehook
+
+check_nph_installed:
+ifeq (, $(shell which nph 2> /dev/null))
+	# Error out if not installed
+	echo "Ensure 'nph' is in your PATH: https://github.com/arnetheduck/nph/releases"
+	exit 1
+endif
+
+check_precommit_hook:
+ifneq (,$(wildcard .git/hooks/pre-commit))
+	echo "Git pre-commit hook is already present, no hook will be installed"
+	exit 1
+endif
+
+install_nph_prehook: check_nph_installed check_precommit_hook
+	cp ./scripts/nph_git_pre_commit_hook.sh .git/hooks/pre-commit
+	echo -e "git pre-commit hook installed"
 
 #####################
 ## Container image ##
