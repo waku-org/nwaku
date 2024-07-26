@@ -1339,9 +1339,8 @@ proc removePartition(
 
   ## Now delete rows from the messages_lookup table
   let timeRange = partition.getTimeRange()
-  let deleteRowsQuery =
-    "DELETE FROM messages_lookup WHERE timestamp >= " & $timeRange.beginning &
-    " AND timestamp < " & $timeRange.`end`
+  let `end` = timeRange.`end` * 1_000_000_000
+  let deleteRowsQuery = "DELETE FROM messages_lookup WHERE timestamp < " & $`end`
   (await self.performWriteQuery(deleteRowsQuery)).isOkOr:
     return err(fmt"error in {deleteRowsQuery}: " & $error)
 
