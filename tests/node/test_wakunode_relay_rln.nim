@@ -90,9 +90,9 @@ proc getWakuRlnConfigOnChain*(
     rlnRelayTreePath: genTempPath("rln_tree", "wakunode_" & $credIndex),
     rlnEpochSizeSec: 1,
     onFatalErrorAction: fatalErrorHandler.get(fatalErrorVoidHandler),
-      # If these are used, initialisation fails with "failed to mount WakuRlnRelay: could not initialize the group manager: the commitment does not have a membership"
-      # rlnRelayCredPath: keystorePath, 
-      # rlnRelayCredPassword: password,
+    # If these are used, initialisation fails with "failed to mount WakuRlnRelay: could not initialize the group manager: the commitment does not have a membership"
+    rlnRelayCredPath: keystorePath,
+    rlnRelayCredPassword: password,
   )
 
 proc setupRelayWithOnChainRln*(

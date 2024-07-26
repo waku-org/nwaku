@@ -8,8 +8,7 @@ else:
 import stint
 
 import
-  ../../../waku/
-    [waku_keystore/protocol_types, waku_rln_relay, waku_rln_relay/protocol_types]
+  waku/[waku_keystore/protocol_types, waku_rln_relay, waku_rln_relay/protocol_types]
 
 func fromStrToBytesLe*(v: string): seq[byte] =
   try:

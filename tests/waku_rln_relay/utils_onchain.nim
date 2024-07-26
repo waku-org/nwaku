@@ -6,9 +6,8 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, os, osproc, streams, strutils, tempfiles],
-  stew/[results],
-  stew/shims/net as stewNet,
+  std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
+  stew/[results, byteutils],
   testutils/unittests,
   chronos,
   chronicles,
@@ -19,15 +18,18 @@ import
   eth/keys
 
 import
-  ../../../waku/waku_rln_relay/protocol_types,
-  ../../../waku/waku_rln_relay/constants,
-  ../../../waku/waku_rln_relay/contract,
-  ../../../waku/waku_rln_relay/rln,
-  ../../../waku/waku_rln_relay/conversion_utils,
-  ../../../waku/waku_rln_relay/group_manager/on_chain/group_manager,
-  ../testlib/common
+  waku/[
+    waku_rln_relay/protocol_types,
+    waku_rln_relay/constants,
+    waku_rln_relay/contract,
+    waku_rln_relay/rln,
+    waku_rln_relay/conversion_utils,
+    waku_rln_relay/group_manager/on_chain/group_manager
+  ],
+  ../testlib/common,
+  ./utils
 
-const CHAIN_ID = 1337
+const CHAIN_ID* = 1337
 
 proc generateCredentials*(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)

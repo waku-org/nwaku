@@ -10,7 +10,7 @@ import
   libp2p/switch,
   libp2p/protocols/pubsub/pubsub
 import
-  ../../../waku/[waku_core, waku_node, waku_rln_relay],
+  waku/[waku_core, waku_node, waku_rln_relay],
   ../testlib/[wakucore, futures, wakunode],
   ./rln/waku_rln_relay_utils
 
@@ -523,16 +523,6 @@ procSuite "WakuNode - RLN relay":
       wm5 = WakuMessage(payload: "message 5".toBytes(), contentTopic: contentTopic)
       wm6 = WakuMessage(payload: "message 6".toBytes(), contentTopic: contentTopic)
 
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, time).isOkOr:
-      raiseAssert $error
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, time).isOkOr:
-      raiseAssert $error
-
-    node1.wakuRlnRelay.unsafeAppendRLNProof(
-      wm3, time + float64(node1.wakuRlnRelay.rlnEpochSizeSec * 2)
-    ).isOkOr:
-      raiseAssert $error
-
     # And node2 mounts a relay handler that completes the respective future when a message is received
     var
       completionFut1 = newFuture[bool]()
@@ -560,7 +550,6 @@ procSuite "WakuNode - RLN relay":
           completionFut6.complete(true)
 
     node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
-    # await sleepAsync(duration)
 
     # Given all messages have an rln proof and are published by the node 1
     let publishSleepDuration: Duration = 5000.millis
@@ -584,12 +573,18 @@ procSuite "WakuNode - RLN relay":
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm3)
     await sleepAsync(publishSleepDuration)
+    check:
+      node1.wakuRlnRelay.nullifierLog.len() == 0
+      node2.wakuRlnRelay.nullifierLog.len() == 2
 
     # Epoch 3
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, epochTime()).isOkOr:
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm4)
     await sleepAsync(publishSleepDuration)
+    check:
+      node1.wakuRlnRelay.nullifierLog.len() == 0
+      node2.wakuRlnRelay.nullifierLog.len() == 3
 
     # Epoch 4
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, epochTime()).isOkOr:
@@ -607,7 +602,7 @@ procSuite "WakuNode - RLN relay":
     await sleepAsync(publishSleepDuration)
     check:
       node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 1
+      node2.wakuRlnRelay.nullifierLog.len() == 4
 
     # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
     # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
@@ -619,6 +614,7 @@ procSuite "WakuNode - RLN relay":
       (await completionFut5.waitForResult()).value() == true
       (await completionFut6.waitForResult()).value() == true
 
+    # Cleanup
     waitFor allFutures(node1.stop(), node2.stop())
 
   asyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":

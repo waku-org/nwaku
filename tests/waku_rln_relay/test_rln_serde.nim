@@ -7,7 +7,7 @@ import stew/results, stint
 import
   ./rln/waku_rln_relay_utils,
   waku/[waku_keystore/protocol_types, waku_rln_relay, waku_rln_relay/rln, waku_rln_relay/protocol_types],
-  ../../waku_keystore/utils,
+  ../waku_keystore/utils,
   testutils/unittests
 
 from std/times import epochTime

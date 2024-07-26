@@ -26,8 +26,8 @@ import
     waku_rln_relay/group_manager/on_chain/group_manager,
   ],
   ../testlib/[wakucore, wakunode, common],
-  ./utils,
-  ./utils_onchain
+  ./utils_onchain,
+  ./utils
 
 suite "Onchain group manager":
   # We run Anvil
@@ -92,12 +92,18 @@ suite "Onchain group manager":
     (await manager2.init()).isErrOr:
       raiseAssert "Expected error when contract address doesn't match"
 
+  # FAILED
   asyncTest "should error if contract does not exist":
+    var triggeredError = false
+
     let manager = await setup()
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
+    manager.onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+      triggeredError = true
 
-    expect(CatchableError):
-      discard await manager.init()
+    discard await manager.init()
+
+    check triggeredError
 
   asyncTest "should error when keystore path and password are provided but file doesn't exist":
     let manager = await setup()

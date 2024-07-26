@@ -20,6 +20,7 @@ import
   waku/[
     waku_core/topics/pubsub_topic,
     waku_core/topics/sharding,
+    waku_store_legacy/common,
     node/waku_node,
     common/paging,
     waku_core,
@@ -431,7 +432,7 @@ suite "Sharding":
         let clientResult = await clientHandler.waitForResult(FUTURE_TIMEOUT)
         assertResultOk(clientResult)
 
-      xasyncTest "store (automatic sharding filtering)":
+      asyncTest "store (automatic sharding filtering)":
         # Given one archive with two sets of messages using the same content topic (with two different formats)
         let
           timeOrigin = now()
