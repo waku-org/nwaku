@@ -64,6 +64,7 @@ proc setupLastOnlineDB(): Result[SqliteDatabase, string] =
 proc initTransferHandler(
     self: StoreResume, wakuArchive: WakuArchive, wakuStoreClient: WakuStoreClient
 ) =
+  # guard clauses to prevent faulty callback
   if self.peerManager.isNil():
     error "peer manager unavailable for store resume"
     return
@@ -76,6 +77,7 @@ proc initTransferHandler(
     error "waku store client unavailable for store resume"
     return
 
+  # tying archive, store client and resume into one callback and saving it for later
   self.transferCallBack = some(
     proc(
         timestamp: Timestamp, peer: RemotePeerInfo
@@ -158,9 +160,11 @@ proc startStoreResume*(
 ): Future[Result[void, string]] {.async.} =
   info "starting store resume", lastOnline = $time, peer = $peer
 
+  # get the callback we saved
   let callback = self.transferCallBack.valueOr:
     return err("transfer callback uninitialised")
 
+  # run the callback
   (await callback(time, peer)).isOkOr:
     return err("transfer callback failed: " & $error)
 
