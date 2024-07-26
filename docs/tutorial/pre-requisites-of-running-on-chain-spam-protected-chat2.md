@@ -101,8 +101,8 @@ We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk9
     
     ![image](https://github.com/waku-org/nwaku/assets/68783915/945bf11e-15f6-48a9-9378-f7d39f73b02c)
 
-   Both Https and WebSockets endpoints are available. Waku requires the WebSockets endpoint.
+   Both Https and WebSockets endpoints are available. Waku requires the Https endpoint.
     
     ![image](https://github.com/waku-org/nwaku/assets/68783915/adb2bac0-8f86-47d0-92cc-33d23f02aeb3)
 
-5. Copy this address (starting with `wss://sepolia.infura`) as needed when setting up your Waku node.
+5. Copy this address (starting with `https://sepolia.infura`) as needed when setting up your Waku node.
