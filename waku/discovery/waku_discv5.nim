@@ -235,7 +235,7 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
       let peerInfo = record.toRemotePeerInfo().valueOr:
         ## in case of error, we keep track of it for debugging purposes
         wrongRecordsReasons.add(($record, $error))
-        waku_discv5_errors.inc()
+        waku_discv5_errors.inc(labelValues = [$error])
         continue
 
       discoveredPeers.add(peerInfo)
