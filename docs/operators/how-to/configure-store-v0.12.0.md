@@ -17,12 +17,12 @@ or store and serve historical messages itself.
 
 Ensure that `store` is enabled (this is `true` by default) and provide at least one store service node address with the `--storenode` CLI option.
 
-See the following example, using the peer at `/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp` as store service node.
+See the following example, using the peer at `/dns4/node-01.ac-cn-hongkong-c.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp` as store service node.
 
 ```sh
 ./build/wakunode2 \
   --store:true \
-  --storenode:/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp
+  --storenode:/dns4/node-01.ac-cn-hongkong-c.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp
 ```
 
 Your node can now send queries to retrieve historical messages

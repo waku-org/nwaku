@@ -141,10 +141,10 @@ suite "Waku ENR - Multiaddresses":
     # TODO: get rid of wakuv2 here too. Needt to generate a ne ENR record
     let
       expectedAddr1 = MultiAddress
-        .init("/dns4/node-01.do-ams3.wakuv2.test.statusim.net/tcp/443/wss")
+        .init("/dns4/node-01.do-ams3.wakuv2.test.status.im/tcp/443/wss")
         .get()
       expectedAddr2 = MultiAddress
-        .init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.statusim.net/tcp/443/wss")
+        .init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.status.im/tcp/443/wss")
         .get()
       expectedAddr3 = MultiAddress
         .init(
