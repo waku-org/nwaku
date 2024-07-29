@@ -341,7 +341,7 @@ proc setupProtocols(
   # waku peer exchange setup
   if conf.peerExchangeNode != "" or conf.peerExchange:
     try:
-      await mountPeerExchange(node)
+      await mountPeerExchange(node, some(conf.clusterId))
     except CatchableError:
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())

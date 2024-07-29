@@ -1,5 +1,5 @@
 import
-  std/[options, sequtils, random],
+  std/[options, sequtils, random, sugar],
   results,
   chronicles,
   chronos,
@@ -50,6 +50,7 @@ type
   WakuPeerExchange* = ref object of LPProtocol
     peerManager*: PeerManager
     enrCache*: seq[enr.Record]
+    cluster*: Option[uint16]
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
 proc request*(
@@ -128,12 +129,25 @@ proc getEnrsFromCache(
   # return numPeers or less if cache is smaller
   return shuffledCache[0 ..< min(shuffledCache.len.int, numPeers.int)]
 
+proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
+  if peer.origin != Discv5:
+    trace "peer not from discv5", peer = $peer, origin = $peer.origin
+    return false
+
+  if peer.enr.isNone():
+    trace "peer has no ENR", peer = $peer
+    return false
+
+  if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
+    trace "peer has mismatching cluster", peer = $peer
+    return false
+
+  return true
+
 proc populateEnrCache(wpx: WakuPeerExchange) =
-  # share only peers that i) are reachable ii) come from discv5
-  let withEnr = wpx.peerManager.peerStore
-    .getReachablePeers()
-    .filterIt(it.origin == Discv5)
-    .filterIt(it.enr.isSome)
+  # share only peers that i) are reachable ii) come from discv5 iii) share cluster
+  let withEnr =
+    wpx.peerManager.peerStore.getReachablePeers().filterIt(poolFilter(wpx.cluster, it))
 
   # either what we have or max cache size
   var newEnrCache = newSeq[enr.Record](0)
@@ -181,8 +195,12 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
   wpx.handler = handler
   wpx.codec = WakuPeerExchangeCodec
 
-proc new*(T: type WakuPeerExchange, peerManager: PeerManager): T =
-  let wpx = WakuPeerExchange(peerManager: peerManager)
+proc new*(
+    T: type WakuPeerExchange,
+    peerManager: PeerManager,
+    cluster: Option[uint16] = none(uint16),
+): T =
+  let wpx = WakuPeerExchange(peerManager: peerManager, cluster: cluster)
   wpx.initProtocolHandler()
   asyncSpawn wpx.updatePxEnrCache()
   return wpx
