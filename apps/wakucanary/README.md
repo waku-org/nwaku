@@ -46,7 +46,7 @@ $ echo $?
 
 Note that a domain name can also be used.
 ```console
-$ ./build/wakucanary --address=/dns4/node-01.do-ams3.status.test.statusim.net/tcp/30303/p2p/16Uiu2HAkukebeXjTQ9QDBeNDWuGfbaSg79wkkhK4vPocLgR6QFDf --protocol=store --protocol=filter
+$ ./build/wakucanary --address=/dns4/node-01.do-ams3.status.test.status.im/tcp/30303/p2p/16Uiu2HAkukebeXjTQ9QDBeNDWuGfbaSg79wkkhK4vPocLgR6QFDf --protocol=store --protocol=filter
 $ echo $?
 0
 ```
