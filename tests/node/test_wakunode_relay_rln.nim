@@ -28,7 +28,7 @@ import
   ../waku_archive/archive_utils,
   ../testlib/[wakucore, wakunode, testasync, futures, common, assertions],
   ../resources/payloads,
-  ../waku_rln_relay/[utils_static, utils_onchain],
+  ../waku_rln_relay/[utils_static, utils_onchain]
 
 from ../../waku/waku_noise/noise_utils import randomSeqByte
 
