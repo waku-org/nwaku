@@ -160,7 +160,7 @@ proc startStoreResume*(
 ): Future[Result[void, string]] {.async.} =
   info "starting store resume", lastOnline = $time, peer = $peer
 
-  # get the callback we saved
+  # get the callback we saved if possible
   let callback = self.transferCallBack.valueOr:
     return err("transfer callback uninitialised")
 
@@ -198,6 +198,7 @@ proc periodicSetLastOnline(self: StoreResume) {.async.} =
       error "failed to set last online timestamp", error, time = ts
 
 proc start*(self: StoreResume) {.async.} =
+  # start resume process, will try thrice.
   var tries = 3
   while tries > 0:
     (await self.autoStoreResume()).isOkOr:
@@ -208,6 +209,7 @@ proc start*(self: StoreResume) {.async.} =
 
     break
 
+  # starting periodic storage of last online timestamp
   self.handle = self.periodicSetLastOnline()
 
 proc stopWait*(self: StoreResume) {.async.} =
