@@ -129,20 +129,25 @@ proc getEnrsFromCache(
   # return numPeers or less if cache is smaller
   return shuffledCache[0 ..< min(shuffledCache.len.int, numPeers.int)]
 
+proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
+  if peer.origin != Discv5:
+    trace "peer not from discv5", peer = $peer, origin = $peer.origin
+    return false
+
+  if peer.enr.isNone():
+    trace "peer has no ENR", peer = $peer
+    return false
+
+  if cluster.isSome() and peer.enr.get().isClusterMismatched(cluster.get()):
+    trace "peer has mismatching cluster", peer = $peer
+    return false
+
+  return true
+
 proc populateEnrCache(wpx: WakuPeerExchange) =
   # share only peers that i) are reachable ii) come from discv5 iii) share cluster
-  let withEnr = collect(newSeq):
-    for peer in wpx.peerManager.peerStore.getReachablePeers():
-      if peer.origin != Discv5:
-        continue
-
-      if peer.enr.isNone():
-        continue
-
-      if wpx.cluster.isSome() and peer.enr.get().isClusterMismatched(wpx.cluster.get()):
-        continue
-
-      peer
+  let withEnr =
+    wpx.peerManager.peerStore.getReachablePeers().filterIt(poolFilter(wpx.cluster, it))
 
   # either what we have or max cache size
   var newEnrCache = newSeq[enr.Record](0)

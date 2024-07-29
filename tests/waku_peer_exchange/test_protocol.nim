@@ -23,6 +23,8 @@ import
     waku_relay,
     waku_core,
     waku_core/message/codec,
+    common/enr/builder,
+    waku_enr/sharding,
   ],
   ../testlib/[wakucore, wakunode, simple_mock, assertions],
   ./utils.nim
@@ -236,6 +238,39 @@ suite "Waku Peer Exchange":
       check:
         response.isErr
         response.error == "peer_not_found_failure"
+
+    asyncTest "Pool filtering":
+      let
+        key1 = generateSecp256k1Key()
+        key2 = generateSecp256k1Key()
+        cluster: Option[uint16] = some(uint16(16))
+        bindIp = parseIpAddress("0.0.0.0")
+        nodeTcpPort = Port(64010)
+        nodeUdpPort = Port(9000)
+
+      var
+        builder1 = EnrBuilder.init(key1)
+        builder2 = EnrBuilder.init(key2)
+
+      builder1.withIpAddressAndPorts(some(bindIp), some(nodeTcpPort), some(nodeUdpPort))
+      builder2.withIpAddressAndPorts(some(bindIp), some(nodeTcpPort), some(nodeUdpPort))
+      builder1.withShardedTopics(@["/waku/2/rs/1/7"]).expect("valid topic")
+      builder2.withShardedTopics(@["/waku/2/rs/16/32"]).expect("valid topic")
+
+      let
+        enr1 = builder1.build().expect("valid ENR")
+        enr2 = builder2.build().expect("valid ENR")
+
+      var
+        peerInfo1 = enr1.toRemotePeerInfo().expect("valid PeerInfo")
+        peerInfo2 = enr2.toRemotePeerInfo().expect("valid PeerInfo")
+
+      peerInfo1.origin = PeerOrigin.Discv5
+      peerInfo2.origin = PeerOrigin.Discv5
+
+      check:
+        not poolFilter(cluster, peerInfo1)
+        poolFilter(cluster, peerInfo2)
 
     asyncTest "Request 0 peers, with 1 peer in PeerExchange":
       # Given two valid nodes with PeerExchange
