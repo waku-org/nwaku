@@ -218,7 +218,8 @@ proc getMembershipCredentials*(
           return err(
             AppKeystoreError(
               kind: KeystoreCredentialNotFoundError,
-              msg: "Credential not found in keystore. There are multiple credentials in this keystore, please check if you have used the correct parameters.",
+              msg: 
+                "Credential not found in keystore. There are multiple credentials in this keystore, please check if you have used the correct parameters.",
             )
           )
         keystoreCredential = keystoreCredentials[key]
