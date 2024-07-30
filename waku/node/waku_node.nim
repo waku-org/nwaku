@@ -34,6 +34,7 @@ import
   ../waku_store/protocol as store,
   ../waku_store/client as store_client,
   ../waku_store/common as store_common,
+  ../waku_store/resume,
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
@@ -94,6 +95,7 @@ type
     wakuLegacyStoreClient*: legacy_store_client.WakuStoreClient
     wakuStore*: store.WakuStore
     wakuStoreClient*: store_client.WakuStoreClient
+    wakuStoreResume*: StoreResume
     wakuFilter*: waku_filter_v2.WakuFilter
     wakuFilterClient*: filter_client.WakuFilterClient
     wakuRlnRelay*: WakuRLNRelay
@@ -955,6 +957,13 @@ proc query*(
 
   return ok(response)
 
+proc setupStoreResume*(node: WakuNode) =
+  node.wakuStoreResume = StoreResume.new(
+    node.peerManager, node.wakuArchive, node.wakuStoreClient
+  ).valueOr:
+    error "Failed to setup Store Resume", error = $error
+    return
+
 ## Waku lightpush
 
 proc mountLightPush*(
@@ -1280,6 +1289,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuMetadata.isNil():
     node.wakuMetadata.start()
 
+  if not node.wakuStoreResume.isNil():
+    await node.wakuStoreResume.start()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper = proc(
@@ -1314,6 +1326,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuArchive.isNil():
     await node.wakuArchive.stopWait()
+
+  if not node.wakuStoreResume.isNil():
+    await node.wakuStoreResume.stopWait()
 
   node.started = false
 

@@ -379,6 +379,12 @@ type WakuNodeConf* = object
       name: "store-max-num-db-connections"
     .}: int
 
+    storeResume* {.
+      desc: "Enable store resume functionality",
+      defaultValue: false,
+      name: "store-resume"
+    .}: bool
+
     ## Filter config
     filter* {.
       desc: "Enable filter protocol: true|false", defaultValue: false, name: "filter"
