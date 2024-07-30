@@ -83,7 +83,8 @@ proc initProtocolHandler(m: WakuMetadata) =
       remoteClusterId = response.clusterId,
       remoteShards = response.shards,
       localClusterId = m.clusterId,
-      localShards = m.shards
+      localShards = m.shards,
+      peer = conn.peerId
 
     discard await m.respond(conn)
 

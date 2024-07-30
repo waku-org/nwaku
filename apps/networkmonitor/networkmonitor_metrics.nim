@@ -54,6 +54,7 @@ type
     enrCapabilities*: seq[string]
     country*: string
     city*: string
+    maddrs*: seq[string]
 
     # only after ok connection
     lastTimeConnected*: int64
