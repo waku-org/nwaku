@@ -229,7 +229,7 @@ test/%: | build deps librln
 ################
 ## Waku tools ##
 ################
-.PHONY: tools wakucanary networkmonitor peerexchangetester
+.PHONY: tools wakucanary networkmonitor peer_exchange_tester
 
 tools: networkmonitor wakucanary
 
