@@ -67,29 +67,31 @@ suite "Waku Peer Exchange":
 
   suite "fetchPeerExchangePeers":
     var node2 {.threadvar.}: WakuNode
+    var node3 {.threadvar.}: WakuNode
 
     asyncSetup:
+      # node and node2 have Peer Exchange mounted, node3 doesn't
       node = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
       node2 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
+      node3 = newTestWakuNode(generateSecp256k1Key(), bindIp, bindPort)
 
-      await allFutures(node.start(), node2.start())
+      await allFutures([node.mountPeerExchange(), node2.mountPeerExchange()])
+      await allFutures(node.start(), node2.start(), node3.start())
 
     asyncTeardown:
       await allFutures(node.stop(), node2.stop())
 
     asyncTest "Node fetches without mounting peer exchange":
       # When a node, without peer exchange mounted, fetches peers
-      let res = await node.fetchPeerExchangePeers(1)
+      let res = await node3.fetchPeerExchangePeers(1)
 
       # Then no peers are fetched
       check:
-        node.peerManager.peerStore.peers.len == 0
+        node3.peerManager.peerStore.peers.len == 0
         res.error == "PeerExchange is not mounted"
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
-      await node.mountPeerExchange()
-
       # When a node fetches peers
       let res = await node.fetchPeerExchangePeers(1)
       check res.error == "Peer exchange failure: peer_not_found_failure"
@@ -99,7 +101,6 @@ suite "Waku Peer Exchange":
 
     asyncTest "Node succesfully exchanges px peers with faked discv5":
       # Given both nodes mount peer exchange
-      await allFutures([node.mountPeerExchange(), node2.mountPeerExchange()])
       check node.peerManager.peerStore.peers.len == 0
 
       # Mock that we discovered a node (to avoid running discv5)
@@ -254,6 +255,13 @@ suite "Waku Peer Exchange with discv5":
     let disc2 =
       WakuDiscoveryV5.new(node2.rng, conf2, some(node2.enr), some(node2.peerManager))
 
+    # Mount peer exchange
+    await node1.mountPeerExchange()
+    await node3.mountPeerExchange()
+
+    # Mount relay in order to accept connections
+    await node2.mountRelay()
+
     await allFutures(node1.start(), node2.start(), node3.start())
     let resultDisc1StartRes = await disc1.start()
     assert resultDisc1StartRes.isOk(), resultDisc1StartRes.error
@@ -271,10 +279,6 @@ suite "Waku Peer Exchange with discv5":
     require (
       await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
     )
-
-    # Mount peer exchange
-    await node1.mountPeerExchange()
-    await node3.mountPeerExchange()
 
     let dialResponse =
       await node3.dialForPeerExchange(node1.switch.peerInfo.toRemotePeerInfo())

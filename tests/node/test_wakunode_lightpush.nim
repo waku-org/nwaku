@@ -56,12 +56,11 @@ suite "Waku Lightpush - End To End":
     server = newTestWakuNode(serverKey, ValidIpAddress.init("0.0.0.0"), Port(0))
     client = newTestWakuNode(clientKey, ValidIpAddress.init("0.0.0.0"), Port(0))
 
-    await allFutures(server.start(), client.start())
-    await server.start()
-
     await server.mountRelay()
     await server.mountLightpush() # without rln-relay
     client.mountLightpushClient()
+
+    await allFutures(server.start(), client.start())
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
