@@ -21,8 +21,6 @@ import
   ../waku_archive/retention_policy/builder as policy_builder,
   ../waku_archive/driver as driver,
   ../waku_archive/driver/builder as driver_builder,
-  ../waku_archive_legacy/retention_policy as legacy_policy,
-  ../waku_archive_legacy/retention_policy/builder as legacy_policy_builder,
   ../waku_archive_legacy/driver as legacy_driver,
   ../waku_archive_legacy/driver/builder as legacy_driver_builder,
   ../waku_store,
@@ -232,13 +230,7 @@ proc setupProtocols(
       if archiveDriverRes.isErr():
         return err("failed to setup legacy archive driver: " & archiveDriverRes.error)
 
-      let retPolicyRes =
-        legacy_policy.RetentionPolicy.new(conf.storeMessageRetentionPolicy)
-      if retPolicyRes.isErr():
-        return err("failed to create retention policy: " & retPolicyRes.error)
-
-      let mountArcRes =
-        node.mountLegacyArchive(archiveDriverRes.get(), retPolicyRes.get())
+      let mountArcRes = node.mountLegacyArchive(archiveDriverRes.get())
       if mountArcRes.isErr():
         return err("failed to mount waku legacy archive protocol: " & mountArcRes.error)
 

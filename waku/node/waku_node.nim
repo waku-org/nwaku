@@ -703,16 +703,10 @@ proc mountArchive*(
   return ok()
 
 proc mountLegacyArchive*(
-    node: WakuNode,
-    driver: waku_archive_legacy.ArchiveDriver,
-    retentionPolicy = none(waku_archive_legacy.RetentionPolicy),
+    node: WakuNode, driver: waku_archive_legacy.ArchiveDriver
 ): Result[void, string] =
-  node.wakuLegacyArchive = waku_archive_legacy.WakuArchive.new(
-    driver = driver, retentionPolicy = retentionPolicy
-  ).valueOr:
+  node.wakuLegacyArchive = waku_archive_legacy.WakuArchive.new(driver = driver).valueOr:
     return err("error in mountLegacyArchive: " & error)
-
-  node.wakuLegacyArchive.start()
 
   return ok()
 
