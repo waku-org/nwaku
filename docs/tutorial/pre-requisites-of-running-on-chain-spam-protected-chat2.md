@@ -87,17 +87,17 @@ We include instructions for [sepolia-faucet.pk910.de](https://sepolia-faucet.pk9
 
 2. An API Key named "My First Key" should be auto-generated. Click on it, otherwise click on the "Create New API Key" button.
 
-    ![image](https://github.com/user-attachments/assets/40cedd01-0282-46f1-a7cd-604bb3f29cae)
+    ![image](imgs/infura-key.png)
 
 
 3. You will be presented with a dashboard for your new key. Make sure to have Ethereum Sepolia's checkbox selected in the Networks section.
 
-   ![image](https://github.com/user-attachments/assets/09a6b6b6-5b93-4d6a-b5e4-f7714d7293f3)
+   ![image](imgs/infura-dashboard.png)
 
 
 4. Select the "Sepolia" endpoint in the Ethereum menu.
     
-   ![image](https://github.com/user-attachments/assets/8ed30e48-3e89-4200-b072-0b924e2aeebb)
+   ![image](imgs/infura-endpoints.png)
 
    Both Https and WebSockets endpoints are available. Waku requires the Https endpoint.
     
