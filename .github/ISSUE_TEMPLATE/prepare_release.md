@@ -17,8 +17,6 @@ For detailed info on the release process refer to https://github.com/waku-org/nw
 
 All items below are to be completed by the owner of the given release.
 
-Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
-
 - [ ] Create release branch
 - [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.30.0-rc.0
 - [ ] Generate and edit releases notes in CHANGELOG.md
@@ -45,7 +43,7 @@ Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
       - [ ] Send and receive messages in a community
       - [ ] Close one instance, send messages with second instance, reopen first instance and confirm messages sent while offline are retrieved from store
     - [ ] Perform checks based _end user impact_
-    - [ ] Ask other (Waku and Status) CCs to point their instance to `status.staging` for a week and use the app as usual.
+    - [ ] Inform other (Waku and Status) CCs to point their instance to `status.staging` for a few days. Ping Status colleagues from their Discord server or Status community (not blocking point.)
     - [ ] Ask Status-QA to perform sanity checks (as described above) + checks based on _end user impact_; do specify the version being tested
     - [ ] Ask Status-QA or infra to run the automated Status e2e tests against `status.staging`
     - [ ] Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
@@ -62,7 +60,7 @@ Note that `status.staging` refers to `shards.staging` fleet (rename is wip).
   - [ ] Update infra config with any deprecated arguments or changed options
   - [ ] [Deploy final release to `waku.sandbox` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-waku-sandbox)
   - [ ] [Deploy final release to `status.staging` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-shards-staging/)
-  - [ ] [Deploy final release to `status.test` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-shards-test/) ([soon to be `status.prod`](https://github.com/status-im/infra-shards/issues/33))
+  - [ ] [Deploy final release to `status.prod` fleet](https://ci.infra.status.im/job/nim-waku/job/deploy-shards-test/)
 
 - [ ] **Post release**
   - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
