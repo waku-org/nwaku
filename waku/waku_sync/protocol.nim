@@ -47,7 +47,7 @@ type WakuSync* = ref object of LPProtocol
 proc storageSize*(self: WakuSync): int =
   self.storage.len
 
-proc ingessMessage*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
+proc messageIngress*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
     return
 
@@ -65,12 +65,12 @@ proc calculateRange(jitter: Duration, syncRange: Duration = 1.hours): (int64, in
   # Because of message jitter inherent to Relay protocol
   now -= jitter.nanos
 
-  let range = syncRange.nanos
+  let syncRange = syncRange.nanos
 
-  let start = now - range
-  let `end` = now
+  let syncStart = now - syncRange
+  let syncEnd = now
 
-  return (start, `end`)
+  return (syncStart, syncEnd)
 
 proc request(
     self: WakuSync, conn: Connection
@@ -209,7 +209,7 @@ proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
     ] {.async: (raises: []), closure.} =
       let archiveCursor =
         if cursor.isSome():
-          some(ArchiveCursor(hash: cursor.get()))
+          some(cursor.get())
         else:
           none(ArchiveCursor)
 
@@ -235,11 +235,7 @@ proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
         for (hash, msg) in response.hashes.zip(response.messages):
           (hash, msg.timestamp)
 
-      let cursor =
-        if response.cursor.isNone():
-          none(WakuMessageHash)
-        else:
-          some(response.cursor.get().hash)
+      let cursor = response.cursor
 
       return ok((elements, cursor))
   )
@@ -286,7 +282,7 @@ proc initTransferHandler(
             # Messages can be synced next time since they are not added to storage yet.
             continue
 
-          self.ingessMessage(kv.pubsubTopic.get(), kv.message.get())
+          self.messageIngress(kv.pubsubTopic.get(), kv.message.get())
 
         if query.paginationCursor.isNone():
           break
@@ -316,7 +312,7 @@ proc initFillStorage(
       return err($error)
 
     for (topic, msg) in response.topics.zip(response.messages):
-      self.ingessMessage(topic, msg)
+      self.messageIngress(topic, msg)
 
     if response.cursor.isNone():
       break

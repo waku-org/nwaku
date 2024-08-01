@@ -1,4 +1,4 @@
-# Unused yet.
+# Unused yet. Kept for future use.
 #[ when (NimMajor, NimMinor) < (1, 4):
   {.push raises: [Defect].}
 else:

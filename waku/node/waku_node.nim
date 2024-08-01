@@ -300,7 +300,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     if node.wakuSync.isNil():
       return
 
-    node.wakuSync.ingessMessage(topic, msg)
+    node.wakuSync.messageIngress(topic, msg)
 
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
