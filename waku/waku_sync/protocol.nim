@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, sugar, sequtils],
@@ -31,8 +28,9 @@ logScope:
 
 type WakuSync* = ref object of LPProtocol
   storage: NegentropyStorage
+  maxFrameSize: int # Negentropy param to limit the size of payloads
+
   peerManager: PeerManager
-  maxFrameSize: int
 
   syncInterval: timer.Duration # Time between each syncronisation attempt
   syncRange: timer.Duration # Amount of time in the past to sync
@@ -58,12 +56,26 @@ proc messageIngress*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage)
   trace "inserting message into waku sync storage ",
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
 
+  self.storage.insert(msg.timestamp, msgHash).isOkOr:
+    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = $error
+
+proc messageIngress*(
+    self: WakuSync, pubsubTopic: PubsubTopic, msgHash: WakuMessageHash, msg: WakuMessage
+) =
+  if msg.ephemeral:
+    return
+
+  trace "inserting message into waku sync storage ",
+    msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
+
   if self.storage.insert(msg.timestamp, msgHash).isErr():
     error "failed to insert message ", msg_hash = msgHash.to0xHex()
 
 proc calculateRange(
     jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
 ): (int64, int64) =
+  ## Calculates the start and end time of a sync session
+
   var now = getNowInNanosecondTime()
 
   # Because of message jitter inherent to Relay protocol
@@ -78,7 +90,7 @@ proc calculateRange(
 
 proc request(
     self: WakuSync, conn: Connection
-): Future[Result[seq[WakuMessageHash], string]] {.async, gcsafe.} =
+): Future[Result[seq[WakuMessageHash], string]] {.async.} =
   let (start, `end`) = calculateRange(self.relayJitter)
 
   let initialized =
@@ -119,9 +131,9 @@ proc request(
 
       return ok(hashes)
 
-proc sync*(
+proc storeSynchronization*(
     self: WakuSync, peerInfo: Option[RemotePeerInfo] = none(RemotePeerInfo)
-): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async, gcsafe.} =
+): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async.} =
   let peer =
     if peerInfo.isSome():
       peerInfo.get()
@@ -137,14 +149,14 @@ proc sync*(
     return err("Cannot establish sync connection")
 
   let hashes: seq[WakuMessageHash] = (await self.request(conn)).valueOr:
-    debug "sync session ended",
+    error "sync session ended",
       server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId, error
 
     return err("Sync request error: " & error)
 
   return ok((hashes, peer))
 
-proc handleLoop(
+proc handleSyncSession(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async.} =
   let (start, `end`) = calculateRange(self.relayJitter)
@@ -177,11 +189,11 @@ proc handleLoop(
       payload = reconciled.payload
 
 proc initProtocolHandler(self: WakuSync) =
-  proc handle(conn: Connection, proto: string) {.async, gcsafe, closure.} =
+  proc handle(conn: Connection, proto: string) {.async, closure.} =
     debug "sync session requested",
       server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId
 
-    let hashes = (await self.handleLoop(conn)).valueOr:
+    let hashes = (await self.handleSyncSession(conn)).valueOr:
       debug "sync session ended",
         server = self.peerManager.switch.peerInfo.peerId, client = conn.peerId, error
 
@@ -200,10 +212,11 @@ proc initProtocolHandler(self: WakuSync) =
   self.handler = handle
   self.codec = WakuSyncCodec
 
-proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
+proc initPruningHandler(
+    self: WakuSync, wakuArchive: WakuArchive
+): Result[void, string] =
   if wakuArchive.isNil():
-    error "waku archive unavailable"
-    return
+    return err ("waku archive unavailable")
 
   self.pruneCallBack = some(
     proc(
@@ -244,16 +257,16 @@ proc initPruningHandler(self: WakuSync, wakuArchive: WakuArchive) =
       return ok((elements, cursor))
   )
 
+  return ok()
+
 proc initTransferHandler(
     self: WakuSync, wakuArchive: WakuArchive, wakuStoreClient: WakuStoreClient
-) =
+): Result[void, string] =
   if wakuArchive.isNil():
-    error "waku archive unavailable"
-    return
+    return err("waku archive unavailable")
 
   if wakuStoreClient.isNil():
-    error "waku store client unavailable"
-    return
+    return err("waku store client unavailable")
 
   self.transferCallBack = some(
     proc(
@@ -286,13 +299,15 @@ proc initTransferHandler(
             # Messages can be synced next time since they are not added to storage yet.
             continue
 
-          self.messageIngress(kv.pubsubTopic.get(), kv.message.get())
+          self.messageIngress(kv.pubsubTopic.get(), kv.messageHash, kv.message.get())
 
         if query.paginationCursor.isNone():
           break
 
       return ok()
   )
+
+  return ok()
 
 proc initFillStorage(
     self: WakuSync, wakuArchive: WakuArchive
@@ -315,8 +330,12 @@ proc initFillStorage(
     let response = (await wakuArchive.findMessages(query)).valueOr:
       return err($error)
 
-    for (topic, msg) in response.topics.zip(response.messages):
-      self.messageIngress(topic, msg)
+    for i in 0 ..< response.hashes.len:
+      let hash = response.hashes[i]
+      let topic = response.topics[i]
+      let msg = response.messages[i]
+
+      self.messageIngress(topic, hash, msg)
 
     if response.cursor.isNone():
       break
@@ -352,13 +371,17 @@ proc new*(
   sync.initProtocolHandler()
 
   if pruning:
-    sync.initPruningHandler(wakuArchive)
+    let res = sync.initPruningHandler(wakuArchive)
+    if res.isErr():
+      error "pruning handler error", error = res.error
 
-  sync.initTransferHandler(wakuArchive, wakuStoreClient)
+  let transRes = sync.initTransferHandler(wakuArchive, wakuStoreClient)
+  if transRes.isErr():
+    error "transfer handler error", error = transRes.error
 
-  let res = await sync.initFillStorage(wakuArchive)
-  if res.isErr():
-    error "initial storage filling failed", error = res.error
+  let fillRes = await sync.initFillStorage(wakuArchive)
+  if fillRes.isErr():
+    error "initial storage filling failed", error = fillRes.error
 
   info "WakuSync protocol initialized"
 
@@ -378,11 +401,11 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
       tries = 3
 
     while true:
-      let res = (await self.sync()).valueOr:
+      let res = (await self.storeSynchronization()).valueOr:
         error "sync failed", error = $error
         if tries > 0:
           tries -= 1
-          await sleepAsync(30.seconds)
+          await sleepAsync(RetryDelay)
           continue
         else:
           break
@@ -398,7 +421,7 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
           error "transfer callback failed", error = $error
           if tries > 0:
             tries -= 1
-            await sleepAsync(30.seconds)
+            await sleepAsync(RetryDelay)
             continue
           else:
             break
@@ -416,7 +439,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   await sleepAsync(self.syncInterval)
 
   # Default T minus 55m
-  var pruneStop = getNowInNanosecondTime()  - self.syncRange.nanos
+  var pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
 
   while true:
     await sleepAsync(self.syncInterval)
@@ -437,7 +460,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
         error "pruning callback failed", error = $error
         if tries > 0:
           tries -= 1
-          await sleepAsync(30.seconds)
+          await sleepAsync(RetryDelay)
           continue
         else:
           break

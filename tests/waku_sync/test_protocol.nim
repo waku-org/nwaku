@@ -50,7 +50,7 @@ suite "Waku Sync":
 
   suite "Protocol":
     asyncTest "sync 2 nodes both empty":
-      let hashes = await client.sync(serverPeerInfo)
+      let hashes = await client.storeSynchronization(serverPeerInfo)
       assert hashes.isOk(), hashes.error
       check:
         hashes.value[0].len == 0
@@ -64,7 +64,7 @@ suite "Waku Sync":
       server.messageIngress(DefaultPubsubTopic, msg2)
       server.messageIngress(DefaultPubsubTopic, msg3)
 
-      var hashes = await client.sync(serverPeerInfo)
+      var hashes = await client.storeSynchronization(serverPeerInfo)
 
       assert hashes.isOk(), hashes.error
       check:
@@ -82,7 +82,7 @@ suite "Waku Sync":
       client.messageIngress(DefaultPubsubTopic, msg2)
       client.messageIngress(DefaultPubsubTopic, msg3)
 
-      var hashes = await client.sync(serverPeerInfo)
+      var hashes = await client.storeSynchronization(serverPeerInfo)
       assert hashes.isOk(), hashes.error
       check:
         hashes.value[0].len == 0
@@ -95,7 +95,7 @@ suite "Waku Sync":
       client.messageIngress(DefaultPubsubTopic, msg1)
       server.messageIngress(DefaultPubsubTopic, msg2)
 
-      var syncRes = await client.sync(serverPeerInfo)
+      var syncRes = await client.storeSynchronization(serverPeerInfo)
 
       check:
         syncRes.isOk()
@@ -109,7 +109,7 @@ suite "Waku Sync":
       #Assuming message is fetched from peer
       client.messageIngress(DefaultPubsubTopic, msg2)
 
-      syncRes = await client.sync(serverPeerInfo)
+      syncRes = await client.storeSynchronization(serverPeerInfo)
 
       check:
         syncRes.isOk()
@@ -128,7 +128,7 @@ suite "Waku Sync":
       server.messageIngress(DefaultPubsubTopic, msg2)
       client.messageIngress(DefaultPubsubTopic, msg2)
 
-      let hashes = await client.sync(serverPeerInfo)
+      let hashes = await client.storeSynchronization(serverPeerInfo)
       assert hashes.isOk(), $hashes.error
       check:
         hashes.value[0].len == 0
@@ -147,7 +147,7 @@ suite "Waku Sync":
         server.messageIngress(DefaultPubsubTopic, msg)
         i += 1
 
-      let hashes = await client.sync(serverPeerInfo)
+      let hashes = await client.storeSynchronization(serverPeerInfo)
       assert hashes.isOk(), $hashes.error
 
       check:
@@ -181,7 +181,7 @@ suite "Waku Sync":
         server.messageIngress(DefaultPubsubTopic, msg)
         i += 1
 
-      let hashes = await client.sync(serverPeerInfo)
+      let hashes = await client.storeSynchronization(serverPeerInfo)
       assert hashes.isOk(), $hashes.error
 
       check:
@@ -206,8 +206,8 @@ suite "Waku Sync":
           client.messageIngress(DefaultPubsubTopic, msg)
         server.messageIngress(DefaultPubsubTopic, msg)
 
-      let fut1 = client.sync(serverPeerInfo)
-      let fut2 = client2.sync(serverPeerInfo)
+      let fut1 = client.storeSynchronization(serverPeerInfo)
+      let fut2 = client2.storeSynchronization(serverPeerInfo)
       waitFor allFutures(fut1, fut2)
 
       let hashes1 = fut1.read()
@@ -263,7 +263,7 @@ suite "Waku Sync":
         i += 1
 
       var timeBefore = getNowInNanosecondTime()
-      let hashes1 = await client.sync(serverPeerInfo)
+      let hashes1 = await client.storeSynchronization(serverPeerInfo)
       var timeAfter = getNowInNanosecondTime()
       var syncTime = (timeAfter - timeBefore)
       debug "sync time in seconds", msgsTotal = msgCount, diff = 1, syncTime = syncTime
@@ -272,7 +272,7 @@ suite "Waku Sync":
         hashes1.value[0].len == 1
 
       timeBefore = getNowInNanosecondTime()
-      let hashes2 = await client2.sync(serverPeerInfo)
+      let hashes2 = await client2.storeSynchronization(serverPeerInfo)
       timeAfter = getNowInNanosecondTime()
       syncTime = (timeAfter - timeBefore)
       debug "sync time in seconds", msgsTotal = msgCount, diff = 10, syncTime = syncTime
@@ -281,7 +281,7 @@ suite "Waku Sync":
         hashes2.value[0].len == 10
 
       timeBefore = getNowInNanosecondTime()
-      let hashes3 = await client3.sync(serverPeerInfo)
+      let hashes3 = await client3.storeSynchronization(serverPeerInfo)
       timeAfter = getNowInNanosecondTime()
       syncTime = (timeAfter - timeBefore)
       debug "sync time in seconds",
@@ -291,7 +291,7 @@ suite "Waku Sync":
         hashes3.value[0].len == 100
 
       timeBefore = getNowInNanosecondTime()
-      let hashes4 = await client4.sync(serverPeerInfo)
+      let hashes4 = await client4.storeSynchronization(serverPeerInfo)
       timeAfter = getNowInNanosecondTime()
       syncTime = (timeAfter - timeBefore)
       debug "sync time in seconds",
@@ -301,7 +301,7 @@ suite "Waku Sync":
         hashes4.value[0].len == 1000
 
       timeBefore = getNowInNanosecondTime()
-      let hashes5 = await client5.sync(serverPeerInfo)
+      let hashes5 = await client5.storeSynchronization(serverPeerInfo)
       timeAfter = getNowInNanosecondTime()
       syncTime = (timeAfter - timeBefore)
       debug "sync time in seconds",
@@ -347,9 +347,9 @@ suite "Waku Sync":
       node2.messageIngress(DefaultPubsubTopic, msg2)
       node3.messageIngress(DefaultPubsubTopic, msg3)
 
-      let f1 = node1.sync(node2PeerInfo)
-      let f2 = node2.sync(node3PeerInfo)
-      let f3 = node3.sync(node1PeerInfo)
+      let f1 = node1.storeSynchronization(node2PeerInfo)
+      let f2 = node2.storeSynchronization(node3PeerInfo)
+      let f3 = node3.storeSynchronization(node1PeerInfo)
 
       waitFor allFutures(f1, f2, f3)
 

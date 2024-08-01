@@ -171,7 +171,7 @@ clean: | clean-librln
 #################
 .PHONY: testcommon
 
-testcommon: | build deps negentropy
+testcommon: | build deps
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim testcommon $(NIM_PARAMS) waku.nims
 
@@ -420,7 +420,7 @@ release-notes:
 ## Pass libnegentropy to linker.
 NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
 
-all: | negentropy
+deps: | negentropy
 
 clean: | negentropy-clean
 

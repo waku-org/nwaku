@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import std/[options], chronos, libp2p/peerId
 import ../waku_core
@@ -9,6 +6,7 @@ import ../waku_core
 const
   DefaultSyncInterval*: Duration = 5.minutes
   DefaultSyncRange*: Duration = 1.hours
+  RetryDelay*: Duration = 30.seconds
   WakuSyncCodec* = "/vac/waku/sync/1.0.0"
   DefaultMaxFrameSize* = 1048576 # 1 MiB
   DefaultGossipSubJitter*: Duration = 20.seconds
