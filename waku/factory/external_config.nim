@@ -398,6 +398,12 @@ type WakuNodeConf* = object
       name: "store-sync-interval"
     .}: int64
 
+    storeSyncRange* {.
+      desc: "Amount of time to sync. In seconds.",
+      defaultValue: 300, # 5 minutes
+      name: "store-sync-range"
+    .}: int64
+
     storeSyncRelayJitter* {.
       hidden,
       desc: "Time offset to account for message propagation jitter. In seconds.",

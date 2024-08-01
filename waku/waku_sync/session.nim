@@ -1,9 +1,6 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
-import std/options, stew/results, chronos, libp2p/stream/connection
+import std/options, results, chronos, libp2p/stream/connection
 
 import
   ../common/nimchronos,
@@ -21,6 +18,8 @@ type ClientSync* = object
   haveHashes: seq[WakuMessageHash]
 
 type ServerSync* = object
+
+# T is either ClientSync or ServerSync
 
 type Reconciled*[T] = object
   sync: T
@@ -81,10 +80,11 @@ proc serverInitialize*(
     store: NegentropyStorage,
     conn: Connection,
     frameSize = DefaultMaxFrameSize,
-    start = int64.low,
-    `end` = int64.high,
+    syncStart = int64.low,
+    syncEnd = int64.high,
 ): Result[Sent[ServerSync], string] =
-  let subrange = ?NegentropySubRangeStorage.new(store, uint64(start), uint64(`end`))
+  let subrange =
+    ?NegentropySubRangeStorage.new(store, uint64(syncStart), uint64(syncEnd))
 
   let negentropy = ?Negentropy.new(subrange, frameSize)
 
@@ -146,9 +146,13 @@ proc listenBack*[T](self: Sent[T]): Future[Result[Received[T], string]] {.async.
     )
   )
 
+# Aliasing for readability
+type ContinueOrCompleted[T] = Result[Reconciled[T], Completed[T]]
+type Continue[T] = Reconciled[T]
+
 proc clientReconcile*(
     self: Received[ClientSync], needHashes: var seq[WakuMessageHash]
-): Result[Result[Reconciled[ClientSync], Completed[ClientSync]], string] =
+): Result[ContinueOrCompleted[ClientSync], string] =
   var haves = self.sync.haveHashes
 
   let responseOpt =
@@ -159,7 +163,7 @@ proc clientReconcile*(
   let sync = ClientSync(haveHashes: haves)
 
   let response = responseOpt.valueOr:
-    let res = Result[Reconciled[ClientSync], Completed[ClientSync]].err(
+    let res = ContinueOrCompleted[ClientSync].err(
       Completed[ClientSync](
         sync: sync, negentropy: self.negentropy, connection: self.connection
       )
@@ -169,8 +173,8 @@ proc clientReconcile*(
 
   let payload = SyncPayload(negentropy: seq[byte](response))
 
-  let res = Result[Reconciled[ClientSync], Completed[ClientSync]].ok(
-    Reconciled[ClientSync](
+  let res = ContinueOrCompleted[ClientSync].ok(
+    Continue[ClientSync](
       sync: sync,
       negentropy: self.negentropy,
       connection: self.connection,
@@ -183,9 +187,9 @@ proc clientReconcile*(
 
 proc serverReconcile*(
     self: Received[ServerSync]
-): Result[Result[Reconciled[ServerSync], Completed[ServerSync]], string] =
+): Result[ContinueOrCompleted[ServerSync], string] =
   if self.payload.negentropy.len == 0:
-    let res = Result[Reconciled[ServerSync], Completed[ServerSync]].err(
+    let res = ContinueOrCompleted[ServerSync].err(
       Completed[ServerSync](
         sync: self.sync,
         negentropy: self.negentropy,
@@ -201,8 +205,8 @@ proc serverReconcile*(
 
   let payload = SyncPayload(negentropy: seq[byte](response))
 
-  let res = Result[Reconciled[ServerSync], Completed[ServerSync]].ok(
-    Reconciled[ServerSync](
+  let res = ContinueOrCompleted[ServerSync].ok(
+    Continue[ServerSync](
       sync: self.sync,
       negentropy: self.negentropy,
       connection: self.connection,

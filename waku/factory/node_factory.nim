@@ -299,6 +299,7 @@ proc setupProtocols(
     (
       await node.mountWakuSync(
         int(conf.storeSyncMaxPayloadSize),
+        conf.storeSyncRange.seconds(),
         conf.storeSyncInterval.seconds(),
         conf.storeSyncRelayJitter.seconds(),
       )
