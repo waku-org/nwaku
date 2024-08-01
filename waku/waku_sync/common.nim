@@ -23,8 +23,7 @@ type
   ] {.async: (raises: []), closure.}
 
   SyncPayload* = object
-    rangeStart*: Option[uint64]
-    rangeEnd*: Option[uint64]
+    syncRange*: Option[(uint64, uint64)] 
 
     frameSize*: Option[uint64]
 

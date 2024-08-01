@@ -6,9 +6,9 @@ import ../common/protobuf, ../waku_core, ./common
 proc encode*(req: SyncPayload): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  if req.rangeStart.isSome() and req.rangeEnd.isSome():
-    pb.write3(31, req.rangeStart.get())
-    pb.write3(32, req.rangeEnd.get())
+  if req.syncRange.isSome():
+    pb.write3(31, req.syncRange.get()[0])
+    pb.write3(32, req.syncRange.get()[1])
 
   if req.frameSize.isSome():
     pb.write3(33, req.frameSize.get())

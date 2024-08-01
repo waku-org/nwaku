@@ -204,7 +204,6 @@ proc mountWakuSync*(
     syncRange: timer.Duration = DefaultSyncRange,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: Duration = DefaultGossipSubJitter,
-    enablePruning: bool = true, # For testing purposes
 ): Future[Result[void, string]] {.async.} =
   if not node.wakuSync.isNil():
     return err("already mounted")
@@ -216,7 +215,6 @@ proc mountWakuSync*(
       syncRange = syncRange,
       syncInterval = syncInterval,
       relayJitter = relayJitter,
-      pruning = enablePruning,
       wakuArchive = node.wakuArchive,
       wakuStoreClient = node.wakuStoreClient,
     )
@@ -298,7 +296,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuArchive.handleMessage(topic, msg)
 
-  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) =
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async.} =
     if node.wakuSync.isNil():
       return
 
@@ -310,7 +308,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
-    syncHandler(topic, msg)
+    await syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 

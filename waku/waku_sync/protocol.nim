@@ -7,6 +7,7 @@ import
   chronicles,
   chronos,
   metrics,
+  libp2p/utility,
   libp2p/protocols/protocol,
   libp2p/stream/connection,
   libp2p/crypto/crypto,
@@ -91,17 +92,17 @@ proc calculateRange(
 proc request(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async.} =
-  let (start, `end`) = calculateRange(self.relayJitter)
+  let (syncStart, syncEnd) = calculateRange(self.relayJitter)
 
   let initialized =
-    ?clientInitialize(self.storage, conn, self.maxFrameSize, start, `end`)
+    ?clientInitialize(self.storage, conn, self.maxFrameSize, syncStart, syncEnd)
 
   debug "sync session initialized",
     client = self.peerManager.switch.peerInfo.peerId,
     server = conn.peerId,
     frameSize = self.maxFrameSize,
-    timeStart = start,
-    timeEnd = `end`
+    timeStart = syncStart,
+    timeEnd = syncEnd
 
   var hashes: seq[WakuMessageHash]
   var reconciled = initialized
@@ -134,14 +135,9 @@ proc request(
 proc storeSynchronization*(
     self: WakuSync, peerInfo: Option[RemotePeerInfo] = none(RemotePeerInfo)
 ): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async.} =
-  let peer =
-    if peerInfo.isSome():
-      peerInfo.get()
-    else:
-      let peer: RemotePeerInfo = self.peerManager.selectPeer(WakuSyncCodec).valueOr:
-        return err("No suitable peer found for sync")
-
-      peer
+  let peer = peerInfo.valueOr:
+    self.peerManager.selectPeer(WakuSyncCodec).valueOr:
+      return err("No suitable peer found for sync")
 
   let connOpt = await self.peerManager.dialPeer(peer, WakuSyncCodec)
 
@@ -159,10 +155,10 @@ proc storeSynchronization*(
 proc handleSyncSession(
     self: WakuSync, conn: Connection
 ): Future[Result[seq[WakuMessageHash], string]] {.async.} =
-  let (start, `end`) = calculateRange(self.relayJitter)
+  let (syncStart, syncEnd) = calculateRange(self.relayJitter)
 
   let initialized =
-    ?serverInitialize(self.storage, conn, self.maxFrameSize, start, `end`)
+    ?serverInitialize(self.storage, conn, self.maxFrameSize, syncStart, syncEnd)
 
   var sent = initialized
 
@@ -212,102 +208,98 @@ proc initProtocolHandler(self: WakuSync) =
   self.handler = handle
   self.codec = WakuSyncCodec
 
-proc initPruningHandler(
+proc createPruneCallback(
     self: WakuSync, wakuArchive: WakuArchive
-): Result[void, string] =
+): Result[PruneCallBack, string] =
   if wakuArchive.isNil():
     return err ("waku archive unavailable")
 
-  self.pruneCallBack = some(
-    proc(
-        pruneStart: Timestamp, pruneStop: Timestamp, cursor: Option[WakuMessageHash]
-    ): Future[
-        Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
-    ] {.async: (raises: []), closure.} =
-      let archiveCursor =
-        if cursor.isSome():
-          some(cursor.get())
-        else:
-          none(ArchiveCursor)
+  let callback: PruneCallback = proc(
+      pruneStart: Timestamp, pruneStop: Timestamp, cursor: Option[WakuMessageHash]
+  ): Future[
+      Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
+  ] {.async: (raises: []), closure.} =
+    let archiveCursor =
+      if cursor.isSome():
+        some(cursor.get())
+      else:
+        none(ArchiveCursor)
 
-      let query = ArchiveQuery(
-        includeData: true,
-        cursor: archiveCursor,
-        startTime: some(pruneStart),
-        endTime: some(pruneStop),
-        pageSize: 100,
-      )
+    let query = ArchiveQuery(
+      includeData: true,
+      cursor: archiveCursor,
+      startTime: some(pruneStart),
+      endTime: some(pruneStop),
+      pageSize: 100,
+    )
 
-      let catchable = catch:
-        await wakuArchive.findMessages(query)
+    let catchable = catch:
+      await wakuArchive.findMessages(query)
 
-      if catchable.isErr():
-        return err("archive error: " & catchable.error.msg)
+    if catchable.isErr():
+      return err("archive error: " & catchable.error.msg)
 
-      let res = catchable.get()
-      let response = res.valueOr:
-        return err("archive error: " & $error)
+    let res = catchable.get()
+    let response = res.valueOr:
+      return err("archive error: " & $error)
 
-      let elements = collect(newSeq):
-        for (hash, msg) in response.hashes.zip(response.messages):
-          (hash, msg.timestamp)
+    let elements = collect(newSeq):
+      for (hash, msg) in response.hashes.zip(response.messages):
+        (hash, msg.timestamp)
 
-      let cursor = response.cursor
+    let cursor = response.cursor
 
-      return ok((elements, cursor))
-  )
+    return ok((elements, cursor))
 
-  return ok()
+  return ok(callback)
 
-proc initTransferHandler(
+proc createTransferCallback(
     self: WakuSync, wakuArchive: WakuArchive, wakuStoreClient: WakuStoreClient
-): Result[void, string] =
+): Result[TransferCallback, string] =
   if wakuArchive.isNil():
     return err("waku archive unavailable")
 
   if wakuStoreClient.isNil():
     return err("waku store client unavailable")
 
-  self.transferCallBack = some(
-    proc(
-        hashes: seq[WakuMessageHash], peerId: PeerId
-    ): Future[Result[void, string]] {.async: (raises: []), closure.} =
-      var query = StoreQueryRequest()
-      query.includeData = true
-      query.messageHashes = hashes
-      query.paginationLimit = some(uint64(100))
+  let callback: TransferCallback = proc(
+      hashes: seq[WakuMessageHash], peerId: PeerId
+  ): Future[Result[void, string]] {.async: (raises: []), closure.} =
+    var query = StoreQueryRequest()
+    query.includeData = true
+    query.messageHashes = hashes
+    query.paginationLimit = some(uint64(100))
 
-      while true:
-        let catchable = catch:
-          await wakuStoreClient.query(query, peerId)
+    while true:
+      let catchable = catch:
+        await wakuStoreClient.query(query, peerId)
 
-        if catchable.isErr():
-          return err("store client error: " & catchable.error.msg)
+      if catchable.isErr():
+        return err("store client error: " & catchable.error.msg)
 
-        let res = catchable.get()
-        let response = res.valueOr:
-          return err("store client error: " & $error)
+      let res = catchable.get()
+      let response = res.valueOr:
+        return err("store client error: " & $error)
 
-        query.paginationCursor = response.paginationCursor
+      query.paginationCursor = response.paginationCursor
 
-        for kv in response.messages:
-          let handleRes = catch:
-            await wakuArchive.handleMessage(kv.pubsubTopic.get(), kv.message.get())
+      for kv in response.messages:
+        let handleRes = catch:
+          await wakuArchive.handleMessage(kv.pubsubTopic.get(), kv.message.get())
 
-          if handleRes.isErr():
-            error "message transfer failed", error = handleRes.error.msg
-            # Messages can be synced next time since they are not added to storage yet.
-            continue
+        if handleRes.isErr():
+          error "message transfer failed", error = handleRes.error.msg
+          # Messages can be synced next time since they are not added to storage yet.
+          continue
 
-          self.messageIngress(kv.pubsubTopic.get(), kv.messageHash, kv.message.get())
+        self.messageIngress(kv.pubsubTopic.get(), kv.messageHash, kv.message.get())
 
-        if query.paginationCursor.isNone():
-          break
+      if query.paginationCursor.isNone():
+        break
 
-      return ok()
-  )
+    return ok()
 
-  return ok()
+  return ok(callback)
 
 proc initFillStorage(
     self: WakuSync, wakuArchive: WakuArchive
@@ -351,14 +343,15 @@ proc new*(
     syncRange: timer.Duration = DefaultSyncRange,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: Duration = DefaultGossipSubJitter,
-    pruning: bool,
     wakuArchive: WakuArchive,
     wakuStoreClient: WakuStoreClient,
+    pruneCallback: Option[PruneCallback] = none(PruneCallback),
+    transferCallback: Option[TransferCallback] = none(TransferCallback),
 ): Future[Result[T, string]] {.async.} =
   let storage = NegentropyStorage.new().valueOr:
     return err("negentropy storage creation failed")
 
-  let sync = WakuSync(
+  var sync = WakuSync(
     storage: storage,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
@@ -370,18 +363,29 @@ proc new*(
 
   sync.initProtocolHandler()
 
-  if pruning:
-    let res = sync.initPruningHandler(wakuArchive)
+  sync.pruneCallBack = pruneCallback
+
+  if sync.pruneCallBack.isNone():
+    let res = sync.createPruneCallback(wakuArchive)
+
     if res.isErr():
-      error "pruning handler error", error = res.error
+      error "pruning callback creation error", error = res.error
+    else:
+      sync.pruneCallBack = some(res.get())
 
-  let transRes = sync.initTransferHandler(wakuArchive, wakuStoreClient)
-  if transRes.isErr():
-    error "transfer handler error", error = transRes.error
+  sync.transferCallBack = transferCallback
 
-  let fillRes = await sync.initFillStorage(wakuArchive)
-  if fillRes.isErr():
-    error "initial storage filling failed", error = fillRes.error
+  if sync.transferCallBack.isNone():
+    let res = sync.createTransferCallback(wakuArchive, wakuStoreClient)
+
+    if res.isErr():
+      error "transfer callback creation error", error = res.error
+    else:
+      sync.transferCallBack = some(res.get())
+
+  let res = await sync.initFillStorage(wakuArchive)
+  if res.isErr():
+    error "initial storage filling failed", error = res.error
 
   info "WakuSync protocol initialized"
 
@@ -390,6 +394,7 @@ proc new*(
 proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
   debug "periodic sync initialized", interval = $self.syncInterval
 
+  # infinite loop
   while true:
     await sleepAsync(self.syncInterval)
 
@@ -402,12 +407,13 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
 
     while true:
       let res = (await self.storeSynchronization()).valueOr:
-        error "sync failed", error = $error
+        # we either try again or log an error and break
         if tries > 0:
           tries -= 1
           await sleepAsync(RetryDelay)
           continue
         else:
+          error "sync failed", error = $error
           break
 
       hashes = res[0]
@@ -418,12 +424,13 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
       tries = 3
       while true:
         (await callback(hashes, peer.peerId)).isOkOr:
-          error "transfer callback failed", error = $error
+          # we either try again or log an error and break
           if tries > 0:
             tries -= 1
             await sleepAsync(RetryDelay)
             continue
           else:
+            error "transfer callback failed", error = $error
             break
 
         break
@@ -441,6 +448,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   # Default T minus 55m
   var pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
 
+  # infinite loop
   while true:
     await sleepAsync(self.syncInterval)
 
@@ -457,12 +465,13 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
       (elements, cursor) = (
         await callback(self.pruneStart - self.pruneOffset.nanos, pruneStop, cursor)
       ).valueOr:
-        error "pruning callback failed", error = $error
+        # we either try again or log an error and break
         if tries > 0:
           tries -= 1
           await sleepAsync(RetryDelay)
           continue
         else:
+          error "pruning callback failed", error = $error
           break
 
       if elements.len == 0:
