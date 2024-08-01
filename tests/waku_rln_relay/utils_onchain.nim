@@ -20,8 +20,7 @@ import
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
     waku_rln_relay/contract,
-    waku_rln_relay/rln, 
-    # waku_rln_relay/group_manager/on_chain/group_manager,
+    waku_rln_relay/rln,
   ],
   ../testlib/common,
   ./utils
