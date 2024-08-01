@@ -201,6 +201,7 @@ proc connectToNodes*(
 proc mountWakuSync*(
     node: WakuNode,
     maxFrameSize: int = DefaultMaxFrameSize,
+    syncRange: timer.Duration = DefaultSyncRange,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: Duration = DefaultGossipSubJitter,
     enablePruning: bool = true, # For testing purposes
@@ -212,6 +213,7 @@ proc mountWakuSync*(
     await WakuSync.new(
       peerManager = node.peerManager,
       maxFrameSize = maxFrameSize,
+      syncRange = syncRange,
       syncInterval = syncInterval,
       relayJitter = relayJitter,
       pruning = enablePruning,

@@ -5,7 +5,8 @@ else:
 
 import
   std/[options, sugar, sequtils],
-  stew/[results, byteutils],
+  stew/byteutils,
+  results,
   chronicles,
   chronos,
   metrics,
@@ -34,8 +35,9 @@ type WakuSync* = ref object of LPProtocol
   maxFrameSize: int
 
   syncInterval: timer.Duration # Time between each syncronisation attempt
-  relayJitter: Duration # Time delay until all messages are mostly received network wide
-  transferCallBack: Option[TransferCallback] # Callback for message transfer.
+  syncRange: timer.Duration # Amount of time in the past to sync
+  relayJitter: Duration # Amount of time since the present to ignore when syncing
+  transferCallBack: Option[TransferCallback] # Callback for message transfers.
 
   pruneCallBack: Option[PruneCallBack] # Callback with the result of the archive query
   pruneStart: Timestamp # Last pruning start timestamp
@@ -59,7 +61,9 @@ proc messageIngress*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage)
   if self.storage.insert(msg.timestamp, msgHash).isErr():
     error "failed to insert message ", msg_hash = msgHash.to0xHex()
 
-proc calculateRange(jitter: Duration, syncRange: Duration = 1.hours): (int64, int64) =
+proc calculateRange(
+    jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
+): (int64, int64) =
   var now = getNowInNanosecondTime()
 
   # Because of message jitter inherent to Relay protocol
@@ -297,7 +301,7 @@ proc initFillStorage(
     return err("waku archive unavailable")
 
   let endTime = getNowInNanosecondTime()
-  let starTime = endTime - self.syncInterval.nanos
+  let starTime = endTime - self.syncRange.nanos
 
   var query = ArchiveQuery(
     includeData: true,
@@ -325,6 +329,7 @@ proc new*(
     T: type WakuSync,
     peerManager: PeerManager,
     maxFrameSize: int = DefaultMaxFrameSize,
+    syncRange: timer.Duration = DefaultSyncRange,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: Duration = DefaultGossipSubJitter,
     pruning: bool,
@@ -339,6 +344,7 @@ proc new*(
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
+    syncRange: syncRange,
     relayJitter: relayJitter,
     pruneOffset: syncInterval div 100,
   )
@@ -404,9 +410,13 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
 proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   debug "periodic prune initialized", interval = $self.syncInterval
 
+  # Default T minus 60m
+  self.pruneStart = getNowInNanosecondTime() - self.syncRange.nanos
+
   await sleepAsync(self.syncInterval)
 
-  var pruneStop = getNowInNanosecondTime()
+  # Default T minus 55m
+  var pruneStop = getNowInNanosecondTime()  - self.syncRange.nanos
 
   while true:
     await sleepAsync(self.syncInterval)
@@ -445,13 +455,12 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
         break
 
     self.pruneStart = pruneStop
-    pruneStop = getNowInNanosecondTime()
+    pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
 
     debug "periodic prune done", storageSize = self.storage.len
 
 proc start*(self: WakuSync) =
   self.started = true
-  self.pruneStart = getNowInNanosecondTime()
 
   if self.transferCallBack.isSome() and self.syncInterval > ZeroDuration:
     self.periodicSyncFut = self.periodicSync(self.transferCallBack.get())

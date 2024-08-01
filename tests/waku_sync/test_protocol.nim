@@ -60,9 +60,9 @@ suite "Waku Sync":
       let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msg3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
 
-      server.ingessMessage(DefaultPubsubTopic, msg1)
-      server.ingessMessage(DefaultPubsubTopic, msg2)
-      server.ingessMessage(DefaultPubsubTopic, msg3)
+      server.messageIngress(DefaultPubsubTopic, msg1)
+      server.messageIngress(DefaultPubsubTopic, msg2)
+      server.messageIngress(DefaultPubsubTopic, msg3)
 
       var hashes = await client.sync(serverPeerInfo)
 
@@ -78,9 +78,9 @@ suite "Waku Sync":
       let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msg3 = fakeWakuMessage(contentTopic = DefaultContentTopic)
 
-      client.ingessMessage(DefaultPubsubTopic, msg1)
-      client.ingessMessage(DefaultPubsubTopic, msg2)
-      client.ingessMessage(DefaultPubsubTopic, msg3)
+      client.messageIngress(DefaultPubsubTopic, msg1)
+      client.messageIngress(DefaultPubsubTopic, msg2)
+      client.messageIngress(DefaultPubsubTopic, msg3)
 
       var hashes = await client.sync(serverPeerInfo)
       assert hashes.isOk(), hashes.error
@@ -91,9 +91,9 @@ suite "Waku Sync":
       let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
 
-      server.ingessMessage(DefaultPubsubTopic, msg1)
-      client.ingessMessage(DefaultPubsubTopic, msg1)
-      server.ingessMessage(DefaultPubsubTopic, msg2)
+      server.messageIngress(DefaultPubsubTopic, msg1)
+      client.messageIngress(DefaultPubsubTopic, msg1)
+      server.messageIngress(DefaultPubsubTopic, msg2)
 
       var syncRes = await client.sync(serverPeerInfo)
 
@@ -107,7 +107,7 @@ suite "Waku Sync":
         hashes[0][0] == computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
 
       #Assuming message is fetched from peer
-      client.ingessMessage(DefaultPubsubTopic, msg2)
+      client.messageIngress(DefaultPubsubTopic, msg2)
 
       syncRes = await client.sync(serverPeerInfo)
 
@@ -123,10 +123,10 @@ suite "Waku Sync":
       let msg1 = fakeWakuMessage(contentTopic = DefaultContentTopic)
       let msg2 = fakeWakuMessage(contentTopic = DefaultContentTopic)
 
-      server.ingessMessage(DefaultPubsubTopic, msg1)
-      client.ingessMessage(DefaultPubsubTopic, msg1)
-      server.ingessMessage(DefaultPubsubTopic, msg2)
-      client.ingessMessage(DefaultPubsubTopic, msg2)
+      server.messageIngress(DefaultPubsubTopic, msg1)
+      client.messageIngress(DefaultPubsubTopic, msg1)
+      server.messageIngress(DefaultPubsubTopic, msg2)
+      client.messageIngress(DefaultPubsubTopic, msg2)
 
       let hashes = await client.sync(serverPeerInfo)
       assert hashes.isOk(), $hashes.error
@@ -141,10 +141,10 @@ suite "Waku Sync":
       while i < msgCount:
         let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
         if i != diffIndex:
-          client.ingessMessage(DefaultPubsubTopic, msg)
+          client.messageIngress(DefaultPubsubTopic, msg)
         else:
           diffMsg = msg
-        server.ingessMessage(DefaultPubsubTopic, msg)
+        server.messageIngress(DefaultPubsubTopic, msg)
         i += 1
 
       let hashes = await client.sync(serverPeerInfo)
@@ -176,9 +176,9 @@ suite "Waku Sync":
           diffMsgHashes.add(computeMessageHash(DefaultPubsubTopic, msg))
           tmpDiffCnt = tmpDiffCnt - 1
         else:
-          client.ingessMessage(DefaultPubsubTopic, msg)
+          client.messageIngress(DefaultPubsubTopic, msg)
 
-        server.ingessMessage(DefaultPubsubTopic, msg)
+        server.messageIngress(DefaultPubsubTopic, msg)
         i += 1
 
       let hashes = await client.sync(serverPeerInfo)
@@ -201,10 +201,10 @@ suite "Waku Sync":
         i += 1
         let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
         if i mod 2 == 0:
-          client2.ingessMessage(DefaultPubsubTopic, msg)
+          client2.messageIngress(DefaultPubsubTopic, msg)
         else:
-          client.ingessMessage(DefaultPubsubTopic, msg)
-        server.ingessMessage(DefaultPubsubTopic, msg)
+          client.messageIngress(DefaultPubsubTopic, msg)
+        server.messageIngress(DefaultPubsubTopic, msg)
 
       let fut1 = client.sync(serverPeerInfo)
       let fut2 = client2.sync(serverPeerInfo)
@@ -250,16 +250,16 @@ suite "Waku Sync":
       while i < msgCount:
         let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
         if i < msgCount - 1:
-          client.ingessMessage(DefaultPubsubTopic, msg)
+          client.messageIngress(DefaultPubsubTopic, msg)
         if i < msgCount - 10:
-          client2.ingessMessage(DefaultPubsubTopic, msg)
+          client2.messageIngress(DefaultPubsubTopic, msg)
         if i < msgCount - 100:
-          client3.ingessMessage(DefaultPubsubTopic, msg)
+          client3.messageIngress(DefaultPubsubTopic, msg)
         if i < msgCount - 1000:
-          client4.ingessMessage(DefaultPubsubTopic, msg)
+          client4.messageIngress(DefaultPubsubTopic, msg)
         if i < msgCount - 10000:
-          client5.ingessMessage(DefaultPubsubTopic, msg)
-        server.ingessMessage(DefaultPubsubTopic, msg)
+          client5.messageIngress(DefaultPubsubTopic, msg)
+        server.messageIngress(DefaultPubsubTopic, msg)
         i += 1
 
       var timeBefore = getNowInNanosecondTime()
@@ -342,10 +342,10 @@ suite "Waku Sync":
         node2 = await newTestWakuSync(node2Switch)
         node3 = await newTestWakuSync(node3Switch)
 
-      node1.ingessMessage(DefaultPubsubTopic, msg1)
-      node2.ingessMessage(DefaultPubsubTopic, msg1)
-      node2.ingessMessage(DefaultPubsubTopic, msg2)
-      node3.ingessMessage(DefaultPubsubTopic, msg3)
+      node1.messageIngress(DefaultPubsubTopic, msg1)
+      node2.messageIngress(DefaultPubsubTopic, msg1)
+      node2.messageIngress(DefaultPubsubTopic, msg2)
+      node3.messageIngress(DefaultPubsubTopic, msg3)
 
       let f1 = node1.sync(node2PeerInfo)
       let f2 = node2.sync(node3PeerInfo)
