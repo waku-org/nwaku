@@ -34,7 +34,6 @@ proc setup*(): Waku =
   # Override configuration
   conf.maxMessageSize = twnClusterConf.maxMessageSize
   conf.clusterId = twnClusterConf.clusterId
-  conf.rlnRelay = twnClusterConf.rlnRelay
   conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
   conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
   conf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
@@ -43,6 +42,10 @@ proc setup*(): Waku =
     conf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
   conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
   conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+
+  # Only set rlnRelay to true if relay is configured
+  if conf.relay:
+    conf.rlnRelay = twnClusterConf.rlnRelay
 
   debug "Starting node"
   var waku = Waku.init(conf).valueOr:

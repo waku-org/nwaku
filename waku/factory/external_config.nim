@@ -566,6 +566,12 @@ type WakuNodeConf* = object
       name: "discv5-bits-per-hop"
     .}: int
 
+    discv5Only* {.
+      desc: "Disable all protocols other than discv5",
+      defaultValue: false,
+      name: "discv5-only"
+    .}: bool
+
     ## waku peer exchange config
     peerExchange* {.
       desc: "Enable waku peer exchange protocol (responder side): true|false",
