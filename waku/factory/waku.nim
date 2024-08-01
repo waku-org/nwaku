@@ -105,7 +105,6 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     # Override configuration
     confCopy.maxMessageSize = twnClusterConf.maxMessageSize
     confCopy.clusterId = twnClusterConf.clusterId
-    confCopy.rlnRelay = twnClusterConf.rlnRelay
     confCopy.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
     confCopy.rlnRelayChainId = twnClusterConf.rlnRelayChainId
     confCopy.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
@@ -115,6 +114,10 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
       confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
     confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+
+    # Only set rlnRelay to true if relay is configured
+    if confCopy.relay:
+      confCopy.rlnRelay = twnClusterConf.rlnRelay
   else:
     discard
 
@@ -216,15 +219,16 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
   return ok()
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: []).} =
-  (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
-    return err("error while calling startNode: " & $error)
+  if not waku[].conf.discv5Only:
+    (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+      return err("error while calling startNode: " & $error)
 
-  # Update waku data that is set dynamically on node start
-  updateWaku(waku).isOkOr:
-    return err("Error in updateApp: " & $error)
+    # Update waku data that is set dynamically on node start
+    updateWaku(waku).isOkOr:
+      return err("Error in updateApp: " & $error)
 
   ## Discv5
-  if waku[].conf.discv5Discovery:
+  if waku[].conf.discv5Discovery or waku[].conf.discv5Only:
     waku[].wakuDiscV5 = waku_discv5.setupDiscoveryV5(
       waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
       waku.dynamicBootstrapNodes, waku.rng, waku.key,
