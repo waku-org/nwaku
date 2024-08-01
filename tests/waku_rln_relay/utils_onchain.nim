@@ -1,9 +1,6 @@
 {.used.}
 
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, os, osproc, sequtils, deques, streams, strutils, tempfiles, strformat],
@@ -19,12 +16,12 @@ import
 
 import
   waku/[
+    waku_rln_relay,
     waku_rln_relay/protocol_types,
     waku_rln_relay/constants,
     waku_rln_relay/contract,
-    waku_rln_relay/rln,
-    waku_rln_relay/conversion_utils,
-    waku_rln_relay/group_manager/on_chain/group_manager
+    waku_rln_relay/rln, 
+    # waku_rln_relay/group_manager/on_chain/group_manager,
   ],
   ../testlib/common,
   ./utils
@@ -35,7 +32,6 @@ proc generateCredentials*(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
   return credRes.get()
 
-# TODO: when defined(rln_v2):
 proc getRateCommitment*(
     idCredential: IdentityCredential, userMessageLimit: UserMessageLimit
 ): RlnRelayResult[RawRateCommitment] =
@@ -126,7 +122,8 @@ proc createEthAccount*(
   # Send ethAmount to acc
   discard await web3.send(tx)
   let balance = await web3.provider.eth_getBalance(acc, "latest")
-  assert balance == ethToWei(ethAmount), fmt"Balance is {balance} but expected {ethToWei(ethAmount)}"
+  assert balance == ethToWei(ethAmount),
+    fmt"Balance is {balance} but expected {ethToWei(ethAmount)}"
 
   return (pk, acc)
 
@@ -226,3 +223,5 @@ proc setup*(
   )
 
   return manager
+
+{.pop.}

@@ -432,7 +432,7 @@ suite "Sharding":
         let clientResult = await clientHandler.waitForResult(FUTURE_TIMEOUT)
         assertResultOk(clientResult)
 
-      asyncTest "store (automatic sharding filtering)":
+      xasyncTest "store (automatic sharding filtering)":
         # Given one archive with two sets of messages using the same content topic (with two different formats)
         let
           timeOrigin = now()

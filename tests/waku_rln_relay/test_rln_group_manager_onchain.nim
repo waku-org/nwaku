@@ -89,16 +89,26 @@ suite "Onchain group manager":
         raiseAssert errStr
       ,
     )
-    (await manager2.init()).isErrOr:
+    let e = await manager2.init()
+    (e).isErrOr:
       raiseAssert "Expected error when contract address doesn't match"
 
-  # FAILED
+    echo "---"
+    discard "persisted data: contract address mismatch"
+    echo e.error
+    echo "---"
+
   asyncTest "should error if contract does not exist":
     var triggeredError = false
 
     let manager = await setup()
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
     manager.onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+      echo "---"
+      discard
+        "Failed to get the deployed block number. Have you set the correct contract address?: No response from the Web3 provider"
+      echo msg
+      echo "---"
       triggeredError = true
 
     discard await manager.init()
