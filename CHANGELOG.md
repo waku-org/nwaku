@@ -1,9 +1,11 @@
-## v0.31.1 (2024-07-30)
+## v0.31.1 (2024-08-02)
 
 ### Bug fixes
 
 * Prevent legacy store from creating new partitions as that approach blocked the database.
 [2931](https://github.com/waku-org/nwaku/pull/2931)
+
+* lightpush better feedback in case the lightpush service node does not have peers [2951](https://github.com/waku-org/nwaku/pull/2951)
 
 This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
 | Protocol | Spec status | Protocol id |
