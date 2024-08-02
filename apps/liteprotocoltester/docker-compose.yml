@@ -80,6 +80,7 @@ services:
     entrypoint: sh
     command:
       - /opt/run_tester_node.sh
+      - /usr/bin/liteprotocoltester
       - SENDER
     depends_on:
       - servicenode
@@ -118,6 +119,7 @@ services:
     entrypoint: sh
     command:
       - /opt/run_tester_node.sh
+      - /usr/bin/liteprotocoltester
       - RECEIVER
     depends_on:
       - servicenode

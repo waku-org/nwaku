@@ -5,6 +5,17 @@ IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
 
 echo "Service node IP: ${IP}"
 
+if [ -n "${PUBSUB}" ]; then
+    PUBSUB=--pubsub-topic="${PUBSUB}"
+else
+    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
+fi
+
+if [ -n "${CLUSTER_ID}" ]; then
+    CLUSTER_ID=--cluster-id="${CLUSTER_ID}"
+fi
+
+
 RETRIES=${RETRIES:=10}
 
 while [ -z "${BOOTSTRAP_ENR}" ] && [ ${RETRIES} -ge 0 ]; do
@@ -42,5 +53,5 @@ exec /usr/bin/wakunode\
       --metrics-server=True\
       --metrics-server-address=0.0.0.0\
       --nat=extip:${IP}\
-      --pubsub-topic=/waku/2/rs/66/0\
-      --cluster-id=66
+      --pubsub-topic=${PUBSUB}\
+      --cluster-id=${CLUSTER_ID}

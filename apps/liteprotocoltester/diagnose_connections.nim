@@ -93,4 +93,4 @@ proc logServiceRelayPeers(
 
 proc startPeriodicPeerDiagnostic*(pm: PeerManager, codec: string) {.async.} =
   asyncSpawn logSelfPeersLoop(pm, chronos.seconds(20))
-  asyncSpawn logServiceRelayPeers(pm, codec, chronos.seconds(20))
+  # asyncSpawn logServiceRelayPeers(pm, codec, chronos.seconds(20))

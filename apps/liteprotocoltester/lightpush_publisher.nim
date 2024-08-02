@@ -87,11 +87,12 @@ proc publishMessages(
   renderMsgSize.max = max(renderMsgSize.min, renderMsgSize.max)
 
   let selfPeerId = $wakuNode.switch.peerInfo.peerId
+  var numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
 
   var messagesSent: uint32 = 1
-  while numMessages >= messagesSent:
+  while numMessagesToSend >= messagesSent:
     let (message, msgSize) = prepareMessage(
-      selfPeerId, messagesSent, numMessages, startedAt, prevMessageAt,
+      selfPeerId, messagesSent, numMessagesToSend, startedAt, prevMessageAt,
       lightpushContentTopic, renderMsgSize,
     )
     let wlpRes = await wakuNode.lightpushPublish(some(lightpushPubsubTopic), message)
@@ -102,7 +103,7 @@ proc publishMessages(
       sentMessages[messagesSent] = (hash: msgHash, relayed: true)
       notice "published message using lightpush",
         index = messagesSent,
-        count = numMessages,
+        count = numMessagesToSend,
         size = msgSize,
         pubsubTopic = lightpushPubsubTopic,
         hash = msgHash
@@ -118,7 +119,7 @@ proc publishMessages(
   let report = catch:
     """*----------------------------------------*
 |  Expected  |    Sent    |   Failed   |
-|{numMessages:>11} |{messagesSent-failedToSendCount-1:>11} |{failedToSendCount:>11} |
+|{numMessagesToSend:>11} |{messagesSent-failedToSendCount-1:>11} |{failedToSendCount:>11} |
 *----------------------------------------*""".fmt()
 
   if report.isErr:

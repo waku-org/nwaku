@@ -96,20 +96,53 @@ docker compose -f docker-compose-on-simularor.yml logs -f receivernode
 - Notice there is a configurable wait before start publishing messages as it is noticed time is needed for the service nodes to get connected to full nodes from simulator
 - light clients will print report on their and the connected service node's connectivity to the network in every 20 secs.
 
+### Phase 3
+
+> Run independently on a chosen waku fleet
+
+This option is simple as is just to run the built liteprotocoltester binary with run_tester_node.sh script.
+
+Syntax:
+`./run_tester_node.sh <path-to-liteprotocoltester-binary> <SENDER|RECEIVER> <service-node-address>`
+
+How to run from you nwaku repository:
+```bash
+cd ../{your-repository}
+
+make  LOG_LEVEL=DEBUG liteprotocoltester
+
+cd apps/liteprotocoltester
+
+# optionally edit .env file
+
+# run publisher side
+./run_tester_node.sh ../../build/liteprotocoltester SENDER [chosen service node address that support lightpush]
+
+# or run receiver side
+./run_tester_node.sh ../../build/liteprotocoltester RECEIVER [chosen service node address that support filter service]
+```
+
+#### Recommendations
+
+In order to run on any kind of network, it is recommended to deploy the built `liteprotocoltester` binary with the `.env` file and the `run_tester_node.sh` script to the desired machine.
+
+Select a lightpush service node and a filter service node from the targeted network, or you can run your own. Note down the selected peers peer_id.
+
+Run a SENDER role liteprotocoltester and a RECEIVER role one on different terminals. Depending on the test aim, you may want to redirect the output to a file.
+
+> RECEIVER side will periodically print statistics to standard output.
+
 ## Configure
 
 ### Environment variables for docker compose runs
 
 |   Variable     | Description | Default |
 | ---: | :--- | :--- |
-| NUM_MESSAGES   | Number of message to publish | 120 |
+| NUM_MESSAGES   | Number of message to publish, 0 means infinite | 120 |
 | DELAY_MESSAGES | Frequency of messages in milliseconds | 1000 |
-<<<<<<< HEAD
-| PUBSUB | Used pubsub_topic for testing | /waku/2/rs/0/0 |
-=======
 | PUBSUB | Used pubsub_topic for testing | /waku/2/rs/66/0 |
->>>>>>> 32cc23ff (Added phase 2 - waku-simulatior integration in README.md)
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
+| CLUSTER_ID  | cluster_id of the network | 16 |
 | START_PUBLISHING_AFTER | Delay in seconds before starting to publish to let service node connected | 5 |
 | MIN_MESSAGE_SIZE | Minimum message size in bytes | 1KiB |
 | MAX_MESSAGE_SIZE | Maximum message size in bytes | 120KiB |
@@ -123,14 +156,10 @@ docker compose -f docker-compose-on-simularor.yml logs -f receivernode
 | --service-node| Address of the service node to use for lightpush and/or filter service | - |
 | --num-messages | Number of message to publish | 120 |
 | --delay-messages | Frequency of messages in milliseconds | 1000 |
-<<<<<<< HEAD
-| --pubsub-topic | Used pubsub_topic for testing | /waku/2/rs/0/0 |
-=======
 | --min-message-size | Minimum message size in bytes | 1KiB |
 | --max-message-size | Maximum message size in bytes | 120KiB |
 | --start-publishing-after | Delay in seconds before starting to publish to let service node connected in seconds | 5 |
 | --pubsub-topic | Used pubsub_topic for testing | /waku/2/default-waku/proto |
->>>>>>> 32cc23ff (Added phase 2 - waku-simulatior integration in README.md)
 | --content_topic | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | --cluster-id | Cluster id for the test | 0 |
 | --config-file | TOML configuration file to fine tune the light waku node<br>Note that some configurations (full node services) are not taken into account | - |

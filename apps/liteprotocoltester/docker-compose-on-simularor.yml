@@ -89,7 +89,9 @@ services:
     entrypoint: sh
     command:
       - /opt/run_tester_node.sh
+      - /usr/bin/liteprotocoltester
       - SENDER
+      - waku-sim
     depends_on:
       - lightpush-service
     configs:
@@ -163,7 +165,9 @@ services:
     entrypoint: sh
     command:
       - /opt/run_tester_node.sh
+      - /usr/bin/liteprotocoltester
       - RECEIVER
+      - waku-sim
     depends_on:
       - filter-service
       - publishernode
