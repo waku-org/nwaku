@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, tables, sequtils, tempfiles],
+  std/[options, tables, sequtils, tempfiles, strutils],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -86,8 +86,13 @@ suite "Waku Lightpush - End To End":
       if not publishResponse.isOk():
         echo "Publish failed: ", publishResponse.error()
 
-      # Then the message is relayed to the server
-      assertResultOk publishResponse
+      # Then the message is not relayed but not due to RLN
+      assert publishResponse.isErr(), "We expect an error response"
+      assert (
+        publishResponse.error.contains(
+          "Lightpush request has not been published to any peers"
+        )
+      ), "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
     asyncTest "Validate message size exceeds limit":
@@ -174,5 +179,10 @@ suite "RLN Proofs as a Lightpush Service":
       if not publishResponse.isOk():
         echo "Publish failed: ", publishResponse.error()
 
-      # Then the message is relayed to the server
-      assertResultOk publishResponse
+      # Then the message is not relayed but not due to RLN
+      assert publishResponse.isErr(), "We expect an error response"
+      assert (
+        publishResponse.error.contains(
+          "Lightpush request has not been published to any peers"
+        )
+      ), "incorrect error response"
