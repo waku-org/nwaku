@@ -20,6 +20,7 @@ import
   waku/[
     waku_core/topics/pubsub_topic,
     waku_core/topics/sharding,
+    waku_store_legacy/common,
     node/waku_node,
     common/paging,
     waku_core,

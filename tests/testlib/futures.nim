@@ -7,6 +7,7 @@ const
   FUTURE_TIMEOUT_MEDIUM* = 5.seconds
   FUTURE_TIMEOUT_LONG* = 10.seconds
   FUTURE_TIMEOUT_SHORT* = 100.milliseconds
+  FUTURE_TIMEOUT_SCORING* = 13.seconds # Scoring is 12s, so we need to wait more
 
 proc newPushHandlerFuture*(): Future[(string, WakuMessage)] =
   newFuture[(string, WakuMessage)]()
