@@ -385,7 +385,7 @@ proc new*(
 
   let res = await sync.initFillStorage(wakuArchive)
   if res.isErr():
-    error "initial storage filling failed", error = res.error
+    warn "will not sync messages before this point in time", error = res.error
 
   info "WakuSync protocol initialized"
 

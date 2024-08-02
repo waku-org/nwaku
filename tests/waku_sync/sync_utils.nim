@@ -12,13 +12,21 @@ proc newTestWakuSync*(
 ): Future[WakuSync] {.async.} =
   let peerManager = PeerManager.new(switch)
 
+  let fakePruneCallback = proc(
+      pruneStart: Timestamp, pruneStop: Timestamp, cursor: Option[WakuMessageHash]
+  ): Future[
+      Result[(seq[(WakuMessageHash, Timestamp)], Option[WakuMessageHash]), string]
+  ] {.async: (raises: []), closure.} =
+    return ok((@[], none(WakuMessageHash)))
+
   let res = await WakuSync.new(
     peerManager = peerManager,
     relayJitter = 0.seconds,
     syncInterval = interval,
-    pruning = false,
     wakuArchive = nil,
     wakuStoreClient = nil,
+    pruneCallback = some(fakePruneCallback),
+    transferCallback = none(TransferCallback),
   )
 
   let proto = res.get()

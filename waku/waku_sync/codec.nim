@@ -26,17 +26,12 @@ proc decode*(T: type SyncPayload, buffer: seq[byte]): ProtobufResult[T] =
   var req = SyncPayload()
   let pb = initProtoBuffer(buffer)
 
-  var start: uint64
-  if ?pb.getField(31, start):
-    req.rangeStart = some(start)
+  var rangeStart: uint64
+  var rangeEnd: uint64
+  if ?pb.getField(31, rangeStart) and ?pb.getField(32, rangeEnd):
+    req.syncRange = some((rangeStart, rangeEnd))
   else:
-    req.rangeStart = none(uint64)
-
-  var `end`: uint64
-  if ?pb.getField(32, `end`):
-    req.rangeEnd = some(`end`)
-  else:
-    req.rangeEnd = none(uint64)
+    req.syncRange = none((uint64, uint64))
 
   var frame: uint64
   if ?pb.getField(33, frame):
