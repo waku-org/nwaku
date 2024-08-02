@@ -127,13 +127,12 @@ suite "Waku ENR - Multiaddresses":
   test "decode record with multiaddrs field":
     ## Given
     let enrUri =
-      "enr:-QEnuEBEAyErHEfhiQxAVQoWowGTCuEF9fKZtXSd7H_PymHFhGJA3rGAYDVSH" &
-      "KCyJDGRLBGsloNbS8AZF33IVuefjOO6BIJpZIJ2NIJpcIQS39tkim11bHRpYWRkcn" &
-      "O4lgAvNihub2RlLTAxLmRvLWFtczMud2FrdXYyLnRlc3Quc3RhdHVzaW0ubmV0BgG" &
-      "73gMAODcxbm9kZS0wMS5hYy1jbi1ob25na29uZy1jLndha3V2Mi50ZXN0LnN0YXR1" &
-      "c2ltLm5ldAYBu94DACm9A62t7AQL4Ef5ZYZosRpQTzFVAB8jGjf1TER2wH-0zBOe1" &
-      "-MDBNLeA4lzZWNwMjU2azGhAzfsxbxyCkgCqq8WwYsVWH7YkpMLnU2Bw5xJSimxKa" &
-      "v-g3VkcIIjKA"
+      "enr:-QEMuEAs8JmmyUI3b9v_ADqYtELHUYAsAMS21lA2BMtrzF86tVmyy9cCrhmzfHGH" &
+      "x_g3nybn7jIRybzXTGNj3C2KzrriAYJpZIJ2NIJpcISf3_Jeim11bHRpYWRkcnO4XAAr" &
+      "NiZzdG9yZS0wMS5kby1hbXMzLnN0YXR1cy5wcm9kLnN0YXR1cy5pbQZ2XwAtNiZzdG9y" &
+      "ZS0wMS5kby1hbXMzLnN0YXR1cy5wcm9kLnN0YXR1cy5pbQYBu94DgnJzjQAQBQABACAA" &
+      "QACAAQCJc2VjcDI1NmsxoQLfoaQH3oSYW59yxEBfeAZbltmUnC4BzYkHqer2VQMTyoN0" &
+      "Y3CCdl-DdWRwgiMohXdha3UyAw"
 
     var record: Record
     require record.fromURI(enrUri)
@@ -141,15 +140,10 @@ suite "Waku ENR - Multiaddresses":
     # TODO: get rid of wakuv2 here too. Needt to generate a ne ENR record
     let
       expectedAddr1 = MultiAddress
-        .init("/dns4/node-01.do-ams3.wakuv2.test.status.im/tcp/443/wss")
+        .init("/dns4/store-01.do-ams3.status.prod.status.im/tcp/30303")
         .get()
       expectedAddr2 = MultiAddress
-        .init("/dns6/node-01.ac-cn-hongkong-c.wakuv2.test.status.im/tcp/443/wss")
-        .get()
-      expectedAddr3 = MultiAddress
-        .init(
-          "/onion3/vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd:1234/wss"
-        )
+        .init("/dns4/store-01.do-ams3.status.prod.status.im/tcp/443/wss")
         .get()
 
     ## When
@@ -160,13 +154,12 @@ suite "Waku ENR - Multiaddresses":
 
     ## Then
     check multiaddrsOpt.isSome()
-
     let multiaddrs = multiaddrsOpt.get()
+
     check:
-      multiaddrs.len == 3
+      multiaddrs.len == 2
       multiaddrs.contains(expectedAddr1)
       multiaddrs.contains(expectedAddr2)
-      multiaddrs.contains(expectedAddr3)
 
   test "encode and decode record with multiaddrs field (EnrBuilder ext)":
     ## Given
