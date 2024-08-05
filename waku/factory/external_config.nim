@@ -579,6 +579,13 @@ type WakuNodeConf* = object
       name: "peer-exchange"
     .}: bool
 
+    peerExchangeNode* {.
+      desc:
+        "Peer multiaddr to send peer exchange requests to. (enables peer exchange protocol requester side)",
+      defaultValue: "",
+      name: "peer-exchange-node"
+    .}: string
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",
