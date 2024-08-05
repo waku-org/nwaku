@@ -119,7 +119,10 @@ proc setupAndSubscribe(rng: ref HmacDrbgContext) {.async.} =
         contentTopic = msg.contentTopic,
         timestamp = msg.timestamp
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(WakuRelayHandler(handler)))
+  node.subscribe(
+    (kind: Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+    some(WakuRelayHandler(handler)),
+  )
 
 when isMainModule:
   let rng = crypto.newRng()
