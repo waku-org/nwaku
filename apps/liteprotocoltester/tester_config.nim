@@ -20,7 +20,7 @@ import
     common/confutils/envvar/std/net as confEnvvarNet,
     common/logging,
     factory/external_config,
-    waku/waku_core,
+    waku_core,
   ]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
@@ -105,7 +105,7 @@ type LiteProtocolTesterConf* = object
       "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
     defaultValue: 0,
     name: "cluster-id"
-  .}: uint32
+  .}: uint16
 
   ## Tester REST service configuration
   restAddress* {.
