@@ -338,20 +338,12 @@ proc setupProtocols(
       return err("failed to set node waku filter peer: " & filterNode.error)
 
   # waku peer exchange setup
-  if conf.peerExchangeNode != "" or conf.peerExchange:
+  if conf.peerExchange:
     try:
       await mountPeerExchange(node, some(conf.clusterId))
     except CatchableError:
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
-
-    if conf.peerExchangeNode != "":
-      let peerExchangeNode = parsePeerInfo(conf.peerExchangeNode)
-      if peerExchangeNode.isOk():
-        node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
-      else:
-        return
-          err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
   return ok()
 
