@@ -87,6 +87,14 @@ if [ -n "${MAX_MESSAGE_SIZE}" ]; then
 fi
 
 
+if [ -n "${NUM_MESSAGES}" ]; then
+    NUM_MESSAGES=--num-messages="${NUM_MESSAGES}"
+fi
+
+if [ -n "${DELAY_MESSAGES}" ]; then
+    DELAY_MESSAGES=--delay-messages="${DELAY_MESSAGES}"
+fi
+
 echo "Running binary: ${BINARY_PATH}"
 echo "Tester node: ${FUNCTION}"
 echo "Using service node: ${SERIVCE_NODE_ADDR}"
@@ -95,8 +103,8 @@ echo "Using service node: ${SERIVCE_NODE_ADDR}"
 exec "${BINARY_PATH}"\
       --log-level=INFO\
       --service-node="${SERIVCE_NODE_ADDR}"\
-      --num-messages=${NUM_MESSAGES}\
-      --delay-messages=${DELAY_MESSAGES}\
+      ${DELAY_MESSAGES}\
+      ${NUM_MESSAGES}\
       ${PUBSUB}\
       ${CONTENT_TOPIC}\
       ${CLUSTER_ID}\
