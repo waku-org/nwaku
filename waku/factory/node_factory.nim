@@ -345,6 +345,14 @@ proc setupProtocols(
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
 
+  if conf.peerExchangeNode != "":
+    let peerExchangeNode = parsePeerInfo(conf.peerExchangeNode)
+    if peerExchangeNode.isOk():
+      node.peerManager.addServicePeer(peerExchangeNode.value, WakuPeerExchangeCodec)
+    else:
+      return
+        err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+
   return ok()
 
 ## Start node
