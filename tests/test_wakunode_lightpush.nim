@@ -42,7 +42,10 @@ suite "WakuNode - Lightpush":
         msg == message
       completionFutRelay.complete(true)
 
-    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    destNode.subscribe(
+      (kind: Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
 
     # Wait for subscription to take effect
     await sleepAsync(100.millis)

@@ -108,7 +108,10 @@ procSuite "WakuNode - RLN relay":
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node3.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -183,8 +186,14 @@ procSuite "WakuNode - RLN relay":
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
     # mount the relay handlers
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[0]), some(relayHandler))
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[1]), some(relayHandler))
+    nodes[2].subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopics[0], contentTopics: @[""]),
+      some(relayHandler),
+    )
+    nodes[2].subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopics[1], contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(1000.millis)
 
     # generate some messages with rln proofs first. generating
@@ -211,11 +220,13 @@ procSuite "WakuNode - RLN relay":
         raiseAssert $error
       messages2.add(message)
 
+    info "AAAAA"
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
     # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
     for msg in messages1:
       discard await nodes[0].publish(some(pubsubTopics[0]), msg)
     for msg in messages2:
+      info "AAAAA", msg
       discard await nodes[1].publish(some(pubsubTopics[1]), msg)
 
     # wait for gossip to propagate
@@ -303,7 +314,10 @@ procSuite "WakuNode - RLN relay":
         completionFut.complete(true)
 
     # mount the relay handler
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node3.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(2000.millis)
 
     # prepare the message payload
@@ -452,7 +466,10 @@ procSuite "WakuNode - RLN relay":
           completionFut4.complete(true)
 
     # mount the relay handler for node3
-    node3.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node3.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(2000.millis)
 
     ## node1 publishes and relays 4 messages to node2
@@ -541,7 +558,10 @@ procSuite "WakuNode - RLN relay":
         if msg == wm6:
           completionFut6.complete(true)
 
-    node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+    node2.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
 
     # Given all messages have an rln proof and are published by the node 1
     let publishSleepDuration: Duration = 5000.millis

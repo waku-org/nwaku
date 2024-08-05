@@ -67,7 +67,8 @@ proc installRelayApiHandlers*(
     for pubsubTopic in newTopics:
       cache.pubsubSubscribe(pubsubTopic)
       node.subscribe(
-        (kind: PubsubSub, topic: pubsubTopic), some(messageCacheHandler(cache))
+        (kind: Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+        some(messageCacheHandler(cache)),
       )
 
     return RestApiResponse.ok()
@@ -88,7 +89,9 @@ proc installRelayApiHandlers*(
     # Unsubscribe all handlers from requested topics
     for pubsubTopic in req:
       cache.pubsubUnsubscribe(pubsubTopic)
-      node.unsubscribe((kind: PubsubUnsub, topic: pubsubTopic))
+      node.unsubscribe(
+        (kind: Unsubscribe, pubsubTopic: pubsubTopic, contentTopics: @[""])
+      )
 
     # Successfully unsubscribed from all requested topics
     return RestApiResponse.ok()
@@ -190,9 +193,11 @@ proc installRelayApiHandlers*(
 
     for contentTopic in newTopics:
       cache.contentSubscribe(contentTopic)
-      node.subscribe(
-        (kind: ContentSub, topic: contentTopic), some(messageCacheHandler(cache))
-      )
+
+    node.subscribe(
+      (kind: Subscribe, pubsubTopic: "", contentTopics: newTopics),
+      some(messageCacheHandler(cache)),
+    )
 
     return RestApiResponse.ok()
 
@@ -203,12 +208,15 @@ proc installRelayApiHandlers*(
 
     debug "delete_waku_v2_relay_v1_auto_subscriptions"
 
-    let req: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](contentBody).valueOr:
+    let contentTopics: seq[ContentTopic] = decodeRequestBody[seq[ContentTopic]](
+      contentBody
+    ).valueOr:
       return error
 
-    for contentTopic in req:
+    for contentTopic in contentTopics:
       cache.contentUnsubscribe(contentTopic)
-      node.unsubscribe((kind: ContentUnsub, topic: contentTopic))
+
+    node.unsubscribe((kind: Unsubscribe, pubsubTopic: "", contentTopics: contentTopics))
 
     return RestApiResponse.ok()
 
