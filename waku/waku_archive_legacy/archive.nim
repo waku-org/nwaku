@@ -12,7 +12,6 @@ import
 import
   ../common/paging,
   ./driver,
-  ./retention_policy,
   ../waku_core,
   ../waku_core/message/digest,
   ./common,
@@ -45,11 +44,6 @@ type WakuArchive* = ref object
 
   validator: MessageValidator
 
-  retentionPolicy: Option[RetentionPolicy]
-
-  retentionPolicyHandle: Future[void]
-  metricsHandle: Future[void]
-
 proc validate*(msg: WakuMessage): Result[void, string] =
   if msg.ephemeral:
     # Ephemeral message, do not store
@@ -72,16 +66,12 @@ proc validate*(msg: WakuMessage): Result[void, string] =
   return ok()
 
 proc new*(
-    T: type WakuArchive,
-    driver: ArchiveDriver,
-    validator: MessageValidator = validate,
-    retentionPolicy = none(RetentionPolicy),
+    T: type WakuArchive, driver: ArchiveDriver, validator: MessageValidator = validate
 ): Result[T, string] =
   if driver.isNil():
     return err("archive driver is Nil")
 
-  let archive =
-    WakuArchive(driver: driver, validator: validator, retentionPolicy: retentionPolicy)
+  let archive = WakuArchive(driver: driver, validator: validator)
 
   return ok(archive)
 
@@ -280,44 +270,3 @@ proc findMessagesV2*(
     reverse(messages)
 
   return ok(ArchiveResponse(messages: messages, cursor: cursor))
-
-proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
-  debug "executing message retention policy"
-
-  let policy = self.retentionPolicy.get()
-
-  while true:
-    (await policy.execute(self.driver)).isOkOr:
-      waku_legacy_archive_errors.inc(labelValues = [retPolicyFailure])
-      error "failed execution of retention policy", error = error
-
-    await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
-
-proc periodicMetricReport(self: WakuArchive) {.async.} =
-  while true:
-    let countRes = (await self.driver.getMessagesCount())
-    if countRes.isErr():
-      error "loopReportStoredMessagesMetric failed to get messages count",
-        error = countRes.error
-    else:
-      let count = countRes.get()
-      waku_legacy_archive_messages.set(count, labelValues = ["stored"])
-
-    await sleepAsync(WakuArchiveDefaultMetricsReportInterval)
-
-proc start*(self: WakuArchive) =
-  if self.retentionPolicy.isSome():
-    self.retentionPolicyHandle = self.periodicRetentionPolicy()
-
-  self.metricsHandle = self.periodicMetricReport()
-
-proc stopWait*(self: WakuArchive) {.async.} =
-  var futures: seq[Future[void]]
-
-  if self.retentionPolicy.isSome() and not self.retentionPolicyHandle.isNil():
-    futures.add(self.retentionPolicyHandle.cancelAndWait())
-
-  if not self.metricsHandle.isNil:
-    futures.add(self.metricsHandle.cancelAndWait())
-
-  await noCancel(allFutures(futures))

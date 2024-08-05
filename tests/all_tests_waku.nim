@@ -25,7 +25,6 @@ import
   ./waku_archive_legacy/test_driver_queue,
   ./waku_archive_legacy/test_driver_sqlite_query,
   ./waku_archive_legacy/test_driver_sqlite,
-  ./waku_archive_legacy/test_retention_policy,
   ./waku_archive_legacy/test_waku_archive
 
 const os* {.strdefine.} = ""

@@ -18,13 +18,27 @@ networkmonitor [OPTIONS]...
 
 The following options are available:
 
- -l, --log-level               Sets the log level [=LogLevel.DEBUG].
+ -l, --log-level               Sets the log level [=LogLevel.INFO].
  -t, --timeout                 Timeout to consider that the connection failed [=chronos.seconds(10)].
  -b, --bootstrap-node          Bootstrap ENR node. Argument may be repeated. [=@[""]].
      --dns-discovery-url       URL for DNS node list in format 'enrtree://<key>@<fqdn>'.
+     --pubsub-topic            Default pubsub topic to subscribe to. Argument may be repeated..
  -r, --refresh-interval        How often new peers are discovered and connected to (in seconds) [=5].
+     --cluster-id              Cluster id that the node is running in. Node in a different cluster id is
+                               disconnected. [=1].
+     --rln-relay               Enable spam protection through rln-relay: true|false [=true].
+     --rln-relay-dynamic       Enable  waku-rln-relay with on-chain dynamic group management: true|false
+                               [=true].
+     --rln-relay-tree-path     Path to the RLN merkle tree sled db (https://github.com/spacejam/sled).
+     --rln-relay-eth-client-address  HTTP address of an Ethereum testnet client e.g., http://localhost:8540/
+                               [=http://localhost:8540/].
+     --rln-relay-eth-contract-address  Address of membership contract on an Ethereum testnet.
+     --rln-relay-epoch-sec     Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.
+                               [=1].
+     --rln-relay-user-message-limit  Set a user message limit for the rln membership registration. Must be a positive
+                               integer. Default is 1. [=1].
      --metrics-server          Enable the metrics server: true|false [=true].
-     --metrics-server-address  Listening address of the metrics server. [=ValidIpAddress.init("127.0.0.1")].
+     --metrics-server-address  Listening address of the metrics server. [=parseIpAddress("127.0.0.1")].
      --metrics-server-port     Listening HTTP port of the metrics server. [=8008].
      --metrics-rest-address    Listening address of the metrics rest server. [=127.0.0.1].
      --metrics-rest-port       Listening HTTP port of the metrics rest server. [=8009].

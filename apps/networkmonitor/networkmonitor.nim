@@ -45,10 +45,10 @@ const MaxConnectedPeers = 150
 
 const git_version* {.strdefine.} = "n/a"
 
-proc setDiscoveredPeersCapabilities(routingTableNodes: seq[Node]) =
+proc setDiscoveredPeersCapabilities(routingTableNodes: seq[waku_enr.Record]) =
   for capability in @[Relay, Store, Filter, Lightpush]:
     let nOfNodesWithCapability =
-      routingTableNodes.countIt(it.record.supportsCapability(capability))
+      routingTableNodes.countIt(it.supportsCapability(capability))
     info "capabilities as per ENR waku flag",
       capability = capability, amount = nOfNodesWithCapability
     networkmonitor_peer_type_as_per_enr.set(
@@ -116,7 +116,7 @@ proc shouldReconnect(customPeerInfo: CustomPeerInfoRef): bool =
 
 # TODO: Split in discover, connect
 proc setConnectedPeersMetrics(
-    discoveredNodes: seq[Node],
+    discoveredNodes: seq[waku_enr.Record],
     node: WakuNode,
     timeout: chronos.Duration,
     restClient: RestClientRef,
@@ -141,20 +141,10 @@ proc setConnectedPeersMetrics(
 
   # iterate all newly discovered nodes
   for discNode in discoveredNodes:
-    let typedRecord = discNode.record.toTypedRecord()
-    if not typedRecord.isOk():
-      warn "could not convert record to typed record", record = discNode.record
-      continue
-
-    let secp256k1 = typedRecord.get().secp256k1
-    if not secp256k1.isSome():
-      warn "could not get secp256k1 key", typedRecord = typedRecord.get()
-      continue
-
-    let peerRes = toRemotePeerInfo(discNode.record)
+    let peerRes = toRemotePeerInfo(discNode)
 
     let peerInfo = peerRes.valueOr:
-      warn "error converting record to remote peer info", record = discNode.record
+      warn "error converting record to remote peer info", record = discNode
       continue
 
     # create new entry if new peerId found
@@ -169,10 +159,17 @@ proc setConnectedPeersMetrics(
     let customPeerInfo = allPeers[peerId]
 
     customPeerInfo.lastTimeDiscovered = currentTime
-    customPeerInfo.enr = discNode.record.toURI()
-    customPeerInfo.enrCapabilities = discNode.record.getCapabilities().mapIt($it)
+    customPeerInfo.enr = discNode.toURI()
+    customPeerInfo.enrCapabilities = discNode.getCapabilities().mapIt($it)
     customPeerInfo.discovered += 1
 
+    for maddr in peerInfo.addrs:
+      if $maddr notin customPeerInfo.maddrs:
+        customPeerInfo.maddrs.add $maddr
+    let typedRecord = discNode.toTypedRecord()
+    if not typedRecord.isOk():
+      warn "could not convert record to typed record", record = discNode
+      continue
     if not typedRecord.get().ip.isSome():
       warn "ip field is not set", record = typedRecord.get()
       continue
@@ -301,13 +298,13 @@ proc crawlNetwork(
   while true:
     let startTime = Moment.now()
     # discover new random nodes
-    let discoveredNodes = await wakuDiscv5.protocol.queryRandom()
+    let discoveredNodes = await wakuDiscv5.findRandomPeers()
 
     # nodes are nested into bucket, flat it
-    let flatNodes = wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
+    #let flatNodes = wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
 
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
-    setDiscoveredPeersCapabilities(flatNodes)
+    setDiscoveredPeersCapabilities(discoveredNodes)
 
     # tries to connect to all newly discovered nodes
     # and populates metrics related to peers we could connect
@@ -321,10 +318,10 @@ proc crawlNetwork(
     # populate info from ip addresses
     await populateInfoFromIp(allPeersRef, restClient)
 
-    let totalNodes = flatNodes.len
-    let seenNodes = flatNodes.countIt(it.seen)
+    let totalNodes = discoveredNodes.len
+    #let seenNodes = totalNodes
 
-    info "discovered nodes: ", total = totalNodes, seen = seenNodes
+    info "discovered nodes: ", total = totalNodes #, seen = seenNodes
 
     # Notes:
     # we dont run ipMajorityLoop

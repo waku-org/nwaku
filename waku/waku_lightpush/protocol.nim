@@ -42,8 +42,10 @@ proc handleRequest*(
 
       pubSubTopic = request.get().pubSubTopic
       message = request.get().message
+
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
-    notice "lightpush request",
+
+    notice "handling lightpush request",
       peer_id = peerId,
       requestId = requestId,
       pubsubTopic = pubsubTopic,

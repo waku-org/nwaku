@@ -146,7 +146,7 @@ suite "Waku Filter - DOS protection":
       some(FilterSubscribeErrorKind.TOO_MANY_REQUESTS)
 
     # ensure period of time has passed and clients can again use the service
-    await sleepAsync(600.milliseconds)
+    await sleepAsync(700.milliseconds)
     check client1.subscribe(serverRemotePeerInfo, pubsubTopic, contentTopicSeq) ==
       none(FilterSubscribeErrorKind)
     check client2.subscribe(serverRemotePeerInfo, pubsubTopic, contentTopicSeq) ==

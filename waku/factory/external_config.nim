@@ -379,6 +379,12 @@ type WakuNodeConf* = object
       name: "store-max-num-db-connections"
     .}: int
 
+    storeResume* {.
+      desc: "Enable store resume functionality",
+      defaultValue: false,
+      name: "store-resume"
+    .}: bool
+
     ## Filter config
     filter* {.
       desc: "Enable filter protocol: true|false", defaultValue: false, name: "filter"
@@ -559,6 +565,12 @@ type WakuNodeConf* = object
       defaultValue: 1,
       name: "discv5-bits-per-hop"
     .}: int
+
+    discv5Only* {.
+      desc: "Disable all protocols other than discv5",
+      defaultValue: false,
+      name: "discv5-only"
+    .}: bool
 
     ## waku peer exchange config
     peerExchange* {.

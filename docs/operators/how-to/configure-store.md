@@ -15,11 +15,11 @@ This option controls the mounting of the Waku Store protocol, meaning that your 
 
 Provide at least one store service node address with the `--storenode` option. This option is independent of the `--store` option i.e., one node can act as a waku store client without mounting the Waku Store protocol.
 
-For example, to use the peer at `/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp` as the waku store service node:
+For example, to use the peer at `/dns4/node-01.ac-cn-hongkong-c.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp` as the waku store service node:
 
 ```shell
 wakunode2 \
-  --storenode=/dns4/node-01.ac-cn-hongkong-c.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp
+  --storenode=/dns4/node-01.ac-cn-hongkong-c.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkzHaTP5JsUwfR9NR8Rj9HC24puS6ocaU8wze4QrXr9iXp
 ```
 
 Your node can now send queries to retrieve historical messages

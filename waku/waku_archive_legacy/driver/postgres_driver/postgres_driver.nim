@@ -15,18 +15,12 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
-  ../../../common/databases/db_postgres as waku_postgres,
-  ./postgres_healthcheck,
-  ./partitions_manager
+  ../../../common/databases/db_postgres as waku_postgres
 
 type PostgresDriver* = ref object of ArchiveDriver
   ## Establish a separate pools for read/write operations
   writeConnPool: PgAsyncPool
   readConnPool: PgAsyncPool
-
-  ## Partition container
-  partitionMngr: PartitionManager
-  futLoopPartitionFactory: Future[void]
 
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition = # TODO: get the sql queries from a file
@@ -134,17 +128,7 @@ proc new*(
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
-
-  if not isNil(onFatalErrorAction):
-    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
-
-  let driver = PostgresDriver(
-    writeConnPool: writeConnPool,
-    readConnPool: readConnPool,
-    partitionMngr: PartitionManager.new(),
-  )
+  let driver = PostgresDriver(writeConnPool: writeConnPool, readConnPool: readConnPool)
   return ok(driver)
 
 proc reset*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
@@ -266,38 +250,6 @@ method getAllMessages*(
     return err("failed in query: " & $error)
 
   return ok(rows)
-
-proc getPartitionsList(
-    s: PostgresDriver
-): Future[ArchiveDriverResult[seq[string]]] {.async.} =
-  ## Retrieves the seq of partition table names.
-  ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
-
-  var partitions: seq[string]
-  proc rowCallback(pqResult: ptr PGresult) =
-    for iRow in 0 ..< pqResult.pqNtuples():
-      let partitionName = $(pqgetvalue(pqResult, iRow, 0))
-      partitions.add(partitionName)
-
-  (
-    await s.readConnPool.pgQuery(
-      """
-                      SELECT child.relname       AS partition_name
-                          FROM pg_inherits
-                          JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
-                          JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
-                          JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
-                          JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
-                          WHERE parent.relname='messages'
-                          ORDER BY partition_name ASC
-                          """,
-      newSeq[string](0),
-      rowCallback,
-    )
-  ).isOkOr:
-    return err("getPartitionsList failed in query: " & $error)
-
-  return ok(partitions)
 
 proc getMessagesArbitraryQuery(
     s: PostgresDriver,
@@ -764,20 +716,7 @@ method getMessagesCount*(
 method getOldestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  ## In some cases it could happen that we have
-  ## empty partitions which are older than the current stored rows.
-  ## In those cases we want to consider those older partitions as the oldest considered timestamp.
-  let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
-    return err("could not get oldest partition: " & $error)
-
-  let oldestPartitionTimeNanoSec = oldestPartition.getPartitionStartTimeInNanosec()
-
-  let intRes = await s.getInt("SELECT MIN(timestamp) FROM messages")
-  if intRes.isErr():
-    ## Just return the oldest partition time considering the partitions set
-    return ok(Timestamp(oldestPartitionTimeNanoSec))
-
-  return ok(Timestamp(min(intRes.get(), oldestPartitionTimeNanoSec)))
+  return err("not implemented because legacy will get deprecated")
 
 method getNewestMessageTimestamp*(
     s: PostgresDriver
@@ -791,22 +730,20 @@ method getNewestMessageTimestamp*(
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  let execRes = await s.writeConnPool.pgQuery(
-    """DELETE FROM messages WHERE id NOT IN
-                          (
-                        SELECT id FROM messages ORDER BY timestamp DESC LIMIT ?
-                          );""",
-    @[$limit],
-  )
-  if execRes.isErr():
-    return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
+  ## Will be completely removed when deprecating store legacy
+  # let execRes = await s.writeConnPool.pgQuery(
+  #   """DELETE FROM messages WHERE id NOT IN
+  #                         (
+  #                       SELECT id FROM messages ORDER BY timestamp DESC LIMIT ?
+  #                         );""",
+  #   @[$limit],
+  # )
+  # if execRes.isErr():
+  #   return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
 
   return ok()
 
 method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Cancel the partition factory loop
-  s.futLoopPartitionFactory.cancel()
-
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
   let readCloseRes = await s.readConnPool.close()
@@ -850,250 +787,41 @@ proc performWriteQuery*(
 
   return ok()
 
-proc addPartition(
-    self: PostgresDriver, startTime: Timestamp, duration: timer.Duration
-): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Creates a partition table that will store the messages that fall in the range
-  ## `startTime` <= timestamp < `startTime + duration`.
-  ## `startTime` is measured in seconds since epoch
-
-  let beginning = startTime
-  let `end` = (startTime + duration.seconds)
-
-  let fromInSec: string = $beginning
-  let untilInSec: string = $`end`
-
-  let fromInNanoSec: string = fromInSec & "000000000"
-  let untilInNanoSec: string = untilInSec & "000000000"
-
-  let partitionName = "messages_" & fromInSec & "_" & untilInSec
-
-  let createPartitionQuery =
-    "CREATE TABLE IF NOT EXISTS " & partitionName & " PARTITION OF " &
-    "messages FOR VALUES FROM ('" & fromInNanoSec & "') TO ('" & untilInNanoSec & "');"
-
-  (await self.performWriteQuery(createPartitionQuery)).isOkOr:
-    return err(fmt"error adding partition [{partitionName}]: " & $error)
-
-  debug "new partition added", query = createPartitionQuery
-
-  self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
-  return ok()
-
-proc initializePartitionsInfo(
-    self: PostgresDriver
-): Future[ArchiveDriverResult[void]] {.async.} =
-  let partitionNamesRes = await self.getPartitionsList()
-  if not partitionNamesRes.isOk():
-    return err("Could not retrieve partitions list: " & $partitionNamesRes.error)
-  else:
-    let partitionNames = partitionNamesRes.get()
-    for partitionName in partitionNames:
-      ## partitionName contains something like 'messages_1708449815_1708449875'
-      let bothTimes = partitionName.replace("messages_", "")
-      let times = bothTimes.split("_")
-      if times.len != 2:
-        return err(fmt"loopPartitionFactory wrong partition name {partitionName}")
-
-      var beginning: int64
-      try:
-        beginning = parseInt(times[0])
-      except ValueError:
-        return err("Could not parse beginning time: " & getCurrentExceptionMsg())
-
-      var `end`: int64
-      try:
-        `end` = parseInt(times[1])
-      except ValueError:
-        return err("Could not parse end time: " & getCurrentExceptionMsg())
-
-      self.partitionMngr.addPartitionInfo(partitionName, beginning, `end`)
-
-    return ok()
-
-const DefaultDatabasePartitionCheckTimeInterval = timer.minutes(10)
-const PartitionsRangeInterval = timer.hours(1) ## Time range covered by each parition
-
-proc loopPartitionFactory(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
-) {.async.} =
-  ## Loop proc that continuously checks whether we need to create a new partition.
-  ## Notice that the deletion of partitions is handled by the retention policy modules.
-
-  debug "starting loopPartitionFactory"
-
-  if PartitionsRangeInterval < DefaultDatabasePartitionCheckTimeInterval:
-    onFatalError(
-      "partition factory partition range interval should be bigger than check interval"
-    )
-
-  ## First of all, let's make the 'partition_manager' aware of the current partitions
-  (await self.initializePartitionsInfo()).isOkOr:
-    onFatalError("issue in loopPartitionFactory: " & $error)
-
-  while true:
-    trace "Check if we need to create a new partition"
-
-    let now = times.now().toTime().toUnix()
-
-    if self.partitionMngr.isEmpty():
-      debug "adding partition because now there aren't more partitions"
-      (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
-        onFatalError("error when creating a new partition from empty state: " & $error)
-    else:
-      let newestPartitionRes = self.partitionMngr.getNewestPartition()
-      if newestPartitionRes.isErr():
-        onFatalError("could not get newest partition: " & $newestPartitionRes.error)
-
-      let newestPartition = newestPartitionRes.get()
-      if newestPartition.containsMoment(now):
-        debug "creating a new partition for the future"
-        ## The current used partition is the last one that was created.
-        ## Thus, let's create another partition for the future.
-
-        (
-          await self.addPartition(
-            newestPartition.getLastMoment(), PartitionsRangeInterval
-          )
-        ).isOkOr:
-          onFatalError("could not add the next partition for 'now': " & $error)
-      elif now >= newestPartition.getLastMoment():
-        debug "creating a new partition to contain current messages"
-        ## There is no partition to contain the current time.
-        ## This happens if the node has been stopped for quite a long time.
-        ## Then, let's create the needed partition to contain 'now'.
-        (await self.addPartition(now, PartitionsRangeInterval)).isOkOr:
-          onFatalError("could not add the next partition: " & $error)
-
-    await sleepAsync(DefaultDatabasePartitionCheckTimeInterval)
-
-proc startPartitionFactory*(
-    self: PostgresDriver, onFatalError: OnFatalErrorHandler
-) {.async.} =
-  self.futLoopPartitionFactory = self.loopPartitionFactory(onFatalError)
-
-proc getTableSize*(
-    self: PostgresDriver, tableName: string
-): Future[ArchiveDriverResult[string]] {.async.} =
-  ## Returns a human-readable representation of the size for the requested table.
-  ## tableName - table of interest.
-
-  let tableSize = (
-    await self.getStr(
-      fmt"""
-                SELECT pg_size_pretty(pg_total_relation_size(C.oid)) AS "total_size"
-                FROM pg_class C
-                where relname = '{tableName}'"""
-    )
-  ).valueOr:
-    return err("error in getDatabaseSize: " & error)
-
-  return ok(tableSize)
-
-proc removePartition(
-    self: PostgresDriver, partitionName: string
-): Future[ArchiveDriverResult[void]] {.async.} =
-  var partSize = ""
-  let partSizeRes = await self.getTableSize(partitionName)
-  if partSizeRes.isOk():
-    partSize = partSizeRes.get()
-
-  ## Detach and remove the partition concurrently to not block the parent table (messages)
-  let detachPartitionQuery =
-    "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
-  debug "removeOldestPartition", query = detachPartitionQuery
-  (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    return err(fmt"error in {detachPartitionQuery}: " & $error)
-
-  ## Drop the partition
-  let dropPartitionQuery = "DROP TABLE " & partitionName
-  debug "removeOldestPartition drop partition", query = dropPartitionQuery
-  (await self.performWriteQuery(dropPartitionQuery)).isOkOr:
-    return err(fmt"error in {dropPartitionQuery}: " & $error)
-
-  debug "removed partition", partition_name = partitionName, partition_size = partSize
-  self.partitionMngr.removeOldestPartitionName()
-
-  return ok()
-
-proc removePartitionsOlderThan(
-    self: PostgresDriver, tsInNanoSec: Timestamp
-): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Removes old partitions that don't contain the specified timestamp
-
-  let tsInSec = Timestamp(float(tsInNanoSec) / 1_000_000_000)
-
-  var oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
-    return err("could not get oldest partition in removePartitionOlderThan: " & $error)
-
-  while not oldestPartition.containsMoment(tsInSec):
-    (await self.removePartition(oldestPartition.getName())).isOkOr:
-      return err("issue in removePartitionsOlderThan: " & $error)
-
-    oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
-      return err(
-        "could not get partition in removePartitionOlderThan in while loop: " & $error
-      )
-
-  ## We reached the partition that contains the target timestamp plus don't want to remove it
-  return ok()
-
-proc removeOldestPartition(
-    self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
-): Future[ArchiveDriverResult[void]] {.async.} =
-  ## Indirectly called from the retention policy
-
-  let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
-    return err("could not remove oldest partition: " & $error)
-
-  if not forceRemoval:
-    let now = times.now().toTime().toUnix()
-    let currentPartitionRes = self.partitionMngr.getPartitionFromDateTime(now)
-    if currentPartitionRes.isOk():
-      ## The database contains a partition that would store current messages.
-
-      if currentPartitionRes.get() == oldestPartition:
-        debug "Skipping to remove the current partition"
-        return ok()
-
-  return await self.removePartition(oldestPartition.getName())
-
-proc containsAnyPartition*(self: PostgresDriver): bool =
-  return not self.partitionMngr.isEmpty()
-
 method decreaseDatabaseSize*(
     driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  var dbSize = (await driver.getDatabaseSize()).valueOr:
-    return err("decreaseDatabaseSize failed to get database size: " & $error)
+  ## This is completely disabled and only the non-legacy driver
+  ## will take care of that
+  # var dbSize = (await driver.getDatabaseSize()).valueOr:
+  #   return err("decreaseDatabaseSize failed to get database size: " & $error)
 
-  ## database size in bytes
-  var totalSizeOfDB: int64 = int64(dbSize)
+  # ## database size in bytes
+  # var totalSizeOfDB: int64 = int64(dbSize)
 
-  if totalSizeOfDB <= targetSizeInBytes:
-    return ok()
+  # if totalSizeOfDB <= targetSizeInBytes:
+  #   return ok()
 
-  debug "start reducing database size",
-    targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
+  # debug "start reducing database size",
+  #   targetSize = $targetSizeInBytes, currentSize = $totalSizeOfDB
 
-  while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
-    (await driver.removeOldestPartition(forceRemoval)).isOkOr:
-      return err(
-        "decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error
-      )
+  # while totalSizeOfDB > targetSizeInBytes and driver.containsAnyPartition():
+  #   (await driver.removeOldestPartition(forceRemoval)).isOkOr:
+  #     return err(
+  #       "decreaseDatabaseSize inside loop failed to remove oldest partition: " & $error
+  #     )
 
-    dbSize = (await driver.getDatabaseSize()).valueOr:
-      return
-        err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
+  #   dbSize = (await driver.getDatabaseSize()).valueOr:
+  #     return
+  #       err("decreaseDatabaseSize inside loop failed to get database size: " & $error)
 
-    let newCurrentSize = int64(dbSize)
-    if newCurrentSize == totalSizeOfDB:
-      return err("the previous partition removal didn't clear database size")
+  #   let newCurrentSize = int64(dbSize)
+  #   if newCurrentSize == totalSizeOfDB:
+  #     return err("the previous partition removal didn't clear database size")
 
-    totalSizeOfDB = newCurrentSize
+  #   totalSizeOfDB = newCurrentSize
 
-    debug "reducing database size",
-      targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
+  #   debug "reducing database size",
+  #     targetSize = $targetSizeInBytes, newCurrentSize = $totalSizeOfDB
 
   return ok()
 
@@ -1146,14 +874,14 @@ method deleteMessagesOlderThanTimestamp*(
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## First of all, let's remove the older partitions so that we can reduce
   ## the database size.
-  (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
-    return err("error while removing older partitions: " & $error)
+  # (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
+  #   return err("error while removing older partitions: " & $error)
 
-  (
-    await s.writeConnPool.pgQuery(
-      "DELETE FROM messages WHERE timestamp < " & $tsNanoSec
-    )
-  ).isOkOr:
-    return err("error in deleteMessagesOlderThanTimestamp: " & $error)
+  # (
+  #   await s.writeConnPool.pgQuery(
+  #     "DELETE FROM messages WHERE timestamp < " & $tsNanoSec
+  #   )
+  # ).isOkOr:
+  #   return err("error in deleteMessagesOlderThanTimestamp: " & $error)
 
   return ok()
