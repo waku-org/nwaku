@@ -60,7 +60,7 @@ The `chat2` application can retrieve historical chat messages from a node suppor
 It's possible to query a *specific* store node by configuring its `multiaddr` as `storenode` when starting the app:
 
 ```
-./build/chat2 --storenode:/dns4/node-01.do-ams3.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
+./build/chat2 --storenode:/dns4/node-01.do-ams3.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
 ```
 
 Alternatively, the `chat2` application will select a random `storenode` for you from the configured fleet (`sandbox` by default) if `storenode` is left unspecified.
@@ -80,7 +80,7 @@ To disable historical message retrieval, use the `--store:false` option:
 In order to connect to a *specific* node as [`relay`](https://rfc.vac.dev/spec/11/) peer, define that node's `multiaddr` as a `staticnode` when starting the app:
 
 ```
-./build/chat2 --staticnode:/dns4/node-01.do-ams3.waku.test.statusim.net/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
+./build/chat2 --staticnode:/dns4/node-01.do-ams3.waku.test.status.im/tcp/30303/p2p/16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
 ```
 
 This will bypass the random peer selection process and connect to the specified node.
