@@ -16,6 +16,7 @@ type
     prevIndex: uint32
 
   MessageInfo = tuple[msg: ProtocolTesterMessage, info: ArrivalInfo]
+  DupStat = tuple[hash: string, dupCount: int, size: uint64]
 
   StatHelper = object
     prevIndex: uint32
@@ -23,6 +24,7 @@ type
     lostIndices: HashSet[uint32]
     seenIndices: HashSet[uint32]
     maxIndex: uint32
+    duplicates: OrderedTable[uint32, DupStat]
 
   Statistics* = object
     received: Table[uint32, MessageInfo]
@@ -52,7 +54,7 @@ proc init*(T: type Statistics, expectedMessageCount: int = 1000): T =
   result.received = initTable[uint32, MessageInfo](expectedMessageCount)
   return result
 
-proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage) =
+proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage, msgHash: string) =
   if self.allMessageCount == 0:
     self.allMessageCount = msg.count
     self.firstReceivedIdx = msg.index
@@ -70,8 +72,12 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage) =
   )
 
   if self.received.hasKeyOrPut(msg.index, currentArrived):
-    warn "Duplicate message", index = msg.index
     inc(self.duplicateCount)
+    self.helper.duplicates.mgetOrPut(msg.index, (msgHash, 0, msg.size)).dupCount.inc()
+    warn "Duplicate message",
+      index = msg.index,
+      hash = msgHash,
+      times_duplicated = self.helper.duplicates[msg.index].dupCount
     return
 
   ## detect misorder arrival and possible lost messages
@@ -89,13 +95,16 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage) =
   inc(self.receivedMessages)
 
 proc addMessage*(
-    self: var PerPeerStatistics, peerId: string, msg: ProtocolTesterMessage
+    self: var PerPeerStatistics,
+    peerId: string,
+    msg: ProtocolTesterMessage,
+    msgHash: string,
 ) =
   if not self.contains(peerId):
     self[peerId] = Statistics.init()
 
   discard catch:
-    self[peerId].addMessage(msg)
+    self[peerId].addMessage(msg, msgHash)
 
 proc lossCount*(self: Statistics): uint32 =
   self.helper.maxIndex - self.receivedMessages
@@ -140,18 +149,42 @@ proc missingIndices*(self: Statistics): seq[uint32] =
       missing.add(idx)
   return missing
 
+proc distinctDupCount(self: Statistics): int {.inline.} =
+  return self.helper.duplicates.len()
+
+proc allDuplicates(self: Statistics): int {.inline.} =
+  var total = 0
+  for _, (_, dupCount, _) in self.helper.duplicates.pairs:
+    total += dupCount
+  return total
+
+proc dupMsgs(self: Statistics): string =
+  var dupMsgs: string = ""
+  for idx, (hash, dupCount, size) in self.helper.duplicates.pairs:
+    dupMsgs.add(
+      "    index: " & $idx & " | hash: " & hash & " | count: " & $dupCount & " | size: " &
+        $size & "\n"
+    )
+  return dupMsgs
+
 proc echoStat*(self: Statistics) =
   let (minL, maxL, avgL) = self.calcLatency()
 
   let printable = catch:
     """*------------------------------------------------------------------------------------------*
-|  Expected  |  Received  |   Target   |    Loss    |  Misorder  |    Late    |  Duplicate |
-|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.allMessageCount:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |{self.duplicateCount:>11} |
+|  Expected  |  Received  |   Target   |    Loss    |  Misorder  |    Late    |            |
+|{self.helper.maxIndex:>11} |{self.receivedMessages:>11} |{self.allMessageCount:>11} |{self.lossCount():>11} |{self.misorderCount:>11} |{self.lateCount:>11} |            |
 *------------------------------------------------------------------------------------------*
 | Latency stat:                                                                            |
 |    min latency: {$minL:<73}|
 |    avg latency: {$avgL:<73}|
 |    max latency: {$maxL:<73}|
+*------------------------------------------------------------------------------------------*
+| Duplicate stat:                                                                          |
+|    distinct duplicate messages: {$self.distinctDupCount():<57}|
+|    sum duplicates             : {$self.allDuplicates():<57}|
+  Duplicated messages:
+    {self.dupMsgs()}
 *------------------------------------------------------------------------------------------*
 | Lost indices:                                                                            |
 |  {self.missingIndices()} |

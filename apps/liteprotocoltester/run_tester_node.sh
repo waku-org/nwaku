@@ -11,18 +11,17 @@ IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
 
 echo "I am a lite-protocol-tester node"
 
-# Get an unique node index based on the container's IP
-FOURTH_OCTET=${IP##*.}
-THIRD_OCTET="${IP%.*}"; THIRD_OCTET="${THIRD_OCTET##*.}"
-NODE_INDEX=$((FOURTH_OCTET + 256 * THIRD_OCTET))
-
-echo "NODE_INDEX $NODE_INDEX"
-
 BINARY_PATH=$1
 
 if [ ! -x "${BINARY_PATH}" ]; then
-  echo "Invalid binary path. Failing"
+  echo "Invalid binary path '${BINARY_PATH}'. Failing"
   exit 1
+fi
+
+if [ "${2}" = "--help" ]; then
+  echo "You might want to check nwaku/apps/liteprotocoltester/README.md"
+  exec "${BINARY_PATH}" --help
+  exit 0
 fi
 
 FUNCTION=$2
@@ -98,7 +97,6 @@ fi
 echo "Running binary: ${BINARY_PATH}"
 echo "Tester node: ${FUNCTION}"
 echo "Using service node: ${SERIVCE_NODE_ADDR}"
-
 
 exec "${BINARY_PATH}"\
       --log-level=INFO\

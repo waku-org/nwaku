@@ -79,10 +79,9 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   let pushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
     let payloadStr = string.fromBytes(message.payload)
     let testerMessage = js.Json.decode(payloadStr, ProtocolTesterMessage)
-
-    stats.addMessage(testerMessage.sender, testerMessage)
-
     let msgHash = computeMessageHash(pubsubTopic, message).to0xHex
+
+    stats.addMessage(testerMessage.sender, testerMessage, msgHash)
 
     notice "message received",
       index = testerMessage.index,
