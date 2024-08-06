@@ -92,5 +92,5 @@ proc logServiceRelayPeers(
     await sleepAsync(interval)
 
 proc startPeriodicPeerDiagnostic*(pm: PeerManager, codec: string) {.async.} =
-  asyncSpawn logSelfPeersLoop(pm, chronos.seconds(20))
+  asyncSpawn logSelfPeersLoop(pm, chronos.seconds(60))
   # asyncSpawn logServiceRelayPeers(pm, codec, chronos.seconds(20))

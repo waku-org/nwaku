@@ -84,7 +84,7 @@ when isMainModule:
 
   wakuConf.logLevel = conf.logLevel
   wakuConf.logFormat = conf.logFormat
-  wakuConf.staticNodes = @[conf.serviceNode]
+  wakuConf.staticnodes = @[conf.serviceNode]
   wakuConf.nat = conf.nat
   wakuConf.maxConnections = 500
   wakuConf.restAddress = conf.restAddress
@@ -118,17 +118,17 @@ when isMainModule:
   nodeHealthMonitor = WakuNodeHealthMonitor()
   nodeHealthMonitor.setOverallHealth(HealthStatus.INITIALIZING)
 
-  # let restServer = rest_server_builder.startRestServerEsentials(
-  #   nodeHealthMonitor, wakuConf
-  # ).valueOr:
-  #   error "Starting esential REST server failed.", error = $error
-  #   quit(QuitFailure)
+  let restServer = rest_server_builder.startRestServerEsentials(
+    nodeHealthMonitor, wakuConf
+  ).valueOr:
+    error "Starting esential REST server failed.", error = $error
+    quit(QuitFailure)
 
   var wakuApp = Waku.init(wakuConf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 
-  # wakuApp.restServer = restServer
+  wakuApp.restServer = restServer
 
   nodeHealthMonitor.setNode(wakuApp.node)
 
@@ -136,11 +136,11 @@ when isMainModule:
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  # rest_server_builder.startRestServerProtocolSupport(
-  #   restServer, wakuApp.node, wakuApp.wakuDiscv5, wakuConf
-  # ).isOkOr:
-  #   error "Starting protocols support REST server failed.", error = $error
-  #   quit(QuitFailure)
+  rest_server_builder.startRestServerProtocolSupport(
+    restServer, wakuApp.node, wakuApp.wakuDiscv5, wakuConf
+  ).isOkOr:
+    error "Starting protocols support REST server failed.", error = $error
+    quit(QuitFailure)
 
   wakuApp.metricsServer = waku_metrics.startMetricsServerAndLogging(wakuConf).valueOr:
     error "Starting monitoring and external interfaces failed", error = error

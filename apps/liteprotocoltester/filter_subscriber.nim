@@ -45,6 +45,7 @@ proc maintainSubscription(
     let pingRes = await wakuNode.wakuFilterClient.ping(filterPeer)
     if pingRes.isErr():
       # No subscription found. Let's subscribe.
+      error "ping failed.", err = pingRes.error
       trace "no subscription found. Sending subscribe request"
 
       let subscribeRes = await wakuNode.filterSubscribe(
@@ -52,10 +53,10 @@ proc maintainSubscription(
       )
 
       if subscribeRes.isErr():
-        trace "subscribe request failed. Quitting.", err = subscribeRes.error
+        error "subscribe request failed. Quitting.", err = subscribeRes.error
         break
       else:
-        trace "subscribe request successful."
+        notice "subscribe request successful."
     else:
       trace "subscription found."
 
@@ -102,7 +103,7 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
     proc(udata: pointer) {.gcsafe.} =
       stats.echoStats()
 
-      if waitFor stats.checkIfAllMessagesReceived():
+      if conf.numMessages > 0 and waitFor stats.checkIfAllMessagesReceived():
         waitFor unsubscribe(
           wakuNode, remotePeer, conf.pubsubTopics[0], conf.contentTopics[0]
         )

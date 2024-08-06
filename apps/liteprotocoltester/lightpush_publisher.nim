@@ -3,6 +3,7 @@ import
   system/ansi_c,
   chronicles,
   chronos,
+  chronos/timer as chtimer,
   stew/byteutils,
   results,
   json_serialization as js
@@ -67,6 +68,38 @@ proc prepareMessage(
   return (message, renderSize)
 
 var sentMessages {.threadvar.}: OrderedTable[uint32, tuple[hash: string, relayed: bool]]
+var failedToSendCause {.threadvar.}: Table[string, uint32]
+var failedToSendCount {.threadvar.}: uint32
+var numMessagesToSend {.threadvar.}: uint32
+var messagesSent {.threadvar.}: uint32
+
+proc reportSentMessages() {.async.} =
+  while true:
+    await sleepAsync(chtimer.seconds(60))
+    let report = catch:
+      """*----------------------------------------*
+|  Expected  |    Sent    |   Failed   |
+|{numMessagesToSend+failedToSendCount:>11} |{messagesSent:>11} |{failedToSendCount:>11} |
+*----------------------------------------*""".fmt()
+
+    if report.isErr:
+      echo "Error while printing statistics"
+    else:
+      echo report.get()
+
+    echo "*--------------------------------------------------------------------------------------------------*"
+    echo "|  Failur cause                                                                         |  count   |"
+    for (cause, count) in failedToSendCause.pairs:
+      echo fmt"|{cause:<87}|{count:>10}|"
+    echo "*--------------------------------------------------------------------------------------------------*"
+
+    echo "*--------------------------------------------------------------------------------------------------*"
+    echo "|  Index   | Relayed | Hash                                                                        |"
+    for (index, info) in sentMessages.pairs:
+      echo fmt"|{index:>10}|{info.relayed:<9}| {info.hash:<76}|"
+    echo "*--------------------------------------------------------------------------------------------------*"
+    # evere sent message hash should logged once
+    sentMessages.clear()
 
 proc publishMessages(
     wakuNode: WakuNode,
@@ -78,7 +111,6 @@ proc publishMessages(
 ) {.async.} =
   let startedAt = getNowInNanosecondTime()
   var prevMessageAt = startedAt
-  var failedToSendCount: uint32 = 0
   var renderMsgSize = messageSizeRange
   # sets some default of min max message size to avoid conflict with meaningful payload size
   renderMsgSize.min = max(1024.uint64, renderMsgSize.min) # do not use less than 1KB
@@ -87,9 +119,10 @@ proc publishMessages(
   renderMsgSize.max = max(renderMsgSize.min, renderMsgSize.max)
 
   let selfPeerId = $wakuNode.switch.peerInfo.peerId
-  var numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
+  failedToSendCount = 0
+  numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
+  messagesSent = 1
 
-  var messagesSent: uint32 = 1
   while numMessagesToSend >= messagesSent:
     let (message, msgSize) = prepareMessage(
       selfPeerId, messagesSent, numMessagesToSend, startedAt, prevMessageAt,
@@ -107,31 +140,17 @@ proc publishMessages(
         size = msgSize,
         pubsubTopic = lightpushPubsubTopic,
         hash = msgHash
+      inc(messagesSent)
     else:
       sentMessages[messagesSent] = (hash: msgHash, relayed: false)
+      failedToSendCause.mgetOrPut(wlpRes.error, 1).inc()
       error "failed to publish message using lightpush",
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
 
     await sleepAsync(delayMessages)
-    inc(messagesSent)
 
-  let report = catch:
-    """*----------------------------------------*
-|  Expected  |    Sent    |   Failed   |
-|{numMessagesToSend:>11} |{messagesSent-failedToSendCount-1:>11} |{failedToSendCount:>11} |
-*----------------------------------------*""".fmt()
-
-  if report.isErr:
-    echo "Error while printing statistics"
-  else:
-    echo report.get()
-
-  echo "*--------------------------------------------------------------------------------------------------*"
-  echo "|  Index   | Relayed | Hash                                                                        |"
-  for (index, info) in sentMessages.pairs:
-    echo fmt"|{index:>10}|{info.relayed:<9}| {info.hash}"
-  echo "*--------------------------------------------------------------------------------------------------*"
+  waitFor reportSentMessages()
 
   discard c_raise(ansi_c.SIGTERM)
 
@@ -166,3 +185,5 @@ proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),
     conf.delayMessages.milliseconds,
   )
+
+  asyncSpawn reportSentMessages()

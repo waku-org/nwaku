@@ -52,6 +52,6 @@ exec /usr/bin/wakunode\
       --log-level=INFO\
       --metrics-server=True\
       --metrics-server-address=0.0.0.0\
-      --nat=extip:${IP}\
-      --pubsub-topic=${PUBSUB}\
-      --cluster-id=${CLUSTER_ID}
+      ${PUBSUB}\
+      ${CLUSTER_ID}
+      # --nat=extip:${IP}\
