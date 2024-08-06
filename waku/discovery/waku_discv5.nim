@@ -268,8 +268,8 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
 
     # Since we don't know the events we will receive we have to anticipate.
 
-    let subs = events.filterIt(it.kind == PubsubSub).mapIt(it.topic)
-    let unsubs = events.filterIt(it.kind == PubsubUnsub).mapIt(it.topic)
+    let subs = events.filterIt(it.kind == Subscribe).mapIt(it.pubsubTopic)
+    let unsubs = events.filterIt(it.kind == Unsubscribe).mapIt(it.pubsubTopic)
 
     if subs.len == 0 and unsubs.len == 0:
       continue

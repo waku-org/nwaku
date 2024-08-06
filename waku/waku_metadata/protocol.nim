@@ -128,16 +128,16 @@ proc subscriptionsListener(wm: WakuMetadata) {.async.} =
     let events = await wm.topicSubscriptionQueue.waitEvents(key)
 
     for event in events:
-      let parsedTopic = NsPubsubTopic.parse(event.topic).valueOr:
+      let parsedTopic = NsPubsubTopic.parse(event.pubsubTopic).valueOr:
         continue
 
       if parsedTopic.clusterId != wm.clusterId:
         continue
 
       case event.kind
-      of PubsubSub:
+      of Subscribe:
         wm.shards.incl(parsedTopic.shardId)
-      of PubsubUnsub:
+      of Unsubscribe:
         wm.shards.excl(parsedTopic.shardId)
       else:
         continue

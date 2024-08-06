@@ -92,7 +92,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     var res = await node1.publish(some(pubSubTopic), message)
@@ -178,7 +181,10 @@ suite "WakuNode - Relay":
       # relay handler is called
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     var res = await node1.publish(some(pubSubTopic), message1)
@@ -220,7 +226,9 @@ suite "WakuNode - Relay":
       connOk == true
 
     # Node 1 subscribes to topic
-    nodes[1].subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    nodes[1].subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""])
+    )
     await sleepAsync(500.millis)
 
     # Node 0 publishes 5 messages not compliant with WakuMessage (aka random bytes)
@@ -281,7 +289,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some(pubSubTopic), message)
@@ -329,7 +340,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some(pubSubTopic), message)
@@ -381,7 +395,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some(pubSubTopic), message)
@@ -431,7 +448,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some(pubSubTopic), message)
@@ -489,7 +509,10 @@ suite "WakuNode - Relay":
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(500.millis)
 
     let res = await node2.publish(some(pubSubTopic), message)
@@ -587,18 +610,29 @@ suite "WakuNode - Relay":
       "topic must use the same shard"
 
     ## When
-    node.subscribe((kind: ContentSub, topic: contentTopicA), some(handler))
-    node.subscribe((kind: ContentSub, topic: contentTopicB), some(handler))
-    node.subscribe((kind: ContentSub, topic: contentTopicC), some(handler))
+    node.subscribe(
+      (
+        kind: Subscribe,
+        pubsubTopic: "",
+        contentTopics: @[contentTopicA, contentTopicB, contentTopicC],
+      ),
+      some(handler),
+    )
 
     ## Then
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicB))
+    node.unsubscribe(
+      (kind: topics.Unsubscribe, pubsubTopic: "", contentTopics: @[contentTopicB])
+    )
     check node.wakuRelay.isSubscribed(shard)
 
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicA))
+    node.unsubscribe(
+      (kind: topics.Unsubscribe, pubsubTopic: "", contentTopics: @[contentTopicA])
+    )
     check node.wakuRelay.isSubscribed(shard)
 
-    node.unsubscribe((kind: ContentUnsub, topic: contentTopicC))
+    node.unsubscribe(
+      (kind: topics.Unsubscribe, pubsubTopic: "", contentTopics: @[contentTopicC])
+    )
     check not node.wakuRelay.isSubscribed(shard)
 
     ## Cleanup

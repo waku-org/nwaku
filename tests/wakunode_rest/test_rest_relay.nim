@@ -245,7 +245,9 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""])
+    )
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -461,7 +463,9 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: ContentSub, topic: DefaultContentTopic))
+    node.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultContentTopic, contentTopics: @[""])
+    )
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -564,7 +568,9 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""])
+    )
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 
@@ -619,7 +625,9 @@ suite "Waku v2 Rest API - Relay":
 
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
 
-    node.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic))
+    node.subscribe(
+      (kind: topics.Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""])
+    )
     require:
       toSeq(node.wakuRelay.subscribedTopics).len == 1
 

@@ -4,9 +4,8 @@ export content_topic, pubsub_topic, sharding
 
 type
   SubscriptionKind* = enum
-    ContentSub
-    ContentUnsub
-    PubsubSub
-    PubsubUnsub
+    Subscribe
+    Unsubscribe
 
-  SubscriptionEvent* = tuple[kind: SubscriptionKind, topic: string]
+  SubscriptionEvent* =
+    tuple[kind: SubscriptionKind, pubsubTopic: string, contentTopics: seq[string]]

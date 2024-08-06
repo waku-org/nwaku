@@ -39,7 +39,7 @@ proc subscribe*(
 ): T =
   FilterSubscribeRequest(
     requestId: requestId,
-    filterSubscribeType: SUBSCRIBE,
+    filterSubscribeType: FilterSubscribeType.SUBSCRIBE,
     pubsubTopic: some(pubsubTopic),
     contentTopics: contentTopics,
   )
@@ -52,7 +52,7 @@ proc unsubscribe*(
 ): T =
   FilterSubscribeRequest(
     requestId: requestId,
-    filterSubscribeType: UNSUBSCRIBE,
+    filterSubscribeType: FilterSubscribeType.UNSUBSCRIBE,
     pubsubTopic: some(pubsubTopic),
     contentTopics: contentTopics,
   )

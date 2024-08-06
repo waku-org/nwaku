@@ -277,33 +277,48 @@ proc subscribe*(
     error "Invalid API call to `subscribe`. WakuRelay not mounted."
     return
 
-  let (pubsubTopic, contentTopicOp) =
+  let (pubsubTopic, contentTopics) =
     case subscription.kind
-    of ContentSub:
-      let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
-        error "Autosharding error", error = error
-        return
+    of Subscribe:
+      if subscription.pubsubTopic.len == 0:
+        ## There is no pubsub topic being set
 
-      (shard, some(subscription.topic))
-    of PubsubSub:
-      (subscription.topic, none(ContentTopic))
+        if subscription.contentTopics.len == 0:
+          error "content topic not being set"
+          return
+
+        ## We infer the pubsubTopic from the first given content topic
+        let shard = node.wakuSharding.getShard((subscription.contentTopics[0])).valueOr:
+          error "Autosharding error", error = error
+          return
+        (shard, subscription.contentTopics)
+      else:
+        ## We have a pubsubtopic
+        (subscription.pubsubTopic, subscription.contentTopics)
     else:
       return
 
-  if contentTopicOp.isSome() and node.contentTopicHandlers.hasKey(contentTopicOp.get()):
-    error "Invalid API call to `subscribe`. Was already subscribed"
+  let alreadySubscribedContentTopics = node.contentTopicHandlers.keys().toSeq().filterIt(
+      contentTopics.contains(it) and it != ""
+    )
+
+  if alreadySubscribedContentTopics.len > 0:
+    error "Invalid API call to `subscribe`. Was already subscribed",
+      alreadySubscribedContentTopics
     return
 
   debug "subscribe", pubsubTopic = pubsubTopic
 
-  node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
+  node.topicSubscriptionQueue.emit(
+    (kind: Subscribe, pubsubTopic: pubsubTopic, contentTopics: contentTopics)
+  )
   node.registerRelayDefaultHandler(pubsubTopic)
 
   if handler.isSome():
     let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
 
-    if contentTopicOp.isSome():
-      node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler
+    if contentTopics.len > 0:
+      node.contentTopicHandlers[contentTopics[0]] = wrappedHandler
 
 proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
   ## Unsubscribes from a specific PubSub or Content topic.
@@ -312,16 +327,24 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
     error "Invalid API call to `unsubscribe`. WakuRelay not mounted."
     return
 
-  let (pubsubTopic, contentTopicOp) =
+  let (pubsubTopic, contentTopics) =
     case subscription.kind
-    of ContentUnsub:
-      let shard = node.wakuSharding.getShard((subscription.topic)).valueOr:
-        error "Autosharding error", error = error
-        return
+    of Unsubscribe:
+      if subscription.pubsubTopic.len == 0:
+        ## There is no pubsub topic being set
 
-      (shard, some(subscription.topic))
-    of PubsubUnsub:
-      (subscription.topic, none(ContentTopic))
+        if subscription.contentTopics.len == 0:
+          error "content topic not being set"
+          return
+
+        ## We infer the pubsubTopic from the first given content topic
+        let shard = node.wakuSharding.getShard((subscription.contentTopics[0])).valueOr:
+          error "Autosharding error", error = error
+          return
+        (shard, subscription.contentTopics)
+      else:
+        ## We have a pubsubtopic
+        (subscription.pubsubTopic, subscription.contentTopics)
     else:
       return
 
@@ -329,18 +352,22 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
     error "Invalid API call to `unsubscribe`. Was not subscribed"
     return
 
-  if contentTopicOp.isSome():
+  if contentTopics.len > 0:
     # Remove this handler only
     var handler: TopicHandler
-    if node.contentTopicHandlers.pop(contentTopicOp.get(), handler):
-      debug "unsubscribe", contentTopic = contentTopicOp.get()
-      node.wakuRelay.unsubscribe(pubsubTopic, handler)
 
-  if contentTopicOp.isNone() or node.wakuRelay.topics.getOrDefault(pubsubTopic).len == 1:
+    for contentTopic in contentTopics:
+      if node.contentTopicHandlers.pop(contentTopic, handler):
+        debug "unsubscribe", contentTopic = contentTopic
+        node.wakuRelay.unsubscribe(pubsubTopic, handler)
+
+  if contentTopics.len == 0 or node.wakuRelay.topics.getOrDefault(pubsubTopic).len == 1:
     # Remove all handlers
     debug "unsubscribe", pubsubTopic = pubsubTopic
     node.wakuRelay.unsubscribeAll(pubsubTopic)
-    node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic))
+    node.topicSubscriptionQueue.emit(
+      (kind: Unsubscribe, pubsubTopic: pubsubTopic, contentTopics: contentTopics)
+    )
 
 proc publish*(
     node: WakuNode, pubsubTopicOp: Option[PubsubTopic], message: WakuMessage
@@ -433,7 +460,13 @@ proc mountRelay*(
 
   # Subscribe to topics
   for pubsubTopic in pubsubTopics:
-    node.subscribe((kind: PubsubSub, topic: pubsubTopic))
+    node.subscribe(
+      (
+        kind: topics.Subscribe,
+        pubsubTopic: pubsubTopic,
+        contentTopics: newSeq[string](0),
+      )
+    )
 
 ## Waku filter
 
@@ -532,7 +565,9 @@ proc filterSubscribe*(
         pubsubTopic = pubsubTopic, contentTopics = contentTopics
 
       # Purpose is to update Waku Metadata
-      node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic.get()))
+      node.topicSubscriptionQueue.emit(
+        (kind: Subscribe, pubsubTopic: pubsubTopic.get(), contentTopics: contentTopics)
+      )
     else:
       error "failed filter v2 subscription", error = subRes.error
       waku_node_errors.inc(labelValues = ["subscribe_filter_failure"])
@@ -571,7 +606,9 @@ proc filterSubscribe*(
         info "subscribed to topic", pubsubTopic = pubsub, contentTopics = topics
 
         # Purpose is to update Waku Metadata
-        node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: $pubsub))
+        node.topicSubscriptionQueue.emit(
+          (kind: Subscribe, pubsubTopic: $pubsub, contentTopics: topics.mapIt($it))
+        )
     except CatchableError:
       let errMsg = "exception in filterSubscribe: " & getCurrentExceptionMsg()
       error "exception in filterSubscribe", error = getCurrentExceptionMsg()
@@ -611,7 +648,13 @@ proc filterUnsubscribe*(
         pubsubTopic = pubsubTopic.get(), contentTopics = contentTopics
 
       # Purpose is to update Waku Metadata
-      node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: pubsubTopic.get()))
+      node.topicSubscriptionQueue.emit(
+        (
+          kind: topics.Unsubscribe,
+          pubsubTopic: pubsubTopic.get(),
+          contentTopics: contentTopics,
+        )
+      )
     else:
       error "failed filter unsubscription", error = unsubRes.error
       waku_node_errors.inc(labelValues = ["unsubscribe_filter_failure"])
@@ -650,7 +693,9 @@ proc filterUnsubscribe*(
         info "unsubscribed from topic", pubsubTopic = pubsub, contentTopics = topics
 
         # Purpose is to update Waku Metadata
-        node.topicSubscriptionQueue.emit((kind: PubsubUnsub, topic: $pubsub))
+        node.topicSubscriptionQueue.emit(
+          (kind: Unsubscribe, pubsubTopic: $pubsub, contentTopics: topics.mapIt($it))
+        )
     except CatchableError:
       let errMsg = "exception in filterUnsubscribe: " & getCurrentExceptionMsg()
       error "exception in filterUnsubscribe", error = getCurrentExceptionMsg()

@@ -63,7 +63,10 @@ suite "WakuNode":
         msg.payload == payload
       completionFut.complete(true)
 
-    node2.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node2.subscribe(
+      (kind: Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+      some(relayHandler),
+    )
     await sleepAsync(2000.millis)
 
     var res = await node1.publish(some(pubSubTopic), message)

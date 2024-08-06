@@ -134,11 +134,17 @@ proc startRestServerProtocolSupport*(
 
     for pubsubTopic in conf.pubsubTopics:
       cache.pubsubSubscribe(pubsubTopic)
-      node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
+      node.subscribe(
+        (kind: Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]), some(handler)
+      )
 
     for contentTopic in conf.contentTopics:
       cache.contentSubscribe(contentTopic)
-      node.subscribe((kind: ContentSub, topic: contentTopic), some(handler))
+
+    node.subscribe(
+      (kind: Subscribe, pubsubTopic: "", contentTopics: conf.contentTopics),
+      some(handler),
+    )
 
     installRelayApiHandlers(router, node, cache)
   else:

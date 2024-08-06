@@ -532,7 +532,8 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
         chat.printReceivedMessage(msg)
 
     node.subscribe(
-      (kind: PubsubSub, topic: DefaultPubsubTopic), some(WakuRelayHandler(handler))
+      (kind: Subscribe, pubsubTopic: DefaultPubsubTopic, contentTopics: @[""]),
+      some(WakuRelayHandler(handler)),
     )
 
     if conf.rlnRelay:

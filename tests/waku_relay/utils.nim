@@ -68,7 +68,10 @@ proc subscribeToContentTopicWithHandler*(
     if topic == topic:
       completionFut.complete(true)
 
-  node.subscribe((kind: ContentSub, topic: contentTopic), some(relayHandler))
+  node.subscribe(
+    (kind: topics.Subscribe, pubsubTopic: "", contentTopics: @[contentTopic]),
+    some(relayHandler),
+  )
   return completionFut
 
 proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bool] =
@@ -79,7 +82,10 @@ proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bo
     if topic == pubsubTopic:
       completionFut.complete(true)
 
-  node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+  node.subscribe(
+    (kind: topics.Subscribe, pubsubTopic: pubsubTopic, contentTopics: @[""]),
+    some(relayHandler),
+  )
   return completionFut
 
 proc sendRlnMessage*(
