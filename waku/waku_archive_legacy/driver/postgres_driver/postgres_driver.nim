@@ -870,6 +870,7 @@ proc performWriteQuery*(
     return err("error in performWriteQuery: " & $error)
 
   return ok()
+
 method decreaseDatabaseSize*(
     driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
