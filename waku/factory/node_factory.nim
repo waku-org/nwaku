@@ -227,10 +227,8 @@ proc setupProtocols(
 
   if conf.store:
     if conf.legacyStore:
-      ## Notice that we explicitly disable migration from the legacy archive driver so that
-      ## the migration is performed only by the "new" archive driver
       let archiveDriverRes = waitFor legacy_driver.ArchiveDriver.new(
-        conf.storeMessageDbUrl, conf.storeMessageDbVacuum, false,
+        conf.storeMessageDbUrl, conf.storeMessageDbVacuum, conf.storeMessageDbMigration,
         conf.storeMaxNumDbConnections, onFatalErrorAction,
       )
       if archiveDriverRes.isErr():
