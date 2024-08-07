@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS messages_lookup (
 -- Put data into lookup table
 INSERT INTO messages_lookup (messageHash, timestamp) SELECT messageHash, timestamp from messages;
 
-ALTER TABLE messages_lookup ADD CONSTRAINT messageIndexLookupTable PRIMARY KEY (messageHash, timestamp)
+ALTER TABLE messages_lookup ADD CONSTRAINT messageIndexLookupTable PRIMARY KEY (messageHash, timestamp);
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_messages_messagehash ON messages (messagehash);
