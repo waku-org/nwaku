@@ -812,19 +812,6 @@ method deleteOldestMessagesNotWithinLimit*(
   # if execRes.isErr():
   #   return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
 
-  # execRes = await s.writeConnPool.pgQuery(
-  #   """DELETE FROM messages_lookup WHERE messageHash NOT IN
-  #                         (
-  #                       SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
-  #                         );""",
-  #   @[$limit],
-  # )
-  # if execRes.isErr():
-  #   return err(
-  #     "error in deleteOldestMessagesNotWithinLimit messages_lookup: " & execRes.error
-  #   )
-
-  # debug "end of deleteOldestMessagesNotWithinLimit"
   return ok()
 
 method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
