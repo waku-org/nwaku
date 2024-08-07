@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# set -x
+#set -x
 
 if test -f .env; then
   echo "Using .env file"
@@ -42,7 +42,7 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
 fi
 
 if [ "${SERIVCE_NODE_ADDR}" = "waku-sim" ]; then
-
+  SERIVCE_NODE_ADDR=""
   RETRIES=${RETRIES:=10}
 
   while [ -z "${SERIVCE_NODE_ADDR}" ] && [ ${RETRIES} -ge 0 ]; do
