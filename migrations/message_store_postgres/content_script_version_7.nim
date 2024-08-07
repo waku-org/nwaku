@@ -4,12 +4,13 @@ const ContentScriptVersion_7* =
 -- Create lookup table
 CREATE TABLE IF NOT EXISTS messages_lookup (
    timestamp BIGINT NOT NULL,
-   messageHash VARCHAR NOT NULL,
-   CONSTRAINT messageIndexLookupTable PRIMARY KEY (messageHash, timestamp)
+   messageHash VARCHAR NOT NULL
   );
 
 -- Put data into lookup table
 INSERT INTO messages_lookup (messageHash, timestamp) SELECT messageHash, timestamp from messages;
+
+ALTER TABLE messages_lookup ADD CONSTRAINT messageIndexLookupTable PRIMARY KEY (messageHash, timestamp)
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_messages_messagehash ON messages (messagehash);
