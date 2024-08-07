@@ -3,7 +3,7 @@
 import std/net, testutils/unittests, chronos, libp2p/crypto/crypto
 
 import
-  ../../../waku/
+  ../../waku/
     [node/waku_node, node/peer_manager, waku_core, waku_store, waku_archive, waku_sync],
   ../waku_store/store_utils,
   ../waku_archive/archive_utils,
@@ -53,16 +53,10 @@ suite "Store Sync - End to End":
     server.mountStoreClient()
 
     let mountServerSync = await server.mountWakuSync(
-      maxFrameSize = 0,
-      syncInterval = 1.hours,
-      relayJitter = 0.seconds,
-      enablePruning = false,
+      maxFrameSize = 0, syncInterval = 1.hours, relayJitter = 0.seconds
     )
     let mountClientSync = await client.mountWakuSync(
-      maxFrameSize = 0,
-      syncInterval = 2.milliseconds,
-      relayJitter = 0.seconds,
-      enablePruning = false,
+      maxFrameSize = 0, syncInterval = 2.milliseconds, relayJitter = 0.seconds
     )
 
     assert mountServerSync.isOk(), mountServerSync.error
@@ -71,7 +65,7 @@ suite "Store Sync - End to End":
     # messages are retreived when mounting Waku sync
     # but based on interval so this is needed for client only
     for msg in messages:
-      client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+      client.wakuSync.messageIngress(DefaultPubsubTopic, msg)
 
     await allFutures(server.start(), client.start())
 
@@ -102,7 +96,7 @@ suite "Store Sync - End to End":
   asyncTest "client message set differences":
     let msg = fakeWakuMessage(@[byte 10])
 
-    client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+    client.wakuSync.messageIngress(DefaultPubsubTopic, msg)
     await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
     check:
@@ -116,7 +110,7 @@ suite "Store Sync - End to End":
   asyncTest "server message set differences":
     let msg = fakeWakuMessage(@[byte 10])
 
-    server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+    server.wakuSync.messageIngress(DefaultPubsubTopic, msg)
     await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
     check:
@@ -157,14 +151,14 @@ suite "Waku Sync - Pruning":
     let mountServerSync = await server.mountWakuSync(
       maxFrameSize = 0,
       relayJitter = 0.seconds,
-      syncInterval = 1.hours,
-      enablePruning = false,
+      syncRange = 1.hours,
+      syncInterval = 5.minutes,
     )
     let mountClientSync = await client.mountWakuSync(
       maxFrameSize = 0,
+      syncRange = 10.milliseconds,
       syncInterval = 10.milliseconds,
       relayJitter = 0.seconds,
-      enablePruning = true,
     )
 
     assert mountServerSync.isOk(), mountServerSync.error
@@ -181,10 +175,10 @@ suite "Waku Sync - Pruning":
     for _ in 0 ..< 4:
       for _ in 0 ..< 10:
         let msg = fakeWakuMessage()
-        client.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+        client.wakuSync.messageIngress(DefaultPubsubTopic, msg)
         await client.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
-        server.wakuSync.ingessMessage(DefaultPubsubTopic, msg)
+        server.wakuSync.messageIngress(DefaultPubsubTopic, msg)
         await server.wakuArchive.handleMessage(DefaultPubsubTopic, msg)
 
       await sleepAsync(10.milliseconds)
