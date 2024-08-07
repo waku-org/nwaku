@@ -84,6 +84,15 @@ Binary will be created as `<path to your test file.nim>.bin` under the `build` d
 make test/tests/common/test_enr_builder.nim
 ```
 
+### Formatting Code
+
+We use [`nph`](https://github.com/arnetheduck/nph) to format nim code.
+You can install a convenient pre-commit git hook with the following command:
+
+```
+make install_nph_prehook
+```
+
 ### Examples
 
 Examples can be found in the examples folder.
