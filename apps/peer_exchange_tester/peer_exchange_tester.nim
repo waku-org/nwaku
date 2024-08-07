@@ -24,6 +24,3 @@ proc main() {.async.} =
 
 when isMainModule:
   asyncMain(main)
-
-# addrs :- /dns4/node-01.do-ams3.waku.test.status.im/tcp/30303/p2p/
-#          16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W
