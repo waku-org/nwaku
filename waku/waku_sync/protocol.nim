@@ -132,6 +132,8 @@ proc request(
 
       return ok(hashes)
 
+    continue
+
 proc storeSynchronization*(
     self: WakuSync, peerInfo: Option[RemotePeerInfo] = none(RemotePeerInfo)
 ): Future[Result[(seq[WakuMessageHash], RemotePeerInfo), string]] {.async.} =
@@ -183,6 +185,8 @@ proc handleSyncSession(
       server = self.peerManager.switch.peerInfo.peerId,
       client = conn.peerId,
       payload = reconciled.payload
+
+    continue
 
 proc initProtocolHandler(self: WakuSync) =
   proc handle(conn: Connection, proto: string) {.async, closure.} =
@@ -394,8 +398,7 @@ proc new*(
 proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
   debug "periodic sync initialized", interval = $self.syncInterval
 
-  # infinite loop
-  while true:
+  while true: # infinite loop
     await sleepAsync(self.syncInterval)
 
     debug "periodic sync started"
@@ -437,6 +440,8 @@ proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
 
     debug "periodic sync done", hashSynced = hashes.len
 
+    continue
+
 proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   debug "periodic prune initialized", interval = $self.syncInterval
 
@@ -448,8 +453,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   # Default T minus 55m
   var pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
 
-  # infinite loop
-  while true:
+  while true: # infinite loop
     await sleepAsync(self.syncInterval)
 
     debug "periodic prune started",
@@ -475,6 +479,7 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
           break
 
       if elements.len == 0:
+        # no elements to remove, stop
         break
 
       for (hash, timestamp) in elements:
@@ -484,12 +489,15 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
           continue
 
       if cursor.isNone():
+        # no more pages, stop
         break
 
     self.pruneStart = pruneStop
     pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
 
     debug "periodic prune done", storageSize = self.storage.len
+
+    continue
 
 proc start*(self: WakuSync) =
   self.started = true
