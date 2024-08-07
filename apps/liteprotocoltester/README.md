@@ -174,6 +174,34 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 
 ### Docker image notice
 
+#### Building for docker compose runs on simulator or standalone
 Please note that currently to ease testing and development tester application docker image is based on ubuntu and uses the externally pre-built binary of 'liteprotocoltester'.
 This speeds up image creation. Another dokcer build file is provided for proper build of boundle image.
 
+> `Dockerfile.liteprotocoltester.copy` will create an image with the binary copied from the build directory.
+
+> `Dockerfile.liteprotocoltester.compile` will create an image completely compiled from source. This can be quite slow.
+
+#### Creating standalone runner docker image
+
+To ease the work with lite-proto-tester, a docker image is possible to build.
+With that image it is easy to run the application in a container.
+
+> `Dockerfile.liteprotocoltester` will create an ubuntu image with the binary copied from the build directory. You need to pre-build the application.
+
+Here is how to build and run:
+```bash
+cd <your-repository>
+make liteprotocoltester
+
+cd apps/liteprotocoltester
+docker build -t liteprotocoltester:latest -f Dockerfile.liteprotocoltester ../..
+
+# alternatively you can push it to a registry
+
+# edit and adjust .env file to your needs and for the network configuration
+
+docker run --env-file .env liteprotocoltester:latest RECEIVER <service-node-ip4-peer-address>
+
+docker run --env-file .env liteprotocoltester:latest SENDER <service-node-ip4-peer-address>
+```
