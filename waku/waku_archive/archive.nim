@@ -97,6 +97,7 @@ proc handleMessage*(
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
+    return
 
   trace "message archived",
     hash_hash = msgHash.to0xHex(),
