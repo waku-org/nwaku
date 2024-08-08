@@ -1,5 +1,9 @@
 ## v0.31.1 (2024-08-02)
 
+### Changes
+
+- Optimize hash queries with lookup table ([#2933](https://github.com/waku-org/nwaku/issues/2933)) ([6463885bf](https://github.com/waku-org/nwaku/commit/6463885bf))
+
 ### Bug fixes
 
 * Prevent legacy store from creating new partitions as that approach blocked the database.
