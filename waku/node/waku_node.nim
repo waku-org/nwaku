@@ -17,7 +17,6 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
-  libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
@@ -39,6 +38,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_rendezvous/protocol,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -110,7 +110,7 @@ type
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
-    rendezvous*: RendezVous
+    wakuRendezvous*: WakuRendezVous
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
@@ -1214,23 +1214,24 @@ proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
 
   asyncSpawn node.keepaliveLoop(keepalive)
 
-proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
+proc mountRendezvous*(node: WakuNode, enabled: bool) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
   try:
-    node.rendezvous = RendezVous.new(node.switch)
+    node.wakuRendezvous =
+      WakuRendezVous.new(node.switch, node.peerManager, node.enr, enabled)
   except Exception as e:
     error "failed to create rendezvous", error = getCurrentExceptionMsg()
     return
 
   if node.started:
     try:
-      await node.rendezvous.start()
+      await node.wakuRendezvous.start()
     except CatchableError:
       error "failed to start rendezvous", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.rendezvous)
+    node.switch.mount(node.wakuRendezvous)
   except LPError:
     error "failed to mount rendezvous", error = getCurrentExceptionMsg()
 
@@ -1304,6 +1305,12 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.start()
 
+  if not node.wakuRendezvous.isNil():
+    try:
+      await node.wakuRendezvous.start()
+    except CatchableError:
+      error "failed to start rendezvous", error = getCurrentExceptionMsg()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper = proc(
@@ -1345,6 +1352,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
+
+  if not node.wakuRendezvous.isNil():
+    await node.wakuRendezvous.stop()
 
   node.started = false
 
