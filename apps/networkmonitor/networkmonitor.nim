@@ -318,7 +318,7 @@ proc crawlNetwork(
     let discoveredNodes = await wakuDiscv5.findRandomPeers()
 
     # nodes are nested into bucket, flat it
-    #let flatNodes = wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
+    let flatNodes = wakuDiscv5.protocol.routingTable.buckets.mapIt(it.nodes).flatten()
 
     # populate metrics related to capabilities as advertised by the ENR (see waku field)
     setDiscoveredPeersCapabilities(discoveredNodes)
