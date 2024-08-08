@@ -1788,3 +1788,32 @@ suite "Postgres driver - queries":
     var existsRes = await driver.existsTable("version")
     assert existsRes.isOk(), existsRes.error
     check existsRes.get() == true
+
+  asyncTest "Query by message hash only":
+    const contentTopic = "test-content-topic"
+
+    let timeOrigin = now()
+    let expected =
+      @[
+        fakeWakuMessage(@[byte 0], contentTopic = contentTopic, ts = ts(00, timeOrigin)),
+        fakeWakuMessage(@[byte 1], contentTopic = contentTopic, ts = ts(10, timeOrigin)),
+        fakeWakuMessage(@[byte 2], contentTopic = contentTopic, ts = ts(20, timeOrigin)),
+      ]
+    var messages = expected
+
+    var hashes = newSeq[WakuMessageHash](0)
+    for msg in messages:
+      let hash = computeMessageHash(DefaultPubsubTopic, msg)
+      hashes.add(hash)
+      let ret = await driver.put(hash, DefaultPubsubTopic, msg)
+      assert ret.isOk(), ret.error
+
+    let ret = (await driver.getMessages(hashes = hashes)).valueOr:
+      assert false, $error
+      return
+
+    check:
+      ret.len == 3
+      ret[2][0] == hashes[0]
+      ret[1][0] == hashes[1]
+      ret[0][0] == hashes[2]

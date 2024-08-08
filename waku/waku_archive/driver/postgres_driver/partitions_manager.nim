@@ -15,7 +15,7 @@ logScope:
 type TimeRange* = tuple[beginning: int64, `end`: int64]
 
 type
-  Partition = object
+  Partition* = object
     name: string
     timeRange: TimeRange
 
@@ -131,6 +131,9 @@ proc calcEndPartitionTime*(startTime: Timestamp): Timestamp =
 
 proc getName*(partition: Partition): string =
   return partition.name
+
+proc getTimeRange*(partition: Partition): TimeRange =
+  return partition.timeRange
 
 func `==`*(a, b: Partition): bool {.inline.} =
   return a.name == b.name
