@@ -46,9 +46,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
     ip = parseIpAddress("0.0.0.0")
-    flags = CapabilitiesBitfield.init(
-      lightpush = false, filter = false, store = false, relay = true
-    )
+    flags = CapabilitiesBitfield.init(relay = true)
 
   var enrBuilder = EnrBuilder.init(nodeKey)
 
