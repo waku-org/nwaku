@@ -186,13 +186,6 @@ proc setupProtocols(
         protectedTopic = topicKey.topic, publicKey = topicKey.key
     node.wakuRelay.addSignedTopicsValidator(subscribedProtectedTopics)
 
-    # Enable Rendezvous Discovery protocol when Relay is enabled
-    try:
-      await mountRendezvous(node)
-    except CatchableError:
-      return
-        err("failed to mount waku rendezvous protocol: " & getCurrentExceptionMsg())
-
   # Keepalive mounted on all nodes
   try:
     await mountLibp2pPing(node)
@@ -352,6 +345,12 @@ proc setupProtocols(
     else:
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
+
+  # Enable Rendezvous Discovery protocol
+  try:
+    await mountRendezvous(node, conf.rendezvous)
+  except CatchableError:
+    return err("failed to mount waku rendezvous protocol: " & getCurrentExceptionMsg())
 
   return ok()
 
