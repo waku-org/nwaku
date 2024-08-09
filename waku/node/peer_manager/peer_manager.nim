@@ -734,9 +734,8 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
   let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
-  # TODO: Temporally disabled. Might be causing connection issues
-  #if inRelayPeers.len > pm.inRelayPeersTarget:
-  #  await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
+  if inRelayPeers.len > pm.inRelayPeersTarget:
+    await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
