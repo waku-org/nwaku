@@ -1326,7 +1326,16 @@ proc removePartition(
     "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
   debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    return err(fmt"error in {detachPartitionQuery}: " & $error)
+    if ($error).contains("FINALIZE"):
+      ## We assume the database is suggesting to use FINALIZE when detaching a partition
+      let detachPartitionFinalizeQuery =
+        "ALTER TABLE messages DETACH PARTITION " & partitionName & " FINALIZE;"
+      debug "removeOldestPartition detaching with FINALIZE",
+        query = detachPartitionFinalizeQuery
+      (await self.performWriteQuery(detachPartitionFinalizeQuery)).isOkOr:
+        return err(fmt"error in FINALIZE {detachPartitionFinalizeQuery}: " & $error)
+    else:
+      return err(fmt"error in {detachPartitionQuery}: " & $error)
 
   ## Drop the partition
   let dropPartitionQuery = "DROP TABLE " & partitionName
