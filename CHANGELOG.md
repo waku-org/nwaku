@@ -6,6 +6,7 @@
 
 ### Bug fixes
 
+* Use of detach finalize when needed [2966](https://github.com/waku-org/nwaku/pull/2966)
 * Prevent legacy store from creating new partitions as that approach blocked the database.
 [2931](https://github.com/waku-org/nwaku/pull/2931)
 
