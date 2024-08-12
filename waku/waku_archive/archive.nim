@@ -24,6 +24,7 @@ const
 
   # Retention policy
   WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
+  WakuArchiveDefaultRetentionPolicyIntervalWhenError* = chronos.minutes(1)
 
   # Metrics reporting
   WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(30)
@@ -192,6 +193,9 @@ proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
     (await policy.execute(self.driver)).isOkOr:
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error = error
+      await sleepAsync(WakuArchiveDefaultRetentionPolicyIntervalWhenError)
+      ## in case of error, let's try again faster
+      continue
 
     await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
 
