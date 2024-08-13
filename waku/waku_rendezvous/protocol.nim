@@ -30,7 +30,7 @@ type WakuRendezVous* = ref object of RendezVous
 
   periodicRegistrationFut: Future[void]
 
-  clientOnly: bool
+  enabled: bool
 
 proc advertise(
     self: WakuRendezVous, namespace: string, ttl: Duration = MinimumDuration
@@ -100,7 +100,7 @@ proc new*(
     peerManager: peerManager,
     relayshard: relayshard,
     capabilities: capabilities,
-    clientOnly: clientOnly,
+    enabled: enabled,
   )
 
   RendezVous(wrv).setup(switch)
@@ -140,7 +140,7 @@ proc advertiseAll*(self: WakuRendezVous) {.async.} =
 
   let futs = collect(newSeq):
     for namespace in namespaces:
-      self.advertise(namespace)
+      self.advertise(namespace, 1.minutes)
 
   let handles = await allFinished(futs)
 
@@ -219,8 +219,6 @@ proc stopWait*(self: WakuRendezVous) {.async.} =
     return
 
   debug "stopping waku rendezvous discovery"
-
-  await self.unsubcribeAll()
 
   if not self.periodicRegistrationFut.isNil():
     await self.periodicRegistrationFut.cancelAndWait()
