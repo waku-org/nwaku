@@ -8,8 +8,16 @@ import ../topics, ./message
 
 type WakuMessageHash* = array[32, byte]
 
+func shortLog*(hash: WakuMessageHash): string =
+  ## Returns compact string representation of ``WakuMessageHash``.
+  var hexhash = newStringOfCap(13)
+  hexhash &= hash.toOpenArray(0, 1).to0xHex()
+  hexhash &= "..."
+  hexhash &= hash.toOpenArray(hash.len - 2, hash.high).toHex()
+  hexhash
+
 func `$`*(hash: WakuMessageHash): string =
-  return hash.to0xHex()
+  shortLog(hash)
 
 const EmptyWakuMessageHash*: WakuMessageHash = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
