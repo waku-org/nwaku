@@ -12,6 +12,7 @@ assignees: ''
 Update `nwaku` "vendor" dependencies.
 
 ### Items to bump
+- [ ] negentropy
 - [ ] dnsclient.nim ( update to the latest tag version )
 - [ ] nim-bearssl
 - [ ] nimbus-build-system
