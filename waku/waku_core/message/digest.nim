@@ -8,6 +8,9 @@ import ../topics, ./message
 
 type WakuMessageHash* = array[32, byte]
 
+func `$`*(hash: WakuMessageHash): string =
+  return hash.to0xHex()
+
 const EmptyWakuMessageHash*: WakuMessageHash = [
   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
   0, 0, 0,
