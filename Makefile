@@ -411,3 +411,22 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+
+######################
+###   NEGENTROPY   ###
+######################
+.PHONY: negentropy
+
+## Pass libnegentropy to linker.
+NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
+
+deps: | negentropy
+
+clean: | negentropy-clean
+
+negentropy:
+	$(MAKE) -C vendor/negentropy/cpp && \
+		cp vendor/negentropy/cpp/libnegentropy.so ./
+negentropy-clean:
+	$(MAKE) -C vendor/negentropy/cpp clean && \
+		rm libnegentropy.so
