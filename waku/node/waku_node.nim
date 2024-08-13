@@ -39,6 +39,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_sync,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -104,6 +105,7 @@ type
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
     wakuSharding*: Sharding
+    wakuSync*: WakuSync
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -194,6 +196,42 @@ proc connectToNodes*(
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
+## Waku Sync
+
+proc mountWakuSync*(
+    node: WakuNode,
+    maxFrameSize: int = DefaultMaxFrameSize,
+    syncRange: timer.Duration = DefaultSyncRange,
+    syncInterval: timer.Duration = DefaultSyncInterval,
+    relayJitter: Duration = DefaultGossipSubJitter,
+): Future[Result[void, string]] {.async.} =
+  if not node.wakuSync.isNil():
+    return err("already mounted")
+
+  node.wakuSync = (
+    await WakuSync.new(
+      peerManager = node.peerManager,
+      maxFrameSize = maxFrameSize,
+      syncRange = syncRange,
+      syncInterval = syncInterval,
+      relayJitter = relayJitter,
+      wakuArchive = node.wakuArchive,
+      wakuStoreClient = node.wakuStoreClient,
+    )
+  ).valueOr:
+    return err("initialization failed: " & error)
+
+  let catchable = catch:
+    node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))
+
+  if catchable.isErr():
+    return err("switch mounting failed: " & catchable.error.msg)
+
+  if node.started:
+    node.wakuSync.start()
+
+  return ok()
+
 ## Waku Metadata
 
 proc mountMetadata*(node: WakuNode, clusterId: uint32): Result[void, string] =
@@ -258,12 +296,19 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuArchive.handleMessage(topic, msg)
 
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async.} =
+    if node.wakuSync.isNil():
+      return
+
+    node.wakuSync.messageIngress(topic, msg)
+
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
+    await syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -1285,6 +1330,9 @@ proc start*(node: WakuNode) {.async.} =
 
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.start()
+
+  if not node.wakuSync.isNil():
+    node.wakuSync.start()
 
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start

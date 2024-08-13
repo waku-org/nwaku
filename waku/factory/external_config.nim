@@ -385,6 +385,40 @@ type WakuNodeConf* = object
       name: "store-resume"
     .}: bool
 
+    ## Sync config
+    storeSync* {.
+      desc: "Enable store sync protocol: true|false",
+      defaultValue: false,
+      name: "store-sync"
+    .}: bool
+
+    storeSyncInterval* {.
+      desc: "Interval between store sync attempts. In seconds.",
+      defaultValue: 3600, # 1 hours
+      name: "store-sync-interval"
+    .}: int64
+
+    storeSyncRange* {.
+      desc: "Amount of time to sync. In seconds.",
+      defaultValue: 300, # 5 minutes
+      name: "store-sync-range"
+    .}: int64
+
+    storeSyncRelayJitter* {.
+      hidden,
+      desc: "Time offset to account for message propagation jitter. In seconds.",
+      defaultValue: 20,
+      name: "store-sync-relay-jitter"
+    .}: int64
+
+    storeSyncMaxPayloadSize* {.
+      hidden,
+      desc:
+        "Max size in bytes of the inner negentropy payload. Cannot be less than 5K, 0 is unlimited.",
+      defaultValue: 0,
+      name: "store-sync-max-payload-size"
+    .}: int64
+
     ## Filter config
     filter* {.
       desc: "Enable filter protocol: true|false", defaultValue: false, name: "filter"
