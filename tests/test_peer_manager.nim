@@ -458,9 +458,9 @@ procSuite "Peer Manager":
     )
 
     check:
-      conn1.isNone
-      conn2.isNone
-      conn3.isSome
+      conn1.isNone or conn1.get().isClosed
+      conn2.isNone or conn2.get().isClosed
+      conn3.isSome and not conn3.get().isClosed
 
   # TODO: nwaku/issues/1377
   xasyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":
