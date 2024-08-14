@@ -266,14 +266,6 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     let msg_hash = topic.computeMessageHash(msg).to0xHex()
-
-    notice "waku.relay received",
-      my_peer_id = node.peerId,
-      pubsubTopic = topic,
-      msg_hash = msg_hash,
-      receivedTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
-
     let msgSizeKB = msg.payload.len / 1000
 
     waku_node_messages.inc(labelValues = ["relay"])
