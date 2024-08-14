@@ -19,7 +19,8 @@ import
   ../common/confutils/envvar/std/net as confEnvvarNet,
   ../common/logging,
   ../waku_enr,
-  ../node/peer_manager
+  ../node/peer_manager,
+  ../waku_rln_relay/constants
 
 include ../waku_core/message/default_values
 
@@ -97,8 +98,8 @@ type WakuNodeConf* = object
 
   rlnRelayUserMessageLimit* {.
     desc:
-      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
-    defaultValue: 1,
+      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 20.",
+    defaultValue: DefaultUserMessageLimit,
     name: "rln-relay-user-message-limit"
   .}: uint64
 

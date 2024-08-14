@@ -220,6 +220,13 @@ proc setupProtocols(
       onFatalErrorAction: onFatalErrorAction,
     )
 
+    const defaultConf = defaultWakuNodeConf()
+
+    if not conf.rlnRelayDynamic:
+      if conf.rlnRelayEthClientAddress != defaultConf.rlnRelayEthClientAddress or
+          conf.rlnRelayEthContractAddress != defaultConf.rlnRelayEthContractAddress:
+        warn "Ethereum client or contract address were provided on static RLN. These configurations will be ignored"
+
     try:
       waitFor node.mountRlnRelay(rlnConf)
     except CatchableError:
