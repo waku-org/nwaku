@@ -397,14 +397,14 @@ proc publish*(
   if node.wakuRelay.isNil():
     let msg =
       "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
-    error "publish error", msg = msg
+    error "publish error", err = msg
     # TODO: Improve error handling
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
     node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
-      error "publish error", msg = msg
+      error "publish error", err = msg
       return err(msg)
 
   #TODO instead of discard return error when 0 peers received the message
@@ -1105,7 +1105,7 @@ proc lightpushPublish*(
     peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
     if peerOpt.isNone():
       let msg = "no suitable remote peers"
-      error "failed to publish message", msg = msg
+      error "failed to publish message", err = msg
       return err(msg)
   elif not node.wakuLightPush.isNil():
     peerOpt = some(RemotePeerInfo.init($node.switch.peerInfo.peerId))
