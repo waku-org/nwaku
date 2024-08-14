@@ -153,7 +153,7 @@ proc initProtocolHandler(w: WakuRelay) =
 
 proc logMessageInfo*(
     w: WakuRelay,
-    peerId: string,
+    remotePeerId: string,
     topic: string,
     msg_id_short: string,
     msg: WakuMessage,
@@ -166,7 +166,7 @@ proc logMessageInfo*(
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
-      from_peer_id = peerId,
+      from_peer_id = remotePeerId,
       topic = topic,
       receivedTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
@@ -175,7 +175,7 @@ proc logMessageInfo*(
       my_peer_id = w.switch.peerInfo.peerId,
       msg_hash = msg_hash,
       msg_id = msg_id_short,
-      to_peer_id = peerId,
+      to_peer_id = remotePeerId,
       topic = topic,
       sentTime = getNowInNanosecondTime(),
       payloadSizeBytes = msg.payload.len
