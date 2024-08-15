@@ -136,7 +136,7 @@ suite "Waku Message - Content topics namespacing":
 suite "Waku Message - Pub-sub topics namespacing":
   test "Stringify static sharding pub-sub topic":
     ## Given
-    var ns = NsPubsubTopic.staticSharding(clusterId = 0, shardId = 2)
+    var ns = RelayShard.staticSharding(clusterId = 0, shardId = 2)
 
     ## When
     let topic = $ns
@@ -150,7 +150,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/waku-dev"
 
     ## When
-    let nsRes = NsPubsubTopic.parse(topic)
+    let nsRes = RelayShard.parse(topic)
 
     ## Then
     check nsRes.isErr()
@@ -163,7 +163,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs/16/42"
 
     ## When
-    let nsRes = NsPubsubTopic.parse(topic)
+    let nsRes = RelayShard.parse(topic)
 
     ## Then
     check nsRes.isOk()
@@ -178,7 +178,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/1/rs/16/42"
 
     ## When
-    let ns = NsPubsubTopic.parse(topic)
+    let ns = RelayShard.parse(topic)
 
     ## Then
     check ns.isErr()
@@ -191,7 +191,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs//02"
 
     ## When
-    let ns = NsPubsubTopic.parse(topic)
+    let ns = RelayShard.parse(topic)
 
     ## Then
     check ns.isErr()
@@ -205,7 +205,7 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs/xx/77"
 
     ## When
-    let ns = NsPubsubTopic.parse(topic)
+    let ns = RelayShard.parse(topic)
 
     ## Then
     check ns.isErr()

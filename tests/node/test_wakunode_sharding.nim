@@ -187,7 +187,7 @@ suite "Sharding":
       let
         contentTopic1 = "/toychat/2/huilong/proto"
         pubsubTopic1 = "/waku/2/rs/0/58355"
-        pubsubTopic12 = NsPubsubTopic.parse(contentTopic1)
+        pubsubTopic12 = RelayShard.parse(contentTopic1)
           # Automatically generated from the contentTopic above
         contentTopic2 = "/0/toychat2/2/huilong/proto"
         pubsubTopic2 = "/waku/2/rs/0/23286"

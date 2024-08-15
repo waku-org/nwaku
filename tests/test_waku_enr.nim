@@ -280,7 +280,7 @@ suite "Waku ENR - Relay static sharding":
       clusterId: uint16 = 22
       shardId: uint16 = 1
 
-    let topic = NsPubsubTopic.staticSharding(clusterId, shardId)
+    let shard = RelayShard.staticSharding(clusterId, shardId)
 
     ## When
     let shardsTopics = RelayShards.init(clusterId, shardId).expect("Valid Shards")
@@ -292,14 +292,14 @@ suite "Waku ENR - Relay static sharding":
 
     let topics = shardsTopics.topics.mapIt($it)
     check:
-      topics == @[$topic]
+      topics == @[$shard]
 
     check:
       shardsTopics.contains(clusterId, shardId)
       not shardsTopics.contains(clusterId, 33u16)
       not shardsTopics.contains(20u16, 33u16)
 
-      shardsTopics.contains(topic)
+      shardsTopics.contains(shard)
       shardsTopics.contains("/waku/2/rs/22/1")
 
   test "new relay shards object with repeated but valid shard ids":

@@ -41,39 +41,29 @@ suite "Autosharding":
 
       # When we generate a gen0 shard from them
       let
-        nsPubsubTopic1 =
-          sharding.getGenZeroShard(nsContentTopic1, GenerationZeroShardsCount)
-        nsPubsubTopic2 =
-          sharding.getGenZeroShard(nsContentTopic2, GenerationZeroShardsCount)
-        nsPubsubTopic3 =
-          sharding.getGenZeroShard(nsContentTopic3, GenerationZeroShardsCount)
-        nsPubsubTopic4 =
-          sharding.getGenZeroShard(nsContentTopic4, GenerationZeroShardsCount)
-        nsPubsubTopic5 =
-          sharding.getGenZeroShard(nsContentTopic5, GenerationZeroShardsCount)
-        nsPubsubTopic6 =
-          sharding.getGenZeroShard(nsContentTopic6, GenerationZeroShardsCount)
-        nsPubsubTopic7 =
-          sharding.getGenZeroShard(nsContentTopic7, GenerationZeroShardsCount)
-        nsPubsubTopic8 =
-          sharding.getGenZeroShard(nsContentTopic8, GenerationZeroShardsCount)
-        nsPubsubTopic9 =
-          sharding.getGenZeroShard(nsContentTopic9, GenerationZeroShardsCount)
-        nsPubsubTopic10 =
-          sharding.getGenZeroShard(nsContentTopic10, GenerationZeroShardsCount)
+        shard1 = sharding.getGenZeroShard(nsContentTopic1, GenerationZeroShardsCount)
+        shard2 = sharding.getGenZeroShard(nsContentTopic2, GenerationZeroShardsCount)
+        shard3 = sharding.getGenZeroShard(nsContentTopic3, GenerationZeroShardsCount)
+        shard4 = sharding.getGenZeroShard(nsContentTopic4, GenerationZeroShardsCount)
+        shard5 = sharding.getGenZeroShard(nsContentTopic5, GenerationZeroShardsCount)
+        shard6 = sharding.getGenZeroShard(nsContentTopic6, GenerationZeroShardsCount)
+        shard7 = sharding.getGenZeroShard(nsContentTopic7, GenerationZeroShardsCount)
+        shard8 = sharding.getGenZeroShard(nsContentTopic8, GenerationZeroShardsCount)
+        shard9 = sharding.getGenZeroShard(nsContentTopic9, GenerationZeroShardsCount)
+        shard10 = sharding.getGenZeroShard(nsContentTopic10, GenerationZeroShardsCount)
 
       # Then the generated shards are valid
       check:
-        nsPubsubTopic1 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic2 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic3 == NsPubsubTopic.staticSharding(ClusterId, 6)
-        nsPubsubTopic4 == NsPubsubTopic.staticSharding(ClusterId, 6)
-        nsPubsubTopic5 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic6 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic7 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic8 == NsPubsubTopic.staticSharding(ClusterId, 3)
-        nsPubsubTopic9 == NsPubsubTopic.staticSharding(ClusterId, 7)
-        nsPubsubTopic10 == NsPubsubTopic.staticSharding(ClusterId, 3)
+        shard1 == RelayShard.staticSharding(ClusterId, 3)
+        shard2 == RelayShard.staticSharding(ClusterId, 3)
+        shard3 == RelayShard.staticSharding(ClusterId, 6)
+        shard4 == RelayShard.staticSharding(ClusterId, 6)
+        shard5 == RelayShard.staticSharding(ClusterId, 3)
+        shard6 == RelayShard.staticSharding(ClusterId, 3)
+        shard7 == RelayShard.staticSharding(ClusterId, 3)
+        shard8 == RelayShard.staticSharding(ClusterId, 3)
+        shard9 == RelayShard.staticSharding(ClusterId, 7)
+        shard10 == RelayShard.staticSharding(ClusterId, 3)
 
   suite "getShard from NsContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":
@@ -81,72 +71,72 @@ suite "Autosharding":
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
 
       # When we get a shard from a topic without generation
-      let nsPubsubTopic = sharding.getShard(contentTopicShort)
+      let shard = sharding.getShard(contentTopicShort)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.value() == NsPubsubTopic.staticSharding(ClusterId, 3)
+        shard.value() == RelayShard.staticSharding(ClusterId, 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from a gen0 topic
-      let nsPubsubTopic = sharding.getShard(contentTopicFull)
+      let shard = sharding.getShard(contentTopicFull)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.value() == NsPubsubTopic.staticSharding(ClusterId, 3)
+        shard.value() == RelayShard.staticSharding(ClusterId, 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from ain invalid content topic
-      let nsPubsubTopic = sharding.getShard(contentTopicInvalid)
+      let shard = sharding.getShard(contentTopicInvalid)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.error() == "Generation > 0 are not supported yet"
+        shard.error() == "Generation > 0 are not supported yet"
 
   suite "getShard from ContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from it
-      let nsPubsubTopic = sharding.getShard(contentTopicShort)
+      let shard = sharding.getShard(contentTopicShort)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.value() == NsPubsubTopic.staticSharding(ClusterId, 3)
+        shard.value() == RelayShard.staticSharding(ClusterId, 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from it
-      let nsPubsubTopic = sharding.getShard(contentTopicFull)
+      let shard = sharding.getShard(contentTopicFull)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.value() == NsPubsubTopic.staticSharding(ClusterId, 3)
+        shard.value() == RelayShard.staticSharding(ClusterId, 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from it
-      let nsPubsubTopic = sharding.getShard(contentTopicInvalid)
+      let shard = sharding.getShard(contentTopicInvalid)
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.error() == "Generation > 0 are not supported yet"
+        shard.error() == "Generation > 0 are not supported yet"
 
     test "Generate Gen0 Shard invalid topic":
       let sharding =
         Sharding(clusterId: ClusterId, shardCountGenZero: GenerationZeroShardsCount)
       # When we get a shard from it
-      let nsPubsubTopic = sharding.getShard("invalid")
+      let shard = sharding.getShard("invalid")
 
       # Then the generated shard is valid
       check:
-        nsPubsubTopic.error() == "invalid format: topic must start with slash"
+        shard.error() == "invalid format: topic must start with slash"
 
   suite "parseSharding":
     test "contentTopics is ContentTopic":
