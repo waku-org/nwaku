@@ -136,10 +136,10 @@ suite "Waku Message - Content topics namespacing":
 suite "Waku Message - Pub-sub topics namespacing":
   test "Stringify static sharding pub-sub topic":
     ## Given
-    var ns = RelayShard.staticSharding(clusterId = 0, shardId = 2)
+    var shard = RelayShard.staticSharding(clusterId = 0, shardId = 2)
 
     ## When
-    let topic = $ns
+    let topic = $shard
 
     ## Then
     check:
@@ -150,11 +150,11 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/waku-dev"
 
     ## When
-    let nsRes = RelayShard.parse(topic)
+    let shardRes = RelayShard.parse(topic)
 
     ## Then
-    check nsRes.isErr()
-    let err = nsRes.tryError()
+    check shardRes.isErr()
+    let err = shardRes.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
 
@@ -163,26 +163,26 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs/16/42"
 
     ## When
-    let nsRes = RelayShard.parse(topic)
+    let shardRes = RelayShard.parse(topic)
 
     ## Then
-    check nsRes.isOk()
+    check shardRes.isOk()
 
-    let ns = nsRes.get()
+    let shard = shardRes.get()
     check:
-      ns.clusterId == 16
-      ns.shardId == 42
+      shard.clusterId == 16
+      shard.shardId == 42
 
   test "Parse pub-sub topic string - Invalid string: invalid protocol version":
     ## Given
     let topic = "/waku/1/rs/16/42"
 
     ## When
-    let ns = RelayShard.parse(topic)
+    let shard = RelayShard.parse(topic)
 
     ## Then
-    check ns.isErr()
-    let err = ns.tryError()
+    check shard.isErr()
+    let err = shard.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat
 
@@ -191,11 +191,11 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs//02"
 
     ## When
-    let ns = RelayShard.parse(topic)
+    let shard = RelayShard.parse(topic)
 
     ## Then
-    check ns.isErr()
-    let err = ns.tryError()
+    check shard.isErr()
+    let err = shard.tryError()
     check:
       err.kind == ParsingErrorKind.MissingPart
       err.part == "cluster_id"
@@ -205,10 +205,10 @@ suite "Waku Message - Pub-sub topics namespacing":
     let topic = "/waku/2/rs/xx/77"
 
     ## When
-    let ns = RelayShard.parse(topic)
+    let shard = RelayShard.parse(topic)
 
     ## Then
-    check ns.isErr()
-    let err = ns.tryError()
+    check shard.isErr()
+    let err = shard.tryError()
     check:
       err.kind == ParsingErrorKind.InvalidFormat

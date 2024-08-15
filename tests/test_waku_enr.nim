@@ -290,9 +290,9 @@ suite "Waku ENR - Relay static sharding":
       shardsTopics.clusterId == clusterId
       shardsTopics.shardIds == @[1u16]
 
-    let topics = shardsTopics.topics.mapIt($it)
+    let shards = shardsTopics.topics.mapIt($it)
     check:
-      topics == @[$shard]
+      shards == @[$shard]
 
     check:
       shardsTopics.contains(clusterId, shardId)
