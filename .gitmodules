@@ -174,3 +174,8 @@
 	path = vendor/negentropy
 	url = https://github.com/waku-org/negentropy.git
 	branch = master
+[submodule "vendor/nph"]
+	ignore = untracked
+	branch = master
+	path = vendor/nph
+	url = https://github.com/arnetheduck/nph.git

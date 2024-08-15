@@ -84,6 +84,24 @@ Binary will be created as `<path to your test file.nim>.bin` under the `build` d
 make test/tests/common/test_enr_builder.nim
 ```
 
+## Formatting
+
+Nim files are expected to be formatted using the [`nph`](https://github.com/arnetheduck/nph) version present in `vendor/nph`.
+
+You can easily format file with the `make nph/<relative path to nim> file` command.
+For example:
+
+```
+make nph/waku/waku_core.nim
+```
+
+A convenient git hook is provided to automatically format file at commit time.
+Run the following command to install it:
+
+```shell
+make install-nph
+```
+
 ### Examples
 
 Examples can be found in the examples folder.
