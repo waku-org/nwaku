@@ -128,6 +128,8 @@ proc subscribe*(
   for obs in wfc.subscrObservers:
     obs.onSubscribe(pubSubTopic, contentTopicSeq)
 
+  return ok()
+
 proc unsubscribe*(
     wfc: WakuFilterClient,
     servicePeer: RemotePeerInfo,
@@ -146,8 +148,11 @@ proc unsubscribe*(
   )
 
   ?await wfc.sendSubscribeRequest(servicePeer, filterSubscribeRequest)
+
   for obs in wfc.subscrObservers:
     obs.onUnsubscribe(pubSubTopic, contentTopicSeq)
+
+  return ok()
 
 proc unsubscribeAll*(
     wfc: WakuFilterClient, servicePeer: RemotePeerInfo
