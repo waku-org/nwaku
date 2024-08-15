@@ -245,11 +245,21 @@ networkmonitor: | build deps librln
 ############
 ## Format ##
 ############
-.PHONY: build-nph clean-nph
+.PHONY: build-nph clean-nph install-nph
 
 build-nph:
 ifeq ("$(wildcard $(NPH))","")
 	$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
+endif
+
+GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
+
+install-nph: build-nph
+ifeq ("$(wildcard $(GIT_PRE_COMMIT_HOOK))","")
+	cp ./scripts/git_pre_commit_format.sh $(GIT_PRE_COMMIT_HOOK)
+else
+	echo "$(GIT_PRE_COMMIT_HOOK) already present, will NOT override"
+	exit 1
 endif
 
 nph/%: build-nph

@@ -53,7 +53,8 @@ If you encounter difficulties building the project on WSL, consider placing the 
 #### Nim Runtime
 This repository is bundled with a Nim runtime that includes the necessary dependencies for the project.
 
-Before you can utilise the runtime you'll need to build the project, as detailed in a previous section. This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
+Before you can utilise the runtime you'll need to build the project, as detailed in a previous section.
+This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
 
 After successfully building the project, you may bring the bundled runtime into scope by running:
 ```bash
