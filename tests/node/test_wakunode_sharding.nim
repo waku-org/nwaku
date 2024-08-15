@@ -186,11 +186,11 @@ suite "Sharding":
       # Given a connected server and client subscribed to different content topics
       let
         contentTopic1 = "/toychat/2/huilong/proto"
-        pubsubTopic1 = "/waku/2/rs/0/58355"
-        pubsubTopic12 = RelayShard.parse(contentTopic1)
+        shard1 = "/waku/2/rs/0/58355"
+        shard12 = RelayShard.parse(contentTopic1)
           # Automatically generated from the contentTopic above
         contentTopic2 = "/0/toychat2/2/huilong/proto"
-        pubsubTopic2 = "/waku/2/rs/0/23286"
+        shard2 = "/waku/2/rs/0/23286"
           # Automatically generated from the contentTopic above
 
       let
@@ -201,7 +201,7 @@ suite "Sharding":
 
       # When the server publishes a message in the server's subscribed topic
       discard await server.publish(
-        some(pubsubTopic1),
+        some(shard1),
         WakuMessage(payload: "message1".toBytes(), contentTopic: contentTopic1),
       )
       let
@@ -216,7 +216,7 @@ suite "Sharding":
       serverHandler.reset()
       clientHandler.reset()
       discard await client.publish(
-        some(pubsubTopic2),
+        some(shard2),
         WakuMessage(payload: "message2".toBytes(), contentTopic: contentTopic2),
       )
       let
