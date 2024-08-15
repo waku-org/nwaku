@@ -490,8 +490,9 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
           echo &"{chatLine}"
         info "Hit store handler"
 
-      let queryRes =
-        await node.query(StoreQueryRequest(contentTopics: @[chat.contentTopic]))
+      let queryRes = await node.query(
+        StoreQueryRequest(contentTopics: @[chat.contentTopic]), storenode.get()
+      )
       if queryRes.isOk():
         storeHandler(queryRes.value)
 
