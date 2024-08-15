@@ -276,7 +276,7 @@ proc createTransferCallback(
 
     while true:
       let catchable = catch:
-        await wakuStoreClient.query(query, some(peerId))
+        await wakuStoreClient.query(query, peerId)
 
       if catchable.isErr():
         return err("store client error: " & catchable.error.msg)

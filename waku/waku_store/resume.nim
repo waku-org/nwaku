@@ -28,9 +28,9 @@ const
   ResumeRangeLimit = 6 # hours
 
 type
-  TransferCallback* = proc(timestamp: Timestamp): Future[Result[void, string]] {.
-    async: (raises: []), closure
-  .}
+  TransferCallback* = proc(
+    timestamp: Timestamp, peer: RemotePeerInfo
+  ): Future[Result[void, string]] {.async: (raises: []), closure.}
 
   StoreResume* = ref object
     handle: Future[void]
@@ -80,7 +80,7 @@ proc initTransferHandler(
   # tying archive, store client and resume into one callback and saving it for later
   self.transferCallBack = some(
     proc(
-        timestamp: Timestamp
+        timestamp: Timestamp, peer: RemotePeerInfo
     ): Future[Result[void, string]] {.async: (raises: []), closure.} =
       var req = StoreQueryRequest()
       req.includeData = true
@@ -90,7 +90,7 @@ proc initTransferHandler(
 
       while true:
         let catchable = catch:
-          await wakuStoreClient.query(req)
+          await wakuStoreClient.query(req, peer)
 
         if catchable.isErr():
           return err("store client error: " & catchable.error.msg)
@@ -156,16 +156,16 @@ proc setLastOnlineTimestamp*(
   return ok()
 
 proc startStoreResume*(
-    self: StoreResume, time: Timestamp
+    self: StoreResume, time: Timestamp, peer: RemotePeerInfo
 ): Future[Result[void, string]] {.async.} =
-  info "starting store resume", lastOnline = $time
+  info "starting store resume", lastOnline = $time, peer = $peer
 
   # get the callback we saved if possible
   let callback = self.transferCallBack.valueOr:
     return err("transfer callback uninitialised")
 
   # run the callback
-  (await callback(time)).isOkOr:
+  (await callback(time, peer)).isOkOr:
     return err("transfer callback failed: " & $error)
 
   info "store resume completed"
@@ -173,6 +173,9 @@ proc startStoreResume*(
   return ok()
 
 proc autoStoreResume*(self: StoreResume): Future[Result[void, string]] {.async.} =
+  let peer = self.peerManager.selectPeer(WakuStoreCodec).valueOr:
+    return err("no suitable peer found for store resume")
+
   let lastOnlineTs = self.getLastOnlineTimestamp().valueOr:
     return err("failed to get last online timestamp: " & $error)
 
@@ -181,7 +184,7 @@ proc autoStoreResume*(self: StoreResume): Future[Result[void, string]] {.async.}
   let maxTime = now - (ResumeRangeLimit * 3600 * 1_000_000_000)
   let ts = max(lastOnlineTs, maxTime)
 
-  return await self.startStoreResume(ts)
+  return await self.startStoreResume(ts, peer)
 
 proc periodicSetLastOnline(self: StoreResume) {.async.} =
   ## Save a timestamp periodically

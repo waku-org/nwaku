@@ -110,7 +110,7 @@ proc checkMsgsInStore(
   let hashesToValidate = toSeq(msgsToValidate.keys)
 
   let storeResp: StoreQueryResponse = (
-    await self.storeClient.query(
+    await self.storeClient.queryToAny(
       StoreQueryRequest(includeData: false, messageHashes: hashesToValidate)
     )
   ).valueOr:

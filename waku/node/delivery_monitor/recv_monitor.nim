@@ -49,7 +49,7 @@ proc getMissingMsgsFromStore(
     self: RecvMonitor, msgHashes: seq[WakuMessageHash]
 ): Future[Result[seq[TupleHashAndMsg], string]] {.async.} =
   let storeResp: StoreQueryResponse = (
-    await self.storeClient.query(
+    await self.storeClient.queryToAny(
       StoreQueryRequest(includeData: true, messageHashes: msgHashes)
     )
   ).valueOr:
@@ -89,7 +89,7 @@ proc msgChecker(self: RecvMonitor) {.async.} =
     var msgHashesInStore = newSeq[WakuMessageHash](0)
     for pubsubTopic, cTopics in self.topicsInterest.pairs:
       let storeResp: StoreQueryResponse = (
-        await self.storeClient.query(
+        await self.storeClient.queryToAny(
           StoreQueryRequest(
             includeData: false,
             pubsubTopic: some(PubsubTopic(pubsubTopic)),
