@@ -9,7 +9,7 @@ The nwaku repository implements Waku, and provides tools related to it.
 - Examples of Waku usage.
 - Various tests of above.
 
-For more details see the [source code](waku/v2/README.md)
+For more details see the [source code](waku/README.md)
 
 ## How to Build & Run
 
