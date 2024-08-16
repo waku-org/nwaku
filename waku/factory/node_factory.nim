@@ -175,16 +175,16 @@ proc setupProtocols(
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
     # Add validation keys to protected topics
-    var subscribedProtectedTopics: seq[ProtectedTopic]
-    for topicKey in conf.protectedTopics:
-      if topicKey.topic notin pubsubTopics:
-        warn "protected topic not in subscribed pubsub topics, skipping adding validator",
-          protectedTopic = topicKey.topic, subscribedTopics = pubsubTopics
+    var subscribedProtectedShards: seq[ProtectedShard]
+    for shardKey in conf.protectedShards:
+      if shardKey.shard notin conf.shards:
+        warn "protected shard not in subscribed shards, skipping adding validator",
+          protectedShard = shardKey.shard, subscribedShards = shards
         continue
-      subscribedProtectedTopics.add(topicKey)
+      subscribedProtectedShards.add(shardKey)
       notice "routing only signed traffic",
-        protectedTopic = topicKey.topic, publicKey = topicKey.key
-    node.wakuRelay.addSignedTopicsValidator(subscribedProtectedTopics)
+        protectedShard = shardKey.shard, publicKey = shardKey.key
+    node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
     # Enable Rendezvous Discovery protocol when Relay is enabled
     try:
