@@ -37,6 +37,8 @@ suite "WakuNode2 - Validators":
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
     let publicKey = secretKey.toPublicKey()
+    echo "----------- public key ----------"
+    echo $publicKey
     let shardsPrivateKeys = {spamProtectedShard: secretKey}.toTable
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
@@ -49,8 +51,8 @@ suite "WakuNode2 - Validators":
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
       var signedShards: seq[ProtectedShard]
-      for topic, publicKey in shardsPublicKeys:
-        signedShards.add(ProtectedShard(shard: topic.shardId, key: publicKey))
+      for shard, publicKey in shardsPublicKeys:
+        signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
       node.wakuRelay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
@@ -139,8 +141,8 @@ suite "WakuNode2 - Validators":
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
       var signedShards: seq[ProtectedShard]
-      for topic, publicKey in shardsPublicKeys:
-        signedShards.add(ProtectedShard(shard: topic.shardId, key: publicKey))
+      for shard, publicKey in shardsPublicKeys:
+        signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
       node.wakuRelay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
@@ -298,8 +300,8 @@ suite "WakuNode2 - Validators":
     # Add signed message validator to all nodes. They will only route signed messages
     for node in nodes:
       var signedShards: seq[ProtectedShard]
-      for topic, publicKey in shardsPublicKeys:
-        signedShards.add(ProtectedShard(shard: topic.shardId, key: publicKey))
+      for shard, publicKey in shardsPublicKeys:
+        signedShards.add(ProtectedShard(shard: shard.shardId, key: publicKey))
       node.wakuRelay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
