@@ -19,7 +19,8 @@ import
   ../common/confutils/envvar/std/net as confEnvvarNet,
   ../common/logging,
   ../waku_enr,
-  ../node/peer_manager
+  ../node/peer_manager,
+  ../waku_core/topics/pubsub_topic
 
 include ../waku_core/message/default_values
 
@@ -135,7 +136,7 @@ type WakuNodeConf* = object
     ##  Application-level configuration
     protectedTopics* {.
       desc:
-        "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
+        "Deprecated. Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
       defaultValue: newSeq[ProtectedShard](0),
       name: "protected-topic"
     .}: seq[ProtectedShard]
@@ -702,17 +703,34 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
+# TO DO: Remove when removing protected-topic configuration
+proc isNumber(x: string): bool =
+  try:
+    discard parseInt(x)
+    result = true
+  except ValueError:
+    result = false
+
 proc parseCmdArg*(T: type ProtectedShard, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
     raise newException(
-      ValueError, "Invalid format for protected topic expected topic:publickey"
+      ValueError, "Invalid format for protected shard expected shard:publickey"
     )
   let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
   if publicKey.isErr:
     raise newException(ValueError, "Invalid public key")
 
-  return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
+  if isNumber(elements[0]):
+    return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
+
+  # TO DO: Remove when removing protected-topic configuration
+  let shard = NsPubsubTopic.parse(elements[0]).valueOr:
+    raise newException(
+      ValueError,
+      "Invalid pubsub topic. Pubsub topics must be in the format /waku/2/rs/<cluster-id>/<shard-id>",
+    )
+  return ProtectedShard(shard: shard.shardId, key: publicKey.get())
 
 proc completeCmdArg*(T: type ProtectedShard, val: string): seq[string] =
   return @[]
