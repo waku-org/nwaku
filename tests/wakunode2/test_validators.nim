@@ -36,7 +36,7 @@ suite "WakuNode2 - Validators":
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
-    let publicKey = secretKey.toPublicKey() g
+    let publicKey = secretKey.toPublicKey()
     let shardsPrivateKeys = {spamProtectedShard: secretKey}.toTable
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
