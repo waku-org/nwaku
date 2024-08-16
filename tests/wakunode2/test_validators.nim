@@ -122,8 +122,8 @@ suite "WakuNode2 - Validators":
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
     let publicKey = secretKey.toPublicKey()
-    let topicsPrivateKeys = {spamProtectedShard: secretKey}.toTable
-    let topicsPublicKeys = {spamProtectedShard: publicKey}.toTable
+    let shardsPrivateKeys = {spamProtectedShard: secretKey}.toTable
+    let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
     # Non whitelisted secret key
     let wrongSecretKey = SkSecretKey
@@ -272,8 +272,8 @@ suite "WakuNode2 - Validators":
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
     let publicKey = secretKey.toPublicKey()
-    let topicsPrivateKeys = {spamProtectedShard: secretKey}.toTable
-    let topicsPublicKeys = {spamProtectedShard: publicKey}.toTable
+    let shardsPrivateKeys = {spamProtectedShard: secretKey}.toTable
+    let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
     # Non whitelisted secret key
     let wrongSecretKey = SkSecretKey
@@ -299,7 +299,7 @@ suite "WakuNode2 - Validators":
     for node in nodes:
       var signedShards: seq[ProtectedShard]
       for topic, publicKey in shardsPublicKeys:
-        signedTopics.add(ProtectedShard(shard: topic.shardId, key: publicKey))
+        signedShards.add(ProtectedShard(shard: topic.shardId, key: publicKey))
       node.wakuRelay.addSignedShardsValidator(
         signedShards, spamProtectedShard.clusterId
       )
