@@ -31,12 +31,12 @@ suite "WakuNode2 - Validators":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       )
 
-    # Protected topic and key to sign
+    # Protected shard and key to sign
     let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
-    let publicKey = secretKey.toPublicKey()
+    let publicKey = secretKey.toPublicKey() g
     let shardsPrivateKeys = {spamProtectedShard: secretKey}.toTable
     let shardsPublicKeys = {spamProtectedShard: publicKey}.toTable
 
@@ -116,7 +116,7 @@ suite "WakuNode2 - Validators":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       )
 
-    # Protected topic and key to sign
+    # Protected shard and key to sign
     let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
@@ -266,7 +266,7 @@ suite "WakuNode2 - Validators":
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
       )
 
-    # Protected topic and key to sign
+    # Protected shard and key to sign
     let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
