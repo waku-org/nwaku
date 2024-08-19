@@ -16,7 +16,7 @@ type Sharding* = object
 proc new*(T: type Sharding, clusterId: uint16, shardCount: uint32): T =
   return Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
 
-proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubTopic =
+proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): RelayShard =
   let bytes = toBytes(topic.application) & toBytes(topic.version)
 
   let hash = sha256.digest(bytes)
@@ -27,9 +27,9 @@ proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): NsPubsubT
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
 
-  NsPubsubTopic.staticSharding(s.clusterId, uint16(shard))
+  RelayShard.staticSharding(s.clusterId, uint16(shard))
 
-proc getShard*(s: Sharding, topic: NsContentTopic): Result[NsPubsubTopic, string] =
+proc getShard*(s: Sharding, topic: NsContentTopic): Result[RelayShard, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.
 
   if topic.generation.isNone():
@@ -54,14 +54,14 @@ proc parseSharding*(
     s: Sharding,
     pubsubTopic: Option[PubsubTopic],
     contentTopics: ContentTopic | seq[ContentTopic],
-): Result[Table[NsPubsubTopic, seq[NsContentTopic]], string] =
+): Result[Table[RelayShard, seq[NsContentTopic]], string] =
   var topics: seq[ContentTopic]
   when contentTopics is seq[ContentTopic]:
     topics = contentTopics
   else:
     topics = @[contentTopics]
 
-  var topicMap = initTable[NsPubsubTopic, seq[NsContentTopic]]()
+  var topicMap = initTable[RelayShard, seq[NsContentTopic]]()
   for contentTopic in topics:
     let parseRes = NsContentTopic.parse(contentTopic)
 
@@ -73,7 +73,7 @@ proc parseSharding*(
 
     let pubsub =
       if pubsubTopic.isSome():
-        let parseRes = NsPubsubTopic.parse(pubsubTopic.get())
+        let parseRes = RelayShard.parse(pubsubTopic.get())
 
         if parseRes.isErr():
           return err("Cannot parse pubsub topic: " & $parseRes.error)
@@ -97,7 +97,7 @@ proc parseSharding*(
 
   ok(topicMap)
 
-#type ShardsPriority = seq[tuple[topic: NsPubsubTopic, value: float64]]
+#type ShardsPriority = seq[tuple[topic: RelayShard, value: float64]]
 
 #[ proc shardCount*(topic: NsContentTopic): Result[int, string] =
   ## Returns the total shard count from the content topic.
@@ -117,7 +117,7 @@ proc parseSharding*(
 #[ proc applyWeight(hashValue: uint64, weight: float64): float64 =
   (-weight) / math.ln(float64(hashValue) / float64(high(uint64))) ]#
 
-#[ proc hashOrder*(x, y: (NsPubsubTopic, float64)): int =
+#[ proc hashOrder*(x, y: (RelayShard, float64)): int =
     cmp(x[1], y[1]) ]#
 
 #[ proc weightedShardList*(topic: NsContentTopic, shardCount: int, weightList: seq[float64]): Result[ShardsPriority, string] =
@@ -127,10 +127,10 @@ proc parseSharding*(
 
   let shardsNWeights = zip(toSeq(0..shardCount), weightList)
 
-  var list = newSeq[(NsPubsubTopic, float64)](shardCount)
+  var list = newSeq[(RelayShard, float64)](shardCount)
 
   for (shard, weight) in shardsNWeights:
-    let pubsub = NsPubsubTopic.staticSharding(ClusterId, uint16(shard))
+    let pubsub = RelayShard.staticSharding(ClusterId, uint16(shard))
 
     let clusterBytes = toBytesBE(uint16(ClusterId))
     let shardBytes = toBytesBE(uint16(shard))
@@ -145,7 +145,7 @@ proc parseSharding*(
 
   ok(list) ]#
 
-#[ proc singleHighestWeigthShard*(topic: NsContentTopic): Result[NsPubsubTopic, string] =
+#[ proc singleHighestWeigthShard*(topic: NsContentTopic): Result[RelayShard, string] =
   let count = ? shardCount(topic)
 
   let weights = repeat(1.0, count)
