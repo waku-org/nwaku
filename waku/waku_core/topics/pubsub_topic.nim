@@ -17,16 +17,16 @@ const DefaultPubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
 
 ## Namespaced pub-sub topic
 
-type NsPubsubTopic* = object
+type RelayShard* = object
   clusterId*: uint16
   shardId*: uint16
 
-proc staticSharding*(T: type NsPubsubTopic, clusterId, shardId: uint16): T =
-  return NsPubsubTopic(clusterId: clusterId, shardId: shardId)
+proc staticSharding*(T: type RelayShard, clusterId, shardId: uint16): T =
+  return RelayShard(clusterId: clusterId, shardId: shardId)
 
 # Serialization
 
-proc `$`*(topic: NsPubsubTopic): string =
+proc `$`*(topic: RelayShard): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/waku/2/rs/<cluster-id>/<shard-id>
   return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
@@ -38,8 +38,8 @@ const
   StaticShardingPubsubTopicPrefix = Waku2PubsubTopicPrefix & "/rs"
 
 proc parseStaticSharding*(
-    T: type NsPubsubTopic, topic: PubsubTopic
-): ParsingResult[NsPubsubTopic] =
+    T: type RelayShard, topic: PubsubTopic
+): ParsingResult[RelayShard] =
   if not topic.startsWith(StaticShardingPubsubTopicPrefix):
     return err(
       ParsingError.invalidFormat("must start with " & StaticShardingPubsubTopicPrefix)
@@ -67,19 +67,19 @@ proc parseStaticSharding*(
         ParsingError.invalidFormat($err)
     )
 
-  ok(NsPubsubTopic.staticSharding(clusterId, shardId))
+  ok(RelayShard.staticSharding(clusterId, shardId))
 
-proc parse*(T: type NsPubsubTopic, topic: PubsubTopic): ParsingResult[NsPubsubTopic] =
+proc parse*(T: type RelayShard, topic: PubsubTopic): ParsingResult[RelayShard] =
   ## Splits a namespaced topic string into its constituent parts.
   ## The topic string has to be in the format `/<application>/<version>/<topic-name>/<encoding>`
-  NsPubsubTopic.parseStaticSharding(topic)
+  RelayShard.parseStaticSharding(topic)
 
 # Pubsub topic compatibility
 
-converter toPubsubTopic*(topic: NsPubsubTopic): PubsubTopic =
+converter toPubsubTopic*(topic: RelayShard): PubsubTopic =
   $topic
 
-proc `==`*[T: NsPubsubTopic](x, y: T): bool =
+proc `==`*[T: RelayShard](x, y: T): bool =
   if x.clusterId != y.clusterId:
     return false
 

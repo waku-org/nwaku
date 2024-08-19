@@ -24,8 +24,8 @@ type RelayShards* = object
   clusterId*: uint16
   shardIds*: seq[uint16]
 
-func topics*(rs: RelayShards): seq[NsPubsubTopic] =
-  rs.shardIds.mapIt(NsPubsubTopic.staticSharding(rs.clusterId, it))
+func topics*(rs: RelayShards): seq[RelayShard] =
+  rs.shardIds.mapIt(RelayShard.staticSharding(rs.clusterId, it))
 
 func init*(T: type RelayShards, clusterId, shardId: uint16): Result[T, string] =
   if shardId > MaxShardIndex:
@@ -61,7 +61,7 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
   if topics.len < 1:
     return ok(none(RelayShards))
 
-  let parsedTopicsRes = topics.mapIt(NsPubsubTopic.parse(it))
+  let parsedTopicsRes = topics.mapIt(RelayShard.parse(it))
 
   for res in parsedTopicsRes:
     if res.isErr():
@@ -80,11 +80,11 @@ func topicsToRelayShards*(topics: seq[string]): Result[Option[RelayShards], stri
 func contains*(rs: RelayShards, clusterId, shardId: uint16): bool =
   return rs.clusterId == clusterId and rs.shardIds.contains(shardId)
 
-func contains*(rs: RelayShards, topic: NsPubsubTopic): bool =
-  return rs.contains(topic.clusterId, topic.shardId)
+func contains*(rs: RelayShards, shard: RelayShard): bool =
+  return rs.contains(shard.clusterId, shard.shardId)
 
 func contains*(rs: RelayShards, topic: PubsubTopic): bool =
-  let parseRes = NsPubsubTopic.parse(topic)
+  let parseRes = RelayShard.parse(topic)
   if parseRes.isErr():
     return false
 
@@ -235,11 +235,11 @@ proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
 
   rs.contains(clusterId, shardId)
 
-proc containsShard*(r: Record, topic: NsPubsubTopic): bool =
-  return containsShard(r, topic.clusterId, topic.shardId)
+proc containsShard*(r: Record, shard: RelayShard): bool =
+  return containsShard(r, shard.clusterId, shard.shardId)
 
 proc containsShard*(r: Record, topic: PubsubTopic): bool =
-  let parseRes = NsPubsubTopic.parse(topic)
+  let parseRes = RelayShard.parse(topic)
   if parseRes.isErr():
     debug "invalid static sharding topic", topic = topic, error = parseRes.error
     return false
