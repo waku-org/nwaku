@@ -1527,22 +1527,22 @@ proc analyzeTableLoop(self: PostgresDriver) {.async.} =
   ## The database stats should be calculated regularly so that the planner
   ## picks up the proper indexes and we have better query performance.
   while true:
-    debug "analyzeTable lock db"
+    debug "analyzeTableLoop lock db"
     (await self.acquireDatabaseLock(AnalyzeTableLockId)).isOkOr:
       if error != EXPECTED_LOCK_ERROR:
-        error "failed to acquire lock in analyzeTable", error = error
+        error "failed to acquire lock in analyzeTableLoop", error = error
       await sleepAsync(RunAnalyzeInterval)
       continue
 
-    debug "analyzeTable start"
+    debug "analyzeTableLoop start analysis"
     (await self.performWriteQuery(AnalyzeQuery)).isOkOr:
       error "failed to run ANALYZE messages", error = error
 
-    debug "analyzeTable unlock db"
+    debug "analyzeTableLoop unlock db"
     (await self.releaseDatabaseLock(AnalyzeTableLockId)).isOkOr:
-      error "failed to release lock analyzeTable", error = error
+      error "failed to release lock analyzeTableLoop", error = error
 
-    debug "analyzeTable completed"
+    debug "analyzeTableLoop analysis completed"
 
     await sleepAsync(RunAnalyzeInterval)
 
