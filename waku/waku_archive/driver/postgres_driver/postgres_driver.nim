@@ -815,6 +815,10 @@ method getMessages*(
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   debug "beginning of getMessages"
 
+  const MAX_ALLOWED_HASHES = 100
+  if hashes.len > MAX_ALLOWED_HASHES:
+    return err(fmt"can not attend queries with more than {MAX_ALLOWED_HASHES} hashes")
+
   let hexHashes = hashes.mapIt(toHex(it))
 
   if cursor.isNone() and pubsubTopic.isNone() and contentTopics.len == 0 and

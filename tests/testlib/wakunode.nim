@@ -79,7 +79,7 @@ proc newTestWakuNode*(
 
   let clusterId =
     if pubsubTopics.len() > 0:
-      NsPubsubTopic.parse(pubsubTopics[0]).get().clusterId
+      RelayShard.parse(pubsubTopics[0]).get().clusterId
     else:
       1.uint16
 
