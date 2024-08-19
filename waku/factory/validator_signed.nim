@@ -50,30 +50,34 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
     return true
   return false
 
-proc addSignedTopicsValidator*(w: WakuRelay, protectedTopics: seq[ProtectedTopic]) =
-  debug "adding validator to signed topics"
+proc addSignedShardsValidator*(
+    w: WakuRelay, protectedShards: seq[ProtectedShard], clusterId: uint16
+) =
+  debug "adding validator to signed shards", protectedShards, clusterId
 
   proc validator(
       topic: string, msg: WakuMessage
   ): Future[errors.ValidationResult] {.async.} =
     var outcome = errors.ValidationResult.Reject
 
-    for protectedTopic in protectedTopics:
-      if (protectedTopic.topic == topic):
+    for protectedShard in protectedShards:
+      let topicString =
+        $RelayShard(clusterId: clusterId, shardId: uint16(protectedShard.shard))
+      if (topicString == topic):
         if msg.timestamp != 0:
           if msg.withinTimeWindow():
             let msgHash = SkMessage(topic.msgHash(msg))
             let recoveredSignature = SkSignature.fromRaw(msg.meta)
             if recoveredSignature.isOk():
-              if recoveredSignature.get.verify(msgHash, protectedTopic.key):
+              if recoveredSignature.get.verify(msgHash, protectedShard.key):
                 outcome = errors.ValidationResult.Accept
 
         if outcome != errors.ValidationResult.Accept:
           debug "signed topic validation failed",
-            topic = topic, publicTopicKey = protectedTopic.key
+            topic = topic, publicShardKey = protectedShard.key
         waku_msg_validator_signed_outcome.inc(labelValues = [$outcome])
         return outcome
 
     return errors.ValidationResult.Accept
 
-  w.addValidator(validator, "signed topic validation failed")
+  w.addValidator(validator, "signed shard validation failed")
