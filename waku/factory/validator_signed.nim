@@ -62,7 +62,7 @@ proc addSignedShardsValidator*(
 
     for protectedShard in protectedShards:
       let topicString =
-        $NsPubsubTopic(clusterId: clusterId, shardId: uint16(protectedShard.shard))
+        $RelayShard(clusterId: clusterId, shardId: uint16(protectedShard.shard))
       if (topicString == topic):
         if msg.timestamp != 0:
           if msg.withinTimeWindow():

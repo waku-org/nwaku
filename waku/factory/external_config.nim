@@ -725,7 +725,7 @@ proc parseCmdArg*(T: type ProtectedShard, p: string): T =
     return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
 
   # TO DO: Remove when removing protected-topic configuration
-  let shard = NsPubsubTopic.parse(elements[0]).valueOr:
+  let shard = RelayShard.parse(elements[0]).valueOr:
     raise newException(
       ValueError,
       "Invalid pubsub topic. Pubsub topics must be in the format /waku/2/rs/<cluster-id>/<shard-id>",

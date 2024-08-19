@@ -32,7 +32,7 @@ suite "WakuNode2 - Validators":
       )
 
     # Protected shard and key to sign
-    let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
+    let spamProtectedShard = RelayShard(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
@@ -117,7 +117,7 @@ suite "WakuNode2 - Validators":
       )
 
     # Protected shard and key to sign
-    let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
+    let spamProtectedShard = RelayShard(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
@@ -267,7 +267,7 @@ suite "WakuNode2 - Validators":
       )
 
     # Protected shard and key to sign
-    let spamProtectedShard = NsPubsubTopic(clusterId: 0, shardId: 7)
+    let spamProtectedShard = RelayShard(clusterId: 0, shardId: 7)
     let secretKey = SkSecretKey
       .fromHex("5526a8990317c9b7b58d07843d270f9cd1d9aaee129294c1c478abf7261dd9e6")
       .expect("valid key")
