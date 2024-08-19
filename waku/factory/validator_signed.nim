@@ -53,7 +53,7 @@ proc withinTimeWindow*(msg: WakuMessage): bool =
 proc addSignedShardsValidator*(
     w: WakuRelay, protectedShards: seq[ProtectedShard], clusterId: uint16
 ) =
-  debug "adding validator to signed shards"
+  debug "adding validator to signed shards", protectedShards, clusterId
 
   proc validator(
       topic: string, msg: WakuMessage

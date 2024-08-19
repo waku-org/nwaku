@@ -703,7 +703,7 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-# TO DO: Remove when removing protected-topic configuration
+# TODO: Remove when removing protected-topic configuration
 proc isNumber(x: string): bool =
   try:
     discard parseInt(x)
@@ -724,7 +724,7 @@ proc parseCmdArg*(T: type ProtectedShard, p: string): T =
   if isNumber(elements[0]):
     return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
 
-  # TO DO: Remove when removing protected-topic configuration
+  # TODO: Remove when removing protected-topic configuration
   let shard = RelayShard.parse(elements[0]).valueOr:
     raise newException(
       ValueError,
