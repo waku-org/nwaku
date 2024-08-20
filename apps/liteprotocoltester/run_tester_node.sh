@@ -41,11 +41,26 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
   exit 1
 fi
 
-if [ "${SERIVCE_NODE_ADDR}" = "waku-sim" ]; then
+DO_DETECT_SERVICENODE=0
+
+if [ "${SERIVCE_NODE_ADDR}" = "servicenode" ]; then
+  DO_DETECT_SERVICENODE=1
   SERIVCE_NODE_ADDR=""
+  SERVICENAME=servicenode
+fi
+
+if [ "${SERIVCE_NODE_ADDR}" = "waku-sim" ]; then
+  DO_DETECT_SERVICENODE=1
+  SERIVCE_NODE_ADDR=""
+fi
+
+if [ $DO_DETECT_SERVICENODE -eq 1 ]; then
   RETRIES=${RETRIES:=10}
 
   while [ -z "${SERIVCE_NODE_ADDR}" ] && [ ${RETRIES} -ge 0 ]; do
+    SERVICE_DEBUG_INFO=$(wget -qO- http://${SERVICENAME}:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null);
+    echo "SERVICE_DEBUG_INFO: ${SERVICE_DEBUG_INFO}"
+
     SERIVCE_NODE_ADDR=$(wget -qO- http://${SERVICENAME}:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"listenAddresses":\["\([^"]*\)".*/\1/');
     echo "Service node not ready, retrying (retries left: ${RETRIES})"
     sleep 1

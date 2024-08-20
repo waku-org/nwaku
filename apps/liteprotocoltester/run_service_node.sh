@@ -15,22 +15,27 @@ if [ -n "${CLUSTER_ID}" ]; then
     CLUSTER_ID=--cluster-id="${CLUSTER_ID}"
 fi
 
+echo "STANDALONE: ${STANDALONE}"
 
-RETRIES=${RETRIES:=10}
+if [ -z "${STANDALONE}" ]; then
 
-while [ -z "${BOOTSTRAP_ENR}" ] && [ ${RETRIES} -ge 0 ]; do
-  BOOTSTRAP_ENR=$(wget -qO- http://bootstrap:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"enrUri":"\([^"]*\)".*/\1/');
-  echo "Bootstrap node not ready, retrying (retries left: ${RETRIES})"
-  sleep 1
-  RETRIES=$(( $RETRIES - 1 ))
-done
+  RETRIES=${RETRIES:=10}
 
-if [ -z "${BOOTSTRAP_ENR}" ]; then
-   echo "Could not get BOOTSTRAP_ENR and none provided. Failing"
-   exit 1
+  while [ -z "${BOOTSTRAP_ENR}" ] && [ ${RETRIES} -ge 0 ]; do
+    BOOTSTRAP_ENR=$(wget -qO- http://bootstrap:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"enrUri":"\([^"]*\)".*/\1/');
+    echo "Bootstrap node not ready, retrying (retries left: ${RETRIES})"
+    sleep 1
+    RETRIES=$(( $RETRIES - 1 ))
+  done
+
+  if [ -z "${BOOTSTRAP_ENR}" ]; then
+    echo "Could not get BOOTSTRAP_ENR and none provided. Failing"
+    exit 1
+  fi
+
+  echo "Using bootstrap node: ${BOOTSTRAP_ENR}"
+
 fi
-
-echo "Using bootstrap node: ${BOOTSTRAP_ENR}"
 
 
 exec /usr/bin/wakunode\
@@ -52,6 +57,6 @@ exec /usr/bin/wakunode\
       --log-level=INFO\
       --metrics-server=True\
       --metrics-server-address=0.0.0.0\
+      --nat=extip:${IP}\
       ${PUBSUB}\
       ${CLUSTER_ID}
-      # --nat=extip:${IP}\

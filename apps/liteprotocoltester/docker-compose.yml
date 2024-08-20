@@ -16,13 +16,18 @@ x-rln-environment: &rln_env
 x-test-running-conditions: &test_running_conditions
   NUM_MESSAGES: ${NUM_MESSAGES:-120}
   DELAY_MESSAGES: "${DELAY_MESSAGES:-1000}"
-  PUBSUB: ${PUBSUB:-}
-  CONTENT_TOPIC: ${CONTENT_TOPIC:-}
+  PUBSUB: ${PUBSUB:-/waku/2/rs/66/0}
+  CONTENT_TOPIC: ${CONTENT_TOPIC:-/tester/2/light-pubsub-test/wakusim}
+  CLUSTER_ID: ${CLUSTER_ID:-66}
+  MIN_MESSAGE_SIZE: ${MIN_MESSAGE_SIZE:-1Kb}
+  MAX_MESSAGE_SIZE: ${MAX_MESSAGE_SIZE:-150Kb}
+  START_PUBLISHING_AFTER: ${START_PUBLISHING_AFTER:-5}  # seconds
+  STANDALONE: ${STANDALONE:-1}
 
 # Services definitions
 services:
   servicenode:
-    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:latest}
+    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:latest-release}
     ports:
       - 30304:30304/tcp
       - 30304:30304/udp
@@ -40,6 +45,7 @@ services:
       EXTRA_ARGS: ${EXTRA_ARGS}
       <<:
         - *rln_env
+        - *test_running_conditions
     volumes:
       - ./run_service_node.sh:/opt/run_service_node.sh:Z
       - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
@@ -82,6 +88,7 @@ services:
       - /opt/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - SENDER
+      - servicenode
     depends_on:
       - servicenode
     configs:
@@ -121,6 +128,7 @@ services:
       - /opt/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - RECEIVER
+      - servicenode
     depends_on:
       - servicenode
       - publishernode
