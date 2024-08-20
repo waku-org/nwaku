@@ -8,7 +8,8 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
 LOG_LEVEL := TRACE
-
+NPH := vendor/nph/src/nph
+FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
@@ -98,7 +99,7 @@ ifeq (, $(shell which cargo))
 endif
 
 anvil: rustup
-ifeq (, $(shell which anvil))
+ifeq (, $(shell which anvil 2> /dev/null))
 # Install Anvil if it's not installed
 	./scripts/install_anvil.sh
 endif
@@ -241,6 +242,34 @@ networkmonitor: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
+############
+## Format ##
+############
+.PHONY: build-nph clean-nph install-nph
+
+build-nph:
+ifeq ("$(wildcard $(NPH))","")
+	$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
+endif
+
+GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
+
+install-nph: build-nph
+ifeq ("$(wildcard $(GIT_PRE_COMMIT_HOOK))","")
+	cp ./scripts/git_pre_commit_format.sh $(GIT_PRE_COMMIT_HOOK)
+else
+	echo "$(GIT_PRE_COMMIT_HOOK) already present, will NOT override"
+	exit 1
+endif
+
+nph/%: build-nph
+	echo -e $(FORMAT_MSG) "nph/$*" && \
+		$(NPH) $*
+
+clean-nph:
+	rm -f $(NPH)
+
+clean: | clean-nph
 
 ###################
 ## Documentation ##
