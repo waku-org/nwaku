@@ -270,7 +270,7 @@ networkmonitor: | build deps librln
 ############
 ## Format ##
 ############
-.PHONY: build-nph clean-nph install-nph
+.PHONY: build-nph clean-nph install-nph print-nph-path
 
 build-nph:
 ifeq ("$(wildcard $(NPH))","")
@@ -293,6 +293,10 @@ nph/%: build-nph
 
 clean-nph:
 	rm -f $(NPH)
+
+# To avoid hardcoding nph binary location in several places
+print-nph-path:
+	echo "$(NPH)"
 
 clean: | clean-nph
 
