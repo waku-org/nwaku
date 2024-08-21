@@ -55,7 +55,7 @@ docker compose logs -f receivernode
 
 > Integration with waku-simulator!
 
-- For convenient integration is done in cooperation with waku-simulator repository, but nothing is tightly coupled.
+- For convenience, integration is done in cooperation with waku-simulator repository, but nothing is tightly coupled.
 - waku-simulator must be started separately with its own configuration.
 - To enable waku-simulator working without RLN currently a separate branch is to be used.
 - When waku-simulator is configured and up and running, lite-protocol-tester composite docker setup can be started.
