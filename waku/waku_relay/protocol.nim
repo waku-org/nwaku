@@ -58,7 +58,8 @@ const TopicParameters = TopicParams(
 )
 
 declareCounter waku_relay_network_bytes,
-  "total traffic per topic", labels = ["topic", "direction"]
+  "total traffic per topic, distinct gross/net and direction",
+  labels = ["topic", "type", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -215,9 +216,16 @@ proc initRelayObservers(w: WakuRelay) =
       msgSize: int,
       onRecv: bool,
   ) =
-    waku_relay_network_bytes.inc(
-      msgSize.int64, labelValues = [pubsub_topic, if onRecv: "in" else: "out"]
-    )
+    if onRecv:
+      waku_relay_network_bytes.inc(
+        msgSize.int64, labelValues = [pubsub_topic, "gross", "in"]
+      )
+    else:
+      # sent traffic can only be "net"
+      # TODO: If we can measure unsuccessful sends would mean a possible distinction between gross/net
+      waku_relay_network_bytes.inc(
+        msgSize.int64, labelValues = [pubsub_topic, "net", "out"]
+      )
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
@@ -384,6 +392,12 @@ proc subscribe*(
       fut.complete()
       return fut
     else:
+      # this subscription handler is called once for every validated message
+      # that will be relayed, hence this is the place we can count net incoming traffic
+      waku_relay_network_bytes.inc(
+        data.len.int64 + pubsubTopic.len.int64, labelValues = [pubsubTopic, "net", "in"]
+      )
+
       return handler(pubsubTopic, decMsg.get())
 
   # Add the ordered validator to the topic
