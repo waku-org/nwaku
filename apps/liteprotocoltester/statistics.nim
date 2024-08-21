@@ -138,7 +138,7 @@ proc calcLatency*(self: Statistics): tuple[min, max, avg: Duration] =
 
       avgLatency = avgLatency div (self.receivedMessages - 1)
     except KeyError:
-      error "Error while calculating latency"
+      error "Error while calculating latency: " & getCurrentExceptionMsg()
 
   return (minLatency, maxLatency, avgLatency)
 

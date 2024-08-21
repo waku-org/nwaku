@@ -35,7 +35,7 @@ logScope:
   topics = "diagnose connections"
 
 proc logSelfPeersLoop(pm: PeerManager, interval: Duration) {.async.} =
-  trace "Starting logSelfPeersLoop diagnosys loop"
+  trace "Starting logSelfPeersLoop diagnosis loop"
   while true:
     let selfLighpushPeers = pm.peerStore.getPeersByProtocol(WakuLightPushCodec)
     let selfRelayPeers = pm.peerStore.getPeersByProtocol(WakuRelayCodec)
