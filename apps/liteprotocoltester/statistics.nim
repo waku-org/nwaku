@@ -127,6 +127,8 @@ proc calcLatency*(self: Statistics): tuple[min, max, avg: Duration] =
         ## latency will be 0 if arrived in shorter time than expected
         var latency = arrival.arrivedAt - arrival.prevArrivedAt - expectedDelay
 
+        ## will not measure zero latency, it is unlikely to happen but in case happens could
+        ## ditort the min latency calulculation as we want to calculate the feasible minimum.
         if latency > nanos(0):
           if minLatency == nanos(0):
             minLatency = latency
