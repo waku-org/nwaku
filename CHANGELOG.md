@@ -1,3 +1,27 @@
+## v0.31.1 (2024-08-02)
+
+### Changes
+
+- Optimize hash queries with lookup table ([#2933](https://github.com/waku-org/nwaku/issues/2933)) ([6463885bf](https://github.com/waku-org/nwaku/commit/6463885bf))
+
+### Bug fixes
+
+* Use of detach finalize when needed [2966](https://github.com/waku-org/nwaku/pull/2966)
+* Prevent legacy store from creating new partitions as that approach blocked the database.
+[2931](https://github.com/waku-org/nwaku/pull/2931)
+
+* lightpush better feedback in case the lightpush service node does not have peers [2951](https://github.com/waku-org/nwaku/pull/2951)
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`WAKU2-STORE`](https://github.com/waku-org/specs/blob/master/standards/core/store.md) | `draft` | `/vac/waku/store-query/3.0.0` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
 ## v0.31.0 (2024-07-16)
 ### Notes
 
