@@ -102,6 +102,8 @@ proc new*(
       ## Hence, this should be run after the migration is completed.
       asyncSpawn driver.startPartitionFactory(onFatalErrorAction)
 
+      driver.startAnalyzeTableLoop()
+
       info "waiting for a partition to be created"
       for i in 0 ..< 100:
         if driver.containsAnyPartition():
