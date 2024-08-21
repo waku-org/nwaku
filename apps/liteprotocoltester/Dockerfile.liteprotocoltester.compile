@@ -4,7 +4,7 @@
   ARG NIMFLAGS
   ARG MAKE_TARGET=liteprotocoltester
   ARG NIM_COMMIT
-  ARG LOG_LEVEL=TRACE
+  ARG LOG_LEVEL=DEBUG
 
   # Get build tools and required header files
   RUN apk add --no-cache bash git build-base pcre-dev linux-headers curl jq
@@ -27,7 +27,7 @@
 
   # PRODUCTION IMAGE -------------------------------------------------------------
 
-  FROM alpine:3.18 as prod
+  FROM alpine:3.18 AS prod
 
   ARG MAKE_TARGET=liteprotocoltester
 

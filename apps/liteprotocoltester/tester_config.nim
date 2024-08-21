@@ -20,14 +20,16 @@ import
     common/confutils/envvar/std/net as confEnvvarNet,
     common/logging,
     factory/external_config,
-    waku/waku_core,
+    waku_core,
   ]
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
 const
-  LitePubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
+  LitePubsubTopic* = PubsubTopic("/waku/2/rs/66/0")
   LiteContentTopic* = ContentTopic("/tester/1/light-pubsub-example/proto")
+  DefaultMinTestMessageSizeStr* = "1KiB"
+  DefaultMaxTestMessageSizeStr* = "150KiB"
 
 type TesterFunctionality* = enum
   SENDER # pumps messages to the network
@@ -76,6 +78,12 @@ type LiteProtocolTesterConf* = object
     desc: "Number of messages to send.", defaultValue: 120, name: "num-messages"
   .}: uint32
 
+  startPublishingAfter* {.
+    desc: "Wait number of seconds before start publishing messages.",
+    defaultValue: 5,
+    name: "start-publishing-after"
+  .}: uint32
+
   delayMessages* {.
     desc: "Delay between messages in milliseconds.",
     defaultValue: 1000,
@@ -105,8 +113,21 @@ type LiteProtocolTesterConf* = object
       "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
     defaultValue: 0,
     name: "cluster-id"
-  .}: uint32
+  .}: uint16
 
+  minTestMessageSize* {.
+    desc:
+      "Minimum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
+    defaultValue: DefaultMinTestMessageSizeStr,
+    name: "min-test-msg-size"
+  .}: string
+
+  maxTestMessageSize* {.
+    desc:
+      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
+    defaultValue: DefaultMaxTestMessageSizeStr,
+    name: "max-test-msg-size"
+  .}: string
   ## Tester REST service configuration
   restAddress* {.
     desc: "Listening address of the REST HTTP server.",
