@@ -457,8 +457,8 @@ func (self *WakuNode) WakuGetMyENR() (string, error) {
 	C.cGoWakuGetMyENR(self.ctx, resp)
 
 	if C.getRet(resp) == C.RET_OK {
-		var listenAddresses = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
-		return listenAddresses, nil
+		var myENR = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return myENR, nil
 	}
 	errMsg := "error WakuGetMyENR: " +
 		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
