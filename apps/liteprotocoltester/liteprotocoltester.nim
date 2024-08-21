@@ -18,10 +18,13 @@ import
     node/health_monitor,
     node/waku_metrics,
     waku_api/rest/builder as rest_server_builder,
+    waku_lightpush/common,
+    waku_filter_v2,
   ],
   ./tester_config,
   ./lightpush_publisher,
-  ./filter_subscriber
+  ./filter_subscriber,
+  ./diagnose_connections
 
 logScope:
   topics = "liteprotocoltester main"
@@ -81,9 +84,9 @@ when isMainModule:
 
   wakuConf.logLevel = conf.logLevel
   wakuConf.logFormat = conf.logFormat
-  wakuConf.staticNodes = @[conf.serviceNode]
+  wakuConf.staticnodes = @[conf.serviceNode]
   wakuConf.nat = conf.nat
-  wakuConf.maxConnections = 100
+  wakuConf.maxConnections = 500
   wakuConf.restAddress = conf.restAddress
   wakuConf.restPort = conf.restPort
   wakuConf.restAllowOrigin = conf.restAllowOrigin
@@ -103,7 +106,10 @@ when isMainModule:
   wakuConf.lightpush = false
   wakuConf.store = false
 
-  wakuConf.rest = true
+  wakuConf.rest = false
+
+  wakuConf.metricsServer = true
+  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
 
   # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
   # It will always be called from main thread anyway.
@@ -186,8 +192,12 @@ when isMainModule:
   info "Node setup complete"
 
   if conf.testFunc == TesterFunctionality.SENDER:
+    waitFor startPeriodicPeerDiagnostic(wakuApp.node.peerManager, WakuLightPushCodec)
     setupAndPublish(wakuApp.node, conf)
   else:
+    waitFor startPeriodicPeerDiagnostic(
+      wakuApp.node.peerManager, WakuFilterSubscribeCodec
+    )
     setupAndSubscribe(wakuApp.node, conf)
 
   runForever()

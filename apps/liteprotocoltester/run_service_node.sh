@@ -5,6 +5,39 @@ IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
 
 echo "Service node IP: ${IP}"
 
+if [ -n "${PUBSUB}" ]; then
+    PUBSUB=--pubsub-topic="${PUBSUB}"
+else
+    PUBSUB=--pubsub-topic="/waku/2/rs/66/0"
+fi
+
+if [ -n "${CLUSTER_ID}" ]; then
+    CLUSTER_ID=--cluster-id="${CLUSTER_ID}"
+fi
+
+echo "STANDALONE: ${STANDALONE}"
+
+if [ -z "${STANDALONE}" ]; then
+
+  RETRIES=${RETRIES:=10}
+
+  while [ -z "${BOOTSTRAP_ENR}" ] && [ ${RETRIES} -ge 0 ]; do
+    BOOTSTRAP_ENR=$(wget -qO- http://bootstrap:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"enrUri":"\([^"]*\)".*/\1/');
+    echo "Bootstrap node not ready, retrying (retries left: ${RETRIES})"
+    sleep 1
+    RETRIES=$(( $RETRIES - 1 ))
+  done
+
+  if [ -z "${BOOTSTRAP_ENR}" ]; then
+    echo "Could not get BOOTSTRAP_ENR and none provided. Failing"
+    exit 1
+  fi
+
+  echo "Using bootstrap node: ${BOOTSTRAP_ENR}"
+
+fi
+
+
 exec /usr/bin/wakunode\
       --relay=true\
       --filter=true\
@@ -20,10 +53,10 @@ exec /usr/bin/wakunode\
       --dns-discovery=true\
       --discv5-discovery=true\
       --discv5-enr-auto-update=True\
-      --log-level=DEBUG\
+      --discv5-bootstrap-node=${BOOTSTRAP_ENR}\
+      --log-level=INFO\
       --metrics-server=True\
       --metrics-server-address=0.0.0.0\
-      --nodekey=e3f5e64568b3a612dee609f6e7c0203c501dab6131662922bdcbcabd474281d5\
       --nat=extip:${IP}\
-      --pubsub-topic=/waku/2/rs/0/0\
-      --cluster-id=0
+      ${PUBSUB}\
+      ${CLUSTER_ID}
