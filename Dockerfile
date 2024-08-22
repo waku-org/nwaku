@@ -52,10 +52,6 @@ COPY --from=nim-build /app/libnegentropy.so /usr/bin/
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 
-RUN ls -l /usr/lib/libnegentropy.so
-
-RUN pwd
-
 # Copy migration scripts for DB upgrades
 COPY --from=nim-build /app/migrations/ /app/migrations/
 
