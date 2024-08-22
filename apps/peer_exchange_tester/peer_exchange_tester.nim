@@ -49,7 +49,7 @@ proc main() {.async.} =
 
   var iter = 0
   var success = 0
-  for i in 1 .. 60:
+  for i in 0 .. 60:
     echo "Seq No :- " & $i & " ---> "
     let response = await wakuApp.node.wakuPeerExchange.request(5, peer_info)
 
@@ -64,15 +64,22 @@ proc main() {.async.} =
           let ma = peer_info.addrs
           echo $iter & ") -----> " & $ma[0] & "  -- " & $peerId
           iter += 1
-          let conn = await switch.dial(peerId, ma, "/vac/waku/metadata/1.0.0")
+          try:
+            let wait = 20000
+            let conn = await switch
+            .dial(peerId, ma, "/vac/waku/metadata/1.0.0")
+            .withTimeout(wait)
+          except TimeoutError:
+            echo "Dialing peer " & $peerId & " timed out."
+          except:
+            echo "An error occurred while dialing peer " & $peerId
+
           success += len(switch.connectedPeers(Direction.Out))
           echo $success & " out of " & $iter & " operation successful"
-          # echo $switch.connectedPeers(Direction.Out) & " -- " & $switch.connectedPeers(Direction.In)
+          discard switch.disconnect(peerId)
     else:
       echo " ------------ response isn't not ok ------------------"
-
     sleep(120000)
-
   echo "---------------------------- Done ------------------------------- "
 
 when isMainModule:
