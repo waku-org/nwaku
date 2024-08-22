@@ -447,7 +447,7 @@ release-notes:
 .PHONY: negentropy
 
 ## Pass libnegentropy to linker.
-NIM_PARAMS := $(NIM_PARAMS) --passL:./libnegentropy.so
+NIM_PARAMS := $(NIM_PARAMS) --passL:libnegentropy.so
 
 deps: | negentropy
 
@@ -455,7 +455,7 @@ clean: | negentropy-clean
 
 negentropy:
 	$(MAKE) -C vendor/negentropy/cpp && \
-		cp vendor/negentropy/cpp/libnegentropy.so ./
+		cp vendor/negentropy/cpp/libnegentropy.so /usr/lib/
 negentropy-clean:
 	$(MAKE) -C vendor/negentropy/cpp clean && \
 		rm libnegentropy.so
