@@ -1,13 +1,11 @@
-import random, chronos, chronicles, stew/byteutils, os, osproc, strutils
-import strutils, options, nimcrypto
-import options, nimcrypto
+import chronos, chronicles, options, os
 import libp2p/peerId
+import eth/p2p/discoveryv5/enr
 import
   waku/[
     waku_node,
     waku_peer_exchange,
     node/peer_manager,
-    node/peer_manager/peer_store/waku_peer_storage,
     node/peer_manager/peer_manager,
     node/peer_manager,
     factory/waku,
@@ -40,7 +38,8 @@ proc main() {.async.} =
     error "Starting waku failed", error = error
     quit(QuitFailure)
 
-  echo "--------------------------------------------------------------------------------"
+  let switch = newStandardSwitch()
+  discard switch.start()
 
   let addrs = "/ip4/178.128.141.171/tcp/30303/"
   let id = "16Uiu2HAkykgaECHswi3YKJ5dMLbq2kPVCo89fcyTd38UcQD6ej5W"
@@ -48,51 +47,31 @@ proc main() {.async.} =
   let peerId = PeerId.init(id).tryGet()
   let peer_info = RemotePeerInfo.init(peerId, @[ma])
 
-  let response = await wakuApp.node.wakuPeerExchange.request(2, peer_info)
+  var iter = 0
+  var success = 0
+  for i in 1 .. 60:
+    echo "Seq No :- " & $i & " ---> "
+    let response = await wakuApp.node.wakuPeerExchange.request(5, peer_info)
 
-  # echo $response
-  echo $response.get().peerInfos
+    if response.isOk:
+      var validPeers = 0
+      let peers = response.get().peerInfos
+      for pi in peers:
+        var record: enr.Record
+        if enr.fromBytes(record, pi.enr):
+          let peer_info = record.toRemotePeerInfo().get()
+          let peerId = peer_info.peerId
+          let ma = peer_info.addrs
+          echo $iter & ") -----> " & $ma[0] & "  -- " & $peerId
+          iter += 1
+          let conn = await switch.dial(peerId, ma, "/vac/waku/metadata/1.0.0")
+          success += len(switch.connectedPeers(Direction.Out))
+          echo $success & " out of " & $iter & " operation successful"
+          # echo $switch.connectedPeers(Direction.Out) & " -- " & $switch.connectedPeers(Direction.In)
+    else:
+      echo " ------------ response isn't not ok ------------------"
 
-  let pxInfo = response.get().peerInfos
-
-  for info in pxInfo:
-    # echo info.enr.Record()
-    let info_str = cast[string](info.enr)
-
-    echo info_str
-    echo "------------------"
-    echo info
-    echo "------------------"
-    # enr = info_str
-    # let ip = enr["ip4"] 
-    # let port = enr["tcp"]
-
-    # let pubkey = enr["secp256k1"]
-    # let peerId = PeerId.initFromPubKey(pubkey).get()
-
-    # let addrs = fmt"/ip4/{ip}/tcp/{port}"
-    # let ma = MultiAddress.init(addrs).tryGet()
-
-    # let peerInfo = RemotePeerInfo.init(peerId, @[ma])
-
-    # echo peerInfo
-
-  if response.isOk:
-    echo "--------------------------- peer exchange succesfully -------------------------"
-
-  # let wakuPx = WakuPeerExchange(peerManager: peerManager)
-
-  # for i in 1 .. 20:
-  #   echo "Seq No :- " & $i & " ---> "
-  #   echo $wakuPx.enrCache
-
-  #   let res1 = await wakuPx.request(1)
-  #   if res1.isOk:
-  #     echo "response count :- " & $res1.get().peerInfos.len
-  #   else:
-  #       echo "request isn't ok"
-
-  #   sleep(120000)
+    sleep(120000)
 
   echo "---------------------------- Done ------------------------------- "
 
