@@ -1,6 +1,6 @@
 ## v0.32.0 (2024-08-26)
 
-Notes:
+#### Notes:
 
 * A new `discv5-only` CLI flag was introduced, which if set to true will perform optimizations for nodes that only run the DiscV5 service
 * The `protected-topic` CLI config item has been deprecated in favor of the new `protected-shard` configuration. Protected topics are still supported and will be completely removed in two releases time for `v0.34.0`
