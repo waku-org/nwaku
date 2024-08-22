@@ -44,7 +44,9 @@ suite "Waku Store - query handler legacy":
       client = newTestWakuStoreClient(clientSwitch)
 
     let req = HistoryQuery(
-      contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD
+      contentTopics: @[DefaultContentTopic],
+      direction: PagingDirection.FORWARD,
+      requestId: "reqId",
     )
 
     ## When
@@ -96,7 +98,9 @@ suite "Waku Store - query handler legacy":
       client = newTestWakuStoreClient(clientSwitch)
 
     let req = HistoryQuery(
-      contentTopics: @[DefaultContentTopic], direction: PagingDirection.FORWARD
+      contentTopics: @[DefaultContentTopic],
+      direction: PagingDirection.FORWARD,
+      requestId: "reqId",
     )
 
     info "check point" # log added to track flaky test

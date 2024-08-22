@@ -43,7 +43,13 @@ proc sendHistoryQueryRPC(
 
   let connection = connOpt.get()
 
-  let reqRpc = HistoryRPC(requestId: generateRequestId(w.rng), query: some(req.toRPC()))
+  let requestId =
+    if req.requestId != "":
+      req.requestId
+    else:
+      generateRequestId(w.rng)
+
+  let reqRpc = HistoryRPC(requestId: requestId, query: some(req.toRPC()))
   await connection.writeLP(reqRpc.encode().buffer)
 
   #TODO: I see a challenge here, if storeNode uses a different MaxRPCSize this read will fail.

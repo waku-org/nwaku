@@ -24,7 +24,8 @@ proc sendStoreRequest(
 ): Future[StoreQueryResult] {.async, gcsafe.} =
   var req = request
 
-  req.requestId = generateRequestId(self.rng)
+  if req.requestId == "":
+    req.requestId = generateRequestId(self.rng)
 
   let writeRes = catch:
     await connection.writeLP(req.encode().buffer)
