@@ -114,6 +114,11 @@ int waku_discv5_update_bootnodes(void* ctx,
                                  WakuCallBack callback,
                                  void* userData);
 
+// Retrieves the ENR information
+int waku_get_my_enr(void* ctx,
+                    WakuCallBack callback,
+                    void* userData);
+
 #ifdef __cplusplus
 }
 #endif

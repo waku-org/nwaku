@@ -491,5 +491,24 @@ proc waku_discv5_update_bootnodes(
   callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
+proc waku_get_my_enr(
+    ctx: ptr Context, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  ctx[].userData = userData
+
+  let connRes = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_MY_ENR),
+  )
+  if connRes.isErr():
+    let msg = $connRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+  else:
+    let msg = $connRes.value
+    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_OK
+
 ### End of exported procs
 ################################################################################
