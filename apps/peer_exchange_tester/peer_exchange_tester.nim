@@ -52,7 +52,7 @@ proc main() {.async.} =
   for i in 0 .. 60:
     echo "Seq No :- " & $i & " ---> "
     let response = await wakuApp.node.wakuPeerExchange.request(5, peer_info)
-
+    iter += 5
     if response.isOk:
       var validPeers = 0
       let peers = response.get().peerInfos
@@ -63,7 +63,7 @@ proc main() {.async.} =
           let peerId = peer_info.peerId
           let ma = peer_info.addrs
           echo $iter & ") -----> " & $ma[0] & "  -- " & $peerId
-          iter += 1
+          
           try:
             let wait = 20000
             let conn = await switch
