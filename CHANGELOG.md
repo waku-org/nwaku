@@ -1,3 +1,65 @@
+## v0.32.0 (2024-08-26)
+
+Notes:
+
+* A new `discv5-only` CLI flag was introduced, which if set to true will perform optimizations for nodes that only run the DiscV5 service
+* The `protected-topic` CLI config item has been deprecated in favor of the new `protected-shard` configuration. Protected topics are still supported and will be completely removed in two releases time for `v0.34.0`
+
+### Release highlights
+
+* Merged Nwaku Sync protocol for synchronizing store nodes
+* Added Store Resume mechanism to retrieve messages sent when the node was offline
+* Optimized hash queries by using lookup tables
+
+### Features
+
+- Nwaku Sync ([#2403](https://github.com/waku-org/nwaku/issues/2403)) ([2cc86c51](https://github.com/waku-org/nwaku/commit/2cc86c51))
+- misc. updates for discovery network analysis ([#2930](https://github.com/waku-org/nwaku/issues/2930)) ([4340eb75](https://github.com/waku-org/nwaku/commit/4340eb75))
+- store resume ([#2919](https://github.com/waku-org/nwaku/issues/2919)) ([aed2a113](https://github.com/waku-org/nwaku/commit/aed2a113))
+
+### Bug Fixes
+
+- return on insert error ([#2956](https://github.com/waku-org/nwaku/issues/2956)) ([5f0fbd78](https://github.com/waku-org/nwaku/commit/5f0fbd78))
+- network monitor improvements ([#2939](https://github.com/waku-org/nwaku/issues/2939)) ([80583237](https://github.com/waku-org/nwaku/commit/80583237))
+- add back waku discv5 metrics ([#2927](https://github.com/waku-org/nwaku/issues/2927)) ([e4e01fab](https://github.com/waku-org/nwaku/commit/e4e01fab))
+- update and shift unittest ([#2934](https://github.com/waku-org/nwaku/issues/2934)) ([08973add](https://github.com/waku-org/nwaku/commit/08973add))
+- handle rln-relay-message-limit  ([#2867](https://github.com/waku-org/nwaku/issues/2867)) ([8d107b0d](https://github.com/waku-org/nwaku/commit/8d107b0d))
+
+### Changes
+
+- libwaku retrieve my enr and adapt golang example ([#2987](https://github.com/waku-org/nwaku/issues/2987)) ([1ff9f1dd](https://github.com/waku-org/nwaku/commit/1ff9f1dd))
+- Update changelog v0.31.1 ([#2985](https://github.com/waku-org/nwaku/issues/2985)) ([53adfb02](https://github.com/waku-org/nwaku/commit/53adfb02))
+- ANALYZE messages query should be performed regularly ([#2986](https://github.com/waku-org/nwaku/issues/2986)) ([32f2d85d](https://github.com/waku-org/nwaku/commit/32f2d85d))
+- liteprotocoltester for simulation and for fleets ([#2813](https://github.com/waku-org/nwaku/issues/2813)) ([f4fa73e9](https://github.com/waku-org/nwaku/commit/f4fa73e9))
+- lock in nph version and add pre-commit hook ([#2938](https://github.com/waku-org/nwaku/issues/2938)) ([d63e3430](https://github.com/waku-org/nwaku/commit/d63e3430))
+- logging received message info via onValidated observer ([#2973](https://github.com/waku-org/nwaku/issues/2973)) ([e8bce67d](https://github.com/waku-org/nwaku/commit/e8bce67d))
+- deprecating protected topics in favor of protected shards ([#2983](https://github.com/waku-org/nwaku/issues/2983)) ([e51ffe07](https://github.com/waku-org/nwaku/commit/e51ffe07))
+- rename NsPubsubTopic ([#2974](https://github.com/waku-org/nwaku/issues/2974)) ([67439057](https://github.com/waku-org/nwaku/commit/67439057))
+- install dig ([#2975](https://github.com/waku-org/nwaku/issues/2975)) ([d24b56b9](https://github.com/waku-org/nwaku/commit/d24b56b9))
+- print WakuMessageHash as hex strings ([#2969](https://github.com/waku-org/nwaku/issues/2969)) ([2fd4eb62](https://github.com/waku-org/nwaku/commit/2fd4eb62))
+- updating dependencies for release 0.32.0 ([#2971](https://github.com/waku-org/nwaku/issues/2971)) ([dfd42a7c](https://github.com/waku-org/nwaku/commit/dfd42a7c))
+- bump negentropy to latest master ([#2968](https://github.com/waku-org/nwaku/issues/2968)) ([b36cb075](https://github.com/waku-org/nwaku/commit/b36cb075))
+- Optimize hash queries with lookup table ([#2933](https://github.com/waku-org/nwaku/issues/2933)) ([4d47aa65](https://github.com/waku-org/nwaku/commit/4d47aa65))
+- **keystore:** verbose error message when credential is not found ([#2943](https://github.com/waku-org/nwaku/issues/2943)) ([0f11ee14](https://github.com/waku-org/nwaku/commit/0f11ee14))
+- upgrade peer exchange mounting  ([#2953](https://github.com/waku-org/nwaku/issues/2953)) ([42f1bed0](https://github.com/waku-org/nwaku/commit/42f1bed0))
+- replace statusim.net instances with status.im ([#2941](https://github.com/waku-org/nwaku/issues/2941)) ([f534549a](https://github.com/waku-org/nwaku/commit/f534549a))
+- updating doc reference to https rpc ([#2937](https://github.com/waku-org/nwaku/issues/2937)) ([bb7bba35](https://github.com/waku-org/nwaku/commit/bb7bba35))
+- Simplification of store legacy code ([#2931](https://github.com/waku-org/nwaku/issues/2931)) ([d4e8a0da](https://github.com/waku-org/nwaku/commit/d4e8a0da))
+- add peer filtering by cluster for waku peer exchange ([#2932](https://github.com/waku-org/nwaku/issues/2932)) ([b4618f98](https://github.com/waku-org/nwaku/commit/b4618f98))
+- return all connected peers from REST API ([#2923](https://github.com/waku-org/nwaku/issues/2923)) ([a29eca77](https://github.com/waku-org/nwaku/commit/a29eca77))
+- adding lint job to the CI ([#2925](https://github.com/waku-org/nwaku/issues/2925)) ([086cc8ed](https://github.com/waku-org/nwaku/commit/086cc8ed))
+- improve sonda dashboard ([#2918](https://github.com/waku-org/nwaku/issues/2918)) ([6d385cef](https://github.com/waku-org/nwaku/commit/6d385cef))
+- Add new custom built and test target to make in order to enable easy build or test single nim modules ([#2913](https://github.com/waku-org/nwaku/issues/2913)) ([ad25f437](https://github.com/waku-org/nwaku/commit/ad25f437))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+
 ## v0.31.1 (2024-08-02)
 
 ### Changes
