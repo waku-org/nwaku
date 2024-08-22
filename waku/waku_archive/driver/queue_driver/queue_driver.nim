@@ -256,6 +256,7 @@ method getMessages*(
     hashes: seq[WakuMessageHash] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   var index = none(Index)
 

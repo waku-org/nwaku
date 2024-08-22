@@ -281,6 +281,7 @@ proc getMessagesArbitraryQuery(
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
@@ -320,6 +321,7 @@ proc getMessagesArbitraryQuery(
         @[int32(hashHex.len)],
         @[int32(0)],
         entreeCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -360,7 +362,7 @@ proc getMessagesArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -374,6 +376,7 @@ proc getMessagesV2ArbitraryQuery(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
@@ -424,7 +427,7 @@ proc getMessagesV2ArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -439,6 +442,7 @@ proc getMessagesPreparedStmt(
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
@@ -469,6 +473,7 @@ proc getMessagesPreparedStmt(
         @[int32(hash.len)],
         @[int32(0)],
         entreeCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -505,6 +510,7 @@ proc getMessagesPreparedStmt(
           int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)
         ],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -528,6 +534,7 @@ proc getMessagesPreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
@@ -543,6 +550,7 @@ proc getMessagesV2PreparedStmt(
     endTime: Timestamp,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
@@ -582,6 +590,7 @@ proc getMessagesV2PreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -605,6 +614,7 @@ proc getMessagesV2PreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
@@ -612,7 +622,7 @@ proc getMessagesV2PreparedStmt(
   return ok(rows)
 
 proc getMessagesByMessageHashes(
-    s: PostgresDriver, hashes: string, maxPageSize: uint
+    s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieves information only filtering by a given messageHashes list.
   ## This proc levarages on the messages_lookup table to have better query performance
@@ -649,7 +659,11 @@ proc getMessagesByMessageHashes(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query = query, rowCallback = rowCallback)).isOkOr:
+  (
+    await s.readConnPool.pgQuery(
+      query = query, rowCallback = rowCallback, requestId = requestId
+    )
+  ).isOkOr:
     return err("failed to run query: " & $error)
 
   debug "end of getMessagesByMessageHashes"
@@ -666,6 +680,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   debug "beginning of getMessages"
 
@@ -673,8 +688,9 @@ method getMessages*(
 
   if cursor.isNone() and pubsubTopic.isNone() and contentTopicSeq.len == 0 and
       startTime.isNone() and endTime.isNone() and hexHashes.len > 0:
-    return
-      await s.getMessagesByMessageHashes("'" & hexHashes.join("','") & "'", maxPageSize)
+    return await s.getMessagesByMessageHashes(
+      "'" & hexHashes.join("','") & "'", maxPageSize, requestId
+    )
 
   if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
       startTime.isSome() and endTime.isSome():
@@ -688,12 +704,13 @@ method getMessages*(
       hexHashes.join(","),
       maxPageSize,
       ascendingOrder,
+      requestId,
     )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-      ascendingOrder,
+      ascendingOrder, requestId,
     )
 
 method getMessagesV2*(
@@ -705,6 +722,7 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
       endTime.isSome():
@@ -717,12 +735,13 @@ method getMessagesV2*(
       endTime.get(),
       maxPageSize,
       ascendingOrder,
+      requestId,
     )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesV2ArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, maxPageSize,
-      ascendingOrder,
+      ascendingOrder, requestId,
     )
 
 proc getStr(

@@ -93,9 +93,8 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
-  echo "here"
-
   let cursor = cursor.map(toDbCursor)
 
   let rowsRes = s.db.selectMessagesByHistoryQueryWithLimit(
@@ -121,6 +120,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   let cursor =
     if cursor.isSome():
