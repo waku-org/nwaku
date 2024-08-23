@@ -178,7 +178,7 @@ clean: | negentropy-clean
 
 $(LIBNEGENTROPY_FILE):
 	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) && \
-		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ${LIBNEGENTROPY_FILE}
+		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ./
 
 negentropy: | $(LIBNEGENTROPY_FILE)
     ## Pass libnegentropy to linker.
