@@ -32,7 +32,7 @@ const
   DefaultMaxRpcSize* = 10 * DefaultMaxWakuMessageSize + 64 * 1024
     # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
   MaxPeersCacheSize = 60
-  CacheRefreshInterval = 15.minutes
+  CacheRefreshInterval = 10.minutes
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
 
