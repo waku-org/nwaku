@@ -174,8 +174,6 @@ clean: | clean-librln
 LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
 LIBNEGENTROPY_FILE := libnegentropy.so
 
-deps: | negentropy
-
 clean: | negentropy-clean
 
 $(LIBNEGENTROPY_FILE):
