@@ -256,7 +256,7 @@ proc addValidator*(
   w.wakuValidators.add((handler, errorMessage))
 
 proc addPublishObserver*(w: WakuRelay, obs: PublishObserver) =
-  ## Observer when whe api client performed a publish operation. This
+  ## Observer when the api client performed a publish operation. This
   ## is initially aimed for bringing an additional layer of delivery reliability thanks
   ## to store
   w.publishObservers.add(obs)
