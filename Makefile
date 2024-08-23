@@ -174,9 +174,6 @@ clean: | clean-librln
 LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
 LIBNEGENTROPY_FILE := libnegentropy.so
 
-## Pass libnegentropy to linker.
-NIM_PARAMS := $(NIM_PARAMS) --passL:libnegentropy.so
-
 deps: | negentropy
 
 clean: | negentropy-clean
@@ -186,6 +183,7 @@ $(LIBNEGENTROPY_FILE):
 		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ${LIBNEGENTROPY_FILE}
 
 negentropy: | $(LIBNEGENTROPY_FILE)
+    ## Pass libnegentropy to linker.
 	$(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_FILE))
 
 negentropy-clean:
