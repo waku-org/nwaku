@@ -55,9 +55,9 @@ proc getMissingMsgsFromStore(
   ).valueOr:
     return err("getMissingMsgsFromStore: " & $error)
 
-  let otheriseMsg = WakuMessage() ## message to be returned if the Option message is none
+  let otherwiseMsg = WakuMessage() ## message to be returned if the Option message is none
   return ok(
-    storeResp.messages.mapIt((hash: it.messageHash, msg: it.message.get(otheriseMsg)))
+    storeResp.messages.mapIt((hash: it.messageHash, msg: it.message.get(otherwiseMsg)))
   )
 
 proc performDeliveryFeedback(
