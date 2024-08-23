@@ -184,7 +184,7 @@ $(LIBNEGENTROPY_FILE):
 
 negentropy: | $(LIBNEGENTROPY_FILE)
     ## Pass libnegentropy to linker.
-	$(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_FILE))
+	$(eval NIM_PARAMS += --passL:./$(LIBNEGENTROPY_FILE))
 
 negentropy-clean:
 	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) clean && \
