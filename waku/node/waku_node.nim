@@ -189,6 +189,9 @@ proc info*(node: WakuNode): WakuInfo =
   let wakuInfo = WakuInfo(listenAddresses: listenStr, enrUri: enrUri)
   return wakuInfo
 
+proc key*(node: WakuNode): crypto.PrivateKey =
+  node.switch.peerInfo.privateKey
+
 proc connectToNodes*(
     node: WakuNode, nodes: seq[RemotePeerInfo] | seq[string], source = "api"
 ) {.async.} =
@@ -438,7 +441,6 @@ proc startRelay*(node: WakuNode) {.async.} =
 proc mountRelay*(
     node: WakuNode,
     pubsubTopics: seq[string] = @[],
-    peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
   if not node.wakuRelay.isNil():
@@ -454,12 +456,6 @@ proc mountRelay*(
     return
 
   node.wakuRelay = initRes.value
-
-  ## Add peer exchange handler
-  if peerExchangeHandler.isSome():
-    node.wakuRelay.parameters.enablePX = true
-      # Feature flag for peer exchange in nim-libp2p
-    node.wakuRelay.routingRecordsHandler.add(peerExchangeHandler.get())
 
   if node.started:
     await node.startRelay()
@@ -1118,6 +1114,11 @@ proc mountRlnRelay*(
     registrationHandler = none(RegistrationHandler),
 ) {.async.} =
   info "mounting rln relay"
+
+  let validationRes = rlnConf.validate()
+  if validationRes.isErr():
+    echo "it is ERR"
+    raise newException(CatchableError, validationRes.error)
 
   if node.wakuRelay.isNil():
     raise newException(

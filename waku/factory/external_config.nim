@@ -55,25 +55,26 @@ type WakuNodeConf* = object
 
   logFormat* {.
     desc:
-      "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
+      "Specifies what kind of logs should be written to stdout. Supported formats: TEXT, JSON",
     defaultValue: logging.LogFormat.TEXT,
     name: "log-format"
   .}: logging.LogFormat
 
+  ## RLN Relay configuration
   rlnRelayCredPath* {.
-    desc: "The path for peristing rln-relay credential",
+    desc: "The path for persisting rln-relay credential",
     defaultValue: "",
     name: "rln-relay-cred-path"
   .}: string
 
   rlnRelayEthClientAddress* {.
     desc: "HTTP address of an Ethereum testnet client e.g., http://localhost:8540/",
-    defaultValue: "http://localhost:8540/",
+    defaultValue: "",
     name: "rln-relay-eth-client-address"
   .}: EthRpcUrl
 
   rlnRelayEthContractAddress* {.
-    desc: "Address of membership contract on an Ethereum testnet",
+    desc: "Address of membership contract on an Ethereum testnet. Part of presets.",
     defaultValue: "",
     name: "rln-relay-eth-contract-address"
   .}: string
@@ -99,24 +100,17 @@ type WakuNodeConf* = object
 
   rlnRelayUserMessageLimit* {.
     desc:
-      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
+      "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1. Part of presets.",
     defaultValue: 1,
     name: "rln-relay-user-message-limit"
   .}: uint64
 
   rlnEpochSizeSec* {.
     desc:
-      "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second.",
+      "Epoch size in seconds used to rate limit RLN memberships. Default is 1 second. Part of presets.",
     defaultValue: 1,
     name: "rln-relay-epoch-sec"
   .}: uint64
-
-  maxMessageSize* {.
-    desc:
-      "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc.",
-    defaultValue: DefaultMaxWakuMessageSizeStr,
-    name: "max-msg-size"
-  .}: string
 
   case cmd* {.command, defaultValue: noCommand.}: StartUpCommand
   of inspectRlnDb:
@@ -149,22 +143,30 @@ type WakuNodeConf* = object
     .}: seq[ProtectedShard]
 
     ## General node config
+    preset* {.
+      desc: "Network preset to use." & "Must be one of 'default', ''",
+      defaultValue: "",
+      name: "preset"
+    .}: string
+
     clusterId* {.
       desc:
-        "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
+        "Cluster id that the node is running in. Node in a different cluster id is disconnected. Part of presets.",
       defaultValue: 0,
       name: "cluster-id"
     .}: uint16
 
-    agentString* {.
-      defaultValue: "nwaku",
-      desc: "Node agent string which is used as identifier in network",
-      name: "agent-string"
-    .}: string
-
     nodekey* {.desc: "P2P node private key as 64 char hex string.", name: "nodekey".}:
       Option[PrivateKey]
 
+    maxMessageSize* {.
+      desc:
+        "Maximum message size. Accepted units: KiB, KB, and B. e.g. 1024KiB; 1500 B; etc. Part of presets.",
+      defaultValue: DefaultMaxWakuMessageSizeStr,
+      name: "max-msg-size"
+    .}: string
+
+    ## Network config
     listenAddress* {.
       defaultValue: defaultListenAddress(),
       desc: "Listening address for LibP2P (and Discovery v5, if enabled) traffic.",
@@ -185,6 +187,7 @@ type WakuNodeConf* = object
       defaultValue: "any"
     .}: string
 
+    ## Advertise config
     extMultiAddrs* {.
       desc:
         "External multiaddresses to advertise to the network. Argument may be repeated.",
@@ -197,9 +200,16 @@ type WakuNodeConf* = object
       name: "ext-multiaddr-only"
     .}: bool
 
+    dns4DomainName* {.
+      desc: "The domain name resolving to the node's public IPv4 address",
+      defaultValue: "",
+      name: "dns4-domain-name"
+    .}: string
+
+    ## Peer connection config
     maxConnections* {.
       desc: "Maximum allowed number of libp2p connections.",
-      defaultValue: 50,
+      defaultValue: 300,
       name: "max-connections"
     .}: uint16
 
@@ -222,7 +232,18 @@ type WakuNodeConf* = object
       desc: "Enable peer persistence.", defaultValue: false, name: "peer-persistence"
     .}: bool
 
-    ## DNS addrs config
+    staticnodes* {.
+      desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
+      name: "staticnode"
+    .}: seq[string]
+
+    keepAlive* {.
+      desc: "Enable keep-alive for idle connections: true|false",
+      defaultValue: false,
+      name: "keep-alive"
+    .}: bool
+
+    ## DNS addrs resolution config
     dnsAddrs* {.
       desc: "Enable resolution of `dnsaddr`, `dns4` or `dns6` multiaddrs",
       defaultValue: true,
@@ -236,21 +257,9 @@ type WakuNodeConf* = object
       name: "dns-addrs-name-server"
     .}: seq[IpAddress]
 
-    dns4DomainName* {.
-      desc: "The domain name resolving to the node's public IPv4 address",
-      defaultValue: "",
-      name: "dns4-domain-name"
-    .}: string
-
     ## Relay config
     relay* {.
       desc: "Enable relay protocol: true|false", defaultValue: true, name: "relay"
-    .}: bool
-
-    relayPeerExchange* {.
-      desc: "Enable gossipsub peer exchange in relay protocol: true|false",
-      defaultValue: false,
-      name: "relay-peer-exchange"
     .}: bool
 
     relayShardedPeerManagement* {.
@@ -260,8 +269,38 @@ type WakuNodeConf* = object
       name: "relay-shard-manager"
     .}: bool
 
+    pubsubTopics* {.
+      desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
+      defaultValue: @[],
+      name: "pubsub-topic"
+    .}: seq[string]
+
+    shards* {.
+      desc:
+        "Shards index to subscribe to [0.." & $MaxShardIndex &
+        "]. Argument may be repeated.",
+      defaultValue:
+        @[
+          uint16(0),
+          uint16(1),
+          uint16(2),
+          uint16(3),
+          uint16(4),
+          uint16(5),
+          uint16(6),
+          uint16(7),
+        ],
+      name: "shard"
+    .}: seq[uint16]
+
+    contentTopics* {.
+      desc: "Default content topic to subscribe to. Argument may be repeated.",
+      name: "content-topic"
+    .}: seq[string]
+
+    ## RLN Relay config
     rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
+      desc: "Enable spam protection through rln-relay: true|false. Part of presets.",
       defaultValue: false,
       name: "rln-relay"
     .}: bool
@@ -272,7 +311,8 @@ type WakuNodeConf* = object
     .}: Option[uint]
 
     rlnRelayDynamic* {.
-      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      desc:
+        "Enable  waku-rln-relay with on-chain dynamic group management: true|false. Part of presets.",
       defaultValue: false,
       name: "rln-relay-dynamic"
     .}: bool
@@ -296,48 +336,11 @@ type WakuNodeConf* = object
     .}: string
 
     rlnRelayBandwidthThreshold* {.
-      desc: "Message rate in bytes/sec after which verification of proofs should happen",
+      desc:
+        "Message rate in bytes/sec after which verification of proofs should happen. Part of presets.",
       defaultValue: 0, # to maintain backwards compatibility
       name: "rln-relay-bandwidth-threshold"
     .}: int
-
-    staticnodes* {.
-      desc: "Peer multiaddr to directly connect with. Argument may be repeated.",
-      name: "staticnode"
-    .}: seq[string]
-
-    keepAlive* {.
-      desc: "Enable keep-alive for idle connections: true|false",
-      defaultValue: false,
-      name: "keep-alive"
-    .}: bool
-
-    pubsubTopics* {.
-      desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
-      defaultValue: @[],
-      name: "pubsub-topic"
-    .}: seq[string]
-
-    shards* {.
-      desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
-      defaultValue:
-        @[
-          uint16(0),
-          uint16(1),
-          uint16(2),
-          uint16(3),
-          uint16(4),
-          uint16(5),
-          uint16(6),
-          uint16(7),
-        ],
-      name: "shard"
-    .}: seq[uint16]
-
-    contentTopics* {.
-      desc: "Default content topic to subscribe to. Argument may be repeated.",
-      name: "content-topic"
-    .}: seq[string]
 
     ## Store and message store config
     store* {.
@@ -562,7 +565,7 @@ type WakuNodeConf* = object
 
     ## Discovery v5 config
     discv5Discovery* {.
-      desc: "Enable discovering nodes via Node Discovery v5",
+      desc: "Enable discovering nodes via Node Discovery v5. Part of presets.",
       defaultValue: false,
       name: "discv5-discovery"
     .}: bool
@@ -575,7 +578,7 @@ type WakuNodeConf* = object
 
     discv5BootstrapNodes* {.
       desc:
-        "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated.",
+        "Text-encoded ENR for bootstrap node. Used when connecting to the network. Argument may be repeated. Part of presets.",
       name: "discv5-bootstrap-node"
     .}: seq[string]
 
