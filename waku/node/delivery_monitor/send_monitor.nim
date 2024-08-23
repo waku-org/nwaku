@@ -33,7 +33,7 @@ type DeliveryInfo = object
 
 type SendMonitor* = ref object of PublishObserver
   publishedMessages: Table[WakuMessageHash, DeliveryInfo]
-    ## Cache that contains the delivery info per pubsub-topic.
+    ## Cache that contains the delivery info per message hash.
     ## This is needed to make sure the published messages are properly published
 
   msgStoredCheckerHandle: Future[void] ## handle that allows to stop the async task
