@@ -47,11 +47,7 @@ RUN apk add --no-cache libgcc pcre-dev libpq-dev bind-tools
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
 # Fix for 'Error loading shared library libnegentropy.so: No such file or directory'
-COPY --from=nim-build /app/libnegentropy.so ./
-
-RUN ls
-
-RUN pwd
+COPY --from=nim-build /app/libnegentropy.so /usr/lib/
 
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
@@ -61,8 +57,6 @@ COPY --from=nim-build /app/migrations/ /app/migrations/
 
 # Symlink the correct wakunode binary
 RUN ln -sv /usr/local/bin/$MAKE_TARGET /usr/bin/wakunode
-
-ENV LD_LIBRARY_PATH="/:/usr/lib:/usr/local/lib"
 
 ENTRYPOINT ["/usr/bin/wakunode"]
 
