@@ -20,7 +20,7 @@ RUN apt-get update &&\
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
 # Fix for 'Error loading shared library libnegentropy.so: No such file or directory'
-ADD ./libnegentropy.so ./
+ADD ./libnegentropy.so /usr/lib/
 
 # Copy to separate location to accomodate different MAKE_TARGET values
 ADD ./build/$MAKE_TARGET /usr/local/bin/
