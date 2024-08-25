@@ -56,6 +56,7 @@ exec /usr/bin/wakunode\
       --discv5-bootstrap-node=${BOOTSTRAP_ENR}\
       --log-level=INFO\
       --metrics-server=True\
+      --metrics-server-port=8003\
       --metrics-server-address=0.0.0.0\
       --nat=extip:${IP}\
       ${PUBSUB}\

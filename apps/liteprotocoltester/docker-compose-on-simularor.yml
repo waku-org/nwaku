@@ -62,7 +62,7 @@ services:
     image: waku.liteprotocoltester:latest
     build:
       context: ../..
-      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester
     deploy:
       replicas: ${NUM_PUBLISHER_NODES:-3}
     # ports:
@@ -84,13 +84,12 @@ services:
         - *rln_env
         - *test_running_conditions
     volumes:
-      - ./run_tester_node.sh:/opt/run_tester_node.sh:Z
       - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
       - ./rln_tree:/etc/rln_tree/:Z
       - ./keystore:/keystore:Z
     entrypoint: sh
     command:
-      - /opt/run_tester_node.sh
+      - /usr/bin/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - SENDER
       - waku-sim
@@ -139,7 +138,7 @@ services:
     image: waku.liteprotocoltester:latest
     build:
       context: ../..
-      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester
     deploy:
       replicas: ${NUM_RECEIVER_NODES:-1}
     # ports:
@@ -161,13 +160,12 @@ services:
         - *rln_env
         - *test_running_conditions
     volumes:
-      - ./run_tester_node.sh:/opt/run_tester_node.sh:Z
       - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
       - ./rln_tree:/etc/rln_tree/:Z
       - ./keystore:/keystore:Z
     entrypoint: sh
     command:
-      - /opt/run_tester_node.sh
+      - /usr/bin/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - RECEIVER
       - waku-sim
@@ -180,34 +178,44 @@ services:
     networks:
       - waku-simulator_simulation
 
-  ## We have prometheus and grafana defined in waku-simulator already
-  # prometheus:
-  #   image: docker.io/prom/prometheus:latest
-  #   volumes:
-  #     - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
-  #   command:
-  #     - --config.file=/etc/prometheus/prometheus.yml
-  #   ports:
-  #     - 127.0.0.1:9090:9090
-  #   depends_on:
-  #     - servicenode
+  # We have prometheus and grafana defined in waku-simulator already
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.listen-address=:9099
+    # ports:
+    #   - 127.0.0.1:9090:9090
+    restart: on-failure:5
+    depends_on:
+      - filter-service
+      - lightpush-service
+      - publishernode
+      - receivernode
+    networks:
+      - waku-simulator_simulation
 
-  # grafana:
-  #   image: docker.io/grafana/grafana:latest
-  #   env_file:
-  #     - ./monitoring/configuration/grafana-plugins.env
-  #   volumes:
-  #     - ./monitoring/configuration/grafana.ini:/etc/grafana/grafana.ini:Z
-  #     - ./monitoring/configuration/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:Z
-  #     - ./monitoring/configuration/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:Z
-  #     - ./monitoring/configuration/dashboards:/var/lib/grafana/dashboards/:Z
-  #     - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_icon.svg:Z
-  #     - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
-  #     - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
-  #   ports:
-  #     - 0.0.0.0:3000:3000
-  #   depends_on:
-  #     - prometheus
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    env_file:
+      - ./monitoring/configuration/grafana-plugins.env
+    volumes:
+      - ./monitoring/configuration/grafana.ini:/etc/grafana/grafana.ini:Z
+      - ./monitoring/configuration/dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml:Z
+      - ./monitoring/configuration/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:Z
+      - ./monitoring/configuration/dashboards:/var/lib/grafana/dashboards/:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_icon.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.svg:/usr/share/grafana/public/img/grafana_typelogo.svg:Z
+      - ./monitoring/configuration/customizations/custom-logo.png:/usr/share/grafana/public/img/fav32.png:Z
+    ports:
+      - 0.0.0.0:3033:3033
+    restart: on-failure:5
+    depends_on:
+      - prometheus
+    networks:
+      - waku-simulator_simulation
 
 configs:
   cfg_tester_node.toml:

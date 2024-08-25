@@ -59,7 +59,7 @@ services:
     image: waku.liteprotocoltester:latest
     build:
       context: ../..
-      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester
     ports:
       # - 30304:30304/tcp
       # - 30304:30304/udp
@@ -79,13 +79,12 @@ services:
         - *rln_env
         - *test_running_conditions
     volumes:
-      - ./run_tester_node.sh:/opt/run_tester_node.sh:Z
       - ${CERTS_DIR:-./certs}:/etc/letsencrypt/:Z
       - ./rln_tree:/etc/rln_tree/:Z
       - ./keystore:/keystore:Z
     entrypoint: sh
     command:
-      - /opt/run_tester_node.sh
+      - /usr/bin/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - SENDER
       - servicenode
@@ -99,7 +98,7 @@ services:
     image: waku.liteprotocoltester:latest
     build:
       context: ../..
-      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester.copy
+      dockerfile: ./apps/liteprotocoltester/Dockerfile.liteprotocoltester
     ports:
       # - 30304:30304/tcp
       # - 30304:30304/udp
@@ -125,7 +124,7 @@ services:
       - ./keystore:/keystore:Z
     entrypoint: sh
     command:
-      - /opt/run_tester_node.sh
+      - /usr/bin/run_tester_node.sh
       - /usr/bin/liteprotocoltester
       - RECEIVER
       - servicenode

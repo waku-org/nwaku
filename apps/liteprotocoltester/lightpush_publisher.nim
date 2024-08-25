@@ -17,7 +17,8 @@ import
     common/utils/parse_size_units,
   ],
   ./tester_config,
-  ./tester_message
+  ./tester_message,
+  ./lpt_metrics
 
 randomize()
 
@@ -141,12 +142,15 @@ proc publishMessages(
         pubsubTopic = lightpushPubsubTopic,
         hash = msgHash
       inc(messagesSent)
+      lpt_publisher_sent_messages_count.inc()
+      lpt_publisher_sent_bytes.inc(amount = msgSize.int64)
     else:
       sentMessages[messagesSent] = (hash: msgHash, relayed: false)
       failedToSendCause.mgetOrPut(wlpRes.error, 1).inc()
       error "failed to publish message using lightpush",
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
+      lpt_publisher_failed_messages_count.inc(labelValues = [wlpRes.error])
 
     await sleepAsync(delayMessages)
 
