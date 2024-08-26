@@ -54,16 +54,16 @@ suite "Autosharding":
 
       # Then the generated shards are valid
       check:
-        shard1 == RelayShard(ClusterId, 3)
-        shard2 == RelayShard(ClusterId, 3)
-        shard3 == RelayShard(ClusterId, 6)
-        shard4 == RelayShard(ClusterId, 6)
-        shard5 == RelayShard(ClusterId, 3)
-        shard6 == RelayShard(ClusterId, 3)
-        shard7 == RelayShard(ClusterId, 3)
-        shard8 == RelayShard(ClusterId, 3)
-        shard9 == RelayShard(ClusterId, 7)
-        shard10 == RelayShard(ClusterId, 3)
+        shard1 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard2 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard3 == RelayShard(clusterId: ClusterId, shardId: 6)
+        shard4 == RelayShard(clusterId: ClusterId, shardId: 6)
+        shard5 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard6 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard7 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard8 == RelayShard(clusterId: ClusterId, shardId: 3)
+        shard9 == RelayShard(clusterId: ClusterId, shardId: 7)
+        shard10 == RelayShard(clusterId: ClusterId, shardId: 3)
 
   suite "getShard from NsContentTopic":
     test "Generate Gen0 Shard with topic.generation==none":
@@ -75,7 +75,7 @@ suite "Autosharding":
 
       # Then the generated shard is valid
       check:
-        shard.value() == RelayShard(ClusterId, 3)
+        shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
       let sharding =
@@ -85,7 +85,7 @@ suite "Autosharding":
 
       # Then the generated shard is valid
       check:
-        shard.value() == RelayShard(ClusterId, 3)
+        shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
       let sharding =
@@ -106,7 +106,7 @@ suite "Autosharding":
 
       # Then the generated shard is valid
       check:
-        shard.value() == RelayShard(ClusterId, 3)
+        shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==0":
       let sharding =
@@ -116,7 +116,7 @@ suite "Autosharding":
 
       # Then the generated shard is valid
       check:
-        shard.value() == RelayShard(ClusterId, 3)
+        shard.value() == RelayShard(clusterId: ClusterId, shardId: 3)
 
     test "Generate Gen0 Shard with topic.generation==other":
       let sharding =

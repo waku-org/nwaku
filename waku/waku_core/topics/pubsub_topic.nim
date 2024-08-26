@@ -67,7 +67,7 @@ proc parseStaticSharding*(
         ParsingError.invalidFormat($err)
     )
 
-  ok(RelayShard(clusterId, shardId))
+  ok(RelayShard(clusterId: clusterId, shardId: shardId))
 
 proc parse*(T: type RelayShard, topic: PubsubTopic): ParsingResult[RelayShard] =
   ## Splits a namespaced topic string into its constituent parts.
