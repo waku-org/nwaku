@@ -27,7 +27,7 @@ proc getGenZeroShard*(s: Sharding, topic: NsContentTopic, count: int): RelayShar
   # This is equilavent to modulo shard count but faster
   let shard = hashValue and uint64((count - 1))
 
-  RelayShard.staticSharding(s.clusterId, uint16(shard))
+  RelayShard(s.clusterId, uint16(shard))
 
 proc getShard*(s: Sharding, topic: NsContentTopic): Result[RelayShard, string] =
   ## Compute the (pubsub topic) shard to use for this content topic.
@@ -130,7 +130,7 @@ proc parseSharding*(
   var list = newSeq[(RelayShard, float64)](shardCount)
 
   for (shard, weight) in shardsNWeights:
-    let pubsub = RelayShard.staticSharding(ClusterId, uint16(shard))
+    let pubsub = RelayShard(ClusterId, uint16(shard))
 
     let clusterBytes = toBytesBE(uint16(ClusterId))
     let shardBytes = toBytesBE(uint16(shard))

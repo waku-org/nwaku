@@ -25,7 +25,7 @@ type RelayShards* = object
   shardIds*: seq[uint16]
 
 func topics*(rs: RelayShards): seq[RelayShard] =
-  rs.shardIds.mapIt(RelayShard.staticSharding(rs.clusterId, it))
+  rs.shardIds.mapIt(RelayShard(rs.clusterId, it))
 
 func init*(T: type RelayShards, clusterId, shardId: uint16): Result[T, string] =
   if shardId > MaxShardIndex:
