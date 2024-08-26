@@ -136,7 +136,7 @@ suite "Waku Message - Content topics namespacing":
 suite "Waku Message - Pub-sub topics namespacing":
   test "Stringify static sharding pub-sub topic":
     ## Given
-    var shard = RelayShard(clusterId = 0, shardId = 2)
+    var shard = RelayShard(clusterId: 0, shardId: 2)
 
     ## When
     let topic = $shard
