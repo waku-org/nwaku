@@ -566,6 +566,10 @@ when isMainModule:
     conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
     conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    conf.networkShards = twnClusterConf.networkShards
+
+    if conf.shards.len == 0:
+      conf.shards = toSeq(uint16(0) .. uint16(twnClusterConf.networkShards - 1))
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -631,9 +635,11 @@ when isMainModule:
     error "failed to mount waku metadata protocol: ", err = error
     quit 1
 
-  for pubsubTopic in conf.pubsubTopics:
-    # Subscribe the node to the default pubsubtopic, to count messages
-    subscribeAndHandleMessages(node, pubsubTopic, msgPerContentTopic)
+  for shard in conf.shards:
+    # Subscribe the node to the shards, to count messages
+    subscribeAndHandleMessages(
+      node, $RelayShard(shardId: shard, clusterId: conf.clusterId), msgPerContentTopic
+    )
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)
