@@ -31,6 +31,8 @@ proc `$`*(topic: RelayShard): string =
   ## in the format `/waku/2/rs/<cluster-id>/<shard-id>
   return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
 
+const DefaultPubsubTopic* = $DefaultRelayShard
+
 # Deserialization
 
 const
