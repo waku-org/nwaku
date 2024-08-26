@@ -321,7 +321,7 @@ proc subscribe*(
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -356,7 +356,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -437,7 +437,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    pubsubTopics: seq[string] = @[],
+    shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
@@ -466,11 +466,11 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  info "relay mounted successfully", pubsubTopics = pubsubTopics
+  info "relay mounted successfully", shards = shards
 
-  # Subscribe to topics
-  for pubsubTopic in pubsubTopics:
-    node.subscribe((kind: PubsubSub, topic: pubsubTopic))
+  # Subscribe to shards
+  for shard in shards:
+    node.subscribe((kind: PubsubSub, topic: $shard))
 
 ## Waku filter
 

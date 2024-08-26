@@ -30,10 +30,16 @@ proc enrConfiguration*(
 
   var shards = newSeq[uint16]()
 
-  let shardsOpt = topicsToRelayShards(conf.pubsubTopics).valueOr:
+  # Only for dev purposes. After everything compiles, remove this block and uncomment the one below
+  let shardsOpt = topicsToRelayShards(@["/waku/2/rs/0/0"]).valueOr:
     error "failed to parse pubsub topic, please format according to static shard specification",
       error = $error
     return err("failed to parse pubsub topic: " & $error)
+
+  #[ let shardsOpt = topicsToRelayShards(conf.pubsubTopics).valueOr:
+    error "failed to parse pubsub topic, please format according to static shard specification",
+      error = $error
+    return err("failed to parse pubsub topic: " & $error) ]#
 
   if shardsOpt.isSome():
     let relayShards = shardsOpt.get()

@@ -160,7 +160,7 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  var autoShards: seq[RelayShard] = @[]
+  var autoShards: seq[RelayShard]
   for contentTopic in conf.contentTopics:
     let shard = node.wakuSharding.getShard(contentTopic).valueOr:
       return err("Could not parse content topic: " & error)
