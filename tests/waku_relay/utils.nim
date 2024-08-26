@@ -53,9 +53,9 @@ proc setupRln*(node: WakuNode, identifier: uint) {.async.} =
   )
 
 proc setupRelayWithRln*(
-    node: WakuNode, identifier: uint, pubsubTopics: seq[string]
+    node: WakuNode, identifier: uint, shards: seq[RelayShards]
 ) {.async.} =
-  await node.mountRelay(pubsubTopics)
+  await node.mountRelay(shards)
   await setupRln(node, identifier)
 
 proc subscribeToContentTopicWithHandler*(
