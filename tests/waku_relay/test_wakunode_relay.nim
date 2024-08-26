@@ -258,7 +258,7 @@ suite "WakuNode - Relay":
         wsBindPort = Port(0),
         wsEnabled = true,
       )
-      pubSubTopic = DefaultRelayShard
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
