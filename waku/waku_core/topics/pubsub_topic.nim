@@ -13,7 +13,8 @@ export parsing
 
 type PubsubTopic* = string
 
-const DefaultPubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
+const DefaultShardId* = uint16(0)
+const DefaultClusterId* = uint16(0)
 
 ## Namespaced pub-sub topic
 
