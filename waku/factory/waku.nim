@@ -106,6 +106,20 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
 
   logging.setupLog(conf.logLevel, conf.logFormat)
 
+  # TODO: remove after pubsubtopic config gets removed
+  #[ let shards = newSeq[uint16]()
+  if conf.pubsubTopics.length > 0:
+    let shardsOpt = topicsToRelayShards(conf.pubsubTopics).valueOr:
+      error "failed to parse pubsub topic, please format according to static shard specification",
+        error = $error
+      return err("failed to parse pubsub topic: " & $error)
+
+    if shardsOpt.isSome():
+      let relayShards = shardsOpt.get()
+      for shard in relayShards:
+        shards.add(shard.shardId)
+      confCopy.shards = shards ]#
+
   case confCopy.clusterId
 
   # cluster-id=1 (aka The Waku Network)
