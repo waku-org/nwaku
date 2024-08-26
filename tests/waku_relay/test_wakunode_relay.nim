@@ -63,19 +63,19 @@ suite "WakuNode - Relay":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[shard])
 
     await allFutures(
       node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()]),
@@ -87,15 +87,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    var res = await node1.publish(some(pubSubTopic), message)
+    var res = await node1.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     ## Then
@@ -124,7 +124,7 @@ suite "WakuNode - Relay":
       nodeKey3 = generateSecp256k1Key()
       node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(0))
 
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic1 = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message1 = WakuMessage(payload: payload, contentTopic: contentTopic1)
@@ -135,13 +135,13 @@ suite "WakuNode - Relay":
 
     # start all the nodes
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node3.start()
-    await node3.mountRelay(@[pubSubTopic])
+    await node3.mountRelay(@[shard])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
     await node3.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
@@ -155,7 +155,7 @@ suite "WakuNode - Relay":
     ): Future[ValidationResult] {.async.} =
       ## the validator that only allows messages with contentTopic1 to be relayed
       check:
-        topic == pubSubTopic
+        topic == $shard
 
       # only relay messages with contentTopic1
       if msg.contentTopic != contentTopic1:
@@ -172,22 +172,22 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         # check that only messages with contentTopic1 is relayed (but not contentTopic2)
         msg.contentTopic == contentTopic1
       # relay handler is called
       completionFut.complete(true)
 
-    node3.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node3.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    var res = await node1.publish(some(pubSubTopic), message1)
+    var res = await node1.publish(some($shard), message1)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
 
     # message2 never gets relayed because of the validator
-    res = await node1.publish(some(pubSubTopic), message2)
+    res = await node1.publish(some($shard), message2)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -258,16 +258,16 @@ suite "WakuNode - Relay":
         wsBindPort = Port(0),
         wsEnabled = true,
       )
-      pubSubTopic = "test"
+      pubSubTopic = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -276,15 +276,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -306,16 +306,16 @@ suite "WakuNode - Relay":
       )
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), bindPort = Port(0))
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -324,15 +324,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -354,16 +354,16 @@ suite "WakuNode - Relay":
         wsBindPort = Port(0),
         wsEnabled = true,
       )
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     #delete websocket peer address
     # TODO: a better way to find the index - this is too brittle
@@ -376,15 +376,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -408,16 +408,16 @@ suite "WakuNode - Relay":
       )
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), bindPort = Port(0))
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -426,15 +426,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
@@ -466,16 +466,16 @@ suite "WakuNode - Relay":
       )
 
     let
-      pubSubTopic = "test"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
@@ -484,15 +484,15 @@ suite "WakuNode - Relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node1.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node1.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(500.millis)
 
-    let res = await node2.publish(some(pubSubTopic), message)
+    let res = await node2.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(500.millis)
