@@ -111,11 +111,6 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   # cluster-id=1 (aka The Waku Network)
   of 1:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
-    if len(confCopy.shards) != 0:
-      confCopy.pubsubTopics =
-        confCopy.shards.mapIt(twnClusterConf.pubsubTopics[it.uint16])
-    else:
-      confCopy.pubsubTopics = twnClusterConf.pubsubTopics
 
     # Override configuration
     confCopy.maxMessageSize = twnClusterConf.maxMessageSize
