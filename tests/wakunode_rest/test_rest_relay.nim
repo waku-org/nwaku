@@ -95,7 +95,7 @@ suite "Waku v2 Rest API - Relay":
       shard3 = RelayShard(clusterId: DefaultClusterId, shardId: 3)
       shard4 = RelayShard(clusterId: DefaultClusterId, shardId: 4)
 
-    await node.mountRelay(@[$shard0, $shard1, $shard2, $shard3])
+    await node.mountRelay(@[shard0, shard1, shard2, shard3])
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
