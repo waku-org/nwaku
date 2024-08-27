@@ -419,7 +419,7 @@ procSuite "Peer Manager":
         ValidIpAddress.init("0.0.0.0"),
         port,
         clusterId = 3,
-        shards = @[0],
+        shards = @[uint16(0)],
       )
 
       # same network
@@ -428,14 +428,14 @@ procSuite "Peer Manager":
         ValidIpAddress.init("0.0.0.0"),
         port,
         clusterId = 4,
-        shards = @[0],
+        shards = @[uint16(0)],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
         clusterId = 4,
-        shards = @[0],
+        shards = @[uint16(0)],
       )
 
     node1.mountMetadata(3).expect("Mounted Waku Metadata")
