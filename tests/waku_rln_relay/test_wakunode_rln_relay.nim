@@ -174,14 +174,14 @@ procSuite "WakuNode - RLN relay":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       info "relayHandler. The received topic:", topic
-      if topic == pubsubTopics[0]:
+      if topic == $shards[0]:
         rxMessagesTopic1 = rxMessagesTopic1 + 1
-      elif topic == pubsubTopics[1]:
+      elif topic == $shards[1]:
         rxMessagesTopic2 = rxMessagesTopic2 + 1
 
     # mount the relay handlers
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[0]), some(relayHandler))
-    nodes[2].subscribe((kind: PubsubSub, topic: pubsubTopics[1]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: $shards[0]), some(relayHandler))
+    nodes[2].subscribe((kind: PubsubSub, topic: $shards[1]), some(relayHandler))
     await sleepAsync(1000.millis)
 
     # generate some messages with rln proofs first. generating
@@ -211,9 +211,9 @@ procSuite "WakuNode - RLN relay":
     # publish 3 messages from node[0] (last 2 are spam, window is 10 secs)
     # publish 3 messages from node[1] (last 2 are spam, window is 10 secs)
     for msg in messages1:
-      discard await nodes[0].publish(some(pubsubTopics[0]), msg)
+      discard await nodes[0].publish(some($shards[0]), msg)
     for msg in messages2:
-      discard await nodes[1].publish(some(pubsubTopics[1]), msg)
+      discard await nodes[1].publish(some($shards[1]), msg)
 
     # wait for gossip to propagate
     await sleepAsync(5000.millis)
