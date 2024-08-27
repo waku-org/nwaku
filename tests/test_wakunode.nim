@@ -28,7 +28,7 @@ suite "WakuNode":
       node1 = newTestWakuNode(nodeKey1, parseIpAddress("0.0.0.0"), Port(61000))
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(61002))
-      pubSubTopic = "/waku/2/rs/0/0"
+      shard = DefaultRelayShard
       contentTopic = ContentTopic("/waku/2/default-content/proto")
       payload = "hello world".toBytes()
       message = WakuMessage(payload: payload, contentTopic: contentTopic)
@@ -36,13 +36,13 @@ suite "WakuNode":
     # Setup node 1 with stable codec "/vac/waku/relay/2.0.0"
 
     await node1.start()
-    await node1.mountRelay(@[pubSubTopic])
+    await node1.mountRelay(@[shard])
     node1.wakuRelay.codec = "/vac/waku/relay/2.0.0"
 
     # Setup node 2 with beta codec "/vac/waku/relay/2.0.0-beta2"
 
     await node2.start()
-    await node2.mountRelay(@[pubSubTopic])
+    await node2.mountRelay(@[shard])
     node2.wakuRelay.codec = "/vac/waku/relay/2.0.0-beta2"
 
     check:
