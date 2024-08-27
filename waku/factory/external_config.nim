@@ -403,13 +403,13 @@ type WakuNodeConf* = object
 
     storeSyncInterval* {.
       desc: "Interval between store sync attempts. In seconds.",
-      defaultValue: 3600, # 1 hours
+      defaultValue: 300, # 5 minutes
       name: "store-sync-interval"
     .}: int64
 
     storeSyncRange* {.
       desc: "Amount of time to sync. In seconds.",
-      defaultValue: 300, # 5 minutes
+      defaultValue: 3600, # 1 hours
       name: "store-sync-range"
     .}: int64
 
