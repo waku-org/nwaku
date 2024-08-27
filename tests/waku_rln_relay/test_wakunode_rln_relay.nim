@@ -139,7 +139,7 @@ procSuite "WakuNode - RLN relay":
     await allFutures(nodes.mapIt(it.start()))
 
     let shards =
-      @[RelayShard(clusterId: 0, shard: 0), RelayShard(clusterId: 0, shard: 1)]
+      @[RelayShard(clusterId: 0, shardId: 0), RelayShard(clusterId: 0, shardId: 1)]
     let contentTopics =
       @[
         ContentTopic("/waku/2/content-topic-a/proto"),
