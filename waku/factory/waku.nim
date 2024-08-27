@@ -20,6 +20,7 @@ import
   ../waku_node,
   ../node/peer_manager,
   ../node/health_monitor,
+  ../node/delivery_monitor/delivery_monitor,
   ../waku_api/message_cache,
   ../waku_api/rest/server,
   ../waku_archive,
@@ -50,6 +51,8 @@ type Waku* = object
   dynamicBootstrapNodes: seq[RemotePeerInfo]
 
   node*: WakuNode
+
+  deliveryMonitor: DeliveryMonitor
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
@@ -147,13 +150,29 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
+  let node = nodeRes.get()
+
+  var deliveryMonitor: DeliveryMonitor
+  if conf.reliabilityEnabled:
+    if conf.storenode == "":
+      return err("A storenode should be set when reliability mode is on")
+
+    let deliveryMonitorRes = DeliveryMonitor.new(
+      node.wakuStoreClient, node.wakuRelay, node.wakuLightpushClient,
+      node.wakuFilterClient,
+    )
+    if deliveryMonitorRes.isErr():
+      return err("could not create delivery monitor: " & $deliveryMonitorRes.error)
+    deliveryMonitor = deliveryMonitorRes.get()
+
   var waku = Waku(
     version: git_version,
     conf: confCopy,
     rng: rng,
     key: confCopy.nodekey.get(),
-    node: nodeRes.get(),
+    node: node,
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
+    deliveryMonitor: deliveryMonitor,
   )
 
   ok(waku)
@@ -236,6 +255,10 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
 
     (await waku.wakuDiscV5.start()).isOkOr:
       return err("failed to start waku discovery v5: " & $error)
+
+  ## Reliability
+  if not waku[].deliveryMonitor.isNil():
+    waku[].deliveryMonitor.startDeliveryMonitor()
 
   return ok()
 
