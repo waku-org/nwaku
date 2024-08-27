@@ -83,11 +83,18 @@ type
       name: "keep-alive"
     .}: bool
 
-    topics* {.
-      desc: "Default topics to subscribe to (space separated list).",
-      defaultValue: "/waku/2/rs/0/0",
-      name: "topics"
-    .}: string
+    clusterId* {.
+      desc:
+        "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
+      defaultValue: 0,
+      name: "cluster-id"
+    .}: uint16
+
+    shards* {.
+      desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+      defaultValue: @[uint16(0)],
+      name: "shard"
+    .}: seq[uint16]
 
     ## Store config
     store* {.
