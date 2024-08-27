@@ -58,15 +58,15 @@ suite "WakuNode":
         topic: PubsubTopic, msg: WakuMessage
     ): Future[void] {.async, gcsafe.} =
       check:
-        topic == pubSubTopic
+        topic == $shard
         msg.contentTopic == contentTopic
         msg.payload == payload
       completionFut.complete(true)
 
-    node2.subscribe((kind: PubsubSub, topic: pubsubTopic), some(relayHandler))
+    node2.subscribe((kind: PubsubSub, topic: $shard), some(relayHandler))
     await sleepAsync(2000.millis)
 
-    var res = await node1.publish(some(pubSubTopic), message)
+    var res = await node1.publish(some($shard), message)
     assert res.isOk(), $res.error
 
     await sleepAsync(2000.millis)
