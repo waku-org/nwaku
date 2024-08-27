@@ -20,8 +20,6 @@ suite "Peer Manager":
       serverKey {.threadvar.}: PrivateKey
       clientKey {.threadvar.}: PrivateKey
       clusterId {.threadvar.}: uint64
-      shardTopic0 {.threadvar.}: string
-      shardTopic1 {.threadvar.}: string
 
     asyncSetup:
       listenPort = Port(0)
@@ -29,16 +27,16 @@ suite "Peer Manager":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
       clusterId = 1
-      shard0 = RelayShard(clusterId: clusterId, shardId: 0)
-      shard1 = RelayShard(clusterId: clusterId, shardId: 1)
 
     asyncTest "light client is not disconnected":
       # Given two nodes with the same shardId
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, shards = @[shard0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, shards = @[shard1])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
+        )
 
       # And both mount metadata and filter
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -68,10 +66,12 @@ suite "Peer Manager":
     asyncTest "relay with same shardId is not disconnected":
       # Given two nodes with the same shardId
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, shards = @[shard0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, shards = @[shard1])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
+        )
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
@@ -99,10 +99,12 @@ suite "Peer Manager":
     asyncTest "relay with different shardId is disconnected":
       # Given two nodes with different shardIds
       let
-        server =
-          newTestWakuNode(serverKey, listenAddress, listenPort, shards = @[shard0])
-        client =
-          newTestWakuNode(clientKey, listenAddress, listenPort, shards = @[shard1])
+        server = newTestWakuNode(
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
+        )
+        client = newTestWakuNode(
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
+        )
 
       # And both mount metadata and relay
       discard client.mountMetadata(0) # clusterId irrelevant, overridden by topic
