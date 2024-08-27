@@ -54,16 +54,16 @@ suite "Waku v2 Rest API - Relay":
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics =
-      @[
-        PubSubTopic("pubsub-topic-1"),
-        PubSubTopic("pubsub-topic-2"),
-        PubSubTopic("pubsub-topic-3"),
-      ]
+    let
+      shard0 = RelayShard(clusterId: DefaultClusterId, shardId: 0)
+      shard1 = RelayShard(clusterId: DefaultClusterId, shardId: 1)
+      shard2 = RelayShard(clusterId: DefaultClusterId, shardId: 2)
+
+    let shards = @[$shard0, $shard1, $shard2]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let response = await client.relayPostSubscriptionsV1(pubSubTopics)
+    let response = await client.relayPostSubscriptionsV1(shards)
 
     # Then
     check:
@@ -72,12 +72,12 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      cache.isPubsubSubscribed("pubsub-topic-1")
-      cache.isPubsubSubscribed("pubsub-topic-2")
-      cache.isPubsubSubscribed("pubsub-topic-3")
+      cache.isPubsubSubscribed($shard0)
+      cache.isPubsubSubscribed($shard1)
+      cache.isPubsubSubscribed($shard2)
 
     check:
-      toSeq(node.wakuRelay.subscribedTopics).len == pubSubTopics.len
+      toSeq(node.wakuRelay.subscribedTopics).len == shards.len
 
     await restServer.stop()
     await restServer.closeWait()
@@ -87,9 +87,15 @@ suite "Waku v2 Rest API - Relay":
     # Given
     let node = testWakuNode()
     await node.start()
-    await node.mountRelay(
-      @["pubsub-topic-1", "pubsub-topic-2", "pubsub-topic-3", "pubsub-topic-x"]
-    )
+
+    let
+      shard0 = RelayShard(clusterId: DefaultClusterId, shardId: 0)
+      shard1 = RelayShard(clusterId: DefaultClusterId, shardId: 1)
+      shard2 = RelayShard(clusterId: DefaultClusterId, shardId: 2)
+      shard3 = RelayShard(clusterId: DefaultClusterId, shardId: 3)
+      shard4 = RelayShard(clusterId: DefaultClusterId, shardId: 4)
+
+    await node.mountRelay(@[$shard0, $shard1, $shard2, $shard3])
 
     var restPort = Port(0)
     let restAddress = parseIpAddress("0.0.0.0")
@@ -98,25 +104,19 @@ suite "Waku v2 Rest API - Relay":
     restPort = restServer.httpServer.address.port # update with bound port for client use
 
     let cache = MessageCache.init()
-    cache.pubsubSubscribe("pubsub-topic-1")
-    cache.pubsubSubscribe("pubsub-topic-2")
-    cache.pubsubSubscribe("pubsub-topic-3")
-    cache.pubsubSubscribe("pubsub-topic-x")
+    cache.pubsubSubscribe($shard0)
+    cache.pubsubSubscribe($shard1)
+    cache.pubsubSubscribe($shard2)
+    cache.pubsubSubscribe($shard3)
 
     installRelayApiHandlers(restServer.router, node, cache)
     restServer.start()
 
-    let pubSubTopics =
-      @[
-        PubSubTopic("pubsub-topic-1"),
-        PubSubTopic("pubsub-topic-2"),
-        PubSubTopic("pubsub-topic-3"),
-        PubSubTopic("pubsub-topic-y"),
-      ]
+    let shards = @[$shard0, $shard1, $shard2, $shard4]
 
     # When
     let client = newRestHttpClient(initTAddress(restAddress, restPort))
-    let response = await client.relayDeleteSubscriptionsV1(pubSubTopics)
+    let response = await client.relayDeleteSubscriptionsV1(shards)
 
     # Then
     check:
@@ -125,16 +125,16 @@ suite "Waku v2 Rest API - Relay":
       response.data == "OK"
 
     check:
-      not cache.isPubsubSubscribed("pubsub-topic-1")
-      not node.wakuRelay.isSubscribed("pubsub-topic-1")
-      not cache.isPubsubSubscribed("pubsub-topic-2")
-      not node.wakuRelay.isSubscribed("pubsub-topic-2")
-      not cache.isPubsubSubscribed("pubsub-topic-3")
-      not node.wakuRelay.isSubscribed("pubsub-topic-3")
-      cache.isPubsubSubscribed("pubsub-topic-x")
-      node.wakuRelay.isSubscribed("pubsub-topic-x")
-      not cache.isPubsubSubscribed("pubsub-topic-y")
-      not node.wakuRelay.isSubscribed("pubsub-topic-y")
+      not cache.isPubsubSubscribed($shard0)
+      not node.wakuRelay.isSubscribed($shard0)
+      not cache.isPubsubSubscribed($shard1)
+      not node.wakuRelay.isSubscribed($shard1)
+      not cache.isPubsubSubscribed($shard2)
+      not node.wakuRelay.isSubscribed($shard2)
+      cache.isPubsubSubscribed($shard3)
+      node.wakuRelay.isSubscribed($shard3)
+      not cache.isPubsubSubscribed($shard4)
+      not node.wakuRelay.isSubscribed($shard4)
 
     await restServer.stop()
     await restServer.closeWait()
