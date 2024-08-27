@@ -280,7 +280,7 @@ suite "Waku ENR - Relay static sharding":
       clusterId: uint16 = 22
       shardId: uint16 = 1
 
-    let shard = RelayShard(clusterId, shardId)
+    let shard = RelayShard(clusterId: clusterId, shardId: shardId)
 
     ## When
     let shardsTopics = RelayShards.init(clusterId, shardId).expect("Valid Shards")
