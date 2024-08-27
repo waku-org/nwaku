@@ -25,9 +25,6 @@ import
 logScope:
   topics = "waku store"
 
-const MaxMessageTimestampVariance* = getNanoSecondTime(20)
-  # 20 seconds maximum allowable sender timestamp "drift"
-
 type StoreQueryRequestHandler* =
   proc(req: StoreQueryRequest): Future[StoreQueryResult] {.async, gcsafe.}
 
