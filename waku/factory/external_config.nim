@@ -312,8 +312,9 @@ type WakuNodeConf* = object
       name: "keep-alive"
     .}: bool
 
-    networkShards* {.desc: "Number of shards in the network", name: "network-shards".}:
-      uint32
+    networkShards* {.
+      desc: "Number of shards in the network", defaultValue: 0, name: "network-shards"
+    .}: uint32
 
     pubsubTopics* {.
       desc:

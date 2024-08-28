@@ -119,6 +119,11 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
 
     if shardsOpt.isSome():
       let relayShards = shardsOpt.get()
+      if relayShards.clusterId != conf.clusterId:
+        error "clusterId of the pubsub topic should match the node's cluster",
+          nodeCluster = conf.clusterId, pubsubCluster = relayShards.clusterId
+        return err("clusterId of the pubsub topic should match the node's cluster")
+
       for shard in relayShards.shardIds:
         shards.add(shard)
       confCopy.shards = shards
@@ -152,7 +157,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   info "Running nwaku node", version = git_version
   logConfig(confCopy)
 
-  let validateShardsRes = validateShards(conf)
+  let validateShardsRes = validateShards(confCopy)
   if validateShardsRes.isErr():
     error "Failed validating shards", error = $validateShardsRes.error
     return err("Failed validating shards: " & $validateShardsRes.error)

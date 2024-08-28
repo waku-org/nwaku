@@ -117,7 +117,7 @@ proc getNetworkShards*(conf: WakuNodeConf): uint32 =
   if conf.networkShards != 0:
     return conf.networkShards
   # If conf.networkShards is not set, use the number of shards configured as networkShards
-  return uint32(conf.shards.len)
+  return uint32(max(conf.shards) + 1)
 
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
