@@ -44,7 +44,7 @@ type NetworkMonitorConf* = object
   .}: seq[uint16]
 
   networkShards* {.desc: "Number of shards in the network", name: "network-shards".}:
-    uint16
+    uint32
 
   refreshInterval* {.
     desc: "How often new peers are discovered and connected to (in seconds)",
