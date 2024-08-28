@@ -116,7 +116,7 @@ proc addMessage*(
 
   let shortSenderId = block:
     let senderPeer = PeerId.init(msg.sender)
-    if senderPeer.isErr:
+    if senderPeer.isErr():
       msg.sender
     else:
       senderPeer.get().shortLog()
