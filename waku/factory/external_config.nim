@@ -315,6 +315,13 @@ type WakuNodeConf* = object
     networkShards* {.desc: "Number of shards in the network", name: "network-shards".}:
       uint32
 
+    pubsubTopics* {.
+      desc:
+        "Deprecated. Default pubsub topic to subscribe to. Argument may be repeated.",
+      defaultValue: @[],
+      name: "pubsub-topic"
+    .}: seq[string]
+
     shards* {.
       desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
       defaultValue:
