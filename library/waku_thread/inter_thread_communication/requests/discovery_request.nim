@@ -10,6 +10,8 @@ import
 type DiscoveryMsgType* = enum
   GET_BOOTSTRAP_NODES
   UPDATE_DISCV5_BOOTSTRAP_NODES
+  START_DISCV5
+  STOP_DISCV5
 
 type DiscoveryRequest* = object
   operation: DiscoveryMsgType
@@ -52,6 +54,12 @@ proc createUpdateBootstrapNodesRequest*(
 ): ptr type T =
   return T.createShared(op, "", "", 0, nodes)
 
+proc createDiscV5StartRequest*(T: type DiscoveryRequest): ptr type T =
+  return T.createShared(START_DISCV5, "", "", 0, "")
+
+proc createDiscV5StopRequest*(T: type DiscoveryRequest): ptr type T =
+  return T.createShared(STOP_DISCV5, "", "", 0, "")
+
 proc destroyShared(self: ptr DiscoveryRequest) =
   deallocShared(self[].enrTreeUrl)
   deallocShared(self[].nameDnsServer)
@@ -86,6 +94,16 @@ proc process*(
     destroyShared(self)
 
   case self.operation
+  of START_DISCV5:
+    let res = await waku.wakuDiscv5.start()
+    res.isOkOr:
+      return err($error)
+
+    return ok("discv5 started correctly")
+  of STOP_DISCV5:
+    await waku.wakuDiscv5.stop()
+
+    return ok("discv5 stopped correctly")
   of GET_BOOTSTRAP_NODES:
     let nodes = retrieveBootstrapNodes($self[].enrTreeUrl, $self[].nameDnsServer).valueOr:
       return err($error)

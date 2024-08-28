@@ -441,3 +441,44 @@ proc publish*(
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
   return relayedPeerCount
+
+proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
+  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+  ## The 'mesh' atribute is defined in the GossipSub ref object.
+
+  if not w.mesh.hasKey(pubsubTopic):
+    return err(
+      "getNumPeersInMesh - there is no mesh peer for the given pubsub topic: " &
+        pubsubTopic
+    )
+
+  let peersRes = catch:
+    w.mesh[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  return ok(peers.len)
+
+proc getNumConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[int, string] =
+  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+  ## The 'gossipsub' atribute is defined in the GossipSub ref object.
+
+  if not w.gossipsub.hasKey(pubsubTopic):
+    return err(
+      "getNumConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
+        pubsubTopic
+    )
+
+  let peersRes = catch:
+    w.gossipsub[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return err(
+      "getNumConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg
+    )
+
+  return ok(peers.len)

@@ -1,4 +1,4 @@
-import std/net
+import std/net, options
 import chronicles, chronos, stew/byteutils, results
 import
   ../../../../../waku/waku_core/message/message,
@@ -6,17 +6,13 @@ import
   ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
-  ../../../../../waku/waku_relay/protocol,
+  ../../../../../waku/waku_lightpush/client,
+  ../../../../../waku/waku_lightpush/common,
+  ../../../../../waku/node/peer_manager/peer_manager,
   ../../../../alloc
 
-type RelayMsgType* = enum
-  SUBSCRIBE
-  UNSUBSCRIBE
+type LightpushMsgType* = enum
   PUBLISH
-  LIST_CONNECTED_PEERS
-    ## to return the list of all connected peers to an specific pubsub topic
-  LIST_MESH_PEERS
-    ## to return the list of only the peers that conform the mesh for a particular pubsub topic
 
 type ThreadSafeWakuMessage* = object
   payload: SharedSeq[byte]
@@ -28,23 +24,20 @@ type ThreadSafeWakuMessage* = object
   when defined(rln):
     proof: SharedSeq[byte]
 
-type RelayRequest* = object
-  operation: RelayMsgType
+type LightpushRequest* = object
+  operation: LightpushMsgType
   pubsubTopic: cstring
-  relayEventCallback: WakuRelayHandler # not used in 'PUBLISH' requests
   message: ThreadSafeWakuMessage # only used in 'PUBLISH' requests
 
 proc createShared*(
-    T: type RelayRequest,
-    op: RelayMsgType,
+    T: type LightpushRequest,
+    op: LightpushMsgType,
     pubsubTopic: PubsubTopic,
-    relayEventCallback: WakuRelayHandler = nil,
     m = WakuMessage(),
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].pubsubTopic = pubsubTopic.alloc()
-  ret[].relayEventCallback = relayEventCallback
   ret[].message = ThreadSafeWakuMessage(
     payload: allocSharedSeq(m.payload),
     contentTopic: m.contentTopic.alloc(),
@@ -58,7 +51,7 @@ proc createShared*(
 
   return ret
 
-proc destroyShared(self: ptr RelayRequest) =
+proc destroyShared(self: ptr LightpushRequest) =
   deallocSharedSeq(self[].message.payload)
   deallocShared(self[].message.contentTopic)
   deallocSharedSeq(self[].message.meta)
@@ -83,38 +76,28 @@ proc toWakuMessage(m: ThreadSafeWakuMessage): WakuMessage =
   return wakuMessage
 
 proc process*(
-    self: ptr RelayRequest, waku: ptr Waku
+    self: ptr LightpushRequest, waku: ptr Waku
 ): Future[Result[string, string]] {.async.} =
   defer:
     destroyShared(self)
 
-  if waku.node.wakuRelay.isNil():
-    return err("Operation not supported without Waku Relay enabled.")
-
   case self.operation
-  of SUBSCRIBE:
-    # TO DO: properly perform 'subscribe'
-    discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
-  of UNSUBSCRIBE:
-    # TODO: properly perform 'unsubscribe'
-    waku.node.wakuRelay.unsubscribeAll($self.pubsubTopic)
   of PUBLISH:
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic
 
-    let numPeers = await waku.node.wakuRelay.publish(pubsubTopic, msg)
-    if numPeers == 0:
-      return err("Message not sent because no peers found.")
-    elif numPeers > 0:
-      let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
-      return ok(msgHash)
-  of LIST_CONNECTED_PEERS:
-    let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
-      return err($error)
-    return ok($numConnPeers)
-  of LIST_MESH_PEERS:
-    let numPeersInMesh = waku.node.wakuRelay.getNumPeersInMesh($self.pubsubTopic).valueOr:
-      return err($error)
-    return ok($numPeersInMesh)
+    if waku.node.wakuLightpushClient.isNil():
+      return err("LightpushRequest waku.node.wakuLightpushClient is nil")
+
+    let peerOpt = waku.node.peerManager.selectPeer(WakuLightPushCodec)
+    if peerOpt.isNone():
+      return err("failed to lightpublish message, no suitable remote peers")
+
+    (
+      await waku.node.wakuLightpushClient.publish(
+        pubsubTopic, msg, peer = peerOpt.get()
+      )
+    ).isOkOr:
+      return err("LightpushRequest error publishing: " & $error)
 
   return ok("")
