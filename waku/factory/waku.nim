@@ -91,8 +91,9 @@ proc validateShards(conf: WakuNodeConf): Result[void, string] =
 
   for shard in conf.shards:
     if shard >= networkShards:
-      let msg = "Invalid shard: " & $shard & " when networkShards: " & $networkShards
-        # fmt doesn't work
+      let msg =
+        "validateShards invalid shard: " & $shard & " when networkShards: " &
+        $networkShards # fmt doesn't work
       error "validateShards failed", error = msg
       return err(msg)
 
@@ -120,9 +121,11 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
     if shardsOpt.isSome():
       let relayShards = shardsOpt.get()
       if relayShards.clusterId != conf.clusterId:
-        error "clusterId of the pubsub topic should match the node's cluster",
+        error "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22",
           nodeCluster = conf.clusterId, pubsubCluster = relayShards.clusterId
-        return err("clusterId of the pubsub topic should match the node's cluster")
+        return err(
+          "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22"
+        )
 
       for shard in relayShards.shardIds:
         shards.add(shard)
