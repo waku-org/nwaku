@@ -75,6 +75,12 @@ int waku_relay_publish(void* ctx,
                        WakuCallBack callback,
                        void* userData);
 
+int waku_lightpush_publish(void* ctx,
+                       const char* pubSubTopic,
+                       const char* jsonWakuMessage,
+                       WakuCallBack callback,
+                       void* userData);
+
 int waku_relay_subscribe(void* ctx,
                          const char* pubSubTopic,
                          WakuCallBack callback,
@@ -84,6 +90,23 @@ int waku_relay_unsubscribe(void* ctx,
                            const char* pubSubTopic,
                            WakuCallBack callback,
                            void* userData);
+
+int waku_relay_get_num_connected_peers(void* ctx,
+                           const char* pubSubTopic,
+                           WakuCallBack callback,
+                           void* userData);
+
+int waku_relay_get_num_peers_in_mesh(void* ctx,
+                           const char* pubSubTopic,
+                           WakuCallBack callback,
+                           void* userData);
+
+int waku_store_query(void* ctx,
+                        const char* jsonQuery,
+                        const char* peerAddr,
+                        int timeoutMs,
+                        WakuCallBack callback,
+                        void* userData);
 
 int waku_connect(void* ctx,
                  const char* peerMultiAddr,
@@ -113,6 +136,14 @@ int waku_discv5_update_bootnodes(void* ctx,
                                  char* bootnodes,
                                  WakuCallBack callback,
                                  void* userData);
+
+int waku_start_discv5(void* ctx,
+                      WakuCallBack callback,
+                      void* userData);
+
+int waku_stop_discv5(void* ctx,
+                     WakuCallBack callback,
+                     void* userData);
 
 // Retrieves the ENR information
 int waku_get_my_enr(void* ctx,
