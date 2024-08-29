@@ -18,6 +18,7 @@ type
     hashes*: seq[WakuMessageHash]
     pageSize*: uint
     direction*: PagingDirection
+    requestId*: string
 
   ArchiveResponse* = object
     hashes*: seq[WakuMessageHash]

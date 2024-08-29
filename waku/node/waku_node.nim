@@ -769,6 +769,7 @@ proc toArchiveQuery(
     endTime: request.endTime,
     pageSize: request.pageSize.uint,
     direction: request.direction,
+    requestId: request.requestId,
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
@@ -910,6 +911,7 @@ proc toArchiveQuery(request: StoreQueryRequest): waku_archive.ArchiveQuery =
   query.hashes = request.messageHashes
   query.cursor = request.paginationCursor
   query.direction = request.paginationForward
+  query.requestId = request.requestId
 
   if request.paginationLimit.isSome():
     query.pageSize = uint(request.paginationLimit.get())

@@ -55,9 +55,9 @@ proc handleLegacyQueryRequest(
     # TODO: Return (BAD_REQUEST, cause: "empty query")
     return
 
-  let
-    requestId = reqRpc.requestId
-    request = reqRpc.query.get().toAPI()
+  let requestId = reqRpc.requestId
+  var request = reqRpc.query.get().toAPI()
+  request.requestId = requestId
 
   info "received history query",
     peerId = requestor, requestId = requestId, query = request
