@@ -15,13 +15,14 @@ import
   ../common/enr,
   ../waku_enr/capabilities,
   ../waku_enr/sharding,
-  ../waku_core/peers as peers,
+  ../waku_core/peers,
+  ../waku_core/topics,
   ./common
 
 logScope:
   topics = "waku rendez vous"
 
-declarePublicCounter peerFound, "number of peers found via rendezvous"
+declarePublicCounter peerFoundTotal, "total number of peers found via rendezvous"
 
 type WakuRendezVous* = ref object of RendezVous
   peerManager: PeerManager
@@ -30,52 +31,37 @@ type WakuRendezVous* = ref object of RendezVous
 
   periodicRegistrationFut: Future[void]
 
-  enabled: bool
-
-proc advertise(
-    self: WakuRendezVous, namespace: string, ttl: Duration = MinimumDuration
+proc batchAdvertise*(
+    self: WakuRendezVous,
+    namespace: string,
+    ttl: Duration = MinimumDuration,
+    peers: seq[PeerId],
 ): Future[Result[void, string]] {.async.} =
   ## Register with all rendez vous peers under a namespace
 
   let catchable = catch:
-    await procCall RendezVous(self).advertise(namespace, ttl)
+    await procCall RendezVous(self).batchAdvertise(namespace, ttl, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
 
   return ok()
 
-proc request(
-    self: WakuRendezVous, namespace: string, count: int = DiscoverLimit
+proc batchRequest*(
+    self: WakuRendezVous,
+    namespace: string,
+    count: int = DiscoverLimit,
+    peers: seq[PeerId],
 ): Future[Result[seq[PeerRecord], string]] {.async.} =
   ## Request all records from all rendez vous peers with matching a namespace
 
   let catchable = catch:
-    await RendezVous(self).request(namespace, count)
+    await RendezVous(self).batchRequest(namespace, count, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
 
   return ok(catchable.get())
-
-proc requestLocally(self: WakuRendezVous, namespace: string): seq[PeerRecord] =
-  RendezVous(self).requestLocally(namespace)
-
-proc unsubscribeLocally(self: WakuRendezVous, namespace: string) =
-  RendezVous(self).unsubscribeLocally(namespace)
-
-proc unsubscribe(
-    self: WakuRendezVous, namespace: string
-): Future[Result[void, string]] {.async.} =
-  ## Unsubscribe from all rendez vous peers including locally
-
-  let catchable = catch:
-    await RendezVous(self).unsubscribe(namespace)
-
-  if catchable.isErr():
-    return err(catchable.error.msg)
-
-  return ok()
 
 proc getRelayShards(enr: enr.Record): Option[RelayShards] =
   let typedRecord = enr.toTyped().valueOr:
@@ -84,11 +70,7 @@ proc getRelayShards(enr: enr.Record): Option[RelayShards] =
   return typedRecord.relaySharding()
 
 proc new*(
-    T: type WakuRendezVous,
-    switch: Switch,
-    peerManager: PeerManager,
-    enr: Record,
-    enabled: bool,
+    T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
 ): T =
   let relayshard = getRelayShards(enr).valueOr:
     warn "Using default cluster id 0"
@@ -97,10 +79,7 @@ proc new*(
   let capabilities = enr.getCapabilities()
 
   let wrv = WakuRendezVous(
-    peerManager: peerManager,
-    relayshard: relayshard,
-    capabilities: capabilities,
-    enabled: enabled,
+    peerManager: peerManager, relayshard: relayshard, capabilities: capabilities
   )
 
   RendezVous(wrv).setup(switch)
@@ -112,35 +91,19 @@ proc new*(
 
   return wrv
 
-proc advertisementNamespaces(self: WakuRendezVous): seq[string] =
-  let namespaces = collect(newSeq):
-    for shard in self.relayShard.shardIds:
-      for cap in self.capabilities:
-        computeNamespace(self.relayShard.clusterId, shard, cap)
-
-  return namespaces
-
-proc requestNamespaces(self: WakuRendezVous): seq[string] =
-  let namespaces = collect(newSeq):
-    for shard in self.relayShard.shardIds:
-      for cap in Capabilities:
-        computeNamespace(self.relayShard.clusterId, shard, cap)
-
-  return namespaces
-
-proc shardOnlyNamespaces(self: WakuRendezVous): seq[string] =
-  let namespaces = collect(newSeq):
-    for shard in self.relayShard.shardIds:
-      computeNamespace(self.relayShard.clusterId, shard)
-
-  return namespaces
-
-proc advertiseAll*(self: WakuRendezVous) {.async.} =
-  let namespaces = self.shardOnlyNamespaces()
+proc advertiseAll(self: WakuRendezVous) {.async.} =
+  let pubsubTopics = self.relayShard.topics()
 
   let futs = collect(newSeq):
-    for namespace in namespaces:
-      self.advertise(namespace, 1.minutes)
+    for pubsubTopic in pubsubTopics:
+      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
+
+      # Get a random RDV peer for that shard
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        continue
+
+      # Advertise yourself on that peer
+      self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
 
   let handles = await allFinished(futs)
 
@@ -148,16 +111,23 @@ proc advertiseAll*(self: WakuRendezVous) {.async.} =
     let res = fut.read
 
     if res.isErr():
-      warn "failed to advertise", error = res.error
+      warn "rendezvous advertise failed", error = res.error
 
   debug "waku rendezvous advertisements finished", adverCount = handles.len
 
-proc requestAll*(self: WakuRendezVous) {.async.} =
-  let namespaces = self.shardOnlyNamespaces()
+proc initialRequestAll*(self: WakuRendezVous) {.async.} =
+  let pubsubTopics = self.relayShard.topics()
 
   let futs = collect(newSeq):
-    for namespace in namespaces:
-      self.request(namespace)
+    for pubsubTopic in pubsubTopics:
+      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
+
+      # Get a random RDV peer for that shard
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        continue
+
+      # Ask for 12 peer records for that shard
+      self.batchRequest(namespace, 12, @[rpi.peerId])
 
   let handles = await allFinished(futs)
 
@@ -165,32 +135,13 @@ proc requestAll*(self: WakuRendezVous) {.async.} =
     let res = fut.read
 
     if res.isErr():
-      warn "failed to request", error = res.error
+      warn "rendezvous request failed", error = res.error
     else:
       for peer in res.get():
-        peerFound.inc()
+        peerFoundTotal.inc()
         self.peerManager.addPeer(peer)
 
   debug "waku rendezvous requests finished", requestCount = handles.len
-
-proc unsubcribeAll*(self: WakuRendezVous) {.async.} =
-  let namespaces = self.shardOnlyNamespaces()
-
-  let futs = collect(newSeq):
-    for namespace in namespaces:
-      self.unsubscribe(namespace)
-
-  let handles = await allFinished(futs)
-
-  for fut in handles:
-    let res = fut.read
-
-    if res.isErr():
-      warn "failed to unsubcribe", error = res.error
-
-  debug "waku rendezvous unsubscriptions finished", unsubCount = handles.len
-
-  return
 
 proc periodicRegistration(self: WakuRendezVous) {.async.} =
   debug "waku rendezvous periodic registration started",
@@ -198,26 +149,17 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
 
   # infinite loop
   while true:
-    # default ttl of registration is the same as default interval
-    await self.advertiseAll()
-
     await sleepAsync(DefaultRegistrationInterval)
 
+    await self.advertiseAll()
+
 proc start*(self: WakuRendezVous) {.async.} =
-  await self.requestAll()
-
-  if not self.enabled:
-    return
-
   debug "starting waku rendezvous discovery"
 
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 
 proc stopWait*(self: WakuRendezVous) {.async.} =
-  if not self.enabled:
-    return
-
   debug "stopping waku rendezvous discovery"
 
   if not self.periodicRegistrationFut.isNil():

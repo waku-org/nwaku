@@ -1214,11 +1214,10 @@ proc startKeepalive*(node: WakuNode) =
 
   asyncSpawn node.keepaliveLoop(defaultKeepalive)
 
-proc mountRendezvous*(node: WakuNode, enabled: bool) {.async: (raises: []).} =
+proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.wakuRendezvous =
-    WakuRendezVous.new(node.switch, node.peerManager, node.enr, enabled)
+  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr)
 
   if node.started:
     try:
@@ -1230,6 +1229,9 @@ proc mountRendezvous*(node: WakuNode, enabled: bool) {.async: (raises: []).} =
     node.switch.mount(node.wakuRendezvous)
   except LPError:
     error "failed to mount rendezvous", error = getCurrentExceptionMsg()
+
+  # Always start discovering peers at startup
+  await node.wakuRendezvous.initialRequestAll()
 
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
