@@ -9,7 +9,6 @@
 
 * Merged Nwaku Sync protocol for synchronizing store nodes
 * Added Store Resume mechanism to retrieve messages sent when the node was offline
-* Optimized hash queries by using lookup tables
 
 ### Features
 
@@ -28,8 +27,7 @@
 ### Changes
 
 - libwaku retrieve my enr and adapt golang example ([#2987](https://github.com/waku-org/nwaku/issues/2987)) ([1ff9f1dd](https://github.com/waku-org/nwaku/commit/1ff9f1dd))
-- Update changelog v0.31.1 ([#2985](https://github.com/waku-org/nwaku/issues/2985)) ([53adfb02](https://github.com/waku-org/nwaku/commit/53adfb02))
-- ANALYZE messages query should be performed regularly ([#2986](https://github.com/waku-org/nwaku/issues/2986)) ([32f2d85d](https://github.com/waku-org/nwaku/commit/32f2d85d))
+- run `ANALYZE messages` regularly for better db performance ([#2986](https://github.com/waku-org/nwaku/issues/2986)) ([32f2d85d](https://github.com/waku-org/nwaku/commit/32f2d85d))
 - liteprotocoltester for simulation and for fleets ([#2813](https://github.com/waku-org/nwaku/issues/2813)) ([f4fa73e9](https://github.com/waku-org/nwaku/commit/f4fa73e9))
 - lock in nph version and add pre-commit hook ([#2938](https://github.com/waku-org/nwaku/issues/2938)) ([d63e3430](https://github.com/waku-org/nwaku/commit/d63e3430))
 - logging received message info via onValidated observer ([#2973](https://github.com/waku-org/nwaku/issues/2973)) ([e8bce67d](https://github.com/waku-org/nwaku/commit/e8bce67d))
@@ -39,8 +37,7 @@
 - print WakuMessageHash as hex strings ([#2969](https://github.com/waku-org/nwaku/issues/2969)) ([2fd4eb62](https://github.com/waku-org/nwaku/commit/2fd4eb62))
 - updating dependencies for release 0.32.0 ([#2971](https://github.com/waku-org/nwaku/issues/2971)) ([dfd42a7c](https://github.com/waku-org/nwaku/commit/dfd42a7c))
 - bump negentropy to latest master ([#2968](https://github.com/waku-org/nwaku/issues/2968)) ([b36cb075](https://github.com/waku-org/nwaku/commit/b36cb075))
-- Optimize hash queries with lookup table ([#2933](https://github.com/waku-org/nwaku/issues/2933)) ([4d47aa65](https://github.com/waku-org/nwaku/commit/4d47aa65))
-- **keystore:** verbose error message when credential is not found ([#2943](https://github.com/waku-org/nwaku/issues/2943)) ([0f11ee14](https://github.com/waku-org/nwaku/commit/0f11ee14))
+- keystore: verbose error message when credential is not found ([#2943](https://github.com/waku-org/nwaku/issues/2943)) ([0f11ee14](https://github.com/waku-org/nwaku/commit/0f11ee14))
 - upgrade peer exchange mounting  ([#2953](https://github.com/waku-org/nwaku/issues/2953)) ([42f1bed0](https://github.com/waku-org/nwaku/commit/42f1bed0))
 - replace statusim.net instances with status.im ([#2941](https://github.com/waku-org/nwaku/issues/2941)) ([f534549a](https://github.com/waku-org/nwaku/commit/f534549a))
 - updating doc reference to https rpc ([#2937](https://github.com/waku-org/nwaku/issues/2937)) ([bb7bba35](https://github.com/waku-org/nwaku/commit/bb7bba35))
