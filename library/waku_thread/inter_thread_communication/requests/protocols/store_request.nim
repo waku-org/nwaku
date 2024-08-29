@@ -3,7 +3,6 @@ import chronos, results
 import
   ../../../../../waku/factory/waku,
   ../../../../alloc,
-  ../../../../callback,
   ../../../../../waku/waku_core/peers,
   ../../../../../waku/waku_core/time,
   ../../../../../waku/waku_core/message/digest,
@@ -18,7 +17,6 @@ type JsonStoreQueryRequest* = object
   jsonQuery: cstring
   peerAddr: cstring
   timeoutMs: cint
-  storeCallback: WakuCallBack
 
 type StoreRequest* = object
   operation: StoreReqType
@@ -99,13 +97,11 @@ proc createShared*(
     jsonQuery: cstring,
     peerAddr: cstring,
     timeoutMs: cint,
-    storeCallback: WakuCallBack = nil,
 ): ptr type T =
   var ret = createShared(T)
   ret[].timeoutMs = timeoutMs
   ret[].jsonQuery = jsonQuery.alloc()
   ret[].peerAddr = peerAddr.alloc()
-  ret[].storeCallback = storeCallback
   return ret
 
 proc destroyShared(self: ptr JsonStoreQueryRequest) =

@@ -427,6 +427,7 @@ cwaku_example: | build libwaku
 		./examples/cbindings/base64.c \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
+		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
@@ -439,6 +440,7 @@ cppwaku_example: | build libwaku
 		./examples/cpp/base64.cpp \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
+		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
