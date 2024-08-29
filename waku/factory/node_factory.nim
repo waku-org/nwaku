@@ -136,6 +136,10 @@ proc setupProtocols(
     # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
   let numShardsInNetwork = getNumShardsInNetwork(conf)
 
+  if conf.numShardsInNetwork == 0:
+    warn "Number of shards in network not configured, setting it to",
+      numShardsInNetwork = $numShardsInNetwork
+
   node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
