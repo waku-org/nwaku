@@ -510,12 +510,6 @@ with the drawback of consuming some more bandwitdh.""",
       name: "rest-admin"
     .}: bool
 
-    restPrivate* {.
-      desc: "Enable access to REST HTTP Private API: true|false",
-      defaultValue: false,
-      name: "rest-private"
-    .}: bool
-
     restAllowOrigin* {.
       desc:
         "Allow cross-origin requests from the specified origin." &
