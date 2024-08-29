@@ -87,13 +87,13 @@ func version*(waku: Waku): string =
   waku.version
 
 proc validateShards(conf: WakuNodeConf): Result[void, string] =
-  let networkShards = getNetworkShards(conf)
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
 
   for shard in conf.shards:
-    if shard >= networkShards:
+    if shard >= numShardsInNetwork:
       let msg =
-        "validateShards invalid shard: " & $shard & " when networkShards: " &
-        $networkShards # fmt doesn't work
+        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
+        $numShardsInNetwork # fmt doesn't work
       error "validateShards failed", error = msg
       return err(msg)
 
@@ -149,7 +149,7 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
       confCopy.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
     confCopy.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     confCopy.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
-    confCopy.networkShards = twnClusterConf.networkShards
+    confCopy.numShardsInNetwork = twnClusterConf.numShardsInNetwork
 
     # Only set rlnRelay to true if relay is configured
     if confCopy.relay:

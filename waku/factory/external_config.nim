@@ -312,8 +312,11 @@ type WakuNodeConf* = object
       name: "keep-alive"
     .}: bool
 
-    networkShards* {.
-      desc: "Number of shards in the network", defaultValue: 0, name: "network-shards"
+    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
+    numShardsInNetwork* {.
+      desc: "Number of shards in the network",
+      defaultValue: 0,
+      name: "num-shards-in-network"
     .}: uint32
 
     pubsubTopics* {.

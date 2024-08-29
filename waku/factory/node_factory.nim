@@ -113,10 +113,10 @@ proc initNode(
 
 ## Mount protocols
 
-proc getNetworkShards*(conf: WakuNodeConf): uint32 =
-  if conf.networkShards != 0:
-    return conf.networkShards
-  # If conf.networkShards is not set, use the number of shards configured as networkShards
+proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+  if conf.numShardsInNetwork != 0:
+    return conf.numShardsInNetwork
+  # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
   return uint32(max(conf.shards) + 1)
 
 proc setupProtocols(
@@ -133,10 +133,10 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-    # If conf.networkShards is not set, use the number of shards configured as networkShards
-  let networkShards = getNetworkShards(conf)
+    # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
 
-  node.mountSharding(conf.clusterId, networkShards).isOkOr:
+  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes

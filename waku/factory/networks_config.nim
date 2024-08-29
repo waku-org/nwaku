@@ -10,7 +10,7 @@ type ClusterConf* = object
   rlnRelayBandwidthThreshold*: int
   rlnEpochSizeSec*: uint64
   rlnRelayUserMessageLimit*: uint64
-  networkShards*: uint32
+  numShardsInNetwork*: uint32
   discv5Discovery*: bool
   discv5BootstrapNodes*: seq[string]
 
@@ -28,7 +28,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     rlnRelayBandwidthThreshold: 0,
     rlnEpochSizeSec: 600,
     rlnRelayUserMessageLimit: 100,
-    networkShards: 8,
+    numShardsInNetwork: 8,
     discv5Discovery: true,
     discv5BootstrapNodes:
       @[
