@@ -5,7 +5,8 @@ import chronos
 import ../waku_enr/capabilities
 
 const DiscoverLimit* = 1000
-const DefaultRegistrationInterval* = 1.minutes
+const DefaultRegistrationTTL* = 60.seconds
+const DefaultRegistrationInterval* = 10.seconds
 
 proc computeNamespace*(clusterId: uint16, shard: uint16): string =
   var namespace = "rs/"
