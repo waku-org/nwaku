@@ -114,6 +114,10 @@ int waku_connect(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_get_peerids_from_peerstore(void* ctx,
+                                    WakuCallBack callback,
+                                    void* userData);
+
 int waku_listen_addresses(void* ctx,
                           WakuCallBack callback,
                           void* userData);

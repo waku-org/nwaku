@@ -53,7 +53,7 @@ type
     cluster*: Option[uint16]
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
 
-proc request*(
+proc request(
     wpx: WakuPeerExchange, numPeers: uint64, conn: Connection
 ): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   let rpc = PeerExchangeRpc(request: PeerExchangeRequest(numPeers: numPeers))

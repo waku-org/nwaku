@@ -514,6 +514,27 @@ proc waku_connect(
 
   return RET_OK
 
+proc waku_get_peerids_from_peerstore(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  let connRes = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(
+      PeerManagementMsgType.GET_PEER_IDS_FROM_PEER_STORE
+    ),
+  )
+  if connRes.isErr():
+    let msg = $connRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $connRes.value
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
+
 proc waku_store_query(
     ctx: ptr WakuContext,
     jsonQuery: cstring,

@@ -1,9 +1,14 @@
 import std/[sequtils, strutils]
 import chronicles, chronos, results
-import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
+import
+  ../../../../waku/factory/waku,
+  ../../../../waku/node/waku_node,
+  ../../../alloc,
+  ../../../../waku/node/peer_manager/waku_peer_store
 
 type PeerManagementMsgType* = enum
   CONNECT_TO
+  GET_PEER_IDS_FROM_PEER_STORE
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
@@ -13,8 +18,8 @@ type PeerManagementRequest* = object
 proc createShared*(
     T: type PeerManagementRequest,
     op: PeerManagementMsgType,
-    peerMultiAddr: string,
-    dialTimeout: Duration,
+    peerMultiAddr = "",
+    dialTimeout = chronos.milliseconds(0), ## arbitrary Duration as not all ops needs dialTimeout
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
@@ -23,7 +28,9 @@ proc createShared*(
   return ret
 
 proc destroyShared(self: ptr PeerManagementRequest) =
-  deallocShared(self[].peerMultiAddr)
+  if not isNil(self[].peerMultiAddr):
+    deallocShared(self[].peerMultiAddr)
+
   deallocShared(self)
 
 proc connectTo(
@@ -53,5 +60,9 @@ proc process*(
     let ret = waku.node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
     if ret.isErr():
       return err(ret.error)
+  of GET_PEER_IDS_FROM_PEER_STORE:
+    ## returns a comma-separated string of peerIDs
+    let peerIDs = waku.node.peerManager.peerStore.peers().mapIt($it.peerId).join(",")
+    return ok(peerIDs)
 
   return ok("")
