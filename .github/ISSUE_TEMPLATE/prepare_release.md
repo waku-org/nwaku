@@ -43,7 +43,7 @@ All items below are to be completed by the owner of the given release.
       - [ ] Send and receive messages in a community
       - [ ] Close one instance, send messages with second instance, reopen first instance and confirm messages sent while offline are retrieved from store
     - [ ] Perform checks based _end user impact_
-    - [ ] Inform other (Waku and Status) CCs to point their instance to `status.staging` for a few days. Ping Status colleagues from their Discord server or Status community (not blocking point.)
+    - [ ] Inform other (Waku and Status) CCs to point their instance to `status.staging` for a few days. Ping Status colleagues from their Discord server or [Status community](https://status.app/c/G3kAAMSQtb05kog3aGbr3kiaxN4tF5xy4BAGEkkLwILk2z3GcoYlm5hSJXGn7J3laft-tnTwDWmYJ18dP_3bgX96dqr_8E3qKAvxDf3NrrCMUBp4R9EYkQez9XSM4486mXoC3mIln2zc-TNdvjdfL9eHVZ-mGgs=#zQ3shZeEJqTC1xhGUjxuS4rtHSrhJ8vUYp64v6qWkLpvdy9L9) (not blocking point.)
     - [ ] Ask Status-QA to perform sanity checks (as described above) + checks based on _end user impact_; do specify the version being tested
     - [ ] Ask Status-QA or infra to run the automated Status e2e tests against `status.staging`
     - [ ] Get other CCs sign-off: they comment on this PR "used app for a week, no problem", or problem reported, resolved and new RC
