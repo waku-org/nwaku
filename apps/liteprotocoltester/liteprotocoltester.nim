@@ -98,7 +98,7 @@ when isMainModule:
 
   wakuConf.metricsServer = true
   wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
-    wakuConf.metricsServerPort = 8003
+  wakuConf.metricsServerPort = 8003
 
   if conf.testFunc == TesterFunctionality.SENDER:
     wakuConf.lightpushnode = conf.serviceNode
