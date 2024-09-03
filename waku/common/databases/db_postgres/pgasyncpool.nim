@@ -10,7 +10,7 @@ type PgAsyncPoolState {.pure.} = enum
   Live
   Closing
 
-type PgDbConn = object
+type PgDbConn = ref object
   dbConn: DbConn
   open: bool
   busy: bool
@@ -76,14 +76,11 @@ proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
       if pool.conns[i].busy:
         continue
 
-      if pool.conns[i].open:
-        pool.conns[i].dbConn.close()
-        pool.conns[i].busy = false
-        pool.conns[i].open = false
-
   for i in 0 ..< pool.conns.len:
     if pool.conns[i].open:
-      pool.conns[i].dbConn.close()
+      pool.conns[i].dbConn.closeDbConn()
+      pool.conns[i].busy = false
+      pool.conns[i].open = false
 
   pool.conns.setLen(0)
   pool.state = PgAsyncPoolState.Closed
