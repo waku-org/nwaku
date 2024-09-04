@@ -34,7 +34,7 @@ proc open*(connString: string): Result[DbConn, string] =
     return err("unknown reason")
 
   ## registering the socket fd in chronos for better wait for data
-  let asyncFd: asyncengine.AsyncFD = pqsocket(conn)
+  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(conn))
   asyncengine.register(asyncFd)
 
   return ok(conn)
