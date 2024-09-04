@@ -20,6 +20,7 @@ All items below are to be completed by the owner of the given release.
 - [ ] Create release branch
 - [ ] Assign release candidate tag to the release branch HEAD. e.g. v0.30.0-rc.0
 - [ ] Generate and edit releases notes in CHANGELOG.md
+- [ ] Review possible update of [config-options](https://github.com/waku-org/docs.waku.org/blob/develop/docs/guides/nwaku/config-options.md)
 - [ ] _End user impact_: Summarize impact of changes on Status end users (can be a comment in this issue).
 - [ ] **Validate release candidate**
 
