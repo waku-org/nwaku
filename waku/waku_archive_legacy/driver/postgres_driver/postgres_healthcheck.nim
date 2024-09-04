@@ -15,7 +15,7 @@ proc checkConnectivity*(
   while true:
     (await connPool.pgQuery(HealthCheckQuery)).isOkOr:
       ## The connection failed once. Let's try reconnecting for a while.
-      ## Notice that the 'exec' proc tries to establish a new connection.
+      ## Notice that the 'pgQuery' proc tries to establish a new connection.
 
       block errorBlock:
         ## Force close all the opened connections. No need to close gracefully.
