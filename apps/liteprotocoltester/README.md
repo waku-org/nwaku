@@ -96,6 +96,10 @@ docker compose -f docker-compose-on-simularor.yml logs -f receivernode
 - Notice there is a configurable wait before start publishing messages as it is noticed time is needed for the service nodes to get connected to full nodes from simulator
 - light clients will print report on their and the connected service node's connectivity to the network in every 20 secs.
 
+#### Test monitoring
+
+Navigate to http://localhost:3033 to see the lite-protocol-tester dashboard.
+
 ### Phase 3
 
 > Run independently on a chosen waku fleet

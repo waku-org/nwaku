@@ -19,12 +19,12 @@ echo "STANDALONE: ${STANDALONE}"
 
 if [ -z "${STANDALONE}" ]; then
 
-  RETRIES=${RETRIES:=10}
+  RETRIES=${RETRIES:=20}
 
   while [ -z "${BOOTSTRAP_ENR}" ] && [ ${RETRIES} -ge 0 ]; do
     BOOTSTRAP_ENR=$(wget -qO- http://bootstrap:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"enrUri":"\([^"]*\)".*/\1/');
     echo "Bootstrap node not ready, retrying (retries left: ${RETRIES})"
-    sleep 1
+    sleep 3
     RETRIES=$(( $RETRIES - 1 ))
   done
 
@@ -56,6 +56,7 @@ exec /usr/bin/wakunode\
       --discv5-bootstrap-node=${BOOTSTRAP_ENR}\
       --log-level=INFO\
       --metrics-server=True\
+      --metrics-server-port=8003\
       --metrics-server-address=0.0.0.0\
       --nat=extip:${IP}\
       ${PUBSUB}\

@@ -5,9 +5,10 @@ import
   chronos/timer as chtimer,
   chronicles,
   chronos,
-  results
+  results,
+  libp2p/peerid
 
-import ./tester_message
+import ./tester_message, ./lpt_metrics
 
 type
   ArrivalInfo = object
@@ -54,7 +55,9 @@ proc init*(T: type Statistics, expectedMessageCount: int = 1000): T =
   result.received = initTable[uint32, MessageInfo](expectedMessageCount)
   return result
 
-proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage, msgHash: string) =
+proc addMessage*(
+    self: var Statistics, sender: string, msg: ProtocolTesterMessage, msgHash: string
+) =
   if self.allMessageCount == 0:
     self.allMessageCount = msg.count
     self.firstReceivedIdx = msg.index
@@ -70,7 +73,7 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage, msgHash: stri
       prevIndex: self.helper.prevIndex,
     ),
   )
-
+  lpt_receiver_received_bytes.inc(labelValues = [sender], amount = msg.size.int64)
   if self.received.hasKeyOrPut(msg.index, currentArrived):
     inc(self.duplicateCount)
     self.helper.duplicates.mgetOrPut(msg.index, (msgHash, 0, msg.size)).dupCount.inc()
@@ -78,6 +81,10 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage, msgHash: stri
       index = msg.index,
       hash = msgHash,
       times_duplicated = self.helper.duplicates[msg.index].dupCount
+    lpt_receiver_duplicate_messages_count.inc(labelValues = [sender])
+    lpt_receiver_distinct_duplicate_messages_count.set(
+      labelValues = [sender], value = self.helper.duplicates.len()
+    )
     return
 
   ## detect misorder arrival and possible lost messages
@@ -93,6 +100,10 @@ proc addMessage*(self: var Statistics, msg: ProtocolTesterMessage, msgHash: stri
   self.helper.prevIndex = msg.index
   self.helper.prevArrivedAt = currentArrived.info.arrivedAt
   inc(self.receivedMessages)
+  lpt_receiver_received_messages_count.inc(labelValues = [sender])
+  lpt_receiver_missing_messages_count.set(
+    labelValues = [sender], value = (self.helper.maxIndex - self.receivedMessages).int64
+  )
 
 proc addMessage*(
     self: var PerPeerStatistics,
@@ -103,8 +114,17 @@ proc addMessage*(
   if not self.contains(peerId):
     self[peerId] = Statistics.init()
 
+  let shortSenderId = block:
+    let senderPeer = PeerId.init(msg.sender)
+    if senderPeer.isErr():
+      msg.sender
+    else:
+      senderPeer.get().shortLog()
+
   discard catch:
-    self[peerId].addMessage(msg, msgHash)
+    self[peerId].addMessage(shortSenderId, msg, msgHash)
+
+  lpt_receiver_sender_peer_count.set(value = self.len)
 
 proc lossCount*(self: Statistics): uint32 =
   self.helper.maxIndex - self.receivedMessages

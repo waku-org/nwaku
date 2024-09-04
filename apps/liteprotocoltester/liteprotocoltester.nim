@@ -96,6 +96,10 @@ when isMainModule:
   wakuConf.clusterId = conf.clusterId
   ## TODO: Depending on the tester needs we might extend here with shards, clusterId, etc...
 
+  wakuConf.metricsServer = true
+  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
+  wakuConf.metricsServerPort = 8003
+
   if conf.testFunc == TesterFunctionality.SENDER:
     wakuConf.lightpushnode = conf.serviceNode
   else:
@@ -107,9 +111,6 @@ when isMainModule:
   wakuConf.store = false
 
   wakuConf.rest = false
-
-  wakuConf.metricsServer = true
-  wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
 
   # NOTE: {.threadvar.} is used to make the global variable GC safe for the closure uses it
   # It will always be called from main thread anyway.

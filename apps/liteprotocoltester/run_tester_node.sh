@@ -7,7 +7,6 @@ if test -f .env; then
   . $(pwd)/.env
 fi
 
-IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
 
 echo "I am a lite-protocol-tester node"
 
@@ -52,10 +51,14 @@ fi
 if [ "${SERIVCE_NODE_ADDR}" = "waku-sim" ]; then
   DO_DETECT_SERVICENODE=1
   SERIVCE_NODE_ADDR=""
+  MY_EXT_IP=$(ip a | grep "inet " | grep -Fv 127.0.0.1 | sed 's/.*inet \([^/]*\).*/\1/')
+else
+  MY_EXT_IP=$(wget -qO- --no-check-certificate https://api4.ipify.org)
 fi
 
+
 if [ $DO_DETECT_SERVICENODE -eq 1 ]; then
-  RETRIES=${RETRIES:=10}
+  RETRIES=${RETRIES:=20}
 
   while [ -z "${SERIVCE_NODE_ADDR}" ] && [ ${RETRIES} -ge 0 ]; do
     SERVICE_DEBUG_INFO=$(wget -qO- http://${SERVICENAME}:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null);
@@ -63,7 +66,7 @@ if [ $DO_DETECT_SERVICENODE -eq 1 ]; then
 
     SERIVCE_NODE_ADDR=$(wget -qO- http://${SERVICENAME}:8645/debug/v1/info --header='Content-Type:application/json' 2> /dev/null | sed 's/.*"listenAddresses":\["\([^"]*\)".*/\1/');
     echo "Service node not ready, retrying (retries left: ${RETRIES})"
-    sleep 1
+    sleep 3
     RETRIES=$(( $RETRIES - 1 ))
   done
 
@@ -112,10 +115,12 @@ fi
 echo "Running binary: ${BINARY_PATH}"
 echo "Tester node: ${FUNCTION}"
 echo "Using service node: ${SERIVCE_NODE_ADDR}"
+echo "My external IP: ${MY_EXT_IP}"
 
 exec "${BINARY_PATH}"\
       --log-level=INFO\
       --service-node="${SERIVCE_NODE_ADDR}"\
+      --nat=extip:${MY_EXT_IP}\
       ${DELAY_MESSAGES}\
       ${NUM_MESSAGES}\
       ${PUBSUB}\
@@ -125,5 +130,4 @@ exec "${BINARY_PATH}"\
       ${START_PUBLISHING_AFTER}\
       ${MIN_MESSAGE_SIZE}\
       ${MAX_MESSAGE_SIZE}
-      # --nat=extip:${IP}\
       # --config-file=config.toml\

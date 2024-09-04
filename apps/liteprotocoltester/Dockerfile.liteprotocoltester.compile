@@ -51,6 +51,7 @@
 
   # Copy migration scripts for DB upgrades
   COPY --from=nim-build /app/migrations/ /app/migrations/
+  COPY --from=nim-build /app/libnegentropy.so /usr/lib/
 
   ENTRYPOINT ["/usr/bin/liteprotocoltester"]
 
