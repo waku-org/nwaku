@@ -896,14 +896,16 @@ method getMessages*(
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   debug "beginning of getMessages"
 
-  let distributedHashes = hashes.distribute(MaxHashesPerQuery)
-
   let rows = collect(newSeq):
-    for hashes in distributedHashes:
+    for i in countup(0, hashes.len, MaxHashesPerQuery):
+      let stop = min(i + MaxHashesPerQuery, hashes.len)
+
+      let splittedHashes = hashes[i ..< stop]
+
       let subRows =
         ?await s.getMessagesWithinLimits(
-          includeData, contentTopics, pubsubTopic, cursor, startTime, endTime, hashes,
-          maxPageSize, ascendingOrder, requestId,
+          includeData, contentTopics, pubsubTopic, cursor, startTime, endTime,
+          splittedHashes, maxPageSize, ascendingOrder, requestId,
         )
 
       for row in subRows:
