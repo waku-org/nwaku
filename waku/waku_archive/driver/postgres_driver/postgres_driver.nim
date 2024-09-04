@@ -909,6 +909,8 @@ method getMessages*(
       for row in subRows:
         row
 
+  debug "end of getMessages"
+
   return ok(rows)
 
 proc getStr(
