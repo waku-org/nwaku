@@ -1,7 +1,4 @@
-import
-  std/[times, strutils, asyncnet, os, sequtils, oserrors],
-  results,
-  chronos
+import std/[times, strutils, asyncnet, os, sequtils], results, chronos
 
 include db_connector/db_postgres
 
@@ -36,13 +33,13 @@ proc open*(connString: string): Result[DbConn, string] =
 
     return err("unknown reason")
 
-  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(conn))
-  asyncengine.register(asyncFd) ## registering the socket fd in chronos for better wait for data
+  ## registering the socket fd in chronos for better wait for data
+  let asyncFd: asyncengine.AsyncFD = pqsocket(conn)
+  asyncengine.register(asyncFd)
+
   return ok(conn)
 
-proc closeDbConn*(
-    db: DbConn
-) {.raises: [OSError].} =
+proc closeDbConn*(db: DbConn) {.raises: [OSError].} =
   let fd = db.pqsocket()
   if fd != -1:
     asyncengine.unregister(cast[asyncengine.AsyncFD](fd))
