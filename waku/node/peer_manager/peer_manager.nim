@@ -399,6 +399,24 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
   asyncSpawn(pm.switch.disconnect(peerId))
   pm.peerStore.delete(peerId)
 
+proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerId]) =
+  ## Returns the peerIds of physical connections (in and out)
+  ## containing at least one stream with the given protocol.
+
+  var inPeers: seq[PeerId]
+  var outPeers: seq[PeerId]
+
+  for peerId, muxers in pm.switch.connManager.getConnections():
+    for peerConn in muxers:
+      let streams = peerConn.getStreams()
+      if streams.anyIt(it.protocol == protocol):
+        if peerConn.connection.transportDir == Direction.In:
+          inPeers.add(peerId)
+        elif peerConn.connection.transportDir == Direction.Out:
+          outPeers.add(peerId)
+
+  return (inPeers, outPeers)
+
 # called when a peer i) first connects to us ii) disconnects all connections from us
 proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   if not pm.wakuMetadata.isNil() and event.kind == PeerEventKind.Joined:
@@ -412,6 +430,19 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     direction = if event.initiator: Outbound else: Inbound
     connectedness = Connected
 
+    ## Check max allowed in-relay peers
+    let inRelayPeers = pm.connectedPeers(WakuRelayCodec)[0]
+    if inRelayPeers.len > pm.inRelayPeersTarget and
+        pm.peerStore.hasPeer(peerId, WakuRelayCodec):
+      debug "disconnecting relay peer because reached max num in-relay peers",
+        peerId,
+        inRelayPeers = inRelayPeers.len,
+        inRelayPeersTarget = pm.inRelayPeersTarget
+
+      await pm.switch.disconnect(peerId)
+      pm.peerStore.delete(peerId)
+
+    ## Apply max ip colocation limit
     if (let ip = pm.getPeerIp(peerId); ip.isSome()):
       pm.ipTable.mgetOrPut(ip.get, newSeq[PeerId]()).add(peerId)
 
@@ -494,7 +525,7 @@ proc new*(
     error "Max backoff time can't be over 1 week", maxBackoff = backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
-  let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
+  let outRelayPeersTarget = maxRelayPeersValue div 3
 
   let pm = PeerManager(
     switch: switch,
@@ -684,24 +715,6 @@ proc connectToNodes*(
   # This issue was known to Dmitiry on nim-libp2p and may be resolvable
   # later.
   await sleepAsync(chronos.seconds(5))
-
-proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerId]) =
-  ## Returns the peerIds of physical connections (in and out)
-  ## containing at least one stream with the given protocol.
-
-  var inPeers: seq[PeerId]
-  var outPeers: seq[PeerId]
-
-  for peerId, muxers in pm.switch.connManager.getConnections():
-    for peerConn in muxers:
-      let streams = peerConn.getStreams()
-      if streams.anyIt(it.protocol == protocol):
-        if peerConn.connection.transportDir == Direction.In:
-          inPeers.add(peerId)
-        elif peerConn.connection.transportDir == Direction.Out:
-          outPeers.add(peerId)
-
-  return (inPeers, outPeers)
 
 proc getNumStreams*(pm: PeerManager, protocol: string): (int, int) =
   var
