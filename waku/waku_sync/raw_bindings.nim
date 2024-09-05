@@ -9,8 +9,6 @@ const negentropyPath =
   currentSourcePath.rsplit(DirSep, 1)[0] & DirSep & ".." & DirSep & ".." & DirSep &
   "vendor" & DirSep & "negentropy" & DirSep & "cpp" & DirSep
 
-{.link: negentropyPath & "libnegentropy.so".}
-
 const NEGENTROPY_HEADER = negentropyPath & "negentropy_wrapper.h"
 
 logScope:
