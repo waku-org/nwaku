@@ -163,10 +163,13 @@ jobs:
             .git/modules
           key: ${{ runner.os }}-vendor-modules-${{ steps.submodules.outputs.hash }}
 
+      - name: Build nph
+        run: |
+          make build-nph
+
       - name: Check nph formatting
         run: |
           shopt -s extglob  # Enable extended globbing
-          make build-nph
           NPH=$(make print-nph-path)
           "${NPH}" examples waku tests tools apps *.@(nim|nims|nimble)
           git diff --exit-code

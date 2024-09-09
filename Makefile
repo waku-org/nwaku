@@ -273,7 +273,7 @@ networkmonitor: | build deps librln
 .PHONY: set-nim-202 build-nph clean-nph install-nph print-nph-path
 
 set-nim-202:
-ifeq ($(NIM_202), "")
+ifeq ($(NIM_202),)
 ifneq ($(shell nim --version|grep "2\.0\.2" -c), "1")
 ifeq ($(detected_OS),Linux)
 	wget https://nim-lang.org/download/nim-2.0.2-linux_x64.tar.xz -O nim-2.0.2-linux_x64.tar.xz
@@ -292,7 +292,8 @@ endif
 
 build-nph: set-nim-202
 ifeq ("$(wildcard $(NPH))","")
-	$(NIM_202) c vendor/nph/src/nph.nim
+	echo -e $(BUILD_MSG) "nph with $(NIM_202)" && \
+		$(NIM_202) c vendor/nph/src/nph.nim
 endif
 
 GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
