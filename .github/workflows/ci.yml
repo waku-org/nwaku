@@ -171,5 +171,6 @@ jobs:
         run: |
           shopt -s extglob  # Enable extended globbing
           NPH=$(make print-nph-path)
+          echo "using nph at ${NPH}"
           "${NPH}" examples waku tests tools apps *.@(nim|nims|nimble)
           git diff --exit-code
