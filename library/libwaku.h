@@ -7,6 +7,7 @@
 #define __libwaku__
 
 #include <stddef.h>
+#include <stdint.h>
 
 // The possible returned values for the functions that return int
 #define RET_OK                0
@@ -118,6 +119,11 @@ int waku_get_peerids_from_peerstore(void* ctx,
                                     WakuCallBack callback,
                                     void* userData);
 
+int waku_get_peerids_by_protocol(void* ctx,
+                                 const char* protocol,
+                                 WakuCallBack callback,
+                                 void* userData);
+
 int waku_listen_addresses(void* ctx,
                           WakuCallBack callback,
                           void* userData);
@@ -153,6 +159,11 @@ int waku_stop_discv5(void* ctx,
 int waku_get_my_enr(void* ctx,
                     WakuCallBack callback,
                     void* userData);
+
+int waku_peer_exchange_request(void* ctx,
+                               int numPeers,
+                               WakuCallBack callback,
+                               void* userData);
 
 #ifdef __cplusplus
 }
