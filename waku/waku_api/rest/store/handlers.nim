@@ -50,8 +50,9 @@ proc performStoreQuery(
 
   let resp = RestApiResponse.jsonResponse(res, status = Http200).valueOr:
     const msg = "Error building the json respose"
-    error msg, error = error
-    return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
+    let e = $error
+    error msg, error = e
+    return RestApiResponse.internalServerError(fmt("{msg} [{e}]"))
 
   return resp
 
@@ -166,8 +167,9 @@ proc retrieveMsgsFromSelfNode(
 
   let resp = RestApiResponse.jsonResponse(storeResp, status = Http200).valueOr:
     const msg = "Error building the json respose"
-    error msg, error = error
-    return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
+    let e = $error
+    error msg, error = e
+    return RestApiResponse.internalServerError(fmt("{msg} [{e}]"))
 
   return resp
 

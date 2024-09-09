@@ -265,7 +265,7 @@ proc waku_relay_publish(
     deallocShared(jwm)
 
   let wakuMessage = jsonMessage.toWakuMessage().valueOr:
-    let msg = fmt"Problem building the WakuMessage: {error}"
+    let msg = "Problem building the WakuMessage: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
@@ -464,7 +464,7 @@ proc waku_lightpush_publish(
     return RET_ERR
 
   let wakuMessage = jsonMessage.toWakuMessage().valueOr:
-    let msg = fmt"Problem building the WakuMessage: {error}"
+    let msg = "Problem building the WakuMessage: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
