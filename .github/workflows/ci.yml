@@ -166,6 +166,7 @@ jobs:
       - name: Check nph formatting
         run: |
           shopt -s extglob  # Enable extended globbing
+          make build-nph
           NPH=$(make print-nph-path)
           "${NPH}" examples waku tests tools apps *.@(nim|nims|nimble)
           git diff --exit-code
