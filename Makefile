@@ -270,11 +270,29 @@ networkmonitor: | build deps librln
 ############
 ## Format ##
 ############
-.PHONY: build-nph clean-nph install-nph print-nph-path
+.PHONY: set-nim-202 build-nph clean-nph install-nph print-nph-path
 
-build-nph:
+set-nim-202:
+ifeq ($(NIM_202), "")
+ifneq ($(shell nim --version|grep "2\.0\.2" -c), "1")
+ifeq ($(detected_OS),Linux)
+	wget https://nim-lang.org/download/nim-2.0.2-linux_x64.tar.xz -O nim-2.0.2-linux_x64.tar.xz
+	echo "3f1aaf4e19b2c341afad7b0f29644d6a40aebb71c7c02420489595751b1796ee66b4a3ba7783c504ef5d732b45e9f0d5443576580c3652e820ce3aebee768f93  nim-2.0.2-linux_x64.tar.xz" > nim-2.0.2-linux_x64.tar.xz.sha512
+	sha512sum -c nim-2.0.2-linux_x64.tar.xz.sha512
+	tar xavf nim-2.0.2-linux_x64.tar.xz
+NIM_202 := "./nim-2.0.2/bin/nim"
+else
+	echo "Please compile nph manually or improve this job"
+	exit 1
+endif
+else
+NIM_202 := $(shell which nim)
+endif
+endif
+
+build-nph: set-nim-202
 ifeq ("$(wildcard $(NPH))","")
-	$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
+	$(NIM_202) c vendor/nph/src/nph.nim
 endif
 
 GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
