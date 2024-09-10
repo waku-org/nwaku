@@ -965,7 +965,21 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await pm.manageRelayPeers()
     else:
       await pm.connectToRelayPeers()
-    await sleepAsync(ConnectivityLoopInterval)
+    let
+      (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+      excessInConns = max(inRelayPeers.len - pm.inRelayPeersTarget, 0)
+
+      # One minus the percentage of excess connections relative to the target, limited to 100% 
+      # We calculate one minus this percentage because we want the factor to be inversely proportional to the number of excess peers
+      inFactor = 1 - min(excessInConns / pm.inRelayPeersTarget, 1)
+      # Percentage of out relay peers relative to the target
+      outFactor = min(outRelayPeers.len / pm.outRelayPeersTarget, 1)
+      factor = min(outFactor, inFactor)
+      dynamicSleepInterval =
+        chronos.seconds(int(float(ConnectivityLoopInterval.seconds()) * factor))
+
+    # Shorten the connectivity loop interval dynamically based on percentage of peers to fill or connections to prune
+    await sleepAsync(dynamicSleepInterval)
 
 proc logAndMetrics(pm: PeerManager) {.async.} =
   heartbeat "Scheduling log and metrics run", LogAndMetricsInterval:
