@@ -441,10 +441,12 @@ proc initAndStartApp(
     ipAddr = some(extIp), tcpPort = some(nodeTcpPort), udpPort = some(nodeUdpPort)
   )
   builder.withWakuCapabilities(flags)
-  let addShardedTopics = builder.withShardedTopics(conf.pubsubTopics)
-  if addShardedTopics.isErr():
-    error "failed to add sharded topics to ENR", error = addShardedTopics.error
-    return err($addShardedTopics.error)
+
+  builder.withWakuRelaySharding(
+    RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
+  ).isOkOr:
+    error "failed to add sharded topics to ENR", error = error
+    return err("failed to add sharded topics to ENR: " & $error)
 
   let recordRes = builder.build()
   let record =
@@ -561,11 +563,14 @@ when isMainModule:
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
 
     conf.bootstrapNodes = twnClusterConf.discv5BootstrapNodes
-    conf.pubsubTopics = twnClusterConf.pubsubTopics
     conf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
     conf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
     conf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
     conf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    conf.numShardsInNetwork = twnClusterConf.numShardsInNetwork
+
+    if conf.shards.len == 0:
+      conf.shards = toSeq(uint16(0) .. uint16(twnClusterConf.numShardsInNetwork - 1))
 
   if conf.logLevel != LogLevel.NONE:
     setLogLevel(conf.logLevel)
@@ -631,9 +636,11 @@ when isMainModule:
     error "failed to mount waku metadata protocol: ", err = error
     quit 1
 
-  for pubsubTopic in conf.pubsubTopics:
-    # Subscribe the node to the default pubsubtopic, to count messages
-    subscribeAndHandleMessages(node, pubsubTopic, msgPerContentTopic)
+  for shard in conf.shards:
+    # Subscribe the node to the shards, to count messages
+    subscribeAndHandleMessages(
+      node, $RelayShard(shardId: shard, clusterId: conf.clusterId), msgPerContentTopic
+    )
 
   # spawn the routine that crawls the network
   # TODO: split into 3 routines (discovery, connections, ip2location)

@@ -10,10 +10,10 @@ suite "Static Sharding Functionality":
     check:
       shard.clusterId == 0
       shard.shardId == 1
-      shard == RelayShard.staticSharding(0, 1)
+      shard == RelayShard(clusterId: 0, shardId: 1)
 
   test "Pubsub Topic Naming Compliance":
-    let shard = RelayShard.staticSharding(0, 1)
+    let shard = RelayShard(clusterId: 0, shardId: 1)
     check:
       shard.clusterId == 0
       shard.shardId == 1

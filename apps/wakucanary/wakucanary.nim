@@ -81,7 +81,8 @@ type WakuCanaryConf* = object
   .}: bool
 
   shards* {.
-    desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+    desc:
+      "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
     defaultValue: @[],
     name: "shard",
     abbr: "s"

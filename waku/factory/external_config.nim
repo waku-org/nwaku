@@ -312,14 +312,23 @@ type WakuNodeConf* = object
       name: "keep-alive"
     .}: bool
 
+    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
+    numShardsInNetwork* {.
+      desc: "Number of shards in the network",
+      defaultValue: 0,
+      name: "num-shards-in-network"
+    .}: uint32
+
     pubsubTopics* {.
-      desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
+      desc:
+        "Deprecated. Default pubsub topic to subscribe to. Argument may be repeated.",
       defaultValue: @[],
       name: "pubsub-topic"
     .}: seq[string]
 
     shards* {.
-      desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+      desc:
+        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
       defaultValue:
         @[
           uint16(0),
