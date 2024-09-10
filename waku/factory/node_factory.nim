@@ -116,8 +116,9 @@ proc initNode(
 proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
   if conf.numShardsInNetwork != 0:
     return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
-  return uint32(max(conf.shards) + 1)
+  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
+  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
+  return uint32(MaxShardIndex + 1)
 
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
