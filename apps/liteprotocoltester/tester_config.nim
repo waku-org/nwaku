@@ -98,7 +98,7 @@ type LiteProtocolTesterConf* = object
 
   ## TODO: extend lite protocol tester configuration based on testing needs
   # shards* {.
-  #   desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+  #   desc: "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
   #   defaultValue: @[],
   #   name: "shard"
   # .}: seq[uint16]

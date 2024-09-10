@@ -113,6 +113,13 @@ proc initNode(
 
 ## Mount protocols
 
+proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+  if conf.numShardsInNetwork != 0:
+    return conf.numShardsInNetwork
+  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
+  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
+  return uint32(MaxShardIndex + 1)
+
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
 ): Future[Result[void, string]] {.async.} =
@@ -127,7 +134,14 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+    # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
+
+  if conf.numShardsInNetwork == 0:
+    warn "Number of shards in network not configured, setting it to",
+      numShardsInNetwork = $numShardsInNetwork
+
+  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
@@ -151,14 +165,20 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  let shards =
-    conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
+  var autoShards: seq[RelayShard]
+  for contentTopic in conf.contentTopics:
+    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+      return err("Could not parse content topic: " & error)
+    autoShards.add(shard)
+
   debug "Shards created from content topics",
-    contentTopics = conf.contentTopics, shards = shards
+    contentTopics = conf.contentTopics, shards = autoShards
+
+  let confShards =
+    conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+  let shards = confShards & autoShards
 
   if conf.relay:
-    let pubsubTopics = conf.pubsubTopics & shards
-
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
 
@@ -166,10 +186,7 @@ proc setupProtocols(
 
     try:
       await mountRelay(
-        node,
-        pubsubTopics,
-        peerExchangeHandler = peerExchangeHandler,
-        int(parsedMaxMsgSize),
+        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
