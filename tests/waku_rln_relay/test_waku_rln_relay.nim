@@ -502,8 +502,8 @@ suite "Waku rln relay":
 
     let (list, root) = memListRes.get()
 
-    debug "created membership key list", list
-    debug "the Merkle tree root", root
+    debug "created membership key list", number_of_keys = list.len
+    debug "Merkle tree root", size_calculated_tree_root = root.len
 
     check:
       list.len == groupSize # check the number of keys
