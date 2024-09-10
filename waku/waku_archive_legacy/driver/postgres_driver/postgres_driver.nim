@@ -15,6 +15,7 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
+  ./postgres_healthcheck,
   ../../../common/databases/db_postgres as waku_postgres
 
 type PostgresDriver* = ref object of ArchiveDriver
@@ -131,6 +132,12 @@ proc new*(
 
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
+
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
+
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
 
   let driver = PostgresDriver(writeConnPool: writeConnPool, readConnPool: readConnPool)
   return ok(driver)
