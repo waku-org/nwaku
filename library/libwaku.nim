@@ -523,7 +523,7 @@ proc waku_get_peerids_from_peerstore(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
-      PeerManagementMsgType.GET_PEER_IDS_FROM_PEER_STORE
+      PeerManagementMsgType.GET_ALL_PEER_IDS
     ),
   )
   if connRes.isErr():

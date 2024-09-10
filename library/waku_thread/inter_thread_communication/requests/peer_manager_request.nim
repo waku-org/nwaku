@@ -8,7 +8,7 @@ import
 
 type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
-  GET_PEER_IDS_FROM_PEER_STORE
+  GET_ALL_PEER_IDS
   GET_PEER_IDS_BY_PROTOCOL
 
 type PeerManagementRequest* = object
@@ -73,7 +73,7 @@ proc process*(
     let ret = waku.node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
     if ret.isErr():
       return err(ret.error)
-  of GET_PEER_IDS_FROM_PEER_STORE:
+  of GET_ALL_PEER_IDS:
     ## returns a comma-separated string of peerIDs
     let peerIDs = waku.node.peerManager.peerStore.peers().mapIt($it.peerId).join(",")
     return ok(peerIDs)
