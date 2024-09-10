@@ -159,8 +159,7 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
       secondarySources = proc(
           conf: LiteProtocolTesterConf, sources: auto
       ) {.gcsafe, raises: [ConfigurationError].} =
-        sources.addConfigFile(Envvar, InputFile("liteprotocoltester"))
-      ,
+        sources.addConfigFile(Envvar, InputFile("liteprotocoltester")),
     )
     ok(conf)
   except CatchableError:

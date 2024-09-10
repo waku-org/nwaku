@@ -58,8 +58,7 @@ proc toFilterWakuMessage*(msg: WakuMessage): FilterWakuMessage =
       if msg.meta.len > 0:
         some(base64.encode(msg.meta))
       else:
-        none(Base64String)
-    ,
+        none(Base64String),
     ephemeral: some(msg.ephemeral),
   )
 
@@ -239,8 +238,7 @@ proc readValue*(
       if pubsubTopic.isNone() or pubsubTopic.get() == "":
         none(string)
       else:
-        some(pubsubTopic.get())
-    ,
+        some(pubsubTopic.get()),
     contentFilters: contentFilters.get(),
   )
 
@@ -315,8 +313,7 @@ proc readValue*(
       if pubsubTopic.isNone() or pubsubTopic.get() == "":
         none(string)
       else:
-        some(pubsubTopic.get())
-    ,
+        some(pubsubTopic.get()),
     contentFilters: contentFilters.get(),
   )
 
@@ -364,8 +361,7 @@ proc readValue*(
       if pubsubTopic.isNone() or pubsubTopic.get() == "":
         none(string)
       else:
-        some(pubsubTopic.get())
-    ,
+        some(pubsubTopic.get()),
     contentFilters: contentFilters.get(),
   )
 
