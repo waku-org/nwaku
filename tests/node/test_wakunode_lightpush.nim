@@ -88,11 +88,9 @@ suite "Waku Lightpush - End To End":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      assert (
-        publishResponse.error.contains(
-          "Lightpush request has not been published to any peers"
-        )
-      ), "incorrect error response"
+
+      assert (publishResponse.error == protocol_metrics.notPublishedAnyPeer),
+        "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
     asyncTest "Validate message size exceeds limit":
@@ -181,8 +179,5 @@ suite "RLN Proofs as a Lightpush Service":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      assert (
-        publishResponse.error.contains(
-          "Lightpush request has not been published to any peers"
-        )
-      ), "incorrect error response"
+      assert (publishResponse.error == protocol_metrics.notPublishedAnyPeer),
+        "incorrect error response"
