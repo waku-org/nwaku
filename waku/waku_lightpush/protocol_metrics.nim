@@ -16,3 +16,4 @@ const
   emptyResponseBodyFailure* = "empty_response_body_failure"
   messagePushFailure* = "message_push_failure"
   requestLimitReachedFailure* = "request_limit_reached_failure"
+  notPublishedAnyPeer* = "not_published_to_any_peer"
