@@ -14,8 +14,21 @@ output_filename=$3
 [[ -z "${rln_version}" ]]     && { echo "No rln version specified";     exit 1; }
 [[ -z "${output_filename}" ]] && { echo "No output filename specified"; exit 1; }
 
+# Detect OS
+case "$(uname -s)" in
+    Linux*)     os=linux;
+    Darwin*)    os=darwin;
+    MINGW*)     os=windows;
+    MSYS*)      os=windows;
+    *)          os=unknown;
+esac
+
 # Get the host triplet
-host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
+if [ "$os" = "windows" ]; then
+    host_triplet=$(rustc -vV | sed -n 's/host: //p')
+else
+    host_triplet=$(rustc --version --verbose | awk '/host:/{print $2}')
+fi
 
 tarball="${host_triplet}"
 
@@ -26,7 +39,6 @@ if [[ "${rln_version}" == "v0.5.1" ]]; then
 else
     tarball+="-rln.tar.gz"
 fi
-
 
 # Download the prebuilt rln library if it is available
 if curl --silent --fail-with-body -L \
@@ -40,12 +52,14 @@ then
 else
     echo "Failed to download ${tarball}"
     # Build rln instead
-    # first, check if submodule version = version in Makefile
-    cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml"
-    submodule_version=$(
-      cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" \
-        | jq -r '.packages[] | select(.name == "rln") | .version'
-    )
+    cargo_metadata=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml")
+    
+    if [ "$os" = "windows" ]; then
+        submodule_version=$(echo "$cargo_metadata" | sed -n 's/.*"name":"rln","version":"\([^"]*\)".*/\1/p')
+    else
+        submodule_version=$(echo "$cargo_metadata" | jq -r '.packages[] | select(.name == "rln") | .version')
+    fi
+    
     if [[ "v${submodule_version}" != "${rln_version}" ]]; then
         echo "Submodule version (v${submodule_version}) does not match version in Makefile (${rln_version})"
         echo "Please update the submodule to ${rln_version}"

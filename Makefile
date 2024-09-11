@@ -172,7 +172,12 @@ clean: | clean-librln
 .PHONY: negentropy
 
 LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
+ifeq ($(OS),Windows_NT)
+LIBNEGENTROPY_FILE := libnegentropy.dll
+else
 LIBNEGENTROPY_FILE := libnegentropy.so
+endif
+
 
 deps: | negentropy
 
