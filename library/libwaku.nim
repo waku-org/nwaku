@@ -52,6 +52,21 @@ template foreignThreadGc(body: untyped) =
   when declared(tearDownForeignThreadGc):
     tearDownForeignThreadGc()
 
+template handleRes[T, E](res: Result[T, E], callback: WakuCallBack, userData: pointer) =
+  ## Manages sendRequestToWakuThread responses in a generic way
+  if res.isErr():
+    foreignThreadGc:
+      let msg = "libwaku error: " & $res.error
+      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+      return RET_ERR
+
+  when T is string:
+    let msg = $res.get()
+    if msg.len > 0:
+      foreignThreadGc:
+        callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
+
 proc relayEventCallback(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
@@ -148,13 +163,7 @@ proc waku_destroy(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread.stopWakuThread(ctx).isOkOr:
-    foreignThreadGc:
-      let msg = $error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-      return RET_ERR
-
-  return RET_OK
+  waku_thread.stopWakuThread(ctx).handleRes(callback, userData)
 
 proc waku_version(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
@@ -270,6 +279,8 @@ proc waku_relay_publish(
     return RET_ERR
 
   let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
 
   let targetPubSubTopic =
     if len(pst) == 0:
@@ -277,7 +288,8 @@ proc waku_relay_publish(
     else:
       $pst
 
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
@@ -287,16 +299,7 @@ proc waku_relay_publish(
       wakuMessage,
     ),
   )
-  deallocShared(pst)
-
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msgHash = $sendReqRes.value
-  callback(RET_OK, unsafeAddr msgHash[0], cast[csize_t](len(msgHash)), userData)
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_start(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
@@ -330,22 +333,19 @@ proc waku_relay_subscribe(
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
   var cb = relayEventCallback(ctx)
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
       RelayMsgType.SUBSCRIBE, PubsubTopic($pst), WakuRelayHandler(cb)
     ),
   )
-  deallocShared(pst)
-
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_relay_unsubscribe(
     ctx: ptr WakuContext,
@@ -356,8 +356,11 @@ proc waku_relay_unsubscribe(
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
 
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
@@ -366,14 +369,7 @@ proc waku_relay_unsubscribe(
       WakuRelayHandler(relayEventCallback(ctx)),
     ),
   )
-  deallocShared(pst)
-
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_relay_get_num_connected_peers(
     ctx: ptr WakuContext,
@@ -387,25 +383,13 @@ proc waku_relay_get_num_connected_peers(
   defer:
     deallocShared(pst)
 
-  let numConnPeersRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, PubsubTopic($pst)),
   )
-
-  if numConnPeersRes.isErr():
-    foreignThreadGc:
-      let msg = "Error in waku_relay_get_num_connected_peers: " & $numConnPeersRes.error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-      return RET_ERR
-
-  let numConnPeers = numConnPeersRes.get()
-  foreignThreadGc:
-    callback(
-      RET_OK, unsafeAddr numConnPeers[0], cast[csize_t](len(numConnPeers)), userData
-    )
-
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_relay_get_num_peers_in_mesh(
     ctx: ptr WakuContext,
@@ -419,25 +403,13 @@ proc waku_relay_get_num_peers_in_mesh(
   defer:
     deallocShared(pst)
 
-  let numPeersInMeshRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
   )
-
-  if numPeersInMeshRes.isErr():
-    foreignThreadGc:
-      let msg = "Error in waku_relay_get_num_peers_in_mesh: " & $numPeersInMeshRes.error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-      return RET_ERR
-
-  let numPeersInMesh = numPeersInMeshRes.get()
-  foreignThreadGc:
-    callback(
-      RET_OK, unsafeAddr numPeersInMesh[0], cast[csize_t](len(numPeersInMesh)), userData
-    )
-
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_lightpush_publish(
     ctx: ptr WakuContext,
@@ -474,22 +446,15 @@ proc waku_lightpush_publish(
     else:
       $pst
 
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.LIGHTPUSH,
     LightpushRequest.createShared(
       LightpushMsgType.PUBLISH, PubsubTopic($pst), wakuMessage
     ),
   )
-
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $sendReqRes.value
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_connect(
     ctx: ptr WakuContext,
@@ -500,19 +465,15 @@ proc waku_connect(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let connRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
       PeerManagementMsgType.CONNECT_TO, $peerMultiAddr, chronos.milliseconds(timeoutMs)
     ),
   )
-  if connRes.isErr():
-    let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_store_query(
     ctx: ptr WakuContext,
@@ -524,39 +485,26 @@ proc waku_store_query(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let sendReqRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.STORE,
     JsonStoreQueryRequest.createShared(jsonQuery, peerAddr, timeoutMs),
   )
-
-  if sendReqRes.isErr():
-    let msg = $sendReqRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $sendReqRes.value
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_listen_addresses(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let connRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.DEBUG,
     DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_LISTENING_ADDRESSES),
   )
-  if connRes.isErr():
-    let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-  else:
-    let msg = $connRes.value
-    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_dns_discovery(
     ctx: ptr WakuContext,
@@ -568,20 +516,15 @@ proc waku_dns_discovery(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let bootstrapPeers = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.DISCOVERY,
     DiscoveryRequest.createRetrieveBootstrapNodesRequest(
       DiscoveryMsgType.GET_BOOTSTRAP_NODES, entTreeUrl, nameDnsServer, timeoutMs
     ),
-  ).valueOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $bootstrapPeers
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  )
+  .handleRes(callback, userData)
 
 proc waku_discv5_update_bootnodes(
     ctx: ptr WakuContext, bootnodes: cstring, callback: WakuCallBack, userData: pointer
@@ -590,73 +533,50 @@ proc waku_discv5_update_bootnodes(
   ## bootnodes - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
   checkLibwakuParams(ctx, callback, userData)
 
-  let resp = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.DISCOVERY,
     DiscoveryRequest.createUpdateBootstrapNodesRequest(
       DiscoveryMsgType.UPDATE_DISCV5_BOOTSTRAP_NODES, bootnodes
     ),
-  ).valueOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $resp
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  )
+  .handleRes(callback, userData)
 
 proc waku_get_my_enr(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let connRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.DEBUG,
     DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_MY_ENR),
   )
-  if connRes.isErr():
-    let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-  else:
-    let msg = $connRes.value
-    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_start_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let resp = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx, RequestType.DISCOVERY, DiscoveryRequest.createDiscV5StartRequest()
-  ).valueOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $resp
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-
-  return RET_OK
+  )
+  .handleRes(callback, userData)
 
 proc waku_stop_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let resp = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx, RequestType.DISCOVERY, DiscoveryRequest.createDiscV5StopRequest()
-  ).valueOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $resp
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-
-  return RET_OK
+  )
+  .handleRes(callback, userData)
 
 ### End of exported procs
 ################################################################################
