@@ -75,8 +75,7 @@ when isMainModule:
             wnconf: WakuNodeConf, sources: auto
         ) {.gcsafe, raises: [ConfigurationError].} =
           echo "Loading secondary configuration file into WakuNodeConf"
-          sources.addConfigFile(Toml, configFile)
-        ,
+          sources.addConfigFile(Toml, configFile),
       )
     except CatchableError:
       error "Loading Waku configuration failed", error = getCurrentExceptionMsg()

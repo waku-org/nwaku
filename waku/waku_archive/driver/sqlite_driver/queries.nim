@@ -82,8 +82,7 @@ proc createTable*(db: SqliteDatabase): DatabaseResult[void] =
     ?db.query(
       query,
       proc(s: ptr sqlite3_stmt) =
-        discard
-      ,
+        discard,
     )
   return ok()
 
@@ -98,8 +97,7 @@ proc createOldestMessageTimestampIndex*(db: SqliteDatabase): DatabaseResult[void
     ?db.query(
       query,
       proc(s: ptr sqlite3_stmt) =
-        discard
-      ,
+        discard,
     )
   return ok()
 
@@ -184,8 +182,7 @@ proc deleteMessagesOlderThanTimestamp*(
     ?db.query(
       query,
       proc(s: ptr sqlite3_stmt) =
-        discard
-      ,
+        discard,
     )
   return ok()
 
@@ -206,8 +203,7 @@ proc deleteOldestMessagesNotWithinLimit*(
     ?db.query(
       query,
       proc(s: ptr sqlite3_stmt) =
-        discard
-      ,
+        discard,
     )
   return ok()
 
