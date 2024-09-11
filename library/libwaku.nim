@@ -514,6 +514,46 @@ proc waku_connect(
 
   return RET_OK
 
+proc waku_get_peerids_from_peerstore(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  let connRes = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(
+      PeerManagementMsgType.GET_ALL_PEER_IDS
+    ),
+  )
+  if connRes.isErr():
+    let msg = $connRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $connRes.value
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
+
+proc waku_get_peerids_by_protocol(
+    ctx: ptr WakuContext, protocol: cstring, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  let connRes = waku_thread.sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createGetPeerIdsByProtocolRequest($protocol),
+  )
+  if connRes.isErr():
+    let msg = $connRes.error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $connRes.value
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  return RET_OK
+
 proc waku_store_query(
     ctx: ptr WakuContext,
     jsonQuery: cstring,
@@ -656,6 +696,22 @@ proc waku_stop_discv5(
   let msg = $resp
   callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
 
+  return RET_OK
+
+proc waku_peer_exchange_request(
+    ctx: ptr WakuContext, numPeers: uint64, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  let discoveredPeers = waku_thread.sendRequestToWakuThread(
+    ctx, RequestType.DISCOVERY, DiscoveryRequest.createPeerExchangeRequest(numPeers)
+  ).valueOr:
+    let msg = $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  let msg = $discoveredPeers
+  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
 ### End of exported procs
