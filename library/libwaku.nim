@@ -52,8 +52,8 @@ template foreignThreadGc(body: untyped) =
   when declared(tearDownForeignThreadGc):
     tearDownForeignThreadGc()
 
-template handleRes[T: string | void, E](
-    res: Result[T, E], callback: WakuCallBack, userData: pointer
+template handleRes[T: string | void](
+    res: Result[T, string], callback: WakuCallBack, userData: pointer
 ) =
   ## Manages sendRequestToWakuThread responses in a generic way
   if res.isErr():
