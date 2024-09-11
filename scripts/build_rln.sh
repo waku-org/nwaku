@@ -16,11 +16,11 @@ output_filename=$3
 
 # Detect OS
 case "$(uname -s)" in
-    Linux*)     os=linux;
-    Darwin*)    os=darwin;
-    MINGW*)     os=windows;
-    MSYS*)      os=windows;
-    *)          os=unknown;
+    Linux*)     os=linux;;
+    Darwin*)    os=darwin;;
+    MINGW*)     os=windows;;
+    MSYS*)      os=windows;;
+    *)          os=unknown;;
 esac
 
 # Get the host triplet
