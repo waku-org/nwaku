@@ -385,7 +385,7 @@ suite "Waku Peer Exchange":
       let conn = connOpt.get()
 
       # Send bytes so that they directly hit the handler
-      let rpc = PeerExchangeRpc(request: PeerExchangeRequest(numPeers: 1))
+      let rpc = PeerExchangeRpc.makeRequest(1)
 
       var buffer: seq[byte]
       await conn.writeLP(rpc.encode().buffer)
@@ -397,5 +397,9 @@ suite "Waku Peer Exchange":
 
       # Check we got back the enr we mocked
       check:
-        decodedBuff.get().response.peerInfos.len == 1
-        decodedBuff.get().response.peerInfos[0].enr == enr1.raw
+        decodedBuff.get().responseStatus.isSome()
+        decodedBuff.get().responseStatus.get().status ==
+          PeerExchangeResponseStatusCode.SUCCESS
+        decodedBuff.get().response.isSome()
+        decodedBuff.get().response.get().peerInfos.len == 1
+        decodedBuff.get().response.get().peerInfos[0].enr == enr1.raw

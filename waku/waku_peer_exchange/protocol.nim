@@ -13,7 +13,8 @@ import
   ../waku_core,
   ../discovery/waku_discv5,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ../common/rate_limit/request_limiter
 
 declarePublicGauge waku_px_peers_received_total,
   "number of ENRs received via peer exchange"
@@ -52,11 +53,12 @@ type
     enrCache*: seq[enr.Record]
     cluster*: Option[uint16]
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
+    requestRateLimiter*: RequestRateLimiter
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64, conn: Connection
 ): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
-  let rpc = PeerExchangeRpc(request: PeerExchangeRequest(numPeers: numPeers))
+  let rpc = PeerExchangeRpc.makeRequest(numPeers)
 
   var buffer: seq[byte]
   var error: string
@@ -76,7 +78,9 @@ proc request*(
   let decodedBuff = PeerExchangeRpc.decode(buffer)
   if decodedBuff.isErr():
     return err("decode failed: " & $decodedBuff.error)
-  return ok(decodedBuff.get().response)
+  if decodedBuff.get().response.isNone():
+    return err("bad response - missing value")
+  return ok(decodedBuff.get().response.get())
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo
@@ -101,10 +105,23 @@ proc request*(
 proc respond(
     wpx: WakuPeerExchange, enrs: seq[enr.Record], conn: Connection
 ): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let rpc = PeerExchangeRpc(
-    response:
-      PeerExchangeResponse(peerInfos: enrs.mapIt(PeerExchangePeerInfo(enr: it.raw)))
-  )
+  let rpc = PeerExchangeRpc.makeResponse(enrs.mapIt(PeerExchangePeerInfo(enr: it.raw)))
+
+  try:
+    await conn.writeLP(rpc.encode().buffer)
+  except CatchableError as exc:
+    waku_px_errors.inc(labelValues = [exc.msg])
+    return err(exc.msg)
+
+  return ok()
+
+proc respondError(
+    wpx: WakuPeerExchange,
+    status: PeerExchangeResponseStatusCode,
+    desc: Option[string],
+    conn: Connection,
+): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
+  let rpc = PeerExchangeRpc.makeErrorResponse(status, desc)
 
   try:
     await conn.writeLP(rpc.encode().buffer)
@@ -169,25 +186,33 @@ proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
 proc initProtocolHandler(wpx: WakuPeerExchange) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var buffer: seq[byte]
-    try:
-      buffer = await conn.readLp(DefaultMaxRpcSize.int)
-    except CatchableError as exc:
-      waku_px_errors.inc(labelValues = [exc.msg])
-      return
+    wpx.requestRateLimiter.checkUsageLimit(WakuPeerExchangeCodec, conn):
+      try:
+        buffer = await conn.readLp(DefaultMaxRpcSize.int)
+      except CatchableError as exc:
+        waku_px_errors.inc(labelValues = [exc.msg])
+        discard await wpx.respondError(
+          PeerExchangeResponseStatusCode.BAD_REQUEST, some(exc.msg), conn
+        )
+        return
 
-    let decBuf = PeerExchangeRpc.decode(buffer)
-    if decBuf.isErr():
-      waku_px_errors.inc(labelValues = [decodeRpcFailure])
-      return
+      let decBuf = PeerExchangeRpc.decode(buffer)
+      if decBuf.isErr() or decBuf.get().request.isNone():
+        waku_px_errors.inc(labelValues = [decodeRpcFailure])
+        discard await wpx.respondError(
+          PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
+        )
+        return
 
-    let rpc = decBuf.get()
-    trace "peer exchange request received"
-    let enrs = wpx.getEnrsFromCache(rpc.request.numPeers)
-    let res = await wpx.respond(enrs, conn)
-    if res.isErr:
-      waku_px_errors.inc(labelValues = [res.error])
-    else:
-      waku_px_peers_sent.inc(enrs.len().int64())
+      let request = decBuf.get().request.get()
+      trace "peer exchange request received"
+      let enrs = wpx.getEnrsFromCache(request.numPeers)
+      (await wpx.respond(enrs, conn)).isErrOr:
+        waku_px_peers_sent.inc(enrs.len().int64())
+    do:
+      discard await wpx.respondError(
+        PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS, none(string), conn
+      )
 
     # close, no data is expected
     await conn.closeWithEof()
@@ -199,8 +224,13 @@ proc new*(
     T: type WakuPeerExchange,
     peerManager: PeerManager,
     cluster: Option[uint16] = none(uint16),
+    rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
-  let wpx = WakuPeerExchange(peerManager: peerManager, cluster: cluster)
+  let wpx = WakuPeerExchange(
+    peerManager: peerManager,
+    cluster: cluster,
+    requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
+  )
   wpx.initProtocolHandler()
   asyncSpawn wpx.updatePxEnrCache()
   return wpx

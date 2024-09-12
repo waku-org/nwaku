@@ -1144,11 +1144,14 @@ proc mountRlnRelay*(
 ## Waku peer-exchange
 
 proc mountPeerExchange*(
-    node: WakuNode, cluster: Option[uint16] = none(uint16)
+    node: WakuNode,
+    cluster: Option[uint16] = none(uint16),
+    rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
 ) {.async: (raises: []).} =
   info "mounting waku peer exchange"
 
-  node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager, cluster)
+  node.wakuPeerExchange =
+    WakuPeerExchange.new(node.peerManager, cluster, some(rateLimit))
 
   if node.started:
     try:

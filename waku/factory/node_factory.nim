@@ -368,7 +368,10 @@ proc setupProtocols(
   # waku peer exchange setup
   if conf.peerExchange:
     try:
-      await mountPeerExchange(node, some(conf.clusterId))
+      let rateLimitSetting: RateLimitSetting =
+        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
+
+      await mountPeerExchange(node, some(conf.clusterId), rateLimitSetting)
     except CatchableError:
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())
