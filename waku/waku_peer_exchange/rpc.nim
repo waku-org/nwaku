@@ -14,8 +14,10 @@ type
     UNKNOWN = uint32(000)
     SUCCESS = uint32(200)
     BAD_REQUEST = uint32(400)
+    BAD_RESPONSE = uint32(401)
     TOO_MANY_REQUESTS = uint32(429)
     SERVICE_UNAVAILABLE = uint32(503)
+    DIAL_FAILURE = uint32(599)
 
   PeerExchangeResponseStatus* = object
     status*: PeerExchangeResponseStatusCode
@@ -42,3 +44,16 @@ proc makeErrorResponse*(
     desc: Option[string] = none(string),
 ): T =
   return T(responseStatus: some(PeerExchangeResponseStatus(status: status, desc: desc)))
+
+proc `$`*(statusCode: PeerExchangeResponseStatusCode): string =
+  case statusCode
+  of PeerExchangeResponseStatusCode.UNKNOWN: "UNKNOWN"
+  of PeerExchangeResponseStatusCode.SUCCESS: "SUCCESS"
+  of PeerExchangeResponseStatusCode.BAD_REQUEST: "BAD_REQUEST"
+  of PeerExchangeResponseStatusCode.BAD_RESPONSE: "BAD_RESPONSE"
+  of PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS: "TOO_MANY_REQUESTS"
+  of PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE"
+  of PeerExchangeResponseStatusCode.DIAL_FAILURE: "DIAL_FAILURE"
+
+proc `$`*(pxResponseStatus: PeerExchangeResponseStatus): string =
+  return $pxResponseStatus.status & " - " & pxResponseStatus.desc.get("")

@@ -1,10 +1,9 @@
 {.used.}
 
 import
-  std/[options],
+  std/[options, net],
   testutils/unittests,
   chronos,
-  stew/shims/net,
   libp2p/switch,
   libp2p/peerId,
   libp2p/crypto/crypto,

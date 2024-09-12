@@ -1,11 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils, tables],
+  std/[options, sequtils, tables, net],
   testutils/unittests,
   chronos,
   chronicles,
-  stew/shims/net,
   libp2p/[switch, peerId, crypto/crypto, multistream, muxers/muxer],
   eth/[keys, p2p/discoveryv5/enr]
 
@@ -223,6 +222,7 @@ suite "Waku Peer Exchange":
       # Check that it failed gracefully
       check:
         response.isErr
+        response.error.status == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Request 0 peers, with 0 peers in PeerExchange":
       # Given a disconnected PeerExchange
@@ -237,7 +237,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error == "peer_not_found_failure"
+        response.error.status == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Pool filtering":
       let
@@ -331,7 +331,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error == "dial_failure"
+        response.error.status == PeerExchangeResponseStatusCode.DIAL_FAILURE
 
     asyncTest "Connections are closed after response is sent":
       # Create 3 nodes
