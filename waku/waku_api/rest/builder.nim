@@ -132,7 +132,8 @@ proc startRestServerProtocolSupport*(
 
     let handler = messageCacheHandler(cache)
 
-    for pubsubTopic in conf.pubsubTopics:
+    for shard in conf.shards:
+      let pubsubTopic = $RelayShard(clusterId: conf.clusterId, shardId: shard)
       cache.pubsubSubscribe(pubsubTopic)
       node.subscribe((kind: PubsubSub, topic: pubsubTopic), some(handler))
 

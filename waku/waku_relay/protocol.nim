@@ -479,6 +479,13 @@ proc getNumConnectedPeers*(
   ## Returns the number of connected peers and subscribed to the passed pubsub topic.
   ## The 'gossipsub' atribute is defined in the GossipSub ref object.
 
+  if pubsubTopic == "":
+    ## Return all the connected peers
+    var numConnPeers = 0
+    for k, v in w.gossipsub:
+      numConnPeers.inc(v.len)
+    return ok(numConnPeers)
+
   if not w.gossipsub.hasKey(pubsubTopic):
     return err(
       "getNumConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &

@@ -18,7 +18,7 @@ By default a nwaku node will:
 See [this tutorial](./configure-key.md) if you want to generate and configure a persistent private key.
 - listen for incoming libp2p connections on the default TCP port (`60000`)
 - enable `relay` protocol
-- subscribe to the default pubsub topic, namely `/waku/2/rs/0/0`
+- subscribe to the default clusterId (0) and shard (0)
 - enable `store` protocol, but only as a client.
 This implies that the nwaku node will not persist any historical messages itself,
 but can query `store` service peers who do so.

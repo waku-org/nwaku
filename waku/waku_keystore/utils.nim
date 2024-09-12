@@ -9,8 +9,7 @@ proc hasKeys*(data: JsonNode, keys: openArray[string]): bool =
   return all(
     keys,
     proc(key: string): bool =
-      return data.hasKey(key)
-    ,
+      return data.hasKey(key),
   )
 
 # Safely saves a Keystore's JsonNode to disk.

@@ -19,8 +19,8 @@ suite "WakuNode - Lightpush":
 
     await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
 
-    await destNode.mountRelay(@[DefaultPubsubTopic])
-    await bridgeNode.mountRelay(@[DefaultPubsubTopic])
+    await destNode.mountRelay(@[DefaultRelayShard])
+    await bridgeNode.mountRelay(@[DefaultRelayShard])
     await bridgeNode.mountLightPush()
     lightNode.mountLightPushClient()
 

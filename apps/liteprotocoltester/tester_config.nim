@@ -98,7 +98,7 @@ type LiteProtocolTesterConf* = object
 
   ## TODO: extend lite protocol tester configuration based on testing needs
   # shards* {.
-  #   desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+  #   desc: "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
   #   defaultValue: @[],
   #   name: "shard"
   # .}: seq[uint16]
@@ -159,8 +159,7 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
       secondarySources = proc(
           conf: LiteProtocolTesterConf, sources: auto
       ) {.gcsafe, raises: [ConfigurationError].} =
-        sources.addConfigFile(Envvar, InputFile("liteprotocoltester"))
-      ,
+        sources.addConfigFile(Envvar, InputFile("liteprotocoltester")),
     )
     ok(conf)
   except CatchableError:

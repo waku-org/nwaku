@@ -270,12 +270,10 @@ networkmonitor: | build deps librln
 ############
 ## Format ##
 ############
-.PHONY: build-nph clean-nph install-nph
+.PHONY: build-nph install-nph clean-nph print-nph-path
 
 build-nph:
-ifeq ("$(wildcard $(NPH))","")
-	$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
-endif
+		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
 
 GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
 
@@ -293,6 +291,10 @@ nph/%: build-nph
 
 clean-nph:
 	rm -f $(NPH)
+
+# To avoid hardcoding nph binary location in several places
+print-nph-path:
+	echo "$(NPH)"
 
 clean: | clean-nph
 

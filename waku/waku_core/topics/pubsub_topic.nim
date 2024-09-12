@@ -13,16 +13,16 @@ export parsing
 
 type PubsubTopic* = string
 
-const DefaultPubsubTopic* = PubsubTopic("/waku/2/rs/0/0")
-
-## Namespaced pub-sub topic
+## Relay Shard
 
 type RelayShard* = object
   clusterId*: uint16
   shardId*: uint16
 
-proc staticSharding*(T: type RelayShard, clusterId, shardId: uint16): T =
-  return RelayShard(clusterId: clusterId, shardId: shardId)
+const DefaultShardId* = uint16(0)
+const DefaultClusterId* = uint16(0)
+const DefaultRelayShard* =
+  RelayShard(clusterId: DefaultClusterId, shardId: DefaultShardId)
 
 # Serialization
 
@@ -30,6 +30,8 @@ proc `$`*(topic: RelayShard): string =
   ## Returns a string representation of a namespaced topic
   ## in the format `/waku/2/rs/<cluster-id>/<shard-id>
   return "/waku/2/rs/" & $topic.clusterId & "/" & $topic.shardId
+
+const DefaultPubsubTopic* = $DefaultRelayShard
 
 # Deserialization
 
@@ -67,7 +69,7 @@ proc parseStaticSharding*(
         ParsingError.invalidFormat($err)
     )
 
-  ok(RelayShard.staticSharding(clusterId, shardId))
+  ok(RelayShard(clusterId: clusterId, shardId: shardId))
 
 proc parse*(T: type RelayShard, topic: PubsubTopic): ParsingResult[RelayShard] =
   ## Splits a namespaced topic string into its constituent parts.
