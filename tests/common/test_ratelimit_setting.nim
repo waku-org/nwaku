@@ -50,17 +50,27 @@ suite "RateLimitSetting":
 
     check:
       res1.isOk()
-      res1.get() == {GLOBAL: exp1}.toTable()
+      res1.get() == {GLOBAL: exp1, FILTER: FilterDefaultPerPeerRateLimit}.toTable()
       res2.isOk()
-      res2.get() == {GLOBAL: expU, STOREV2: exp2, STOREV3: exp2}.toTable()
+      res2.get() ==
+        {
+          GLOBAL: expU,
+          FILTER: FilterDefaultPerPeerRateLimit,
+          STOREV2: exp2,
+          STOREV3: exp2,
+        }.toTable()
       res2a.isOk()
-      res2a.get() == {GLOBAL: expU, STOREV2: exp2a}.toTable()
+      res2a.get() ==
+        {GLOBAL: expU, FILTER: FilterDefaultPerPeerRateLimit, STOREV2: exp2a}.toTable()
       res2b.isOk()
-      res2b.get() == {GLOBAL: expU, STOREV3: exp2b}.toTable()
+      res2b.get() ==
+        {GLOBAL: expU, FILTER: FilterDefaultPerPeerRateLimit, STOREV3: exp2b}.toTable()
       res3.isOk()
-      res3.get() == {GLOBAL: expU, LIGHTPUSH: exp3}.toTable()
+      res3.get() ==
+        {GLOBAL: expU, FILTER: FilterDefaultPerPeerRateLimit, LIGHTPUSH: exp3}.toTable()
       res4.isOk()
-      res4.get() == {GLOBAL: expU, PEEREXCHG: exp4}.toTable()
+      res4.get() ==
+        {GLOBAL: expU, FILTER: FilterDefaultPerPeerRateLimit, PEEREXCHG: exp4}.toTable()
       res5.isOk()
       res5.get() == {GLOBAL: expU, FILTER: exp5}.toTable()
 
@@ -96,6 +106,7 @@ suite "RateLimitSetting":
     let test1 = @["lightpush:2/2ms", "10/2m", " store: 3/3s", " storev2:12/12s"]
     let exp1 = {
       GLOBAL: (10, 2.minutes),
+      FILTER: FilterDefaultPerPeerRateLimit,
       LIGHTPUSH: (2, 2.milliseconds),
       STOREV3: (3, 3.seconds),
       STOREV2: (12, 12.seconds),
@@ -129,8 +140,12 @@ suite "RateLimitSetting":
 
     let test3 =
       @["storev2:1/1s", "store:3/3s", "storev3:4/42ms", "storev3:5/5s", "storev3:6/6s"]
-    let exp3 =
-      {GLOBAL: expU, STOREV3: (6, 6.seconds), STOREV2: (1, 1.seconds)}.toTable()
+    let exp3 = {
+      GLOBAL: expU,
+      FILTER: FilterDefaultPerPeerRateLimit,
+      STOREV3: (6, 6.seconds),
+      STOREV2: (1, 1.seconds),
+    }.toTable()
 
     let res3 = ProtocolRateLimitSettings.parse(test3)
 
@@ -140,7 +155,7 @@ suite "RateLimitSetting":
       res3.get().getSetting(LIGHTPUSH) == expU
 
     let test4 = newSeq[string](0)
-    let exp4 = {GLOBAL: expU}.toTable()
+    let exp4 = {GLOBAL: expU, FILTER: FilterDefaultPerPeerRateLimit}.toTable()
 
     let res4 = ProtocolRateLimitSettings.parse(test4)
 
