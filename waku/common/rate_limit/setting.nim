@@ -133,3 +133,8 @@ proc getSetting*(
 ): RateLimitSetting =
   let default = t.getOrDefault(GLOBAL, UnlimitedRateLimit)
   return t.getOrDefault(protocol, default)
+
+proc calculateLimitPerSecond*(setting: RateLimitSetting): float64 =
+  if setting.isUnlimited():
+    return 0.float64
+  return (setting.volume.float64 / setting.period.milliseconds.float64) * 1000.float64

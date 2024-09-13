@@ -264,5 +264,6 @@ proc new*(
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   wpx.initProtocolHandler()
+  setServiceLimitMetric(WakuPeerExchangeCodec, rateLimitSetting)
   asyncSpawn wpx.updatePxEnrCache()
   return wpx
