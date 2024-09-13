@@ -114,6 +114,7 @@ type
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     contentTopicHandlers: Table[ContentTopic, TopicHandler]
+    rateLimitSettings*: ProtocolRateLimitSettings
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -164,6 +165,7 @@ proc new*(
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
+    rateLimitSettings: DefaultProtocolRateLimit,
   )
 
   return node
@@ -481,7 +483,7 @@ proc mountFilter*(
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer,
     messageCacheTTL: Duration = filter_subscriptions.MessageCacheTTL,
-    rateLimitSetting: RateLimitSetting = FilterPerPeerRateLimit,
+    rateLimitSetting: RateLimitSetting = FilterDefaultPerPeerRateLimit,
 ) {.async: (raises: []).} =
   ## Mounting filter v2 protocol
 
@@ -1166,10 +1168,15 @@ proc mountPeerExchange*(
 
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount: uint64
-): Future[Result[int, string]] {.async: (raises: []).} =
+): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
-    return err("PeerExchange is not mounted")
+    return err(
+      PeerExchangeResponseStatus(
+        status: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        desc: some("PeerExchange is not mounted"),
+      )
+    )
 
   info "Retrieving peer info via peer exchange protocol"
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
@@ -1187,7 +1194,7 @@ proc fetchPeerExchangePeers*(
   else:
     warn "failed to retrieve peer info via peer exchange protocol",
       error = pxPeersRes.error
-    return err("Peer exchange failure: " & $pxPeersRes.error)
+    return err(pxPeersRes.error)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(
@@ -1376,3 +1383,10 @@ proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =
     return true
   return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
+
+proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
+  let rateLimitConfig = ProtocolRateLimitSettings.parse(limits)
+  if rateLimitConfig.isErr():
+    return err("invalid rate limit settings:" & rateLimitConfig.error)
+  node.rateLimitSettings = rateLimitConfig.get()
+  ok()

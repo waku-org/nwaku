@@ -102,6 +102,7 @@ proc initNode(
   builder.withPeerManagerConfig(
     maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
   )
+  builder.withRateLimit(conf.rateLimits)
 
   node =
     ?builder.build().mapErr(
@@ -274,20 +275,17 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    let rateLimitSetting: RateLimitSetting =
-      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-
     if conf.legacyStore:
       # Store legacy setup
       try:
-        await mountLegacyStore(node, rateLimitSetting)
+        await mountLegacyStore(node, node.rateLimitSettings.getSetting(STOREV2))
       except CatchableError:
         return
           err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
 
     # Store setup
     try:
-      await mountStore(node, rateLimitSetting)
+      await mountStore(node, node.rateLimitSettings.getSetting(STOREV3))
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
@@ -326,9 +324,7 @@ proc setupProtocols(
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:
-      let rateLimitSetting: RateLimitSetting =
-        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-      await mountLightPush(node, rateLimitSetting)
+      await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
@@ -348,6 +344,7 @@ proc setupProtocols(
         subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
         maxFilterPeers = conf.filterMaxPeersToServe,
         maxFilterCriteriaPerPeer = conf.filterMaxCriteria,
+        rateLimitSetting = node.rateLimitSettings.getSetting(FILTER),
       )
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
@@ -368,10 +365,9 @@ proc setupProtocols(
   # waku peer exchange setup
   if conf.peerExchange:
     try:
-      let rateLimitSetting: RateLimitSetting =
-        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-
-      await mountPeerExchange(node, some(conf.clusterId), rateLimitSetting)
+      await mountPeerExchange(
+        node, some(conf.clusterId), node.rateLimitSettings.getSetting(PEEREXCHG)
+      )
     except CatchableError:
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())

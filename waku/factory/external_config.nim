@@ -670,21 +670,18 @@ with the drawback of consuming some more bandwitdh.""",
       name: "websocket-secure-cert-path"
     .}: string
 
-    ## Rate limitation config
-    ## Currently default to switch of rate limit until become official
-    requestRateLimit* {.
+    ## Rate limitation config, if not set, rate limit checks will not be performed
+    rateLimits* {.
       desc:
-        "Number of requests to serve by each service in the specified period. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-limit"
-    .}: int
-
-    ## Currently default to switch of rate limit until become official
-    requestRatePeriod* {.
-      desc: "Period of request rate limitation in seconds. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-period"
-    .}: int64
+        "Rate limit settings for different protocols." &
+        "Format: protocol:volume/period<unit>" &
+        " Where 'protocol' can be one of: <store|storev2|storev3|lightpush|px|filter> if not defined it means a global setting" &
+        " 'volume' and period must be an integer value. " &
+        " 'unit' must be one of <h|m|s|ms> - hours, minutes, seconds, milliseconds respectively. " &
+        "Argument may be repeated.",
+      defaultValue: newSeq[string](0),
+      name: "rate-limit"
+    .}: seq[string]
 
 ## Parsing
 
@@ -850,6 +847,7 @@ proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
           sources.addConfigFile(Toml, conf.configFile.get())
       ,
     )
+
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())

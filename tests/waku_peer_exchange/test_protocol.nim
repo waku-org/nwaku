@@ -403,3 +403,59 @@ suite "Waku Peer Exchange":
         decodedBuff.get().response.isSome()
         decodedBuff.get().response.get().peerInfos.len == 1
         decodedBuff.get().response.get().peerInfos[0].enr == enr1.raw
+
+    asyncTest "RateLimit as expected":
+      let
+        node1 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+        node2 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+
+      # Start and mount peer exchange
+      await allFutures([node1.start(), node2.start()])
+      await allFutures(
+        [
+          node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),
+          node2.mountPeerExchange(),
+        ]
+      )
+
+      # Create connection
+      let connOpt = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
+      require:
+        connOpt.isSome
+
+      # Create some enr and add to peer exchange (simulating disv5)
+      var enr1, enr2 = enr.Record()
+      check enr1.fromUri(
+        "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
+      )
+      check enr2.fromUri(
+        "enr:-Iu4QGJllOWlviPIh_SGR-VVm55nhnBIU5L-s3ran7ARz_4oDdtJPtUs3Bc5aqZHCiPQX6qzNYF2ARHER0JPX97TFbEBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQP3ULycvday4EkvtVu0VqbBdmOkbfVLJx8fPe0lE_dRkIN0Y3CC6mCFd2FrdTIB"
+      )
+
+      # Mock that we have discovered these enrs
+      node1.wakuPeerExchange.enrCache.add(enr1)
+      node1.wakuPeerExchange.enrCache.add(enr2)
+
+      await sleepAsync(150.milliseconds)
+
+      # Request 2 peer from px. Test all request variants
+      let response1 = await node2.wakuPeerExchange.request(1)
+      check:
+        response1.isOk
+        response1.get().peerInfos.len == 1
+
+      let response2 =
+        await node2.wakuPeerExchange.request(1, node1.peerInfo.toRemotePeerInfo())
+      check:
+        response2.isErr
+        response2.error().status == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
+
+      await sleepAsync(150.milliseconds)
+      let response3 = await node2.wakuPeerExchange.request(1, connOpt.get())
+      check:
+        response3.isOk
+        response3.get().peerInfos.len == 1

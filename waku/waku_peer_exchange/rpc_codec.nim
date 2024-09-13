@@ -122,9 +122,6 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtobufResult[T] =
   if isRequest and isResponse:
     return err(ProtobufError.missingRequiredField("request and response are exclusive"))
 
-  if not isRequest and not isResponse:
-    return err(ProtobufError.missingRequiredField("request"))
-
   if isRequest:
     rpc.request = some(?PeerExchangeRequest.decode(requestBuffer))
 
@@ -134,6 +131,9 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtobufResult[T] =
   var status: seq[byte]
   if ?pb.getField(10, status):
     rpc.responseStatus = some(?PeerExchangeResponseStatus.decode(status))
+    if rpc.responseStatus.get().status == PeerExchangeResponseStatusCode.SUCCESS and
+        not isResponse:
+      return err(ProtobufError.missingRequiredField("response"))
   elif not isRequest:
     return err(ProtobufError.missingRequiredField("responseStatus"))
 
