@@ -17,7 +17,7 @@ include waku/factory/waku
 suite "Wakunode2 - Waku":
   test "compilation version should be reported":
     ## Given
-    let conf = defaultTestWakuNodeConf()
+    var conf = defaultTestWakuNodeConf()
 
     let waku = Waku.init(conf).valueOr:
       raiseAssert error
@@ -43,7 +43,7 @@ suite "Wakunode2 - Waku initialization":
 
   test "node setup is successful with default configuration":
     ## Given
-    let conf = defaultTestWakuNodeConf()
+    var conf = defaultTestWakuNodeConf()
 
     ## When
     var waku = Waku.init(conf).valueOr:
