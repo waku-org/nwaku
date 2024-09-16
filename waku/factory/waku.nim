@@ -101,16 +101,15 @@ proc validateShards(conf: WakuNodeConf): Result[void, string] =
 
 ## Initialisation
 
-proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
-  var confCopy = conf
+proc init*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(conf.logLevel, conf.logFormat)
+  logging.setupLog(confCopy.logLevel, confCopy.logFormat)
 
   # TODO: remove after pubsubtopic config gets removed
   var shards = newSeq[uint16]()
-  if conf.pubsubTopics.len > 0:
-    let shardsRes = topicsToRelayShards(conf.pubsubTopics)
+  if confCopy.pubsubTopics.len > 0:
+    let shardsRes = topicsToRelayShards(confCopy.pubsubTopics)
     if shardsRes.isErr():
       error "failed to parse pubsub topic, please format according to static shard specification",
         error = shardsRes.error
@@ -120,9 +119,9 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
 
     if shardsOpt.isSome():
       let relayShards = shardsOpt.get()
-      if relayShards.clusterId != conf.clusterId:
+      if relayShards.clusterId != confCopy.clusterId:
         error "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22",
-          nodeCluster = conf.clusterId, pubsubCluster = relayShards.clusterId
+          nodeCluster = confCopy.clusterId, pubsubCluster = relayShards.clusterId
         return err(
           "clusterId of the pubsub topic should match the node's cluster. e.g. --pubsub-topic=/waku/2/rs/22/1 and --cluster-id=22"
         )
@@ -191,8 +190,8 @@ proc init*(T: type Waku, conf: WakuNodeConf): Result[Waku, string] =
   let node = nodeRes.get()
 
   var deliveryMonitor: DeliveryMonitor
-  if conf.reliabilityEnabled:
-    if conf.storenode == "":
+  if confCopy.reliabilityEnabled:
+    if confCopy.storenode == "":
       return err("A storenode should be set when reliability mode is on")
 
     let deliveryMonitorRes = DeliveryMonitor.new(
