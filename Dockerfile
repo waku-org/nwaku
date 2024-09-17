@@ -46,9 +46,6 @@ RUN apk add --no-cache libgcc pcre-dev libpq-dev bind-tools
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
-# Fix for 'Error loading shared library libnegentropy.so: No such file or directory'
-COPY --from=nim-build /app/libnegentropy.so /usr/lib/
-
 # Copy to separate location to accomodate different MAKE_TARGET values
 COPY --from=nim-build /app/build/$MAKE_TARGET /usr/local/bin/
 

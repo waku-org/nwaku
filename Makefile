@@ -172,7 +172,7 @@ clean: | clean-librln
 .PHONY: negentropy
 
 LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
-LIBNEGENTROPY_FILE := libnegentropy.so
+LIBNEGENTROPY_FILE := libnegentropy.a
 
 deps: | negentropy
 
@@ -183,9 +183,9 @@ $(LIBNEGENTROPY_FILE):
 		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ${LIBNEGENTROPY_FILE}
 
 negentropy: | $(LIBNEGENTROPY_FILE)
-    ## Pass libnegentropy to linker.
+    ## Pass libnegentropy and it's deps to linker.
     $(eval LIBNEGENTROPY_PATH := $(shell if [ -f "$(LIBNEGENTROPY_FILE)" ]; then echo "$(LIBNEGENTROPY_FILE)"; else echo "./$(LIBNEGENTROPY_FILE)"; fi))
-    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH))
+    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH) --passL:-lcrypto --passL:-lssl --passL:-lstdc++)
 
 negentropy-clean:
 	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) clean && \

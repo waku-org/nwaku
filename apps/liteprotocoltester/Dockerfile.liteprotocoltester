@@ -29,8 +29,6 @@
 
   COPY build/liteprotocoltester /usr/bin/
   COPY apps/liteprotocoltester/run_tester_node.sh /usr/bin/
-  COPY ./libnegentropy.so /usr/lib/
-
 
   ENTRYPOINT ["/usr/bin/run_tester_node.sh", "/usr/bin/liteprotocoltester"]
 
