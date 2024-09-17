@@ -29,7 +29,7 @@ type
     responseStatus*: Option[PeerExchangeResponseStatus]
 
 proc makeRequest*(T: type PeerExchangeRpc, numPeers: uint64): T =
-  return T(request: some(PeerExchangeRequest(numPeers: numpeers)))
+  return T(request: some(PeerExchangeRequest(numPeers: numPeers)))
 
 proc makeResponse*(T: type PeerExchangeRpc, peerInfos: seq[PeerExchangePeerInfo]): T =
   return T(

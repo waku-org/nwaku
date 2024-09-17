@@ -223,17 +223,26 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         buffer = await conn.readLp(DefaultMaxRpcSize.int)
       except CatchableError as exc:
         waku_px_errors.inc(labelValues = [exc.msg])
-        discard await wpx.respondError(
-          PeerExchangeResponseStatusCode.BAD_REQUEST, some(exc.msg), conn
-        )
+
+        (
+          await wpx.respondError(
+            PeerExchangeResponseStatusCode.BAD_REQUEST, some(exc.msg), conn
+          )
+        ).isOkOr:
+          error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
       let decBuf = PeerExchangeRpc.decode(buffer)
       if decBuf.isErr() or decBuf.get().request.isNone():
         waku_px_errors.inc(labelValues = [decodeRpcFailure])
-        discard await wpx.respondError(
-          PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
-        )
+        error "Failed to decode PeerExchange request", error = $decBuf.error
+
+        (
+          await wpx.respondError(
+            PeerExchangeResponseStatusCode.BAD_REQUEST, some($decBuf.error), conn
+          )
+        ).isOkOr:
+          error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
       let request = decBuf.get().request.get()
@@ -242,10 +251,12 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
       (await wpx.respond(enrs, conn)).isErrOr:
         waku_px_peers_sent.inc(enrs.len().int64())
     do:
-      discard await wpx.respondError(
-        PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS, none(string), conn
-      )
-
+      (
+        await wpx.respondError(
+          PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS, none(string), conn
+        )
+      ).isOkOr:
+        error "Failed to respond with TOO_MANY_REQUESTS:", error = $error
     # close, no data is expected
     await conn.closeWithEof()
 

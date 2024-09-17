@@ -14,7 +14,6 @@ type RateLimitedProtocol* = enum
   FILTER
 
 type ProtocolRateLimitSettings* = Table[RateLimitedProtocol, RateLimitSetting]
-type ProtocolRateLimit = tuple[protocol: RateLimitedProtocol, setting: RateLimitSetting]
 
 # Set the default to switch off rate limiting for now
 let DefaultGlobalNonRelayRateLimit*: RateLimitSetting = (0, 0.minutes)
@@ -41,7 +40,7 @@ func `$`*(t: RateLimitSetting): string {.inline.} =
     else:
       $t.volume & "/" & $t.period
 
-proc translate(sProtocol: string): RateLimitedProtocol =
+proc translate(sProtocol: string): RateLimitedProtocol {.raises: [ValueError].} =
   if sProtocol.len == 0:
     return GLOBAL
 
@@ -58,10 +57,12 @@ proc translate(sProtocol: string): RateLimitedProtocol =
     return PEEREXCHG
   of "filter":
     return FILTER
+  else:
+    raise newException(ValueError, "Unknown protocol definition: " & sProtocol)
 
 proc fillSettingTable(
     t: var ProtocolRateLimitSettings, sProtocol: var string, setting: RateLimitSetting
-) =
+) {.raises: [ValueError].} =
   let protocol = translate(sProtocol)
 
   if sProtocol == "store":
@@ -121,11 +122,6 @@ proc parse*(
   discard settingsTable.hasKeyOrPut(GLOBAL, UnlimitedRateLimit)
   discard settingsTable.hasKeyOrPut(FILTER, FilterDefaultPerPeerRateLimit)
 
-  return ok(settingsTable)
-
-proc parse*(
-    T: type ProtocolRateLimitSettings, settings: string
-): Result[ProtocolRateLimitSettings, string] =
   return ok(settingsTable)
 
 proc getSetting*(

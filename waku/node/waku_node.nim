@@ -1389,4 +1389,4 @@ proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
   if rateLimitConfig.isErr():
     return err("invalid rate limit settings:" & rateLimitConfig.error)
   node.rateLimitSettings = rateLimitConfig.get()
-  ok()
+  return ok()
