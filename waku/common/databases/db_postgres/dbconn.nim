@@ -1,4 +1,4 @@
-import std/[times, strutils, asyncnet, os, sequtils], results, chronos, metrics
+import std/[times, strutils, asyncnet, os, sequtils], results, chronos, metrics, re
 import ./query_metrics
 
 include db_connector/db_postgres
@@ -157,7 +157,12 @@ proc dbConnQuery*(
     db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
-  let querySummary = cleanedQuery[0 ..< min(cleanedQuery.len, 100)]
+  let pattern = re"""(['"]).*?\1"""
+  var querySummary = cleanedQuery.replace(pattern, "':-)'")
+    ## Replaces the match with ':-)'. We want to ignore the parameters so that same query with
+    ## different params are treated equally in stats.
+
+  querySummary = querySummary[0 ..< min(cleanedQuery.len, 100)]
 
   var queryStartTime = getTime().toUnixFloat()
 
