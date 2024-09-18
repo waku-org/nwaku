@@ -157,12 +157,9 @@ proc dbConnQuery*(
     db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
-  let pattern = re"""(['"]).*?\1"""
-  var querySummary = cleanedQuery.replace(pattern, "':-)'")
-    ## Replaces the match with ':-)'. We want to ignore the parameters so that same query with
-    ## different params are treated equally in stats.
-
-  querySummary = querySummary[0 ..< min(cleanedQuery.len, 100)]
+  var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "") ## everythin between ' or "
+  querySummary = querySummary.replace(re"\d+", "") ## rm all possible num seq. e.g. rm partition
+  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 200)]
 
   var queryStartTime = getTime().toUnixFloat()
 
