@@ -222,7 +222,7 @@ suite "Waku Peer Exchange":
       # Check that it failed gracefully
       check:
         response.isErr
-        response.error.status == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
+        response.error.status_code == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Request 0 peers, with 0 peers in PeerExchange":
       # Given a disconnected PeerExchange
@@ -237,7 +237,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error.status == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
+        response.error.status_code == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Pool filtering":
       let
@@ -331,7 +331,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error.status == PeerExchangeResponseStatusCode.DIAL_FAILURE
+        response.error.status_code == PeerExchangeResponseStatusCode.DIAL_FAILURE
 
     asyncTest "Connections are closed after response is sent":
       # Create 3 nodes
@@ -397,12 +397,9 @@ suite "Waku Peer Exchange":
 
       # Check we got back the enr we mocked
       check:
-        decodedBuff.get().responseStatus.isSome()
-        decodedBuff.get().responseStatus.get().status ==
-          PeerExchangeResponseStatusCode.SUCCESS
-        decodedBuff.get().response.isSome()
-        decodedBuff.get().response.get().peerInfos.len == 1
-        decodedBuff.get().response.get().peerInfos[0].enr == enr1.raw
+        decodedBuff.get().response.status_code == PeerExchangeResponseStatusCode.SUCCESS
+        decodedBuff.get().response.peerInfos.len == 1
+        decodedBuff.get().response.peerInfos[0].enr == enr1.raw
 
     asyncTest "RateLimit as expected":
       let
@@ -452,7 +449,7 @@ suite "Waku Peer Exchange":
         await node2.wakuPeerExchange.request(1, node1.peerInfo.toRemotePeerInfo())
       check:
         response2.isErr
-        response2.error().status == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
+        response2.error().status_code == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
 
       await sleepAsync(150.milliseconds)
       let response3 = await node2.wakuPeerExchange.request(1, connOpt.get())

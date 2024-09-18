@@ -1172,9 +1172,9 @@ proc fetchPeerExchangePeers*(
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
-        desc: some("PeerExchange is not mounted"),
+      (
+        status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        status_desc: some("PeerExchange is not mounted"),
       )
     )
 

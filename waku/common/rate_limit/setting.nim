@@ -63,13 +63,12 @@ proc translate(sProtocol: string): RateLimitedProtocol {.raises: [ValueError].} 
 proc fillSettingTable(
     t: var ProtocolRateLimitSettings, sProtocol: var string, setting: RateLimitSetting
 ) {.raises: [ValueError].} =
-  let protocol = translate(sProtocol)
-
   if sProtocol == "store":
     # generic store will only applies to version which is not listed directly
     discard t.hasKeyOrPut(STOREV2, setting)
     discard t.hasKeyOrPut(STOREV3, setting)
   else:
+    let protocol = translate(sProtocol)
     # always overrides, last one wins if same protocol duplicated
     t[protocol] = setting
 

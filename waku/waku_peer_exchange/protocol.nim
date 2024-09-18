@@ -62,33 +62,40 @@ proc request*(
 
   var buffer: seq[byte]
   var callResult =
-    PeerExchangeResponseStatus(status: PeerExchangeResponseStatusCode.SUCCESS)
+    (status_code: PeerExchangeResponseStatusCode.SUCCESS, status_desc: none(string))
   try:
     await conn.writeLP(rpc.encode().buffer)
     buffer = await conn.readLp(DefaultMaxRpcSize.int)
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
-    callResult = PeerExchangeResponseStatus(
-      status: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE, desc: some($exc.msg)
+    callResult = (
+      status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+      status_desc: some($exc.msg),
     )
   finally:
     # close, no more data is expected
     await conn.closeWithEof()
 
-  if callResult.status != PeerExchangeResponseStatusCode.SUCCESS:
+  if callResult.status_code != PeerExchangeResponseStatusCode.SUCCESS:
     return err(callResult)
 
   let decodedBuff = PeerExchangeRpc.decode(buffer)
   if decodedBuff.isErr():
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.BAD_RESPONSE,
-        desc: some($decodedBuff.error),
+      (
+        status_code: PeerExchangeResponseStatusCode.BAD_RESPONSE,
+        status_desc: some($decodedBuff.error),
       )
     )
-  if decodedBuff.get().response.isNone() and decodedBuff.get().responseStatus.isSome():
-    return err(decodedBuff.get().responseStatus.get())
-  return ok(decodedBuff.get().response.get())
+  if decodedBuff.get().response.status_code != PeerExchangeResponseStatusCode.SUCCESS:
+    return err(
+      (
+        status_code: decodedBuff.get().response.status_code,
+        status_desc: decodedBuff.get().response.status_desc,
+      )
+    )
+
+  return ok(decodedBuff.get().response)
 
 proc request*(
     wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo
@@ -97,16 +104,17 @@ proc request*(
     let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
     if connOpt.isNone():
       return err(
-        PeerExchangeResponseStatus(
-          status: PeerExchangeResponseStatusCode.DIAL_FAILURE, desc: some(dialFailure)
+        (
+          status_code: PeerExchangeResponseStatusCode.DIAL_FAILURE,
+          status_desc: some(dialFailure),
         )
       )
     return await wpx.request(numPeers, connOpt.get())
   except CatchableError:
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.BAD_RESPONSE,
-        desc: some("exception dialing peer: " & getCurrentExceptionMsg()),
+      (
+        status_code: PeerExchangeResponseStatusCode.BAD_RESPONSE,
+        status_desc: some("exception dialing peer: " & getCurrentExceptionMsg()),
       )
     )
 
@@ -117,9 +125,9 @@ proc request*(
   if peerOpt.isNone():
     waku_px_errors.inc(labelValues = [peerNotFoundFailure])
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
-        desc: some(peerNotFoundFailure),
+      (
+        status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        status_desc: some(peerNotFoundFailure),
       )
     )
   return await wpx.request(numPeers, peerOpt.get())
@@ -134,9 +142,9 @@ proc respond(
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.DIAL_FAILURE,
-        desc: some("exception dialing peer: " & exc.msg),
+      (
+        status_code: PeerExchangeResponseStatusCode.DIAL_FAILURE,
+        status_desc: some("exception dialing peer: " & exc.msg),
       )
     )
 
@@ -144,20 +152,20 @@ proc respond(
 
 proc respondError(
     wpx: WakuPeerExchange,
-    status: PeerExchangeResponseStatusCode,
-    desc: Option[string],
+    status_code: PeerExchangeResponseStatusCode,
+    status_desc: Option[string],
     conn: Connection,
 ): Future[WakuPeerExchangeResult[void]] {.async, gcsafe.} =
-  let rpc = PeerExchangeRpc.makeErrorResponse(status, desc)
+  let rpc = PeerExchangeRpc.makeErrorResponse(status_code, status_desc)
 
   try:
     await conn.writeLP(rpc.encode().buffer)
   except CatchableError as exc:
     waku_px_errors.inc(labelValues = [exc.msg])
     return err(
-      PeerExchangeResponseStatus(
-        status: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
-        desc: some("exception dialing peer: " & exc.msg),
+      (
+        status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        status_desc: some("exception dialing peer: " & exc.msg),
       )
     )
 
@@ -233,7 +241,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
         return
 
       let decBuf = PeerExchangeRpc.decode(buffer)
-      if decBuf.isErr() or decBuf.get().request.isNone():
+      if decBuf.isErr():
         waku_px_errors.inc(labelValues = [decodeRpcFailure])
         error "Failed to decode PeerExchange request", error = $decBuf.error
 
@@ -245,9 +253,8 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
           error "Failed to respond with BAD_REQUEST:", error = $error
         return
 
-      let request = decBuf.get().request.get()
       trace "peer exchange request received"
-      let enrs = wpx.getEnrsFromCache(request.numPeers)
+      let enrs = wpx.getEnrsFromCache(decBuf.get().request.numPeers)
       (await wpx.respond(enrs, conn)).isErrOr:
         waku_px_peers_sent.inc(enrs.len().int64())
     do:

@@ -28,10 +28,7 @@ suite "Peer Exchange RPC":
 
     check:
       resReq.isOk
-      resReq.get().response.isNone()
-      resReq.get().responseStatus.isNone()
-      resReq.get().request.isSome()
-      resReq.get().request.get().numPeers == 2
+      resReq.get().request.numPeers == 2
 
     var
       enr1 = enr.Record(seqNum: 0, raw: @[])
@@ -56,11 +53,8 @@ suite "Peer Exchange RPC":
     # Then the peerInfos match the originals
     check:
       res.isOk
-      res.get().request.isNone()
-      res.get().response.isSome()
-      res.get().responseStatus.isSome()
-      res.get().responseStatus.get().status == PeerExchangeResponseStatusCode.SUCCESS
-      res.get().response.get().peerInfos == peerInfos
+      res.get().response.status_code == PeerExchangeResponseStatusCode.SUCCESS
+      res.get().response.peerInfos == peerInfos
 
     # When using the decoded responses to create new enrs
     var
@@ -68,12 +62,10 @@ suite "Peer Exchange RPC":
       resEnr2 = enr.Record(seqNum: 0, raw: @[])
 
     check:
-      res.get().response.isSome()
-      res.get().responseStatus.isSome()
-      res.get().responseStatus.get().status == PeerExchangeResponseStatusCode.SUCCESS
+      res.get().response.status_code == PeerExchangeResponseStatusCode.SUCCESS
 
-    discard resEnr1.fromBytes(res.get().response.get().peerInfos[0].enr)
-    discard resEnr2.fromBytes(res.get().response.get().peerInfos[1].enr)
+    discard resEnr1.fromBytes(res.get().response.peerInfos[0].enr)
+    discard resEnr2.fromBytes(res.get().response.peerInfos[1].enr)
 
     # Then they match the original enrs
     check:

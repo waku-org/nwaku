@@ -84,8 +84,8 @@ suite "Waku Peer Exchange":
       # Then no peers are fetched
       check:
         node.peerManager.peerStore.peers.len == 0
-        res.error.status == SERVICE_UNAVAILABLE
-        res.error.desc == some("PeerExchange is not mounted")
+        res.error.status_code == SERVICE_UNAVAILABLE
+        res.error.status_desc == some("PeerExchange is not mounted")
 
     asyncTest "Node fetches with mounted peer exchange, but no peers":
       # Given a node with peer exchange mounted
@@ -94,8 +94,8 @@ suite "Waku Peer Exchange":
       # When a node fetches peers
       let res = await node.fetchPeerExchangePeers(1)
       check:
-        res.error.status == SERVICE_UNAVAILABLE
-        res.error.desc == some("peer_not_found_failure")
+        res.error.status_code == SERVICE_UNAVAILABLE
+        res.error.status_desc == some("peer_not_found_failure")
 
       # Then no peers are fetched
       check node.peerManager.peerStore.peers.len == 0

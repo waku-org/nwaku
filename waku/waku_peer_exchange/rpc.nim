@@ -1,15 +1,6 @@
 import std/options
 
 type
-  PeerExchangePeerInfo* = object
-    enr*: seq[byte] # RLP encoded ENR: https://eips.ethereum.org/EIPS/eip-778
-
-  PeerExchangeRequest* = object
-    numPeers*: uint64
-
-  PeerExchangeResponse* = object
-    peerInfos*: seq[PeerExchangePeerInfo]
-
   PeerExchangeResponseStatusCode* {.pure.} = enum
     UNKNOWN = uint32(000)
     SUCCESS = uint32(200)
@@ -19,31 +10,42 @@ type
     SERVICE_UNAVAILABLE = uint32(503)
     DIAL_FAILURE = uint32(599)
 
-  PeerExchangeResponseStatus* = object
-    status*: PeerExchangeResponseStatusCode
-    desc*: Option[string]
+  PeerExchangePeerInfo* = object
+    enr*: seq[byte] # RLP encoded ENR: https://eips.ethereum.org/EIPS/eip-778
+
+  PeerExchangeRequest* = object
+    numPeers*: uint64
+
+  PeerExchangeResponse* = object
+    peerInfos*: seq[PeerExchangePeerInfo]
+    status_code*: PeerExchangeResponseStatusCode
+    status_desc*: Option[string]
+
+  PeerExchangeResponseStatus* =
+    tuple[status_code: PeerExchangeResponseStatusCode, status_desc: Option[string]]
 
   PeerExchangeRpc* = object
-    request*: Option[PeerExchangeRequest]
-    response*: Option[PeerExchangeResponse]
-    responseStatus*: Option[PeerExchangeResponseStatus]
+    request*: PeerExchangeRequest
+    response*: PeerExchangeResponse
 
 proc makeRequest*(T: type PeerExchangeRpc, numPeers: uint64): T =
-  return T(request: some(PeerExchangeRequest(numPeers: numPeers)))
+  return T(request: PeerExchangeRequest(numPeers: numPeers))
 
 proc makeResponse*(T: type PeerExchangeRpc, peerInfos: seq[PeerExchangePeerInfo]): T =
   return T(
-    response: some(PeerExchangeResponse(peerInfos: peerInfos)),
-    responseStatus:
-      some(PeerExchangeResponseStatus(status: PeerExchangeResponseStatusCode.SUCCESS)),
+    response: PeerExchangeResponse(
+      peerInfos: peerInfos, status_code: PeerExchangeResponseStatusCode.SUCCESS
+    )
   )
 
 proc makeErrorResponse*(
     T: type PeerExchangeRpc,
-    status: PeerExchangeResponseStatusCode,
-    desc: Option[string] = none(string),
+    status_code: PeerExchangeResponseStatusCode,
+    status_desc: Option[string] = none(string),
 ): T =
-  return T(responseStatus: some(PeerExchangeResponseStatus(status: status, desc: desc)))
+  return T(
+    response: PeerExchangeResponse(status_code: status_code, status_desc: status_desc)
+  )
 
 proc `$`*(statusCode: PeerExchangeResponseStatusCode): string =
   case statusCode
@@ -55,5 +57,5 @@ proc `$`*(statusCode: PeerExchangeResponseStatusCode): string =
   of PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE: "SERVICE_UNAVAILABLE"
   of PeerExchangeResponseStatusCode.DIAL_FAILURE: "DIAL_FAILURE"
 
-proc `$`*(pxResponseStatus: PeerExchangeResponseStatus): string =
-  return $pxResponseStatus.status & " - " & pxResponseStatus.desc.get("")
+# proc `$`*(pxResponseStatus: PeerExchangeResponseStatus): string =
+#   return $pxResponseStatus.status & " - " & pxResponseStatus.desc.get("")

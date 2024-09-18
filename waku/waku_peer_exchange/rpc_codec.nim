@@ -39,17 +39,26 @@ proc decode*(T: type PeerExchangePeerInfo, buffer: seq[byte]): ProtoResult[T] =
 
   ok(rpc)
 
+proc parse*(T: type PeerExchangeResponseStatusCode, status: uint32): T =
+  case status
+  of 200, 400, 429, 503:
+    PeerExchangeResponseStatusCode(status)
+  else:
+    PeerExchangeResponseStatusCode.UNKNOWN
+
 proc encode*(rpc: PeerExchangeResponse): ProtoBuffer =
   var pb = initProtoBuffer()
 
   for pi in rpc.peerInfos:
     pb.write3(1, pi.encode())
+  pb.write3(10, rpc.status_code.uint32)
+  pb.write3(11, rpc.status_desc)
 
   pb.finish3()
 
   pb
 
-proc decode*(T: type PeerExchangeResponse, buffer: seq[byte]): ProtoResult[T] =
+proc decode*(T: type PeerExchangeResponse, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
   var rpc = PeerExchangeResponse(peerInfos: @[])
 
@@ -58,52 +67,25 @@ proc decode*(T: type PeerExchangeResponse, buffer: seq[byte]): ProtoResult[T] =
     for pib in peerInfoBuffers:
       rpc.peerInfos.add(?PeerExchangePeerInfo.decode(pib))
 
-  ok(rpc)
-
-proc parse*(T: type PeerExchangeResponseStatusCode, status: uint32): T =
-  case status
-  of 200, 400, 429, 503:
-    PeerExchangeResponseStatusCode(status)
+  var status_code: uint32
+  if ?pb.getField(10, status_code):
+    rpc.status_code = PeerExchangeResponseStatusCode.parse(status_code)
   else:
-    PeerExchangeResponseStatusCode.UNKNOWN
+    return err(ProtobufError.missingRequiredField("status_code"))
 
-proc encode*(rpc: PeerExchangeResponseStatus): ProtoBuffer =
-  var pb = initProtoBuffer()
-
-  pb.write3(1, rpc.status.uint32)
-  pb.write3(2, rpc.desc)
-
-  pb.finish3()
-
-  pb
-
-proc decode*(T: type PeerExchangeResponseStatus, buffer: seq[byte]): ProtobufResult[T] =
-  var pb = initProtoBuffer(buffer)
-  var rpc = PeerExchangeResponseStatus(status: PeerExchangeResponseStatusCode.UNKNOWN)
-
-  var status: uint32
-  if ?pb.getField(1, status):
-    rpc.status = PeerExchangeResponseStatusCode.parse(status)
+  var status_desc: string
+  if ?pb.getField(11, status_desc):
+    rpc.status_desc = some(status_desc)
   else:
-    return err(ProtobufError.missingRequiredField("status"))
-
-  var desc: string
-  if ?pb.getField(2, desc):
-    rpc.desc = some(desc)
-  else:
-    rpc.desc = none(string)
+    rpc.status_desc = none(string)
 
   ok(rpc)
 
 proc encode*(rpc: PeerExchangeRpc): ProtoBuffer =
   var pb = initProtoBuffer()
 
-  if rpc.request.isSome():
-    pb.write3(1, rpc.request.get().encode())
-  if rpc.response.isSome():
-    pb.write3(2, rpc.response.get().encode())
-  if rpc.responseStatus.isSome():
-    pb.write3(10, rpc.responseStatus.get().encode())
+  pb.write3(1, rpc.request.encode())
+  pb.write3(2, rpc.response.encode())
 
   pb.finish3()
 
@@ -114,27 +96,15 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtobufResult[T] =
   var rpc = PeerExchangeRpc()
 
   var requestBuffer: seq[byte]
-  let isRequest = ?pb.getField(1, requestBuffer)
+  if not ?pb.getField(1, requestBuffer):
+    return err(ProtobufError.missingRequiredField("request"))
+
+  rpc.request = ?PeerExchangeRequest.decode(requestBuffer)
 
   var responseBuffer: seq[byte]
-  let isResponse = ?pb.getField(2, responseBuffer)
+  if not ?pb.getField(2, responseBuffer):
+    return err(ProtobufError.missingRequiredField("response"))
 
-  if isRequest and isResponse:
-    return err(ProtobufError.missingRequiredField("request and response are exclusive"))
-
-  if isRequest:
-    rpc.request = some(?PeerExchangeRequest.decode(requestBuffer))
-
-  if isResponse:
-    rpc.response = some(?PeerExchangeResponse.decode(responseBuffer))
-
-  var status: seq[byte]
-  if ?pb.getField(10, status):
-    rpc.responseStatus = some(?PeerExchangeResponseStatus.decode(status))
-    if rpc.responseStatus.get().status == PeerExchangeResponseStatusCode.SUCCESS and
-        not isResponse:
-      return err(ProtobufError.missingRequiredField("response"))
-  elif not isRequest:
-    return err(ProtobufError.missingRequiredField("responseStatus"))
+  rpc.response = ?PeerExchangeResponse.decode(responseBuffer)
 
   ok(rpc)
