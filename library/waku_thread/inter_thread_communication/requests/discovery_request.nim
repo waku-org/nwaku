@@ -104,7 +104,8 @@ proc updateDiscv5BootstrapNodes(nodes: string, waku: ptr Waku): Result[void, str
 proc performPeerExchangeRequestTo(
     numPeers: uint64, waku: ptr Waku
 ): Future[Result[int, string]] {.async.} =
-  return await waku.node.fetchPeerExchangePeers(numPeers)
+  return (await waku.node.fetchPeerExchangePeers(numPeers)).isOkOr:
+    return err($error)
 
 proc process*(
     self: ptr DiscoveryRequest, waku: ptr Waku

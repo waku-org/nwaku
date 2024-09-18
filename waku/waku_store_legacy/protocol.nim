@@ -153,4 +153,5 @@ proc new*(
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   ws.initProtocolHandler()
+  setServiceLimitMetric(WakuLegacyStoreCodec, rateLimitSetting)
   ws
