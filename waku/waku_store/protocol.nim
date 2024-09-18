@@ -154,5 +154,5 @@ proc new*(
   )
 
   store.initProtocolHandler()
-
+  setServiceLimitMetric(WakuStoreCodec, rateLimitSetting)
   return store
