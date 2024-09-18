@@ -119,7 +119,7 @@ proc initProtocolHandler(ws: WakuStore) =
       let queryStartTime = getTime().toUnixFloat()
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
       let queryDuration = getTime().toUnixFloat() - queryStartTime
-      waku_legacy_store_time_seconds.set(queryDuration, ["query-db"])
+      waku_legacy_store_time_seconds.set(queryDuration, ["query-db-time"])
       successfulQuery = true
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
@@ -136,7 +136,7 @@ proc initProtocolHandler(ws: WakuStore) =
 
     if successfulQuery:
       let writeDuration = getTime().toUnixFloat() - writeRespStartTime
-      waku_legacy_store_time_seconds.set(writeDuration, ["send-resp"])
+      waku_legacy_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
 
     waku_service_network_bytes.inc(
       amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]
