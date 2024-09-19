@@ -4,7 +4,9 @@ type WakuCallBack* = proc(
   callerRet: cint, msg: ptr cchar, len: csize_t, userData: pointer
 ) {.cdecl, gcsafe, raises: [].}
 
-template checkLibwakuParams*(ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer) =
+template checkLibwakuParams*(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+) =
   ctx[].userData = userData
 
   if isNil(callback):

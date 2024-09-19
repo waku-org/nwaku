@@ -157,8 +157,9 @@ proc dbConnQuery*(
     db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
-  var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "") ## everythin between ' or "
-  querySummary = querySummary.replace(re"\d+", "") ## rm all possible num seq. e.g. rm partition
+  ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
+  var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "")
+  querySummary = querySummary.replace(re"\d+", "")
   querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 200)]
 
   var queryStartTime = getTime().toUnixFloat()
