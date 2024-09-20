@@ -4,7 +4,7 @@
 {.push raises: [].}
 
 import
-  std/options,
+  std/[options, times],
   results,
   chronicles,
   chronos,
@@ -102,6 +102,7 @@ proc initProtocolHandler(ws: WakuStore) =
   ).encode().buffer
 
   proc handler(conn: Connection, proto: string) {.async, closure.} =
+    var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: seq[byte]
     ws.requestRateLimiter.checkUsageLimit(WakuLegacyStoreCodec, conn):
       let readRes = catch:
@@ -115,18 +116,27 @@ proc initProtocolHandler(ws: WakuStore) =
         amount = reqBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "in"]
       )
 
+      let queryStartTime = getTime().toUnixFloat()
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
+      let queryDuration = getTime().toUnixFloat() - queryStartTime
+      waku_legacy_store_time_seconds.set(queryDuration, ["query-db-time"])
+      successfulQuery = true
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $ws.requestRateLimiter.setting
       resBuf = rejectResponseBuf
 
+    let writeRespStartTime = getTime().toUnixFloat()
     let writeRes = catch:
       await conn.writeLp(resBuf)
 
     if writeRes.isErr():
       error "Connection write error", error = writeRes.error.msg
       return
+
+    if successfulQuery:
+      let writeDuration = getTime().toUnixFloat() - writeRespStartTime
+      waku_legacy_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
 
     waku_service_network_bytes.inc(
       amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]

@@ -108,7 +108,7 @@ proc initProtocolHandler(self: WakuStore) =
       resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
 
       let queryDuration = getTime().toUnixFloat() - queryStartTime
-      waku_store_time_seconds.inc(amount = queryDuration, labelValues = ["query-db"])
+      waku_store_time_seconds.set(queryDuration, ["query-db-time"])
       successfulQuery = true
     do:
       debug "store query request rejected due rate limit exceeded",
@@ -127,7 +127,7 @@ proc initProtocolHandler(self: WakuStore) =
     debug "after sending response", requestId = resBuf.requestId
     if successfulQuery:
       let writeDuration = getTime().toUnixFloat() - writeRespStartTime
-      waku_store_time_seconds.inc(amount = writeDuration, labelValues = ["send-resp"])
+      waku_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
 
     waku_service_network_bytes.inc(
       amount = resBuf.resp.len().int64, labelValues = [WakuStoreCodec, "out"]
