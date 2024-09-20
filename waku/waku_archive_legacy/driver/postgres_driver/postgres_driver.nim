@@ -259,8 +259,6 @@ method getAllMessages*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
-  debug "beginning of getAllMessages"
-
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
@@ -634,7 +632,6 @@ proc getMessagesByMessageHashes(
   ## Retrieves information only filtering by a given messageHashes list.
   ## This proc levarages on the messages_lookup table to have better query performance
   ## and only query the desired partitions in the partitioned messages table
-  debug "beginning of getMessagesByMessageHashes"
   var query =
     fmt"""
   WITH min_timestamp AS (
@@ -673,7 +670,6 @@ proc getMessagesByMessageHashes(
   ).isOkOr:
     return err("failed to run query: " & $error)
 
-  debug "end of getMessagesByMessageHashes"
   return ok(rows)
 
 method getMessages*(
@@ -689,8 +685,6 @@ method getMessages*(
     ascendingOrder = true,
     requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  debug "beginning of getMessages"
-
   let hexHashes = hashes.mapIt(toHex(it))
 
   if cursor.isNone() and pubsubTopic.isNone() and contentTopicSeq.len == 0 and
