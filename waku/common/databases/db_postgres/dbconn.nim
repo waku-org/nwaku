@@ -1,4 +1,10 @@
-import std/[times, strutils, asyncnet, os, sequtils], results, chronos, metrics, re
+import
+  std/[times, strutils, asyncnet, os, sequtils],
+  results,
+  chronos,
+  metrics,
+  re,
+  chronicles
 import ./query_metrics
 
 include db_connector/db_postgres
@@ -167,20 +173,25 @@ proc dbConnQuery*(
   (await db.sendQuery(query, args)).isOkOr:
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
-  query_time_secs.set(
-    getTime().toUnixFloat() - queryStartTime, [querySummary, "sendQuery"]
-  )
+  let sendDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(sendDuration, [querySummary, "sendQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
-  query_time_secs.set(
-    getTime().toUnixFloat() - queryStartTime, [querySummary, "waitFinish"]
-  )
+  let waitDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(waitDuration, [querySummary, "waitFinish"])
 
   query_count.inc(labelValues = [querySummary])
+
+  if not "insert" in ($query).toLower():
+    debug "dbConnQuery",
+      query = $query,
+      querySummary,
+      waitDurationSecs = waitDuration,
+      sendDurationSecs = sendDuration
 
   return ok()
 
@@ -196,17 +207,21 @@ proc dbConnQueryPrepared*(
   db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
-  query_time_secs.set(getTime().toUnixFloat() - queryStartTime, [stmtName, "sendQuery"])
+  let sendDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(sendDuration, [stmtName, "sendQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
 
-  query_time_secs.set(
-    getTime().toUnixFloat() - queryStartTime, [stmtName, "waitFinish"]
-  )
+  let waitDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(waitDuration, [stmtName, "waitFinish"])
 
   query_count.inc(labelValues = [stmtName])
+
+  if not "insert" in stmtName.toLower():
+    debug "dbConnQueryPrepared",
+      stmtName, waitDurationSecs = waitDuration, sendDurationSecs = sendDuration
 
   return ok()
