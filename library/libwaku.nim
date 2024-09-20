@@ -487,9 +487,7 @@ proc waku_get_peerids_from_peerstore(
   let connRes = waku_thread.sendRequestToWakuThread(
     ctx,
     RequestType.PEER_MANAGER,
-    PeerManagementRequest.createShared(
-      PeerManagementMsgType.GET_ALL_PEER_IDS
-    ),
+    PeerManagementRequest.createShared(PeerManagementMsgType.GET_ALL_PEER_IDS),
   )
   if connRes.isErr():
     let msg = $connRes.error

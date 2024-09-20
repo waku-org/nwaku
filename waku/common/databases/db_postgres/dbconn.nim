@@ -1,4 +1,5 @@
-import std/[times, strutils, asyncnet, os, sequtils], results, chronos
+import std/[times, strutils, asyncnet, os, sequtils], results, chronos, metrics, re
+import ./query_metrics
 
 include db_connector/db_postgres
 
@@ -44,6 +45,9 @@ proc closeDbConn*(db: DbConn) {.raises: [OSError].} =
   if fd != -1:
     asyncengine.unregister(cast[asyncengine.AsyncFD](fd))
   db.close()
+
+proc `$`(self: SqlQuery): string =
+  return cast[string](self)
 
 proc sendQuery(
     db: DbConn, query: SqlQuery, args: seq[string]
@@ -152,11 +156,31 @@ proc waitQueryToFinish(
 proc dbConnQuery*(
     db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
+  ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
+  var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "")
+  querySummary = querySummary.replace(re"\d+", "")
+  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 200)]
+
+  var queryStartTime = getTime().toUnixFloat()
+
   (await db.sendQuery(query, args)).isOkOr:
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
+  query_time_secs.set(
+    getTime().toUnixFloat() - queryStartTime, [querySummary, "sendQuery"]
+  )
+
+  queryStartTime = getTime().toUnixFloat()
+
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
+
+  query_time_secs.set(
+    getTime().toUnixFloat() - queryStartTime, [querySummary, "waitFinish"]
+  )
+
+  query_count.inc(labelValues = [querySummary])
 
   return ok()
 
@@ -168,10 +192,21 @@ proc dbConnQueryPrepared*(
     paramFormats: seq[int32],
     rowCallback: DataProc,
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  var queryStartTime = getTime().toUnixFloat()
   db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
+  query_time_secs.set(getTime().toUnixFloat() - queryStartTime, [stmtName, "sendQuery"])
+
+  queryStartTime = getTime().toUnixFloat()
+
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
+
+  query_time_secs.set(
+    getTime().toUnixFloat() - queryStartTime, [stmtName, "waitFinish"]
+  )
+
+  query_count.inc(labelValues = [stmtName])
 
   return ok()
