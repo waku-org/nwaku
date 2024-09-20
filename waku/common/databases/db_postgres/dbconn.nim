@@ -186,7 +186,7 @@ proc dbConnQuery*(
 
   query_count.inc(labelValues = [querySummary])
 
-  if not "insert" in ($query).toLower():
+  if "insert" notin ($query).toLower():
     debug "dbConnQuery",
       query = $query,
       querySummary,
@@ -220,7 +220,7 @@ proc dbConnQueryPrepared*(
 
   query_count.inc(labelValues = [stmtName])
 
-  if not "insert" in stmtName.toLower():
+  if "insert" notin stmtName.toLower():
     debug "dbConnQueryPrepared",
       stmtName, waitDurationSecs = waitDuration, sendDurationSecs = sendDuration
 
