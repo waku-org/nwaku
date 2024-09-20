@@ -29,10 +29,40 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 
 else # "variables.mk" was included. Business as usual until the end of this file.
 
+OS := Windows_NT
+
 ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
  detected_OS := Windows
 else
  detected_OS := $(strip $(shell uname))
+endif
+
+$(info Debug: OS check in Main from environment is $(OS))
+$(info "-----------------------------------------------")
+
+ifeq ($(OS),Windows_NT)
+  # Define a new temporary directory for Windows
+  TMP_DIR := $(HOME)/status-work/nwaku/tmp
+  # Ensure the temporary directory exists
+  $(shell mkdir -p $(TMP_DIR))
+  # Add environment variable to use this temporary directory
+  export TMP := $(TMP_DIR)
+  export TEMP := $(TMP_DIR)
+endif
+
+ifeq ($(OS),Windows_NT)
+    TMP_PARAMS := $(TMP_PARAMS) \
+        --passL:"C:/msys64/mingw64/lib/libws2_32.a" \
+        --passL:"C:/msys64/mingw64/lib/libbcrypt.a" \
+        --passL:"C:/msys64/mingw64/lib/libcrypt32.a" \
+        --passL:"C:/msys64/mingw64/lib/libuser32.a" \
+        --passL:"C:/msys64/mingw64/lib/libadvapi32.a" \
+        --passL:"C:/msys64/mingw64/lib/libkernel32.a" \
+        --passL:"C:/msys64/mingw64/lib/libuuid.a" \
+        --passL:"C:/msys64/mingw64/lib/libshlwapi.a" \
+        --passL:"C:/msys64/mingw64/lib/libole32.a"
+
+    NIM_PARAMS := $(TMP_PARAMS) $(NIM_PARAMS)  # Update this path as necessary
 endif
 
 ##########
