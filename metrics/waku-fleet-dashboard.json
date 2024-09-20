@@ -3933,6 +3933,7 @@
           "custom": {
             "axisCenteredZero": false,
             "axisColorMode": "text",
+            "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "points",
@@ -3975,7 +3976,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 11,
         "w": 12,
         "x": 0,
         "y": 80
@@ -4074,7 +4075,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 11,
         "w": 12,
         "x": 12,
         "y": 80
@@ -4173,10 +4174,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 86
+        "y": 91
       },
       "id": 146,
       "options": {
@@ -4206,14 +4207,14 @@
           },
           "editorMode": "code",
           "exemplar": true,
-          "expr": "waku_store_time_seconds{instance=~\"[[host]].([[dc:pipe]]).([[fleet:pipe]])\"} and deriv(waku_store_time_seconds{instance=~\"[[host]].([[dc:pipe]]).([[fleet:pipe]])\"}[45s]) != 0",
+          "expr": "waku_legacy_store_time_seconds{instance=~\"[[host]].([[dc:pipe]]).([[fleet:pipe]])\"} and deriv(waku_legacy_store_time_seconds{instance=~\"[[host]].([[dc:pipe]]).([[fleet:pipe]])\"}[45s]) != 0",
           "interval": "",
           "legendFormat": "{{phase}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Waku Store Times (sec)",
+      "title": "Store V2 Times (sec)",
       "type": "timeseries"
     },
     {
@@ -4272,10 +4273,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 86
+        "y": 91
       },
       "id": 148,
       "options": {
@@ -4312,7 +4313,7 @@
           "refId": "A"
         }
       ],
-      "title": "Waku Store Times (sec)",
+      "title": "Store V3 Times (sec)",
       "type": "timeseries"
     },
     {
@@ -4371,10 +4372,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 92
+        "y": 99
       },
       "id": 149,
       "options": {
@@ -4490,10 +4491,10 @@
         ]
       },
       "gridPos": {
-        "h": 7,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 92
+        "y": 99
       },
       "id": 147,
       "options": {
@@ -4562,7 +4563,7 @@
         "h": 7,
         "w": 12,
         "x": 0,
-        "y": 99
+        "y": 107
       },
       "heatmap": {},
       "hideZeroBuckets": true,
@@ -4690,7 +4691,7 @@
         "h": 7,
         "w": 12,
         "x": 12,
-        "y": 99
+        "y": 107
       },
       "heatmap": {},
       "hideZeroBuckets": true,
@@ -4870,7 +4871,7 @@
         "h": 13,
         "w": 12,
         "x": 0,
-        "y": 106
+        "y": 114
       },
       "id": 142,
       "options": {
@@ -4967,7 +4968,7 @@
         "h": 13,
         "w": 12,
         "x": 12,
-        "y": 106
+        "y": 114
       },
       "id": 130,
       "options": {
@@ -5064,7 +5065,7 @@
         "h": 13,
         "w": 12,
         "x": 0,
-        "y": 119
+        "y": 127
       },
       "id": 132,
       "options": {
@@ -5163,7 +5164,7 @@
         "h": 13,
         "w": 12,
         "x": 12,
-        "y": 119
+        "y": 127
       },
       "id": 143,
       "options": {
@@ -5262,7 +5263,7 @@
         "h": 13,
         "w": 12,
         "x": 0,
-        "y": 132
+        "y": 140
       },
       "id": 128,
       "options": {
@@ -5361,7 +5362,7 @@
         "h": 13,
         "w": 12,
         "x": 12,
-        "y": 132
+        "y": 140
       },
       "id": 141,
       "options": {
@@ -5403,7 +5404,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 145
+        "y": 153
       },
       "id": 87,
       "panels": [],
@@ -5471,7 +5472,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 146
+        "y": 154
       },
       "id": 93,
       "options": {
@@ -5566,7 +5567,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 146
+        "y": 154
       },
       "id": 89,
       "options": {
@@ -5658,7 +5659,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 146
+        "y": 154
       },
       "id": 91,
       "options": {
@@ -5713,7 +5714,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 154
+        "y": 162
       },
       "id": 95,
       "options": {
@@ -5794,7 +5795,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 154
+        "y": 162
       },
       "id": 97,
       "options": {
@@ -5896,7 +5897,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -5938,7 +5940,7 @@
         "h": 13,
         "w": 12,
         "x": 0,
-        "y": 162
+        "y": 170
       },
       "id": 134,
       "options": {
@@ -6020,7 +6022,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -6036,7 +6039,7 @@
         "h": 13,
         "w": 12,
         "x": 12,
-        "y": 162
+        "y": 170
       },
       "id": 136,
       "options": {
@@ -6080,7 +6083,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 175
+        "y": 183
       },
       "id": 28,
       "panels": [],
@@ -6156,7 +6159,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 176
+        "y": 184
       },
       "id": 30,
       "options": {
@@ -6247,7 +6250,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 176
+        "y": 184
       },
       "id": 32,
       "options": {
@@ -6340,7 +6343,7 @@
         "h": 12,
         "w": 12,
         "x": 0,
-        "y": 184
+        "y": 192
       },
       "id": 138,
       "options": {
@@ -6438,7 +6441,7 @@
         "h": 12,
         "w": 12,
         "x": 12,
-        "y": 184
+        "y": 192
       },
       "id": 140,
       "options": {
@@ -6483,7 +6486,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 196
+        "y": 204
       },
       "id": 15,
       "panels": [
@@ -7242,7 +7245,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 197
+        "y": 205
       },
       "id": 107,
       "panels": [
@@ -7391,12 +7394,10 @@
         "current": {
           "selected": true,
           "text": [
-            "status.staging",
-            "status.prod"
+            "status.staging"
           ],
           "value": [
-            "status.staging",
-            "status.prod"
+            "status.staging"
           ]
         },
         "datasource": {
@@ -7427,10 +7428,10 @@
         "current": {
           "selected": true,
           "text": [
-            "ac-cn-hongkong-c"
+            "All"
           ],
           "value": [
-            "ac-cn-hongkong-c"
+            "$__all"
           ]
         },
         "datasource": {
@@ -7460,7 +7461,7 @@
     ]
   },
   "time": {
-    "from": "now-3h",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {
@@ -7479,6 +7480,6 @@
   "timezone": "browser",
   "title": "Nim-Waku V2",
   "uid": "qrp_ZCTGz",
-  "version": 149,
+  "version": 150,
   "weekStart": ""
 }
