@@ -185,7 +185,7 @@ $(LIBNEGENTROPY_FILE):
 negentropy: | $(LIBNEGENTROPY_FILE)
     ## Pass libnegentropy and it's deps to linker.
     $(eval LIBNEGENTROPY_PATH := $(shell if [ -f "$(LIBNEGENTROPY_FILE)" ]; then echo "$(LIBNEGENTROPY_FILE)"; else echo "./$(LIBNEGENTROPY_FILE)"; fi))
-    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH) --passL:-lcrypto --passL:-lssl --passL:-lstdc++)
+    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH) --passL:-lcrypto --passL:-lssl --passL:-lstdc++ --passL:-L/opt/homebrew/lib/)
 
 negentropy-clean:
 	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) clean && \
