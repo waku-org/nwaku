@@ -227,7 +227,7 @@ proc containsShard*(r: Record, clusterId, shardId: uint16): bool =
     return false
 
   let record = r.toTyped().valueOr:
-    debug "invalid ENR record", error = error
+    trace "invalid ENR record", error = error
     return false
 
   let rs = record.relaySharding().valueOr:
