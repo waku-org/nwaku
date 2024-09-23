@@ -6,7 +6,7 @@
 * The `--rest-private` CLI configuration is no longer supported. Please remove any reference to it when running your nodes
 * Introduced the `--reliability` CLI configuration, activating the new experimental StoreV3 message confirmation protocol
 * DOS protection configurations of non-relay, req/resp protocols are changed
-  * `--request-rate-limit` and `--request-rate-period` options are nno longer supported.
+  * `--request-rate-limit` and `--request-rate-period` options are no longer supported.
   * `--rate-limit` CLI configuration is now available.
     - The new flag can describe various rate-limit requirements for each protocol supported. The setting can be repeated, each instance can define exactly one rate-limit option.
     - Format is `<protocol>:volume/period<time-unit>`
