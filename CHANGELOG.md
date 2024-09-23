@@ -2,8 +2,8 @@
 
 #### Notes:
 
-* The `--pubsub-topic` CLI configuration has been deprecated and support for it will be removed on release v0.35.0. In order to migrate, please use the `--shard` configuration instead. For example, instead of `--pubsub-topic=/waku/2/rs/<CLUSTER_ID>/<SHARD_ID>`, use `--cluster-id=<CLUSTER_ID>` and `--shard=<SHARD_ID>`
-* The `--rest-private` CLI configuration is no longer supported. Please remove any reference to it when running your nodes
+* The `--pubsub-topic` CLI configuration has been deprecated and support for it will be removed on release v0.35.0. In order to migrate, please use the `--shard` configuration instead. For example, instead of `--pubsub-topic=/waku/2/rs/<CLUSTER_ID>/<SHARD_ID>`, use `--cluster-id=<CLUSTER_ID>` once and `--shard=<SHARD_ID>` for each subscribed shard
+* The `--rest-private` CLI configuration has been removed. Please delete any reference to it when running your nodes
 * Introduced the `--reliability` CLI configuration, activating the new experimental StoreV3 message confirmation protocol
 * DOS protection configurations of non-relay, req/resp protocols are changed
   * `--request-rate-limit` and `--request-rate-period` options are no longer supported.
