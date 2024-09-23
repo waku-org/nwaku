@@ -8,6 +8,7 @@ import
   chronos,
   # chronos/timer,
   chronicles,
+  times,
   libp2p/[peerstore, crypto/crypto, multiaddress]
 
 from times import getTime, toUnix
@@ -62,9 +63,9 @@ suite "Peer Manager":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
 
-    server = newTestWakuNode(serverKey, listenIp, listenPort)
+    server = newTestWakuNode(serverKey, listenIp, Port(3000))
     serverPeerStore = server.peerManager.peerStore
-    client = newTestWakuNode(clientKey, listenIp, listenPort)
+    client = newTestWakuNode(clientKey, listenIp, Port(3001))
     clientPeerStore = client.peerManager.peerStore
 
     await allFutures(server.start(), client.start())
@@ -577,77 +578,52 @@ suite "Peer Manager":
               Connectedness.CannotConnect
 
       suite "Automatic Reconnection":
-        xasyncTest "Automatic Reconnection Implementation":
+        asyncTest "Automatic Reconnection Implementation":
           # Given two correctly initialised nodes, that are available for reconnection
           await server.mountRelay()
           await client.mountRelay()
           await client.connectToNodes(@[serverRemotePeerInfo])
-          await server.switch.stop()
-          await client.switch.stop()
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
+
+          waitActive:
+            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected and
+              serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+
+          await client.disconnectNode(serverRemotePeerInfo)
+
+          waitActive:
+            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect and
+              serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
 
           # When triggering the reconnection
+          var beforeReconnect = getTime().toUnixFloat()
           await client.peerManager.reconnectPeers(WakuRelayCodec)
+          let reconnectDuration = getTime().toUnixFloat() - beforeReconnect
 
           # Then both peers should be marked as Connected
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+          waitActive:
+            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected and
+              serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
 
-        xasyncTest "Automatic Reconnection Implementation (With Backoff)":
-          # Given two correctly initialised nodes, that are available for reconnection
-          await server.mountRelay()
-          await client.mountRelay()
-          await client.connectToNodes(@[serverRemotePeerInfo])
-          waitFor allFutures(server.switch.stop(), client.switch.stop())
-          waitFor allFutures(server.switch.start(), client.switch.start())
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
+          ## Now let's do the same but with backoff period
+          await client.disconnectNode(serverRemotePeerInfo)
+
+          waitActive:
+            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect and
+              serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
 
           # When triggering a reconnection with a backoff period
-          let
-            backoffPeriod = 10.seconds
-            halfBackoffPeriod = 5.seconds
-
+          let backoffPeriod = chronos.seconds(1)
+          beforeReconnect = getTime().toUnixFloat()
           await client.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
-          await sleepAsync(halfBackoffPeriod)
-
-          # If the backoff period is not over, then the peers should still be marked as CanConnect
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
-
-          # When waiting for the backoff period to be over
-          await sleepAsync(halfBackoffPeriod)
+          let reconnectDurationWithBackoffPeriod =
+            getTime().toUnixFloat() - beforeReconnect
 
           # Then both peers should be marked as Connected
           check:
             clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
             serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
-
-        xasyncTest "Automatic Reconnection Implementation (After client restart)":
-          # Given two correctly initialised nodes, that are available for reconnection
-          await server.mountRelay()
-          await client.mountRelay()
-          await client.connectToNodes(@[serverRemotePeerInfo])
-          await server.switch.stop()
-          await client.switch.stop()
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
-
-          # When triggering the reconnection, and some time for the reconnection to happen
-          waitFor allFutures(client.stop(), server.stop())
-          await allFutures(server.start(), client.start())
-          await sleepAsync(FUTURE_TIMEOUT_LONG)
-
-          # Then both peers should be marked as Connected
-          check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+            reconnectDurationWithBackoffPeriod >
+              (reconnectDuration + backoffPeriod.seconds.float)
 
 suite "Handling Connections on Different Networks":
   # TODO: Implement after discv5 and peer manager's interaction is understood

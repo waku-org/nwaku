@@ -198,6 +198,9 @@ proc connectToNodes*(
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
+proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
+  await peer_manager.disconnectNode(node.peerManager, remotePeer)
+
 ## Waku Sync
 
 proc mountWakuSync*(
