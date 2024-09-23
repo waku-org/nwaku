@@ -58,8 +58,16 @@ type LiteProtocolTesterConf* = object
   .}: logging.LogFormat
 
   ## Test configuration
-  servicenode* {.desc: "Peer multiaddr of the service node.", name: "service-node".}:
-    string
+  serviceNode* {.
+    desc: "Peer multiaddr of the service node.", defaultValue: "", name: "service-node"
+  .}: string
+
+  bootstrapNode* {.
+    desc:
+      "Peer multiaddr of the service node. If `service-node` not set, it is used to retrieve potential service nodes of the network.",
+    defaultValue: "",
+    name: "bootstrap-node"
+  .}: string
 
   nat* {.
     desc:
@@ -159,7 +167,8 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
       secondarySources = proc(
           conf: LiteProtocolTesterConf, sources: auto
       ) {.gcsafe, raises: [ConfigurationError].} =
-        sources.addConfigFile(Envvar, InputFile("liteprotocoltester")),
+        sources.addConfigFile(Envvar, InputFile("liteprotocoltester"))
+      ,
     )
     ok(conf)
   except CatchableError:

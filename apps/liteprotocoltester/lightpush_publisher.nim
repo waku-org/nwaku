@@ -160,8 +160,9 @@ proc publishMessages(
 
 proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   if isNil(wakuNode.wakuLightpushClient):
-    error "WakuFilterClient not initialized"
-    return
+    # if we have not yet initialized lightpush client, then do it as the only way we can get here is
+    # by having a service peer discovered.
+    wakuNode.mountLightPushClient()
 
   # give some time to receiver side to set up
   let waitTillStartTesting = conf.startPublishingAfter.seconds
