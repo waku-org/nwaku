@@ -22,7 +22,6 @@
 
 ### Changes
 
-- extending store metrics ([#3042](https://github.com/waku-org/nwaku/issues/2995)) ([fd83b42f](https://github.com/waku-org/nwaku/commit/fd83b42f))
 - rate limit peer exchange protocol, enhanced response status in RPC ([#3035](https://github.com/waku-org/nwaku/issues/3035)) ([0a7f16a3](https://github.com/waku-org/nwaku/commit/0a7f16a3))
 - Switch libnegentropy library build from shared to static linkage ([#3041](https://github.com/waku-org/nwaku/issues/3041)) ([83f25c3e](https://github.com/waku-org/nwaku/commit/83f25c3e))
 - libwaku reduce repetitive code by adding a template handling resp returns ([#3032](https://github.com/waku-org/nwaku/issues/3032)) ([1713f562](https://github.com/waku-org/nwaku/commit/1713f562))
@@ -34,6 +33,7 @@
 - enhance libpq management ([#3015](https://github.com/waku-org/nwaku/issues/3015)) ([45319f09](https://github.com/waku-org/nwaku/commit/45319f09))
 - per limit split of PostgreSQL queries ([#3008](https://github.com/waku-org/nwaku/issues/3008)) ([e1e05afb](https://github.com/waku-org/nwaku/commit/e1e05afb))
 - Added metrics to liteprotocoltester ([#3002](https://github.com/waku-org/nwaku/issues/3002)) ([8baf627f](https://github.com/waku-org/nwaku/commit/8baf627f))
+- extending store metrics ([#2995](https://github.com/waku-org/nwaku/issues/2995)) ([fd83b42f](https://github.com/waku-org/nwaku/commit/fd83b42f))
 - Better timing and requestId detail for slower store db queries  ([#2994](https://github.com/waku-org/nwaku/issues/2994)) ([e8a49b76](https://github.com/waku-org/nwaku/commit/e8a49b76))
 - remove unused setting from external_config.nim ([#3004](https://github.com/waku-org/nwaku/issues/3004)) ([fd84363e](https://github.com/waku-org/nwaku/commit/fd84363e))
 - delivery monitor for store v3 reliability protocol ([#2977](https://github.com/waku-org/nwaku/issues/2977)) ([0f68274c](https://github.com/waku-org/nwaku/commit/0f68274c))
