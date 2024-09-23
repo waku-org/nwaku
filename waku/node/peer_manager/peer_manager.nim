@@ -47,9 +47,6 @@ const
   # TODO: Make configurable
   DefaultDialTimeout* = chronos.seconds(10)
 
-  # Max attempts before removing the peer
-  MaxFailedAttempts = 5
-
   # Time to wait before attempting to dial again is calculated as:
   # initialBackoffInSec*(backoffFactor^(failedAttempts-1))
   # 120s, 480s, 1920, 7680s
@@ -71,13 +68,14 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
+  Threshold = chronos.hours(2)
+
 type PeerManager* = ref object of RootObj
   switch*: Switch
   peerStore*: PeerStore
   wakuMetadata*: WakuMetadata
   initialBackoffInSec*: int
   backoffFactor*: int
-  maxFailedAttempts*: int
   storage*: PeerStorage
   serviceSlots*: Table[string, RemotePeerInfo]
   maxRelayPeers*: int
@@ -184,9 +182,8 @@ proc connectRelay*(
   if not pm.peerStore.hasPeer(peerId, WakuRelayCodec):
     pm.addPeer(peer)
 
-  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
   trace "Connecting to relay peer",
-    wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
+    wireAddr = peer.addrs, peerId = peerId 
 
   var deadline = sleepAsync(dialTimeout)
   let workfut = pm.switch.connect(peerId, peer.addrs)
@@ -208,20 +205,21 @@ proc connectRelay*(
       waku_peers_dials.inc(labelValues = ["successful"])
       waku_node_conns_initiated.inc(labelValues = [source])
 
-      pm.peerStore[NumberFailedConnBook][peerId] = 0
-
+      if pm.peerStore[FirstFailedConnBook].contains(peerId):
+        discard pm.peerStore[FirstFailedConnBook].del(peerId)
+      
       return true
 
   # Dial failed
-  pm.peerStore[NumberFailedConnBook][peerId] =
-    pm.peerStore[NumberFailedConnBook][peerId] + 1
   pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   pm.peerStore[ConnectionBook][peerId] = CannotConnect
+  if not pm.peerStore[FirstFailedConnBook].contains(peerId):
+    pm.peerStore[FirstFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
 
   trace "Connecting relay peer failed",
     peerId = peerId,
-    reason = reasonFailed,
-    failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+    reason = reasonFailed
+  
   waku_peers_dials.inc(labelValues = [reasonFailed])
 
   return false
@@ -315,14 +313,17 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   # Returns if we can try to connect to this peer, based on past failed attempts
   # It uses an exponential backoff. Each connection attempt makes us
   # wait more before trying again.
-  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
 
   # if it never errored, we can try to connect
-  if failedAttempts == 0:
+  if not pm.peerStore[FirstFailedConnBook].contains(peerId):
     return true
-
-  # if there are too many failed attempts, do not reconnect
-  if failedAttempts >= pm.maxFailedAttempts:
+  
+  # if it's break threshold then do not reconnect
+  let
+    disconnectTime = pm.peerStore[FirstFailedConnBook][peerId]
+    currentTime = Moment.init(getTime().toUnix, Second)
+  
+  if (currentTime - disconnectTime) > Threshold:
     return false
 
   # If it errored we wait an exponential backoff from last connection
@@ -330,7 +331,7 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   let now = Moment.init(getTime().toUnix, Second)
   let lastFailed = pm.peerStore[LastFailedConnBook][peerId]
   let backoff =
-    calculateBackoff(pm.initialBackoffInSec, pm.backoffFactor, failedAttempts)
+    calculateBackoff(pm.initialBackoffInSec, pm.backoffFactor, 5)
 
   return now >= (lastFailed + backoff)
 
@@ -461,7 +462,6 @@ proc new*(
     storage: PeerStorage = nil,
     initialBackoffInSec = InitialBackoffInSec,
     backoffFactor = BackoffFactor,
-    maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
 ): PeerManager {.gcsafe.} =
@@ -493,7 +493,7 @@ proc new*(
     maxRelayPeersValue = maxConnections - (maxConnections div 5)
 
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
-  let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
+  let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, 5)
   if backoff.weeks() > 1:
     error "Max backoff time can't be over 1 week", maxBackoff = backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
@@ -510,7 +510,6 @@ proc new*(
     outRelayPeersTarget: outRelayPeersTarget,
     inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
     maxRelayPeers: maxRelayPeersValue,
-    maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
   )
@@ -837,8 +836,11 @@ proc prunePeerStore*(pm: PeerManager) =
   var peersToPrune: HashSet[PeerId]
 
   # prune failed connections
-  for peerId, count in pm.peerStore[NumberFailedConnBook].book.pairs:
-    if count < pm.maxFailedAttempts:
+  for peerId in pm.peerStore[FirstFailedConnBook].book.keys:
+    let
+      disconnectTime = pm.peerStore[FirstFailedConnBook][peerId]
+      currentTime = Moment.init(getTime().toUnix, Second)
+    if (currentTime - disconnectTime) < Threshold:
       continue
 
     if peersToPrune.len >= pruningCount:

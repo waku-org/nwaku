@@ -23,8 +23,8 @@ type
   # Last failed connection attemp timestamp
   LastFailedConnBook* = ref object of PeerBook[Moment]
 
-  # Failed connection attempts
-  NumberFailedConnBook* = ref object of PeerBook[int]
+  # First failed connection attemp timestamp
+  FirstFailedConnBook* = ref object of PeerBook[Moment]
 
   # Keeps track of when peers were disconnected in Unix timestamps
   DisconnectBook* = ref object of PeerBook[int64]
@@ -67,7 +67,7 @@ proc get*(peerStore: PeerStore, peerId: PeerID): RemotePeerInfo =
     origin: peerStore[SourceBook][peerId],
     direction: peerStore[DirectionBook][peerId],
     lastFailedConn: peerStore[LastFailedConnBook][peerId],
-    numberFailedConn: peerStore[NumberFailedConnBook][peerId],
+    firstFailedConn: peerStore[FirstFailedConnBook][peerId],
   )
 
 proc getWakuProtos*(peerStore: PeerStore): seq[string] =

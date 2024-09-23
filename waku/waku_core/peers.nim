@@ -53,9 +53,10 @@ type RemotePeerInfo* = ref object
   disconnectTime*: int64
   origin*: PeerOrigin
   direction*: PeerDirection
+  firstFailedConn*: Moment
   lastFailedConn*: Moment
-  numberFailedConn*: int
-
+  
+  
 func `$`*(remotePeerInfo: RemotePeerInfo): string =
   $remotePeerInfo.peerId
 
