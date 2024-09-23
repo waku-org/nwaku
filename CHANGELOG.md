@@ -20,7 +20,8 @@
 ### Release highlights
 
 * a new experimental reliability protocol has been implemented, leveraging StoreV3 to confirm message delivery
-* (add highlight of the peer exchange rate limiting)
+* Peer Exchange protocol can now be protected by rate-limit boundary checks.
+* Fine-grained configuration of DOS protection is available with this release. See, "Notes" above.
 
 ### Bug Fixes
 
