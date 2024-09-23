@@ -5,7 +5,17 @@
 * The `--pubsub-topic` CLI configuration has been deprecated and support for it will be removed on release v0.35.0. In order to migrate, please use the `--shard` configuration instead. For example, instead of `--pubsub-topic=/waku/2/rs/<CLUSTER_ID>/<SHARD_ID>`, use `--cluster-id=<CLUSTER_ID>` and `--shard=<SHARD_ID>`
 * The `--rest-private` CLI configuration is no longer supported. Please remove any reference to it when running your nodes
 * Introduced the `--reliability` CLI configuration, activating the new experimental StoreV3 message confirmation protocol
-* (add instructions of the CLI options for the peer exchange rate limiting)
+* DOS protection configurations of non-relay, req/resp protocols are changed
+  * `--request-rate-limit` and `--request-rate-period` options are nno longer supported.
+  * `--rate-limit` CLI configuration is now available.
+    - The new flag can describe various rate-limit requirements for each protocol supported. The setting can be repeated, each instance can define exactly one rate-limit option.
+    - Format is `<protocol>:volume/period<time-unit>`
+    - If protocol is not given, settings will be taken as default for un-set protocols. Ex: 80/2s
+    - Supported protocols are: lightpush|filter|px|store|storev2|storev3
+    - `volume` must be an integer value, representing number of requests over the period of time allowed.
+    - `period <time-unit>` must be an integer with defined unit as one of h|m|s|ms
+    - If not set, no rate limit will be applied to request/response protocols, except for the filter protocol.
+    
 
 ### Release highlights
 
