@@ -59,38 +59,5 @@ proc logSelfPeersLoop(pm: PeerManager, interval: Duration) {.async.} =
 
     await sleepAsync(interval)
 
-proc logServiceRelayPeers(
-    pm: PeerManager, codec: string, interval: Duration
-) {.async.} =
-  trace "Starting service node connectivity diagnosys loop"
-  while true:
-    echo "*------------------------------------------------------------------------------------------*"
-    echo "|  Service peer connectivity:"
-    let selfLighpushPeers = pm.selectPeer(codec)
-    if selfLighpushPeers.isSome():
-      let ma = selfLighpushPeers.get().addrs[0]
-      var serviceIp = initTAddress(ma).valueOr:
-        echo "Error while parsing multiaddress: " & $error
-        continue
-
-      serviceIp.port = Port(8645)
-      let restClient = newRestHttpClient(initTAddress($serviceIp))
-
-      let getPeersRes = await restClient.getPeers()
-
-      if getPeersRes.status == 200:
-        let nrOfPeers = getPeersRes.data.len()
-        echo "Service node (@" & $ma & ") peers: " & $getPeersRes.data
-      else:
-        echo "Error while fetching service node (@" & $ma & ") peers: " &
-          $getPeersRes.data
-    else:
-      echo "No service node peers found"
-
-    echo "*------------------------------------------------------------------------------------------*"
-
-    await sleepAsync(interval)
-
 proc startPeriodicPeerDiagnostic*(pm: PeerManager, codec: string) {.async.} =
   asyncSpawn logSelfPeersLoop(pm, chronos.seconds(60))
-  # asyncSpawn logServiceRelayPeers(pm, codec, chronos.seconds(20))

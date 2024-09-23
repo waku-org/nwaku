@@ -64,8 +64,9 @@ proc maintainSubscription(
 
 proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   if isNil(wakuNode.wakuFilterClient):
-    error "WakuFilterClient not initialized"
-    return
+    # if we have not yet initialized lightpush client, then do it as the only way we can get here is
+    # by having a service peer discovered.
+    waitFor wakuNode.mountFilterClient()
 
   info "Start receiving messages to service node using lightpush",
     serviceNode = conf.serviceNode
