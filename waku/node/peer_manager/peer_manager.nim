@@ -226,6 +226,10 @@ proc connectRelay*(
 
   return false
 
+proc disconnectNode*(pm: PeerManager, peer: RemotePeerInfo) {.async.} =
+  let peerId = peer.peerId
+  await pm.switch.disconnect(peerId)
+
 # Dialing should be used for just protocols that require a stream to write and read
 # This shall not be used to dial Relay protocols, since that would create
 # unneccesary unused streams.
@@ -560,46 +564,6 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
 
   pm.addPeer(remotePeerInfo)
 
-proc reconnectPeers*(
-    pm: PeerManager, proto: string, backoff: chronos.Duration = chronos.seconds(0)
-) {.async.} =
-  ## Reconnect to peers registered for this protocol. This will update connectedness.
-  ## Especially useful to resume connections from persistent storage after a restart.
-
-  trace "Reconnecting peers", proto = proto
-
-  # Proto is not persisted, we need to iterate over all peers.
-  for peerInfo in pm.peerStore.peers(protocolMatcher(proto)):
-    # Check that the peer can be connected
-    if peerInfo.connectedness == CannotConnect:
-      error "Not reconnecting to unreachable or non-existing peer",
-        peerId = peerInfo.peerId
-      continue
-
-    # Respect optional backoff period where applicable.
-    let
-      # TODO: Add method to peerStore (eg isBackoffExpired())
-      disconnectTime = Moment.init(peerInfo.disconnectTime, Second) # Convert
-      currentTime = Moment.init(getTime().toUnix, Second)
-        # Current time comparable to persisted value
-      backoffTime = disconnectTime + backoff - currentTime
-        # Consider time elapsed since last disconnect
-
-    trace "Respecting backoff",
-      backoff = backoff,
-      disconnectTime = disconnectTime,
-      currentTime = currentTime,
-      backoffTime = backoffTime
-
-    # TODO: This blocks the whole function. Try to connect to another peer in the meantime.
-    if backoffTime > ZeroDuration:
-      trace "Backing off before reconnect...",
-        peerId = peerInfo.peerId, backoffTime = backoffTime
-      # We disconnected recently and still need to wait for a backoff period before connecting
-      await sleepAsync(backoffTime)
-
-    discard await pm.connectRelay(peerInfo)
-
 ####################
 # Dialer interface #
 ####################
@@ -647,7 +611,7 @@ proc connectToNodes*(
   if nodes.len == 0:
     return
 
-  info "Dialing multiple peers", numOfPeers = nodes.len
+  info "Dialing multiple peers", numOfPeers = nodes.len, nodes = $nodes
 
   var futConns: seq[Future[bool]]
   var connectedPeers: seq[RemotePeerInfo]
@@ -684,6 +648,30 @@ proc connectToNodes*(
   # This issue was known to Dmitiry on nim-libp2p and may be resolvable
   # later.
   await sleepAsync(chronos.seconds(5))
+
+proc reconnectPeers*(
+    pm: PeerManager, proto: string, backoffTime: chronos.Duration = chronos.seconds(0)
+) {.async.} =
+  ## Reconnect to peers registered for this protocol. This will update connectedness.
+  ## Especially useful to resume connections from persistent storage after a restart.
+
+  debug "Reconnecting peers", proto = proto
+
+  # Proto is not persisted, we need to iterate over all peers.
+  for peerInfo in pm.peerStore.peers(protocolMatcher(proto)):
+    # Check that the peer can be connected
+    if peerInfo.connectedness == CannotConnect:
+      error "Not reconnecting to unreachable or non-existing peer",
+        peerId = peerInfo.peerId
+      continue
+
+    if backoffTime > ZeroDuration:
+      debug "Backing off before reconnect",
+        peerId = peerInfo.peerId, backoffTime = backoffTime
+      # We disconnected recently and still need to wait for a backoff period before connecting
+      await sleepAsync(backoffTime)
+
+    await pm.connectToNodes(@[peerInfo])
 
 proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerId]) =
   ## Returns the peerIds of physical connections (in and out)
