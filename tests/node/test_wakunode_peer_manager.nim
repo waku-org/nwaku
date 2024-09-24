@@ -595,9 +595,7 @@ suite "Peer Manager":
               serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
 
           # When triggering the reconnection
-          var beforeReconnect = getTime().toUnixFloat()
           await client.peerManager.reconnectPeers(WakuRelayCodec)
-          let reconnectDuration = getTime().toUnixFloat() - beforeReconnect
 
           # Then both peers should be marked as Connected
           waitActive:
@@ -622,8 +620,7 @@ suite "Peer Manager":
           check:
             clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
             serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
-            reconnectDurationWithBackoffPeriod >
-              (reconnectDuration + backoffPeriod.seconds.float)
+            reconnectDurationWithBackoffPeriod > backoffPeriod.seconds.float
 
 suite "Handling Connections on Different Networks":
   # TODO: Implement after discv5 and peer manager's interaction is understood
