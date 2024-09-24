@@ -103,8 +103,9 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtobufResult[T] =
 
   var responseBuffer: seq[byte]
   if not ?pb.getField(2, responseBuffer):
-    return err(ProtobufError.missingRequiredField("response"))
-
-  rpc.response = ?PeerExchangeResponse.decode(responseBuffer)
+    rpc.response =
+      PeerExchangeResponse(status_code: PeerExchangeResponseStatusCode.UNKNOWN)
+  else:
+    rpc.response = ?PeerExchangeResponse.decode(responseBuffer)
 
   ok(rpc)
