@@ -611,7 +611,7 @@ suite "Peer Manager":
 
           # When triggering a reconnection with a backoff period
           let backoffPeriod = chronos.seconds(1)
-          beforeReconnect = getTime().toUnixFloat()
+          let beforeReconnect = getTime().toUnixFloat()
           await client.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
           let reconnectDurationWithBackoffPeriod =
             getTime().toUnixFloat() - beforeReconnect
