@@ -20,9 +20,10 @@ declarePublicGauge waku_px_peers_received_total,
   "number of ENRs received via peer exchange"
 declarePublicGauge waku_px_peers_received_unknown,
   "number of previously unknown ENRs received via peer exchange"
-declarePublicGauge waku_px_peers_sent, "number of ENRs sent to peer exchange requesters"
+declarePublicCounter waku_px_peers_sent,
+  "number of ENRs sent to peer exchange requesters"
 declarePublicGauge waku_px_peers_cached, "number of peer exchange peer ENRs cached"
-declarePublicGauge waku_px_errors, "number of peer exchange errors", ["type"]
+declarePublicCounter waku_px_errors, "number of peer exchange errors", ["type"]
 
 logScope:
   topics = "waku peer_exchange"
