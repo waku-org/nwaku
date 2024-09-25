@@ -18,7 +18,9 @@ proc nowInUnixFloat(): float =
 proc getNowInNanosecondTime*(): Timestamp =
   return getNanosecondTime(nowInUnixFloat())
 
-template nanosecondTime*(collector: Summary | Histogram, body: untyped) =
+template nanosecondTime*(
+    collector: Summary | Histogram | typedesc[IgnoredCollector], body: untyped
+) =
   when defined(metrics):
     let start = nowInUnixFloat()
     body
