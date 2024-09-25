@@ -41,6 +41,7 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, deprecated, async.} =
   discard
 
@@ -55,6 +56,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.base, async.} =
   discard
 

@@ -5,6 +5,14 @@ global:
     monitor: "Monitoring"
 
 scrape_configs:
-  - job_name: "nwaku"
+  - job_name: "liteprotocoltester"
     static_configs:
-    - targets: ["nwaku:8003"]
+    - targets: ["lightpush-service:8003",
+                "filter-service:8003",
+                "liteprotocoltester-publishernode-1:8003",
+                "liteprotocoltester-publishernode-2:8003",
+                "liteprotocoltester-publishernode-3:8003",
+                "liteprotocoltester-publishernode-4:8003",
+                "liteprotocoltester-publishernode-5:8003",
+                "liteprotocoltester-publishernode-6:8003",
+                "receivernode:8003"]

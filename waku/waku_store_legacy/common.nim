@@ -45,6 +45,7 @@ type
     endTime*: Option[Timestamp]
     pageSize*: uint64
     direction*: PagingDirection
+    requestId*: string
 
   HistoryResponse* = object
     messages*: seq[WakuMessage]

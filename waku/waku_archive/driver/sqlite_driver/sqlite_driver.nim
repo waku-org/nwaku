@@ -83,6 +83,7 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   if not includeData:
     return s.db.selectMessageHashesByStoreQueryWithLimit(

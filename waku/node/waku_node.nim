@@ -39,6 +39,7 @@ import
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
   ../waku_rendezvous/protocol,
+  ../waku_sync,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -104,6 +105,7 @@ type
     wakuPeerExchange*: WakuPeerExchange
     wakuMetadata*: WakuMetadata
     wakuSharding*: Sharding
+    wakuSync*: WakuSync
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
@@ -112,6 +114,7 @@ type
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     contentTopicHandlers: Table[ContentTopic, TopicHandler]
+    rateLimitSettings*: ProtocolRateLimitSettings
 
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
@@ -162,6 +165,7 @@ proc new*(
     enr: enr,
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
+    rateLimitSettings: DefaultProtocolRateLimit,
   )
 
   return node
@@ -193,6 +197,45 @@ proc connectToNodes*(
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
+
+proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
+  await peer_manager.disconnectNode(node.peerManager, remotePeer)
+
+## Waku Sync
+
+proc mountWakuSync*(
+    node: WakuNode,
+    maxFrameSize: int = DefaultMaxFrameSize,
+    syncRange: timer.Duration = DefaultSyncRange,
+    syncInterval: timer.Duration = DefaultSyncInterval,
+    relayJitter: Duration = DefaultGossipSubJitter,
+): Future[Result[void, string]] {.async.} =
+  if not node.wakuSync.isNil():
+    return err("already mounted")
+
+  node.wakuSync = (
+    await WakuSync.new(
+      peerManager = node.peerManager,
+      maxFrameSize = maxFrameSize,
+      syncRange = syncRange,
+      syncInterval = syncInterval,
+      relayJitter = relayJitter,
+      wakuArchive = node.wakuArchive,
+      wakuStoreClient = node.wakuStoreClient,
+    )
+  ).valueOr:
+    return err("initialization failed: " & error)
+
+  let catchable = catch:
+    node.switch.mount(node.wakuSync, protocolMatcher(WakuSyncCodec))
+
+  if catchable.isErr():
+    return err("switch mounting failed: " & catchable.error.msg)
+
+  if node.started:
+    node.wakuSync.start()
+
+  return ok()
 
 ## Waku Metadata
 
@@ -228,14 +271,6 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     let msg_hash = topic.computeMessageHash(msg).to0xHex()
-
-    notice "waku.relay received",
-      my_peer_id = node.peerId,
-      pubsubTopic = topic,
-      msg_hash = msg_hash,
-      receivedTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
-
     let msgSizeKB = msg.payload.len / 1000
 
     waku_node_messages.inc(labelValues = ["relay"])
@@ -258,12 +293,19 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuArchive.handleMessage(topic, msg)
 
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async.} =
+    if node.wakuSync.isNil():
+      return
+
+    node.wakuSync.messageIngress(topic, msg)
+
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
+    await syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -284,7 +326,7 @@ proc subscribe*(
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubSub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -319,7 +361,7 @@ proc unsubscribe*(node: WakuNode, subscription: SubscriptionEvent) =
         error "Autosharding error", error = error
         return
 
-      (shard, some(subscription.topic))
+      ($shard, some(subscription.topic))
     of PubsubUnsub:
       (subscription.topic, none(ContentTopic))
     else:
@@ -352,14 +394,14 @@ proc publish*(
   if node.wakuRelay.isNil():
     let msg =
       "Invalid API call to `publish`. WakuRelay not mounted. Try `lightpush` instead."
-    error "publish error", msg = msg
+    error "publish error", err = msg
     # TODO: Improve error handling
     return err(msg)
 
   let pubsubTopic = pubsubTopicOp.valueOr:
     node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
-      error "publish error", msg = msg
+      error "publish error", err = msg
       return err(msg)
 
   #TODO instead of discard return error when 0 peers received the message
@@ -400,7 +442,7 @@ proc startRelay*(node: WakuNode) {.async.} =
 
 proc mountRelay*(
     node: WakuNode,
-    pubsubTopics: seq[string] = @[],
+    shards: seq[RelayShard] = @[],
     peerExchangeHandler = none(RoutingRecordsHandler),
     maxMessageSize = int(DefaultMaxWakuMessageSize),
 ) {.async, gcsafe.} =
@@ -429,11 +471,11 @@ proc mountRelay*(
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
 
-  info "relay mounted successfully", pubsubTopics = pubsubTopics
+  info "relay mounted successfully", shards = shards
 
-  # Subscribe to topics
-  for pubsubTopic in pubsubTopics:
-    node.subscribe((kind: PubsubSub, topic: pubsubTopic))
+  # Subscribe to shards
+  for shard in shards:
+    node.subscribe((kind: PubsubSub, topic: $shard))
 
 ## Waku filter
 
@@ -444,7 +486,7 @@ proc mountFilter*(
     maxFilterPeers: uint32 = filter_subscriptions.MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = filter_subscriptions.MaxFilterCriteriaPerPeer,
     messageCacheTTL: Duration = filter_subscriptions.MessageCacheTTL,
-    rateLimitSetting: RateLimitSetting = FilterPerPeerRateLimit,
+    rateLimitSetting: RateLimitSetting = FilterDefaultPerPeerRateLimit,
 ) {.async: (raises: []).} =
   ## Mounting filter v2 protocol
 
@@ -732,6 +774,7 @@ proc toArchiveQuery(
     endTime: request.endTime,
     pageSize: request.pageSize.uint,
     direction: request.direction,
+    requestId: request.requestId,
   )
 
 # TODO: Review this mapping logic. Maybe, move it to the appplication code
@@ -873,6 +916,7 @@ proc toArchiveQuery(request: StoreQueryRequest): waku_archive.ArchiveQuery =
   query.hashes = request.messageHashes
   query.cursor = request.paginationCursor
   query.direction = request.paginationForward
+  query.requestId = request.requestId
 
   if request.paginationLimit.isSome():
     query.pageSize = uint(request.paginationLimit.get())
@@ -1060,7 +1104,7 @@ proc lightpushPublish*(
     peerOpt = node.peerManager.selectPeer(WakuLightPushCodec)
     if peerOpt.isNone():
       let msg = "no suitable remote peers"
-      error "failed to publish message", msg = msg
+      error "failed to publish message", err = msg
       return err(msg)
   elif not node.wakuLightPush.isNil():
     peerOpt = some(RemotePeerInfo.init($node.switch.peerInfo.peerId))
@@ -1105,11 +1149,14 @@ proc mountRlnRelay*(
 ## Waku peer-exchange
 
 proc mountPeerExchange*(
-    node: WakuNode, cluster: Option[uint16] = none(uint16)
+    node: WakuNode,
+    cluster: Option[uint16] = none(uint16),
+    rateLimit: RateLimitSetting = DefaultGlobalNonRelayRateLimit,
 ) {.async: (raises: []).} =
   info "mounting waku peer exchange"
 
-  node.wakuPeerExchange = WakuPeerExchange.new(node.peerManager, cluster)
+  node.wakuPeerExchange =
+    WakuPeerExchange.new(node.peerManager, cluster, some(rateLimit))
 
   if node.started:
     try:
@@ -1124,10 +1171,15 @@ proc mountPeerExchange*(
 
 proc fetchPeerExchangePeers*(
     node: Wakunode, amount: uint64
-): Future[Result[int, string]] {.async: (raises: []).} =
+): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
-    return err("PeerExchange is not mounted")
+    return err(
+      (
+        status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
+        status_desc: some("PeerExchange is not mounted"),
+      )
+    )
 
   info "Retrieving peer info via peer exchange protocol"
   let pxPeersRes = await node.wakuPeerExchange.request(amount)
@@ -1145,7 +1197,7 @@ proc fetchPeerExchangePeers*(
   else:
     warn "failed to retrieve peer info via peer exchange protocol",
       error = pxPeersRes.error
-    return err("Peer exchange failure: " & $pxPeersRes.error)
+    return err(pxPeersRes.error)
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(
@@ -1294,6 +1346,8 @@ proc start*(node: WakuNode) {.async.} =
       await node.wakuRendezvous.start()
     except CatchableError:
       error "failed to start rendezvous", error = getCurrentExceptionMsg()
+  if not node.wakuSync.isNil():
+    node.wakuSync.start()
 
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
@@ -1343,3 +1397,10 @@ proc isReady*(node: WakuNode): Future[bool] {.async: (raises: [Exception]).} =
     return true
   return await node.wakuRlnRelay.isReady()
   ## TODO: add other protocol `isReady` checks
+
+proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
+  let rateLimitConfig = ProtocolRateLimitSettings.parse(limits)
+  if rateLimitConfig.isErr():
+    return err("invalid rate limit settings:" & rateLimitConfig.error)
+  node.rateLimitSettings = rateLimitConfig.get()
+  return ok()

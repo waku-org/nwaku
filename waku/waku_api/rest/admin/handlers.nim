@@ -16,6 +16,7 @@ import
   ../../../waku_relay,
   ../../../waku_peer_exchange,
   ../../../waku_node,
+  ../../../waku_sync,
   ../../../node/peer_manager,
   ../responses,
   ../serdes,
@@ -101,6 +102,18 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
       )
     tuplesToWakuPeers(peers, pxPeers)
 
+    if not node.wakuSync.isNil():
+      # Map WakuSync peers to WakuPeers and add to return list
+      let syncPeers = node.peerManager.peerStore.peers(WakuSyncCodec).mapIt(
+          (
+            multiaddr: constructMultiaddrStr(it),
+            protocol: WakuSyncCodec,
+            connected: it.connectedness == Connectedness.Connected,
+            origin: it.origin,
+          )
+        )
+      tuplesToWakuPeers(peers, syncPeers)
+
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
       error "An error ocurred while building the json respose: ", error = resp.error
@@ -115,12 +128,13 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
     contentBody: Option[ContentBody]
   ) -> RestApiResponse:
     let peers: seq[string] = decodeRequestBody[seq[string]](contentBody).valueOr:
-      return RestApiResponse.badRequest(fmt("Failed to decode request: {error}"))
+      let e = $error
+      return RestApiResponse.badRequest(fmt("Failed to decode request: {e}"))
 
     for i, peer in peers:
       let peerInfo = parsePeerInfo(peer).valueOr:
-        return
-          RestApiResponse.badRequest(fmt("Couldn't parse remote peer info: {error}"))
+        let e = $error
+        return RestApiResponse.badRequest(fmt("Couldn't parse remote peer info: {e}"))
 
       if not (await node.peerManager.connectRelay(peerInfo, source = "rest")):
         return RestApiResponse.badRequest(

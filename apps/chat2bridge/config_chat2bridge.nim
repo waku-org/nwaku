@@ -67,12 +67,6 @@ type Chat2MatterbridgeConf* = object
     name: "nodekey"
   .}: crypto.PrivateKey
 
-  topics* {.
-    desc: "Default topics to subscribe to (space separated list)",
-    defaultValue: "/waku/2/rs/0/0",
-    name: "topics"
-  .}: string
-
   store* {.
     desc: "Flag whether to start store protocol", defaultValue: true, name: "store"
   .}: bool

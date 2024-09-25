@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[nre, options, sequtils, strutils, strformat, times],
+  std/[nre, options, sequtils, strutils, strformat, times, sugar],
   stew/[byteutils, arrayops],
   results,
   chronos,
@@ -25,10 +25,16 @@ type PostgresDriver* = ref object of ArchiveDriver
   partitionMngr: PartitionManager
   futLoopPartitionFactory: Future[void]
 
+  futLoopAnalyzeTable: Future[void]
+
 const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition =
   """INSERT INTO messages (id, messageHash, pubsubTopic, contentTopic, payload,
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $8 = '' THEN NULL ELSE $8 END) ON CONFLICT DO NOTHING;"""
+
+const InsertRowInMessagesLookupStmtName = "InsertRowMessagesLookup"
+const InsertRowInMessagesLookupStmtDefinition =
+  """INSERT INTO messages_lookup (messageHash, timestamp) VALUES ($1, $2) ON CONFLICT DO NOTHING;"""
 
 const SelectClause =
   """SELECT messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta FROM messages """
@@ -122,7 +128,9 @@ const SelectCursorByHashDef =
   """SELECT timestamp FROM messages
     WHERE messageHash = $1"""
 
-const DefaultMaxNumConns = 50
+const
+  DefaultMaxNumConns = 50
+  MaxHashesPerQuery = 100
 
 proc new*(
     T: type PostgresDriver,
@@ -301,28 +309,43 @@ method put*(
   ## until we completely remove the store/archive-v2 logic
   let fakeId = "0"
 
+  (
+    ## Add the row to the messages table
+    await s.writeConnPool.runStmt(
+      InsertRowStmtName,
+      InsertRowStmtDefinition,
+      @[
+        fakeId, messageHash, pubsubTopic, contentTopic, payload, version, timestamp,
+        meta,
+      ],
+      @[
+        int32(fakeId.len),
+        int32(messageHash.len),
+        int32(pubsubTopic.len),
+        int32(contentTopic.len),
+        int32(payload.len),
+        int32(version.len),
+        int32(timestamp.len),
+        int32(meta.len),
+      ],
+      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    )
+  ).isOkOr:
+    return err("could not put msg in messages table: " & $error)
+
+  ## Now add the row to messages_lookup
   return await s.writeConnPool.runStmt(
-    InsertRowStmtName,
-    InsertRowStmtDefinition,
-    @[fakeId, messageHash, pubsubTopic, contentTopic, payload, version, timestamp, meta],
-    @[
-      int32(fakeId.len),
-      int32(messageHash.len),
-      int32(pubsubTopic.len),
-      int32(contentTopic.len),
-      int32(payload.len),
-      int32(version.len),
-      int32(timestamp.len),
-      int32(meta.len),
-    ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    InsertRowInMessagesLookupStmtName,
+    InsertRowInMessagesLookupStmtDefinition,
+    @[messageHash, timestamp],
+    @[int32(messageHash.len), int32(timestamp.len)],
+    @[int32(0), int32(0)],
   )
 
 method getAllMessages*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
-
   var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
@@ -345,8 +368,6 @@ proc getPartitionsList(
 ): Future[ArchiveDriverResult[seq[string]]] {.async.} =
   ## Retrieves the seq of partition table names.
   ## e.g: @["messages_1708534333_1708534393", "messages_1708534273_1708534333"]
-
-  debug "beginning getPartitionsList"
   var partitions: seq[string]
   proc rowCallback(pqResult: ptr PGresult) =
     for iRow in 0 ..< pqResult.pqNtuples():
@@ -402,10 +423,10 @@ proc getMessagesArbitraryQuery(
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
-  debug "beginning getMessagesArbitraryQuery"
   var query = SelectClause
   var statements: seq[string]
   var args: seq[string]
@@ -466,7 +487,7 @@ proc getMessagesArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -481,12 +502,11 @@ proc getMessageHashesArbitraryQuery(
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[(WakuMessageHash, PubsubTopic, WakuMessage)]]] {.
     async
 .} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
-
-  debug "beginning of getMessagesV2ArbitraryQuery"
   var query = """SELECT messageHash FROM messages"""
 
   var statements: seq[string]
@@ -548,7 +568,7 @@ proc getMessageHashesArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     hashCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -563,13 +583,13 @@ proc getMessagesPreparedStmt(
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way,
   ## i.e. by means of prepared statements.
 
   var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
 
-  debug "beginning of getMessagesPreparedStmt"
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
@@ -596,6 +616,7 @@ proc getMessagesPreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err(stmtName & ": " & $error)
@@ -636,6 +657,7 @@ proc getMessagesPreparedStmt(
       ],
       @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
       rowCallback,
+      requestId,
     )
   ).isOkOr:
     return err(stmtName & ": " & $error)
@@ -652,13 +674,13 @@ proc getMessageHashesPreparedStmt(
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way,
   ## i.e. by means of prepared statements.
 
   var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
 
-  debug "beginning of getMessagesV2PreparedStmt"
   proc rowCallback(pqResult: ptr PGresult) =
     hashCallbackImpl(pqResult, rows)
 
@@ -687,6 +709,7 @@ proc getMessageHashesPreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err(stmtName & ": " & $error)
@@ -730,11 +753,122 @@ proc getMessageHashesPreparedStmt(
       ],
       @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
       rowCallback,
+      requestId,
     )
   ).isOkOr:
     return err(stmtName & ": " & $error)
 
   return ok(rows)
+
+proc getMessagesByMessageHashes(
+    s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## Retrieves information only filtering by a given messageHashes list.
+  ## This proc levarages on the messages_lookup table to have better query performance
+  ## and only query the desired partitions in the partitioned messages table
+  var query =
+    fmt"""
+  WITH min_timestamp AS (
+    SELECT MIN(timestamp) AS min_ts
+    FROM messages_lookup
+    WHERE messagehash IN (
+      {hashes}
+    )
+  )
+  SELECT m.messageHash, pubsubTopic, contentTopic, payload, version, m.timestamp, meta
+  FROM messages m
+  INNER JOIN
+    messages_lookup l
+  ON
+    m.timestamp = l.timestamp
+    AND m.messagehash = l.messagehash
+  WHERE
+    l.timestamp >= (SELECT min_ts FROM min_timestamp)
+    AND l.messagehash IN (
+      {hashes}
+    )
+  ORDER BY
+    m.timestamp DESC,
+    m.messagehash DESC
+  LIMIT {maxPageSize};
+  """
+
+  var rows: seq[(WakuMessageHash, PubsubTopic, WakuMessage)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (
+    await s.readConnPool.pgQuery(
+      query = query, rowCallback = rowCallback, requestId = requestId
+    )
+  ).isOkOr:
+    return err("failed to run query: " & $error)
+
+  return ok(rows)
+
+proc getMessagesWithinLimits(
+    self: PostgresDriver,
+    includeData: bool,
+    contentTopics: seq[ContentTopic],
+    pubsubTopic: Option[PubsubTopic],
+    cursor: Option[ArchiveCursor],
+    startTime: Option[Timestamp],
+    endTime: Option[Timestamp],
+    hashes: seq[WakuMessageHash],
+    maxPageSize: uint,
+    ascendingOrder: bool,
+    requestId: string,
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  if hashes.len > MaxHashesPerQuery:
+    return err(fmt"can not attend queries with more than {MaxHashesPerQuery} hashes")
+
+  let hexHashes = hashes.mapIt(toHex(it))
+
+  if cursor.isNone() and pubsubTopic.isNone() and contentTopics.len == 0 and
+      startTime.isNone() and endTime.isNone() and hexHashes.len > 0:
+    return await self.getMessagesByMessageHashes(
+      "'" & hexHashes.join("','") & "'", maxPageSize, requestId
+    )
+
+  if contentTopics.len > 0 and hexHashes.len > 0 and pubsubTopic.isSome() and
+      startTime.isSome() and endTime.isSome():
+    ## Considered the most common query. Therefore, we use prepared statements to optimize it.
+    if includeData:
+      return await self.getMessagesPreparedStmt(
+        contentTopics.join(","),
+        PubsubTopic(pubsubTopic.get()),
+        cursor,
+        startTime.get(),
+        endTime.get(),
+        hexHashes.join(","),
+        maxPageSize,
+        ascendingOrder,
+        requestId,
+      )
+    else:
+      return await self.getMessageHashesPreparedStmt(
+        contentTopics.join(","),
+        PubsubTopic(pubsubTopic.get()),
+        cursor,
+        startTime.get(),
+        endTime.get(),
+        hexHashes.join(","),
+        maxPageSize,
+        ascendingOrder,
+        requestId,
+      )
+  else:
+    if includeData:
+      ## We will run atypical query. In this case we don't use prepared statemets
+      return await self.getMessagesArbitraryQuery(
+        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+        ascendingOrder, requestId,
+      )
+    else:
+      return await self.getMessageHashesArbitraryQuery(
+        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
+        ascendingOrder, requestId,
+      )
 
 method getMessages*(
     s: PostgresDriver,
@@ -747,55 +881,29 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
-  debug "beginning of getMessages"
+  let rows = collect(newSeq):
+    for i in countup(0, hashes.len, MaxHashesPerQuery):
+      let stop = min(i + MaxHashesPerQuery, hashes.len)
 
-  let hexHashes = hashes.mapIt(toHex(it))
+      let splittedHashes = hashes[i ..< stop]
 
-  if contentTopics.len > 0 and hexHashes.len > 0 and pubsubTopic.isSome() and
-      startTime.isSome() and endTime.isSome():
-    ## Considered the most common query. Therefore, we use prepared statements to optimize it.
-    if includeData:
-      return await s.getMessagesPreparedStmt(
-        contentTopics.join(","),
-        PubsubTopic(pubsubTopic.get()),
-        cursor,
-        startTime.get(),
-        endTime.get(),
-        hexHashes.join(","),
-        maxPageSize,
-        ascendingOrder,
-      )
-    else:
-      return await s.getMessageHashesPreparedStmt(
-        contentTopics.join(","),
-        PubsubTopic(pubsubTopic.get()),
-        cursor,
-        startTime.get(),
-        endTime.get(),
-        hexHashes.join(","),
-        maxPageSize,
-        ascendingOrder,
-      )
-  else:
-    if includeData:
-      ## We will run atypical query. In this case we don't use prepared statemets
-      return await s.getMessagesArbitraryQuery(
-        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-        ascendingOrder,
-      )
-    else:
-      return await s.getMessageHashesArbitraryQuery(
-        contentTopics, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-        ascendingOrder,
-      )
+      let subRows =
+        ?await s.getMessagesWithinLimits(
+          includeData, contentTopics, pubsubTopic, cursor, startTime, endTime,
+          splittedHashes, maxPageSize, ascendingOrder, requestId,
+        )
+
+      for row in subRows:
+        row
+
+  return ok(rows)
 
 proc getStr(
     s: PostgresDriver, query: string
 ): Future[ArchiveDriverResult[string]] {.async.} =
   # Performs a query that is expected to return a single string
-
-  debug "beginning of getStr"
 
   var ret: string
   proc rowCallback(pqResult: ptr PGresult) =
@@ -819,7 +927,6 @@ proc getInt(
 ): Future[ArchiveDriverResult[int64]] {.async.} =
   # Performs a query that is expected to return a single numeric value (int64)
 
-  debug "beginning of getInt"
   var retInt = 0'i64
   let str = (await s.getStr(query)).valueOr:
     return err("could not get str in getInt: " & $error)
@@ -837,8 +944,6 @@ proc getInt(
 method getDatabaseSize*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
-  debug "beginning of getDatabaseSize"
-
   let intRes = (await s.getInt("SELECT pg_database_size(current_database())")).valueOr:
     return err("error in getDatabaseSize: " & error)
 
@@ -848,8 +953,6 @@ method getDatabaseSize*(
 method getMessagesCount*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
-  debug "beginning of getMessagesCount"
-
   let intRes = await s.getInt("SELECT COUNT(1) FROM messages")
   if intRes.isErr():
     return err("error in getMessagesCount: " & intRes.error)
@@ -862,8 +965,6 @@ method getOldestMessageTimestamp*(
   ## In some cases it could happen that we have
   ## empty partitions which are older than the current stored rows.
   ## In those cases we want to consider those older partitions as the oldest considered timestamp.
-  debug "beginning of getOldestMessageTimestamp"
-
   let oldestPartition = s.partitionMngr.getOldestPartition().valueOr:
     return err("could not get oldest partition: " & $error)
 
@@ -879,7 +980,6 @@ method getOldestMessageTimestamp*(
 method getNewestMessageTimestamp*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[Timestamp]] {.async.} =
-  debug "beginning of getNewestMessageTimestamp"
   let intRes = await s.getInt("SELECT MAX(timestamp) FROM messages")
 
   if intRes.isErr():
@@ -890,9 +990,7 @@ method getNewestMessageTimestamp*(
 method deleteOldestMessagesNotWithinLimit*(
     s: PostgresDriver, limit: int
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  debug "beginning of deleteOldestMessagesNotWithinLimit"
-
-  let execRes = await s.writeConnPool.pgQuery(
+  var execRes = await s.writeConnPool.pgQuery(
     """DELETE FROM messages WHERE messageHash NOT IN
                           (
                         SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
@@ -902,14 +1000,27 @@ method deleteOldestMessagesNotWithinLimit*(
   if execRes.isErr():
     return err("error in deleteOldestMessagesNotWithinLimit: " & execRes.error)
 
-  debug "end of deleteOldestMessagesNotWithinLimit"
+  execRes = await s.writeConnPool.pgQuery(
+    """DELETE FROM messages_lookup WHERE messageHash NOT IN
+                          (
+                        SELECT messageHash FROM messages ORDER BY timestamp DESC LIMIT ?
+                          );""",
+    @[$limit],
+  )
+  if execRes.isErr():
+    return err(
+      "error in deleteOldestMessagesNotWithinLimit messages_lookup: " & execRes.error
+    )
+
   return ok()
 
 method close*(s: PostgresDriver): Future[ArchiveDriverResult[void]] {.async.} =
-  debug "beginning of postgres close"
-
   ## Cancel the partition factory loop
   s.futLoopPartitionFactory.cancelSoon()
+
+  ## Cancel analyze table loop
+  if not s.futLoopAnalyzeTable.isNil():
+    s.futLoopAnalyzeTable.cancelSoon()
 
   ## Close the database connection
   let writeCloseRes = await s.writeConnPool.close()
@@ -944,6 +1055,7 @@ proc sleep*(
 
   return ok()
 
+const EXPECTED_LOCK_ERROR* = "another waku instance is currently executing a migration"
 proc acquireDatabaseLock*(
     s: PostgresDriver, lockId: int = 841886
 ): Future[ArchiveDriverResult[void]] {.async.} =
@@ -953,8 +1065,6 @@ proc acquireDatabaseLock*(
   ## approach is using the "performWriteQueryWithLock" proc. However, we can't use
   ## "performWriteQueryWithLock" in the migrations process because we can't nest two PL/SQL
   ## scripts.
-
-  debug "beginning of acquireDatabaseLock", lockId
 
   let locked = (
     await s.getStr(
@@ -966,7 +1076,7 @@ proc acquireDatabaseLock*(
     return err("error acquiring a lock: " & error)
 
   if locked == "f":
-    return err("another waku instance is currently executing a migration")
+    return err(EXPECTED_LOCK_ERROR)
 
   return ok()
 
@@ -974,7 +1084,6 @@ proc releaseDatabaseLock*(
     s: PostgresDriver, lockId: int = 841886
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Release an advisory lock (useful to avoid more than one application running migrations at the same time)
-  debug "beginning of releaseDatabaseLock", lockId
   let unlocked = (
     await s.getStr(
       fmt"""
@@ -1001,11 +1110,10 @@ proc performWriteQuery*(
 
 const COULD_NOT_ACQUIRE_ADVISORY_LOCK* = "could not acquire advisory lock"
 
-proc performWriteQueryWithLock*(
+proc performWriteQueryWithLock(
     self: PostgresDriver, queryToProtect: string
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## This wraps the original query in a script so that we make sure a pg_advisory lock protects it
-  debug "performWriteQueryWithLock", queryToProtect
   let query =
     fmt"""
           DO $$
@@ -1068,8 +1176,6 @@ proc addPartition(
   ## Creates a partition table that will store the messages that fall in the range
   ## `startTime` <= timestamp < `startTime + duration`.
   ## `startTime` is measured in seconds since epoch
-  debug "beginning of addPartition"
-
   let beginning = startTime
   let `end` = partitions_manager.calcEndPartitionTime(startTime)
 
@@ -1211,8 +1317,6 @@ proc getTableSize*(
 ): Future[ArchiveDriverResult[string]] {.async.} =
   ## Returns a human-readable representation of the size for the requested table.
   ## tableName - table of interest.
-  debug "beginning of getTableSize"
-
   let tableSize = (
     await self.getStr(
       fmt"""
@@ -1226,8 +1330,12 @@ proc getTableSize*(
   return ok(tableSize)
 
 proc removePartition(
-    self: PostgresDriver, partitionName: string
+    self: PostgresDriver, partition: Partition
 ): Future[ArchiveDriverResult[void]] {.async.} =
+  ## Removes the desired partition and also removes the rows from messages_lookup table
+  ## whose rows belong to the partition time range
+
+  let partitionName = partition.getName()
   debug "beginning of removePartition", partitionName
 
   var partSize = ""
@@ -1240,7 +1348,16 @@ proc removePartition(
     "ALTER TABLE messages DETACH PARTITION " & partitionName & " CONCURRENTLY;"
   debug "removeOldestPartition", query = detachPartitionQuery
   (await self.performWriteQuery(detachPartitionQuery)).isOkOr:
-    return err(fmt"error in {detachPartitionQuery}: " & $error)
+    if ($error).contains("FINALIZE"):
+      ## We assume the database is suggesting to use FINALIZE when detaching a partition
+      let detachPartitionFinalizeQuery =
+        "ALTER TABLE messages DETACH PARTITION " & partitionName & " FINALIZE;"
+      debug "removeOldestPartition detaching with FINALIZE",
+        query = detachPartitionFinalizeQuery
+      (await self.performWriteQuery(detachPartitionFinalizeQuery)).isOkOr:
+        return err(fmt"error in FINALIZE {detachPartitionFinalizeQuery}: " & $error)
+    else:
+      return err(fmt"error in {detachPartitionQuery}: " & $error)
 
   ## Drop the partition
   let dropPartitionQuery = "DROP TABLE " & partitionName
@@ -1250,6 +1367,13 @@ proc removePartition(
 
   debug "removed partition", partition_name = partitionName, partition_size = partSize
   self.partitionMngr.removeOldestPartitionName()
+
+  ## Now delete rows from the messages_lookup table
+  let timeRange = partition.getTimeRange()
+  let `end` = timeRange.`end` * 1_000_000_000
+  let deleteRowsQuery = "DELETE FROM messages_lookup WHERE timestamp < " & $`end`
+  (await self.performWriteQuery(deleteRowsQuery)).isOkOr:
+    return err(fmt"error in {deleteRowsQuery}: " & $error)
 
   return ok()
 
@@ -1265,7 +1389,7 @@ proc removePartitionsOlderThan(
     return err("could not get oldest partition in removePartitionOlderThan: " & $error)
 
   while not oldestPartition.containsMoment(tsInSec):
-    (await self.removePartition(oldestPartition.getName())).isOkOr:
+    (await self.removePartition(oldestPartition)).isOkOr:
       return err("issue in removePartitionsOlderThan: " & $error)
 
     oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
@@ -1280,8 +1404,6 @@ proc removeOldestPartition(
     self: PostgresDriver, forceRemoval: bool = false, ## To allow cleanup in tests
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## Indirectly called from the retention policy
-  debug "beginning of removeOldestPartition"
-
   let oldestPartition = self.partitionMngr.getOldestPartition().valueOr:
     return err("could not remove oldest partition: " & $error)
 
@@ -1295,7 +1417,7 @@ proc removeOldestPartition(
         debug "Skipping to remove the current partition"
         return ok()
 
-  return await self.removePartition(oldestPartition.getName())
+  return await self.removePartition(oldestPartition)
 
 proc containsAnyPartition*(self: PostgresDriver): bool =
   return not self.partitionMngr.isEmpty()
@@ -1303,8 +1425,6 @@ proc containsAnyPartition*(self: PostgresDriver): bool =
 method decreaseDatabaseSize*(
     driver: PostgresDriver, targetSizeInBytes: int64, forceRemoval: bool = false
 ): Future[ArchiveDriverResult[void]] {.async.} =
-  debug "beginning of decreaseDatabaseSize"
-
   var dbSize = (await driver.getDatabaseSize()).valueOr:
     return err("decreaseDatabaseSize failed to get database size: " & $error)
 
@@ -1371,8 +1491,6 @@ method existsTable*(
 proc getCurrentVersion*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[int64]] {.async.} =
-  debug "beginning of getCurrentVersion"
-
   let existsVersionTable = (await s.existsTable("version")).valueOr:
     return err("error in getCurrentVersion-existsTable: " & $error)
 
@@ -1389,8 +1507,6 @@ method deleteMessagesOlderThanTimestamp*(
 ): Future[ArchiveDriverResult[void]] {.async.} =
   ## First of all, let's remove the older partitions so that we can reduce
   ## the database size.
-  debug "beginning of deleteMessagesOlderThanTimestamp"
-
   (await s.removePartitionsOlderThan(tsNanoSec)).isOkOr:
     return err("error while removing older partitions: " & $error)
 
@@ -1402,3 +1518,36 @@ method deleteMessagesOlderThanTimestamp*(
     return err("error in deleteMessagesOlderThanTimestamp: " & $error)
 
   return ok()
+
+############################################
+## TODO: start splitting code better
+
+const AnalyzeQuery = "ANALYZE messages"
+const AnalyzeTableLockId = 111111 ## An arbitrary and different lock id
+const RunAnalyzeInterval = timer.days(1)
+
+proc analyzeTableLoop(self: PostgresDriver) {.async.} =
+  ## The database stats should be calculated regularly so that the planner
+  ## picks up the proper indexes and we have better query performance.
+  while true:
+    debug "analyzeTableLoop lock db"
+    (await self.acquireDatabaseLock(AnalyzeTableLockId)).isOkOr:
+      if error != EXPECTED_LOCK_ERROR:
+        error "failed to acquire lock in analyzeTableLoop", error = error
+      await sleepAsync(RunAnalyzeInterval)
+      continue
+
+    debug "analyzeTableLoop start analysis"
+    (await self.performWriteQuery(AnalyzeQuery)).isOkOr:
+      error "failed to run ANALYZE messages", error = error
+
+    debug "analyzeTableLoop unlock db"
+    (await self.releaseDatabaseLock(AnalyzeTableLockId)).isOkOr:
+      error "failed to release lock analyzeTableLoop", error = error
+
+    debug "analyzeTableLoop analysis completed"
+
+    await sleepAsync(RunAnalyzeInterval)
+
+proc startAnalyzeTableLoop*(self: PostgresDriver) =
+  self.futLoopAnalyzeTable = self.analyzeTableLoop

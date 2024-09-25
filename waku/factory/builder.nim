@@ -8,7 +8,12 @@ import
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
   libp2p/transports/wstransport
-import ../waku_enr, ../discovery/waku_discv5, ../waku_node, ../node/peer_manager
+import
+  ../waku_enr,
+  ../discovery/waku_discv5,
+  ../waku_node,
+  ../node/peer_manager,
+  ../common/rate_limit/setting
 
 type
   WakuNodeBuilder* = object # General
@@ -33,6 +38,9 @@ type
     switchSslSecureKey: Option[string]
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
+
+    #Rate limit configs for non-relay req-resp protocols
+    rateLimitSettings: Option[seq[string]]
 
   WakuNodeBuilderResult* = Result[void, string]
 
@@ -104,6 +112,9 @@ proc withPeerManagerConfig*(
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
+
+proc withRateLimit*(builder: var WakuNodeBuilder, limits: seq[string]) =
+  builder.rateLimitSettings = some(limits)
 
 ## Waku switch
 
@@ -183,5 +194,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
     )
   except Exception:
     return err("failed to build WakuNode instance: " & getCurrentExceptionMsg())
+
+  if builder.rateLimitSettings.isSome():
+    ?node.setRateLimits(builder.rateLimitSettings.get())
 
   ok(node)

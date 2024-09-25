@@ -25,8 +25,8 @@ procSuite "Relay (GossipSub) Peer Exchange":
         newTestWakuNode(node2Key, listenAddress, port, sendSignedPeerRecord = true)
 
     # When both client and server mount relay without a handler
-    await node1.mountRelay(@[DefaultPubsubTopic])
-    await node2.mountRelay(@[DefaultPubsubTopic], none(RoutingRecordsHandler))
+    await node1.mountRelay(@[DefaultRelayShard])
+    await node2.mountRelay(@[DefaultRelayShard], none(RoutingRecordsHandler))
 
     # Then the relays are mounted without a handler
     check:
@@ -75,9 +75,9 @@ procSuite "Relay (GossipSub) Peer Exchange":
       peerExchangeHandle: RoutingRecordsHandler = peerExchangeHandler
 
     # Givem the nodes mount relay with a peer exchange handler
-    await node1.mountRelay(@[DefaultPubsubTopic], some(emptyPeerExchangeHandle))
-    await node2.mountRelay(@[DefaultPubsubTopic], some(emptyPeerExchangeHandle))
-    await node3.mountRelay(@[DefaultPubsubTopic], some(peerExchangeHandle))
+    await node1.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))
+    await node2.mountRelay(@[DefaultRelayShard], some(emptyPeerExchangeHandle))
+    await node3.mountRelay(@[DefaultRelayShard], some(peerExchangeHandle))
 
     # Ensure that node1 prunes all peers after the first connection
     node1.wakuRelay.parameters.dHigh = 1

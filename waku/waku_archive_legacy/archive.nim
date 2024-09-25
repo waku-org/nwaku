@@ -151,6 +151,7 @@ proc findMessages*(
       hashes = query.hashes,
       maxPageSize = maxPageSize + 1,
       ascendingOrder = isAscendingOrder,
+      requestId = query.requestId,
     )
   ).valueOr:
     return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))
@@ -230,6 +231,7 @@ proc findMessagesV2*(
       endTime = query.endTime,
       maxPageSize = maxPageSize + 1,
       ascendingOrder = isAscendingOrder,
+      requestId = query.requestId,
     )
   ).valueOr:
     return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))

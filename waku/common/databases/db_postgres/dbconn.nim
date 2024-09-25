@@ -1,4 +1,11 @@
-import std/[times, strutils], results, chronos
+import
+  std/[times, strutils, asyncnet, os, sequtils],
+  results,
+  chronos,
+  metrics,
+  re,
+  chronicles
+import ./query_metrics
 
 include db_connector/db_postgres
 
@@ -33,7 +40,20 @@ proc open*(connString: string): Result[DbConn, string] =
 
     return err("unknown reason")
 
-  ok(conn)
+  ## registering the socket fd in chronos for better wait for data
+  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(conn))
+  asyncengine.register(asyncFd)
+
+  return ok(conn)
+
+proc closeDbConn*(db: DbConn) {.raises: [OSError].} =
+  let fd = db.pqsocket()
+  if fd != -1:
+    asyncengine.unregister(cast[asyncengine.AsyncFD](fd))
+  db.close()
+
+proc `$`(self: SqlQuery): string =
+  return cast[string](self)
 
 proc sendQuery(
     db: DbConn, query: SqlQuery, args: seq[string]
@@ -112,23 +132,17 @@ proc waitQueryToFinish(
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  while db.pqisBusy() == 1:
-    ## TODO: Enhance performance in concurrent queries.
-    ## The connection keeps busy for quite a long time when performing intense concurrect queries.
-    ## For example, a given query can last 11 milliseconds within from the database point of view
-    ## but, on the other hand, the connection remains in "db.pqisBusy() == 1" for 100ms more.
-    ## I think this is because `nwaku` is single-threaded and it has to handle many connections (20)
-    ## simultaneously. Therefore, there is an underlying resource sharing (cpu) that makes this
-    ## to happen. Notice that the _Postgres_ database spawns one process per each connection.
-    let success = db.pqconsumeInput()
+  var dataAvailable = false
+  proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
+    dataAvailable = true
 
-    if success != 1:
-      db.check().isOkOr:
-        return err("failed pqconsumeInput: " & $error)
+  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(db))
 
-      return err("failed pqconsumeInput: unknown reason")
+  asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
+    return err("failed to add event reader in waitQueryToFinish: " & $error)
 
-    await sleepAsync(timer.milliseconds(0)) # Do not block the async runtime
+  while not dataAvailable:
+    await sleepAsync(timer.milliseconds(1))
 
   ## Now retrieve the result
   while true:
@@ -148,11 +162,36 @@ proc waitQueryToFinish(
 proc dbConnQuery*(
     db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
+  ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
+  var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "")
+  querySummary = querySummary.replace(re"\d+", "")
+  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 200)]
+
+  var queryStartTime = getTime().toUnixFloat()
+
   (await db.sendQuery(query, args)).isOkOr:
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
+  let sendDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(sendDuration, [querySummary, "sendQuery"])
+
+  queryStartTime = getTime().toUnixFloat()
+
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
+
+  let waitDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(waitDuration, [querySummary, "waitFinish"])
+
+  query_count.inc(labelValues = [querySummary])
+
+  if "insert" notin ($query).toLower():
+    debug "dbConnQuery",
+      query = $query,
+      querySummary,
+      waitDurationSecs = waitDuration,
+      sendDurationSecs = sendDuration
 
   return ok()
 
@@ -164,10 +203,25 @@ proc dbConnQueryPrepared*(
     paramFormats: seq[int32],
     rowCallback: DataProc,
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  var queryStartTime = getTime().toUnixFloat()
   db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
+  let sendDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(sendDuration, [stmtName, "sendQuery"])
+
+  queryStartTime = getTime().toUnixFloat()
+
   (await db.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
+
+  let waitDuration = getTime().toUnixFloat() - queryStartTime
+  query_time_secs.set(waitDuration, [stmtName, "waitFinish"])
+
+  query_count.inc(labelValues = [stmtName])
+
+  if "insert" notin stmtName.toLower():
+    debug "dbConnQueryPrepared",
+      stmtName, waitDurationSecs = waitDuration, sendDurationSecs = sendDuration
 
   return ok()

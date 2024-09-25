@@ -8,7 +8,8 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
 LOG_LEVEL := TRACE
-
+NPH := vendor/nph/src/nph
+FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
@@ -98,7 +99,7 @@ ifeq (, $(shell which cargo))
 endif
 
 anvil: rustup
-ifeq (, $(shell which anvil))
+ifeq (, $(shell which anvil 2> /dev/null))
 # Install Anvil if it's not installed
 	./scripts/install_anvil.sh
 endif
@@ -164,6 +165,34 @@ clean-librln:
 
 # Extend clean target
 clean: | clean-librln
+
+######################
+###   NEGENTROPY   ###
+######################
+.PHONY: negentropy
+
+LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
+LIBNEGENTROPY_FILE := libnegentropy.a
+
+deps: | negentropy
+
+clean: | negentropy-clean
+
+$(LIBNEGENTROPY_FILE):
+	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) && \
+		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ${LIBNEGENTROPY_FILE}
+
+negentropy: | $(LIBNEGENTROPY_FILE)
+    ## Pass libnegentropy and it's deps to linker.
+    $(eval LIBNEGENTROPY_PATH := $(shell if [ -f "$(LIBNEGENTROPY_FILE)" ]; then echo "$(LIBNEGENTROPY_FILE)"; else echo "./$(LIBNEGENTROPY_FILE)"; fi))
+    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH) --passL:-lcrypto --passL:-lssl --passL:-lstdc++)
+ifeq ($(detected_OS),Darwin)
+    $(eval NIM_PARAMS += --passL:-L/opt/homebrew/lib/)
+endif
+
+negentropy-clean:
+	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) clean && \
+		rm ${LIBNEGENTROPY_FILE}
 
 
 #################
@@ -241,6 +270,36 @@ networkmonitor: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
 		$(ENV_SCRIPT) nim networkmonitor $(NIM_PARAMS) waku.nims
 
+############
+## Format ##
+############
+.PHONY: build-nph install-nph clean-nph print-nph-path
+
+build-nph:
+		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
+
+GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
+
+install-nph: build-nph
+ifeq ("$(wildcard $(GIT_PRE_COMMIT_HOOK))","")
+	cp ./scripts/git_pre_commit_format.sh $(GIT_PRE_COMMIT_HOOK)
+else
+	echo "$(GIT_PRE_COMMIT_HOOK) already present, will NOT override"
+	exit 1
+endif
+
+nph/%: build-nph
+	echo -e $(FORMAT_MSG) "nph/$*" && \
+		$(NPH) $*
+
+clean-nph:
+	rm -f $(NPH)
+
+# To avoid hardcoding nph binary location in several places
+print-nph-path:
+	echo "$(NPH)"
+
+clean: | clean-nph
 
 ###################
 ## Documentation ##
@@ -373,6 +432,7 @@ cwaku_example: | build libwaku
 		./examples/cbindings/base64.c \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
+		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
@@ -385,6 +445,7 @@ cppwaku_example: | build libwaku
 		./examples/cpp/base64.cpp \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
+		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
@@ -411,3 +472,4 @@ release-notes:
 			sed -E 's@#([0-9]+)@[#\1](https://github.com/waku-org/nwaku/issues/\1)@g'
 # I could not get the tool to replace issue ids with links, so using sed for now,
 # asked here: https://github.com/bvieira/sv4git/discussions/101
+

@@ -13,6 +13,10 @@ type RelayMsgType* = enum
   SUBSCRIBE
   UNSUBSCRIBE
   PUBLISH
+  LIST_CONNECTED_PEERS
+    ## to return the list of all connected peers to an specific pubsub topic
+  LIST_MESH_PEERS
+    ## to return the list of only the peers that conform the mesh for a particular pubsub topic
 
 type ThreadSafeWakuMessage* = object
   payload: SharedSeq[byte]
@@ -104,5 +108,13 @@ proc process*(
     elif numPeers > 0:
       let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
       return ok(msgHash)
+  of LIST_CONNECTED_PEERS:
+    let numConnPeers = waku.node.wakuRelay.getNumConnectedPeers($self.pubsubTopic).valueOr:
+      return err($error)
+    return ok($numConnPeers)
+  of LIST_MESH_PEERS:
+    let numPeersInMesh = waku.node.wakuRelay.getNumPeersInMesh($self.pubsubTopic).valueOr:
+      return err($error)
+    return ok($numPeersInMesh)
 
   return ok("")

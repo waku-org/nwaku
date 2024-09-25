@@ -12,12 +12,6 @@ const
   DefaultSubscriptionTimeToLiveSec* = 5.minutes
   MessageCacheTTL* = 2.minutes
 
-  # Acceptable call frequence from one peer using filter service
-  # Assumption is having to set up a subscription with max 30 calls than using ping in every min
-  # While subscribe/unsubscribe events are distributed in time among clients, pings will happen regularly from
-  # all subscribed peers
-  FilterPerPeerRateLimit*: RateLimitSetting = (30, 1.minutes)
-
 type
   # a single filter criterion is fully defined by a pubsub topic and content topic
   FilterCriterion* = tuple[pubsubTopic: PubsubTopic, contentTopic: ContentTopic]

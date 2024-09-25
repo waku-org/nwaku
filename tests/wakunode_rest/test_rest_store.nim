@@ -297,8 +297,7 @@ procSuite "Waku Rest API - Store v3":
         if reqHash.isSome():
           reqHash.get().toRestStringWakuMessageHash()
         else:
-          ""
-        , # base64-encoded digest. Empty ignores the field.
+          "", # base64-encoded digest. Empty ignores the field.
         "true", # ascending
         "7", # page size. Empty implies default page size.
       )
@@ -790,8 +789,7 @@ procSuite "Waku Rest API - Store v3":
         if reqHash.isSome():
           reqHash.get().toRestStringWakuMessageHash()
         else:
-          ""
-        , # base64-encoded digest. Empty ignores the field.
+          "", # base64-encoded digest. Empty ignores the field.
         "true", # ascending
         "3", # page size. Empty implies default page size.
       )
@@ -827,8 +825,7 @@ procSuite "Waku Rest API - Store v3":
       if reqHash.isSome():
         reqHash.get().toRestStringWakuMessageHash()
       else:
-        ""
-      , # base64-encoded digest. Empty ignores the field.
+        "", # base64-encoded digest. Empty ignores the field.
     )
 
     check:
@@ -850,8 +847,7 @@ procSuite "Waku Rest API - Store v3":
       if reqHash.isSome():
         reqHash.get().toRestStringWakuMessageHash()
       else:
-        ""
-      , # base64-encoded digest. Empty ignores the field.
+        "", # base64-encoded digest. Empty ignores the field.
       "true", # ascending
       "5", # page size. Empty implies default page size.
     )

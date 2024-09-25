@@ -328,6 +328,7 @@ proc new*(
   )
 
   wf.initProtocolHandler()
+  setServiceLimitMetric(WakuFilterSubscribeCodec, rateLimitSetting)
   return wf
 
 const MaintainSubscriptionsInterval* = 1.minutes

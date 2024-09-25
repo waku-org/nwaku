@@ -5,6 +5,7 @@ import
   ../waku_relay,
   ./common,
   ./protocol,
+  ./protocol_metrics,
   ../waku_rln_relay,
   ../waku_rln_relay/protocol_types
 
@@ -54,8 +55,6 @@ proc getRelayPushHandler*(
       ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       notice "Lightpush request has not been published to any peers", msg_hash = msgHash
-      return err(
-        "Lightpush request has not been published to any peers. msg_hash: " & msgHash
-      )
+      return err(protocol_metrics.notPublishedAnyPeer)
 
     return ok()

@@ -102,6 +102,7 @@ proc initNode(
   builder.withPeerManagerConfig(
     maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
   )
+  builder.withRateLimit(conf.rateLimits)
 
   node =
     ?builder.build().mapErr(
@@ -112,6 +113,13 @@ proc initNode(
   ok(node)
 
 ## Mount protocols
+
+proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+  if conf.numShardsInNetwork != 0:
+    return conf.numShardsInNetwork
+  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
+  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
+  return uint32(MaxShardIndex + 1)
 
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
@@ -127,7 +135,14 @@ proc setupProtocols(
   node.mountMetadata(conf.clusterId).isOkOr:
     return err("failed to mount waku metadata protocol: " & error)
 
-  node.mountSharding(conf.clusterId, uint32(conf.pubsubTopics.len)).isOkOr:
+    # If conf.numShardsInNetwork is not set, use the number of shards configured as numShardsInNetwork
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
+
+  if conf.numShardsInNetwork == 0:
+    warn "Number of shards in network not configured, setting it to",
+      numShardsInNetwork = $numShardsInNetwork
+
+  node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
     return err("failed to mount waku sharding: " & error)
 
   # Mount relay on all nodes
@@ -151,14 +166,20 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  let shards =
-    conf.contentTopics.mapIt(node.wakuSharding.getShard(it).expect("Valid Shard"))
+  var autoShards: seq[RelayShard]
+  for contentTopic in conf.contentTopics:
+    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+      return err("Could not parse content topic: " & error)
+    autoShards.add(shard)
+
   debug "Shards created from content topics",
-    contentTopics = conf.contentTopics, shards = shards
+    contentTopics = conf.contentTopics, shards = autoShards
+
+  let confShards =
+    conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+  let shards = confShards & autoShards
 
   if conf.relay:
-    let pubsubTopics = conf.pubsubTopics & shards
-
     let parsedMaxMsgSize = parseMsgSize(conf.maxMessageSize).valueOr:
       return err("failed to parse 'max-num-bytes-msg-size' param: " & $error)
 
@@ -166,25 +187,22 @@ proc setupProtocols(
 
     try:
       await mountRelay(
-        node,
-        pubsubTopics,
-        peerExchangeHandler = peerExchangeHandler,
-        int(parsedMaxMsgSize),
+        node, shards, peerExchangeHandler = peerExchangeHandler, int(parsedMaxMsgSize)
       )
     except CatchableError:
       return err("failed to mount waku relay protocol: " & getCurrentExceptionMsg())
 
     # Add validation keys to protected topics
-    var subscribedProtectedTopics: seq[ProtectedTopic]
-    for topicKey in conf.protectedTopics:
-      if topicKey.topic notin pubsubTopics:
-        warn "protected topic not in subscribed pubsub topics, skipping adding validator",
-          protectedTopic = topicKey.topic, subscribedTopics = pubsubTopics
+    var subscribedProtectedShards: seq[ProtectedShard]
+    for shardKey in conf.protectedShards:
+      if shardKey.shard notin conf.shards:
+        warn "protected shard not in subscribed shards, skipping adding validator",
+          protectedShard = shardKey.shard, subscribedShards = shards
         continue
-      subscribedProtectedTopics.add(topicKey)
+      subscribedProtectedShards.add(shardKey)
       notice "routing only signed traffic",
-        protectedTopic = topicKey.topic, publicKey = topicKey.key
-    node.wakuRelay.addSignedTopicsValidator(subscribedProtectedTopics)
+        protectedShard = shardKey.shard, publicKey = shardKey.key
+    node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
     # Only relay nodes can be rendezvous points.
     if conf.rendezvous:
@@ -258,20 +276,17 @@ proc setupProtocols(
     if mountArcRes.isErr():
       return err("failed to mount waku archive protocol: " & mountArcRes.error)
 
-    let rateLimitSetting: RateLimitSetting =
-      (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-
     if conf.legacyStore:
       # Store legacy setup
       try:
-        await mountLegacyStore(node, rateLimitSetting)
+        await mountLegacyStore(node, node.rateLimitSettings.getSetting(STOREV2))
       except CatchableError:
         return
           err("failed to mount waku legacy store protocol: " & getCurrentExceptionMsg())
 
     # Store setup
     try:
-      await mountStore(node, rateLimitSetting)
+      await mountStore(node, node.rateLimitSettings.getSetting(STOREV3))
     except CatchableError:
       return err("failed to mount waku store protocol: " & getCurrentExceptionMsg())
 
@@ -296,12 +311,21 @@ proc setupProtocols(
   if conf.store and conf.storeResume:
     node.setupStoreResume()
 
+  if conf.storeSync:
+    (
+      await node.mountWakuSync(
+        int(conf.storeSyncMaxPayloadSize),
+        conf.storeSyncRange.seconds(),
+        conf.storeSyncInterval.seconds(),
+        conf.storeSyncRelayJitter.seconds(),
+      )
+    ).isOkOr:
+      return err("failed to mount waku sync protocol: " & $error)
+
   # NOTE Must be mounted after relay
   if conf.lightpush:
     try:
-      let rateLimitSetting: RateLimitSetting =
-        (conf.requestRateLimit, chronos.seconds(conf.requestRatePeriod))
-      await mountLightPush(node, rateLimitSetting)
+      await mountLightPush(node, node.rateLimitSettings.getSetting(LIGHTPUSH))
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
@@ -321,6 +345,7 @@ proc setupProtocols(
         subscriptionTimeout = chronos.seconds(conf.filterSubscriptionTimeout),
         maxFilterPeers = conf.filterMaxPeersToServe,
         maxFilterCriteriaPerPeer = conf.filterMaxCriteria,
+        rateLimitSetting = node.rateLimitSettings.getSetting(FILTER),
       )
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
@@ -341,7 +366,9 @@ proc setupProtocols(
   # waku peer exchange setup
   if conf.peerExchange:
     try:
-      await mountPeerExchange(node, some(conf.clusterId))
+      await mountPeerExchange(
+        node, some(conf.clusterId), node.rateLimitSettings.getSetting(PEEREXCHG)
+      )
     except CatchableError:
       return
         err("failed to mount waku peer-exchange protocol: " & getCurrentExceptionMsg())

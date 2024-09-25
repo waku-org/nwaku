@@ -3,6 +3,7 @@
 import std/options, results, chronicles, chronos, metrics, bearssl/rand
 import
   ../node/peer_manager,
+  ../node/delivery_monitor/publish_observer,
   ../utils/requests,
   ../waku_core,
   ./common,
@@ -16,11 +17,15 @@ logScope:
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
   rng*: ref rand.HmacDrbgContext
+  publishObservers: seq[PublishObserver]
 
 proc new*(
     T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
 ): T =
   WakuLightPushClient(peerManager: peerManager, rng: rng)
+
+proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
+  wl.publishObservers.add(obs)
 
 proc sendPushRequest(
     wl: WakuLightPushClient, req: PushRequest, peer: PeerId | RemotePeerInfo
@@ -67,4 +72,26 @@ proc publish*(
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  return await wl.sendPushRequest(pushRequest, peer)
+  ?await wl.sendPushRequest(pushRequest, peer)
+
+  for obs in wl.publishObservers:
+    obs.onMessagePublished(pubSubTopic, message)
+
+  return ok()
+
+proc publishToAny*(
+    wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
+): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+  ## This proc is similar to the publish one but in this case
+  ## we don't specify a particular peer and instead we get it from peer manager
+
+  let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
+    return err("could not retrieve a peer supporting WakuLightPushCodec")
+
+  let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
+  ?await wl.sendPushRequest(pushRequest, peer)
+
+  for obs in wl.publishObservers:
+    obs.onMessagePublished(pubSubTopic, message)
+
+  return ok()

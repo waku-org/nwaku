@@ -161,6 +161,9 @@ proc installRelayApiHandlers*(
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
 
+    # Log for message tracking purposes
+    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
       pubSubTopic = pubSubTopic, rln = not node.wakuRlnRelay.isNil()
@@ -259,7 +262,7 @@ proc installRelayApiHandlers*(
 
     let pubsubTopic = node.wakuSharding.getShard(message.contentTopic).valueOr:
       let msg = "Autosharding error: " & error
-      error "publish error", msg = msg
+      error "publish error", err = msg
       return RestApiResponse.badRequest("Failed to publish. " & msg)
 
     # if RLN is mounted, append the proof to the message
@@ -272,11 +275,14 @@ proc installRelayApiHandlers*(
     (await node.wakuRelay.validateMessage(pubsubTopic, message)).isOkOr:
       return RestApiResponse.badRequest("Failed to publish: " & error)
 
+    # Log for message tracking purposes
+    logMessageInfo(node.wakuRelay, "rest", pubsubTopic, "none", message, onRecv = true)
+
     # if we reach here its either a non-RLN message or a RLN message with a valid proof
     debug "Publishing message",
       contentTopic = message.contentTopic, rln = not node.wakuRlnRelay.isNil()
 
-    var publishFut = node.publish(some(pubsubTopic), message)
+    var publishFut = node.publish(some($pubsubTopic), message)
     if not await publishFut.withTimeout(futTimeout):
       return RestApiResponse.internalServerError("Failed to publish: timedout")
 

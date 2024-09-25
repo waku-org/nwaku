@@ -20,8 +20,6 @@ suite "Peer Manager":
       serverKey {.threadvar.}: PrivateKey
       clientKey {.threadvar.}: PrivateKey
       clusterId {.threadvar.}: uint64
-      shardTopic0 {.threadvar.}: string
-      shardTopic1 {.threadvar.}: string
 
     asyncSetup:
       listenPort = Port(0)
@@ -29,17 +27,15 @@ suite "Peer Manager":
       serverKey = generateSecp256k1Key()
       clientKey = generateSecp256k1Key()
       clusterId = 1
-      shardTopic0 = "/waku/2/rs/" & $clusterId & "/0"
-      shardTopic1 = "/waku/2/rs/" & $clusterId & "/1"
 
     asyncTest "light client is not disconnected":
       # Given two nodes with the same shardId
       let
         server = newTestWakuNode(
-          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
         )
         client = newTestWakuNode(
-          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1]
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
         )
 
       # And both mount metadata and filter
@@ -71,10 +67,10 @@ suite "Peer Manager":
       # Given two nodes with the same shardId
       let
         server = newTestWakuNode(
-          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
         )
         client = newTestWakuNode(
-          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
         )
 
       # And both mount metadata and relay
@@ -104,10 +100,10 @@ suite "Peer Manager":
       # Given two nodes with different shardIds
       let
         server = newTestWakuNode(
-          serverKey, listenAddress, listenPort, pubsubTopics = @[shardTopic0]
+          serverKey, listenAddress, listenPort, clusterId = clusterId, shards = @[0]
         )
         client = newTestWakuNode(
-          clientKey, listenAddress, listenPort, pubsubTopics = @[shardTopic1]
+          clientKey, listenAddress, listenPort, clusterId = clusterId, shards = @[1]
         )
 
       # And both mount metadata and relay

@@ -1,7 +1,8 @@
 package main
 
 /*
-	#cgo LDFLAGS: -L../../build/ -lwaku -Wl,--allow-multiple-definition
+	#cgo LDFLAGS: -L../../build/ -lwaku -lnegentropy -Wl,--allow-multiple-definition
+	#cgo LDFLAGS: -L../../ -Wl,-rpath,../../
 
 	#include "../../library/libwaku.h"
 	#include <stdio.h>
@@ -169,6 +170,10 @@ package main
 
 	void cGoWakuListenAddresses(void* ctx, void* resp) {
 		WAKU_CALL (waku_listen_addresses(ctx, (WakuCallBack) callback, resp) );
+	}
+
+	void cGoWakuGetMyENR(void* ctx, void* resp) {
+		WAKU_CALL (waku_get_my_enr(ctx, (WakuCallBack) callback, resp) );
 	}
 
 */
@@ -446,6 +451,20 @@ func (self *WakuNode) WakuListenAddresses() (string, error) {
 	return "", errors.New(errMsg)
 }
 
+func (self *WakuNode) WakuGetMyENR() (string, error) {
+	var resp = C.allocResp()
+	defer C.freeResp(resp)
+	C.cGoWakuGetMyENR(self.ctx, resp)
+
+	if C.getRet(resp) == C.RET_OK {
+		var myENR = C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+		return myENR, nil
+	}
+	errMsg := "error WakuGetMyENR: " +
+		C.GoStringN(C.getMyCharPtr(resp), C.int(C.getMyCharLen(resp)))
+	return "", errors.New(errMsg)
+}
+
 func main() {
 	WakuSetup()
 
@@ -516,11 +535,18 @@ func main() {
 		return
 	}
 
+	myENR, err := node.WakuGetMyENR()
+	if err != nil {
+		fmt.Println("Error happened:", err.Error())
+		return
+	}
+
 	fmt.Println("Version:", version)
 	fmt.Println("Custom content topic:", formattedContentTopic)
 	fmt.Println("Custom pubsub topic:", formattedPubsubTopic)
 	fmt.Println("Default pubsub topic:", defaultPubsubTopic)
 	fmt.Println("Listen addresses:", listenAddresses)
+	fmt.Println("My ENR:", myENR)
 
 	// Wait for a SIGINT or SIGTERM signal
 	ch := make(chan os.Signal, 1)

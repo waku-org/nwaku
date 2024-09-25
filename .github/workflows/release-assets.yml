@@ -58,7 +58,7 @@ jobs:
           tar -cvzf ${{steps.vars.outputs.nwaku}} ./build/
 
       - name: Upload asset
-        uses: actions/upload-artifact@v2.2.3
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: ${{steps.vars.outputs.nwaku}}
           path: ${{steps.vars.outputs.nwaku}}

@@ -24,6 +24,7 @@ const
 
   # Retention policy
   WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
+  WakuArchiveDefaultRetentionPolicyIntervalWhenError* = chronos.minutes(1)
 
   # Metrics reporting
   WakuArchiveDefaultMetricsReportInterval* = chronos.minutes(30)
@@ -97,6 +98,7 @@ proc handleMessage*(
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
+    return
 
   trace "message archived",
     hash_hash = msgHash.to0xHex(),
@@ -143,6 +145,7 @@ proc findMessages*(
       hashes = query.hashes,
       maxPageSize = maxPageSize + 1,
       ascendingOrder = isAscendingOrder,
+      requestId = query.requestId,
     )
   ).valueOr:
     return err(ArchiveError(kind: ArchiveErrorKind.DRIVER_ERROR, cause: error))
@@ -192,6 +195,9 @@ proc periodicRetentionPolicy(self: WakuArchive) {.async.} =
     (await policy.execute(self.driver)).isOkOr:
       waku_archive_errors.inc(labelValues = [retPolicyFailure])
       error "failed execution of retention policy", error = error
+      await sleepAsync(WakuArchiveDefaultRetentionPolicyIntervalWhenError)
+      ## in case of error, let's try again faster
+      continue
 
     await sleepAsync(WakuArchiveDefaultRetentionPolicyInterval)
 

@@ -110,8 +110,7 @@ proc toStoreResponseRest*(histResp: HistoryResponse): StoreResponseRest =
         if message.meta.len > 0:
           some(base64.encode(message.meta))
         else:
-          none(Base64String)
-      ,
+          none(Base64String),
     )
 
   var storeWakuMsgs: seq[StoreWakuMessage]

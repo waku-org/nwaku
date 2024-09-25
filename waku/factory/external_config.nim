@@ -19,18 +19,23 @@ import
   ../common/confutils/envvar/std/net as confEnvvarNet,
   ../common/logging,
   ../waku_enr,
-  ../node/peer_manager
+  ../node/peer_manager,
+  ../waku_core/topics/pubsub_topic
 
 include ../waku_core/message/default_values
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
+# Git version in git describe format (defined at compile time)
+const git_version* {.strdefine.} = "n/a"
+
 type ConfResult*[T] = Result[T, string]
-type ProtectedTopic* = object
-  topic*: string
-  key*: secp256k1.SkPublicKey
 
 type EthRpcUrl* = distinct string
+
+type ProtectedShard* = object
+  shard*: uint16
+  key*: secp256k1.SkPublicKey
 
 type StartUpCommand* = enum
   noCommand # default, runs waku
@@ -134,10 +139,17 @@ type WakuNodeConf* = object
     ##  Application-level configuration
     protectedTopics* {.
       desc:
-        "Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
-      defaultValue: newSeq[ProtectedTopic](0),
+        "Deprecated. Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
+      defaultValue: newSeq[ProtectedShard](0),
       name: "protected-topic"
-    .}: seq[ProtectedTopic]
+    .}: seq[ProtectedShard]
+
+    protectedShards* {.
+      desc:
+        "Shards and its public keys to be used for message validation, shard:pubkey. Argument may be repeated.",
+      defaultValue: newSeq[ProtectedShard](0),
+      name: "protected-shard"
+    .}: seq[ProtectedShard]
 
     ## General node config
     clusterId* {.
@@ -148,7 +160,7 @@ type WakuNodeConf* = object
     .}: uint16
 
     agentString* {.
-      defaultValue: "nwaku",
+      defaultValue: "nwaku-" & git_version,
       desc: "Node agent string which is used as identifier in network",
       name: "agent-string"
     .}: string
@@ -303,14 +315,23 @@ type WakuNodeConf* = object
       name: "keep-alive"
     .}: bool
 
+    # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
+    numShardsInNetwork* {.
+      desc: "Number of shards in the network",
+      defaultValue: 0,
+      name: "num-shards-in-network"
+    .}: uint32
+
     pubsubTopics* {.
-      desc: "Default pubsub topic to subscribe to. Argument may be repeated.",
+      desc:
+        "Deprecated. Default pubsub topic to subscribe to. Argument may be repeated.",
       defaultValue: @[],
       name: "pubsub-topic"
     .}: seq[string]
 
     shards* {.
-      desc: "Shards index to subscribe to [0..MAX_SHARDS-1]. Argument may be repeated.",
+      desc:
+        "Shards index to subscribe to [0..NUM_SHARDS_IN_NETWORK-1]. Argument may be repeated.",
       defaultValue:
         @[
           uint16(0),
@@ -385,6 +406,40 @@ type WakuNodeConf* = object
       name: "store-resume"
     .}: bool
 
+    ## Sync config
+    storeSync* {.
+      desc: "Enable store sync protocol: true|false",
+      defaultValue: false,
+      name: "store-sync"
+    .}: bool
+
+    storeSyncInterval* {.
+      desc: "Interval between store sync attempts. In seconds.",
+      defaultValue: 300, # 5 minutes
+      name: "store-sync-interval"
+    .}: int64
+
+    storeSyncRange* {.
+      desc: "Amount of time to sync. In seconds.",
+      defaultValue: 3600, # 1 hours
+      name: "store-sync-range"
+    .}: int64
+
+    storeSyncRelayJitter* {.
+      hidden,
+      desc: "Time offset to account for message propagation jitter. In seconds.",
+      defaultValue: 20,
+      name: "store-sync-relay-jitter"
+    .}: int64
+
+    storeSyncMaxPayloadSize* {.
+      hidden,
+      desc:
+        "Max size in bytes of the inner negentropy payload. Cannot be less than 5K, 0 is unlimited.",
+      defaultValue: 0,
+      name: "store-sync-max-payload-size"
+    .}: int64
+
     ## Filter config
     filter* {.
       desc: "Enable filter protocol: true|false", defaultValue: false, name: "filter"
@@ -429,6 +484,15 @@ type WakuNodeConf* = object
       name: "lightpushnode"
     .}: string
 
+    ## Reliability config
+    reliabilityEnabled* {.
+      desc:
+        """Adds an extra effort in the delivery/reception of messages by leveraging store-v3 requests.
+with the drawback of consuming some more bandwitdh.""",
+      defaultValue: false,
+      name: "reliability"
+    .}: bool
+
     ## REST HTTP config
     rest* {.
       desc: "Enable Waku REST HTTP server: true|false", defaultValue: true, name: "rest"
@@ -456,12 +520,6 @@ type WakuNodeConf* = object
       desc: "Enable access to REST HTTP Admin API: true|false",
       defaultValue: false,
       name: "rest-admin"
-    .}: bool
-
-    restPrivate* {.
-      desc: "Enable access to REST HTTP Private API: true|false",
-      defaultValue: false,
-      name: "rest-private"
     .}: bool
 
     restAllowOrigin* {.
@@ -622,21 +680,18 @@ type WakuNodeConf* = object
       name: "websocket-secure-cert-path"
     .}: string
 
-    ## Rate limitation config
-    ## Currently default to switch of rate limit until become official
-    requestRateLimit* {.
+    ## Rate limitation config, if not set, rate limit checks will not be performed
+    rateLimits* {.
       desc:
-        "Number of requests to serve by each service in the specified period. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-limit"
-    .}: int
-
-    ## Currently default to switch of rate limit until become official
-    requestRatePeriod* {.
-      desc: "Period of request rate limitation in seconds. Set it to 0 for unlimited",
-      defaultValue: 0,
-      name: "request-rate-period"
-    .}: int64
+        "Rate limit settings for different protocols." &
+        "Format: protocol:volume/period<unit>" &
+        " Where 'protocol' can be one of: <store|storev2|storev3|lightpush|px|filter> if not defined it means a global setting" &
+        " 'volume' and period must be an integer value. " &
+        " 'unit' must be one of <h|m|s|ms> - hours, minutes, seconds, milliseconds respectively. " &
+        "Argument may be repeated.",
+      defaultValue: newSeq[string](0),
+      name: "rate-limit"
+    .}: seq[string]
 
 ## Parsing
 
@@ -667,20 +722,36 @@ proc parseCmdArg*[T](_: type seq[T], s: string): seq[T] {.raises: [ValueError].}
 proc completeCmdArg*(T: type crypto.PrivateKey, val: string): seq[string] =
   return @[]
 
-proc parseCmdArg*(T: type ProtectedTopic, p: string): T =
+# TODO: Remove when removing protected-topic configuration
+proc isNumber(x: string): bool =
+  try:
+    discard parseInt(x)
+    result = true
+  except ValueError:
+    result = false
+
+proc parseCmdArg*(T: type ProtectedShard, p: string): T =
   let elements = p.split(":")
   if elements.len != 2:
     raise newException(
-      ValueError, "Invalid format for protected topic expected topic:publickey"
+      ValueError, "Invalid format for protected shard expected shard:publickey"
     )
-
   let publicKey = secp256k1.SkPublicKey.fromHex(elements[1])
   if publicKey.isErr:
     raise newException(ValueError, "Invalid public key")
 
-  return ProtectedTopic(topic: elements[0], key: publicKey.get())
+  if isNumber(elements[0]):
+    return ProtectedShard(shard: uint16.parseCmdArg(elements[0]), key: publicKey.get())
 
-proc completeCmdArg*(T: type ProtectedTopic, val: string): seq[string] =
+  # TODO: Remove when removing protected-topic configuration
+  let shard = RelayShard.parse(elements[0]).valueOr:
+    raise newException(
+      ValueError,
+      "Invalid pubsub topic. Pubsub topics must be in the format /waku/2/rs/<cluster-id>/<shard-id>",
+    )
+  return ProtectedShard(shard: shard.shardId, key: publicKey.get())
+
+proc completeCmdArg*(T: type ProtectedShard, val: string): seq[string] =
   return @[]
 
 proc completeCmdArg*(T: type IpAddress, val: string): seq[string] =
@@ -742,18 +813,18 @@ proc readValue*(
     raise newException(SerializationError, getCurrentExceptionMsg())
 
 proc readValue*(
-    r: var TomlReader, value: var ProtectedTopic
+    r: var TomlReader, value: var ProtectedShard
 ) {.raises: [SerializationError].} =
   try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+    value = parseCmdArg(ProtectedShard, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
 proc readValue*(
-    r: var EnvvarReader, value: var ProtectedTopic
+    r: var EnvvarReader, value: var ProtectedShard
 ) {.raises: [SerializationError].} =
   try:
-    value = parseCmdArg(ProtectedTopic, r.readValue(string))
+    value = parseCmdArg(ProtectedShard, r.readValue(string))
   except CatchableError:
     raise newException(SerializationError, getCurrentExceptionMsg())
 
@@ -786,6 +857,7 @@ proc load*(T: type WakuNodeConf, version = ""): ConfResult[T] =
           sources.addConfigFile(Toml, conf.configFile.get())
       ,
     )
+
     ok(conf)
   except CatchableError:
     err(getCurrentExceptionMsg())

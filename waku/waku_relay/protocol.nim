@@ -18,7 +18,7 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   libp2p/switch
-import ../waku_core, ./message_id
+import ../waku_core, ./message_id, ../node/delivery_monitor/publish_observer
 
 logScope:
   topics = "waku relay"
@@ -58,7 +58,8 @@ const TopicParameters = TopicParams(
 )
 
 declareCounter waku_relay_network_bytes,
-  "total traffic per topic", labels = ["topic", "direction"]
+  "total traffic per topic, distinct gross/net and direction",
+  labels = ["topic", "type", "direction"]
 
 # see: https://rfc.vac.dev/spec/29/#gossipsub-v10-parameters
 const GossipsubParameters = GossipSubParams.init(
@@ -128,6 +129,7 @@ type
     wakuValidators: seq[tuple[handler: WakuValidatorHandler, errorMessage: string]]
     # a map of validators to error messages to return when validation fails
     validatorInserted: Table[PubsubTopic, bool]
+    publishObservers: seq[PublishObserver]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -151,7 +153,36 @@ proc initProtocolHandler(w: WakuRelay) =
   w.handler = handler
   w.codec = WakuRelayCodec
 
-proc initRelayMetricObserver(w: WakuRelay) =
+proc logMessageInfo*(
+    w: WakuRelay,
+    remotePeerId: string,
+    topic: string,
+    msg_id_short: string,
+    msg: WakuMessage,
+    onRecv: bool,
+) =
+  let msg_hash = computeMessageHash(topic, msg).to0xHex()
+
+  if onRecv:
+    notice "received relay message",
+      my_peer_id = w.switch.peerInfo.peerId,
+      msg_hash = msg_hash,
+      msg_id = msg_id_short,
+      from_peer_id = remotePeerId,
+      topic = topic,
+      receivedTime = getNowInNanosecondTime(),
+      payloadSizeBytes = msg.payload.len
+  else:
+    notice "sent relay message",
+      my_peer_id = w.switch.peerInfo.peerId,
+      msg_hash = msg_hash,
+      msg_id = msg_id_short,
+      to_peer_id = remotePeerId,
+      topic = topic,
+      sentTime = getNowInNanosecondTime(),
+      payloadSizeBytes = msg.payload.len
+
+proc initRelayObservers(w: WakuRelay) =
   proc decodeRpcMessageInfo(
       peer: PubSubPeer, msg: Message
   ): Result[
@@ -179,20 +210,6 @@ proc initRelayMetricObserver(w: WakuRelay) =
     let msgSize = msg.data.len + msg.topic.len
     return ok((msg_id_short, msg.topic, wakuMessage, msgSize))
 
-  proc logMessageInfo(
-      peer: PubSubPeer, topic: string, msg_id_short: string, msg: WakuMessage
-  ) =
-    let msg_hash = computeMessageHash(topic, msg).to0xHex()
-
-    notice "sent relay message",
-      my_peer_id = w.switch.peerInfo.peerId,
-      msg_hash = msg_hash,
-      msg_id = msg_id_short,
-      to_peer_id = peer.peerId,
-      topic = topic,
-      sentTime = getNowInNanosecondTime(),
-      payloadSizeBytes = msg.payload.len
-
   proc updateMetrics(
       peer: PubSubPeer,
       pubsub_topic: string,
@@ -200,26 +217,53 @@ proc initRelayMetricObserver(w: WakuRelay) =
       msgSize: int,
       onRecv: bool,
   ) =
-    waku_relay_network_bytes.inc(
-      msgSize.int64, labelValues = [pubsub_topic, if onRecv: "in" else: "out"]
-    )
+    if onRecv:
+      waku_relay_network_bytes.inc(
+        msgSize.int64, labelValues = [pubsub_topic, "gross", "in"]
+      )
+    else:
+      # sent traffic can only be "net"
+      # TODO: If we can measure unsuccessful sends would mean a possible distinction between gross/net
+      waku_relay_network_bytes.inc(
+        msgSize.int64, labelValues = [pubsub_topic, "net", "out"]
+      )
 
   proc onRecv(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
         continue
-      # message receive log happens in treaceHandler as this one is called before checks
+      # message receive log happens in onValidated observer as onRecv is called before checks
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = true)
     discard
+
+  proc onValidated(peer: PubSubPeer, msg: Message, msgId: MessageId) =
+    let msg_id_short = shortLog(msgId)
+    let wakuMessage = WakuMessage.decode(msg.data).valueOr:
+      warn "onValidated: failed decoding to Waku Message",
+        my_peer_id = w.switch.peerInfo.peerId,
+        msg_id = msg_id_short,
+        from_peer_id = peer.peerId,
+        pubsub_topic = msg.topic,
+        error = $error
+      return
+
+    logMessageInfo(
+      w, shortLog(peer.peerId), msg.topic, msg_id_short, wakuMessage, onRecv = true
+    )
 
   proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
+        warn "onSend: failed decoding RPC info",
+          my_peer_id = w.switch.peerInfo.peerId, to_peer_id = peer.peerId
         continue
-      logMessageInfo(peer, topic, msg_id_short, wakuMessage)
+      logMessageInfo(
+        w, shortLog(peer.peerId), topic, msg_id_short, wakuMessage, onRecv = false
+      )
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = false)
 
-  let administrativeObserver = PubSubObserver(onRecv: onRecv, onSend: onSend)
+  let administrativeObserver =
+    PubSubObserver(onRecv: onRecv, onSend: onSend, onValidated: onValidated)
 
   w.addObserver(administrativeObserver)
 
@@ -243,7 +287,7 @@ proc new*(
 
     procCall GossipSub(w).initPubSub()
     w.initProtocolHandler()
-    w.initRelayMetricObserver()
+    w.initRelayObservers()
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
@@ -254,7 +298,14 @@ proc addValidator*(
 ) {.gcsafe.} =
   w.wakuValidators.add((handler, errorMessage))
 
+proc addPublishObserver*(w: WakuRelay, obs: PublishObserver) =
+  ## Observer when the api client performed a publish operation. This
+  ## is initially aimed for bringing an additional layer of delivery reliability thanks
+  ## to store
+  w.publishObservers.add(obs)
+
 proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
+  ## Observes when a message is sent/received from the GossipSub PoV
   procCall GossipSub(w).addObserver(observer)
 
 method start*(w: WakuRelay) {.async, base.} =
@@ -349,6 +400,12 @@ proc subscribe*(
       fut.complete()
       return fut
     else:
+      # this subscription handler is called once for every validated message
+      # that will be relayed, hence this is the place we can count net incoming traffic
+      waku_relay_network_bytes.inc(
+        data.len.int64 + pubsubTopic.len.int64, labelValues = [pubsubTopic, "net", "in"]
+      )
+
       return handler(pubsubTopic, decMsg.get())
 
   # Add the ordered validator to the topic
@@ -391,4 +448,56 @@ proc publish*(
 
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
+  if relayedPeerCount > 0:
+    for obs in w.publishObservers:
+      obs.onMessagePublished(pubSubTopic, message)
+
   return relayedPeerCount
+
+proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
+  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+  ## The 'mesh' atribute is defined in the GossipSub ref object.
+
+  if not w.mesh.hasKey(pubsubTopic):
+    return err(
+      "getNumPeersInMesh - there is no mesh peer for the given pubsub topic: " &
+        pubsubTopic
+    )
+
+  let peersRes = catch:
+    w.mesh[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  return ok(peers.len)
+
+proc getNumConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[int, string] =
+  ## Returns the number of connected peers and subscribed to the passed pubsub topic.
+  ## The 'gossipsub' atribute is defined in the GossipSub ref object.
+
+  if pubsubTopic == "":
+    ## Return all the connected peers
+    var numConnPeers = 0
+    for k, v in w.gossipsub:
+      numConnPeers.inc(v.len)
+    return ok(numConnPeers)
+
+  if not w.gossipsub.hasKey(pubsubTopic):
+    return err(
+      "getNumConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
+        pubsubTopic
+    )
+
+  let peersRes = catch:
+    w.gossipsub[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return err(
+      "getNumConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg
+    )
+
+  return ok(peers.len)

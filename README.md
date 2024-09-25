@@ -9,7 +9,7 @@ The nwaku repository implements Waku, and provides tools related to it.
 - Examples of Waku usage.
 - Various tests of above.
 
-For more details see the [source code](waku/v2/README.md)
+For more details see the [source code](waku/README.md)
 
 ## How to Build & Run
 
@@ -53,7 +53,8 @@ If you encounter difficulties building the project on WSL, consider placing the 
 #### Nim Runtime
 This repository is bundled with a Nim runtime that includes the necessary dependencies for the project.
 
-Before you can utilise the runtime you'll need to build the project, as detailed in a previous section. This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
+Before you can utilise the runtime you'll need to build the project, as detailed in a previous section.
+This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
 
 After successfully building the project, you may bring the bundled runtime into scope by running:
 ```bash
@@ -82,6 +83,24 @@ Binary will be created as `<path to your test file.nim>.bin` under the `build` d
 ```bash
 # Build and run your test file separately
 make test/tests/common/test_enr_builder.nim
+```
+
+## Formatting
+
+Nim files are expected to be formatted using the [`nph`](https://github.com/arnetheduck/nph) version present in `vendor/nph`.
+
+You can easily format file with the `make nph/<relative path to nim> file` command.
+For example:
+
+```
+make nph/waku/waku_core.nim
+```
+
+A convenient git hook is provided to automatically format file at commit time.
+Run the following command to install it:
+
+```shell
+make install-nph
 ```
 
 ### Examples

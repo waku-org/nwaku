@@ -183,8 +183,9 @@ proc retrieveMsgsFromSelfNode(
   let storeResp = selfResp.toStoreResponseRest()
   let resp = RestApiResponse.jsonResponse(storeResp, status = Http200).valueOr:
     const msg = "Error building the json respose"
-    error msg, error = error
-    return RestApiResponse.internalServerError(fmt("{msg} [{error}]"))
+    let e = $error
+    error msg, error = e
+    return RestApiResponse.internalServerError(fmt("{msg} [{e}]"))
 
   return resp
 

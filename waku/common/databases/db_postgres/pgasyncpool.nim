@@ -2,15 +2,15 @@
 # Inspired by: https://github.com/treeform/pg/
 {.push raises: [].}
 
-import std/[sequtils, nre, strformat, sets], results, chronos
-import ./dbconn, ../common
+import std/[sequtils, nre, strformat, sets], results, chronos, chronicles
+import ./dbconn, ../common, ../../../waku_core/time
 
 type PgAsyncPoolState {.pure.} = enum
   Closed
   Live
   Closing
 
-type PgDbConn = object
+type PgDbConn = ref object
   dbConn: DbConn
   open: bool
   busy: bool
@@ -76,14 +76,11 @@ proc close*(pool: PgAsyncPool): Future[Result[void, string]] {.async.} =
       if pool.conns[i].busy:
         continue
 
-      if pool.conns[i].open:
-        pool.conns[i].dbConn.close()
-        pool.conns[i].busy = false
-        pool.conns[i].open = false
-
   for i in 0 ..< pool.conns.len:
     if pool.conns[i].open:
-      pool.conns[i].dbConn.close()
+      pool.conns[i].dbConn.closeDbConn()
+      pool.conns[i].busy = false
+      pool.conns[i].open = false
 
   pool.conns.setLen(0)
   pool.state = PgAsyncPoolState.Closed
@@ -149,18 +146,26 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
+const SlowQueryThresholdInNanoSeconds = 2_000_000_000
+
 proc pgQuery*(
     pool: PgAsyncPool,
     query: string,
     args: seq[string] = newSeq[string](0),
     rowCallback: DataProc = nil,
+    requestId: string = "",
 ): Future[DatabaseResult[void]] {.async.} =
   let connIndex = (await pool.getConnIndex()).valueOr:
     return err("connRes.isErr in query: " & $error)
 
+  let queryStartTime = getNowInNanosecondTime()
   let conn = pool.conns[connIndex].dbConn
   defer:
     pool.releaseConn(conn)
+    let queryDuration = getNowInNanosecondTime() - queryStartTime
+    if queryDuration > SlowQueryThresholdInNanoSeconds:
+      debug "pgQuery slow query",
+        query_duration_secs = (queryDuration / 1_000_000_000), query, requestId
 
   (await conn.dbConnQuery(sql(query), args, rowCallback)).isOkOr:
     return err("error in asyncpool query: " & $error)
@@ -175,6 +180,7 @@ proc runStmt*(
     paramLengths: seq[int32],
     paramFormats: seq[int32],
     rowCallback: DataProc = nil,
+    requestId: string = "",
 ): Future[DatabaseResult[void]] {.async.} =
   ## Runs a stored statement, for performance purposes.
   ## The stored statements are connection specific and is a technique of caching a very common
@@ -187,8 +193,16 @@ proc runStmt*(
     return err("Error in runStmt: " & $error)
 
   let conn = pool.conns[connIndex].dbConn
+  let queryStartTime = getNowInNanosecondTime()
+
   defer:
     pool.releaseConn(conn)
+    let queryDuration = getNowInNanosecondTime() - queryStartTime
+    if queryDuration > SlowQueryThresholdInNanoSeconds:
+      debug "runStmt slow query",
+        query_duration = queryDuration / 1_000_000_000,
+        query = stmtDefinition,
+        requestId
 
   if not pool.conns[connIndex].preparedStmts.contains(stmtName):
     # The connection doesn't have that statement yet. Let's create it.

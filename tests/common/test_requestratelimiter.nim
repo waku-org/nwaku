@@ -82,3 +82,17 @@ suite "RequestRateLimiter":
     # requests of other peers can also go
     check limiter.checkUsage(proto, conn2, now + 4100.milliseconds) == true
     check limiter.checkUsage(proto, conn3, now + 5.minutes) == true
+
+  test "RequestRateLimiter lowest possible volume":
+    # keep limits low for easier calculation of ratios
+    let rateLimit: RateLimitSetting = (1, 1.seconds)
+    var limiter = newRequestRateLimiter(some(rateLimit))
+
+    let now = Moment.now()
+    # with first use we register the peer also and start its timer
+    check limiter.checkUsage(proto, conn1, now + 500.milliseconds) == true
+
+    # run out of main tokens but still used one more token from the peer's bucket
+    check limiter.checkUsage(proto, conn1, now + 800.milliseconds) == false
+    check limiter.checkUsage(proto, conn1, now + 1499.milliseconds) == false
+    check limiter.checkUsage(proto, conn1, now + 1501.milliseconds) == true

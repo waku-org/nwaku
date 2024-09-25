@@ -32,9 +32,9 @@ proc setupStaticRln*(
   )
 
 proc setupRelayWithStaticRln*(
-    node: WakuNode, identifier: uint, pubsubTopics: seq[string]
+    node: WakuNode, identifier: uint, shards: seq[RelayShard]
 ) {.async.} =
-  await node.mountRelay(pubsubTopics)
+  await node.mountRelay(shards)
   await setupStaticRln(node, identifier)
 
 proc subscribeCompletionHandler*(node: WakuNode, pubsubTopic: string): Future[bool] =

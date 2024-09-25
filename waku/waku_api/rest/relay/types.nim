@@ -34,8 +34,7 @@ proc toRelayWakuMessage*(msg: WakuMessage): RelayWakuMessage =
       if msg.meta.len > 0:
         some(base64.encode(msg.meta))
       else:
-        none(Base64String)
-    ,
+        none(Base64String),
     ephemeral: some(msg.ephemeral),
   )
 

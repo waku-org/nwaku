@@ -418,7 +418,8 @@ procSuite "Peer Manager":
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/3/0"],
+        clusterId = 3,
+        shards = @[uint16(0)],
       )
 
       # same network
@@ -426,13 +427,15 @@ procSuite "Peer Manager":
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/4/0"],
+        clusterId = 4,
+        shards = @[uint16(0)],
       )
       node3 = newTestWakuNode(
         generateSecp256k1Key(),
         ValidIpAddress.init("0.0.0.0"),
         port,
-        pubsubTopics = @["/waku/2/rs/4/0"],
+        clusterId = 4,
+        shards = @[uint16(0)],
       )
 
     node1.mountMetadata(3).expect("Mounted Waku Metadata")
@@ -458,9 +461,9 @@ procSuite "Peer Manager":
     )
 
     check:
-      conn1.isNone
-      conn2.isNone
-      conn3.isSome
+      conn1.isNone or conn1.get().isClosed
+      conn2.isNone or conn2.get().isClosed
+      conn3.isSome and not conn3.get().isClosed
 
   # TODO: nwaku/issues/1377
   xasyncTest "Peer manager support multiple protocol IDs when reconnecting to peers":

@@ -96,9 +96,9 @@ proc getWakuRlnConfigOnChain*(
   )
 
 proc setupRelayWithOnChainRln*(
-    node: WakuNode, pubsubTopics: seq[string], wakuRlnConfig: WakuRlnConfig
+    node: WakuNode, shards: seq[RelayShard], wakuRlnConfig: WakuRlnConfig
 ) {.async.} =
-  await node.mountRelay(pubsubTopics)
+  await node.mountRelay(shards)
   await node.mountRlnRelay(wakuRlnConfig)
 
 suite "Waku RlnRelay - End to End - Static":
@@ -223,7 +223,7 @@ suite "Waku RlnRelay - End to End - Static":
         nodekey = generateSecp256k1Key()
         node = newTestWakuNode(nodekey, parseIpAddress("0.0.0.0"), Port(0))
 
-      await node.mountRelay(@[DefaultPubsubTopic])
+      await node.mountRelay(@[DefaultRelayShard])
 
       let contractAddress = await uploadRLNContract(EthClient)
       let wakuRlnConfig = WakuRlnConfig(

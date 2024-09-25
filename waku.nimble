@@ -63,12 +63,12 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
     extra_params &= " " & paramStr(i)
   if `type` == "static":
     exec "nim c" & " --out:build/" & name &
-      ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header " &
+      ".a --threads:on --app:staticlib --opt:size --noMain --mm:refc --header --undef:metrics " &
       extra_params & " " & srcDir & name & ".nim"
   else:
     exec "nim c" & " --out:build/" & name &
-      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header " & extra_params &
-      " " & srcDir & name & ".nim"
+      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header --undef:metrics " &
+      extra_params & " " & srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
   let cpu = getEnv("CPU")

@@ -55,8 +55,7 @@ proc get*(peerStore: PeerStore, peerId: PeerID): RemotePeerInfo =
       if peerStore[ENRBook][peerId] != default(enr.Record):
         some(peerStore[ENRBook][peerId])
       else:
-        none(enr.Record)
-    ,
+        none(enr.Record),
     protocols: peerStore[ProtoBook][peerId],
     agent: peerStore[AgentBook][peerId],
     protoVersion: peerStore[ProtoVersionBook][peerId],

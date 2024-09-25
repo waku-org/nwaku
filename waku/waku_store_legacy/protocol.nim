@@ -4,7 +4,7 @@
 {.push raises: [].}
 
 import
-  std/options,
+  std/[options, times],
   results,
   chronicles,
   chronos,
@@ -25,9 +25,6 @@ import
 
 logScope:
   topics = "waku legacy store"
-
-const MaxMessageTimestampVariance* = getNanoSecondTime(20)
-  # 20 seconds maximum allowable sender timestamp "drift"
 
 type HistoryQueryHandler* =
   proc(req: HistoryQuery): Future[HistoryResult] {.async, gcsafe.}
@@ -58,9 +55,9 @@ proc handleLegacyQueryRequest(
     # TODO: Return (BAD_REQUEST, cause: "empty query")
     return
 
-  let
-    requestId = reqRpc.requestId
-    request = reqRpc.query.get().toAPI()
+  let requestId = reqRpc.requestId
+  var request = reqRpc.query.get().toAPI()
+  request.requestId = requestId
 
   info "received history query",
     peerId = requestor, requestId = requestId, query = request
@@ -105,6 +102,7 @@ proc initProtocolHandler(ws: WakuStore) =
   ).encode().buffer
 
   proc handler(conn: Connection, proto: string) {.async, closure.} =
+    var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: seq[byte]
     ws.requestRateLimiter.checkUsageLimit(WakuLegacyStoreCodec, conn):
       let readRes = catch:
@@ -118,18 +116,27 @@ proc initProtocolHandler(ws: WakuStore) =
         amount = reqBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "in"]
       )
 
+      let queryStartTime = getTime().toUnixFloat()
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
+      let queryDuration = getTime().toUnixFloat() - queryStartTime
+      waku_legacy_store_time_seconds.set(queryDuration, ["query-db-time"])
+      successfulQuery = true
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $ws.requestRateLimiter.setting
       resBuf = rejectResponseBuf
 
+    let writeRespStartTime = getTime().toUnixFloat()
     let writeRes = catch:
       await conn.writeLp(resBuf)
 
     if writeRes.isErr():
       error "Connection write error", error = writeRes.error.msg
       return
+
+    if successfulQuery:
+      let writeDuration = getTime().toUnixFloat() - writeRespStartTime
+      waku_legacy_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
 
     waku_service_network_bytes.inc(
       amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]
@@ -156,4 +163,5 @@ proc new*(
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   ws.initProtocolHandler()
+  setServiceLimitMetric(WakuLegacyStoreCodec, rateLimitSetting)
   ws

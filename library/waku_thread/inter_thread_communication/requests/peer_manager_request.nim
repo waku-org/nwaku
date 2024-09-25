@@ -1,20 +1,27 @@
 import std/[sequtils, strutils]
 import chronicles, chronos, results
-import ../../../../waku/factory/waku, ../../../../waku/node/waku_node, ../../../alloc
+import
+  ../../../../waku/factory/waku,
+  ../../../../waku/node/waku_node,
+  ../../../alloc,
+  ../../../../waku/node/peer_manager
 
-type PeerManagementMsgType* = enum
+type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
+  GET_ALL_PEER_IDS
+  GET_PEER_IDS_BY_PROTOCOL
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
   peerMultiAddr: cstring
   dialTimeout: Duration
+  protocol: cstring
 
 proc createShared*(
     T: type PeerManagementRequest,
     op: PeerManagementMsgType,
-    peerMultiAddr: string,
-    dialTimeout: Duration,
+    peerMultiAddr = "",
+    dialTimeout = chronos.milliseconds(0), ## arbitrary Duration as not all ops needs dialTimeout
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
@@ -22,8 +29,21 @@ proc createShared*(
   ret[].dialTimeout = dialTimeout
   return ret
 
+proc createGetPeerIdsByProtocolRequest*(
+    T: type PeerManagementRequest, protocol = ""
+): ptr type T =
+  var ret = createShared(T)
+  ret[].operation = PeerManagementMsgType.GET_PEER_IDS_BY_PROTOCOL
+  ret[].protocol = protocol.alloc()
+  return ret
+
 proc destroyShared(self: ptr PeerManagementRequest) =
-  deallocShared(self[].peerMultiAddr)
+  if not isNil(self[].peerMultiAddr):
+    deallocShared(self[].peerMultiAddr)
+
+  if not isNil(self[].protocol):
+    deallocShared(self[].protocol)
+
   deallocShared(self)
 
 proc connectTo(
@@ -53,5 +73,14 @@ proc process*(
     let ret = waku.node.connectTo($self[].peerMultiAddr, self[].dialTimeout)
     if ret.isErr():
       return err(ret.error)
+  of GET_ALL_PEER_IDS:
+    ## returns a comma-separated string of peerIDs
+    let peerIDs = waku.node.peerManager.peerStore.peers().mapIt($it.peerId).join(",")
+    return ok(peerIDs)
+  of GET_PEER_IDS_BY_PROTOCOL:
+    ## returns a comma-separated string of peerIDs that mount the given protocol
+    let (inPeers, outPeers) = waku.node.peerManager.connectedPeers($self[].protocol)
+    let allPeerIDs = inPeers & outPeers
+    return ok(allPeerIDs.mapIt(it.hex()).join(","))
 
   return ok("")

@@ -110,4 +110,5 @@ proc new*(
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
   )
   wl.initProtocolHandler()
+  setServiceLimitMetric(WakuLightpushCodec, rateLimitSetting)
   return wl

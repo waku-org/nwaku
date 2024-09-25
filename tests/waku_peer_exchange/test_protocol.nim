@@ -1,11 +1,10 @@
 {.used.}
 
 import
-  std/[options, sequtils, tables],
+  std/[options, sequtils, tables, net],
   testutils/unittests,
   chronos,
   chronicles,
-  stew/shims/net,
   libp2p/[switch, peerId, crypto/crypto, multistream, muxers/muxer],
   eth/[keys, p2p/discoveryv5/enr]
 
@@ -223,6 +222,7 @@ suite "Waku Peer Exchange":
       # Check that it failed gracefully
       check:
         response.isErr
+        response.error.status_code == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Request 0 peers, with 0 peers in PeerExchange":
       # Given a disconnected PeerExchange
@@ -237,7 +237,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error == "peer_not_found_failure"
+        response.error.status_code == PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
     asyncTest "Pool filtering":
       let
@@ -331,7 +331,7 @@ suite "Waku Peer Exchange":
       # Then the response should be an error
       check:
         response.isErr
-        response.error == "dial_failure"
+        response.error.status_code == PeerExchangeResponseStatusCode.DIAL_FAILURE
 
     asyncTest "Connections are closed after response is sent":
       # Create 3 nodes
@@ -385,7 +385,7 @@ suite "Waku Peer Exchange":
       let conn = connOpt.get()
 
       # Send bytes so that they directly hit the handler
-      let rpc = PeerExchangeRpc(request: PeerExchangeRequest(numPeers: 1))
+      let rpc = PeerExchangeRpc.makeRequest(1)
 
       var buffer: seq[byte]
       await conn.writeLP(rpc.encode().buffer)
@@ -397,5 +397,62 @@ suite "Waku Peer Exchange":
 
       # Check we got back the enr we mocked
       check:
+        decodedBuff.get().response.status_code == PeerExchangeResponseStatusCode.SUCCESS
         decodedBuff.get().response.peerInfos.len == 1
         decodedBuff.get().response.peerInfos[0].enr == enr1.raw
+
+    asyncTest "RateLimit as expected":
+      let
+        node1 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+        node2 =
+          newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
+
+      # Start and mount peer exchange
+      await allFutures([node1.start(), node2.start()])
+      await allFutures(
+        [
+          node1.mountPeerExchange(rateLimit = (1, 150.milliseconds)),
+          node2.mountPeerExchange(),
+        ]
+      )
+
+      # Create connection
+      let connOpt = await node2.peerManager.dialPeer(
+        node1.switch.peerInfo.toRemotePeerInfo(), WakuPeerExchangeCodec
+      )
+      require:
+        connOpt.isSome
+
+      # Create some enr and add to peer exchange (simulating disv5)
+      var enr1, enr2 = enr.Record()
+      check enr1.fromUri(
+        "enr:-Iu4QGNuTvNRulF3A4Kb9YHiIXLr0z_CpvWkWjWKU-o95zUPR_In02AWek4nsSk7G_-YDcaT4bDRPzt5JIWvFqkXSNcBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQKp9VzU2FAh7fwOwSpg1M_Ekz4zzl0Fpbg6po2ZwgVwQYN0Y3CC6mCFd2FrdTIB"
+      )
+      check enr2.fromUri(
+        "enr:-Iu4QGJllOWlviPIh_SGR-VVm55nhnBIU5L-s3ran7ARz_4oDdtJPtUs3Bc5aqZHCiPQX6qzNYF2ARHER0JPX97TFbEBgmlkgnY0gmlwhE0WsGeJc2VjcDI1NmsxoQP3ULycvday4EkvtVu0VqbBdmOkbfVLJx8fPe0lE_dRkIN0Y3CC6mCFd2FrdTIB"
+      )
+
+      # Mock that we have discovered these enrs
+      node1.wakuPeerExchange.enrCache.add(enr1)
+      node1.wakuPeerExchange.enrCache.add(enr2)
+
+      await sleepAsync(150.milliseconds)
+
+      # Request 2 peer from px. Test all request variants
+      let response1 = await node2.wakuPeerExchange.request(1)
+      check:
+        response1.isOk
+        response1.get().peerInfos.len == 1
+
+      let response2 =
+        await node2.wakuPeerExchange.request(1, node1.peerInfo.toRemotePeerInfo())
+      check:
+        response2.isErr
+        response2.error().status_code == PeerExchangeResponseStatusCode.TOO_MANY_REQUESTS
+
+      await sleepAsync(150.milliseconds)
+      let response3 = await node2.wakuPeerExchange.request(1, connOpt.get())
+      check:
+        response3.isOk
+        response3.get().peerInfos.len == 1

@@ -44,6 +44,7 @@ suite "Store Client":
       pubsubTopic: some(DefaultPubsubTopic),
       contentTopics: @[DefaultContentTopic],
       direction: PagingDirection.FORWARD,
+      requestId: "customRequestId",
     )
 
     serverSwitch = newTestSwitch()
@@ -93,33 +94,39 @@ suite "Store Client":
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[],
           direction: PagingDirection.FORWARD,
+          requestId: "reqId1",
         )
         invalidQuery2 = HistoryQuery(
           pubsubTopic: PubsubTopic.none(),
           contentTopics: @[DefaultContentTopic],
           direction: PagingDirection.FORWARD,
+          requestId: "reqId2",
         )
         invalidQuery3 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           pageSize: 0,
+          requestId: "reqId3",
         )
         invalidQuery4 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           pageSize: 0,
+          requestId: "reqId4",
         )
         invalidQuery5 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
           endTime: some(0.Timestamp),
+          requestId: "reqId5",
         )
         invalidQuery6 = HistoryQuery(
           pubsubTopic: some(DefaultPubsubTopic),
           contentTopics: @[DefaultContentTopic],
           startTime: some(0.Timestamp),
           endTime: some(-1.Timestamp),
+          requestId: "reqId6",
         )
 
       # When the query is sent to the server

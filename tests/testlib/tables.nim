@@ -3,19 +3,19 @@ import std/[tables, sequtils, options]
 import waku/waku_core/topics, ../testlib/wakucore
 
 proc `==`*(
-    table: Table[pubsub_topic.NsPubsubTopic, seq[NsContentTopic]],
+    table: Table[pubsub_topic.RelayShard, seq[NsContentTopic]],
     other: array[0 .. 0, (string, seq[string])],
 ): bool =
   let otherTyped = other.map(
-    proc(item: (string, seq[string])): (NsPubsubTopic, seq[NsContentTopic]) =
+    proc(item: (string, seq[string])): (RelayShard, seq[NsContentTopic]) =
       let
         (pubsubTopic, contentTopics) = item
-        nsPubsubTopic = NsPubsubTopic.parse(pubsubTopic).value()
+        shard = RelayShard.parse(pubsubTopic).value()
         nsContentTopics = contentTopics.map(
           proc(contentTopic: string): NsContentTopic =
             NsContentTopic.parse(contentTopic).value()
         )
-      return (nsPubsubTopic, nsContentTopics)
+      return (shard, nsContentTopics)
   )
 
   table == otherTyped.toTable()

@@ -15,6 +15,7 @@ import
   ../../../waku_core,
   ../../common,
   ../../driver,
+  ./postgres_healthcheck,
   ../../../common/databases/db_postgres as waku_postgres
 
 type PostgresDriver* = ref object of ArchiveDriver
@@ -26,6 +27,10 @@ const InsertRowStmtName = "InsertRow"
 const InsertRowStmtDefinition = # TODO: get the sql queries from a file
   """INSERT INTO messages (id, messageHash, contentTopic, payload, pubsubTopic,
   version, timestamp, meta) VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN $8 = '' THEN NULL ELSE $8 END) ON CONFLICT DO NOTHING;"""
+
+const InsertRowInMessagesLookupStmtName = "InsertRowMessagesLookup"
+const InsertRowInMessagesLookupStmtDefinition =
+  """INSERT INTO messages_lookup (messageHash, timestamp) VALUES ($1, $2) ON CONFLICT DO NOTHING;"""
 
 const SelectNoCursorAscStmtName = "SelectWithoutCursorAsc"
 const SelectNoCursorAscStmtDef =
@@ -128,6 +133,12 @@ proc new*(
   let writeConnPool = PgAsyncPool.new(dbUrl, maxNumConnOnEachPool).valueOr:
     return err("error creating write conn pool PgAsyncPool")
 
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(readConnPool, onFatalErrorAction)
+
+  if not isNil(onFatalErrorAction):
+    asyncSpawn checkConnectivity(writeConnPool, onFatalErrorAction)
+
   let driver = PostgresDriver(writeConnPool: writeConnPool, readConnPool: readConnPool)
   return ok(driver)
 
@@ -212,28 +223,42 @@ method put*(
 
   trace "put PostgresDriver", timestamp = timestamp
 
+  (
+    await s.writeConnPool.runStmt(
+      InsertRowStmtName,
+      InsertRowStmtDefinition,
+      @[
+        digest, messageHash, contentTopic, payload, pubsubTopic, version, timestamp,
+        meta,
+      ],
+      @[
+        int32(digest.len),
+        int32(messageHash.len),
+        int32(contentTopic.len),
+        int32(payload.len),
+        int32(pubsubTopic.len),
+        int32(version.len),
+        int32(timestamp.len),
+        int32(meta.len),
+      ],
+      @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    )
+  ).isOkOr:
+    return err("could not put msg in messages table: " & $error)
+
+  ## Now add the row to messages_lookup
   return await s.writeConnPool.runStmt(
-    InsertRowStmtName,
-    InsertRowStmtDefinition,
-    @[digest, messageHash, contentTopic, payload, pubsubTopic, version, timestamp, meta],
-    @[
-      int32(digest.len),
-      int32(messageHash.len),
-      int32(contentTopic.len),
-      int32(payload.len),
-      int32(pubsubTopic.len),
-      int32(version.len),
-      int32(timestamp.len),
-      int32(meta.len),
-    ],
-    @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
+    InsertRowInMessagesLookupStmtName,
+    InsertRowInMessagesLookupStmtDefinition,
+    @[messageHash, timestamp],
+    @[int32(messageHash.len), int32(timestamp.len)],
+    @[int32(0), int32(0)],
   )
 
 method getAllMessages*(
     s: PostgresDriver
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## Retrieve all messages from the store.
-
   var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
@@ -261,6 +286,7 @@ proc getMessagesArbitraryQuery(
     hexHashes: seq[string] = @[],
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
@@ -300,6 +326,7 @@ proc getMessagesArbitraryQuery(
         @[int32(hashHex.len)],
         @[int32(0)],
         entreeCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -340,7 +367,7 @@ proc getMessagesArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -354,6 +381,7 @@ proc getMessagesV2ArbitraryQuery(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc allows to handle atypical queries. We don't use prepared statements for those.
 
@@ -404,7 +432,7 @@ proc getMessagesV2ArbitraryQuery(
   proc rowCallback(pqResult: ptr PGresult) =
     rowCallbackImpl(pqResult, rows)
 
-  (await s.readConnPool.pgQuery(query, args, rowCallback)).isOkOr:
+  (await s.readConnPool.pgQuery(query, args, rowCallback, requestId)).isOkOr:
     return err("failed to run query: " & $error)
 
   return ok(rows)
@@ -419,6 +447,7 @@ proc getMessagesPreparedStmt(
     hashes: string,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
@@ -449,6 +478,7 @@ proc getMessagesPreparedStmt(
         @[int32(hash.len)],
         @[int32(0)],
         entreeCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -485,6 +515,7 @@ proc getMessagesPreparedStmt(
           int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)
         ],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -508,6 +539,7 @@ proc getMessagesPreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
@@ -523,6 +555,7 @@ proc getMessagesV2PreparedStmt(
     endTime: Timestamp,
     maxPageSize = DefaultPageSize,
     ascOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   ## This proc aims to run the most typical queries in a more performant way, i.e. by means of
   ## prepared statements.
@@ -562,6 +595,7 @@ proc getMessagesV2PreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query with cursor: " & $error)
@@ -585,9 +619,56 @@ proc getMessagesV2PreparedStmt(
         ],
         @[int32(0), int32(0), int32(0), int32(0), int32(0)],
         rowCallback,
+        requestId,
       )
     ).isOkOr:
       return err("failed to run query without cursor: " & $error)
+
+  return ok(rows)
+
+proc getMessagesByMessageHashes(
+    s: PostgresDriver, hashes: string, maxPageSize: uint, requestId: string
+): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
+  ## Retrieves information only filtering by a given messageHashes list.
+  ## This proc levarages on the messages_lookup table to have better query performance
+  ## and only query the desired partitions in the partitioned messages table
+  var query =
+    fmt"""
+  WITH min_timestamp AS (
+    SELECT MIN(timestamp) AS min_ts
+    FROM messages_lookup
+    WHERE messagehash IN (
+      {hashes}
+    )
+  )
+  SELECT contentTopic, payload, pubsubTopic, version, m.timestamp, id, m.messageHash, meta
+  FROM messages m
+  INNER JOIN
+    messages_lookup l
+  ON
+    m.timestamp = l.timestamp
+    AND m.messagehash = l.messagehash
+  WHERE
+    l.timestamp >= (SELECT min_ts FROM min_timestamp)
+    AND l.messagehash IN (
+      {hashes}
+    )
+  ORDER BY
+    m.timestamp DESC,
+    m.messagehash DESC
+  LIMIT {maxPageSize};
+  """
+
+  var rows: seq[(PubsubTopic, WakuMessage, seq[byte], Timestamp, WakuMessageHash)]
+  proc rowCallback(pqResult: ptr PGresult) =
+    rowCallbackImpl(pqResult, rows)
+
+  (
+    await s.readConnPool.pgQuery(
+      query = query, rowCallback = rowCallback, requestId = requestId
+    )
+  ).isOkOr:
+    return err("failed to run query: " & $error)
 
   return ok(rows)
 
@@ -602,8 +683,15 @@ method getMessages*(
     hashes = newSeq[WakuMessageHash](0),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId = "",
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async.} =
   let hexHashes = hashes.mapIt(toHex(it))
+
+  if cursor.isNone() and pubsubTopic.isNone() and contentTopicSeq.len == 0 and
+      startTime.isNone() and endTime.isNone() and hexHashes.len > 0:
+    return await s.getMessagesByMessageHashes(
+      "'" & hexHashes.join("','") & "'", maxPageSize, requestId
+    )
 
   if contentTopicSeq.len == 1 and hexHashes.len == 1 and pubsubTopic.isSome() and
       startTime.isSome() and endTime.isSome():
@@ -617,12 +705,13 @@ method getMessages*(
       hexHashes.join(","),
       maxPageSize,
       ascendingOrder,
+      requestId,
     )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, hexHashes, maxPageSize,
-      ascendingOrder,
+      ascendingOrder, requestId,
     )
 
 method getMessagesV2*(
@@ -634,6 +723,7 @@ method getMessagesV2*(
     endTime = none(Timestamp),
     maxPageSize = DefaultPageSize,
     ascendingOrder = true,
+    requestId: string,
 ): Future[ArchiveDriverResult[seq[ArchiveRow]]] {.async, deprecated.} =
   if contentTopicSeq.len == 1 and pubsubTopic.isSome() and startTime.isSome() and
       endTime.isSome():
@@ -646,12 +736,13 @@ method getMessagesV2*(
       endTime.get(),
       maxPageSize,
       ascendingOrder,
+      requestId,
     )
   else:
     ## We will run atypical query. In this case we don't use prepared statemets
     return await s.getMessagesV2ArbitraryQuery(
       contentTopicSeq, pubsubTopic, cursor, startTime, endTime, maxPageSize,
-      ascendingOrder,
+      ascendingOrder, requestId,
     )
 
 proc getStr(

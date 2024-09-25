@@ -62,7 +62,6 @@ proc readValue*(
       if pubsubTopic.isNone() or pubsubTopic.get() == "":
         none(string)
       else:
-        some(pubsubTopic.get())
-    ,
+        some(pubsubTopic.get()),
     message: message.get(),
   )
