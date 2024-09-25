@@ -1,4 +1,4 @@
-## v0.33.0 (2024-09-25)
+## v0.33.0 (2024-09-27)
 
 #### Notes:
 
@@ -25,6 +25,8 @@
 
 ### Bug Fixes
 
+- make Peer Exchange's rpc status_code optional for backward compatibility ([#3059](https://github.com/waku-org/nwaku/pull/3059)) ([5afa9b13](https://github.com/waku-org/nwaku/commit/5afa9b13))
+- px protocol decode - do not treat missing response field as error ([#3054](https://github.com/waku-org/nwaku/issues/3054)) ([9b445ac4](https://github.com/waku-org/nwaku/commit/9b445ac4))
 - setting up node with modified config ([#3036](https://github.com/waku-org/nwaku/issues/3036)) ([8f289925](https://github.com/waku-org/nwaku/commit/8f289925))
 - get back health check for postgres legacy ([#3010](https://github.com/waku-org/nwaku/issues/3010)) ([5a0edff7](https://github.com/waku-org/nwaku/commit/5a0edff7))
 - libnegentropy integration ([#2996](https://github.com/waku-org/nwaku/issues/2996)) ([c3cb06ac](https://github.com/waku-org/nwaku/commit/c3cb06ac))
@@ -33,6 +35,7 @@
 
 ### Changes
 
+- append current version in agentString which is used by the identify protocol ([#3057](https://github.com/waku-org/nwaku/pull/3057)) ([368bb3c1](https://github.com/waku-org/nwaku/commit/368bb3c1))
 - rate limit peer exchange protocol, enhanced response status in RPC ([#3035](https://github.com/waku-org/nwaku/issues/3035)) ([0a7f16a3](https://github.com/waku-org/nwaku/commit/0a7f16a3))
 - Switch libnegentropy library build from shared to static linkage ([#3041](https://github.com/waku-org/nwaku/issues/3041)) ([83f25c3e](https://github.com/waku-org/nwaku/commit/83f25c3e))
 - libwaku reduce repetitive code by adding a template handling resp returns ([#3032](https://github.com/waku-org/nwaku/issues/3032)) ([1713f562](https://github.com/waku-org/nwaku/commit/1713f562))
