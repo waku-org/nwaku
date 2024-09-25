@@ -73,7 +73,7 @@ const
 
 type PeerManager* = ref object of RootObj
   switch*: Switch
-  peerStore*: PeerStore
+  peerStore*: WakuPeerStore
   wakuMetadata*: WakuMetadata
   initialBackoffInSec*: int
   backoffFactor*: int
@@ -503,7 +503,7 @@ proc new*(
   let pm = PeerManager(
     switch: switch,
     wakuMetadata: wakuMetadata,
-    peerStore: switch.peerStore,
+    peerStore: WakuPeerStore(store: switch.peerStore),
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
@@ -828,7 +828,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
 proc prunePeerStore*(pm: PeerManager) =
   let numPeers = pm.peerStore[AddressBook].book.len
-  let capacity = pm.peerStore.capacity
+  let capacity = pm.peerStore.getCapacity()
   if numPeers <= capacity:
     return
 
