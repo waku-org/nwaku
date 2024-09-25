@@ -26,6 +26,9 @@ include ../waku_core/message/default_values
 
 export confTomlDefs, confTomlNet, confEnvvarDefs, confEnvvarNet
 
+# Git version in git describe format (defined at compile time)
+const git_version* {.strdefine.} = "n/a"
+
 type ConfResult*[T] = Result[T, string]
 
 type EthRpcUrl* = distinct string
@@ -157,7 +160,7 @@ type WakuNodeConf* = object
     .}: uint16
 
     agentString* {.
-      defaultValue: "nwaku",
+      defaultValue: "nwaku-" & git_version,
       desc: "Node agent string which is used as identifier in network",
       name: "agent-string"
     .}: string
