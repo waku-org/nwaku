@@ -40,7 +40,7 @@ proc batchAdvertise*(
   ## Register with all rendez vous peers under a namespace
 
   let catchable = catch:
-    await procCall RendezVous(self).batchAdvertise(namespace, ttl, peers)
+    await procCall RendezVous(self).advertise(namespace, ttl, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
@@ -56,7 +56,7 @@ proc batchRequest*(
   ## Request all records from all rendez vous peers with matching a namespace
 
   let catchable = catch:
-    await RendezVous(self).batchRequest(namespace, count, peers)
+    await RendezVous(self).request(namespace, count, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
@@ -103,7 +103,7 @@ proc advertiseAll(self: WakuRendezVous) {.async.} =
         continue
 
       # Advertise yourself on that peer
-      self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
+      self.advertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
 
   let handles = await allFinished(futs)
 
