@@ -217,7 +217,9 @@ proc populateEnrCache(wpx: WakuPeerExchange) =
 
 proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
   # try more aggressively to fill the cache at startup
-  while wpx.enrCache.len < MaxPeersCacheSize:
+  var attempts = 10
+  while wpx.enrCache.len < MaxPeersCacheSize and attempts > 0:
+    attempts -= 1
     wpx.populateEnrCache()
     await sleepAsync(5.seconds)
 
