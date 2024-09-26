@@ -45,9 +45,9 @@ suite "Peer Manager":
 
   var
     server {.threadvar.}: WakuNode
-    serverPeerStore {.threadvar.}: PeerStore
+    serverPeerStore {.threadvar.}: WakuPeerStore
     client {.threadvar.}: WakuNode
-    clientPeerStore {.threadvar.}: PeerStore
+    clientPeerStore {.threadvar.}: WakuPeerStore
 
   var
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
@@ -115,7 +115,7 @@ suite "Peer Manager":
     suite "Peer Store Pruning":
       asyncTest "Capacity is not exceeded":
         # Given the client's peer store has a capacity of 1
-        clientPeerStore.capacity = 1
+        clientPeerStore.setCapacity(1)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -131,7 +131,7 @@ suite "Peer Manager":
 
       asyncTest "Capacity is not exceeded but some peers are unhealthy":
         # Given the client's peer store has a capacity of 1
-        clientPeerStore.capacity = 1
+        clientPeerStore.setCapacity(1)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -150,7 +150,7 @@ suite "Peer Manager":
 
       asyncTest "Capacity is exceeded but all peers are healthy":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -166,7 +166,7 @@ suite "Peer Manager":
 
       asyncTest "Failed connections":
         # Given the client's peer store has a capacity of 0 and maxFailedAttempts of 1
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
         client.peerManager.maxFailedAttempts = 1
 
         # And the client connects to the server
@@ -186,7 +186,7 @@ suite "Peer Manager":
 
       asyncTest "Shardless":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -205,7 +205,7 @@ suite "Peer Manager":
 
       asyncTest "Higher than avg shard count":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the server's remote peer info contains the node's ENR
         serverRemotePeerInfo.enr = some(server.enr)
@@ -772,7 +772,7 @@ suite "Mount Order":
   var
     client {.threadvar.}: WakuNode
     clientRemotePeerInfo {.threadvar.}: RemotePeerInfo
-    clientPeerStore {.threadvar.}: PeerStore
+    clientPeerStore {.threadvar.}: WakuPeerStore
 
   asyncSetup:
     let clientKey = generateSecp256k1Key()
