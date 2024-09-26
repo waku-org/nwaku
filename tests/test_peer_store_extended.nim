@@ -9,7 +9,12 @@ import
   libp2p/multiaddress,
   testutils/unittests
 import
-  waku/[node/peer_manager/peer_manager, node/peer_manager/waku_peer_store, waku_node],
+  waku/[
+    node/peer_manager/peer_manager,
+    node/peer_manager/waku_peer_store,
+    waku_node,
+    waku_core/peers,
+  ],
   ./testlib/wakucore
 
 suite "Extended nim-libp2p Peer Store":
@@ -35,91 +40,91 @@ suite "Extended nim-libp2p Peer Store":
 
     # Peer1: Connected
     peerStore.addPeer(
-      RemotePeerInfo(
-        peerId: p1,
-        addrs: @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()],
-        protocols: @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"],
-        publicKey: generateEcdsaKeyPair().pubkey,
-        agent: "nwaku",
-        protoVersion: "protoVersion1",
-        connectedness: Connected,
-        disconnectTime: 0,
-        origin: Discv5,
-        direction: Inbound,
-        lastFailedConn: Moment.init(1001, Second),
-        numberFailedConn: 1,
+      RemotePeerInfo.init(
+        peerId = p1,
+        addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()],
+        protocols = @["/vac/waku/relay/2.0.0-beta1", "/vac/waku/store/2.0.0"],
+        publicKey = generateEcdsaKeyPair().pubkey,
+        agent = "nwaku",
+        protoVersion = "protoVersion1",
+        connectedness = Connected,
+        disconnectTime = 0,
+        origin = Discv5,
+        direction = Inbound,
+        lastFailedConn = Moment.init(1001, Second),
+        numberFailedConn = 1,
       )
     )
 
     # Peer2: Connected
     peerStore.addPeer(
-      RemotePeerInfo(
-        peerId: p2,
-        addrs: @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()],
-        protocols: @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"],
-        publicKey: generateEcdsaKeyPair().pubkey,
-        agent: "nwaku",
-        protoVersion: "protoVersion2",
-        connectedness: Connected,
-        disconnectTime: 0,
-        origin: Discv5,
-        direction: Inbound,
-        lastFailedConn: Moment.init(1002, Second),
-        numberFailedConn: 2,
+      RemotePeerInfo.init(
+        peerId = p2,
+        addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/2").tryGet()],
+        protocols = @["/vac/waku/relay/2.0.0", "/vac/waku/store/2.0.0"],
+        publicKey = generateEcdsaKeyPair().pubkey,
+        agent = "nwaku",
+        protoVersion = "protoVersion2",
+        connectedness = Connected,
+        disconnectTime = 0,
+        origin = Discv5,
+        direction = Inbound,
+        lastFailedConn = Moment.init(1002, Second),
+        numberFailedConn = 2,
       )
     )
 
     # Peer3: Connected
     peerStore.addPeer(
-      RemotePeerInfo(
-        peerId: p3,
-        addrs: @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()],
-        protocols: @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"],
-        publicKey: generateEcdsaKeyPair().pubkey,
-        agent: "gowaku",
-        protoVersion: "protoVersion3",
-        connectedness: Connected,
-        disconnectTime: 0,
-        origin: Discv5,
-        direction: Inbound,
-        lastFailedConn: Moment.init(1003, Second),
-        numberFailedConn: 3,
+      RemotePeerInfo.init(
+        peerId = p3,
+        addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/3").tryGet()],
+        protocols = @["/vac/waku/lightpush/2.0.0", "/vac/waku/store/2.0.0-beta1"],
+        publicKey = generateEcdsaKeyPair().pubkey,
+        agent = "gowaku",
+        protoVersion = "protoVersion3",
+        connectedness = Connected,
+        disconnectTime = 0,
+        origin = Discv5,
+        direction = Inbound,
+        lastFailedConn = Moment.init(1003, Second),
+        numberFailedConn = 3,
       )
     )
 
     # Peer4: Added but never connected
     peerStore.addPeer(
-      RemotePeerInfo(
-        peerId: p4,
-        addrs: @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()],
-        protocols: @[],
-        publicKey: generateEcdsaKeyPair().pubkey,
-        agent: "",
-        protoVersion: "",
-        connectedness: NotConnected,
-        disconnectTime: 0,
-        origin: Discv5,
-        direction: Inbound,
-        lastFailedConn: Moment.init(0, Second),
-        numberFailedConn: 0,
+      RemotePeerInfo.init(
+        peerId = p4,
+        addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/4").tryGet()],
+        protocols = @[],
+        publicKey = generateEcdsaKeyPair().pubkey,
+        agent = "",
+        protoVersion = "",
+        connectedness = NotConnected,
+        disconnectTime = 0,
+        origin = Discv5,
+        direction = Inbound,
+        lastFailedConn = Moment.init(0, Second),
+        numberFailedConn = 0,
       )
     )
 
-    # Peer5: CanConnect
+    # Peer5: Connected
     peerStore.addPeer(
-      RemotePeerInfo(
-        peerId: p5,
-        addrs: @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()],
-        protocols: @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"],
-        publicKey: generateEcdsaKeyPair().pubkey,
-        agent: "nwaku",
-        protoVersion: "protoVersion5",
-        connectedness: CanConnect,
-        disconnectTime: 1234567890,
-        origin: Static,
-        direction: Outbound,
-        lastFailedConn: Moment.init(1005, Second),
-        numberFailedConn: 5,
+      RemotePeerInfo.init(
+        peerId = p5,
+        addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/5").tryGet()],
+        protocols = @["/vac/waku/swap/2.0.0", "/vac/waku/store/2.0.0-beta2"],
+        publicKey = generateEcdsaKeyPair().pubkey,
+        agent = "gowaku",
+        protoVersion = "protoVersion5",
+        connectedness = Connected,
+        disconnectTime = 0,
+        origin = Discv5,
+        direction = Inbound,
+        lastFailedConn = Moment.init(1005, Second),
+        numberFailedConn = 5,
       )
     )
 
@@ -237,7 +242,7 @@ suite "Extended nim-libp2p Peer Store":
 
   test "toRemotePeerInfo() converts a StoredInfo to a RemotePeerInfo":
     # Given
-    let peer1 = peerStore.get(p1)
+    let peer1 = peerStore.getPeer(p1)
 
     # Then
     check:
@@ -315,11 +320,11 @@ suite "Extended nim-libp2p Peer Store":
 
   test "del() successfully deletes waku custom books":
     # Given
-    let peerStore = PeerStore.new(nil, capacity = 5)
+    let peerStore = WakuPeerStore.new(nil, capacity = 5)
     var p1: PeerId
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW1")
 
-    let remotePeer = RemotePeerInfo(
+    let remotePeer = RemotePeerInfo.init(
       peerId = p1,
       addrs = @[MultiAddress.init("/ip4/127.0.0.1/tcp/1").tryGet()],
       protocols = @["proto"],
