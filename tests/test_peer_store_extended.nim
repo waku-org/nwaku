@@ -342,7 +342,7 @@ suite "Extended nim-libp2p Peer Store":
     peerStore.addPeer(remotePeer)
 
     # When
-    peerStore.del(p1)
+    peerStore.delete(p1)
 
     # Then
     check:
