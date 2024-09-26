@@ -146,7 +146,7 @@ proc releaseConn(pool: PgAsyncPool, conn: DbConn) =
     if pool.conns[i].dbConn == conn:
       pool.conns[i].busy = false
 
-const SlowQueryThresholdInNanoSeconds = 2_000_000_000
+const SlowQueryThresholdInNanoSeconds = 1_000_000_000
 
 proc pgQuery*(
     pool: PgAsyncPool,
@@ -167,7 +167,7 @@ proc pgQuery*(
       debug "pgQuery slow query",
         query_duration_secs = (queryDuration / 1_000_000_000), query, requestId
 
-  (await conn.dbConnQuery(sql(query), args, rowCallback)).isOkOr:
+  (await conn.dbConnQuery(sql(query), args, rowCallback, requestId)).isOkOr:
     return err("error in asyncpool query: " & $error)
 
   return ok()
@@ -218,7 +218,7 @@ proc runStmt*(
 
   (
     await conn.dbConnQueryPrepared(
-      stmtName, paramValues, paramLengths, paramFormats, rowCallback
+      stmtName, paramValues, paramLengths, paramFormats, rowCallback, requestId
     )
   ).isOkOr:
     return err("error in runStmt: " & $error)

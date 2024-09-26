@@ -160,7 +160,11 @@ proc waitQueryToFinish(
     pqclear(pqResult)
 
 proc dbConnQuery*(
-    db: DbConn, query: SqlQuery, args: seq[string], rowCallback: DataProc
+    db: DbConn,
+    query: SqlQuery,
+    args: seq[string],
+    rowCallback: DataProc,
+    requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
   ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
@@ -188,6 +192,7 @@ proc dbConnQuery*(
 
   if "insert" notin ($query).toLower():
     debug "dbConnQuery",
+      requestId,
       query = $query,
       querySummary,
       waitDurationSecs = waitDuration,
@@ -202,6 +207,7 @@ proc dbConnQueryPrepared*(
     paramLengths: seq[int32],
     paramFormats: seq[int32],
     rowCallback: DataProc,
+    requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
   var queryStartTime = getTime().toUnixFloat()
   db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
@@ -222,6 +228,9 @@ proc dbConnQueryPrepared*(
 
   if "insert" notin stmtName.toLower():
     debug "dbConnQueryPrepared",
-      stmtName, waitDurationSecs = waitDuration, sendDurationSecs = sendDuration
+      requestId,
+      stmtName,
+      waitDurationSecs = waitDuration,
+      sendDurationSecs = sendDuration
 
   return ok()
