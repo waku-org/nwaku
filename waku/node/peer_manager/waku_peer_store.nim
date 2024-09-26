@@ -40,10 +40,9 @@ type
   # Keeps track of the ENR (Ethereum Node Record) of a peer
   ENRBook* = ref object of PeerBook[enr.Record]
 
-proc new*(
-    T: type WakuPeerStore, identify: Identify, capacity = 1000
-): PeerStore {.public.} =
-  T(identify: identify, capacity: capacity)
+proc new*(T: type WakuPeerStore, identify: Identify, capacity = 1000): WakuPeerStore =
+  let peerStore = PeerStore.new(identify, capacity)
+  WakuPeerStore(store: peerStore)
 
 proc getCapacity*(wps: WakuPeerStore): int =
   wps.store.capacity
