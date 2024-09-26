@@ -40,29 +40,21 @@ type
   # Keeps track of the ENR (Ethereum Node Record) of a peer
   ENRBook* = ref object of PeerBook[enr.Record]
 
+# Constructor
 proc new*(T: type WakuPeerStore, identify: Identify, capacity = 1000): WakuPeerStore =
   let peerStore = PeerStore.new(identify, capacity)
   WakuPeerStore(store: peerStore)
 
-proc getCapacity*(wps: WakuPeerStore): int =
-  wps.store.capacity
-
-proc setCapacity*(wps: WakuPeerStore, capacity: int) =
-  wps.store.capacity = capacity
-
+# Core functionality
 proc `[]`*(wps: WakuPeerStore, T: typedesc): T =
   wps.store[T]
-
-proc delete*(wps: WakuPeerStore, peerId: PeerId) =
-  # Delete all the information of a given peer.
-  wps.store.del(peerId)
 
 proc get*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
   RemotePeerInfo(
     peerId: peerId,
     addrs: wps.store[AddressBook][peerId],
     enr:
-      if wps.store[ENRBook].book.hasKey(peerId):
+      if peerId in wps.store[ENRBook].book:
         some(wps.store[ENRBook][peerId])
       else:
         none(enr.Record)
@@ -79,10 +71,27 @@ proc get*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
     numberFailedConn: wps.store[NumberFailedConnBook][peerId],
   )
 
-proc getWakuProtos*(wps: WakuPeerStore): seq[string] =
-  toSeq(wps.store[ProtoBook].book.values()).flatten().deduplicate().filterIt(
-    it.startsWith("/vac/waku")
-  )
+proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
+  wps.store[AddressBook][peer.peerId] = peer.addrs
+  wps.store[ProtoBook][peer.peerId] = peer.protocols
+  wps.store[AgentBook][peer.peerId] = peer.agent
+  wps.store[ProtoVersionBook][peer.peerId] = peer.protoVersion
+  wps.store[KeyBook][peer.peerId] = peer.publicKey
+  wps.store[ConnectionBook][peer.peerId] = peer.connectedness
+  wps.store[DisconnectBook][peer.peerId] = peer.disconnectTime
+  wps.store[SourceBook][peer.peerId] = peer.origin
+  wps.store[DirectionBook][peer.peerId] = peer.direction
+  wps.store[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
+  wps.store[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
+  wps.store[ENRBook][peer.peerId] =
+    if peer.enr.isSome():
+      peer.enr.get()
+    else:
+      none(enr.Record)
+
+proc delete*(wps: WakuPeerStore, peerId: PeerId) =
+  # Delete all the information of a given peer.
+  wps.store.del(peerId)
 
 # TODO: Rename peers() to getPeersByProtocol()
 proc peers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
@@ -130,12 +139,23 @@ proc hasPeers*(wps: WakuPeerStore, protocolMatcher: Matcher): bool =
   # Returns `true` if the peerstore has any peer matching the protocolMatcher
   toSeq(wps[ProtoBook].book.values()).anyIt(it.anyIt(protocolMatcher(it)))
 
+proc getCapacity*(wps: WakuPeerStore): int =
+  wps.store.capacity
+
+proc setCapacity*(wps: WakuPeerStore, capacity: int) =
+  wps.store.capacity = capacity
+
+proc getWakuProtos*(wps: WakuPeerStore): seq[string] =
+  toSeq(wps.store[ProtoBook].book.values()).flatten().deduplicate().filterIt(
+    it.startsWith("/vac/waku")
+  )
+
 proc getPeersByDirection*(
     wps: WakuPeerStore, direction: PeerDirection
 ): seq[RemotePeerInfo] =
   return wps.peers.filterIt(it.direction == direction)
 
-proc getNotConnectedPeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
+proc getDisconnectedPeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
   return wps.peers.filterIt(it.connectedness != Connected)
 
 proc getConnectedPeers*(wps: WakuPeerStore): seq[RemotePeerInfo] =

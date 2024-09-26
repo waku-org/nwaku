@@ -158,7 +158,7 @@ proc addPeer*(
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
-    # Reading from the db (pm.storage) is only done on startup, hence you need to connect to all saved peers. 
+    # Reading from the db (pm.storage) is only done on startup, hence you need to connect to all saved peers.
     # `remotePeerInfo.connectedness` should already be `NotConnected`, but both we reset it to `NotConnected` just in case.
     # This reset is also done when reading from storage, I believe, to ensure the `connectedness` state is the correct one.
     # So many resets are likely redudant, but I haven't verified whether this is the case or not.
@@ -728,7 +728,7 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let notConnectedPeers = pm.peerStore.getNotConnectedPeers()
+  let notConnectedPeers = pm.peerStore.getDisconnectedPeers()
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 
@@ -846,7 +846,7 @@ proc prunePeerStore*(pm: PeerManager) =
 
     peersToPrune.incl(peerId)
 
-  var notConnected = pm.peerStore.getNotConnectedPeers().mapIt(it.peerId)
+  var notConnected = pm.peerStore.getDisconnectedPeers().mapIt(it.peerId)
 
   # Always pick random non-connected peers
   shuffle(notConnected)
@@ -957,7 +957,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
       excessInConns = max(inRelayPeers.len - pm.inRelayPeersTarget, 0)
 
-      # One minus the percentage of excess connections relative to the target, limited to 100% 
+      # One minus the percentage of excess connections relative to the target, limited to 100%
       # We calculate one minus this percentage because we want the factor to be inversely proportional to the number of excess peers
       inFactor = 1 - min(excessInConns / pm.inRelayPeersTarget, 1)
       # Percentage of out relay peers relative to the target
@@ -974,7 +974,7 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     # log metrics
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
-    let notConnectedPeers = pm.peerStore.getNotConnectedPeers().mapIt(
+    let notConnectedPeers = pm.peerStore.getDisconnectedPeers().mapIt(
         RemotePeerInfo.init(it.peerId, it.addrs)
       )
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
