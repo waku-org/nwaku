@@ -123,9 +123,9 @@ const SelectWithCursorNoDataAscStmtDef =
           timestamp <= $7
     ORDER BY timestamp ASC, messageHash ASC LIMIT $8;"""
 
-const SelectCursorByHashName = "SelectMessageByHash"
+const SelectCursorByHashName = "SelectMessageByHashInMessagesLookup"
 const SelectCursorByHashDef =
-  """SELECT timestamp FROM messages
+  """SELECT timestamp FROM messages_lookup
     WHERE messageHash = $1"""
 
 const
