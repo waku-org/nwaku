@@ -49,16 +49,10 @@ proc new*(T: type WakuPeerStore, identify: Identify, capacity = 1000): WakuPeerS
 proc `[]`*(wps: WakuPeerStore, T: typedesc): T =
   wps.store[T]
 
-proc get*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
+proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
   RemotePeerInfo(
     peerId: peerId,
     addrs: wps.store[AddressBook][peerId],
-    enr:
-      if peerId in wps.store[ENRBook].book:
-        some(wps.store[ENRBook][peerId])
-      else:
-        none(enr.Record)
-    ,
     protocols: wps.store[ProtoBook][peerId],
     agent: wps.store[AgentBook][peerId],
     protoVersion: wps.store[ProtoVersionBook][peerId],
@@ -69,6 +63,12 @@ proc get*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
     direction: wps.store[DirectionBook][peerId],
     lastFailedConn: wps.store[LastFailedConnBook][peerId],
     numberFailedConn: wps.store[NumberFailedConnBook][peerId],
+    enr:
+      if peerId in wps.store[ENRBook].book:
+        some(wps.store[ENRBook][peerId])
+      else:
+        none(enr.Record)
+    ,
   )
 
 proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
@@ -83,11 +83,8 @@ proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
   wps.store[DirectionBook][peer.peerId] = peer.direction
   wps.store[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
   wps.store[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
-  wps.store[ENRBook][peer.peerId] =
-    if peer.enr.isSome():
-      peer.enr.get()
-    else:
-      none(enr.Record)
+  if peer.enr.isSome():
+    wps.store[ENRBook][peer.peerId] = peer.enr.get()
 
 proc delete*(wps: WakuPeerStore, peerId: PeerId) =
   # Delete all the information of a given peer.
@@ -102,7 +99,7 @@ proc peers*(wps: WakuPeerStore): seq[RemotePeerInfo] =
     )
     .toHashSet()
 
-  return allKeys.mapIt(wps.get(it))
+  return allKeys.mapIt(wps.getPeer(it))
 
 proc peers*(wps: WakuPeerStore, proto: string): seq[RemotePeerInfo] =
   wps.peers().filterIt(it.protocols.contains(proto))
@@ -129,7 +126,7 @@ proc isConnected*(wps: WakuPeerStore, peerId: PeerID): bool =
 proc hasPeer*(wps: WakuPeerStore, peerId: PeerID, proto: string): bool =
   # Returns `true` if peer is included in manager for the specified protocol
   # TODO: What if peer does not exist in the wps?
-  wps.get(peerId).protocols.contains(proto)
+  wps.getPeer(peerId).protocols.contains(proto)
 
 proc hasPeers*(wps: WakuPeerStore, proto: string): bool =
   # Returns `true` if the peerstore has any peer for the specified protocol

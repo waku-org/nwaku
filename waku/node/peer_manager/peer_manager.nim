@@ -446,7 +446,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   pm.peerStore[DirectionBook][peerId] = direction
 
   if not pm.storage.isNil:
-    var remotePeerInfo = pm.peerStore.get(peerId)
+    var remotePeerInfo = pm.peerStore.getPeer(peerId)
 
     if event.kind == PeerEventKind.Left:
       remotePeerInfo.disconnectTime = getTime().toUnix
@@ -818,7 +818,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if peersToConnect.len == 0:
     return
 
-  let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.get(it))
+  let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.getPeer(it))
 
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
