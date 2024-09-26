@@ -68,7 +68,6 @@ proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
         some(wps.store[ENRBook][peerId])
       else:
         none(enr.Record)
-    ,
   )
 
 proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =

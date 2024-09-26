@@ -122,7 +122,7 @@ suite "Extended nim-libp2p Peer Store":
         connectedness = Connected,
         disconnectTime = 0,
         origin = Discv5,
-        direction = Inbound,
+        direction = Outbound,
         lastFailedConn = Moment.init(1005, Second),
         numberFailedConn = 5,
       )
