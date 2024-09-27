@@ -31,7 +31,12 @@ proc createAppKeystore*(
     f.write(separator)
     ok()
   except CatchableError:
-    err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
+    err(
+      AppKeystoreError(
+        kind: KeystoreOsError,
+        msg: "error in createAppKeystore: " & getCurrentExceptionMsg(),
+      )
+    )
   finally:
     f.close()
 
@@ -114,19 +119,40 @@ proc loadAppKeystore*(
         return ok(data)
       # TODO: we might continue rather than return for some of these errors
       except JsonParsingError:
-        return
-          err(AppKeystoreError(kind: KeystoreJsonError, msg: getCurrentExceptionMsg()))
+        return err(
+          AppKeystoreError(
+            kind: KeystoreJsonError,
+            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+          )
+        )
       except ValueError:
-        return
-          err(AppKeystoreError(kind: KeystoreJsonError, msg: getCurrentExceptionMsg()))
+        return err(
+          AppKeystoreError(
+            kind: KeystoreJsonError,
+            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+          )
+        )
       except OSError:
-        return
-          err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
+        return err(
+          AppKeystoreError(
+            kind: KeystoreOsError,
+            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+          )
+        )
       except Exception: #parseJson raises Exception
-        return
-          err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
+        return err(
+          AppKeystoreError(
+            kind: KeystoreOsError,
+            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+          )
+        )
   except IOError:
-    return err(AppKeystoreError(kind: KeystoreIoError, msg: getCurrentExceptionMsg()))
+    return err(
+      AppKeystoreError(
+        kind: KeystoreIoError,
+        msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+      )
+    )
 
   return err(
     AppKeystoreError(
