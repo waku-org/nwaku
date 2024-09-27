@@ -499,7 +499,7 @@ proc new*(
     error "Max backoff time can't be over 1 week", maxBackoff = backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
-  let outRelayPeersTarget = maxRelayPeersValue div 3
+  # let outRelayPeersTarget = 2 * maxRelayPeersValue div 3
 
   let pm = PeerManager(
     switch: switch,
@@ -508,9 +508,9 @@ proc new*(
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
-    outRelayPeersTarget: outRelayPeersTarget,
-    inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
-    maxRelayPeers: maxRelayPeersValue,
+    outRelayPeersTarget: 7,
+    inRelayPeersTarget: 3,
+    maxRelayPeers: 10,
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
