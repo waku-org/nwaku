@@ -438,14 +438,14 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     ## Check max allowed in-relay peers
     let inRelayPeers = pm.connectedPeers(WakuRelayCodec)[0]
     if inRelayPeers.len > pm.inRelayPeersTarget and
-        pm.peerStore.hasPeer(peerId, WakuRelayCodec):
+        pm.wakuPeerStore.hasPeer(peerId, WakuRelayCodec):
       debug "disconnecting relay peer because reached max num in-relay peers",
         peerId = peerId,
         inRelayPeers = inRelayPeers.len,
         inRelayPeersTarget = pm.inRelayPeersTarget
 
       await pm.switch.disconnect(peerId)
-      pm.peerStore.delete(peerId)
+      pm.wakuPeerStore.delete(peerId)
 
     ## Apply max ip colocation limit
     if (let ip = pm.getPeerIp(peerId); ip.isSome()):
