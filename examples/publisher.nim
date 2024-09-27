@@ -95,8 +95,9 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
 
   # wait for a minimum of peers to be connected, otherwise messages wont be gossiped
   while true:
-    let numConnectedPeers =
-      node.peerManager.peerStore[ConnectionBook].book.values().countIt(it == Connected)
+    let numConnectedPeers = node.peerManager.wakuPeerStore[ConnectionBook].book
+      .values()
+      .countIt(it == Connected)
     if numConnectedPeers >= 6:
       notice "publisher is ready", connectedPeers = numConnectedPeers, required = 6
       break

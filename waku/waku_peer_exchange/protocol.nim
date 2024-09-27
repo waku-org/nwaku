@@ -203,8 +203,9 @@ proc poolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
 
 proc populateEnrCache(wpx: WakuPeerExchange) =
   # share only peers that i) are reachable ii) come from discv5 iii) share cluster
-  let withEnr =
-    wpx.peerManager.peerStore.getReachablePeers().filterIt(poolFilter(wpx.cluster, it))
+  let withEnr = wpx.peerManager.wakuPeerStore.getReachablePeers().filterIt(
+      poolFilter(wpx.cluster, it)
+    )
 
   # either what we have or max cache size
   var newEnrCache = newSeq[enr.Record](0)
