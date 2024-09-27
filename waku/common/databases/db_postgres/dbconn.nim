@@ -127,11 +127,12 @@ proc sendQueryPrepared(
   return ok()
 
 proc waitQueryToFinish(
-    db: DbConn, rowCallback: DataProc = nil
+    db: DbConn, rowCallback: DataProc = nil, requestId: string
 ): Future[Result[void, string]] {.async.} =
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
+  debug "waitQueryToFinish", requestId
   var dataAvailable = false
   proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
     dataAvailable = true
@@ -141,8 +142,10 @@ proc waitQueryToFinish(
   asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
     return err("failed to add event reader in waitQueryToFinish: " & $error)
 
+  debug "waitQueryToFinish", requestId
   while not dataAvailable:
     await sleepAsync(timer.milliseconds(1))
+  debug "waitQueryToFinish", requestId
 
   ## Now retrieve the result
   while true:
@@ -151,6 +154,8 @@ proc waitQueryToFinish(
     if pqResult == nil:
       db.check().isOkOr:
         return err("error in query: " & $error)
+
+      debug "waitQueryToFinish", requestId
 
       return ok() # reached the end of the results
 
@@ -182,7 +187,7 @@ proc dbConnQuery*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await db.waitQueryToFinish(rowCallback)).isOkOr:
+  (await db.waitQueryToFinish(rowCallback, requestId)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
@@ -218,7 +223,7 @@ proc dbConnQueryPrepared*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await db.waitQueryToFinish(rowCallback)).isOkOr:
+  (await db.waitQueryToFinish(rowCallback, requestId)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
