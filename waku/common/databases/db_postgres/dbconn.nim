@@ -132,7 +132,7 @@ proc waitQueryToFinish(
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  debug "waitQueryToFinish", requestId
+  debug "waitQueryToFinish", requestId, db = db.repr
   var dataAvailable = false
   proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
     dataAvailable = true
@@ -142,10 +142,10 @@ proc waitQueryToFinish(
   asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
     return err("failed to add event reader in waitQueryToFinish: " & $error)
 
-  debug "waitQueryToFinish", requestId
+  debug "waitQueryToFinish", requestId, db = db.repr
   while not dataAvailable:
     await sleepAsync(timer.milliseconds(1))
-  debug "waitQueryToFinish", requestId
+  debug "waitQueryToFinish", requestId, db = db.repr
 
   ## Now retrieve the result
   while true:
@@ -155,7 +155,7 @@ proc waitQueryToFinish(
       db.check().isOkOr:
         return err("error in query: " & $error)
 
-      debug "waitQueryToFinish", requestId
+      debug "waitQueryToFinish", requestId, db = db.repr
 
       return ok() # reached the end of the results
 
