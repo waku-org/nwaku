@@ -440,7 +440,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
     if inRelayPeers.len > pm.inRelayPeersTarget and
         pm.peerStore.hasPeer(peerId, WakuRelayCodec):
       debug "disconnecting relay peer because reached max num in-relay peers",
-        peerId,
+        peerId = peerId,
         inRelayPeers = inRelayPeers.len,
         inRelayPeersTarget = pm.inRelayPeersTarget
 
