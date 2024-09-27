@@ -60,8 +60,7 @@ proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
       if wps[ENRBook][peerId] != default(enr.Record):
         some(wps[ENRBook][peerId])
       else:
-        none(enr.Record)
-    ,
+        none(enr.Record),
     protocols: wps[ProtoBook][peerId],
     agent: wps[AgentBook][peerId],
     protoVersion: wps[ProtoVersionBook][peerId],
