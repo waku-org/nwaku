@@ -443,7 +443,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         peerId = peerId,
         inRelayPeers = inRelayPeers.len,
         inRelayPeersTarget = pm.inRelayPeersTarget
-
       await pm.switch.disconnect(peerId)
 
     ## Apply max ip colocation limit
