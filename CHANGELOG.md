@@ -25,6 +25,7 @@
 
 ### Bug Fixes
 
+- rejecting excess relay connections ([#3063](https://github.com/waku-org/nwaku/issues/3063)) ([8b0884c7](https://github.com/waku-org/nwaku/commit/8b0884c7))
 - make Peer Exchange's rpc status_code optional for backward compatibility ([#3059](https://github.com/waku-org/nwaku/pull/3059)) ([5afa9b13](https://github.com/waku-org/nwaku/commit/5afa9b13))
 - px protocol decode - do not treat missing response field as error ([#3054](https://github.com/waku-org/nwaku/issues/3054)) ([9b445ac4](https://github.com/waku-org/nwaku/commit/9b445ac4))
 - setting up node with modified config ([#3036](https://github.com/waku-org/nwaku/issues/3036)) ([8f289925](https://github.com/waku-org/nwaku/commit/8f289925))
