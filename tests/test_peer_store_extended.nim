@@ -105,8 +105,8 @@ suite "Extended nim-libp2p Peer Store":
         disconnectTime = 0,
         origin = Discv5,
         direction = Inbound,
-        lastFailedConn = Moment.init(0, Second),
-        numberFailedConn = 0,
+        lastFailedConn = Moment.init(1004, Second),
+        numberFailedConn = 4,
       )
     )
 
@@ -119,8 +119,8 @@ suite "Extended nim-libp2p Peer Store":
         publicKey = generateEcdsaKeyPair().pubkey,
         agent = "gowaku",
         protoVersion = "protoVersion5",
-        connectedness = Connected,
-        disconnectTime = 0,
+        connectedness = CanConnect,
+        disconnectTime = 1000,
         origin = Discv5,
         direction = Outbound,
         lastFailedConn = Moment.init(1005, Second),
