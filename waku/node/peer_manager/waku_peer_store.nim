@@ -17,7 +17,7 @@ export peerstore, builders
 
 type
   WakuPeerStore* = ref object
-    peerStore*: PeerStore
+    peerStore: PeerStore
 
   # Keeps track of the Connectedness state of a peer
   ConnectionBook* = ref object of PeerBook[Connectedness]
@@ -43,6 +43,9 @@ type
 # Constructor
 proc new*(T: type WakuPeerStore, identify: Identify, capacity = 1000): WakuPeerStore =
   let peerStore = PeerStore.new(identify, capacity)
+  WakuPeerStore(peerStore: peerStore)
+
+proc createWakuPeerStore*(peerStore: PeerStore): WakuPeerStore =
   WakuPeerStore(peerStore: peerStore)
 
 # Core functionality

@@ -504,7 +504,7 @@ proc new*(
   let pm = PeerManager(
     switch: switch,
     wakuMetadata: wakuMetadata,
-    wakuPeerStore: WakuPeerStore(peerStore: switch.peerStore),
+    wakuPeerStore: createWakuPeerStore(switch.peerStore),
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
