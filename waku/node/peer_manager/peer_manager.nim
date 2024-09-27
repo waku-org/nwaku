@@ -66,7 +66,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.seconds(15)
+  LogAndMetricsInterval = chronos.minutes(3)
 
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
@@ -539,9 +539,9 @@ proc new*(
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
-    outRelayPeersTarget: 7,
-    inRelayPeersTarget: 3,
-    maxRelayPeers: 10,
+    outRelayPeersTarget: outRelayPeersTarget,
+    inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
+    maxRelayPeers: maxRelayPeersValue,
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
@@ -735,8 +735,6 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
   if inRelayPeers.len > pm.inRelayPeersTarget:
-    notice "------------ connectToRelayPeers inRelayPeers.len > pm.inRelayPeersTarget",
-      inRelayPeers = inRelayPeers, inRelayPeersTarget = pm.inRelayPeersTarget
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
   if outRelayPeers.len >= pm.outRelayPeersTarget:
