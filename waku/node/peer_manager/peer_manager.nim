@@ -66,7 +66,7 @@ const
   PrunePeerStoreInterval = chronos.minutes(10)
 
   # How often metrics and logs are shown/updated
-  LogAndMetricsInterval = chronos.minutes(3)
+  LogAndMetricsInterval = chronos.seconds(15)
 
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
@@ -499,7 +499,7 @@ proc new*(
     error "Max backoff time can't be over 1 week", maxBackoff = backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
 
-  let outRelayPeersTarget = max(maxRelayPeersValue div 3, 10)
+  let outRelayPeersTarget = maxRelayPeersValue div 3
 
   let pm = PeerManager(
     switch: switch,
@@ -719,11 +719,11 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
 
 proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
-  let maxConnections = pm.switch.connManager.inSema.size
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
-  let inPeersTarget = maxConnections - pm.outRelayPeersTarget
 
   if inRelayPeers.len > pm.inRelayPeersTarget:
+    notice "------------ connectToRelayPeers inRelayPeers.len > pm.inRelayPeersTarget",
+      inRelayPeers = inRelayPeers, inRelayPeersTarget = pm.inRelayPeersTarget
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
   if outRelayPeers.len >= pm.outRelayPeersTarget:
