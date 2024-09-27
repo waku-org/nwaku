@@ -31,7 +31,6 @@
 - get back health check for postgres legacy ([#3010](https://github.com/waku-org/nwaku/issues/3010)) ([5a0edff7](https://github.com/waku-org/nwaku/commit/5a0edff7))
 - libnegentropy integration ([#2996](https://github.com/waku-org/nwaku/issues/2996)) ([c3cb06ac](https://github.com/waku-org/nwaku/commit/c3cb06ac))
 - peer-exchange issue ([#2889](https://github.com/waku-org/nwaku/issues/2889)) ([43157102](https://github.com/waku-org/nwaku/commit/43157102))
-- copy libnegentropy.so from nim-build image ([#2991](https://github.com/waku-org/nwaku/issues/2991)) ([2edc0bc5](https://github.com/waku-org/nwaku/commit/2edc0bc5))
 
 ### Changes
 
