@@ -445,7 +445,6 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         inRelayPeersTarget = pm.inRelayPeersTarget
 
       await pm.switch.disconnect(peerId)
-      pm.wakuPeerStore.delete(peerId)
 
     ## Apply max ip colocation limit
     if (let ip = pm.getPeerIp(peerId); ip.isSome()):
