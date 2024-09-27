@@ -73,7 +73,7 @@ const
 
 type PeerManager* = ref object of RootObj
   switch*: Switch
-  peerStore*: WakuPeerStore
+  wakuPeerStore*: WakuPeerStore
   wakuMetadata*: WakuMetadata
   initialBackoffInSec*: int
   backoffFactor*: int
@@ -125,16 +125,16 @@ proc addPeer*(
     trace "skipping to manage our unmanageable self"
     return
 
-  if pm.peerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
-      pm.peerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
-      pm.peerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
+  if pm.wakuPeerStore[AddressBook][remotePeerInfo.peerId] == remotePeerInfo.addrs and
+      pm.wakuPeerStore[KeyBook][remotePeerInfo.peerId] == remotePeerInfo.publicKey and
+      pm.wakuPeerStore[ENRBook][remotePeerInfo.peerId].raw.len > 0:
     let incomingEnr = remotePeerInfo.enr.valueOr:
       trace "peer already managed and incoming ENR is empty",
         remote_peer_id = $remotePeerInfo.peerId
       return
 
-    if pm.peerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
-        pm.peerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
+    if pm.wakuPeerStore[ENRBook][remotePeerInfo.peerId].raw == incomingEnr.raw or
+        pm.wakuPeerStore[ENRBook][remotePeerInfo.peerId].seqNum > incomingEnr.seqNum:
       trace "peer already managed and ENR info is already saved",
         remote_peer_id = $remotePeerInfo.peerId
       return
@@ -144,17 +144,18 @@ proc addPeer*(
 
   waku_total_unique_peers.inc()
 
-  pm.peerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
-  pm.peerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
-  pm.peerStore[SourceBook][remotePeerInfo.peerId] = origin
-  pm.peerStore[ProtoVersionBook][remotePeerInfo.peerId] = remotePeerInfo.protoVersion
-  pm.peerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
+  pm.wakuPeerStore[AddressBook][remotePeerInfo.peerId] = remotePeerInfo.addrs
+  pm.wakuPeerStore[KeyBook][remotePeerInfo.peerId] = remotePeerInfo.publicKey
+  pm.wakuPeerStore[SourceBook][remotePeerInfo.peerId] = origin
+  pm.wakuPeerStore[ProtoVersionBook][remotePeerInfo.peerId] =
+    remotePeerInfo.protoVersion
+  pm.wakuPeerStore[AgentBook][remotePeerInfo.peerId] = remotePeerInfo.agent
 
   if remotePeerInfo.protocols.len > 0:
-    pm.peerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
+    pm.wakuPeerStore[ProtoBook][remotePeerInfo.peerId] = remotePeerInfo.protocols
 
   if remotePeerInfo.enr.isSome():
-    pm.peerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
+    pm.wakuPeerStore[ENRBook][remotePeerInfo.peerId] = remotePeerInfo.enr.get()
 
   # Add peer to storage. Entry will subsequently be updated with connectedness information
   if not pm.storage.isNil:
@@ -181,10 +182,10 @@ proc connectRelay*(
   if peerId == pm.switch.peerInfo.peerId:
     return false
 
-  if not pm.peerStore.hasPeer(peerId, WakuRelayCodec):
+  if not pm.wakuPeerStore.hasPeer(peerId, WakuRelayCodec):
     pm.addPeer(peer)
 
-  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+  let failedAttempts = pm.wakuPeerStore[NumberFailedConnBook][peerId]
   trace "Connecting to relay peer",
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
 
@@ -208,20 +209,20 @@ proc connectRelay*(
       waku_peers_dials.inc(labelValues = ["successful"])
       waku_node_conns_initiated.inc(labelValues = [source])
 
-      pm.peerStore[NumberFailedConnBook][peerId] = 0
+      pm.wakuPeerStore[NumberFailedConnBook][peerId] = 0
 
       return true
 
   # Dial failed
-  pm.peerStore[NumberFailedConnBook][peerId] =
-    pm.peerStore[NumberFailedConnBook][peerId] + 1
-  pm.peerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
-  pm.peerStore[ConnectionBook][peerId] = CannotConnect
+  pm.wakuPeerStore[NumberFailedConnBook][peerId] =
+    pm.wakuPeerStore[NumberFailedConnBook][peerId] + 1
+  pm.wakuPeerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
+  pm.wakuPeerStore[ConnectionBook][peerId] = CannotConnect
 
   trace "Connecting relay peer failed",
     peerId = peerId,
     reason = reasonFailed,
-    failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+    failedAttempts = pm.wakuPeerStore[NumberFailedConnBook][peerId]
   waku_peers_dials.inc(labelValues = [reasonFailed])
 
   return false
@@ -288,19 +289,19 @@ proc loadFromStorage(pm: PeerManager) {.gcsafe.} =
       version = remotePeerInfo.protoVersion
 
     # nim-libp2p books
-    pm.peerStore[AddressBook][peerId] = remotePeerInfo.addrs
-    pm.peerStore[ProtoBook][peerId] = remotePeerInfo.protocols
-    pm.peerStore[KeyBook][peerId] = remotePeerInfo.publicKey
-    pm.peerStore[AgentBook][peerId] = remotePeerInfo.agent
-    pm.peerStore[ProtoVersionBook][peerId] = remotePeerInfo.protoVersion
+    pm.wakuPeerStore[AddressBook][peerId] = remotePeerInfo.addrs
+    pm.wakuPeerStore[ProtoBook][peerId] = remotePeerInfo.protocols
+    pm.wakuPeerStore[KeyBook][peerId] = remotePeerInfo.publicKey
+    pm.wakuPeerStore[AgentBook][peerId] = remotePeerInfo.agent
+    pm.wakuPeerStore[ProtoVersionBook][peerId] = remotePeerInfo.protoVersion
 
     # custom books
-    pm.peerStore[ConnectionBook][peerId] = NotConnected # Reset connectedness state
-    pm.peerStore[DisconnectBook][peerId] = remotePeerInfo.disconnectTime
-    pm.peerStore[SourceBook][peerId] = remotePeerInfo.origin
+    pm.wakuPeerStore[ConnectionBook][peerId] = NotConnected # Reset connectedness state
+    pm.wakuPeerStore[DisconnectBook][peerId] = remotePeerInfo.disconnectTime
+    pm.wakuPeerStore[SourceBook][peerId] = remotePeerInfo.origin
 
     if remotePeerInfo.enr.isSome():
-      pm.peerStore[ENRBook][peerId] = remotePeerInfo.enr.get()
+      pm.wakuPeerStore[ENRBook][peerId] = remotePeerInfo.enr.get()
 
     amount.inc()
 
@@ -315,7 +316,7 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   # Returns if we can try to connect to this peer, based on past failed attempts
   # It uses an exponential backoff. Each connection attempt makes us
   # wait more before trying again.
-  let failedAttempts = pm.peerStore[NumberFailedConnBook][peerId]
+  let failedAttempts = pm.wakuPeerStore[NumberFailedConnBook][peerId]
 
   # if it never errored, we can try to connect
   if failedAttempts == 0:
@@ -328,7 +329,7 @@ proc canBeConnected*(pm: PeerManager, peerId: PeerId): bool =
   # If it errored we wait an exponential backoff from last connection
   # the more failed attempts, the greater the backoff since last attempt
   let now = Moment.init(getTime().toUnix, Second)
-  let lastFailed = pm.peerStore[LastFailedConnBook][peerId]
+  let lastFailed = pm.wakuPeerStore[LastFailedConnBook][peerId]
   let backoff =
     calculateBackoff(pm.initialBackoffInSec, pm.backoffFactor, failedAttempts)
 
@@ -387,7 +388,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
       break guardClauses
 
     if (
-      pm.peerStore.hasPeer(peerId, WakuRelayCodec) and
+      pm.wakuPeerStore.hasPeer(peerId, WakuRelayCodec) and
       not metadata.shards.anyIt(pm.wakuMetadata.shards.contains(it))
     ):
       let myShardsString = "[ " & toSeq(pm.wakuMetadata.shards).join(", ") & " ]"
@@ -401,7 +402,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
 
   info "disconnecting from peer", peerId = peerId, reason = reason
   asyncSpawn(pm.switch.disconnect(peerId))
-  pm.peerStore.delete(peerId)
+  pm.wakuPeerStore.delete(peerId)
 
 # called when a peer i) first connects to us ii) disconnects all connections from us
 proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
@@ -427,7 +428,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         for peerId in peersBehindIp[0 ..< (peersBehindIp.len - pm.colocationLimit)]:
           debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
           asyncSpawn(pm.switch.disconnect(peerId))
-          pm.peerStore.delete(peerId)
+          pm.wakuPeerStore.delete(peerId)
   of Left:
     direction = UnknownDirection
     connectedness = CanConnect
@@ -442,11 +443,11 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
   of Identified:
     debug "event identified", peerId = peerId
 
-  pm.peerStore[ConnectionBook][peerId] = connectedness
-  pm.peerStore[DirectionBook][peerId] = direction
+  pm.wakuPeerStore[ConnectionBook][peerId] = connectedness
+  pm.wakuPeerStore[DirectionBook][peerId] = direction
 
   if not pm.storage.isNil:
-    var remotePeerInfo = pm.peerStore.getPeer(peerId)
+    var remotePeerInfo = pm.wakuPeerStore.getPeer(peerId)
 
     if event.kind == PeerEventKind.Left:
       remotePeerInfo.disconnectTime = getTime().toUnix
@@ -503,7 +504,7 @@ proc new*(
   let pm = PeerManager(
     switch: switch,
     wakuMetadata: wakuMetadata,
-    peerStore: WakuPeerStore(store: switch.peerStore),
+    wakuPeerStore: WakuPeerStore(peerStore: switch.peerStore),
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
@@ -522,7 +523,7 @@ proc new*(
     onPeerEvent(pm, peerId, event)
 
   proc peerStoreChanged(peerId: PeerId) {.gcsafe.} =
-    waku_peer_store_size.set(toSeq(pm.peerStore[AddressBook].book.keys).len.int64)
+    waku_peer_store_size.set(toSeq(pm.wakuPeerStore[AddressBook].book.keys).len.int64)
 
   # currently disabled
   #pm.switch.addConnEventHandler(connHook, ConnEventKind.Connected)
@@ -532,7 +533,7 @@ proc new*(
   pm.switch.addPeerEventHandler(peerHook, PeerEventKind.Left)
 
   # called every time the peerstore is updated
-  pm.peerStore[AddressBook].addHandler(peerStoreChanged)
+  pm.wakuPeerStore[AddressBook].addHandler(peerStoreChanged)
 
   pm.serviceSlots = initTable[string, RemotePeerInfo]()
   pm.ipTable = initTable[string, seq[PeerId]]()
@@ -580,7 +581,7 @@ proc dialPeer*(
 
   # First add dialed peer info to peer store, if it does not exist yet..
   # TODO: nim libp2p peerstore already adds them
-  if not pm.peerStore.hasPeer(remotePeerInfo.peerId, proto):
+  if not pm.wakuPeerStore.hasPeer(remotePeerInfo.peerId, proto):
     trace "Adding newly dialed peer to manager",
       peerId = $remotePeerInfo.peerId, address = $remotePeerInfo.addrs[0], proto = proto
     pm.addPeer(remotePeerInfo)
@@ -658,7 +659,7 @@ proc reconnectPeers*(
   debug "Reconnecting peers", proto = proto
 
   # Proto is not persisted, we need to iterate over all peers.
-  for peerInfo in pm.peerStore.peers(protocolMatcher(proto)):
+  for peerInfo in pm.wakuPeerStore.peers(protocolMatcher(proto)):
     # Check that the peer can be connected
     if peerInfo.connectedness == CannotConnect:
       error "Not reconnecting to unreachable or non-existing peer",
@@ -728,7 +729,7 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   if outRelayPeers.len >= pm.outRelayPeersTarget:
     return
 
-  let notConnectedPeers = pm.peerStore.getDisconnectedPeers()
+  let notConnectedPeers = pm.wakuPeerStore.getDisconnectedPeers()
 
   var outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
 
@@ -765,11 +766,11 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   for shard in pm.wakuMetadata.shards.items:
     # Filter out peer not on this shard
     let connectedInPeers = inPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      pm.wakuPeerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
     )
 
     let connectedOutPeers = outPeers.filterIt(
-      pm.peerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      pm.wakuPeerStore.hasShard(it, uint16(pm.wakuMetadata.clusterId), uint16(shard))
     )
 
     # Calculate the difference between current values and targets
@@ -784,17 +785,17 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
 
     # Get all peers for this shard
     var connectablePeers =
-      pm.peerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
+      pm.wakuPeerStore.getPeersByShard(uint16(pm.wakuMetadata.clusterId), uint16(shard))
 
     let shardCount = connectablePeers.len
 
     connectablePeers.keepItIf(
-      not pm.peerStore.isConnected(it.peerId) and pm.canBeConnected(it.peerId)
+      not pm.wakuPeerStore.isConnected(it.peerId) and pm.canBeConnected(it.peerId)
     )
 
     let connectableCount = connectablePeers.len
 
-    connectablePeers.keepItIf(pm.peerStore.hasCapability(it.peerId, Relay))
+    connectablePeers.keepItIf(pm.wakuPeerStore.hasCapability(it.peerId, Relay))
 
     let relayCount = connectablePeers.len
 
@@ -818,7 +819,7 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if peersToConnect.len == 0:
     return
 
-  let uniquePeers = toSeq(peersToConnect).mapIt(pm.peerStore.getPeer(it))
+  let uniquePeers = toSeq(peersToConnect).mapIt(pm.wakuPeerStore.getPeer(it))
 
   # Connect to all nodes
   for i in countup(0, uniquePeers.len, MaxParallelDials):
@@ -827,8 +828,8 @@ proc manageRelayPeers*(pm: PeerManager) {.async.} =
     await pm.connectToNodes(uniquePeers[i ..< stop])
 
 proc prunePeerStore*(pm: PeerManager) =
-  let numPeers = pm.peerStore[AddressBook].book.len
-  let capacity = pm.peerStore.getCapacity()
+  let numPeers = pm.wakuPeerStore[AddressBook].book.len
+  let capacity = pm.wakuPeerStore.getCapacity()
   if numPeers <= capacity:
     return
 
@@ -837,7 +838,7 @@ proc prunePeerStore*(pm: PeerManager) =
   var peersToPrune: HashSet[PeerId]
 
   # prune failed connections
-  for peerId, count in pm.peerStore[NumberFailedConnBook].book.pairs:
+  for peerId, count in pm.wakuPeerStore[NumberFailedConnBook].book.pairs:
     if count < pm.maxFailedAttempts:
       continue
 
@@ -846,7 +847,7 @@ proc prunePeerStore*(pm: PeerManager) =
 
     peersToPrune.incl(peerId)
 
-  var notConnected = pm.peerStore.getDisconnectedPeers().mapIt(it.peerId)
+  var notConnected = pm.wakuPeerStore.getDisconnectedPeers().mapIt(it.peerId)
 
   # Always pick random non-connected peers
   shuffle(notConnected)
@@ -855,11 +856,11 @@ proc prunePeerStore*(pm: PeerManager) =
   var peersByShard = initTable[uint16, seq[PeerId]]()
 
   for peer in notConnected:
-    if not pm.peerStore[ENRBook].contains(peer):
+    if not pm.wakuPeerStore[ENRBook].contains(peer):
       shardlessPeers.add(peer)
       continue
 
-    let record = pm.peerStore[ENRBook][peer]
+    let record = pm.wakuPeerStore[ENRBook][peer]
 
     let rec = record.toTyped().valueOr:
       shardlessPeers.add(peer)
@@ -893,9 +894,9 @@ proc prunePeerStore*(pm: PeerManager) =
       peersToPrune.incl(peer)
 
   for peer in peersToPrune:
-    pm.peerStore.delete(peer)
+    pm.wakuPeerStore.delete(peer)
 
-  let afterNumPeers = pm.peerStore[AddressBook].book.len
+  let afterNumPeers = pm.wakuPeerStore[AddressBook].book.len
 
   trace "Finished pruning peer store",
     beforeNumPeers = numPeers,
@@ -909,7 +910,7 @@ proc selectPeer*(
   trace "Selecting peer from peerstore", protocol = proto
 
   # Selects the best peer for a given protocol
-  var peers = pm.peerStore.getPeersByProtocol(proto)
+  var peers = pm.wakuPeerStore.getPeersByProtocol(proto)
 
   if shard.isSome():
     peers.keepItIf((it.enr.isSome() and it.enr.get().containsShard(shard.get())))
@@ -974,7 +975,7 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
     # log metrics
     let (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
     let maxConnections = pm.switch.connManager.inSema.size
-    let notConnectedPeers = pm.peerStore.getDisconnectedPeers().mapIt(
+    let notConnectedPeers = pm.wakuPeerStore.getDisconnectedPeers().mapIt(
         RemotePeerInfo.init(it.peerId, it.addrs)
       )
     let outsideBackoffPeers = notConnectedPeers.filterIt(pm.canBeConnected(it.peerId))
@@ -988,7 +989,7 @@ proc logAndMetrics(pm: PeerManager) {.async.} =
       outsideBackoffPeers = outsideBackoffPeers.len
 
     # update prometheus metrics
-    for proto in pm.peerStore.getWakuProtos():
+    for proto in pm.wakuPeerStore.getWakuProtos():
       let (protoConnsIn, protoConnsOut) = pm.connectedPeers(proto)
       let (protoStreamsIn, protoStreamsOut) = pm.getNumStreams(proto)
       waku_connected_peers.set(

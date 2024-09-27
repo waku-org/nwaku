@@ -83,7 +83,7 @@ suite "Waku Peer Exchange":
 
       # Then no peers are fetched
       check:
-        node.peerManager.peerStore.peers.len == 0
+        node.peerManager.wakuPeerStore.peers.len == 0
         res.error.status_code == SERVICE_UNAVAILABLE
         res.error.status_desc == some("PeerExchange is not mounted")
 
@@ -98,12 +98,12 @@ suite "Waku Peer Exchange":
         res.error.status_desc == some("peer_not_found_failure")
 
       # Then no peers are fetched
-      check node.peerManager.peerStore.peers.len == 0
+      check node.peerManager.wakuPeerStore.peers.len == 0
 
     asyncTest "Node succesfully exchanges px peers with faked discv5":
       # Given both nodes mount peer exchange
       await allFutures([node.mountPeerExchange(), node2.mountPeerExchange()])
-      check node.peerManager.peerStore.peers.len == 0
+      check node.peerManager.wakuPeerStore.peers.len == 0
 
       # Mock that we discovered a node (to avoid running discv5)
       var enr = enr.Record()
@@ -124,8 +124,8 @@ suite "Waku Peer Exchange":
       # Check that the peer ended up in the peerstore
       let rpInfo = enr.toRemotePeerInfo.get()
       check:
-        node.peerManager.peerStore.peers.anyIt(it.peerId == rpInfo.peerId)
-        node.peerManager.peerStore.peers.anyIt(it.addrs == rpInfo.addrs)
+        node.peerManager.wakuPeerStore.peers.anyIt(it.peerId == rpInfo.peerId)
+        node.peerManager.wakuPeerStore.peers.anyIt(it.addrs == rpInfo.addrs)
 
   suite "setPeerExchangePeer":
     var node2 {.threadvar.}: WakuNode
@@ -142,7 +142,7 @@ suite "Waku Peer Exchange":
     asyncTest "peer set successfully":
       # Given a node with peer exchange mounted
       await node.mountPeerExchange()
-      let initialPeers = node.peerManager.peerStore.peers.len
+      let initialPeers = node.peerManager.wakuPeerStore.peers.len
 
       # And a valid peer info
       let remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
@@ -152,12 +152,12 @@ suite "Waku Peer Exchange":
 
       # Then the peer is added to the peer store
       check:
-        node.peerManager.peerStore.peers.len == (initialPeers + 1)
+        node.peerManager.wakuPeerStore.peers.len == (initialPeers + 1)
 
     asyncTest "peer exchange not mounted":
       # Given a node without peer exchange mounted
       check node.wakuPeerExchange == nil
-      let initialPeers = node.peerManager.peerStore.peers.len
+      let initialPeers = node.peerManager.wakuPeerStore.peers.len
 
       # And a valid peer info
       let invalidMultiAddress = MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()
@@ -167,12 +167,12 @@ suite "Waku Peer Exchange":
 
       # Then no peer is added to the peer store
       check:
-        node.peerManager.peerStore.peers.len == initialPeers
+        node.peerManager.wakuPeerStore.peers.len == initialPeers
 
     asyncTest "peer info parse error":
       # Given a node with peer exchange mounted
       await node.mountPeerExchange()
-      let initialPeers = node.peerManager.peerStore.peers.len
+      let initialPeers = node.peerManager.wakuPeerStore.peers.len
 
       # And given a peer info with an invalid peer id
       var remotePeerInfo2 = node2.peerInfo.toRemotePeerInfo()
@@ -183,7 +183,7 @@ suite "Waku Peer Exchange":
 
       # Then no peer is added to the peer store
       check:
-        node.peerManager.peerStore.peers.len == initialPeers
+        node.peerManager.wakuPeerStore.peers.len == initialPeers
 
 suite "Waku Peer Exchange with discv5":
   asyncTest "Node successfully exchanges px peers with real discv5":
@@ -286,13 +286,13 @@ suite "Waku Peer Exchange with discv5":
 
     let
       requestPeers = 1
-      currentPeers = node3.peerManager.peerStore.peers.len
+      currentPeers = node3.peerManager.wakuPeerStore.peers.len
     let res = await node3.fetchPeerExchangePeers(1)
     check res.tryGet() == 1
 
     # Then node3 has received 1 peer from node1
     check:
-      node3.peerManager.peerStore.peers.len == currentPeers + requestPeers
+      node3.peerManager.wakuPeerStore.peers.len == currentPeers + requestPeers
 
     await allFutures(
       [node1.stop(), node2.stop(), node3.stop(), disc1.stop(), disc2.stop()]
