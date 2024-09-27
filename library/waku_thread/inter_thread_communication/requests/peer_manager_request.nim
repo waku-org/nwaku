@@ -75,7 +75,8 @@ proc process*(
       return err(ret.error)
   of GET_ALL_PEER_IDS:
     ## returns a comma-separated string of peerIDs
-    let peerIDs = waku.node.peerManager.peerStore.peers().mapIt($it.peerId).join(",")
+    let peerIDs =
+      waku.node.peerManager.wakuPeerStore.peers().mapIt($it.peerId).join(",")
     return ok(peerIDs)
   of GET_PEER_IDS_BY_PROTOCOL:
     ## returns a comma-separated string of peerIDs that mount the given protocol

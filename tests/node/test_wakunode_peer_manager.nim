@@ -45,9 +45,9 @@ suite "Peer Manager":
 
   var
     server {.threadvar.}: WakuNode
-    serverPeerStore {.threadvar.}: PeerStore
+    serverPeerStore {.threadvar.}: WakuPeerStore
     client {.threadvar.}: WakuNode
-    clientPeerStore {.threadvar.}: PeerStore
+    clientPeerStore {.threadvar.}: WakuPeerStore
 
   var
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
@@ -64,9 +64,9 @@ suite "Peer Manager":
       clientKey = generateSecp256k1Key()
 
     server = newTestWakuNode(serverKey, listenIp, Port(3000))
-    serverPeerStore = server.peerManager.peerStore
+    serverPeerStore = server.peerManager.wakuPeerStore
     client = newTestWakuNode(clientKey, listenIp, Port(3001))
-    clientPeerStore = client.peerManager.peerStore
+    clientPeerStore = client.peerManager.wakuPeerStore
 
     await allFutures(server.start(), client.start())
 
@@ -86,8 +86,8 @@ suite "Peer Manager":
       # Then the server should have the client in its peer store
       check:
         clientPeerStore.peerExists(serverRemotePeerInfo.peerId)
-        clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
-        serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+        clientPeerStore.getPeer(serverPeerId).connectedness == Connectedness.Connected
+        serverPeerStore.getPeer(clientPeerId).connectedness == Connectedness.Connected
 
     asyncTest "Graceful Handling of Non-Existent Peers":
       # Given a non existent RemotePeerInfo
@@ -105,7 +105,8 @@ suite "Peer Manager":
       await client.connectToNodes(@[nonExistentRemotePeerInfo])
 
       # Then the client exists in the peer store but is marked as a failed connection
-      let parsedRemotePeerInfo = clientPeerStore.get(nonExistentRemotePeerInfo.peerId)
+      let parsedRemotePeerInfo =
+        clientPeerStore.getPeer(nonExistentRemotePeerInfo.peerId)
       check:
         clientPeerStore.peerExists(nonExistentRemotePeerInfo.peerId)
         parsedRemotePeerInfo.connectedness == CannotConnect
@@ -115,7 +116,7 @@ suite "Peer Manager":
     suite "Peer Store Pruning":
       asyncTest "Capacity is not exceeded":
         # Given the client's peer store has a capacity of 1
-        clientPeerStore.capacity = 1
+        clientPeerStore.setCapacity(1)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -131,7 +132,7 @@ suite "Peer Manager":
 
       asyncTest "Capacity is not exceeded but some peers are unhealthy":
         # Given the client's peer store has a capacity of 1
-        clientPeerStore.capacity = 1
+        clientPeerStore.setCapacity(1)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -139,7 +140,8 @@ suite "Peer Manager":
           clientPeerStore.peers().len == 1
 
         # Given the server is marked as CannotConnect
-        client.peerManager.peerStore[ConnectionBook].book[serverPeerId] = CannotConnect
+        client.peerManager.wakuPeerStore[ConnectionBook].book[serverPeerId] =
+          CannotConnect
 
         # When pruning the client's store
         client.peerManager.prunePeerStore()
@@ -150,7 +152,7 @@ suite "Peer Manager":
 
       asyncTest "Capacity is exceeded but all peers are healthy":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -166,7 +168,7 @@ suite "Peer Manager":
 
       asyncTest "Failed connections":
         # Given the client's peer store has a capacity of 0 and maxFailedAttempts of 1
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
         client.peerManager.maxFailedAttempts = 1
 
         # And the client connects to the server
@@ -175,7 +177,7 @@ suite "Peer Manager":
           clientPeerStore.peers().len == 1
 
         # Given the server is marked as having 1 failed connection
-        client.peerManager.peerStore[NumberFailedConnBook].book[serverPeerId] = 1
+        client.peerManager.wakuPeerStore[NumberFailedConnBook].book[serverPeerId] = 1
 
         # When pruning the client's store
         client.peerManager.prunePeerStore()
@@ -186,7 +188,7 @@ suite "Peer Manager":
 
       asyncTest "Shardless":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the client connects to the server
         await client.connectToNodes(@[serverRemotePeerInfo])
@@ -194,7 +196,8 @@ suite "Peer Manager":
           clientPeerStore.peers().len == 1
 
         # Given the server is marked as not connected
-        client.peerManager.peerStore[ConnectionBook].book[serverPeerId] = CannotConnect
+        client.peerManager.wakuPeerStore[ConnectionBook].book[serverPeerId] =
+          CannotConnect
 
         # When pruning the client's store
         client.peerManager.prunePeerStore()
@@ -205,7 +208,7 @@ suite "Peer Manager":
 
       asyncTest "Higher than avg shard count":
         # Given the client's peer store has a capacity of 0
-        clientPeerStore.capacity = 0
+        clientPeerStore.setCapacity(0)
 
         # And the server's remote peer info contains the node's ENR
         serverRemotePeerInfo.enr = some(server.enr)
@@ -217,7 +220,8 @@ suite "Peer Manager":
 
         # Given the server is marked as not connected
         # (There's only one shard in the ENR so avg shards will be the same as the shard count; hence it will be purged.)
-        client.peerManager.peerStore[ConnectionBook].book[serverPeerId] = CannotConnect
+        client.peerManager.wakuPeerStore[ConnectionBook].book[serverPeerId] =
+          CannotConnect
 
         # When pruning the client's store
         client.peerManager.prunePeerStore()
@@ -303,7 +307,7 @@ suite "Peer Manager":
         # Then the stored protocols should be the default (libp2p) ones
         check:
           clientPeerStore.peerExists(serverPeerId)
-          clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+          clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
       asyncTest "Peer Protocol Support Verification (Before Connection)":
         # Given the server has mounted some Waku protocols
@@ -316,7 +320,7 @@ suite "Peer Manager":
         # Then the stored protocols should include the Waku protocols
         check:
           clientPeerStore.peerExists(serverPeerId)
-          clientPeerStore.get(serverPeerId).protocols ==
+          clientPeerStore.getPeer(serverPeerId).protocols ==
             DEFAULT_PROTOCOLS & @[WakuRelayCodec, WakuFilterSubscribeCodec]
 
       asyncTest "Service-Specific Peer Addition":
@@ -342,10 +346,10 @@ suite "Peer Manager":
         # Then the peer store should contain both peers with the correct protocols
         check:
           clientPeerStore.peerExists(serverPeerId)
-          clientPeerStore.get(serverPeerId).protocols ==
+          clientPeerStore.getPeer(serverPeerId).protocols ==
             DEFAULT_PROTOCOLS & @[WakuFilterSubscribeCodec]
           clientPeerStore.peerExists(server2PeerId)
-          clientPeerStore.get(server2PeerId).protocols ==
+          clientPeerStore.getPeer(server2PeerId).protocols ==
             DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
         # Cleanup
@@ -537,16 +541,20 @@ suite "Peer Manager":
 
           # Then their connectedness should be NotConnected
           check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.NotConnected
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.NotConnected
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.NotConnected
+            serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.NotConnected
 
           # When connecting the client to the server
           await client.connectToNodes(@[serverRemotePeerInfo])
 
           # Then both peers' connectedness should be Connected
           check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.Connected
+            serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.Connected
 
           # When stopping the switches of either of the peers
           # (Running just one stop is enough to change the states in both peers, but I'll leave both calls as an example)
@@ -555,8 +563,10 @@ suite "Peer Manager":
 
           # Then both peers are gracefully disconnected, and turned to CanConnect
           check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.CanConnect
+            serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.CanConnect
 
           # When trying to connect those peers to a non-existent peer
           # Generate an invalid multiaddress, and patching both peerInfos with it so dialing fails
@@ -572,9 +582,9 @@ suite "Peer Manager":
 
           # Then both peers should be marked as CannotConnect
           check:
-            clientPeerStore.get(serverPeerId).connectedness ==
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
               Connectedness.CannotConnect
-            serverPeerStore.get(clientPeerId).connectedness ==
+            serverPeerStore.getPeer(clientPeerId).connectedness ==
               Connectedness.CannotConnect
 
       suite "Automatic Reconnection":
@@ -585,29 +595,37 @@ suite "Peer Manager":
           await client.connectToNodes(@[serverRemotePeerInfo])
 
           waitActive:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected and
-              serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.Connected and
+              serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.Connected
 
           await client.disconnectNode(serverRemotePeerInfo)
 
           waitActive:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect and
-              serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.CanConnect and
+              serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.CanConnect
 
           # When triggering the reconnection
           await client.peerManager.reconnectPeers(WakuRelayCodec)
 
           # Then both peers should be marked as Connected
           waitActive:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected and
-              serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.Connected and
+              serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.Connected
 
           ## Now let's do the same but with backoff period
           await client.disconnectNode(serverRemotePeerInfo)
 
           waitActive:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.CanConnect and
-              serverPeerStore.get(clientPeerId).connectedness == Connectedness.CanConnect
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.CanConnect and
+              serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.CanConnect
 
           # When triggering a reconnection with a backoff period
           let backoffPeriod = chronos.seconds(1)
@@ -618,8 +636,10 @@ suite "Peer Manager":
 
           # Then both peers should be marked as Connected
           check:
-            clientPeerStore.get(serverPeerId).connectedness == Connectedness.Connected
-            serverPeerStore.get(clientPeerId).connectedness == Connectedness.Connected
+            clientPeerStore.getPeer(serverPeerId).connectedness ==
+              Connectedness.Connected
+            serverPeerStore.getPeer(clientPeerId).connectedness ==
+              Connectedness.Connected
             reconnectDurationWithBackoffPeriod > backoffPeriod.seconds.float
 
 suite "Handling Connections on Different Networks":
@@ -694,8 +714,8 @@ suite "Persistence Check":
       client = newTestWakuNode(
         clientKey, listenIp, listenPort, peerStorage = clientPeerStorage
       )
-      serverPeerStore = server.peerManager.peerStore
-      clientPeerStore = client.peerManager.peerStore
+      serverPeerStore = server.peerManager.wakuPeerStore
+      clientPeerStore = client.peerManager.wakuPeerStore
 
     await allFutures(server.start(), client.start())
 
@@ -711,7 +731,7 @@ suite "Persistence Check":
       newClient = newTestWakuNode(
         clientKey, listenIp, listenPort, peerStorage = newClientPeerStorage
       )
-      newClientPeerStore = newClient.peerManager.peerStore
+      newClientPeerStore = newClient.peerManager.wakuPeerStore
 
     await newClient.start()
 
@@ -736,8 +756,8 @@ suite "Persistence Check":
       client = newTestWakuNode(
         clientKey, listenIp, listenPort, peerStorage = clientPeerStorage
       )
-      serverPeerStore = server.peerManager.peerStore
-      clientPeerStore = client.peerManager.peerStore
+      serverPeerStore = server.peerManager.wakuPeerStore
+      clientPeerStore = client.peerManager.wakuPeerStore
 
     await allFutures(server.start(), client.start())
 
@@ -756,8 +776,8 @@ suite "Persistence Check":
       clientKey = generateSecp256k1Key()
       server = newTestWakuNode(serverKey, listenIp, listenPort)
       client = newTestWakuNode(clientKey, listenIp, listenPort)
-      serverPeerStore = server.peerManager.peerStore
-      clientPeerStore = client.peerManager.peerStore
+      serverPeerStore = server.peerManager.wakuPeerStore
+      clientPeerStore = client.peerManager.wakuPeerStore
 
     await allFutures(server.start(), client.start())
 
@@ -772,13 +792,13 @@ suite "Mount Order":
   var
     client {.threadvar.}: WakuNode
     clientRemotePeerInfo {.threadvar.}: RemotePeerInfo
-    clientPeerStore {.threadvar.}: PeerStore
+    clientPeerStore {.threadvar.}: WakuPeerStore
 
   asyncSetup:
     let clientKey = generateSecp256k1Key()
 
     client = newTestWakuNode(clientKey, listenIp, listenPort)
-    clientPeerStore = client.peerManager.peerStore
+    clientPeerStore = client.peerManager.wakuPeerStore
 
     await client.start()
 
@@ -805,7 +825,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer with the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols ==
+      clientPeerStore.getPeer(serverPeerId).protocols ==
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
@@ -829,7 +849,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer with the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols ==
+      clientPeerStore.getPeer(serverPeerId).protocols ==
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
@@ -853,7 +873,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer with the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols ==
+      clientPeerStore.getPeer(serverPeerId).protocols ==
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
@@ -877,7 +897,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer with the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols ==
+      clientPeerStore.getPeer(serverPeerId).protocols ==
         DEFAULT_PROTOCOLS & @[WakuRelayCodec]
 
     # Cleanup
@@ -901,7 +921,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer but not the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+      clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
     await server.stop()
@@ -924,7 +944,7 @@ suite "Mount Order":
     # Then the peer store should contain the peer but not the mounted protocol
     check:
       clientPeerStore.peerExists(serverPeerId)
-      clientPeerStore.get(serverPeerId).protocols == DEFAULT_PROTOCOLS
+      clientPeerStore.getPeer(serverPeerId).protocols == DEFAULT_PROTOCOLS
 
     # Cleanup
     await server.stop()
