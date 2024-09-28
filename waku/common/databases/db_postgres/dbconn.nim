@@ -2,6 +2,7 @@ import
   std/[times, strutils, asyncnet, os, sequtils],
   results,
   chronos,
+  chronos/threadsync,
   metrics,
   re,
   chronicles
@@ -132,20 +133,28 @@ proc waitQueryToFinish(
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  debug "waitQueryToFinish", requestId, db = db.repr
-  var dataAvailable = false
+  var triggered = false
+  var signal = ThreadSignalPtr.new().valueOr:
+    return err("error creating ThreadSignalPtr in waitQueryToFinish: " & $error)
+
   proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
-    dataAvailable = true
+    if not triggered:
+      signal.fireSync().isOkOr:
+        error "error triggering coordination signal in dbconn", error = $error
+    triggered = true
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(db))
 
   asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
     return err("failed to add event reader in waitQueryToFinish: " & $error)
+  defer:
+    asyncengine.removeReader2(asyncFd).isOkOr:
+      return err("failed to remove event reader in waitQueryToFinish: " & $error)
+    signal.close().isOkOr:
+      return err("error closing data available signal: " & $error)
 
   debug "waitQueryToFinish", requestId, db = db.repr
-  while not dataAvailable:
-    await sleepAsync(timer.milliseconds(1))
-  debug "waitQueryToFinish", requestId, db = db.repr
+  await signal.wait()
 
   ## Now retrieve the result
   while true:
