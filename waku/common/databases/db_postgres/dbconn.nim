@@ -172,14 +172,11 @@ proc waitQueryToFinish(
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  var triggered = false ## to control the "data available" signal is only triggered once
-
   let futDataAvailable = newFuture[void]("futDataAvailable")
 
   proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
-    if not triggered:
+    if not futDataAvailable.completed():
       futDataAvailable.complete()
-      triggered = true
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
@@ -198,7 +195,8 @@ proc waitQueryToFinish(
 
     if pqResult == nil:
       dbConnWrapper.dbConn.check().isOkOr:
-        dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
+        if not dbConnWrapper.futBecomeFree.failed():
+          dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
         return err("error in query: " & $error)
 
       dbConnWrapper.futBecomeFree.complete()
