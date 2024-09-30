@@ -28,3 +28,9 @@ declarePublicCounter lpt_publisher_failed_messages_count,
   "number of messages failed to publish per failure cause", ["cause"]
 
 declarePublicCounter lpt_publisher_sent_bytes, "number of total bytes sent"
+
+declarePublicCounter lpt_change_service_peer_count,
+  "number of messages received per peer", ["role"]
+
+declarePublicGauge lpt_discovered_service_peers,
+  "number of messages received per peer", ["role", "source"]

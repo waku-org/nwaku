@@ -1,8 +1,6 @@
 import
-  std/[strutils, strformat],
   results,
   chronos,
-  regex,
   confutils,
   confutils/defs,
   confutils/std/net,
@@ -11,9 +9,8 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
-  nimcrypto/utils,
-  secp256k1,
-  json
+  secp256k1
+
 import
   waku/[
     common/confutils/envvar/defs as confEnvvarDefs,

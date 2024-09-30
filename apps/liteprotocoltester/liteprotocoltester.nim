@@ -25,69 +25,19 @@ import
     waku_filter_v2,
     waku_peer_exchange/protocol,
     waku_core/peers,
+    waku_core/multiaddrstr,
   ],
   ./tester_config,
   ./lightpush_publisher,
   ./filter_subscriber,
-  ./diagnose_connections
+  ./diagnose_connections,
+  ./service_peer_management
 
 logScope:
   topics = "liteprotocoltester main"
 
 proc logConfig(conf: LiteProtocolTesterConf) =
   info "Configuration: Lite protocol tester", conf = $conf
-
-proc pxLookupServiceNode(
-    node: WakuNode, conf: LiteProtocolTesterConf
-): Future[bool] {.async.} =
-  var codec = WakuLightPushCodec
-  if conf.testFunc == TesterFunctionality.RECEIVER:
-    codec = WakuFilterSubscribeCodec
-
-  if node.wakuPeerExchange.isNil():
-    var peerExchangeNode: RemotePeerInfo
-    var enrRec: enr.Record
-    if enrRec.fromURI(conf.bootstrapNode):
-      info "Parsed bootstrap ENR", enrRec = $enrRec
-      peerExchangeNode = enrRec.toRemotePeerInfo().valueOr:
-        error "failed to parse bootstrap ENR: ", error = error
-        return false
-    else:
-      peerExchangeNode = parsePeerInfo(conf.bootstrapNode).valueOr:
-        error "failed to parse node waku peer-exchange peerId", error = error
-        return false
-
-    node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
-
-    try:
-      await node.mountPeerExchange(some(conf.clusterId))
-    except CatchableError:
-      error "failed to mount waku peer-exchange protocol: ",
-        error = getCurrentExceptionMsg()
-      return false
-
-  var trialCount = 5
-  while trialCount > 0:
-    let peerOpt = node.peerManager.selectPeer(codec)
-    if peerOpt.isSome():
-      info "Found service peer for codec", codec = codec, peer = peerOpt.get()
-      let peerForCodec = node.peerManager.peerStore.getPeersByProtocol(codec)
-      info "Having number of peers for codec", codec = codec, count = peerForCodec.len()
-      info "All peers we have", peers = node.peerManager.peerStore.peers()
-      return true
-
-    let futPeers = node.fetchPeerExchangePeers(5)
-    if not await futPeers.withTimeout(10.seconds):
-      notice "Cannot get peers from PX", round = 5 - trialCount
-    else:
-      if futPeers.value().isErr():
-        info "PeerExchange reported error", error = futPeers.value().error
-        return false
-
-    await sleepAsync(5.seconds)
-    trialCount -= 1
-
-  return false
 
 {.pop.}
 when isMainModule:
@@ -141,7 +91,6 @@ when isMainModule:
 
   wakuConf.logLevel = conf.logLevel
   wakuConf.logFormat = conf.logFormat
-  wakuConf.staticnodes = @[conf.serviceNode]
   wakuConf.nat = conf.nat
   wakuConf.maxConnections = 500
   wakuConf.restAddress = conf.restAddress
@@ -160,20 +109,10 @@ when isMainModule:
   wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
   wakuConf.metricsServerPort = 8003
 
-  if conf.testFunc == TesterFunctionality.SENDER:
-    wakuConf.lightpushnode = conf.serviceNode
-  else:
-    wakuConf.filterNode = conf.serviceNode
-
-  var lookForServiceNode = false
-  if conf.serviceNode.len == 0 and conf.bootstrapNode.len > 0:
-    # If bootstrap option is chosen we expect our clients will not mounted
-    # so we will mount PeerExchange to gather possible service peers, if got some
-    # we will mount the client protocols afterward.
-    wakuConf.peerExchange = false
-    # wakuConf.peerExchangeNode = conf.bootstrapNode
-    lookForServiceNode = true
-
+  # If bootstrap option is chosen we expect our clients will not mounted
+  # so we will mount PeerExchange to gather possible service peers, if got some
+  # we will mount the client protocols afterward.
+  wakuConf.peerExchange = false
   wakuConf.relay = false
   wakuConf.filter = false
   wakuConf.lightpush = false
@@ -261,23 +200,43 @@ when isMainModule:
 
   info "Node setup complete"
 
-  if lookForServiceNode:
-    let futForServiceNode = pxLookupServiceNode(wakuApp.node, conf)
-    if not waitFor futForServiceNode.withTimeout(2.minutes):
-      error "Service node not found in time via PX"
+  # mounting relevant client, for PX filter client must be mounted ahead
+  if conf.testFunc == TesterFunctionality.SENDER:
+    wakuApp.node.mountLightPushClient()
+  else:
+    waitFor wakuApp.node.mountFilterClient()
+
+  var lookForServiceNode = false
+  var serviceNodePeerInfo: RemotePeerInfo
+  if conf.serviceNode.len == 0:
+    if conf.bootstrapNode.len > 0:
+      info "Bootstrapping with PeerExchange to gather random service node"
+      let futForServiceNode = pxLookupServiceNodeSlow(wakuApp.node, conf)
+      if not (waitFor futForServiceNode.withTimeout(20.minutes)):
+        error "Service node not found in time via PX"
+        quit(QuitFailure)
+
+      if futForServiceNode.read().isErr():
+        error "Service node for test not found via PX"
+        quit(QuitFailure)
+
+      serviceNodePeerInfo = futForServiceNode.read().get()
+    else:
+      error "No service or bootstrap node provided"
+      quit(QuitFailure)
+  else:
+    # support for both ENR and URI formatted service node addresses
+    serviceNodePeerInfo = translateToRemotePeerInfo(conf.serviceNode).valueOr:
+      error "failed to parse service-node", node = conf.serviceNode
       quit(QuitFailure)
 
-    if not futForServiceNode.value():
-      error "Service node for test not found via PX"
-      quit(QuitFailure)
+  info "Service node to be used", serviceNode = $serviceNodePeerInfo
+
+  logSelfPeers(wakuApp.node.peerManager)
 
   if conf.testFunc == TesterFunctionality.SENDER:
-    waitFor startPeriodicPeerDiagnostic(wakuApp.node.peerManager, WakuLightPushCodec)
-    setupAndPublish(wakuApp.node, conf)
+    setupAndPublish(wakuApp.node, conf, serviceNodePeerInfo)
   else:
-    waitFor startPeriodicPeerDiagnostic(
-      wakuApp.node.peerManager, WakuFilterSubscribeCodec
-    )
-    setupAndSubscribe(wakuApp.node, conf)
+    setupAndSubscribe(wakuApp.node, conf, serviceNodePeerInfo)
 
   runForever()
