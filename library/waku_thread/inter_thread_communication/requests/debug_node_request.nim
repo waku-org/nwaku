@@ -32,4 +32,5 @@ proc process*(
   of RETRIEVE_MY_ENR:
     return ok($(%*waku.node.enr.toURI()))
 
+  error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")
