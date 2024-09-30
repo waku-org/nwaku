@@ -1,3 +1,67 @@
+## v0.33.0 (2024-09-30)
+
+#### Notes:
+
+* The `--pubsub-topic` CLI configuration has been deprecated and support for it will be removed on release v0.35.0. In order to migrate, please use the `--shard` configuration instead. For example, instead of `--pubsub-topic=/waku/2/rs/<CLUSTER_ID>/<SHARD_ID>`, use `--cluster-id=<CLUSTER_ID>` once and `--shard=<SHARD_ID>` for each subscribed shard
+* The `--rest-private` CLI configuration has been removed. Please delete any reference to it when running your nodes
+* Introduced the `--reliability` CLI configuration, activating the new experimental StoreV3 message confirmation protocol
+* DOS protection configurations of non-relay, req/resp protocols are changed
+  * `--request-rate-limit` and `--request-rate-period` options are no longer supported.
+  * `--rate-limit` CLI configuration is now available.
+    - The new flag can describe various rate-limit requirements for each protocol supported. The setting can be repeated, each instance can define exactly one rate-limit option.
+    - Format is `<protocol>:volume/period<time-unit>`
+    - If protocol is not given, settings will be taken as default for un-set protocols. Ex: 80/2s
+    - Supported protocols are: lightpush|filter|px|store|storev2|storev3
+    - `volume` must be an integer value, representing number of requests over the period of time allowed.
+    - `period <time-unit>` must be an integer with defined unit as one of h|m|s|ms
+    - If not set, no rate limit will be applied to request/response protocols, except for the filter protocol.
+    
+
+### Release highlights
+
+* a new experimental reliability protocol has been implemented, leveraging StoreV3 to confirm message delivery
+* Peer Exchange protocol can now be protected by rate-limit boundary checks.
+* Fine-grained configuration of DOS protection is available with this release. See, "Notes" above.
+
+### Bug Fixes
+
+- rejecting excess relay connections ([#3063](https://github.com/waku-org/nwaku/issues/3063)) ([8b0884c7](https://github.com/waku-org/nwaku/commit/8b0884c7))
+- make Peer Exchange's rpc status_code optional for backward compatibility ([#3059](https://github.com/waku-org/nwaku/pull/3059)) ([5afa9b13](https://github.com/waku-org/nwaku/commit/5afa9b13))
+- px protocol decode - do not treat missing response field as error ([#3054](https://github.com/waku-org/nwaku/issues/3054)) ([9b445ac4](https://github.com/waku-org/nwaku/commit/9b445ac4))
+- setting up node with modified config ([#3036](https://github.com/waku-org/nwaku/issues/3036)) ([8f289925](https://github.com/waku-org/nwaku/commit/8f289925))
+- get back health check for postgres legacy ([#3010](https://github.com/waku-org/nwaku/issues/3010)) ([5a0edff7](https://github.com/waku-org/nwaku/commit/5a0edff7))
+- libnegentropy integration ([#2996](https://github.com/waku-org/nwaku/issues/2996)) ([c3cb06ac](https://github.com/waku-org/nwaku/commit/c3cb06ac))
+- peer-exchange issue ([#2889](https://github.com/waku-org/nwaku/issues/2889)) ([43157102](https://github.com/waku-org/nwaku/commit/43157102))
+
+### Changes
+
+- append current version in agentString which is used by the identify protocol ([#3057](https://github.com/waku-org/nwaku/pull/3057)) ([368bb3c1](https://github.com/waku-org/nwaku/commit/368bb3c1))
+- rate limit peer exchange protocol, enhanced response status in RPC ([#3035](https://github.com/waku-org/nwaku/issues/3035)) ([0a7f16a3](https://github.com/waku-org/nwaku/commit/0a7f16a3))
+- Switch libnegentropy library build from shared to static linkage ([#3041](https://github.com/waku-org/nwaku/issues/3041)) ([83f25c3e](https://github.com/waku-org/nwaku/commit/83f25c3e))
+- libwaku reduce repetitive code by adding a template handling resp returns ([#3032](https://github.com/waku-org/nwaku/issues/3032)) ([1713f562](https://github.com/waku-org/nwaku/commit/1713f562))
+- libwaku - extending the library with peer_manager and peer_exchange features ([#3026](https://github.com/waku-org/nwaku/issues/3026)) ([5ea1cf0c](https://github.com/waku-org/nwaku/commit/5ea1cf0c))
+- use submodule nph in CI to check lint ([#3027](https://github.com/waku-org/nwaku/issues/3027)) ([ce9a8c46](https://github.com/waku-org/nwaku/commit/ce9a8c46))
+- deprecating pubsub topic ([#2997](https://github.com/waku-org/nwaku/issues/2997)) ([a3cd2a1a](https://github.com/waku-org/nwaku/commit/a3cd2a1a))
+- lightpush - error metric less variable by only setting a fixed string ([#3020](https://github.com/waku-org/nwaku/issues/3020)) ([d3e6717a](https://github.com/waku-org/nwaku/commit/d3e6717a))
+- Bump dependencies for v0.33 ([#3017](https://github.com/waku-org/nwaku/issues/3017)) ([6c890de4](https://github.com/waku-org/nwaku/commit/6c890de4))
+- enhance libpq management ([#3015](https://github.com/waku-org/nwaku/issues/3015)) ([45319f09](https://github.com/waku-org/nwaku/commit/45319f09))
+- per limit split of PostgreSQL queries ([#3008](https://github.com/waku-org/nwaku/issues/3008)) ([e1e05afb](https://github.com/waku-org/nwaku/commit/e1e05afb))
+- Added metrics to liteprotocoltester ([#3002](https://github.com/waku-org/nwaku/issues/3002)) ([8baf627f](https://github.com/waku-org/nwaku/commit/8baf627f))
+- extending store metrics ([#2995](https://github.com/waku-org/nwaku/issues/2995)) ([fd83b42f](https://github.com/waku-org/nwaku/commit/fd83b42f))
+- Better timing and requestId detail for slower store db queries  ([#2994](https://github.com/waku-org/nwaku/issues/2994)) ([e8a49b76](https://github.com/waku-org/nwaku/commit/e8a49b76))
+- remove unused setting from external_config.nim ([#3004](https://github.com/waku-org/nwaku/issues/3004)) ([fd84363e](https://github.com/waku-org/nwaku/commit/fd84363e))
+- delivery monitor for store v3 reliability protocol ([#2977](https://github.com/waku-org/nwaku/issues/2977)) ([0f68274c](https://github.com/waku-org/nwaku/commit/0f68274c))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/feat--waku-sync/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
+
 ## v0.32.0 (2024-08-30)
 
 #### Notes:
