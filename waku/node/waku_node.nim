@@ -198,6 +198,9 @@ proc connectToNodes*(
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
+proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
+  await peer_manager.disconnectNode(node.peerManager, remotePeer)
+
 ## Waku Sync
 
 proc mountWakuSync*(
@@ -423,7 +426,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   ## Setup relay protocol
 
   # Resume previous relay connections
-  if node.peerManager.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
+  if node.peerManager.wakuPeerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
 
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary
@@ -1244,7 +1247,7 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
 
     # First get a list of connected peer infos
     let peers =
-      node.peerManager.peerStore.peers().filterIt(it.connectedness == Connected)
+      node.peerManager.wakuPeerStore.peers().filterIt(it.connectedness == Connected)
 
     for peer in peers:
       try:

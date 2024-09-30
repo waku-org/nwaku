@@ -70,8 +70,31 @@ proc init*(
     addrs: seq[MultiAddress] = @[],
     enr: Option[enr.Record] = none(enr.Record),
     protocols: seq[string] = @[],
+    publicKey: crypto.PublicKey = crypto.PublicKey(),
+    agent: string = "",
+    protoVersion: string = "",
+    connectedness: Connectedness = NotConnected,
+    disconnectTime: int64 = 0,
+    origin: PeerOrigin = UnknownOrigin,
+    direction: PeerDirection = UnknownDirection,
+    lastFailedConn: Moment = Moment.init(0, Second),
+    numberFailedConn: int = 0,
 ): T =
-  RemotePeerInfo(peerId: peerId, addrs: addrs, enr: enr, protocols: protocols)
+  RemotePeerInfo(
+    peerId: peerId,
+    addrs: addrs,
+    enr: enr,
+    protocols: protocols,
+    publicKey: publicKey,
+    agent: agent,
+    protoVersion: protoVersion,
+    connectedness: connectedness,
+    disconnectTime: disconnectTime,
+    origin: origin,
+    direction: direction,
+    lastFailedConn: lastFailedConn,
+    numberFailedConn: numberFailedConn,
+  )
 
 proc init*(
     T: typedesc[RemotePeerInfo],

@@ -37,9 +37,9 @@ logScope:
 proc logSelfPeersLoop(pm: PeerManager, interval: Duration) {.async.} =
   trace "Starting logSelfPeersLoop diagnosis loop"
   while true:
-    let selfLighpushPeers = pm.peerStore.getPeersByProtocol(WakuLightPushCodec)
-    let selfRelayPeers = pm.peerStore.getPeersByProtocol(WakuRelayCodec)
-    let selfFilterPeers = pm.peerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
+    let selfLighpushPeers = pm.wakuPeerStore.getPeersByProtocol(WakuLightPushCodec)
+    let selfRelayPeers = pm.wakuPeerStore.getPeersByProtocol(WakuRelayCodec)
+    let selfFilterPeers = pm.wakuPeerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
 
     let printable = catch:
       """*------------------------------------------------------------------------------------------*
