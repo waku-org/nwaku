@@ -1,5 +1,5 @@
 import
-  std/[times, strutils, asyncnet, os, sequtils],
+  std/[times, strutils, asyncnet, os, sequtils, sets],
   results,
   chronos,
   chronos/threadsync,
@@ -12,9 +12,36 @@ include db_connector/db_postgres
 
 type DataProc* = proc(result: ptr PGresult) {.closure, gcsafe, raises: [].}
 
+type DbConnWrapper* = ref object
+  dbConn: DbConn
+  open: bool
+  preparedStmts: HashSet[string] ## [stmtName's]
+  futBecomeFree*: Future[void]
+    ## to notify the pgasyncpool that this conn is free, i.e. not busy
+
 ## Connection management
 
-proc check*(db: DbConn): Result[void, string] =
+proc containsPreparedStmt*(dbConnWrapper: DbConnWrapper, preparedStmt: string): bool =
+  return dbConnWrapper.preparedStmts.contains(preparedStmt)
+
+proc inclPreparedStmt*(dbConnWrapper: DbConnWrapper, preparedStmt: string) =
+  dbConnWrapper.preparedStmts.incl(preparedStmt)
+
+proc getDbConn*(dbConnWrapper: DbConnWrapper): DbConn =
+  return dbConnWrapper.dbConn
+
+proc isPgDbConnBusy*(dbConnWrapper: DbConnWrapper): bool =
+  if isNil(dbConnWrapper.futBecomeFree):
+    return false
+  return not dbConnWrapper.futBecomeFree.finished()
+
+proc isPgDbConnOpen*(dbConnWrapper: DbConnWrapper): bool =
+  return dbConnWrapper.open
+
+proc setPgDbConnOpen*(dbConnWrapper: DbConnWrapper, newOpenState: bool) =
+  dbConnWrapper.open = newOpenState
+
+proc check(db: DbConn): Result[void, string] =
   var message: string
   try:
     message = $db.pqErrorMessage()
@@ -26,11 +53,11 @@ proc check*(db: DbConn): Result[void, string] =
 
   return ok()
 
-proc open*(connString: string): Result[DbConn, string] =
+proc openDbConn(connString: string): Result[DbConn, string] =
   ## Opens a new connection.
   var conn: DbConn = nil
   try:
-    conn = open("", "", "", connString)
+    conn = open("", "", "", connString) ## included from db_postgres module
   except DbError:
     return err("exception opening new connection: " & getCurrentExceptionMsg())
 
@@ -47,22 +74,35 @@ proc open*(connString: string): Result[DbConn, string] =
 
   return ok(conn)
 
-proc closeDbConn*(db: DbConn) {.raises: [OSError].} =
-  let fd = db.pqsocket()
-  if fd != -1:
-    asyncengine.unregister(cast[asyncengine.AsyncFD](fd))
-  db.close()
+proc new*(T: type DbConnWrapper, connString: string): Result[T, string] =
+  let dbConn = openDbConn(connString).valueOr:
+    return err("failed to stablish a new connection: " & $error)
+
+  return ok(DbConnWrapper(dbConn: dbConn, open: true))
+
+proc closeDbConn*(
+    dbConnWrapper: DbConnWrapper
+): Result[void, string] {.raises: [OSError].} =
+  let fd = dbConnWrapper.dbConn.pqsocket()
+  if fd == -1:
+    return err("error file descriptor -1 in closeDbConn")
+
+  asyncengine.unregister(cast[asyncengine.AsyncFD](fd))
+
+  dbConnWrapper.dbConn.close()
+
+  return ok()
 
 proc `$`(self: SqlQuery): string =
   return cast[string](self)
 
 proc sendQuery(
-    db: DbConn, query: SqlQuery, args: seq[string]
+    dbConnWrapper: DbConnWrapper, query: SqlQuery, args: seq[string]
 ): Future[Result[void, string]] {.async.} =
   ## This proc can be used directly for queries that don't retrieve values back.
 
-  if db.status != CONNECTION_OK:
-    db.check().isOkOr:
+  if dbConnWrapper.dbConn.status != CONNECTION_OK:
+    dbConnWrapper.dbConn.check().isOkOr:
       return err("failed to connect to database: " & $error)
 
     return err("unknown reason")
@@ -73,17 +113,16 @@ proc sendQuery(
   except DbError:
     return err("exception formatting the query: " & getCurrentExceptionMsg())
 
-  let success = db.pqsendQuery(cstring(wellFormedQuery))
+  let success = dbConnWrapper.dbConn.pqsendQuery(cstring(wellFormedQuery))
   if success != 1:
-    db.check().isOkOr:
+    dbConnWrapper.dbConn.check().isOkOr:
       return err("failed pqsendQuery: " & $error)
-
     return err("failed pqsendQuery: unknown reason")
 
   return ok()
 
 proc sendQueryPrepared(
-    db: DbConn,
+    dbConnWrapper: DbConnWrapper,
     stmtName: string,
     paramValues: openArray[string],
     paramLengths: openArray[int32],
@@ -97,8 +136,8 @@ proc sendQueryPrepared(
       $paramValues.len & " " & $paramLengths.len & " " & $paramFormats.len
     return err("lengths discrepancies in sendQueryPrepared: " & $lengthsErrMsg)
 
-  if db.status != CONNECTION_OK:
-    db.check().isOkOr:
+  if dbConnWrapper.dbConn.status != CONNECTION_OK:
+    dbConnWrapper.dbConn.check().isOkOr:
       return err("failed to connect to database: " & $error)
 
     return err("unknown reason")
@@ -111,7 +150,7 @@ proc sendQueryPrepared(
 
   const ResultFormat = 0 ## 0 for text format, 1 for binary format.
 
-  let success = db.pqsendQueryPrepared(
+  let success = dbConnWrapper.dbConn.pqsendQueryPrepared(
     stmtName,
     nParams,
     cstrArrayParams,
@@ -120,7 +159,7 @@ proc sendQueryPrepared(
     ResultFormat,
   )
   if success != 1:
-    db.check().isOkOr:
+    dbConnWrapper.dbConn.check().isOkOr:
       return err("failed pqsendQueryPrepared: " & $error)
 
     return err("failed pqsendQueryPrepared: unknown reason")
@@ -128,45 +167,42 @@ proc sendQueryPrepared(
   return ok()
 
 proc waitQueryToFinish(
-    db: DbConn, rowCallback: DataProc = nil, requestId: string
+    dbConnWrapper: DbConnWrapper, rowCallback: DataProc = nil
 ): Future[Result[void, string]] {.async.} =
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
 
-  var triggered = false
-  var signal = ThreadSignalPtr.new().valueOr:
-    return err("error creating ThreadSignalPtr in waitQueryToFinish: " & $error)
+  var triggered = false ## to control the "data available" signal is only triggered once
+
+  let futDataAvailable = newFuture[void]("futDataAvailable")
 
   proc onDataAvailable(udata: pointer) {.gcsafe, raises: [].} =
     if not triggered:
-      signal.fireSync().isOkOr:
-        error "error triggering coordination signal in dbconn", error = $error
-    triggered = true
+      futDataAvailable.complete()
+      triggered = true
 
-  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(db))
+  let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
   asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
+    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
     return err("failed to add event reader in waitQueryToFinish: " & $error)
   defer:
     asyncengine.removeReader2(asyncFd).isOkOr:
       return err("failed to remove event reader in waitQueryToFinish: " & $error)
-    signal.close().isOkOr:
-      return err("error closing data available signal: " & $error)
 
-  debug "waitQueryToFinish", requestId, db = db.repr
-  await signal.wait()
+  await futDataAvailable
 
-  ## Now retrieve the result
+  ## Now retrieve the result from the database
   while true:
-    let pqResult = db.pqgetResult()
+    let pqResult = dbConnWrapper.dbConn.pqgetResult()
 
     if pqResult == nil:
-      db.check().isOkOr:
+      dbConnWrapper.dbConn.check().isOkOr:
+        dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
         return err("error in query: " & $error)
 
-      debug "waitQueryToFinish", requestId, db = db.repr
-
-      return ok() # reached the end of the results
+      dbConnWrapper.futBecomeFree.complete()
+      return ok() # reached the end of the results. The query is completed
 
     if not rowCallback.isNil():
       rowCallback(pqResult)
@@ -174,12 +210,14 @@ proc waitQueryToFinish(
     pqclear(pqResult)
 
 proc dbConnQuery*(
-    db: DbConn,
+    dbConnWrapper: DbConnWrapper,
     query: SqlQuery,
     args: seq[string],
     rowCallback: DataProc,
     requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQuery")
+
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
   ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
   var querySummary = cleanedQuery.replace(re"""(['"]).*?\1""", "")
@@ -188,7 +226,9 @@ proc dbConnQuery*(
 
   var queryStartTime = getTime().toUnixFloat()
 
-  (await db.sendQuery(query, args)).isOkOr:
+  (await dbConnWrapper.sendQuery(query, args)).isOkOr:
+    error "error in dbConnQuery", error = $error
+    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
@@ -196,7 +236,7 @@ proc dbConnQuery*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await db.waitQueryToFinish(rowCallback, requestId)).isOkOr:
+  (await dbConnWrapper.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
@@ -215,7 +255,7 @@ proc dbConnQuery*(
   return ok()
 
 proc dbConnQueryPrepared*(
-    db: DbConn,
+    dbConnWrapper: DbConnWrapper,
     stmtName: string,
     paramValues: seq[string],
     paramLengths: seq[int32],
@@ -223,8 +263,12 @@ proc dbConnQueryPrepared*(
     rowCallback: DataProc,
     requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQueryPrepared")
   var queryStartTime = getTime().toUnixFloat()
-  db.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
+
+  dbConnWrapper.sendQueryPrepared(stmtName, paramValues, paramLengths, paramFormats).isOkOr:
+    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
+    error "error in dbConnQueryPrepared", error = $error
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
@@ -232,7 +276,7 @@ proc dbConnQueryPrepared*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await db.waitQueryToFinish(rowCallback, requestId)).isOkOr:
+  (await dbConnWrapper.waitQueryToFinish(rowCallback)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
