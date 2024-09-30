@@ -76,7 +76,7 @@ proc openDbConn(connString: string): Result[DbConn, string] =
 
 proc new*(T: type DbConnWrapper, connString: string): Result[T, string] =
   let dbConn = openDbConn(connString).valueOr:
-    return err("failed to stablish a new connection: " & $error)
+    return err("failed to establish a new connection: " & $error)
 
   return ok(DbConnWrapper(dbConn: dbConn, open: true))
 
