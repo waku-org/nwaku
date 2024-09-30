@@ -34,6 +34,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -55,33 +56,37 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 0,
         "y": 1
       },
       "id": 8,
       "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
-        "orientation": "auto",
+        "displayMode": "lcd",
+        "maxVizHeight": 300,
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "namePlacement": "top",
+        "orientation": "horizontal",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "last"
           ],
           "fields": "",
           "values": false
         },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
+        "showUnfilled": true,
+        "sizing": "auto",
+        "valueMode": "color"
       },
-      "pluginVersion": "10.4.2",
+      "pluginVersion": "11.2.0",
       "targets": [
         {
           "datasource": {
@@ -89,19 +94,19 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "lpt_receiver_sender_peer_count{instance=\"receivernode:8003\"}",
+          "editorMode": "code",
+          "expr": "lpt_receiver_sender_peer_count{instance=~\".*receivernode.*\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "__auto",
+          "legendFormat": "{{instance}}",
           "range": true,
           "refId": "A",
           "useBackend": false
         }
       ],
       "title": "Number of publisher peers",
-      "type": "gauge"
+      "type": "bargauge"
     },
     {
       "collapsed": true,
@@ -109,7 +114,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 13
       },
       "id": 11,
       "panels": [],
@@ -118,6 +123,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -133,6 +139,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -171,7 +178,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": [
           {
@@ -198,6 +206,10 @@
                   "group": "A",
                   "mode": "normal"
                 }
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
               }
             ]
           }
@@ -207,13 +219,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 10
+        "y": 14
       },
       "id": 1,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -229,9 +243,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job) (lpt_publisher_sent_messages_count_total)",
+          "expr": "sum by(instace) (lpt_publisher_sent_messages_count_total{instance=~\".*publishernode.*\"})",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -247,9 +261,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job) (rate(lpt_publisher_sent_messages_count_total[$__rate_interval]))",
+          "expr": "sum by(instance) (rate(lpt_publisher_sent_messages_count_total{instance=~\".*publishernode.*\"}[$__rate_interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -261,11 +275,12 @@
           "useBackend": false
         }
       ],
-      "title": "Publishes test messages",
+      "title": "Published test messages",
       "type": "timeseries"
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -281,6 +296,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -319,7 +335,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": [
           {
@@ -345,6 +362,10 @@
               {
                 "id": "custom.gradientMode",
                 "value": "hue"
+              },
+              {
+                "id": "unit",
+                "value": "reqps"
               }
             ]
           }
@@ -354,13 +375,15 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 10
+        "y": 14
       },
       "id": 2,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -376,8 +399,8 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "sum by(instance) (lpt_receiver_received_messages_count_total{instance=\"receivernode:8003\"})",
+          "editorMode": "code",
+          "expr": "sum by(instance) (lpt_receiver_received_messages_count_total{instance=~\".*receivernode.*\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -392,8 +415,8 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "sum by(instance) (rate(lpt_receiver_received_messages_count_total{instance=\"receivernode:8003\"}[$__rate_interval]))",
+          "editorMode": "code",
+          "expr": "sum by(instance) (rate(lpt_receiver_received_messages_count_total{instance=~\".*receivernode.*\"}[$__rate_interval]))",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
@@ -409,6 +432,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -425,6 +449,7 @@
             "axisLabel": "",
             "axisPlacement": "left",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -470,7 +495,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Test message transfer rate"
+              "options": "Send message transfer rate"
             },
             "properties": [
               {
@@ -497,6 +522,10 @@
                   "group": "A",
                   "mode": "normal"
                 }
+              },
+              {
+                "id": "unit",
+                "value": "KiBs"
               }
             ]
           }
@@ -506,13 +535,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 22
       },
       "id": 5,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -528,13 +559,13 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job) (lpt_publisher_sent_bytes_total)",
+          "expr": "sum by(instance) (lpt_publisher_sent_bytes_total{instance=~\".*publishernode.*\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Total received bytes",
+          "legendFormat": "Total sent bytes",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -545,15 +576,15 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(job) (rate(lpt_publisher_sent_bytes_total[$__rate_interval]))",
+          "expr": "sum by(instance) (rate(lpt_publisher_sent_bytes_total{instance=~\".*publishernode.*\"}[$__rate_interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Test message transfer rate",
+          "legendFormat": "Send message transfer rate",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -564,6 +595,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -580,6 +612,7 @@
             "axisLabel": "",
             "axisPlacement": "left",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -652,6 +685,10 @@
                   "group": "A",
                   "mode": "normal"
                 }
+              },
+              {
+                "id": "unit",
+                "value": "KiBs"
               }
             ]
           }
@@ -661,13 +698,15 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 22
       },
       "id": 4,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -683,9 +722,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(instance) (lpt_receiver_received_bytes_total{instance=\"receivernode:8003\"})",
+          "expr": "sum by(instance) (lpt_receiver_received_bytes_total{instance=~\".*receivernode.*\"})",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
@@ -700,9 +739,9 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
+          "editorMode": "code",
           "exemplar": false,
-          "expr": "sum by(instance) (rate(lpt_receiver_received_bytes_total{instance=\"receivernode:8003\"}[$__rate_interval]))",
+          "expr": "sum by(instance) (rate(lpt_receiver_received_bytes_total{instance=~\".*receivernode.*\"}[$__rate_interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -723,7 +762,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 30
       },
       "id": 10,
       "panels": [],
@@ -732,6 +771,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -747,6 +787,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 23,
             "gradientMode": "hue",
@@ -785,7 +826,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": [
           {
@@ -814,13 +856,15 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 31
       },
       "id": 6,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -838,12 +882,12 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "lpt_publisher_failed_messages_count_total{instance=\"publishernode:8003\"}",
+          "expr": "lpt_publisher_failed_messages_count_total{instance=~\".*publishernode.*\"}",
           "format": "time_series",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Failed to publish count",
+          "legendFormat": "{{instance}} - {{cause}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -854,6 +898,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -870,6 +915,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "none",
@@ -908,7 +954,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -916,13 +963,15 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 31
       },
       "id": 7,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
           "placement": "bottom",
           "showLegend": true
         },
@@ -939,11 +988,11 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(instance) (lpt_receiver_duplicate_messages_count_total{instance=\"receivernode:8003\"})",
+          "expr": "lpt_receiver_duplicate_messages_count_total{instance=~\".*receivernode.*\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Total duplicates",
+          "legendFormat": "Total duplicates at {{instance}}",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -955,12 +1004,12 @@
           },
           "disableTextWrap": false,
           "editorMode": "code",
-          "expr": "sum by(instance) (lpt_receiver_distinct_duplicate_messages_count{instance=\"receivernode:8003\"})",
+          "expr": "lpt_receiver_distinct_duplicate_messages_count{instance=~\".*receivernode.*\"}",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Distinct duplicates",
+          "legendFormat": "Distinct duplicates at {{instance}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -971,6 +1020,7 @@
     },
     {
       "datasource": {
+        "default": true,
         "type": "prometheus",
         "uid": "PBFA97CFB590B2093"
       },
@@ -987,6 +1037,7 @@
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 21,
             "gradientMode": "none",
@@ -1025,7 +1076,8 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "unit": "none"
         },
         "overrides": []
       },
@@ -1033,14 +1085,16 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 35
+        "y": 39
       },
       "id": 9,
       "options": {
         "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
           "showLegend": true
         },
         "tooltip": {
@@ -1055,14 +1109,14 @@
             "uid": "PBFA97CFB590B2093"
           },
           "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "lpt_receiver_missing_messages_count",
+          "editorMode": "code",
+          "expr": "lpt_receiver_missing_messages_count{instance=~\".*receivernode.*\"}",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Publisher {{peer}}",
+          "legendFormat": "Receiver {{instance}}:Publisher {{peer}}",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -1079,7 +1133,7 @@
     "list": []
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-1h",
     "to": "now"
   },
   "timepicker": {},

@@ -18,7 +18,8 @@ import
   ],
   ./tester_config,
   ./tester_message,
-  ./lpt_metrics
+  ./lpt_metrics,
+  ./diagnose_connections
 
 randomize()
 
@@ -74,36 +75,35 @@ var failedToSendCount {.threadvar.}: uint32
 var numMessagesToSend {.threadvar.}: uint32
 var messagesSent {.threadvar.}: uint32
 
-proc reportSentMessages() {.async.} =
-  while true:
-    await sleepAsync(chtimer.seconds(60))
-    let report = catch:
-      """*----------------------------------------*
+proc reportSentMessages() =
+  let report = catch:
+    """*----------------------------------------*
 |  Expected  |    Sent    |   Failed   |
 |{numMessagesToSend+failedToSendCount:>11} |{messagesSent:>11} |{failedToSendCount:>11} |
 *----------------------------------------*""".fmt()
 
-    if report.isErr:
-      echo "Error while printing statistics"
-    else:
-      echo report.get()
+  if report.isErr:
+    echo "Error while printing statistics"
+  else:
+    echo report.get()
 
-    echo "*--------------------------------------------------------------------------------------------------*"
-    echo "|  Failur cause                                                                         |  count   |"
-    for (cause, count) in failedToSendCause.pairs:
-      echo fmt"|{cause:<87}|{count:>10}|"
-    echo "*--------------------------------------------------------------------------------------------------*"
+  echo "*--------------------------------------------------------------------------------------------------*"
+  echo "|  Failur cause                                                                         |  count   |"
+  for (cause, count) in failedToSendCause.pairs:
+    echo fmt"|{cause:<87}|{count:>10}|"
+  echo "*--------------------------------------------------------------------------------------------------*"
 
-    echo "*--------------------------------------------------------------------------------------------------*"
-    echo "|  Index   | Relayed | Hash                                                                        |"
-    for (index, info) in sentMessages.pairs:
-      echo fmt"|{index:>10}|{info.relayed:<9}| {info.hash:<76}|"
-    echo "*--------------------------------------------------------------------------------------------------*"
-    # evere sent message hash should logged once
-    sentMessages.clear()
+  echo "*--------------------------------------------------------------------------------------------------*"
+  echo "|  Index   | Relayed | Hash                                                                        |"
+  for (index, info) in sentMessages.pairs:
+    echo fmt"|{index+1:>10}|{info.relayed:<9}| {info.hash:<76}|"
+  echo "*--------------------------------------------------------------------------------------------------*"
+  # evere sent message hash should logged once
+  sentMessages.clear()
 
 proc publishMessages(
     wakuNode: WakuNode,
+    servicePeer: RemotePeerInfo,
     lightpushPubsubTopic: PubsubTopic,
     lightpushContentTopic: ContentTopic,
     numMessages: uint32,
@@ -122,21 +122,27 @@ proc publishMessages(
   let selfPeerId = $wakuNode.switch.peerInfo.peerId
   failedToSendCount = 0
   numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
-  messagesSent = 1
+  messagesSent = 0
 
-  while numMessagesToSend >= messagesSent:
+  while messagesSent < numMessagesToSend:
     let (message, msgSize) = prepareMessage(
-      selfPeerId, messagesSent, numMessagesToSend, startedAt, prevMessageAt,
-      lightpushContentTopic, renderMsgSize,
+      selfPeerId,
+      messagesSent + 1,
+      numMessagesToSend,
+      startedAt,
+      prevMessageAt,
+      lightpushContentTopic,
+      renderMsgSize,
     )
-    let wlpRes = await wakuNode.lightpushPublish(some(lightpushPubsubTopic), message)
+    let wlpRes =
+      await wakuNode.lightpushPublish(some(lightpushPubsubTopic), message, servicePeer)
 
     let msgHash = computeMessageHash(lightpushPubsubTopic, message).to0xHex
 
     if wlpRes.isOk():
       sentMessages[messagesSent] = (hash: msgHash, relayed: true)
       notice "published message using lightpush",
-        index = messagesSent,
+        index = messagesSent + 1,
         count = numMessagesToSend,
         size = msgSize,
         pubsubTopic = lightpushPubsubTopic,
@@ -154,11 +160,9 @@ proc publishMessages(
 
     await sleepAsync(delayMessages)
 
-  waitFor reportSentMessages()
-
-  discard c_raise(ansi_c.SIGTERM)
-
-proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
+proc setupAndPublish*(
+    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+) =
   if isNil(wakuNode.wakuLightpushClient):
     # if we have not yet initialized lightpush client, then do it as the only way we can get here is
     # by having a service peer discovered.
@@ -181,14 +185,33 @@ proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   info "Start sending messages to service node using lightpush"
 
   sentMessages.sort(system.cmp)
+
+  let interval = secs(60)
+  var printStats: CallbackFunc
+
+  printStats = CallbackFunc(
+    proc(udata: pointer) {.gcsafe.} =
+      reportSentMessages()
+
+      if messagesSent >= numMessagesToSend:
+        logSelfPeers(wakuNode.peerManager)
+        info "All messages are sent. Exiting."
+
+        ## for gracefull shutdown through signal hooks
+        discard c_raise(ansi_c.SIGTERM)
+      else:
+        discard setTimer(Moment.fromNow(interval), printStats)
+  )
+
+  discard setTimer(Moment.fromNow(interval), printStats)
+
   # Start maintaining subscription
   asyncSpawn publishMessages(
     wakuNode,
+    servicePeer,
     conf.pubsubTopics[0],
     conf.contentTopics[0],
     conf.numMessages,
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),
     conf.delayMessages.milliseconds,
   )
-
-  asyncSpawn reportSentMessages()

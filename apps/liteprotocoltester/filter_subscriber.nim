@@ -10,23 +10,32 @@ import
   stew/byteutils,
   results,
   serialization,
-  json_serialization as js,
-  times
+  json_serialization as js
+
 import
-  waku/[common/logging, node/peer_manager, waku_node, waku_core, waku_filter_v2/client],
+  waku/[
+    common/logging,
+    node/peer_manager,
+    waku_node,
+    waku_core,
+    waku_filter_v2/client,
+    waku_filter_v2/common,
+    waku_core/multiaddrstr,
+  ],
   ./tester_config,
   ./tester_message,
-  ./statistics
+  ./statistics,
+  ./diagnose_connections,
+  ./service_peer_management
+
+var actualFilterPeer {.threadvar.}: RemotePeerInfo
 
 proc unsubscribe(
-    wakuNode: WakuNode,
-    filterPeer: RemotePeerInfo,
-    filterPubsubTopic: PubsubTopic,
-    filterContentTopic: ContentTopic,
+    wakuNode: WakuNode, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
 ) {.async.} =
   notice "unsubscribing from filter"
   let unsubscribeRes = await wakuNode.wakuFilterClient.unsubscribe(
-    filterPeer, filterPubsubTopic, @[filterContentTopic]
+    actualFilterPeer, filterPubsubTopic, @[filterContentTopic]
   )
   if unsubscribeRes.isErr:
     notice "unsubscribe request failed", err = unsubscribeRes.error
@@ -34,48 +43,79 @@ proc unsubscribe(
     notice "unsubscribe request successful"
 
 proc maintainSubscription(
-    wakuNode: WakuNode,
-    filterPeer: RemotePeerInfo,
-    filterPubsubTopic: PubsubTopic,
-    filterContentTopic: ContentTopic,
+    wakuNode: WakuNode, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
 ) {.async.} =
+  const maxFailedSubscribes = 3
+  const maxFailedServiceNodeSwitches = 10
+  var noFailedSubscribes = 0
+  var noFailedServiceNodeSwitches = 0
   while true:
-    trace "maintaining subscription"
+    info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
-    let pingRes = await wakuNode.wakuFilterClient.ping(filterPeer)
+    let pingRes = await wakuNode.wakuFilterClient.ping(actualFilterPeer)
     if pingRes.isErr():
       # No subscription found. Let's subscribe.
       error "ping failed.", err = pingRes.error
       trace "no subscription found. Sending subscribe request"
 
       let subscribeRes = await wakuNode.filterSubscribe(
-        some(filterPubsubTopic), filterContentTopic, filterPeer
+        some(filterPubsubTopic), filterContentTopic, actualFilterPeer
       )
 
       if subscribeRes.isErr():
-        error "subscribe request failed. Quitting.", err = subscribeRes.error
-        break
+        noFailedSubscribes += 1
+        error "Subscribe request failed.",
+          err = subscribeRes.error,
+          peer = actualFilterPeer,
+          failCount = noFailedSubscribes
+
+        # TODO: disconnet from failed actualFilterPeer
+        # asyncSpawn(wakuNode.peerManager.switch.disconnect(p))
+        # wakunode.peerManager.peerStore.delete(actualFilterPeer)
+
+        if noFailedSubscribes < maxFailedSubscribes:
+          await sleepAsync(chtimer.seconds(2)) # Wait a bit before retrying
+          continue
+        else:
+          let peerOpt = await selectRandomServicePeer(
+            wakuNode.peerManager, WakuFilterSubscribeCodec, filterPubsubTopic
+          )
+          if peerOpt.isSome():
+            actualFilterPeer = peerOpt.get()
+
+            info "Found new  peer for codec",
+              codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
+
+            noFailedServiceNodeSwitches = 0
+            noFailedSubscribes = 0
+          else:
+            error "Failed to find new service peer. Retrying."
+            noFailedServiceNodeSwitches += 1
+            if noFailedServiceNodeSwitches > maxFailedServiceNodeSwitches:
+              error "New service node switch failed. Exiting."
+              break
+            else:
+              continue
       else:
         notice "subscribe request successful."
     else:
-      trace "subscription found."
+      info "subscription is live."
 
-    await sleepAsync(chtimer.seconds(60)) # Subscription maintenance interval
+    await sleepAsync(chtimer.seconds(30)) # Subscription maintenance interval
 
-proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
+proc setupAndSubscribe*(
+    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+) =
   if isNil(wakuNode.wakuFilterClient):
     # if we have not yet initialized lightpush client, then do it as the only way we can get here is
     # by having a service peer discovered.
     waitFor wakuNode.mountFilterClient()
 
-  info "Start receiving messages to service node using lightpush",
-    serviceNode = conf.serviceNode
+  info "Start receiving messages to service node using filter",
+    servicePeer = servicePeer
 
   var stats: PerPeerStatistics
-
-  let remotePeer = parsePeerInfo(conf.serviceNode).valueOr:
-    error "Couldn't parse the peer info properly", error = error
-    return
+  actualFilterPeer = servicePeer
 
   let pushHandler = proc(pubsubTopic: PubsubTopic, message: WakuMessage) {.async.} =
     let payloadStr = string.fromBytes(message.payload)
@@ -104,9 +144,8 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
       stats.echoStats()
 
       if conf.numMessages > 0 and waitFor stats.checkIfAllMessagesReceived():
-        waitFor unsubscribe(
-          wakuNode, remotePeer, conf.pubsubTopics[0], conf.contentTopics[0]
-        )
+        waitFor unsubscribe(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
+        logSelfPeers(wakuNode.peerManager)
         info "All messages received. Exiting."
 
         ## for gracefull shutdown through signal hooks
@@ -118,6 +157,4 @@ proc setupAndSubscribe*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   discard setTimer(Moment.fromNow(interval), printStats)
 
   # Start maintaining subscription
-  asyncSpawn maintainSubscription(
-    wakuNode, remotePeer, conf.pubsubTopics[0], conf.contentTopics[0]
-  )
+  asyncSpawn maintainSubscription(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
