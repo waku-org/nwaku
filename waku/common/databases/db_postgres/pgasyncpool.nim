@@ -156,7 +156,7 @@ proc runStmt*(
 
   defer:
     let queryDuration = getNowInNanosecondTime() - queryStartTime
-    if queryDuration > SlowQueryThresholdInNanoSeconds:
+    if queryDuration > SlowQueryThreshold.nanos:
       debug "runStmt slow query",
         query_duration = queryDuration / 1_000_000_000,
         query = stmtDefinition,
