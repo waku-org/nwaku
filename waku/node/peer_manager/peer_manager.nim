@@ -190,6 +190,7 @@ proc connectRelay*(
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
 
   var deadline = sleepAsync(dialTimeout)
+  info "calling connectRelay"
   let workfut = pm.switch.connect(peerId, peer.addrs)
 
   # Can't use catch: with .withTimeout() in this case
@@ -685,6 +686,7 @@ proc reconnectPeers*(
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
 
+  info "calling reconnectPeers"
   debug "Reconnecting peers", proto = proto
 
   # Proto is not persisted, we need to iterate over all peers.
