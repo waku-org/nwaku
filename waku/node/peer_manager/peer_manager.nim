@@ -367,7 +367,6 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
     discard
 
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
-  info "calling onPeerMetadata"
   let res = catch:
     await pm.switch.dial(peerId, WakuMetadataCodec)
 
@@ -743,6 +742,8 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
     inRelayPeersTarget = pm.inRelayPeersTarget,
     outRelayPeers = outRelayPeers.len,
     outRelayPeersTarget = pm.outRelayPeersTarget
+
+  info "connectToRelayPeers outRelayPeers", outRelayPeers = outRelayPeers
 
   if inRelayPeers.len > pm.inRelayPeersTarget:
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
