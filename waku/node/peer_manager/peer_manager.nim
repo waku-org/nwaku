@@ -732,6 +732,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
+  info "connectToRelayPeers",
+    inRelayPeers = inRelayPeers.len,
+    inRelayPeersTarget = pm.inRelayPeersTarget,
+    outRelayPeers = outRelayPeers.len,
+    outRelayPeersTarget = pm.outRelayPeersTarget
+
   if inRelayPeers.len > pm.inRelayPeersTarget:
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
@@ -749,6 +755,8 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
     min(outsideBackoffPeers.len, pm.outRelayPeersTarget - outRelayPeers.len)
     ## number of outstanding connection requests
 
+  info "connectToRelayPeers connecting to peers",
+    numPendingConnReqs = numPendingConnReqs
   while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:
     let numPeersToConnect = min(numPendingConnReqs, MaxParallelDials)
     await pm.connectToNodes(outsideBackoffPeers[index ..< (index + numPeersToConnect)])
@@ -757,6 +765,12 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
     index += numPeersToConnect
     numPendingConnReqs -= numPeersToConnect
+  (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
+  info "finished connectToRelayPeers",
+    inRelayPeers = inRelayPeers.len,
+    inRelayPeersTarget = pm.inRelayPeersTarget,
+    outRelayPeers = outRelayPeers.len,
+    outRelayPeersTarget = pm.outRelayPeersTarget
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:
