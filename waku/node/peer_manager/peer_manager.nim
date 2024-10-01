@@ -253,6 +253,8 @@ proc dialPeer(
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
 
+  info "calling dialPeer"
+
   # Dial Peer
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
@@ -611,6 +613,7 @@ proc dialPeer*(
 
   # First add dialed peer info to peer store, if it does not exist yet..
   # TODO: nim libp2p peerstore already adds them
+  info "calling peerManager's dialPeer"
   if not pm.wakuPeerStore.hasPeer(remotePeerInfo.peerId, proto):
     trace "Adding newly dialed peer to manager",
       peerId = $remotePeerInfo.peerId, address = $remotePeerInfo.addrs[0], proto = proto
