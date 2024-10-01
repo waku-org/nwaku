@@ -434,6 +434,7 @@ proc startRelay*(node: WakuNode) {.async.} =
     let backoffPeriod =
       node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
+    info "calling reconnectPeers", backoffPeriod = backoffPeriod
     await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
 
   # Start the WakuRelay protocol
@@ -1252,7 +1253,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
 
     for peer in peers:
       try:
-        info "calling keepAlive dial"
         let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
         let pingDelay = await node.libp2pPing.ping(conn)
         await conn.close()

@@ -367,6 +367,7 @@ proc onConnEvent(pm: PeerManager, peerId: PeerID, event: ConnEvent) {.async.} =
     discard
 
 proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
+  info "calling onPeerMetadata"
   let res = catch:
     await pm.switch.dial(peerId, WakuMetadataCodec)
 
