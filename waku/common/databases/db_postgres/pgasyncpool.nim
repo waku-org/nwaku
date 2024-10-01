@@ -106,7 +106,7 @@ proc resetConnPool*(pool: PgAsyncPool): Future[DatabaseResult[void]] {.async.} =
 
   return ok()
 
-const SlowQueryThresholdInNanoSeconds = 1_000_000_000
+const SlowQueryThreshold = 1.seconds
 
 proc pgQuery*(
     pool: PgAsyncPool,
@@ -122,7 +122,7 @@ proc pgQuery*(
   let dbConnWrapper = pool.conns[connIndex]
   defer:
     let queryDuration = getNowInNanosecondTime() - queryStartTime
-    if queryDuration > SlowQueryThresholdInNanoSeconds:
+    if queryDuration > SlowQueryThreshold.nanos:
       debug "pgQuery slow query",
         query_duration_secs = (queryDuration / 1_000_000_000), query, requestId
 
