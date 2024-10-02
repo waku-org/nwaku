@@ -87,17 +87,22 @@ proc process*(
     let pubsubTopic = $self.pubsubTopic
 
     if waku.node.wakuLightpushClient.isNil():
-      return err("LightpushRequest waku.node.wakuLightpushClient is nil")
+      let errorMsg = "LightpushRequest waku.node.wakuLightpushClient is nil"
+      error "PUBLISH failed", error = errorMsg
+      return err(errorMsg)
 
     let peerOpt = waku.node.peerManager.selectPeer(WakuLightPushCodec)
     if peerOpt.isNone():
-      return err("failed to lightpublish message, no suitable remote peers")
+      let errorMsg = "failed to lightpublish message, no suitable remote peers"
+      error "PUBLISH failed", error = errorMsg
+      return err(errorMsg)
 
     (
       await waku.node.wakuLightpushClient.publish(
         pubsubTopic, msg, peer = peerOpt.get()
       )
     ).isOkOr:
+      error "PUBLISH failed", error = error
       return err("LightpushRequest error publishing: " & $error)
 
   return ok("")
