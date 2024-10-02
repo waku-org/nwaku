@@ -71,7 +71,11 @@ proc decode*(T: type PeerExchangeResponse, buffer: seq[byte]): ProtobufResult[T]
   if ?pb.getField(10, status_code):
     rpc.status_code = PeerExchangeResponseStatusCode.parse(status_code)
   else:
-    return err(ProtobufError.missingRequiredField("status_code"))
+    # older peers may not support status_code field yet
+    if rpc.peerInfos.len() > 0:
+      rpc.status_code = PeerExchangeResponseStatusCode.SUCCESS
+    else:
+      rpc.status_code = PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE
 
   var status_desc: string
   if ?pb.getField(11, status_desc):
@@ -103,8 +107,9 @@ proc decode*(T: type PeerExchangeRpc, buffer: seq[byte]): ProtobufResult[T] =
 
   var responseBuffer: seq[byte]
   if not ?pb.getField(2, responseBuffer):
-    return err(ProtobufError.missingRequiredField("response"))
-
-  rpc.response = ?PeerExchangeResponse.decode(responseBuffer)
+    rpc.response =
+      PeerExchangeResponse(status_code: PeerExchangeResponseStatusCode.UNKNOWN)
+  else:
+    rpc.response = ?PeerExchangeResponse.decode(responseBuffer)
 
   ok(rpc)
