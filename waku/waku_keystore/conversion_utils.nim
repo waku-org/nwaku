@@ -21,7 +21,7 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[KeystoreMembership] =
     return err(
       AppKeystoreError(
         kind: KeystoreJsonError,
-        msg: "error in conversion_utils decode: " & getCurrentExceptionMsg(),
+        msg: "error during decoding credentials: " & getCurrentExceptionMsg(),
       )
     )
   except Exception: #parseJson raises Exception

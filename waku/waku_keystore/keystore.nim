@@ -34,7 +34,7 @@ proc createAppKeystore*(
     err(
       AppKeystoreError(
         kind: KeystoreOsError,
-        msg: "error in createAppKeystore: " & getCurrentExceptionMsg(),
+        msg: "error while writing keystore: " & getCurrentExceptionMsg(),
       )
     )
   finally:
@@ -122,35 +122,38 @@ proc loadAppKeystore*(
         return err(
           AppKeystoreError(
             kind: KeystoreJsonError,
-            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+            msg:
+              "error during loading keystore, JsonParsingError: " &
+              getCurrentExceptionMsg(),
           )
         )
       except ValueError:
         return err(
           AppKeystoreError(
             kind: KeystoreJsonError,
-            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+            msg:
+              "error during loading keystore, ValueError: " & getCurrentExceptionMsg(),
           )
         )
       except OSError:
         return err(
           AppKeystoreError(
             kind: KeystoreOsError,
-            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+            msg: "error during loading keystore, OSError: " & getCurrentExceptionMsg(),
           )
         )
       except Exception: #parseJson raises Exception
         return err(
           AppKeystoreError(
             kind: KeystoreOsError,
-            msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+            msg: "error during loading keystore, Exception: " & getCurrentExceptionMsg(),
           )
         )
   except IOError:
     return err(
       AppKeystoreError(
         kind: KeystoreIoError,
-        msg: "error in loadAppKeystore: " & getCurrentExceptionMsg(),
+        msg: "error during loading keystore, IOError: " & getCurrentExceptionMsg(),
       )
     )
 
