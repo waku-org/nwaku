@@ -1244,17 +1244,19 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while node.started:
-    # Keep all connected peers alive while running
+    # Keep connected peers alive while running
+    # Each node is responsible of keeping its outgoing connections alive
     trace "Running keepalive"
 
     # First get a list of connected peer infos
-    let peers =
-      node.peerManager.wakuPeerStore.peers().filterIt(it.connectedness == Connected)
+    let outPeers = node.peerManager.connectedPeers()[1]
 
-    for peer in peers:
+    for peerId in outPeers:
       try:
-        info "calling keepAlive dial", peerId = peer.peerId
-        let conn = await node.switch.dial(peer.peerId, peer.addrs, PingCodec)
+        info "calling keepAlive dial", peerId = peerId
+        let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
+          warn "Failed dialing peer for keep alive", peerId = peerId
+          continue
         let pingDelay = await node.libp2pPing.ping(conn)
         await conn.close()
       except CatchableError as exc:
