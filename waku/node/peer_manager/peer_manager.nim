@@ -190,7 +190,6 @@ proc connectRelay*(
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
 
   var deadline = sleepAsync(dialTimeout)
-  info "calling connectRelay"
   let workfut = pm.switch.connect(peerId, peer.addrs)
 
   # Can't use catch: with .withTimeout() in this case
@@ -252,8 +251,6 @@ proc dialPeer(
     return none(Connection)
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
-
-  info "calling dialPeer"
 
   # Dial Peer
   let dialFut = pm.switch.dial(peerId, addrs, proto)
@@ -615,7 +612,6 @@ proc dialPeer*(
 
   # First add dialed peer info to peer store, if it does not exist yet..
   # TODO: nim libp2p peerstore already adds them
-  info "calling peerManager's dialPeer"
   if not pm.wakuPeerStore.hasPeer(remotePeerInfo.peerId, proto):
     trace "Adding newly dialed peer to manager",
       peerId = $remotePeerInfo.peerId, address = $remotePeerInfo.addrs[0], proto = proto
@@ -691,7 +687,6 @@ proc reconnectPeers*(
   ## Reconnect to peers registered for this protocol. This will update connectedness.
   ## Especially useful to resume connections from persistent storage after a restart.
 
-  info "calling reconnectPeers"
   debug "Reconnecting peers", proto = proto
 
   # Proto is not persisted, we need to iterate over all peers.
@@ -739,14 +734,6 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
   var (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
   let totalRelayPeers = inRelayPeers.len + outRelayPeers.len
 
-  info "connectToRelayPeers",
-    inRelayPeers = inRelayPeers.len,
-    inRelayPeersTarget = pm.inRelayPeersTarget,
-    outRelayPeers = outRelayPeers.len,
-    outRelayPeersTarget = pm.outRelayPeersTarget
-
-  info "connectToRelayPeers outRelayPeers", outRelayPeers = outRelayPeers
-
   if inRelayPeers.len > pm.inRelayPeersTarget:
     await pm.pruneInRelayConns(inRelayPeers.len - pm.inRelayPeersTarget)
 
@@ -764,8 +751,6 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
     min(outsideBackoffPeers.len, pm.outRelayPeersTarget - outRelayPeers.len)
     ## number of outstanding connection requests
 
-  info "connectToRelayPeers connecting to peers",
-    numPendingConnReqs = numPendingConnReqs
   while numPendingConnReqs > 0 and outRelayPeers.len < pm.outRelayPeersTarget:
     let numPeersToConnect = min(numPendingConnReqs, MaxParallelDials)
     await pm.connectToNodes(outsideBackoffPeers[index ..< (index + numPeersToConnect)])
@@ -774,12 +759,6 @@ proc connectToRelayPeers*(pm: PeerManager) {.async.} =
 
     index += numPeersToConnect
     numPendingConnReqs -= numPeersToConnect
-  (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
-  info "finished connectToRelayPeers",
-    inRelayPeers = inRelayPeers.len,
-    inRelayPeersTarget = pm.inRelayPeersTarget,
-    outRelayPeers = outRelayPeers.len,
-    outRelayPeersTarget = pm.outRelayPeersTarget
 
 proc manageRelayPeers*(pm: PeerManager) {.async.} =
   if pm.wakuMetadata.shards.len == 0:

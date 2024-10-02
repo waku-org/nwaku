@@ -196,7 +196,6 @@ proc connectToNodes*(
 ) {.async.} =
   ## `source` indicates source of node addrs (static config, api call, discovery, etc)
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
-  info "calling connectToNodes"
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
 proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
@@ -434,7 +433,6 @@ proc startRelay*(node: WakuNode) {.async.} =
     let backoffPeriod =
       node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
-    info "calling reconnectPeers", backoffPeriod = backoffPeriod
     await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
 
   # Start the WakuRelay protocol
