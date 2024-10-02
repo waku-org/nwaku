@@ -336,8 +336,6 @@ proc subscribe*(
     error "Invalid API call to `subscribe`. Was already subscribed"
     return
 
-  debug "subscribe", pubsubTopic = pubsubTopic
-
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
   node.registerRelayDefaultHandler(pubsubTopic)
 

@@ -34,16 +34,15 @@ suite "Postgres driver":
     var futures = newSeq[Future[ArchiveDriverResult[void]]](0)
 
     let beforeSleep = now()
-    for _ in 1 .. 100:
+
+    for _ in 1 .. 25:
       futures.add(driver.sleep(1))
 
     await allFutures(futures)
 
     let diff = now() - beforeSleep
-    # Actually, the diff randomly goes between 1 and 2 seconds.
-    # although in theory it should spend 1s because we establish 100
-    # connections and we spawn 100 tasks that spend ~1s each.
-    assert diff < 20_000_000_000
+
+    assert diff < 2_000_000_000 ## nanoseconds
 
   asyncTest "Insert a message":
     const contentTopic = "test-content-topic"
