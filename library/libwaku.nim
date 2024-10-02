@@ -309,24 +309,27 @@ proc waku_start(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
-  ## TODO: handle the error
-  discard waku_thread.sendRequestToWakuThread(
+
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.START_NODE),
   )
+  .handleRes(callback, userData)
 
 proc waku_stop(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  ## TODO: handle the error
-  discard waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.STOP_NODE),
   )
+  .handleRes(callback, userData)
 
 proc waku_relay_subscribe(
     ctx: ptr WakuContext,
