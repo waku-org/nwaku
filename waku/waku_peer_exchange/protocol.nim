@@ -20,9 +20,10 @@ declarePublicGauge waku_px_peers_received_total,
   "number of ENRs received via peer exchange"
 declarePublicGauge waku_px_peers_received_unknown,
   "number of previously unknown ENRs received via peer exchange"
-declarePublicGauge waku_px_peers_sent, "number of ENRs sent to peer exchange requesters"
+declarePublicCounter waku_px_peers_sent,
+  "number of ENRs sent to peer exchange requesters"
 declarePublicGauge waku_px_peers_cached, "number of peer exchange peer ENRs cached"
-declarePublicGauge waku_px_errors, "number of peer exchange errors", ["type"]
+declarePublicCounter waku_px_errors, "number of peer exchange errors", ["type"]
 
 logScope:
   topics = "waku peer_exchange"
@@ -217,7 +218,9 @@ proc populateEnrCache(wpx: WakuPeerExchange) =
 
 proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
   # try more aggressively to fill the cache at startup
-  while wpx.enrCache.len < MaxPeersCacheSize:
+  var attempts = 10
+  while wpx.enrCache.len < MaxPeersCacheSize and attempts > 0:
+    attempts -= 1
     wpx.populateEnrCache()
     await sleepAsync(5.seconds)
 
