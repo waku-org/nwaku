@@ -1,4 +1,5 @@
 import
+  std/options,
   stew/results,
   stew/shims/net,
   chronos,

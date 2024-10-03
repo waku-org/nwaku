@@ -87,10 +87,10 @@ proc new*(
     privKey = conf.privateKey,
     bootstrapRecords = conf.bootstrapRecords,
     enrAutoUpdate = conf.autoupdateRecord,
-    previousRecord = record,
-    enrIp = none(IpAddress),
-    enrTcpPort = none(Port),
-    enrUdpPort = none(Port),
+    previousRecord = record.toOpt(),
+    enrIp = Opt.none(IpAddress),
+    enrTcpPort = Opt.none(Port),
+    enrUdpPort = Opt.none(Port),
   )
 
   let shardPredOp =

@@ -41,9 +41,9 @@ proc build*(builder: EnrBuilder): EnrResult[enr.Record] =
   enr.Record.init(
     seqNum = builder.seqNumber,
     pk = builder.privateKey,
-    ip = none(IpAddress),
-    tcpPort = none(Port),
-    udpPort = none(Port),
+    ip = Opt.none(IpAddress),
+    tcpPort = Opt.none(Port),
+    udpPort = Opt.none(Port),
     extraFields = builder.fields,
   )
 
