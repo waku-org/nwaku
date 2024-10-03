@@ -26,7 +26,8 @@ import
   ./tester_message,
   ./statistics,
   ./diagnose_connections,
-  ./service_peer_management
+  ./service_peer_management,
+  ./lpt_metrics
 
 var actualFilterPeer {.threadvar.}: RemotePeerInfo
 
@@ -49,11 +50,16 @@ proc maintainSubscription(
   const maxFailedServiceNodeSwitches = 10
   var noFailedSubscribes = 0
   var noFailedServiceNodeSwitches = 0
+  var isFirstPingOnNewPeer = true
   while true:
     info "maintaining subscription at", peer = constructMultiaddrStr(actualFilterPeer)
     # First use filter-ping to check if we have an active subscription
     let pingRes = await wakuNode.wakuFilterClient.ping(actualFilterPeer)
     if pingRes.isErr():
+      if isFirstPingOnNewPeer == false:
+        # Very first ping expected to fail as we have not yet subscribed at all
+        lpt_receiver_lost_subscription_count.inc()
+      isFirstPingOnNewPeer = false
       # No subscription found. Let's subscribe.
       error "ping failed.", err = pingRes.error
       trace "no subscription found. Sending subscribe request"
@@ -64,6 +70,7 @@ proc maintainSubscription(
 
       if subscribeRes.isErr():
         noFailedSubscribes += 1
+        lpt_service_peer_failure_count.inc(labelValues = ["receiver"])
         error "Subscribe request failed.",
           err = subscribeRes.error,
           peer = actualFilterPeer,
@@ -77,26 +84,27 @@ proc maintainSubscription(
           await sleepAsync(chtimer.seconds(2)) # Wait a bit before retrying
           continue
         else:
-          let peerOpt = await selectRandomServicePeer(
-            wakuNode.peerManager, WakuFilterSubscribeCodec, filterPubsubTopic
+          let peerOpt = selectRandomServicePeer(
+            wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
           )
-          if peerOpt.isSome():
+          if peerOpt.isOk():
             actualFilterPeer = peerOpt.get()
 
             info "Found new  peer for codec",
               codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
 
-            noFailedServiceNodeSwitches = 0
             noFailedSubscribes = 0
+            lpt_change_service_peer_count.inc(labelValues = ["receiver"])
+            isFirstPingOnNewPeer = true
+            continue # try again with new peer without delay
           else:
-            error "Failed to find new service peer. Retrying."
+            error "Failed to find new service peer. Exiting."
             noFailedServiceNodeSwitches += 1
-            if noFailedServiceNodeSwitches > maxFailedServiceNodeSwitches:
-              error "New service node switch failed. Exiting."
-              break
-            else:
-              continue
+            break
       else:
+        if noFailedSubscribes > 0:
+          noFailedSubscribes -= 1
+
         notice "subscribe request successful."
     else:
       info "subscription is live."
@@ -145,7 +153,6 @@ proc setupAndSubscribe*(
 
       if conf.numMessages > 0 and waitFor stats.checkIfAllMessagesReceived():
         waitFor unsubscribe(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
-        logSelfPeers(wakuNode.peerManager)
         info "All messages received. Exiting."
 
         ## for gracefull shutdown through signal hooks

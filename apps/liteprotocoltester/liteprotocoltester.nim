@@ -200,18 +200,21 @@ when isMainModule:
 
   info "Node setup complete"
 
+  var codec = WakuLightPushCodec
   # mounting relevant client, for PX filter client must be mounted ahead
   if conf.testFunc == TesterFunctionality.SENDER:
     wakuApp.node.mountLightPushClient()
+    codec = WakuLightPushCodec
   else:
     waitFor wakuApp.node.mountFilterClient()
+    codec = WakuFilterSubscribeCodec
 
   var lookForServiceNode = false
   var serviceNodePeerInfo: RemotePeerInfo
   if conf.serviceNode.len == 0:
     if conf.bootstrapNode.len > 0:
       info "Bootstrapping with PeerExchange to gather random service node"
-      let futForServiceNode = pxLookupServiceNodeSlow(wakuApp.node, conf)
+      let futForServiceNode = pxLookupServiceNode(wakuApp.node, conf)
       if not (waitFor futForServiceNode.withTimeout(20.minutes)):
         error "Service node not found in time via PX"
         quit(QuitFailure)
@@ -220,7 +223,11 @@ when isMainModule:
         error "Service node for test not found via PX"
         quit(QuitFailure)
 
-      serviceNodePeerInfo = futForServiceNode.read().get()
+      serviceNodePeerInfo = selectRandomServicePeer(
+        wakuApp.node.peerManager, none(RemotePeerInfo), codec
+      ).valueOr:
+        error "Service node selection failed"
+        quit(QuitFailure)
     else:
       error "No service or bootstrap node provided"
       quit(QuitFailure)

@@ -1,5 +1,5 @@
 import
-  std/[strformat, sysrand, random, sequtils],
+  std/[strformat, sysrand, random, strutils, sequtils],
   system/ansi_c,
   chronicles,
   chronos,
@@ -14,12 +14,14 @@ import
     node/peer_manager,
     waku_core,
     waku_lightpush/client,
+    waku_lightpush/common,
     common/utils/parse_size_units,
   ],
   ./tester_config,
   ./tester_message,
   ./lpt_metrics,
-  ./diagnose_connections
+  ./diagnose_connections,
+  ./service_peer_management
 
 randomize()
 
@@ -74,10 +76,13 @@ var failedToSendCause {.threadvar.}: Table[string, uint32]
 var failedToSendCount {.threadvar.}: uint32
 var numMessagesToSend {.threadvar.}: uint32
 var messagesSent {.threadvar.}: uint32
+var noOfServicePeerSwitches {.threadvar.}: uint32
 
 proc reportSentMessages() =
   let report = catch:
     """*----------------------------------------*
+|  Service Peer Switches: {noOfServicePeerSwitches:>15} |
+*----------------------------------------*
 |  Expected  |    Sent    |   Failed   |
 |{numMessagesToSend+failedToSendCount:>11} |{messagesSent:>11} |{failedToSendCount:>11} |
 *----------------------------------------*""".fmt()
@@ -88,7 +93,7 @@ proc reportSentMessages() =
     echo report.get()
 
   echo "*--------------------------------------------------------------------------------------------------*"
-  echo "|  Failur cause                                                                         |  count   |"
+  echo "|  Failure cause                                                                         |  count   |"
   for (cause, count) in failedToSendCause.pairs:
     echo fmt"|{cause:<87}|{count:>10}|"
   echo "*--------------------------------------------------------------------------------------------------*"
@@ -110,6 +115,7 @@ proc publishMessages(
     messageSizeRange: SizeRange,
     delayMessages: Duration,
 ) {.async.} =
+  var actualServicePeer = servicePeer
   let startedAt = getNowInNanosecondTime()
   var prevMessageAt = startedAt
   var renderMsgSize = messageSizeRange
@@ -118,6 +124,10 @@ proc publishMessages(
   renderMsgSize.max = max(2048.uint64, renderMsgSize.max) # minimum of max is 2KB
   renderMsgSize.min = min(renderMsgSize.min, renderMsgSize.max)
   renderMsgSize.max = max(renderMsgSize.min, renderMsgSize.max)
+
+  const maxFailedPush = 3
+  var noFailedPush = 0
+  var noFailedServiceNodeSwitches = 0
 
   let selfPeerId = $wakuNode.switch.peerInfo.peerId
   failedToSendCount = 0
@@ -134,8 +144,9 @@ proc publishMessages(
       lightpushContentTopic,
       renderMsgSize,
     )
-    let wlpRes =
-      await wakuNode.lightpushPublish(some(lightpushPubsubTopic), message, servicePeer)
+    let wlpRes = await wakuNode.lightpushPublish(
+      some(lightpushPubsubTopic), message, actualServicePeer
+    )
 
     let msgHash = computeMessageHash(lightpushPubsubTopic, message).to0xHex
 
@@ -150,6 +161,8 @@ proc publishMessages(
       inc(messagesSent)
       lpt_publisher_sent_messages_count.inc()
       lpt_publisher_sent_bytes.inc(amount = msgSize.int64)
+      if noFailedPush > 0:
+        noFailedPush -= 1
     else:
       sentMessages[messagesSent] = (hash: msgHash, relayed: false)
       failedToSendCause.mgetOrPut(wlpRes.error, 1).inc()
@@ -157,6 +170,33 @@ proc publishMessages(
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
       lpt_publisher_failed_messages_count.inc(labelValues = [wlpRes.error])
+      if not wlpRes.error.toLower().contains("dial"):
+        # retry sending after shorter wait
+        await sleepAsync(2.seconds)
+        continue
+      else:
+        noFailedPush += 1
+        lpt_service_peer_failure_count.inc(labelValues = ["publisher"])
+        if noFailedPush > maxFailedPush:
+          info "Max push failure limit reached, Try switching peer."
+          let peerOpt = selectRandomServicePeer(
+            wakuNode.peerManager, some(actualServicePeer), WakuLightPushCodec
+          )
+          if peerOpt.isOk():
+            actualServicePeer = peerOpt.get()
+
+            info "New service peer in use",
+              codec = lightpushPubsubTopic,
+              peer = constructMultiaddrStr(actualServicePeer)
+
+            noFailedPush = 0
+            noOfServicePeerSwitches += 1
+            lpt_change_service_peer_count.inc(labelValues = ["publisher"])
+            continue # try again with new peer without delay
+          else:
+            error "Failed to find new service peer. Exiting."
+            noFailedServiceNodeSwitches += 1
+            break
 
     await sleepAsync(delayMessages)
 
@@ -194,7 +234,6 @@ proc setupAndPublish*(
       reportSentMessages()
 
       if messagesSent >= numMessagesToSend:
-        logSelfPeers(wakuNode.peerManager)
         info "All messages are sent. Exiting."
 
         ## for gracefull shutdown through signal hooks
