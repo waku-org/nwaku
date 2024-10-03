@@ -404,9 +404,11 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
   asyncSpawn(pm.switch.disconnect(peerId))
   pm.wakuPeerStore.delete(peerId)
 
-proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerId]) =
-  ## Returns the peerIds of physical connections (in and out)
-  ## containing at least one stream with the given protocol.
+proc connectedPeers*(
+    pm: PeerManager, protocol: string = ""
+): (seq[PeerId], seq[PeerId]) =
+  ## Returns the peerIds of physical connections (in and out)
+  ## If a protocol is specified, only returns peers with at least one stream of that protocol
 
   var inPeers: seq[PeerId]
   var outPeers: seq[PeerId]
@@ -414,7 +416,7 @@ proc connectedPeers*(pm: PeerManager, protocol: string): (seq[PeerId], seq[PeerI
   for peerId, muxers in pm.switch.connManager.getConnections():
     for peerConn in muxers:
       let streams = peerConn.getStreams()
-      if streams.anyIt(it.protocol == protocol):
+      if protocol.len == 0 or streams.anyIt(it.protocol == protocol):
         if peerConn.connection.transportDir == Direction.In:
           inPeers.add(peerId)
         elif peerConn.connection.transportDir == Direction.Out:
