@@ -28,7 +28,9 @@ import
     waku_enr/capabilities,
     waku_enr/sharding,
   ],
-  ./tester_config
+  ./tester_config,
+  ./diagnose_connections,
+  ./lpt_metrics
 
 logScope:
   topics = "service peer mgmt"
@@ -50,7 +52,7 @@ proc translateToRemotePeerInfo*(peerAddress: string): Result[RemotePeerInfo, voi
 
 randomize()
 
-proc selectRandomServicePeer*(
+proc selectRandomCapablePeer*(
     pm: PeerManager, codec: string, pubsubTopic: PubsubTopic
 ): Future[Option[RemotePeerInfo]] {.async.} =
   var cap = Capabilities.Filter
@@ -90,67 +92,23 @@ proc selectRandomServicePeer*(
 
   return found
 
-proc pxLookupServiceNode*(
-    node: WakuNode, conf: LiteProtocolTesterConf
-): Future[Result[RemotePeerInfo, void]] {.async.} =
-  var codec: string = WakuLightPushCodec
-  if conf.testFunc == TesterFunctionality.RECEIVER:
-    codec = WakuFilterSubscribeCodec
-
-  if node.wakuPeerExchange.isNil():
-    let peerExchangeNode = translateToRemotePeerInfo(conf.bootstrapNode).valueOr:
-      return err()
-    info "PeerExchange node", peer = constructMultiaddrStr(peerExchangeNode)
-    node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
-
-    try:
-      await node.mountPeerExchange(some(conf.clusterId))
-    except CatchableError:
-      error "failed to mount waku peer-exchange protocol: ",
-        error = getCurrentExceptionMsg()
-      return err()
-
-  var trialCount = 5
-  while trialCount > 0:
-    let futPeers = node.fetchPeerExchangePeers(32)
-    if not await futPeers.withTimeout(10.seconds):
-      notice "Cannot get peers from PX", round = 5 - trialCount
-    else:
-      if futPeers.value().isErr():
-        info "PeerExchange reported error", error = futPeers.read().error
-        return err()
-
-    let peerOpt =
-      await selectRandomServicePeer(node.peerManager, codec, conf.pubsubTopics[0])
-    if peerOpt.isSome():
-      info "Found service peer for codec",
-        codec = codec, peer = constructMultiaddrStr(peerOpt.get())
-      return ok(peerOpt.get())
-
-    await sleepAsync(5.seconds)
-    trialCount -= 1
-
-  return err()
-
 # Debugging PX gathered peers connectivity
-proc selectRandomServicePeerWithTestAll*(
+proc tryCallAllPxPeers*(
     pm: PeerManager, codec: string, pubsubTopic: PubsubTopic
-): Future[Option[RemotePeerInfo]] {.async.} =
-  var cap = Capabilities.Filter
+): Future[Option[seq[RemotePeerInfo]]] {.async.} =
+  var capability = Capabilities.Filter
   if codec.contains("lightpush"):
-    cap = Capabilities.Lightpush
+    capability = Capabilities.Lightpush
   elif codec.contains("filter"):
-    cap = Capabilities.Filter
+    capability = Capabilities.Filter
 
-  var supportivePeers = pm.peerStore.getPeersByCapability(cap)
-  # .filterIt(
-  #     it.enr.isSome() and it.enr.get().containsShard(pubsubTopic)
-  #   )
+  var supportivePeers = pm.peerStore.getPeersByCapability(capability)
 
+  lpt_px_peers.set(supportivePeers.len)
   debug "Found supportive peers count", count = supportivePeers.len()
   debug "Found supportive peers", supportivePeers = $supportivePeers
   if supportivePeers.len == 0:
-    return none(RemotePeerInfo)
+    return none(seq[RemotePeerInfo])
 
   var found = none(RemotePeerInfo)
   var okPeers: seq[RemotePeerInfo] = @[]
@@ -168,12 +126,15 @@ proc selectRandomServicePeerWithTestAll*(
     if (await connOpt.withTimeout(10.seconds)):
       if connOpt.value().isSome():
         okPeers.add(randomPeer)
-        debug "Dialing successful",
+        info "Dialing successful",
           peer = constructMultiaddrStr(randomPeer), codec = codec
+        lpt_dialed_peers.inc()
       else:
-        debug "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
+        lpt_dial_failures.inc()
+        error "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
     else:
-      debug "Timeout dialing service peer",
+      lpt_dial_failures.inc()
+      error "Timeout dialing service peer",
         peer = constructMultiaddrStr(randomPeer), codec = codec
 
   var okPeersStr: string = ""
@@ -182,17 +143,14 @@ proc selectRandomServicePeerWithTestAll*(
       "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | protos: " &
         $peer.protocols & " | caps: " & $peer.enr.map(getCapabilities) & "\n"
     )
-
+  echo "PX returned peers found callable for " & codec & " / " & $capability & ":\n"
   echo okPeersStr
 
-  if okPeers.len > 0:
-    found = some(okPeers[rand(0 .. okPeers.len - 1)])
+  return some(okPeers)
 
-  return found
-
-proc pxLookupServiceNodeSlow*(
+proc pxLookupServiceNode*(
     node: WakuNode, conf: LiteProtocolTesterConf
-): Future[Result[RemotePeerInfo, void]] {.async.} =
+): Future[Result[bool, void]] {.async.} =
   var codec: string = WakuLightPushCodec
   if conf.testFunc == TesterFunctionality.RECEIVER:
     codec = WakuFilterSubscribeCodec
@@ -220,15 +178,29 @@ proc pxLookupServiceNodeSlow*(
         info "PeerExchange reported error", error = futPeers.read().error
         return err()
 
-    let peerOpt = await selectRandomServicePeerWithTestAll(
-      node.peerManager, codec, conf.pubsubTopics[0]
-    )
+    let peerOpt = await tryCallAllPxPeers(node.peerManager, codec, conf.pubsubTopics[0])
     if peerOpt.isSome():
-      info "Found service peer for codec",
-        codec = codec, peer = constructMultiaddrStr(peerOpt.get())
-      return ok(peerOpt.get())
+      info "Found service peers for codec",
+        codec = codec, peer_count = peerOpt.get().len()
+      return ok(peerOpt.get().len > 0)
 
     await sleepAsync(5.seconds)
     trialCount -= 1
 
   return err()
+
+var alreadyUsedServicePeers {.threadvar.}: seq[RemotePeerInfo]
+
+proc selectRandomServicePeer*(
+    pm: PeerManager, actualPeer: Option[RemotePeerInfo], codec: string
+): Result[RemotePeerInfo, void] =
+  if actualPeer.isSome():
+    alreadyUsedServicePeers.add(actualPeer.get())
+
+  let supportivePeers =
+    pm.peerStore.getPeersByProtocol(codec).filterIt(it notin alreadyUsedServicePeers)
+  if supportivePeers.len == 0:
+    return err()
+
+  let rndPeerIndex = rand(0 .. supportivePeers.len - 1)
+  return ok(supportivePeers[rndPeerIndex])
