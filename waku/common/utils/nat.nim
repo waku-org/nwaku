@@ -49,7 +49,7 @@ proc setupNat*(
         endpoint.ip = some(extIp.get())
         # RedirectPorts in considered a gcsafety violation
         # because it obtains the address of a non-gcsafe proc?
-        var extPorts: Option[(Port, Port)]
+        var extPorts: Opt[(Port, Port)]
         try:
           extPorts = (
             {.gcsafe.}:
@@ -60,7 +60,7 @@ proc setupNat*(
         except CatchableError:
           # TODO: nat.nim Error: can raise an unlisted exception: Exception. Isolate here for now.
           error "unable to determine external ports"
-          extPorts = none((Port, Port))
+          extPorts = Opt.none((Port, Port))
 
         if extPorts.isSome():
           let (extTcpPort, extUdpPort) = extPorts.get()

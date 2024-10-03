@@ -4,6 +4,19 @@ import std/options, results, eth/keys as eth_keys, libp2p/crypto/crypto as libp2
 
 import eth/p2p/discoveryv5/enr except TypedRecord, toTypedRecord
 
+## Since enr changed to result.Opt[T] from Option[T] for intercompatibility introduce a conversion between
+func toOpt*[T](o: Option[T]): Opt[T] =
+  if o.isSome():
+    return Opt.some(o.get())
+  else:
+    return Opt.none(T)
+
+func toOption*[T](o: Opt[T]): Option[T] =
+  if o.isSome():
+    return some(o.get())
+  else:
+    return none(T)
+
 ## ENR typed record
 
 # Record identity scheme
@@ -31,7 +44,7 @@ proc init(T: type TypedRecord, record: Record): T =
   TypedRecord(raw: record)
 
 proc tryGet*(record: TypedRecord, field: string, T: type): Option[T] =
-  record.raw.tryGet(field, T)
+  return record.raw.tryGet(field, T).toOption()
 
 func toTyped*(record: Record): EnrResult[TypedRecord] =
   let tr = TypedRecord.init(record)
