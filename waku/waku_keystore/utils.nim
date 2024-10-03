@@ -30,7 +30,12 @@ proc save*(json: JsonNode, path: string, separator: string): KeystoreResult[void
   # We save the updated json
   var f: File
   if not f.open(path, fmAppend):
-    return err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
+    return err(
+      AppKeystoreError(
+        kind: KeystoreOsError,
+        msg: "error in waku_keystore save: " & getCurrentExceptionMsg(),
+      )
+    )
   try:
     # To avoid other users/attackers to be able to read keyfiles, we make the file readable/writable only by the running user
     setFilePermissions(path, {fpUserWrite, fpUserRead})
