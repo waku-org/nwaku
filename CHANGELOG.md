@@ -59,7 +59,6 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 - use submodule nph in CI to check lint ([#3027](https://github.com/waku-org/nwaku/issues/3027)) ([ce9a8c46](https://github.com/waku-org/nwaku/commit/ce9a8c46))
 - deprecating pubsub topic ([#2997](https://github.com/waku-org/nwaku/issues/2997)) ([a3cd2a1a](https://github.com/waku-org/nwaku/commit/a3cd2a1a))
 - lightpush - error metric less variable by only setting a fixed string ([#3020](https://github.com/waku-org/nwaku/issues/3020)) ([d3e6717a](https://github.com/waku-org/nwaku/commit/d3e6717a))
-- Bump dependencies for v0.33 ([#3017](https://github.com/waku-org/nwaku/issues/3017)) ([6c890de4](https://github.com/waku-org/nwaku/commit/6c890de4))
 - enhance libpq management ([#3015](https://github.com/waku-org/nwaku/issues/3015)) ([45319f09](https://github.com/waku-org/nwaku/commit/45319f09))
 - per limit split of PostgreSQL queries ([#3008](https://github.com/waku-org/nwaku/issues/3008)) ([e1e05afb](https://github.com/waku-org/nwaku/commit/e1e05afb))
 - Added metrics to liteprotocoltester ([#3002](https://github.com/waku-org/nwaku/issues/3002)) ([8baf627f](https://github.com/waku-org/nwaku/commit/8baf627f))

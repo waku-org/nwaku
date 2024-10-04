@@ -154,7 +154,7 @@ proc handleSubscribeRequest*(
 proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
   trace "pushing message to subscribed peer", peer_id = shortLog(peer)
 
-  if not wf.peerManager.peerStore.hasPeer(peer, WakuFilterPushCodec):
+  if not wf.peerManager.wakuPeerStore.hasPeer(peer, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
     error "no addresses for peer", peer_id = shortLog(peer)
     return
@@ -207,7 +207,7 @@ proc maintainSubscriptions*(wf: WakuFilter) =
   ## Remove subscriptions for peers that have been removed from peer store
   var peersToRemove: seq[PeerId]
   for peerId in wf.subscriptions.peersSubscribed.keys:
-    if not wf.peerManager.peerStore.hasPeer(peerId, WakuFilterPushCodec):
+    if not wf.peerManager.wakuPeerStore.hasPeer(peerId, WakuFilterPushCodec):
       debug "peer has been removed from peer store, removing subscription",
         peerId = peerId
       peersToRemove.add(peerId)

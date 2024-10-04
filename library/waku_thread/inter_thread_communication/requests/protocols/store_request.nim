@@ -1,5 +1,5 @@
 import std/[json, sugar, options]
-import chronos, results
+import chronos, chronicles, results
 import
   ../../../../../waku/factory/waku,
   ../../../../alloc,
@@ -143,4 +143,5 @@ proc process*(
   of REMOTE_QUERY:
     return await cast[ptr JsonStoreQueryRequest](self[].storeReq).process(waku)
 
+  error "store request not handled at all"
   return err("store request not handled at all")

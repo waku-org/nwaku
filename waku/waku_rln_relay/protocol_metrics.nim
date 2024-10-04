@@ -80,24 +80,26 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
   var cumulativeValidMessages = 0.float64
   var cumulativeProofs = 0.float64
 
-  logMetrics = proc() =
-    {.gcsafe.}:
-      let freshErrorCount = parseAndAccumulate(waku_rln_errors_total, cumulativeErrors)
-      let freshMsgCount =
-        parseAndAccumulate(waku_rln_messages_total, cumulativeMessages)
-      let freshSpamCount =
-        parseAndAccumulate(waku_rln_spam_messages_total, cumulativeSpamMessages)
-      let freshInvalidMsgCount =
-        parseAndAccumulate(waku_rln_invalid_messages_total, cumulativeInvalidMessages)
-      let freshValidMsgCount =
-        parseAndAccumulate(waku_rln_valid_messages_total, cumulativeValidMessages)
-      let freshProofCount =
-        parseAndAccumulate(waku_rln_proof_verification_total, cumulativeProofs)
+  when defined(metrics):
+    logMetrics = proc() =
+      {.gcsafe.}:
+        let freshErrorCount =
+          parseAndAccumulate(waku_rln_errors_total, cumulativeErrors)
+        let freshMsgCount =
+          parseAndAccumulate(waku_rln_messages_total, cumulativeMessages)
+        let freshSpamCount =
+          parseAndAccumulate(waku_rln_spam_messages_total, cumulativeSpamMessages)
+        let freshInvalidMsgCount =
+          parseAndAccumulate(waku_rln_invalid_messages_total, cumulativeInvalidMessages)
+        let freshValidMsgCount =
+          parseAndAccumulate(waku_rln_valid_messages_total, cumulativeValidMessages)
+        let freshProofCount =
+          parseAndAccumulate(waku_rln_proof_verification_total, cumulativeProofs)
 
-      info "Total messages", count = freshMsgCount
-      info "Total spam messages", count = freshSpamCount
-      info "Total invalid messages", count = freshInvalidMsgCount
-      info "Total valid messages", count = freshValidMsgCount
-      info "Total errors", count = freshErrorCount
-      info "Total proofs verified", count = freshProofCount
+        info "Total messages", count = freshMsgCount
+        info "Total spam messages", count = freshSpamCount
+        info "Total invalid messages", count = freshInvalidMsgCount
+        info "Total valid messages", count = freshValidMsgCount
+        info "Total errors", count = freshErrorCount
+        info "Total proofs verified", count = freshProofCount
   return logMetrics

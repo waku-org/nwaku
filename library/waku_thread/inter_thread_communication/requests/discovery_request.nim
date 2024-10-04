@@ -1,5 +1,5 @@
 import std/[json, sequtils]
-import chronos, results, libp2p/multiaddress
+import chronos, chronicles, results, libp2p/multiaddress
 import
   ../../../../waku/factory/waku,
   ../../../../waku/discovery/waku_dnsdisc,
@@ -117,6 +117,7 @@ proc process*(
   of START_DISCV5:
     let res = await waku.wakuDiscv5.start()
     res.isOkOr:
+      error "START_DISCV5 failed", error = error
       return err($error)
 
     return ok("discv5 started correctly")
@@ -126,17 +127,21 @@ proc process*(
     return ok("discv5 stopped correctly")
   of GET_BOOTSTRAP_NODES:
     let nodes = retrieveBootstrapNodes($self[].enrTreeUrl, $self[].nameDnsServer).valueOr:
+      error "GET_BOOTSTRAP_NODES failed", error = error
       return err($error)
 
     return ok($(%*nodes))
   of UPDATE_DISCV5_BOOTSTRAP_NODES:
     updateDiscv5BootstrapNodes($self[].nodes, waku).isOkOr:
+      error "UPDATE_DISCV5_BOOTSTRAP_NODES failed", error = error
       return err($error)
 
     return ok("discovery request processed correctly")
   of PEER_EXCHANGE:
     let numValidPeers = (await performPeerExchangeRequestTo(self[].numPeers, waku)).valueOr:
+      error "PEER_EXCHANGE failed", error = error
       return err("error calling performPeerExchangeRequestTo: " & $error)
     return ok($numValidPeers)
 
+  error "discovery request not handled"
   return err("discovery request not handled")

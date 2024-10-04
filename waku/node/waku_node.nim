@@ -198,6 +198,9 @@ proc connectToNodes*(
   # NOTE Connects to the node without a give protocol, which automatically creates streams for relay
   await peer_manager.connectToNodes(node.peerManager, nodes, source = source)
 
+proc disconnectNode*(node: WakuNode, remotePeer: RemotePeerInfo) {.async.} =
+  await peer_manager.disconnectNode(node.peerManager, remotePeer)
+
 ## Waku Sync
 
 proc mountWakuSync*(
@@ -333,8 +336,6 @@ proc subscribe*(
     error "Invalid API call to `subscribe`. Was already subscribed"
     return
 
-  debug "subscribe", pubsubTopic = pubsubTopic
-
   node.topicSubscriptionQueue.emit((kind: PubsubSub, topic: pubsubTopic))
   node.registerRelayDefaultHandler(pubsubTopic)
 
@@ -423,7 +424,7 @@ proc startRelay*(node: WakuNode) {.async.} =
   ## Setup relay protocol
 
   # Resume previous relay connections
-  if node.peerManager.peerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
+  if node.peerManager.wakuPeerStore.hasPeers(protocolMatcher(WakuRelayCodec)):
     info "Found previous WakuRelay peers. Reconnecting."
 
     # Reconnect to previous relay peers. This will respect a backoff period, if necessary

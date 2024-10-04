@@ -18,6 +18,16 @@ proc decode*(encodedCredential: seq[byte]): KeystoreResult[KeystoreMembership] =
     let jsonObject = parseJson(string.fromBytes(encodedCredential))
     return ok(to(jsonObject, KeystoreMembership))
   except JsonParsingError:
-    return err(AppKeystoreError(kind: KeystoreJsonError, msg: getCurrentExceptionMsg()))
+    return err(
+      AppKeystoreError(
+        kind: KeystoreJsonError,
+        msg: "error during decoding credentials: " & getCurrentExceptionMsg(),
+      )
+    )
   except Exception: #parseJson raises Exception
-    return err(AppKeystoreError(kind: KeystoreOsError, msg: getCurrentExceptionMsg()))
+    return err(
+      AppKeystoreError(
+        kind: KeystoreOsError,
+        msg: "error in conversion_utils decode: " & getCurrentExceptionMsg(),
+      )
+    )
