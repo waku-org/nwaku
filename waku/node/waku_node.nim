@@ -1249,7 +1249,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
 
     for peerId in outPeers:
       try:
-        info "calling keepAlive dial", peerId = peerId
         let conn = (await node.peerManager.dialPeer(peerId, PingCodec)).valueOr:
           warn "Failed dialing peer for keep alive", peerId = peerId
           continue
