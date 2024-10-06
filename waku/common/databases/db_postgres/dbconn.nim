@@ -246,6 +246,7 @@ proc dbConnQuery*(
     debug "dbConnQuery",
       requestId,
       query = $query,
+      args,
       querySummary,
       waitDbQueryDurationSecs = waitDuration,
       sendToDBDurationSecs = sendDuration
@@ -286,7 +287,8 @@ proc dbConnQueryPrepared*(
     debug "dbConnQueryPrepared",
       requestId,
       stmtName,
-      waitDurationSecs = waitDuration,
-      sendDurationSecs = sendDuration
+      paramValues,
+      waitDbQueryDurationSecs = waitDuration,
+      sendToDBDurationSecs = sendDuration
 
   return ok()
