@@ -91,6 +91,7 @@ proc initProtocolHandler(self: WakuStore) =
   proc handler(conn: Connection, proto: string) {.async, gcsafe, closure.} =
     var successfulQuery = false ## only consider the correct queries in metrics
     var resBuf: StoreResp
+    var queryDuration: float
     self.requestRateLimiter.checkUsageLimit(WakuStoreCodec, conn):
       let readRes = catch:
         await conn.readLp(DefaultMaxRpcSize.int)
@@ -107,7 +108,7 @@ proc initProtocolHandler(self: WakuStore) =
 
       resBuf = await self.handleQueryRequest(conn.peerId, reqBuf)
 
-      let queryDuration = getTime().toUnixFloat() - queryStartTime
+      queryDuration = getTime().toUnixFloat() - queryStartTime
       waku_store_time_seconds.set(queryDuration, ["query-db-time"])
       successfulQuery = true
     do:
@@ -124,10 +125,13 @@ proc initProtocolHandler(self: WakuStore) =
       error "Connection write error", error = writeRes.error.msg
       return
 
-    debug "after sending response", requestId = resBuf.requestId
     if successfulQuery:
       let writeDuration = getTime().toUnixFloat() - writeRespStartTime
       waku_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
+      debug "after sending response",
+        requestId = resBuf.requestId,
+        queryDurationSecs = queryDuration,
+        writeStreamDurationSecs = writeDuration
 
     waku_service_network_bytes.inc(
       amount = resBuf.resp.len().int64, labelValues = [WakuStoreCodec, "out"]
