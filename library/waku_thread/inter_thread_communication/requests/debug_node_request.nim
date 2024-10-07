@@ -30,7 +30,7 @@ proc process*(
   of RETRIEVE_LISTENING_ADDRESSES:
     return ok($(%*waku.node.getMultiaddresses()))
   of RETRIEVE_MY_ENR:
-    return ok($(%*waku.node.enr.toURI()))
+    return ok(waku.node.enr.toURI())
 
   error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")
