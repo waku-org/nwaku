@@ -558,7 +558,7 @@ procSuite "WakuNode - RLN relay":
       node2.wakuRlnRelay.nullifierLog.len() == 1
 
     # Epoch 2
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, startTime + 5).isOkOr:
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, startTime + float(1 * epochSizeSec)).isOkOr:
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm3)
     await sleepAsync(publishSleepDuration)
@@ -567,7 +567,7 @@ procSuite "WakuNode - RLN relay":
       node2.wakuRlnRelay.nullifierLog.len() == 2
 
     # Epoch 3
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, startTime + 10).isOkOr:
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, startTime + float(2 * epochSizeSec)).isOkOr:
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm4)
     await sleepAsync(publishSleepDuration)
@@ -576,7 +576,7 @@ procSuite "WakuNode - RLN relay":
       node2.wakuRlnRelay.nullifierLog.len() == 3
 
     # Epoch 4
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, startTime + 15).isOkOr:
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, startTime + float(3 * epochSizeSec)).isOkOr:
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm5)
     await sleepAsync(publishSleepDuration)
@@ -585,7 +585,7 @@ procSuite "WakuNode - RLN relay":
       node2.wakuRlnRelay.nullifierLog.len() == 4
 
     # Epoch 5
-    node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, startTime + 20).isOkOr:
+    node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, startTime + float(4 * epochSizeSec)).isOkOr:
       raiseAssert $error
     discard await node1.publish(some(DefaultPubsubTopic), wm6)
     await sleepAsync(publishSleepDuration)
