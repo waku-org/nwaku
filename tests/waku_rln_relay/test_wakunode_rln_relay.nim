@@ -11,7 +11,7 @@ import
   libp2p/protocols/pubsub/pubsub
 import
   waku/[waku_core, waku_node, waku_rln_relay],
-  ../testlib/[wakucore, futures, wakunode],
+  ../testlib/[wakucore, futures, wakunode, testutils],
   ./rln/waku_rln_relay_utils
 
 from std/times import epochTime
