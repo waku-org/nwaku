@@ -52,9 +52,9 @@ template foreignThreadGc(body: untyped) =
   when declared(tearDownForeignThreadGc):
     tearDownForeignThreadGc()
 
-template handleRes[T: string | void](
+proc handleRes[T: string | void](
     res: Result[T, string], callback: WakuCallBack, userData: pointer
-) =
+): cint =
   ## Handles the Result responses, which can either be Result[string, string] or
   ## Result[void, string]. Notice that in case of Result[void, string], it is enough to
   ## just return RET_OK and not provide any additional feedback through the callback.
