@@ -4,11 +4,12 @@ else:
   {.push raises: [].}
 
 import
-  std/[times, options, sequtils, strutils, algorithm],
-  stew/[results, byteutils],
+  std/[times, options, sequtils, algorithm],
+  stew/byteutils,
   chronicles,
   chronos,
-  metrics
+  metrics,
+  results
 import
   ../common/paging,
   ./driver,
