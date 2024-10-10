@@ -1,9 +1,31 @@
+import os
+
 if defined(release):
   switch("nimcache", "nimcache/release/$projectName")
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
 if defined(windows):
+  --cpu:amd64
+  switch("passL", "-L./build/") 
+  switch("passL", "-lws2_32 -lcrypt32 -luserenv -lntdll -lkernel32 -luser32 -ladvapi32 -lws2_32 -lcrypt32 -luserenv -lntdll -lkernel32 -luser32 -ladvapi32")
+  switch("passC", "-DWIN32 -D_WIN32 -DMINGW")
+  switch("passL", "-L\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22000.0\\ucrt\\x64\"")
+  switch("passL", "-L\"C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.22000.0\\um\\x64\"")
+  switch("passL", "-L\"C:\\msys64\\mingw64\\lib\"")
+  switch("passL", "rln.lib") 
+
+  echo "Current search paths:"
+  for path in listDirs("C:\\Users\\darsh\\.nimble\\pkgs"):
+    echo path
+    switch("path", path) 
+  
+  # Automatically add all vendor subdirectories
+  for dir in walkDir("./vendor"):
+    if dir.kind == pcDir:
+      switch("path", dir.path)
+    # Add the vendor directory itself and the current directory
+
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
   # increase stack size
@@ -86,7 +108,7 @@ if not defined(macosx) and not defined(android):
     # light-weight stack traces using libbacktrace and libunwind
     --define:
       nimStackTraceOverride
-    switch("import", "libbacktrace")
+    # switch("import", "libbacktrace")
 
 --define:
   nimOldCaseObjects

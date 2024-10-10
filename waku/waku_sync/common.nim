@@ -12,6 +12,21 @@ const
   DefaultGossipSubJitter*: Duration = 20.seconds
 
 type
+  NegentropySubRangeStorage* = distinct pointer
+  NegentropyStorage* = distinct pointer
+  RawNegentropySubRange* = distinct pointer
+  RawNegentropy* = distinct pointer
+  Negentropy* = ref object of RootObj
+
+  NegentropyWithSubRange* = ref object of Negentropy
+    inner: RawNegentropySubRange
+
+  NegentropyWithStorage* = ref object of Negentropy
+    inner: RawNegentropy
+
+  NegentropyPayload* = distinct seq[byte]
+
+type
   TransferCallback* = proc(
     hashes: seq[WakuMessageHash], peerId: PeerId
   ): Future[Result[void, string]] {.async: (raises: []), closure.}

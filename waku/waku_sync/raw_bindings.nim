@@ -193,7 +193,7 @@ proc new*(T: type NegentropyStorage): Result[T, string] =
   #TODO db name and path
   let storage = storage_init("", "")
 
-  #[ TODO: Uncomment once we move to lmdb
+  #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
     return err("storage initialization failed") ]#
 
@@ -248,7 +248,7 @@ proc new*(
 ): Result[T, string] =
   let subrange = subrange_init(storage, startTime, endTime)
 
-  #[ TODO: Uncomment once we move to lmdb
+  #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
     return err("storage initialization failed") ]#
 
@@ -326,7 +326,7 @@ method delete*(self: NegentropyWithSubRange) =
   self.inner.free()
 
 method initiate*(self: NegentropyWithSubRange): Result[NegentropyPayload, string] =
-  ## Client inititate a sync session with a server by sending a payload
+  ## Client inititate a sync session with a server by sending a payload 
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
@@ -421,7 +421,7 @@ method delete*(self: NegentropyWithStorage) =
   self.inner.free()
 
 method initiate*(self: NegentropyWithStorage): Result[NegentropyPayload, string] =
-  ## Client inititate a sync session with a server by sending a payload
+  ## Client inititate a sync session with a server by sending a payload 
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
