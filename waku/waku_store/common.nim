@@ -76,7 +76,7 @@ type
   StoreQueryResult* = Result[StoreQueryResponse, StoreError]
 
 proc into*(errCode: ErrorCode): StatusCode =
-  StatusCode(uint32(errCode))
+  cast[StatusCode](uint32(errCode))
 
 proc new*(T: type StoreError, code: uint32, desc: string): T =
   let kind = ErrorCode.parse(code)
@@ -98,7 +98,7 @@ proc new*(T: type StoreError, code: uint32, desc: string): T =
 proc parse*(T: type ErrorCode, kind: uint32): T =
   case kind
   of 000, 300, 400, 429, 503, 504:
-    ErrorCode(kind)
+    cast[ErrorCode](kind)
   else:
     ErrorCode.UNKNOWN
 

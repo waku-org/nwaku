@@ -1,5 +1,5 @@
-import system, std/[json, sequtils]
-import stew/[byteutils, results]
+import system, results, std/json
+import stew/byteutils
 import
   ../../waku/common/base64,
   ../../waku/waku_core/message,

@@ -1,4 +1,4 @@
-import std/[options, sequtils, json, strutils, net]
+import std/[options, json, strutils, net]
 import chronos, chronicles, results, confutils, confutils/std/net
 
 import

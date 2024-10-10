@@ -1,10 +1,9 @@
-import std/[json, sequtils]
+import std/json
 import chronos, chronicles, results, libp2p/multiaddress
 import
   ../../../../waku/factory/waku,
   ../../../../waku/discovery/waku_dnsdisc,
   ../../../../waku/discovery/waku_discv5,
-  ../../../../waku/waku_peer_exchange,
   ../../../../waku/waku_core/peers,
   ../../../../waku/node/waku_node,
   ../../../alloc
