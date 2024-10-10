@@ -128,3 +128,8 @@ proc fromEpoch*(epoch: Epoch): uint64 =
   ## decodes bytes of `epoch` (in little-endian) to uint64
   let t = fromBytesLE(uint64, array[32, byte](epoch))
   return t
+
+func `+`*(a, b: Quantity): Quantity {.borrow.}
+
+func u256*(n: Quantity): UInt256 {.inline.} =
+  n.uint64.stuint(256)

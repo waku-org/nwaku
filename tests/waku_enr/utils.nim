@@ -1,4 +1,5 @@
 import
+  std/options,
   sequtils,
   stew/results,
   stew/shims/net,
