@@ -1,5 +1,5 @@
 import
-  std/[options, sequtils, random, sugar],
+  std/[options, sequtils, random],
   results,
   chronicles,
   chronos,

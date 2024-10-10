@@ -3,7 +3,7 @@ when (NimMajor, NimMinor) < (1, 4):
 else:
   {.push raises: [].}
 
-import stew/byteutils, nimcrypto/sha2
+import nimcrypto/sha2
 import ../../../waku_core, ../../common
 
 type Index* = object

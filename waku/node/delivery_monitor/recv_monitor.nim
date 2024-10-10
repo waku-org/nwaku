@@ -2,7 +2,7 @@
 ## receive and is backed by store-v3 requests to get an additional degree of certainty
 ##
 
-import std/[tables, sequtils, sets, options]
+import std/[tables, sequtils, options]
 import chronos, chronicles, libp2p/utility
 import
   ../../waku_core,

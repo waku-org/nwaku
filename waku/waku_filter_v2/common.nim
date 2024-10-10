@@ -63,7 +63,7 @@ proc serviceUnavailable*(
 proc parse*(T: type FilterSubscribeErrorKind, kind: uint32): T =
   case kind
   of 000, 200, 300, 400, 404, 429, 503:
-    FilterSubscribeErrorKind(kind)
+    cast[FilterSubscribeErrorKind](kind)
   else:
     FilterSubscribeErrorKind.UNKNOWN
 

@@ -6,7 +6,7 @@
 
 {.push raises: [].}
 
-import std/[options, tables], chronos/timer, libp2p/stream/connection, libp2p/utility
+import std/[options, tables], libp2p/stream/connection
 
 import ./[single_token_limiter, service_metrics], ../../utils/tableutils
 

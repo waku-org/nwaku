@@ -42,7 +42,7 @@ proc decode*(T: type PeerExchangePeerInfo, buffer: seq[byte]): ProtoResult[T] =
 proc parse*(T: type PeerExchangeResponseStatusCode, status: uint32): T =
   case status
   of 200, 400, 429, 503:
-    PeerExchangeResponseStatusCode(status)
+    cast[PeerExchangeResponseStatusCode](status)
   else:
     PeerExchangeResponseStatusCode.UNKNOWN
 
