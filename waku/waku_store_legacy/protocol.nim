@@ -37,23 +37,23 @@ type WakuStore* = ref object of LPProtocol
 
 ## Protocol
 
+type StoreResp = tuple[resp: seq[byte], requestId: string]
+
 proc handleLegacyQueryRequest(
     self: WakuStore, requestor: PeerId, raw_request: seq[byte]
-): Future[seq[byte]] {.async.} =
+): Future[StoreResp] {.async.} =
   let decodeRes = HistoryRPC.decode(raw_request)
   if decodeRes.isErr():
-    error "failed to decode rpc", peerId = requestor
+    error "failed to decode rpc", peerId = requestor, error = $decodeRes.error
     waku_legacy_store_errors.inc(labelValues = [decodeRpcFailure])
-    # TODO: Return (BAD_REQUEST, cause: "decode rpc failed")
-    return
+    return (newSeq[byte](), "failed to decode rpc")
 
   let reqRpc = decodeRes.value
 
   if reqRpc.query.isNone():
     error "empty query rpc", peerId = requestor, requestId = reqRpc.requestId
     waku_legacy_store_errors.inc(labelValues = [emptyRpcQueryFailure])
-    # TODO: Return (BAD_REQUEST, cause: "empty query")
-    return
+    return (newSeq[byte](), "empty query rpc")
 
   let requestId = reqRpc.requestId
   var request = reqRpc.query.get().toAPI()
@@ -72,21 +72,30 @@ proc handleLegacyQueryRequest(
 
     let error = HistoryError(kind: HistoryErrorKind.UNKNOWN).toRPC()
     let response = HistoryResponseRPC(error: error)
-    return HistoryRPC(requestId: requestId, response: some(response)).encode().buffer
+    return (
+      HistoryRPC(requestId: requestId, response: some(response)).encode().buffer,
+      requestId,
+    )
 
   if responseRes.isErr():
     error "history query failed",
       peerId = requestor, requestId = requestId, error = responseRes.error
 
     let response = responseRes.toRPC()
-    return HistoryRPC(requestId: requestId, response: some(response)).encode().buffer
+    return (
+      HistoryRPC(requestId: requestId, response: some(response)).encode().buffer,
+      requestId,
+    )
 
   let response = responseRes.toRPC()
 
   info "sending history response",
     peerId = requestor, requestId = requestId, messages = response.messages.len
 
-  return HistoryRPC(requestId: requestId, response: some(response)).encode().buffer
+  return (
+    HistoryRPC(requestId: requestId, response: some(response)).encode().buffer,
+    requestId,
+  )
 
 proc initProtocolHandler(ws: WakuStore) =
   let rejectResponseBuf = HistoryRPC(
@@ -103,7 +112,8 @@ proc initProtocolHandler(ws: WakuStore) =
 
   proc handler(conn: Connection, proto: string) {.async, closure.} =
     var successfulQuery = false ## only consider the correct queries in metrics
-    var resBuf: seq[byte]
+    var resBuf: StoreResp
+    var queryDuration: float
     ws.requestRateLimiter.checkUsageLimit(WakuLegacyStoreCodec, conn):
       let readRes = catch:
         await conn.readLp(DefaultMaxRpcSize.int)
@@ -118,17 +128,17 @@ proc initProtocolHandler(ws: WakuStore) =
 
       let queryStartTime = getTime().toUnixFloat()
       resBuf = await ws.handleLegacyQueryRequest(conn.peerId, reqBuf)
-      let queryDuration = getTime().toUnixFloat() - queryStartTime
+      queryDuration = getTime().toUnixFloat() - queryStartTime
       waku_legacy_store_time_seconds.set(queryDuration, ["query-db-time"])
       successfulQuery = true
     do:
       debug "Legacy store query request rejected due rate limit exceeded",
         peerId = conn.peerId, limit = $ws.requestRateLimiter.setting
-      resBuf = rejectResponseBuf
+      resBuf = (rejectResponseBuf, "rejected")
 
     let writeRespStartTime = getTime().toUnixFloat()
     let writeRes = catch:
-      await conn.writeLp(resBuf)
+      await conn.writeLp(resBuf.resp)
 
     if writeRes.isErr():
       error "Connection write error", error = writeRes.error.msg
@@ -137,9 +147,13 @@ proc initProtocolHandler(ws: WakuStore) =
     if successfulQuery:
       let writeDuration = getTime().toUnixFloat() - writeRespStartTime
       waku_legacy_store_time_seconds.set(writeDuration, ["send-store-resp-time"])
+      debug "after sending response",
+        requestId = resBuf.requestId,
+        queryDurationSecs = queryDuration,
+        writeStreamDurationSecs = writeDuration
 
     waku_service_network_bytes.inc(
-      amount = resBuf.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]
+      amount = resBuf.resp.len().int64, labelValues = [WakuLegacyStoreCodec, "out"]
     )
 
   ws.handler = handler

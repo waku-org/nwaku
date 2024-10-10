@@ -230,7 +230,7 @@ proc dbConnQuery*(
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(sendDuration, [querySummary, "sendQuery"])
+  query_time_secs.set(sendDuration, [querySummary, "sendToDBQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
@@ -246,9 +246,10 @@ proc dbConnQuery*(
     debug "dbConnQuery",
       requestId,
       query = $query,
+      args,
       querySummary,
-      waitDurationSecs = waitDuration,
-      sendDurationSecs = sendDuration
+      waitDbQueryDurationSecs = waitDuration,
+      sendToDBDurationSecs = sendDuration
 
   return ok()
 
@@ -270,7 +271,7 @@ proc dbConnQueryPrepared*(
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(sendDuration, [stmtName, "sendQuery"])
+  query_time_secs.set(sendDuration, [stmtName, "sendToDBQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
@@ -286,7 +287,8 @@ proc dbConnQueryPrepared*(
     debug "dbConnQueryPrepared",
       requestId,
       stmtName,
-      waitDurationSecs = waitDuration,
-      sendDurationSecs = sendDuration
+      paramValues,
+      waitDbQueryDurationSecs = waitDuration,
+      sendToDBDurationSecs = sendDuration
 
   return ok()
