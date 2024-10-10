@@ -13,6 +13,24 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
+OS := Windows_NT
+debug:
+        @echo "Operating System: $(OS)"
+
+ifeq ($(OS),Windows_NT)
+  # Define a new temporary directory for Windows
+  TMP_DIR := $(HOME)/status-work/nwaku/tmp
+  # Ensure the temporary directory exists
+  $(shell mkdir -p $(TMP_DIR))
+  # Add environment variable to use this temporary directory
+  export TMP := $(TMP_DIR)
+  export TEMP := $(TMP_DIR)
+endif
+
+WINDOWS_LIBS = -lws2_32 -lcrypt32 -luserenv -lntdll -lkernel32 -luser32 -ladvapi32
+ifeq ($(OS),Windows_NT)
+    LDFLAGS += $(WINDOWS_LIBS)
+endif
 
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
@@ -217,7 +235,7 @@ testwaku: | build deps anvil librln
 
 wakunode2: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
-		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) waku.nims
+		$(ENV_SCRIPT) nim wakunode2 $(NIM_PARAMS) --passL:"-lwaku" waku.nims
 
 benchmarks: | build deps librln
 	echo -e $(BUILD_MSG) "build/$@" && \
@@ -349,6 +367,10 @@ docker-push:
 .PHONY: cbindings cwaku_example libwaku
 
 STATIC ?= false
+
+ifeq ($(OS),Windows_NT)
+    STATIC := true
+endif
 
 libwaku: | build deps librln
 		rm -f build/libwaku*
