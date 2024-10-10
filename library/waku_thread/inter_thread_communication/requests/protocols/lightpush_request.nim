@@ -1,5 +1,5 @@
-import std/net, options
-import chronicles, chronos, stew/byteutils, results
+import options
+import chronicles, chronos, results
 import
   ../../../../../waku/waku_core/message/message,
   ../../../../../waku/factory/waku,

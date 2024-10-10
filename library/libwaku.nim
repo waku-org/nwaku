@@ -5,7 +5,7 @@
 when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
-import std/[json, sequtils, atomics, strformat, options, atomics]
+import std/[json, atomics, strformat, options, atomics]
 import chronicles, chronos
 import
   waku/common/base64,

@@ -75,7 +75,7 @@ type
 proc parse*(T: type HistoryResponseErrorRPC, kind: uint32): T =
   case kind
   of 0, 1, 429, 503:
-    HistoryResponseErrorRPC(kind)
+    cast[HistoryResponseErrorRPC](kind)
   else:
     # TODO: Improve error variants/move to satus codes
     HistoryResponseErrorRPC.INVALID_CURSOR

@@ -9,5 +9,5 @@ method onSubscribe*(
 
 method onUnsubscribe*(
     self: SubscriptionObserver, pubsubTopic: string, contentTopics: seq[string]
-) {.gcsafe, raises: [].} =
+) {.base, gcsafe, raises: [].} =
   error "onUnsubscribe not implemented"

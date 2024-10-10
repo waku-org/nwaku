@@ -2,9 +2,10 @@
 
 import
   std/[times, options, sequtils, algorithm],
-  stew/[results, byteutils],
+  stew/[byteutils],
   chronicles,
   chronos,
+  results,
   metrics
 import
   ../common/paging,

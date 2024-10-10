@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import std/options, results, stew/byteutils, stew/arrayops, nimcrypto/sha2
+import std/options, results
 import ../waku_core, ../common/paging
 
 ## Public API types

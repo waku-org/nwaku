@@ -1,7 +1,7 @@
 ## This module reinforces the publish operation with regular store-v3 requests.
 ##
 
-import std/[sets, sequtils]
+import std/sequtils
 import chronos, chronicles, libp2p/utility
 import
   ./delivery_callback,
@@ -206,7 +206,7 @@ proc startSendMonitor*(self: SendMonitor) =
   self.msgStoredCheckerHandle = self.checkIfMessagesStored()
 
 proc stopSendMonitor*(self: SendMonitor) =
-  self.msgStoredCheckerHandle.cancel()
+  discard self.msgStoredCheckerHandle.cancelAndWait()
 
 proc setDeliveryCallback*(self: SendMonitor, deliveryCb: DeliveryFeedbackCallback) =
   self.deliveryCb = deliveryCb
