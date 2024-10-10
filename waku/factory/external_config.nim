@@ -245,6 +245,16 @@ type WakuNodeConf* = object
       name: "dns4-domain-name"
     .}: string
 
+    ## Circuit-relay config
+    isRelayClient* {.
+      desc:
+        """Set the node as a relay-client.
+Set it to true for nodes that might run behind a NAT or firewall and
+hence would have reachability issues.""",
+      defaultValue: false
+      name: "relay-client"
+    .}: bool
+
     ## Relay config
     relay* {.
       desc: "Enable relay protocol: true|false", defaultValue: true, name: "relay"

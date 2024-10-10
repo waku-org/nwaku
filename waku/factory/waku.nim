@@ -10,6 +10,8 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/peerid,
+  libp2p/discovery/discoverymngr,
+  libp2p/discovery/rendezvousinterface,
   eth/keys,
   presto,
   metrics,
@@ -24,6 +26,7 @@ import
   ../waku_api/message_cache,
   ../waku_api/rest/server,
   ../waku_archive,
+  ../waku_relay/protocol,
   ../discovery/waku_dnsdisc,
   ../discovery/waku_discv5,
   ../waku_enr/sharding,
@@ -49,6 +52,7 @@ type Waku* = object
 
   wakuDiscv5*: WakuDiscoveryV5
   dynamicBootstrapNodes: seq[RemotePeerInfo]
+  discoveryMngr: DiscoveryManager
 
   node*: WakuNode
 
@@ -189,6 +193,7 @@ proc init*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
 
   let node = nodeRes.get()
 
+  ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
   if confCopy.reliabilityEnabled:
     if confCopy.storenode == "":
@@ -296,6 +301,16 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
   ## Reliability
   if not waku[].deliveryMonitor.isNil():
     waku[].deliveryMonitor.startDeliveryMonitor()
+
+  ## libp2p DiscoveryManager
+  waku[].discoveryMngr = DiscoveryManager()
+  waku[].discoveryMngr.add(
+    RendezVousInterface.new(rdv = waku[].node.rendezvous, tta = 1.minutes)
+  )
+  if not isNil(waku[].node.wakuRelay):
+    for topic in waku[].node.wakuRelay.getSubscribedTopics():
+      debug "advertise rendezvous namespace", topic
+      waku[].discoveryMngr.advertise(RdvNamespace(topic))
 
   return ok()
 
