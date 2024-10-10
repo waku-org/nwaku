@@ -97,6 +97,7 @@ proc initNode(
     sendSignedPeerRecord = conf.relayPeerExchange,
       # We send our own signed peer record when peer exchange enabled
     agentString = some(conf.agentString),
+    isRelayClient = conf.isRelayClient,
   )
   builder.withColocationLimit(conf.colocationLimit)
   builder.withPeerManagerConfig(
