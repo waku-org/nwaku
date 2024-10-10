@@ -62,13 +62,13 @@ proc handleRes[T: string | void](
     foreignThreadGc:
       let msg = "libwaku error: " & $res.error
       callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-      return RET_ERR
+    return RET_ERR
 
-  when T is string:
-    let msg = $res.get()
-    if msg.len > 0:
-      foreignThreadGc:
-        callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  foreignThreadGc:
+    var msg: cstring = ""
+    when T is string:
+      msg = res.get().cstring()
+    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
 proc relayEventCallback(ctx: ptr WakuContext): WakuRelayHandler =
@@ -487,38 +487,26 @@ proc waku_get_peerids_from_peerstore(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let connRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(PeerManagementMsgType.GET_ALL_PEER_IDS),
   )
-  if connRes.isErr():
-    let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $connRes.value
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_get_peerids_by_protocol(
     ctx: ptr WakuContext, protocol: cstring, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let connRes = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createGetPeerIdsByProtocolRequest($protocol),
   )
-  if connRes.isErr():
-    let msg = $connRes.error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $connRes.value
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  .handleRes(callback, userData)
 
 proc waku_store_query(
     ctx: ptr WakuContext,
@@ -628,16 +616,11 @@ proc waku_peer_exchange_request(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  let discoveredPeers = waku_thread.sendRequestToWakuThread(
+  waku_thread
+  .sendRequestToWakuThread(
     ctx, RequestType.DISCOVERY, DiscoveryRequest.createPeerExchangeRequest(numPeers)
-  ).valueOr:
-    let msg = $error
-    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-    return RET_ERR
-
-  let msg = $discoveredPeers
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-  return RET_OK
+  )
+  .handleRes(callback, userData)
 
 ### End of exported procs
 ################################################################################
