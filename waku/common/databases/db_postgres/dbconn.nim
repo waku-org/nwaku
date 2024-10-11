@@ -1,5 +1,5 @@
 import
-  std/[times, strutils, asyncnet, os, sequtils, sets],
+  std/[times, strutils, asyncnet, os, sequtils, sets, strformat],
   results,
   chronos,
   chronos/threadsync,
@@ -224,7 +224,8 @@ proc dbConnQuery*(
 
   var queryStartTime = getTime().toUnixFloat()
 
-  (await dbConnWrapper.sendQuery(query, args)).isOkOr:
+  let reqIdAndQuery = fmt"/* requestId={requestId} */ " & $query
+  (await dbConnWrapper.sendQuery(SqlQuery(reqIdAndQuery), args)).isOkOr:
     error "error in dbConnQuery", error = $error
     dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
     return err("error in dbConnQuery calling sendQuery: " & $error)
