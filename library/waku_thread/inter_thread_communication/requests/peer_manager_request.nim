@@ -36,14 +36,6 @@ proc createShared*(
   ret[].dialTimeout = dialTimeout
   return ret
 
-proc createGetPeerIdsByProtocolRequest*(
-    T: type PeerManagementRequest, protocol = ""
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = PeerManagementMsgType.GET_PEER_IDS_BY_PROTOCOL
-  ret[].protocol = protocol.alloc()
-  return ret
-
 proc destroyShared(self: ptr PeerManagementRequest) =
   if not isNil(self[].peerMultiAddr):
     deallocShared(self[].peerMultiAddr)

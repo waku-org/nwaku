@@ -539,7 +539,9 @@ proc waku_get_peerids_by_protocol(
   .sendRequestToWakuThread(
     ctx,
     RequestType.PEER_MANAGER,
-    PeerManagementRequest.createGetPeerIdsByProtocolRequest($protocol),
+    PeerManagementRequest.createShared(
+      op = PeerManagementMsgType.GET_PEER_IDS_BY_PROTOCOL, protocol = $protocol
+    ),
   )
   .handleRes(callback, userData)
 
