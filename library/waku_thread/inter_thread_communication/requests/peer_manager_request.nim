@@ -99,7 +99,6 @@ proc process*(
     let peerId = PeerId.init($self[].peerId).valueOr:
       error "DIAL_PEER_BY_ID failed", error = $error
       return err($error)
-
     let conn = await waku.node.peerManager.dialPeer(peerId, $self[].protocol)
     if conn.isNone():
       let msg = "failed dialing peer"
