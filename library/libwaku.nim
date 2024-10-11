@@ -482,6 +482,27 @@ proc waku_connect(
   )
   .handleRes(callback, userData)
 
+proc waku_disconnect_peer_by_id(
+    ctx: ptr WakuContext,
+    peerId: cstring,
+    timeoutMs: cuint,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(
+      op = PeerManagementMsgType.DISCONNECT_PEER_BY_ID,
+      dialTimeout = chronos.milliseconds(timeoutMs),
+      peerId = $peerId,
+    ),
+  )
+  .handleRes(callback, userData)
+
 proc waku_get_peerids_from_peerstore(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =

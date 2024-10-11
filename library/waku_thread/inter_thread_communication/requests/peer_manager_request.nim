@@ -10,22 +10,26 @@ type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
   GET_ALL_PEER_IDS
   GET_PEER_IDS_BY_PROTOCOL
+  DISCONNECT_PEER_BY_ID
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
   peerMultiAddr: cstring
   dialTimeout: Duration
   protocol: cstring
+  peerId: cstring
 
 proc createShared*(
     T: type PeerManagementRequest,
     op: PeerManagementMsgType,
     peerMultiAddr = "",
     dialTimeout = chronos.milliseconds(0), ## arbitrary Duration as not all ops needs dialTimeout
+    peerId = "",
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].peerMultiAddr = peerMultiAddr.alloc()
+  ret[].peerId = peerId.alloc()
   ret[].dialTimeout = dialTimeout
   return ret
 
@@ -40,6 +44,9 @@ proc createGetPeerIdsByProtocolRequest*(
 proc destroyShared(self: ptr PeerManagementRequest) =
   if not isNil(self[].peerMultiAddr):
     deallocShared(self[].peerMultiAddr)
+
+  if not isNil(self[].peerId):
+    deallocShared(self[].peerId)
 
   if not isNil(self[].protocol):
     deallocShared(self[].protocol)
@@ -87,5 +94,7 @@ proc process*(
       .mapIt($it.peerId)
       .join(",")
     return ok(connectedPeers)
+  of DISCONNECT_PEER_BY_ID:
+    return ok("")
 
   return ok("")
