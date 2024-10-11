@@ -81,8 +81,11 @@ proc process*(
     return ok(peerIDs)
   of GET_PEER_IDS_BY_PROTOCOL:
     ## returns a comma-separated string of peerIDs that mount the given protocol
-    let (inPeers, outPeers) = waku.node.peerManager.connectedPeers($self[].protocol)
-    let allPeerIDs = inPeers & outPeers
-    return ok(allPeerIDs.join(","))
+    let connectedPeers = waku.node.peerManager.wakuPeerStore
+      .peers($self[].protocol)
+      .filterIt(it.connectedness == Connected)
+      .mapIt($it.peerId)
+      .join(",")
+    return ok(connectedPeers)
 
   return ok("")
