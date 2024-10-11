@@ -95,6 +95,10 @@ proc process*(
       .join(",")
     return ok(connectedPeers)
   of DISCONNECT_PEER_BY_ID:
+    let peerId = PeerId.init($self[].peerId).valueOr:
+      error "DISCONNECT_PEER_BY_ID failed", error = $error
+      return err($error)
+    await waku.node.peerManager.disconnectNode(peerId)
     return ok("")
 
   return ok("")
