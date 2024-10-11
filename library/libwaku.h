@@ -117,7 +117,6 @@ int waku_connect(void* ctx,
 
 int waku_disconnect_peer_by_id(void* ctx,
                  const char* peerId,
-                 unsigned int timeoutMs,
                  WakuCallBack callback,
                  void* userData);
 
