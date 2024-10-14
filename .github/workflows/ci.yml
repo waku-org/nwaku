@@ -109,6 +109,9 @@ jobs:
 
       - name: Run tests
         run: |
+          sudo apt-get update
+          sudo apt-get install -y libpcre3 libpcre3-dev
+
           postgres_enabled=0
           if [ ${{ runner.os }} == "Linux" ]; then
             sudo docker run --rm -d -e POSTGRES_PASSWORD=test123 -p 5432:5432 postgres:15.4-alpine3.18
