@@ -207,6 +207,32 @@ proc waitQueryToFinish(
 
     pqclear(pqResult)
 
+proc containsRiskyPatterns(input: string): bool =
+  let riskyPatterns =
+    @[
+      " OR ", " AND ", " UNION ", " SELECT ", "INSERT ", "DELETE ", "UPDATE ", "DROP ",
+      "EXEC ", "--", "/*", "*/",
+    ]
+
+  for pattern in riskyPatterns:
+    if pattern.toLowerAscii() in input.toLowerAscii():
+      return true
+
+  return false
+
+proc isSecureString(input: string): bool =
+  ## Returns `false` if the string contains risky characters or patterns, `true` otherwise.
+  let riskyChars = {'\'', '\"', ';', '-', '#', '\\', '%', '_', '/', '*', '\0'}
+
+  for ch in input:
+    if ch in riskyChars:
+      return false
+
+  if containsRiskyPatterns(input):
+    return false
+
+  return true
+
 proc dbConnQuery*(
     dbConnWrapper: DbConnWrapper,
     query: SqlQuery,
@@ -214,6 +240,9 @@ proc dbConnQuery*(
     rowCallback: DataProc,
     requestId: string,
 ): Future[Result[void, string]] {.async, gcsafe.} =
+  if not requestId.isSecureString():
+    return err("the passed request id is not secure: " & requestId)
+
   dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQuery")
 
   let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
@@ -224,7 +253,7 @@ proc dbConnQuery*(
 
   var queryStartTime = getTime().toUnixFloat()
 
-  let reqIdAndQuery = fmt"/* requestId={requestId} */ " & $query
+  let reqIdAndQuery = "/* requestId=" & requestId & " */ " & $query
   (await dbConnWrapper.sendQuery(SqlQuery(reqIdAndQuery), args)).isOkOr:
     error "error in dbConnQuery", error = $error
     dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
