@@ -242,6 +242,8 @@ proc dbConnQuery*(
 
   query_count.inc(labelValues = [querySummary])
 
+  debug "simple log"
+
   if "insert" notin ($query).toLower():
     debug "dbConnQuery",
       requestId,
