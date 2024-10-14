@@ -67,8 +67,6 @@ proc toBufferSeq(buffLen: uint, buffPtr: ptr Buffer): seq[Buffer] =
 
 type NegentropyStorage* = distinct pointer
 
-proc get_last_error(): cstring {.header: NEGENTROPY_HEADER, importc: "get_last_error".}
-
 # https://github.com/waku-org/negentropy/blob/d4845b95b5a2d9bee28555833e7502db71bf319f/cpp/negentropy_wrapper.h#L27
 proc storage_init(
   db_path: cstring, name: cstring
@@ -193,13 +191,9 @@ proc new*(T: type NegentropyStorage): Result[T, string] =
   #TODO db name and path
   let storage = storage_init("", "")
 
-  #[ TODO: Uncomment once we move to lmdb
+  #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
     return err("storage initialization failed") ]#
-
-  if storage == nil:
-    return err($get_last_error())
-
   return ok(storage)
 
 proc delete*(storage: NegentropyStorage) =
@@ -217,7 +211,7 @@ proc erase*(
   if res:
     return ok()
   else:
-    return err($get_last_error())
+    return err("erase error")
 
 proc insert*(
     storage: NegentropyStorage, id: int64, hash: WakuMessageHash
@@ -231,7 +225,7 @@ proc insert*(
   if res:
     return ok()
   else:
-    return err($get_last_error())
+    return err("insert error")
 
 proc len*(storage: NegentropyStorage): int =
   int(storage.size)
@@ -248,13 +242,9 @@ proc new*(
 ): Result[T, string] =
   let subrange = subrange_init(storage, startTime, endTime)
 
-  #[ TODO: Uncomment once we move to lmdb
+  #[ TODO: Uncomment once we move to lmdb   
   if storage == nil:
     return err("storage initialization failed") ]#
-
-  if subrange == nil:
-    return err($get_last_error())
-
   return ok(subrange)
 
 proc delete*(subrange: NegentropySubRangeStorage) =
@@ -306,34 +296,30 @@ proc new*(
     let raw_negentropy =
       constructNegentropy(NegentropyStorage(storage), uint64(frameSizeLimit))
 
-    if cast[pointer](raw_negentropy) == nil:
-      return err($get_last_error())
-
     let negentropy = NegentropyWithStorage(inner: raw_negentropy)
+
     return ok(negentropy)
   elif storage is NegentropySubRangeStorage:
     let raw_negentropy = constructNegentropyWithSubRange(
       NegentropySubRangeStorage(storage), uint64(frameSizeLimit)
     )
 
-    if cast[pointer](raw_negentropy) == nil:
-      return err($get_last_error())
-
     let negentropy = NegentropyWithSubRange(inner: raw_negentropy)
+
     return ok(negentropy)
 
 method delete*(self: NegentropyWithSubRange) =
   self.inner.free()
 
 method initiate*(self: NegentropyWithSubRange): Result[NegentropyPayload, string] =
-  ## Client inititate a sync session with a server by sending a payload
+  ## Client inititate a sync session with a server by sending a payload 
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
   let ret = self.inner.raw_initiate_subrange(myResultPtr)
   if ret < 0 or myResultPtr == nil:
     error "negentropy initiate failed with code ", code = ret
-    return err($get_last_error())
+    return err("negentropy already initiated!")
   let bytes: seq[byte] = bufferToBytes(addr(myResultPtr.output))
   free_result(myResultPtr)
   trace "received return from initiate", len = myResultPtr.output.len
@@ -354,7 +340,7 @@ method serverReconcile*(
   let ret = self.inner.raw_reconcile_subrange(queryBufPtr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
-    return err($get_last_error())
+    return err($myResultPtr.error)
   trace "received return from raw_reconcile", len = myResultPtr.output.len
 
   let outputBytes: seq[byte] = bufferToBytes(addr(myResultPtr.output))
@@ -382,7 +368,7 @@ method clientReconcile*(
   let ret = self.inner.raw_reconcile_with_ids_subrange(cQuery.unsafeAddr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
-    return err($get_last_error())
+    return err($myResultPtr.error)
 
   let output = bufferToBytes(addr myResult.output)
 
@@ -421,14 +407,14 @@ method delete*(self: NegentropyWithStorage) =
   self.inner.free()
 
 method initiate*(self: NegentropyWithStorage): Result[NegentropyPayload, string] =
-  ## Client inititate a sync session with a server by sending a payload
+  ## Client inititate a sync session with a server by sending a payload 
   var myResult {.noinit.}: BindingResult = BindingResult()
   var myResultPtr = addr myResult
 
   let ret = self.inner.raw_initiate(myResultPtr)
   if ret < 0 or myResultPtr == nil:
     error "negentropy initiate failed with code ", code = ret
-    return err($get_last_error())
+    return err("negentropy already initiated!")
   let bytes: seq[byte] = bufferToBytes(addr(myResultPtr.output))
   free_result(myResultPtr)
   trace "received return from initiate", len = myResultPtr.output.len
@@ -449,7 +435,7 @@ method serverReconcile*(
   let ret = self.inner.raw_reconcile(queryBufPtr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
-    return err($get_last_error())
+    return err($myResultPtr.error)
   trace "received return from raw_reconcile", len = myResultPtr.output.len
 
   let outputBytes: seq[byte] = bufferToBytes(addr(myResultPtr.output))
@@ -477,7 +463,7 @@ method clientReconcile*(
   let ret = self.inner.raw_reconcile_with_ids(cQuery.unsafeAddr, myResultPtr)
   if ret < 0:
     error "raw_reconcile failed with code ", code = ret
-    return err($get_last_error())
+    return err($myResultPtr.error)
 
   let output = bufferToBytes(addr myResult.output)
 

@@ -1,9 +1,20 @@
+import os 
+
 if defined(release):
   switch("nimcache", "nimcache/release/$projectName")
 else:
   switch("nimcache", "nimcache/debug/$projectName")
 
 if defined(windows):
+  switch("passL", "rln.lib") 
+
+  for path in listDirs("vendor/.nimble/pkgs/"):
+    switch("path", path)
+
+  # Automatically add all vendor subdirectories
+  for dir in walkDir("./vendor"):
+    if dir.kind == pcDir:
+      switch("path", dir.path)
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
   # increase stack size
