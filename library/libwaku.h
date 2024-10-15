@@ -115,6 +115,18 @@ int waku_connect(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_disconnect_peer_by_id(void* ctx,
+                 const char* peerId,
+                 WakuCallBack callback,
+                 void* userData);
+
+int waku_dial_peer_by_id(void* ctx,
+                 const char* peerId,
+                 const char* protocol,
+                 int timeoutMs,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_get_peerids_from_peerstore(void* ctx,
                                     WakuCallBack callback,
                                     void* userData);
