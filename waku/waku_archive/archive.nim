@@ -22,6 +22,7 @@ logScope:
 const
   DefaultPageSize*: uint = 20
   MaxPageSize*: uint = 100
+  MaxContentTopicsPerQuery*: int = 10
 
   # Retention policy
   WakuArchiveDefaultRetentionPolicyInterval* = chronos.minutes(30)
@@ -124,6 +125,9 @@ proc findMessages*(
 
     if cursor == EmptyWakuMessageHash:
       return err(ArchiveError.invalidQuery("all zeroes cursor hash"))
+
+    if query.contentTopics.len > MaxContentTopicsPerQuery:
+      return err(ArchiveError.invalidQuery("too many content topics"))
 
   let maxPageSize =
     if query.pageSize <= 0:
