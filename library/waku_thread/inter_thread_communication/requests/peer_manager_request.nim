@@ -1,5 +1,5 @@
 import std/[sequtils, strutils]
-import chronicles, chronos, results
+import chronicles, chronos, results, options
 import
   ../../../../waku/factory/waku,
   ../../../../waku/node/waku_node,
@@ -10,36 +10,38 @@ type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
   GET_ALL_PEER_IDS
   GET_PEER_IDS_BY_PROTOCOL
+  DISCONNECT_PEER_BY_ID
+  DIAL_PEER_BY_ID
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
   peerMultiAddr: cstring
   dialTimeout: Duration
   protocol: cstring
+  peerId: cstring
 
 proc createShared*(
     T: type PeerManagementRequest,
     op: PeerManagementMsgType,
     peerMultiAddr = "",
     dialTimeout = chronos.milliseconds(0), ## arbitrary Duration as not all ops needs dialTimeout
+    peerId = "",
+    protocol = "",
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].peerMultiAddr = peerMultiAddr.alloc()
-  ret[].dialTimeout = dialTimeout
-  return ret
-
-proc createGetPeerIdsByProtocolRequest*(
-    T: type PeerManagementRequest, protocol = ""
-): ptr type T =
-  var ret = createShared(T)
-  ret[].operation = PeerManagementMsgType.GET_PEER_IDS_BY_PROTOCOL
+  ret[].peerId = peerId.alloc()
   ret[].protocol = protocol.alloc()
+  ret[].dialTimeout = dialTimeout
   return ret
 
 proc destroyShared(self: ptr PeerManagementRequest) =
   if not isNil(self[].peerMultiAddr):
     deallocShared(self[].peerMultiAddr)
+
+  if not isNil(self[].peerId):
+    deallocShared(self[].peerId)
 
   if not isNil(self[].protocol):
     deallocShared(self[].protocol)
@@ -87,5 +89,20 @@ proc process*(
       .mapIt($it.peerId)
       .join(",")
     return ok(connectedPeers)
+  of DISCONNECT_PEER_BY_ID:
+    let peerId = PeerId.init($self[].peerId).valueOr:
+      error "DISCONNECT_PEER_BY_ID failed", error = $error
+      return err($error)
+    await waku.node.peerManager.disconnectNode(peerId)
+    return ok("")
+  of DIAL_PEER_BY_ID:
+    let peerId = PeerId.init($self[].peerId).valueOr:
+      error "DIAL_PEER_BY_ID failed", error = $error
+      return err($error)
+    let conn = await waku.node.peerManager.dialPeer(peerId, $self[].protocol)
+    if conn.isNone():
+      let msg = "failed dialing peer"
+      error "DIAL_PEER_BY_ID failed", error = msg
+      return err(msg)
 
   return ok("")

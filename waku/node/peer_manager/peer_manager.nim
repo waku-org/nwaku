@@ -381,9 +381,12 @@ proc connectToNodes*(
   # later.
   await sleepAsync(chronos.seconds(5))
 
+proc disconnectNode*(pm: PeerManager, peerId: PeerId) {.async.} =
+  await pm.switch.disconnect(peerId)
+
 proc disconnectNode*(pm: PeerManager, peer: RemotePeerInfo) {.async.} =
   let peerId = peer.peerId
-  await pm.switch.disconnect(peerId)
+  await pm.disconnectNode(peerId)
 
 # Dialing should be used for just protocols that require a stream to write and read
 # This shall not be used to dial Relay protocols, since that would create
