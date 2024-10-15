@@ -17,7 +17,7 @@ env:
 
 jobs:
   tag-name:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -34,7 +34,7 @@ jobs:
     needs: tag-name
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-13]
+        os: [ubuntu-22.04, macos-13]
         arch: [amd64]
         include:
         - os: macos-13
@@ -113,7 +113,7 @@ jobs:
       debug: waku*
 
   create-release-candidate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ tag-name, build-and-publish ]
     steps:
       - name: Checkout code

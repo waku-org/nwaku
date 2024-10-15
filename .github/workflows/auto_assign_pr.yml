@@ -7,6 +7,6 @@ on:
 
 jobs:
   assign_creator:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: toshimaru/auto-author-assign@v1.6.2
