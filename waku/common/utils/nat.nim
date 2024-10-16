@@ -39,7 +39,12 @@ proc setupNat*(
       warn "NAT already initialized, skipping as cannot be done multiple times"
     else:
       singletonNat = true
-      let extIp = getExternalIP(strategy)
+      var extIp = none(IpAddress)
+      try:
+        extIp = getExternalIP(strategy)
+      except Exception:
+        warn "exception in setupNat", error = getCurrentExceptionMsg()
+
       if extIP.isSome():
         endpoint.ip = some(extIp.get())
         # RedirectPorts in considered a gcsafety violation
