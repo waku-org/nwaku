@@ -227,6 +227,8 @@ proc selectPeer*(
   if shard.isSome():
     peers.keepItIf((it.enr.isSome() and it.enr.get().containsShard(shard.get())))
 
+  shuffle(peers)
+
   # No criteria for selecting a peer for WakuRelay, random one
   if proto == WakuRelayCodec:
     # TODO: proper heuristic here that compares peer scores and selects "best" one. For now the first peer for the given protocol is returned
