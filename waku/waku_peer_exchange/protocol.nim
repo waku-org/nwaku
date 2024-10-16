@@ -35,9 +35,9 @@ const
     # TODO what is the expected size of a PX message? As currently specified, it can contain an arbitary number of ENRs...
   MaxPeersCacheSize = 60
   CacheRefreshInterval = 10.minutes
+  DefaultPXNumPeersReq* = 5.uint64()
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
-  DefaultPXNumPeersReq* = 5.uint64()
 
 # Error types (metric label values)
 const
