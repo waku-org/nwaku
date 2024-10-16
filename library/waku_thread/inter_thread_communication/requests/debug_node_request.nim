@@ -1,5 +1,5 @@
 import std/json
-import chronicles, chronos, results, eth/p2p/discoveryv5/enr, strutils
+import chronicles, chronos, results, eth/p2p/discoveryv5/enr, strutils, libp2p/peerid
 import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
 
 type DebugNodeMsgType* = enum
