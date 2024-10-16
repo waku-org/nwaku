@@ -37,6 +37,7 @@ const
   CacheRefreshInterval = 10.minutes
 
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
+  DefaultPXNumPeersReq* = 5.uint64()
 
 # Error types (metric label values)
 const
@@ -57,7 +58,7 @@ type
     requestRateLimiter*: RequestRateLimiter
 
 proc request*(
-    wpx: WakuPeerExchange, numPeers: uint64, conn: Connection
+    wpx: WakuPeerExchange, numPeers = DefaultPXNumPeersReq, conn: Connection
 ): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   let rpc = PeerExchangeRpc.makeRequest(numPeers)
 
@@ -99,7 +100,7 @@ proc request*(
   return ok(decodedBuff.get().response)
 
 proc request*(
-    wpx: WakuPeerExchange, numPeers: uint64, peer: RemotePeerInfo
+    wpx: WakuPeerExchange, numPeers = DefaultPXNumPeersReq, peer: RemotePeerInfo
 ): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   try:
     let connOpt = await wpx.peerManager.dialPeer(peer, WakuPeerExchangeCodec)
@@ -120,7 +121,7 @@ proc request*(
     )
 
 proc request*(
-    wpx: WakuPeerExchange, numPeers: uint64
+    wpx: WakuPeerExchange, numPeers = DefaultPXNumPeersReq
 ): Future[WakuPeerExchangeResult[PeerExchangeResponse]] {.async: (raises: []).} =
   let peerOpt = wpx.peerManager.selectPeer(WakuPeerExchangeCodec)
   if peerOpt.isNone():
