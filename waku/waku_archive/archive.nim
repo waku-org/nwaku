@@ -84,15 +84,19 @@ proc new*(
 proc handleMessage*(
     self: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage
 ) {.async.} =
+  info "AAAA handleMessage"
   self.validator(msg).isOkOr:
+    info "AAAA handleMessage ", error = $error
     waku_archive_errors.inc(labelValues = [error])
     return
 
   let msgHash = computeMessageHash(pubsubTopic, msg)
   let insertStartTime = getTime().toUnixFloat()
 
+  info "AAAA handleMessage "
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
+    info "AAAA handleMessage "
     trace "failed to insert message",
       hash_hash = msgHash.to0xHex(),
       pubsubTopic = pubsubTopic,
@@ -101,7 +105,7 @@ proc handleMessage*(
       error = error
     return
 
-  trace "message archived",
+  info "message archived",
     hash_hash = msgHash.to0xHex(),
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,

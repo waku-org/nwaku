@@ -244,33 +244,42 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    info "AAAAA traceHandler"
     let msg_hash = topic.computeMessageHash(msg).to0xHex()
+    info "AAAAA traceHandler"
     let msgSizeKB = msg.payload.len / 1000
 
     waku_node_messages.inc(labelValues = ["relay"])
+    info "AAAAA traceHandler"
     waku_histogram_message_size.observe(msgSizeKB)
 
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
       return
-
+    info "AAAA filterHandler "
     await node.wakuFilter.handleMessage(topic, msg)
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    info "AAAA archiveHandler"
     if not node.wakuLegacyArchive.isNil():
+      info "AAAA archiveHandler"
       ## we try to store with legacy archive
       await node.wakuLegacyArchive.handleMessage(topic, msg)
       return
 
     if node.wakuArchive.isNil():
+      info "AAAA archiveHandler"
       return
 
     await node.wakuArchive.handleMessage(topic, msg)
 
   proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async.} =
+    info "AAAAA syncHandler"
     if node.wakuSync.isNil():
+      info "AAAAA syncHandler"
       return
 
+    info "AAAAA syncHandler"
     node.wakuSync.messageIngress(topic, msg)
 
   let defaultHandler = proc(
