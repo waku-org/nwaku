@@ -13,8 +13,6 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-OS := Windows_NT
-
 ifeq ($(OS),Windows_NT)
   # Add the necessary libraries to the linker flags
   LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
