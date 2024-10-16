@@ -5,6 +5,7 @@ import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
 type DebugNodeMsgType* = enum
   RETRIEVE_LISTENING_ADDRESSES
   RETRIEVE_MY_ENR
+  RETRIEVE_MY_PEER_ID
 
 type DebugNodeRequest* = object
   operation: DebugNodeMsgType
@@ -32,6 +33,8 @@ proc process*(
     return ok(waku.node.getMultiaddresses().join(","))
   of RETRIEVE_MY_ENR:
     return ok(waku.node.enr.toURI())
+  of RETRIEVE_MY_PEER_ID:
+    return ok($waku.node.peerId())
 
   error "unsupported operation in DebugNodeRequest"
   return err("unsupported operation in DebugNodeRequest")
