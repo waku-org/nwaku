@@ -7,13 +7,18 @@ import
   libp2p/crypto/crypto,
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
-  libp2p/transports/wstransport
+  libp2p/transports/wstransport,
+  libp2p/protocols/connectivity/relay/client,
+  libp2p/protocols/connectivity/relay/relay,
+  libp2p/services/autorelayservice,
+  libp2p/services/hpservice
 import
   ../waku_enr,
   ../discovery/waku_discv5,
   ../waku_node,
   ../node/peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../discovery/autonat_service
 
 type
   WakuNodeBuilder* = object # General
@@ -38,6 +43,7 @@ type
     switchSslSecureKey: Option[string]
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
+    switchIsRelayClient: bool ## circuit-relay related
 
     #Rate limit configs for non-relay req-resp protocols
     rateLimitSettings: Option[seq[string]]
@@ -126,12 +132,14 @@ proc withSwitchConfiguration*(
     secureKey = none(string),
     secureCert = none(string),
     agentString = none(string),
+    isRelayClient = false,
 ) =
   builder.switchMaxConnections = maxConnections
   builder.switchSendSignedPeerRecord = some(sendSignedPeerRecord)
   builder.switchSslSecureKey = secureKey
   builder.switchSslSecureCert = secureCert
   builder.switchAgentString = agentString
+  builder.switchIsRelayClient = isRelayClient
 
   if not nameResolver.isNil():
     builder.switchNameResolver = some(nameResolver)
@@ -154,6 +162,22 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.record.isNone():
     return err("node record is required")
 
+  let autonatService = autonat_service.getAutonatService(rng)
+  var services: seq[Service]
+
+  var relay = Relay.new()
+    ## by default, the node is configured as a server relay-circuit node
+
+  if builder.switchIsRelayClient:
+    ## The node is considered to be behind a NAT or firewall and then it
+    ## should struggle to be reachable and establish connections to other nodes
+    relay = RelayClient.new()
+    let autoRelayService = AutoRelayService.new(1, RelayClient(relay), nil, rng)
+    let holePunchService = HPService.new(autonatService, autoRelayService)
+    services = @[Service(holePunchService)]
+  else:
+    services = @[Service(autonatService)]
+
   var switch: Switch
   try:
     switch = newWakuSwitch(
@@ -170,7 +194,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
       agentString = builder.switchAgentString,
       peerStoreCapacity = builder.peerStorageCapacity,
-      services = @[Service(getAutonatService(rng))],
+      services = services,
+      relay = relay,
     )
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())

@@ -50,7 +50,8 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  waku/discovery/autonat_service
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -115,33 +116,6 @@ type
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
-
-proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
-  ## AutonatService request other peers to dial us back
-  ## flagging us as Reachable or NotReachable.
-  ## minConfidence is used as threshold to determine the state.
-  ## If maxQueueSize > numPeersToAsk past samples are considered
-  ## in the calculation.
-  let autonatService = AutonatService.new(
-    autonatClient = AutonatClient.new(),
-    rng = rng,
-    scheduleInterval = Opt.some(chronos.seconds(120)),
-    askNewConnectedPeers = false,
-    numPeersToAsk = 3,
-    maxQueueSize = 3,
-    minConfidence = 0.7,
-  )
-
-  proc statusAndConfidenceHandler(
-      networkReachability: NetworkReachability, confidence: Opt[float]
-  ): Future[void] {.gcsafe, async.} =
-    if confidence.isSome():
-      info "Peer reachability status",
-        networkReachability = networkReachability, confidence = confidence.get()
-
-  autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
-
-  return autonatService
 
 proc new*(
     T: type WakuNode,
@@ -270,33 +244,42 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     return
 
   proc traceHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    info "AAAAA traceHandler"
     let msg_hash = topic.computeMessageHash(msg).to0xHex()
+    info "AAAAA traceHandler"
     let msgSizeKB = msg.payload.len / 1000
 
     waku_node_messages.inc(labelValues = ["relay"])
+    info "AAAAA traceHandler"
     waku_histogram_message_size.observe(msgSizeKB)
 
   proc filterHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
     if node.wakuFilter.isNil():
       return
-
+    info "AAAA filterHandler "
     await node.wakuFilter.handleMessage(topic, msg)
 
   proc archiveHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    info "AAAA archiveHandler"
     if not node.wakuLegacyArchive.isNil():
+      info "AAAA archiveHandler"
       ## we try to store with legacy archive
       await node.wakuLegacyArchive.handleMessage(topic, msg)
       return
 
     if node.wakuArchive.isNil():
+      info "AAAA archiveHandler"
       return
 
     await node.wakuArchive.handleMessage(topic, msg)
 
   proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async.} =
+    info "AAAAA syncHandler"
     if node.wakuSync.isNil():
+      info "AAAAA syncHandler"
       return
 
+    info "AAAAA syncHandler"
     node.wakuSync.messageIngress(topic, msg)
 
   let defaultHandler = proc(
@@ -432,9 +415,6 @@ proc startRelay*(node: WakuNode) {.async.} =
       node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
     await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
-
-  # Start the WakuRelay protocol
-  await node.wakuRelay.start()
 
   info "relay started successfully"
 
