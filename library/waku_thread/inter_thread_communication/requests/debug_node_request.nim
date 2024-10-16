@@ -1,5 +1,5 @@
 import std/json
-import chronicles, chronos, results, eth/p2p/discoveryv5/enr
+import chronicles, chronos, results, eth/p2p/discoveryv5/enr, strutils
 import ../../../../waku/factory/waku, ../../../../waku/node/waku_node
 
 type DebugNodeMsgType* = enum
@@ -28,7 +28,8 @@ proc process*(
 
   case self.operation
   of RETRIEVE_LISTENING_ADDRESSES:
-    return ok($(%*waku.node.getMultiaddresses()))
+    ## returns a comma-separated string of the listen addresses
+    return ok(waku.node.getMultiaddresses().join(","))
   of RETRIEVE_MY_ENR:
     return ok(waku.node.enr.toURI())
 

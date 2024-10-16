@@ -1,5 +1,5 @@
 import std/json
-import chronos, chronicles, results, libp2p/multiaddress
+import chronos, chronicles, results, strutils, libp2p/multiaddress
 import
   ../../../../waku/factory/waku,
   ../../../../waku/discovery/waku_dnsdisc,
@@ -129,7 +129,8 @@ proc process*(
       error "GET_BOOTSTRAP_NODES failed", error = error
       return err($error)
 
-    return ok($(%*nodes))
+    ## returns a comma-separated string of bootstrap nodes' multiaddresses
+    return ok(nodes.join(","))
   of UPDATE_DISCV5_BOOTSTRAP_NODES:
     updateDiscv5BootstrapNodes($self[].nodes, waku).isOkOr:
       error "UPDATE_DISCV5_BOOTSTRAP_NODES failed", error = error
