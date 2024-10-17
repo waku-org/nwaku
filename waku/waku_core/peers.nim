@@ -251,6 +251,7 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
   var protocols: seq[string]
   if not protocolsRes.isErr():
     protocols = protocolsRes.get()
+  else:
     error "Could not retrieve supported protocols from enr",
       peerId = peerId, msg = protocolsRes.error.msg
 

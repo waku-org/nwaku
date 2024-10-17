@@ -22,9 +22,10 @@ include waku/factory/waku
 
 suite "Waku Discovery v5":
   const validEnr =
-    "enr:-I-4QG3mX250ArniAs2DLpW-QHOLKSD5x_Ibp8AYcQZbz1HhHFJtl2dNDGcha" &
-    "U5ugLbDKRgtTDZH8NsxXlTXDpYAgzgBgmlkgnY0gnJzjwAVBgABAAIABQAHAAkAC4" &
-    "lzZWNwMjU2azGhA4_KwN0NRRmmfQ-B9B2h2PZjoJvBnaIOi6sR_b2UTQBBhXdha3U" & "yAQ"
+    "enr:-K64QGAvsATunmvMT5c3LFjKS0tG39zlQ1195Z2pWu6RoB5fWP3EXz9QPlRXN" &
+    "wOtDoRLgm4bATUB53AC8uml-ZtUE_kBgmlkgnY0gmlwhApkZgOKbXVsdGlhZGRyc4" &
+    "CCcnOTAAAIAAAAAQACAAMABAAFAAYAB4lzZWNwMjU2azGhAwG-CMmXpAPj84f6dCt" &
+    "MZ6xVYOa6bdmgAiKYG6LKGQlbg3RjcILqYIV3YWt1MgE"
 
   let
     rng = eth_keys.newRng()
@@ -406,19 +407,20 @@ suite "Waku Discovery v5":
         enrs.len == 0
 
   suite "waku discv5 initialization":
-    var conf = defaultTestWakuNodeConf()
+    asyncTest "Discv5 bootstrap nodes should be added to the peer store":
+      var conf = defaultTestWakuNodeConf()
 
-    conf.discv5BootstrapNodes = @[validEnr]
+      conf.discv5BootstrapNodes = @[validEnr]
 
-    let waku = Waku.init(conf).valueOr:
-      raiseAssert error
+      let waku = Waku.init(conf).valueOr:
+        raiseAssert error
 
-    discard setupDiscoveryV5(
-      waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
-      waku.dynamicBootstrapNodes, waku.rng, waku.key,
-    )
-
-    check:
-      waku.node.peerManager.wakuPeerStore.peers().anyIt(
-        it.enr.isSome() and it.enr.get().toUri() == validEnr
+      discard setupDiscoveryV5(
+        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
+        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
       )
+
+      check:
+        waku.node.peerManager.wakuPeerStore.peers().anyIt(
+          it.enr.isSome() and it.enr.get().toUri() == validEnr
+        )
