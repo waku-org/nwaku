@@ -405,20 +405,20 @@ suite "Waku Discovery v5":
       check:
         enrs.len == 0
 
-    suite "waku discv5 initialization":
-      var conf = defaultTestWakuNodeConf()
+  suite "waku discv5 initialization":
+    var conf = defaultTestWakuNodeConf()
 
-      conf.discv5BootstrapNodes = @[validEnr]
+    conf.discv5BootstrapNodes = @[validEnr]
 
-      let waku = Waku.init(conf).valueOr:
-        raiseAssert error
+    let waku = Waku.init(conf).valueOr:
+      raiseAssert error
 
-      discard setupDiscoveryV5(
-        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
-        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+    discard setupDiscoveryV5(
+      waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue, waku.conf,
+      waku.dynamicBootstrapNodes, waku.rng, waku.key,
+    )
+
+    check:
+      waku.node.peerManager.wakuPeerStore.peers().anyIt(
+        it.enr.isSome() and it.enr.get().toUri() == validEnr
       )
-
-      check:
-        waku.node.peerManager.wakuPeerStore.peers().anyIt(
-          it.enr.isSome() and it.enr.get().toUri() == validEnr
-        )
