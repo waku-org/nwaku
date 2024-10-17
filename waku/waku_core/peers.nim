@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, uri, net, tables],
+  std/[options, sequtils, strutils, uri, net],
   results,
   chronos,
   eth/keys,
