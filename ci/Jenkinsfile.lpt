@@ -1,0 +1,101 @@
+#!/usr/bin/env groovy
+library 'status-jenkins-lib@v1.8.17'
+
+pipeline {
+  agent { label 'linux' }
+
+  options {
+    timestamps()
+    timeout(time: 20, unit: 'MINUTES')
+    buildDiscarder(logRotator(
+      numToKeepStr: '10',
+      daysToKeepStr: '30',
+    ))
+  }
+
+  parameters {
+    string(
+      name: 'IMAGE_TAG',
+      description: 'Name of Docker tag to push. Optional Parameter.',
+      defaultValue: 'latest'
+    )
+    string(
+      name: 'IMAGE_NAME',
+      description: 'Name of Docker image to push.',
+      defaultValue: params.IMAGE_NAME ?: 'harbor.status.im/wakuorg/liteprotocoltester',
+    )
+    string(
+      name: 'DOCKER_CRED',
+      description: 'Name of Docker Registry credential.',
+      defaultValue: params.DOCKER_CRED ?: 'harbor-wakuorg-robot',
+    )
+    string(
+      name: 'DOCKER_REGISTRY_URL',
+      description: 'URL of the Docker Registry',
+      defaultValue: params.DOCKER_REGISTRY_URL ?: 'https://harbor.status.im'
+    )
+    string(
+      name: 'NIMFLAGS',
+      description: 'Flags for Nim compilation.',
+      defaultValue: params.NIMFLAGS ?: [
+        '--colors:off',
+        '-d:disableMarchNative',
+        '-d:chronicles_colors:none',
+        '-d:insecure',
+      ].join(' ')
+    )
+    choice(
+      name: "LOWEST_LOG_LEVEL_ALLOWED",
+      choices: ['TRACE', 'DEGUG', 'INFO', 'NOTICE', 'WARN', 'ERROR', 'FATAL'],
+      description: "Defines the log level, which will be available at runtime (Chronicles log level)",
+      defaultValue: 'TRACE'
+    )
+  }
+
+  stages {
+    stage('Build') {
+      steps { script {
+        image = docker.build(
+          "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
+          "--label=commit='${git.commit()}' " +
+          "--label=version='${git.describe('--tags')}' " +
+          "--build-arg=MAKE_TARGET='liteprotocoltester' " +
+          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
+          "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
+          "--file=apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile " +
+          " ."
+        )
+      } }
+    }
+
+    stage('Check') {
+      steps { script {
+        image.inside('--entrypoint=""') { c ->
+          sh '/usr/bin/liteprotocoltester --version'
+        }
+      } }
+    }
+
+    stage('Push') {
+      when { expression { params.IMAGE_TAG != '' } }
+      steps { script {
+        withDockerRegistry([
+          credentialsId: params.DOCKER_CRED, url: params.DOCKER_REGISTRY_URL
+        ]) {
+          image.push(params.IMAGE_TAG)
+        }
+      } }
+    }
+  } // stages
+
+  post {
+    success { script {
+      discord.send(
+        header: '**Nim-Waku:liteprotocoltester deployment successful!**',
+        cred: 'discord-waku-deployments-webhook',
+        descPrefix: "Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?name=${IMAGE_TAG})"
+      )
+    } }
+    always { sh 'docker image prune -f' }
+  } // post
+} // pipeline

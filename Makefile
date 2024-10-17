@@ -350,12 +350,11 @@ docker-push:
 DOCKER_LPT_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 
 # build a docker image for the fleet
-docker-liteprotocoltester: DOCKER_LPT_TAG ?= liteprotocoltester-$(GIT_VERSION)
-docker-liteprotocoltester: DOCKER_LPT_NAME ?= wakuorg/liteprotocoltester:latest
+docker-liteprotocoltester: DOCKER_LPT_TAG ?= latest
+docker-liteprotocoltester: DOCKER_LPT_NAME ?= wakuorg/liteprotocoltester:$(DOCKER_LPT_TAG)
 docker-liteprotocoltester:
 	docker build \
 	  --no-cache \
-		-D \
 		--build-arg="MAKE_TARGET=liteprotocoltester" \
 		--build-arg="NIMFLAGS=$(DOCKER_LPT_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
