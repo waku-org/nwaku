@@ -3,9 +3,10 @@
 import std/[options, sequtils], results, stew/byteutils, nimcrypto/sha2
 import ../waku_core, ../common/paging
 
-const
-  WakuLegacyStoreCodec* = "/vac/waku/store/2.0.0-beta4"
+from ../waku_core/codecs import WakuLegacyStoreCodec
+export WakuLegacyStoreCodec
 
+const
   DefaultPageSize*: uint64 = 20
 
   MaxPageSize*: uint64 = 100
