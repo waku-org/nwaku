@@ -42,7 +42,7 @@ proc `$`*(cap: Capabilities): string =
 
 proc allPeers(pm: PeerManager): string =
   var allStr: string = ""
-  for idx, peer in pm.peerStore.peers():
+  for idx, peer in pm.wakuPeerStore.peers():
     allStr.add(
       "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | protos: " &
         $peer.protocols & " | caps: " & $peer.enr.map(getCapabilities) & "\n"
@@ -50,10 +50,10 @@ proc allPeers(pm: PeerManager): string =
   return allStr
 
 proc logSelfPeers*(pm: PeerManager) =
-  let selfLighpushPeers = pm.peerStore.getPeersByProtocol(WakuLightPushCodec)
-  let selfRelayPeers = pm.peerStore.getPeersByProtocol(WakuRelayCodec)
-  let selfFilterPeers = pm.peerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
-  let selfPxPeers = pm.peerStore.getPeersByProtocol(WakuPeerExchangeCodec)
+  let selfLighpushPeers = pm.wakuPeerStore.getPeersByProtocol(WakuLightPushCodec)
+  let selfRelayPeers = pm.wakuPeerStore.getPeersByProtocol(WakuRelayCodec)
+  let selfFilterPeers = pm.wakuPeerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
+  let selfPxPeers = pm.wakuPeerStore.getPeersByProtocol(WakuPeerExchangeCodec)
 
   let printable = catch:
     """*------------------------------------------------------------------------------------------*

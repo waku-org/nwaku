@@ -61,7 +61,7 @@ proc selectRandomCapablePeer*(
   elif codec.contains("filter"):
     cap = Capabilities.Filter
 
-  var supportivePeers = pm.peerStore.getPeersByCapability(cap)
+  var supportivePeers = pm.wakuPeerStore.getPeersByCapability(cap)
 
   debug "Found supportive peers count", count = supportivePeers.len()
   debug "Found supportive peers", supportivePeers = $supportivePeers
@@ -102,7 +102,7 @@ proc tryCallAllPxPeers*(
   elif codec.contains("filter"):
     capability = Capabilities.Filter
 
-  var supportivePeers = pm.peerStore.getPeersByCapability(capability)
+  var supportivePeers = pm.wakuPeerStore.getPeersByCapability(capability)
 
   lpt_px_peers.set(supportivePeers.len)
   debug "Found supportive peers count", count = supportivePeers.len()
@@ -197,8 +197,9 @@ proc selectRandomServicePeer*(
   if actualPeer.isSome():
     alreadyUsedServicePeers.add(actualPeer.get())
 
-  let supportivePeers =
-    pm.peerStore.getPeersByProtocol(codec).filterIt(it notin alreadyUsedServicePeers)
+  let supportivePeers = pm.wakuPeerStore.getPeersByProtocol(codec).filterIt(
+      it notin alreadyUsedServicePeers
+    )
   if supportivePeers.len == 0:
     return err()
 
