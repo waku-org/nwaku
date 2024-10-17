@@ -351,17 +351,25 @@ proc parseBootstrapAddress(address: string): Result[enr.Record, cstring] =
   else:
     return err("Ignoring unrecognized bootstrap address type")
 
-proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]) =
+proc addBootstrapNode*(
+    peerManager: PeerManager, bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]
+) =
   # Ignore empty lines or lines starting with #
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
 
-  let enrRes = parseBootstrapAddress(bootstrapAddr)
-  if enrRes.isErr():
-    debug "ignoring invalid bootstrap address", reason = enrRes.error
+  let enr = parseBootstrapAddress(bootstrapAddr).valueOr:
+    debug "ignoring invalid bootstrap address", reason = $error
     return
 
-  bootstrapEnrs.add(enrRes.value)
+  let peerInfoRes = enr.toRemotePeerInfo()
+  if peerInfoRes.isOk():
+    peerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
+  else:
+    debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
+      enr = $enr
+
+  bootstrapEnrs.add(enr)
 
 proc setupDiscoveryV5*(
     myENR: enr.Record,
@@ -379,7 +387,7 @@ proc setupDiscoveryV5*(
 
   # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
   for enrUri in conf.discv5BootstrapNodes:
-    addBootstrapNode(enrUri, discv5BootstrapEnrs)
+    nodePeerManager.addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
