@@ -1,7 +1,7 @@
 {.used.}
 
 import std/[options, sequtils], stew/results, testutils/unittests
-import waku/waku_core, waku/waku_enr, ./testlib/wakucore
+import waku/waku_core, waku/waku_enr, ./testlib/wakucore, waku/waku_core/codecs
 
 suite "Waku ENR -  Capabilities bitfield":
   test "check capabilities support":
@@ -96,6 +96,28 @@ suite "Waku ENR -  Capabilities bitfield":
       bitfield.supportsCapability(Capabilities.Filter) == false
       bitfield.supportsCapability(Capabilities.Lightpush) == false
       bitfield.toCapabilities() == @[Capabilities.Relay, Capabilities.Store]
+
+    test "get capabilities codecs from record":
+      ## Given
+      let
+        enrSeqNum = 1u64
+        enrPrivKey = generatesecp256k1key()
+
+      ## When
+      var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+      builder.withWakuCapabilities(Capabilities.Relay, Capabilities.Store)
+
+      let recordRes = builder.build()
+
+      ## Then
+      check recordRes.isOk()
+      let record = recordRes.tryGet()
+
+      let codecs = record.getCapabilitiesCodecs()
+      check:
+        codecs.len == 2
+        codecs.contains(WakuRelayCodec)
+        codecs.contains(WakuStoreCodec)
 
   test "check capabilities on a non-waku node record":
     ## Given
