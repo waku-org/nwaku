@@ -358,18 +358,12 @@ proc addBootstrapNode*(
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
 
-  let enr = parseBootstrapAddress(bootstrapAddr).valueOr:
-    debug "ignoring invalid bootstrap address", reason = $error
+  let enrRes = parseBootstrapAddress(bootstrapAddr)
+  if enrRes.isErr():
+    debug "ignoring invalid bootstrap address", reason = enrRes.error
     return
 
-  let peerInfoRes = enr.toRemotePeerInfo()
-  if peerInfoRes.isOk():
-    peerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
-  else:
-    debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
-      enr = $enr
-
-  bootstrapEnrs.add(enr)
+  bootstrapEnrs.add(enrRes.value)
 
 proc setupDiscoveryV5*(
     myENR: enr.Record,
@@ -388,6 +382,14 @@ proc setupDiscoveryV5*(
   # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
   for enrUri in conf.discv5BootstrapNodes:
     nodePeerManager.addBootstrapNode(enrUri, discv5BootstrapEnrs)
+
+  for enr in discv5BootstrapEnrs:
+    let peerInfoRes = enr.toRemotePeerInfo()
+    if peerInfoRes.isOk():
+      nodePeerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
+    else:
+      debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
+        enr = $enr
 
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
