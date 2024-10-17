@@ -7,12 +7,29 @@ global:
 scrape_configs:
   - job_name: "liteprotocoltester"
     static_configs:
-    - targets: ["lightpush-service:8003",
-                "filter-service:8003",
-                "liteprotocoltester-publishernode-1:8003",
+    - targets: ["liteprotocoltester-publishernode-1:8003",
                 "liteprotocoltester-publishernode-2:8003",
                 "liteprotocoltester-publishernode-3:8003",
                 "liteprotocoltester-publishernode-4:8003",
                 "liteprotocoltester-publishernode-5:8003",
                 "liteprotocoltester-publishernode-6:8003",
-                "receivernode:8003"]
+                "liteprotocoltester-receivernode-1:8003",
+                "liteprotocoltester-receivernode-2:8003",
+                "liteprotocoltester-receivernode-3:8003",
+                "liteprotocoltester-receivernode-4:8003",
+                "liteprotocoltester-receivernode-5:8003",
+                "liteprotocoltester-receivernode-6:8003",
+                "publishernode:8003",
+                "publishernode-1:8003",
+                "publishernode-2:8003",
+                "publishernode-3:8003",
+                "publishernode-4:8003",
+                "publishernode-5:8003",
+                "publishernode-6:8003",
+                "receivernode:8003",
+                "receivernode-1:8003",
+                "receivernode-2:8003",
+                "receivernode-3:8003",
+                "receivernode-4:8003",
+                "receivernode-5:8003",
+                "receivernode-6:8003",]

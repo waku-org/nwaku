@@ -4,93 +4,74 @@ else:
   {.push raises: [].}
 
 import
-  std/[options, strutils, os, sequtils, net, strformat],
+  std/[options, net, strformat],
   chronicles,
   chronos,
   metrics,
   libbacktrace,
-  system/ansi_c,
   libp2p/crypto/crypto,
   confutils,
   libp2p/wire
 
 import
-  ../../waku/common/logging,
-  ../../waku/factory/waku,
-  ../../waku/factory/external_config,
-  ../../waku/node/health_monitor,
-  ../../waku/node/waku_metrics,
-  ../../waku/waku_api/rest/builder as rest_server_builder,
-  ../../waku/node/peer_manager,
-  ../../waku/waku_lightpush/common,
-  ../../waku/waku_relay,
-  ../../waku/waku_filter_v2,
-  ../../waku/waku_api/rest/client,
-  ../../waku/waku_api/rest/admin/client,
-  ./tester_config,
-  ./lightpush_publisher,
-  ./filter_subscriber
-
+  waku/[
+    factory/external_config,
+    node/peer_manager,
+    waku_lightpush/common,
+    waku_relay,
+    waku_filter_v2,
+    waku_peer_exchange/protocol,
+    waku_core/multiaddrstr,
+    waku_enr/capabilities,
+  ]
 logScope:
   topics = "diagnose connections"
 
-proc logSelfPeersLoop(pm: PeerManager, interval: Duration) {.async.} =
-  trace "Starting logSelfPeersLoop diagnosis loop"
-  while true:
-    let selfLighpushPeers = pm.wakuPeerStore.getPeersByProtocol(WakuLightPushCodec)
-    let selfRelayPeers = pm.wakuPeerStore.getPeersByProtocol(WakuRelayCodec)
-    let selfFilterPeers = pm.wakuPeerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
+proc `$`*(cap: Capabilities): string =
+  case cap
+  of Capabilities.Relay:
+    return "Relay"
+  of Capabilities.Store:
+    return "Store"
+  of Capabilities.Filter:
+    return "Filter"
+  of Capabilities.Lightpush:
+    return "Lightpush"
+  of Capabilities.Sync:
+    return "Sync"
 
-    let printable = catch:
-      """*------------------------------------------------------------------------------------------*
-|  Self ({pm.switch.peerInfo}) peers:
+proc allPeers(pm: PeerManager): string =
+  var allStr: string = ""
+  for idx, peer in pm.wakuPeerStore.peers():
+    allStr.add(
+      "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | protos: " &
+        $peer.protocols & " | caps: " & $peer.enr.map(getCapabilities) & "\n"
+    )
+  return allStr
+
+proc logSelfPeers*(pm: PeerManager) =
+  let selfLighpushPeers = pm.wakuPeerStore.getPeersByProtocol(WakuLightPushCodec)
+  let selfRelayPeers = pm.wakuPeerStore.getPeersByProtocol(WakuRelayCodec)
+  let selfFilterPeers = pm.wakuPeerStore.getPeersByProtocol(WakuFilterSubscribeCodec)
+  let selfPxPeers = pm.wakuPeerStore.getPeersByProtocol(WakuPeerExchangeCodec)
+
+  let printable = catch:
+    """*------------------------------------------------------------------------------------------*
+|  Self ({constructMultiaddrStr(pm.switch.peerInfo)}) peers:
 *------------------------------------------------------------------------------------------*
 |  Lightpush peers({selfLighpushPeers.len()}): ${selfLighpushPeers}
 *------------------------------------------------------------------------------------------*
 |  Filter peers({selfFilterPeers.len()}): ${selfFilterPeers}
 *------------------------------------------------------------------------------------------*
 |  Relay peers({selfRelayPeers.len()}): ${selfRelayPeers}
+*------------------------------------------------------------------------------------------*
+|  PX peers({selfPxPeers.len()}): ${selfPxPeers}
+*------------------------------------------------------------------------------------------*
+| All peers with protocol support:
+{allPeers(pm)}
 *------------------------------------------------------------------------------------------*""".fmt()
 
-    if printable.isErr():
-      echo "Error while printing statistics: " & printable.error().msg
-    else:
-      echo printable.get()
-
-    await sleepAsync(interval)
-
-proc logServiceRelayPeers(
-    pm: PeerManager, codec: string, interval: Duration
-) {.async.} =
-  trace "Starting service node connectivity diagnosys loop"
-  while true:
-    echo "*------------------------------------------------------------------------------------------*"
-    echo "|  Service peer connectivity:"
-    let selfLighpushPeers = pm.selectPeer(codec)
-    if selfLighpushPeers.isSome():
-      let ma = selfLighpushPeers.get().addrs[0]
-      var serviceIp = initTAddress(ma).valueOr:
-        echo "Error while parsing multiaddress: " & $error
-        continue
-
-      serviceIp.port = Port(8645)
-      let restClient = newRestHttpClient(initTAddress($serviceIp))
-
-      let getPeersRes = await restClient.getPeers()
-
-      if getPeersRes.status == 200:
-        let nrOfPeers = getPeersRes.data.len()
-        echo "Service node (@" & $ma & ") peers: " & $getPeersRes.data
-      else:
-        echo "Error while fetching service node (@" & $ma & ") peers: " &
-          $getPeersRes.data
-    else:
-      echo "No service node peers found"
-
-    echo "*------------------------------------------------------------------------------------------*"
-
-    await sleepAsync(interval)
-
-proc startPeriodicPeerDiagnostic*(pm: PeerManager, codec: string) {.async.} =
-  asyncSpawn logSelfPeersLoop(pm, chronos.seconds(60))
-  # asyncSpawn logServiceRelayPeers(pm, codec, chronos.seconds(20))
+  if printable.isErr():
+    echo "Error while printing statistics: " & printable.error().msg
+  else:
+    echo printable.get()
