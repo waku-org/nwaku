@@ -13,7 +13,19 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-ifeq ($(OS),Windows_NT)
+# Determine the OS
+detected_OS := $(shell uname -s)
+ifeq ($(detected_OS),Darwin)
+  detected_OS := Darwin
+else ifeq ($(detected_OS),Linux)
+  detected_OS := Linux
+else ifneq (,$(findstring MINGW,$(detected_OS)))
+  detected_OS := Windows
+else
+  detected_OS := Unknown
+endif
+
+ifeq ($(detected_OS),Windows)
   # Add the necessary libraries to the linker flags
   LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
