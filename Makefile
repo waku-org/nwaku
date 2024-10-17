@@ -13,6 +13,21 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
+ifeq ($(NIM_PARAMS),)
+# "variables.mk" was not included, so we update the submodules.
+GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
+.DEFAULT:
+	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
+		$(GIT_SUBMODULE_UPDATE); \
+		echo
+# Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
+# https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
+#
+# After restarting, it will execute its original goal, so we don't have to start a child Make here
+# with "$(MAKE) $(MAKECMDGOALS)". Isn't hidden control flow great?
+
+else # "variables.mk" was included. Business as usual until the end of this file.
+
 # Determine the OS
 detected_OS := $(shell uname -s)
 ifeq ($(detected_OS),Darwin)
@@ -30,27 +45,6 @@ ifeq ($(detected_OS),Windows)
   LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
   # $(info $(shell ./scripts/windows_setup.sh))
-endif
-
-ifeq ($(NIM_PARAMS),)
-# "variables.mk" was not included, so we update the submodules.
-GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
-.DEFAULT:
-	+@ echo -e "Git submodules not found. Running '$(GIT_SUBMODULE_UPDATE)'.\n"; \
-		$(GIT_SUBMODULE_UPDATE); \
-		echo
-# Now that the included *.mk files appeared, and are newer than this file, Make will restart itself:
-# https://www.gnu.org/software/make/manual/make.html#Remaking-Makefiles
-#
-# After restarting, it will execute its original goal, so we don't have to start a child Make here
-# with "$(MAKE) $(MAKECMDGOALS)". Isn't hidden control flow great?
-
-else # "variables.mk" was included. Business as usual until the end of this file.
-
-ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
- detected_OS := Windows
-else
- detected_OS := $(strip $(shell uname))
 endif
 
 ##########

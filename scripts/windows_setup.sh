@@ -1,4 +1,8 @@
 #!/bin/sh
+echo "downloading submodule"
+
+make update
+
 echo "Executing build_all.bat for Windows"
 BUILD_DIR="vendor/nimbus-build-system/vendor/Nim"
 
@@ -20,4 +24,7 @@ else
     cd ../..
 fi
 
-echo "Building nimbus-build-system for Windows"
+echo "Building wakunode2"
+
+make wakunode2 V=1
+
