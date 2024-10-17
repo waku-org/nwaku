@@ -20,7 +20,6 @@ import
   ../waku_store/[client, common],
   ../waku_enr,
   ../node/peer_manager/peer_manager,
-  ./raw_bindings,
   ./common,
   ./session
 
@@ -46,7 +45,7 @@ type WakuSync* = ref object of LPProtocol
   periodicPruneFut: Future[void]
 
 proc storageSize*(self: WakuSync): int =
-  self.storage.len
+  0
 
 proc messageIngress*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage) =
   if msg.ephemeral:
@@ -57,9 +56,6 @@ proc messageIngress*(self: WakuSync, pubsubTopic: PubsubTopic, msg: WakuMessage)
   trace "inserting message into waku sync storage ",
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
 
-  self.storage.insert(msg.timestamp, msgHash).isOkOr:
-    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = $error
-
 proc messageIngress*(
     self: WakuSync, pubsubTopic: PubsubTopic, msgHash: WakuMessageHash, msg: WakuMessage
 ) =
@@ -68,9 +64,6 @@ proc messageIngress*(
 
   trace "inserting message into waku sync storage ",
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
-
-  if self.storage.insert(msg.timestamp, msgHash).isErr():
-    error "failed to insert message ", msg_hash = msgHash.to0xHex()
 
 proc calculateRange(
     jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
@@ -352,11 +345,7 @@ proc new*(
     pruneCallback: Option[PruneCallback] = none(PruneCallback),
     transferCallback: Option[TransferCallback] = none(TransferCallback),
 ): Future[Result[T, string]] {.async.} =
-  let storage = NegentropyStorage.new().valueOr:
-    return err("negentropy storage creation failed")
-
   var sync = WakuSync(
-    storage: storage,
     peerManager: peerManager,
     maxFrameSize: maxFrameSize,
     syncInterval: syncInterval,
@@ -456,11 +445,6 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
   while true: # infinite loop
     await sleepAsync(self.syncInterval)
 
-    debug "periodic prune started",
-      startTime = self.pruneStart - self.pruneOffset.nanos,
-      endTime = pruneStop,
-      storageSize = self.storage.len
-
     var (elements, cursor) =
       (newSeq[(WakuMessageHash, Timestamp)](0), none(WakuMessageHash))
 
@@ -482,20 +466,12 @@ proc periodicPrune(self: WakuSync, callback: PruneCallback) {.async.} =
         # no elements to remove, stop
         break
 
-      for (hash, timestamp) in elements:
-        self.storage.erase(timestamp, hash).isOkOr:
-          error "storage erase failed",
-            timestamp = timestamp, msg_hash = hash.to0xHex(), error = $error
-          continue
-
       if cursor.isNone():
         # no more pages, stop
         break
 
     self.pruneStart = pruneStop
     pruneStop = getNowInNanosecondTime() - self.syncRange.nanos
-
-    debug "periodic prune done", storageSize = self.storage.len
 
     continue
 

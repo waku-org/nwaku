@@ -13,7 +13,6 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
-
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
@@ -29,10 +28,23 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 
 else # "variables.mk" was included. Business as usual until the end of this file.
 
-ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
- detected_OS := Windows
+# Determine the OS
+detected_OS := $(shell uname -s)
+ifeq ($(detected_OS),Darwin)
+  detected_OS := Darwin
+else ifeq ($(detected_OS),Linux)
+  detected_OS := Linux
+else ifneq (,$(findstring MINGW,$(detected_OS)))
+  detected_OS := Windows
 else
- detected_OS := $(strip $(shell uname))
+  detected_OS := Unknown
+endif
+
+ifeq ($(detected_OS),Windows)
+  # Add the necessary libraries to the linker flags
+  LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
+  NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
+  # $(info $(shell ./scripts/windows_setup.sh))
 endif
 
 ##########
