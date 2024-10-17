@@ -351,9 +351,7 @@ proc parseBootstrapAddress(address: string): Result[enr.Record, cstring] =
   else:
     return err("Ignoring unrecognized bootstrap address type")
 
-proc addBootstrapNode*(
-    peerManager: PeerManager, bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]
-) =
+proc addBootstrapNode*(bootstrapAddr: string, bootstrapEnrs: var seq[enr.Record]) =
   # Ignore empty lines or lines starting with #
   if bootstrapAddr.len == 0 or bootstrapAddr[0] == '#':
     return
