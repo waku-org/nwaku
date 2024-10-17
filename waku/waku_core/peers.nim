@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sequtils, strutils, uri, net],
+  std/[options, sequtils, strutils, uri, net, tables],
   results,
   chronos,
   eth/keys,
@@ -16,6 +16,7 @@ import
   libp2p/peerinfo,
   libp2p/routing_record,
   json_serialization
+import ../waku_enr/capabilities
 
 type
   Connectedness* = enum
@@ -243,7 +244,14 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
   if addrs.len == 0:
     return err("enr: no addresses in record")
 
-  return ok(RemotePeerInfo.init(peerId, addrs, some(enr)))
+  let protocolsRes = catch:
+    enr.getCapabilitiesCodecs()
+
+  var protocols: seq[string]
+  if not protocolsRes.isErr():
+    protocols = protocolsRes.get()
+
+  return ok(RemotePeerInfo.init(peerId, addrs, some(enr), protocols))
 
 converter toRemotePeerInfo*(peerRecord: PeerRecord): RemotePeerInfo =
   ## Converts peer records to dialable RemotePeerInfo
