@@ -4,6 +4,7 @@ import
   std/[options, sequtils, strutils, uri, net],
   results,
   chronos,
+  chronicles,
   eth/keys,
   eth/p2p/discoveryv5/enr,
   eth/net/utils,
@@ -250,6 +251,8 @@ proc toRemotePeerInfo*(enr: enr.Record): Result[RemotePeerInfo, cstring] =
   var protocols: seq[string]
   if not protocolsRes.isErr():
     protocols = protocolsRes.get()
+    error "Could not retrieve supported protocols from enr",
+      peerId = peerId, msg = protocolsRes.error.msg
 
   return ok(RemotePeerInfo.init(peerId, addrs, some(enr), protocols))
 
@@ -264,7 +267,7 @@ converter toRemotePeerInfo*(peerInfo: PeerInfo): RemotePeerInfo =
   RemotePeerInfo(
     peerId: peerInfo.peerId,
     addrs: peerInfo.listenAddrs,
-    enr: none(Record),
+    enr: none(enr.Record),
     protocols: peerInfo.protocols,
     agent: peerInfo.agentVersion,
     protoVersion: peerInfo.protoVersion,
