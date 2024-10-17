@@ -381,6 +381,14 @@ proc setupDiscoveryV5*(
   for enrUri in conf.discv5BootstrapNodes:
     addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
+  for enr in discv5BootstrapEnrs:
+    let peerInfoRes = enr.toRemotePeerInfo()
+    if peerInfoRes.isOk():
+      nodePeerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
+    else:
+      debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
+        enr = enr.toUri(), error = peerInfoRes.error
+
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
   let discv5Config = DiscoveryConfig.init(
