@@ -387,7 +387,7 @@ proc setupDiscoveryV5*(
       nodePeerManager.addPeer(peerInfoRes.get(), PeerOrigin.Discv5)
     else:
       debug "could not convert discv5 bootstrap node to peerInfo, not adding peer to Peer Store",
-        enr = $enr
+        enr = enr.toUri(), error = peerInfoRes.error
 
   discv5BootstrapEnrs.add(dynamicBootstrapEnrs)
 
