@@ -23,7 +23,9 @@ requires "nim >= 2.0.8",
   "web3",
   "presto",
   "regex",
-  "db_connector"
+  "db_connector",
+  "minilru",
+  "quic"
 
 ### Helper functions
 proc buildModule(filePath, params = "", lang = "c"): bool =

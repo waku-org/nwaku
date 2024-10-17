@@ -10,6 +10,8 @@ import
   chronicles,
   stint,
   web3,
+  web3/conversions,
+  web3/eth_api_types,
   json,
   libp2p/crypto/crypto,
   eth/keys
@@ -26,6 +28,18 @@ import
   ./utils
 
 const CHAIN_ID* = 1337
+
+template skip0xPrefix(hexStr: string): int =
+  ## Returns the index of the first meaningful char in `hexStr` by skipping
+  ## "0x" prefix
+  if hexStr.len > 1 and hexStr[0] == '0' and hexStr[1] in {'x', 'X'}: 2 else: 0
+
+func strip0xPrefix(s: string): string =
+  let prefixLen = skip0xPrefix(s)
+  if prefixLen != 0:
+    s[prefixLen .. ^1]
+  else:
+    s
 
 proc generateCredentials*(rlnInstance: ptr RLN): IdentityCredential =
   let credRes = membershipKeyGen(rlnInstance)
@@ -85,12 +99,13 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
   debug "Address of the deployed rlnv2 contract: ", wakuRlnContractAddress
 
   # need to send concat: impl & init_bytes
-  let contractInput = encode(wakuRlnContractAddress).data & Erc1967ProxyContractInput
+  let contractInput =
+    byteutils.toHex(encode(wakuRlnContractAddress)) & Erc1967ProxyContractInput
   debug "contractInput", contractInput
   let proxyReceipt =
     await web3.deployContract(Erc1967Proxy, contractInput = contractInput)
 
-  debug "proxy receipt", proxyReceipt
+  debug "proxy receipt", contractAddress = proxyReceipt.contractAddress.get()
   let proxyAddress = proxyReceipt.contractAddress.get()
 
   let newBalance = await web3.provider.eth_getBalance(web3.defaultAccount, "latest")
@@ -106,17 +121,17 @@ proc createEthAccount*(
 ): Future[(keys.PrivateKey, Address)] {.async.} =
   let web3 = await newWeb3(EthClient)
   let accounts = await web3.provider.eth_accounts()
-  let gasPrice = int(await web3.provider.eth_gasPrice())
+  let gasPrice = Quantity(await web3.provider.eth_gasPrice())
   web3.defaultAccount = accounts[0]
 
   let pk = keys.PrivateKey.random(rng[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
 
-  var tx: EthSend
-  tx.source = accounts[0]
-  tx.value = some(ethToWei(ethAmount))
-  tx.to = some(acc)
-  tx.gasPrice = some(gasPrice)
+  var tx: TransactionArgs
+  tx.`from` = Opt.some(accounts[0])
+  tx.value = Opt.some(ethToWei(ethAmount))
+  tx.to = Opt.some(acc)
+  tx.gasPrice = Opt.some(gasPrice)
 
   # Send ethAmount to acc
   discard await web3.send(tx)
