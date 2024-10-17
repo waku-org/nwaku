@@ -20,10 +20,11 @@ import
   libp2p/switch
 import ../waku_core, ./message_id, ../node/delivery_monitor/publish_observer
 
+from ../waku_core/codecs import WakuRelayCodec
+export WakuRelayCodec
+
 logScope:
   topics = "waku relay"
-
-const WakuRelayCodec* = "/vac/waku/relay/2.0.0"
 
 # see: https://github.com/libp2p/specs/blob/master/pubsub/gossipsub/gossipsub-v1.1.md#overview-of-new-parameters
 const TopicParameters = TopicParams(

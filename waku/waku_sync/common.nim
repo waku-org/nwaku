@@ -3,11 +3,13 @@
 import std/[options], chronos, libp2p/peerId
 import ../waku_core
 
+from ../waku_core/codecs import WakuSyncCodec
+export WakuSyncCodec
+
 const
   DefaultSyncInterval*: Duration = 5.minutes
   DefaultSyncRange*: Duration = 1.hours
   RetryDelay*: Duration = 30.seconds
-  WakuSyncCodec* = "/vac/waku/sync/1.0.0"
   DefaultMaxFrameSize* = 1048576 # 1 MiB
   DefaultGossipSubJitter*: Duration = 20.seconds
 

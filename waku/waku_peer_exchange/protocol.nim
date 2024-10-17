@@ -16,6 +16,9 @@ import
   ./rpc_codec,
   ../common/rate_limit/request_limiter
 
+from ../waku_core/codecs import WakuPeerExchangeCodec
+export WakuPeerExchangeCodec
+
 declarePublicGauge waku_px_peers_received_total,
   "number of ENRs received via peer exchange"
 declarePublicGauge waku_px_peers_received_unknown,
@@ -36,8 +39,6 @@ const
   MaxPeersCacheSize = 60
   CacheRefreshInterval = 10.minutes
   DefaultPXNumPeersReq* = 5.uint64()
-
-  WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
 
 # Error types (metric label values)
 const

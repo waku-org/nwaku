@@ -1,0 +1,10 @@
+const
+  WakuRelayCodec* = "/vac/waku/relay/2.0.0"
+  WakuStoreCodec* = "/vac/waku/store-query/3.0.0"
+  WakuFilterSubscribeCodec* = "/vac/waku/filter-subscribe/2.0.0-beta1"
+  WakuFilterPushCodec* = "/vac/waku/filter-push/2.0.0-beta1"
+  WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
+  WakuSyncCodec* = "/vac/waku/sync/1.0.0"
+  WakuMetadataCodec* = "/vac/waku/metadata/1.0.0"
+  WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
+  WakuLegacyStoreCodec* = "/vac/waku/store/2.0.0-beta4"

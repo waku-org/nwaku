@@ -2,13 +2,7 @@
 
 import
   std/[options, bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
-import ../common/enr
-
-from ../waku_relay/protocol import WakuRelayCodec
-from ../waku_store/common import WakuStoreCodec
-from ../waku_filter_v2/common import WakuFilterSubscribeCodec
-from ../waku_lightpush/common import WakuLightPushCodec
-from ../waku_sync/common import WakuSyncCodec
+import ../common/enr, ../waku_core/codecs
 
 const CapabilitiesEnrField* = "waku2"
 

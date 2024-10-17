@@ -12,10 +12,12 @@ import
   eth/p2p/discoveryv5/enr
 import ../common/nimchronos, ../common/enr, ../waku_core, ../waku_enr, ./rpc
 
+from ../waku_core/codecs import WakuMetadataCodec
+export WakuMetadataCodec
+
 logScope:
   topics = "waku metadata"
 
-const WakuMetadataCodec* = "/vac/waku/metadata/1.0.0"
 const RpcResponseMaxBytes* = 1024
 
 type WakuMetadata* = ref object of LPProtocol
