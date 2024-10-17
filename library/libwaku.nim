@@ -626,6 +626,19 @@ proc waku_get_my_enr(
   )
   .handleRes(callback, userData)
 
+proc waku_get_my_peerid(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_MY_PEER_ID),
+  )
+  .handleRes(callback, userData)
+
 proc waku_start_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
