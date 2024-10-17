@@ -379,7 +379,7 @@ proc setupDiscoveryV5*(
 
   # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
   for enrUri in conf.discv5BootstrapNodes:
-    nodePeerManager.addBootstrapNode(enrUri, discv5BootstrapEnrs)
+    addBootstrapNode(enrUri, discv5BootstrapEnrs)
 
   for enr in discv5BootstrapEnrs:
     let peerInfoRes = enr.toRemotePeerInfo()
