@@ -12,25 +12,24 @@ import
 
 import
   waku/[waku_core/topics, waku_enr, discovery/waku_discv5, common/enr],
-  ../testlib/[wakucore, testasync, assertions, futures],
+  ../testlib/[wakucore, testasync, assertions, futures, wakunode],
   ../waku_enr/utils,
   ./utils
 
 import eth/p2p/discoveryv5/enr as ethEnr
 
-procSuite "Waku Discovery v5":
+include waku/factory/waku
+
+suite "Waku Discovery v5":
+  const validEnr =
+    "enr:-I-4QG3mX250ArniAs2DLpW-QHOLKSD5x_Ibp8AYcQZbz1HhHFJtl2dNDGcha" &
+    "U5ugLbDKRgtTDZH8NsxXlTXDpYAgzgBgmlkgnY0gnJzjwAVBgABAAIABQAHAAkAC4" &
+    "lzZWNwMjU2azGhA4_KwN0NRRmmfQ-B9B2h2PZjoJvBnaIOi6sR_b2UTQBBhXdha3U" & "yAQ"
+
   let
     rng = eth_keys.newRng()
     pk1 = eth_keys.PrivateKey.random(rng[])
     pk2 = eth_keys.PrivateKey.random(rng[])
-
-    enrNoCapabilities =
-      initRecord(1, pk1, {"rs": @[0.byte, 0.byte, 1.byte, 0.byte, 0.byte]}).value()
-    enrRelay = initRecord(
-        1, pk2, {"waku2": @[1.byte], "rs": @[0.byte, 1.byte, 1.byte, 0.byte, 1.byte]}
-      )
-      .value()
-    enrNoShardingInfo = initRecord(1, pk1, {"waku2": @[1.byte]}).value()
 
   suite "shardingPredicate":
     var
@@ -120,6 +119,14 @@ procSuite "Waku Discovery v5":
 
     asyncTest "filter peer per bootnode":
       let
+        enrRelay = initRecord(
+            1,
+            pk2,
+            {"waku2": @[1.byte], "rs": @[0.byte, 1.byte, 1.byte, 0.byte, 1.byte]},
+          )
+          .value()
+        enrNoCapabilities =
+          initRecord(1, pk1, {"rs": @[0.byte, 0.byte, 1.byte, 0.byte, 0.byte]}).value()
         predicateNoCapabilities =
           shardingPredicate(enrNoCapabilities, @[enrNoCapabilities]).get()
         predicateNoCapabilitiesWithBoth =
@@ -151,8 +158,10 @@ procSuite "Waku Discovery v5":
         predicateRecord.isNone()
 
     asyncTest "no relay sharding info":
-      let predicateNoShardingInfo =
-        shardingPredicate(enrNoShardingInfo, @[enrNoShardingInfo])
+      let
+        enrNoShardingInfo = initRecord(1, pk1, {"waku2": @[1.byte]}).value()
+        predicateNoShardingInfo =
+          shardingPredicate(enrNoShardingInfo, @[enrNoShardingInfo])
 
       check:
         predicateNoShardingInfo.isNone()
@@ -166,7 +175,7 @@ procSuite "Waku Discovery v5":
         indices: seq[uint64] = @[],
         recordFlags: Option[CapabilitiesBitfield] = none(CapabilitiesBitfield),
         bootstrapRecords: seq[waku_enr.Record] = @[],
-    ): (WakuDiscoveryV5, Record) =
+    ): (WakuDiscoveryV5, Record) {.raises: [ValueError, LPError].} =
       let
         privKey = generateSecp256k1Key()
         record = newTestEnrRecord(
@@ -187,17 +196,6 @@ procSuite "Waku Discovery v5":
         )
 
       (node, record)
-
-    let filterForStore: WakuDiscv5Predicate = proc(record: waku_enr.Record): bool =
-      let typedRecord = record.toTyped()
-      if typedRecord.isErr():
-        return false
-
-      let capabilities = typedRecord.value.waku2
-      if capabilities.isNone():
-        return false
-
-      return capabilities.get().supportsCapability(Capabilities.Store)
 
     asyncTest "find random peers without predicate":
       # Given 3 nodes
@@ -234,6 +232,17 @@ procSuite "Waku Discovery v5":
       await allFutures(node1.stop(), node2.stop(), node3.stop())
 
     asyncTest "find random peers with parameter predicate":
+      let filterForStore: WakuDiscv5Predicate = proc(record: waku_enr.Record): bool =
+        let typedRecord = record.toTyped()
+        if typedRecord.isErr():
+          return false
+
+        let capabilities = typedRecord.value.waku2
+        if capabilities.isNone():
+          return false
+
+        return capabilities.get().supportsCapability(Capabilities.Store)
+
       # Given 4 nodes
       let
         (node3, record3) = buildNode(
@@ -346,11 +355,6 @@ procSuite "Waku Discovery v5":
       await allFutures(node1.stop(), node2.stop(), node3.stop(), node4.stop())
 
   suite "addBoostrapNode":
-    let validEnr =
-      "enr:-I-4QG3mX250ArniAs2DLpW-QHOLKSD5x_Ibp8AYcQZbz1HhHFJtl2dNDGcha" &
-      "U5ugLbDKRgtTDZH8NsxXlTXDpYAgzgBgmlkgnY0gnJzjwAVBgABAAIABQAHAAkAC4" &
-      "lzZWNwMjU2azGhA4_KwN0NRRmmfQ-B9B2h2PZjoJvBnaIOi6sR_b2UTQBBhXdha3U" & "yAQ"
-
     asyncTest "address is valid":
       # Given an empty list of enrs
       var enrs: seq[Record] = @[]
@@ -400,3 +404,21 @@ procSuite "Waku Discovery v5":
       # Then the enr is not added to the list
       check:
         enrs.len == 0
+
+    suite "waku discv5 initialization":
+      var conf = defaultTestWakuNodeConf()
+
+      conf.discv5BootstrapNodes = @[validEnr]
+
+      let waku = Waku.init(conf).valueOr:
+        raiseAssert error
+
+      discard setupDiscoveryV5(
+        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
+        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+      )
+
+      check:
+        waku.node.peerManager.wakuPeerStore.peers().anyIt(
+          it.enr.isSome() and it.enr.get().toUri() == validEnr
+        )
