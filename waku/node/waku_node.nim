@@ -17,7 +17,6 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
-  libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
@@ -39,6 +38,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_rendezvous/protocol,
   ../waku_sync,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
@@ -109,7 +109,7 @@ type
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
-    rendezvous*: RendezVous
+    wakuRendezvous*: WakuRendezVous
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
@@ -1269,18 +1269,21 @@ proc startKeepalive*(node: WakuNode) =
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.rendezvous = RendezVous.new(node.switch)
+  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr)
 
   if node.started:
     try:
-      await node.rendezvous.start()
+      await node.wakuRendezvous.start()
     except CatchableError:
       error "failed to start rendezvous", error = getCurrentExceptionMsg()
 
   try:
-    node.switch.mount(node.rendezvous)
+    node.switch.mount(node.wakuRendezvous)
   except LPError:
     error "failed to mount rendezvous", error = getCurrentExceptionMsg()
+
+  # Always start discovering peers at startup
+  await node.wakuRendezvous.initialRequestAll()
 
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
@@ -1338,6 +1341,11 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.start()
 
+  if not node.wakuRendezvous.isNil():
+    try:
+      await node.wakuRendezvous.start()
+    except CatchableError:
+      error "failed to start rendezvous", error = getCurrentExceptionMsg()
   if not node.wakuSync.isNil():
     node.wakuSync.start()
 
@@ -1378,6 +1386,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.stopWait()
+
+  if not node.wakuRendezvous.isNil():
+    await node.wakuRendezvous.stop()
 
   node.started = false
 
