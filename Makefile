@@ -40,11 +40,16 @@ else
   detected_OS := Unknown
 endif
 
-ifeq ($(detected_OS),Windows)
+ifeq ($(detected_OS),Windows) 
+  # Define a new temporary directory for Windows
+  TMP_DIR := $(CURDIR)/tmp
+  $(shell mkdir -p $(TMP_DIR))
+  export TMP := $(TMP_DIR)
+  export TEMP := $(TMP_DIR)
+  
   # Add the necessary libraries to the linker flags
   LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
-  # $(info $(shell ./scripts/windows_setup.sh))
 endif
 
 ##########
