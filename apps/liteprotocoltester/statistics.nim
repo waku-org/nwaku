@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[sets, tables, strutils, sequtils, options, strformat],
+  std/[sets, tables, sequtils, options, strformat],
   chronos/timer as chtimer,
   chronicles,
   chronos,

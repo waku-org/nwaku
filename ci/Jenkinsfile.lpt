@@ -1,0 +1,93 @@
+#!/usr/bin/env groovy
+library 'status-jenkins-lib@v1.8.17'
+
+pipeline {
+  agent { label 'linux' }
+
+  options {
+    timestamps()
+    timeout(time: 20, unit: 'MINUTES')
+    buildDiscarder(logRotator(
+      numToKeepStr: '10',
+      daysToKeepStr: '30',
+    ))
+  }
+
+  parameters {
+    string(
+      name: 'IMAGE_TAG',
+      description: 'Name of Docker tag to push. Optional Parameter.',
+      defaultValue: 'latest'
+    )
+    string(
+      name: 'IMAGE_NAME',
+      description: 'Name of Docker image to push.',
+      defaultValue: params.IMAGE_NAME ?: 'wakuorg/liteprotocoltester',
+    )
+    string(
+      name: 'DOCKER_CRED',
+      description: 'Name of Docker Registry credential.',
+      defaultValue: params.DOCKER_CRED ?: 'harbor-telemetry-robot',
+    )
+    string(
+      name: 'DOCKER_REGISTRY',
+      description: 'URL of the Docker Registry',
+      defaultValue: params.DOCKER_REGISTRY ?: 'harbor.status.im'
+    )
+    string(
+      name: 'NIMFLAGS',
+      description: 'Flags for Nim compilation.',
+      defaultValue: params.NIMFLAGS ?: [
+        '--colors:off',
+        '-d:disableMarchNative',
+        '-d:chronicles_colors:none',
+        '-d:insecure',
+      ].join(' ')
+    )
+    choice(
+      name: "LOWEST_LOG_LEVEL_ALLOWED",
+      choices: ['TRACE', 'DEGUG', 'INFO', 'NOTICE', 'WARN', 'ERROR', 'FATAL'],
+      description: "Defines the log level, which will be available at runtime (Chronicles log level)"
+    )
+  }
+
+  stages {
+    stage('Build') {
+      steps { script {
+        image = docker.build(
+          "${DOCKER_REGISTRY}/${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
+          "--label=commit='${git.commit()}' " +
+          "--label=version='${git.describe('--tags')}' " +
+          "--build-arg=MAKE_TARGET='liteprotocoltester' " +
+          "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
+          "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
+          "--file=apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile " +
+          " ."
+        )
+      } }
+    }
+
+    stage('Check') {
+      steps { script {
+        image.inside('--entrypoint=""') { c ->
+          sh '/usr/bin/liteprotocoltester --version'
+        }
+      } }
+    }
+
+    stage('Push') {
+      when { expression { params.IMAGE_TAG != '' } }
+      steps { script {
+        withDockerRegistry([
+          credentialsId: params.DOCKER_CRED, url: "https://${DOCKER_REGISTRY}"
+        ]) {
+          image.push(params.IMAGE_TAG)
+        }
+      } }
+    }
+  } // stages
+
+  post {
+    cleanup { cleanWs() }
+  } // post
+} // pipeline
