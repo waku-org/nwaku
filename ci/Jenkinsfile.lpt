@@ -22,17 +22,17 @@ pipeline {
     string(
       name: 'IMAGE_NAME',
       description: 'Name of Docker image to push.',
-      defaultValue: params.IMAGE_NAME ?: 'harbor.status.im/wakuorg/liteprotocoltester',
+      defaultValue: params.IMAGE_NAME ?: 'wakuorg/liteprotocoltester',
     )
     string(
       name: 'DOCKER_CRED',
       description: 'Name of Docker Registry credential.',
-      defaultValue: params.DOCKER_CRED ?: 'harbor-wakuorg-robot',
+      defaultValue: params.DOCKER_CRED ?: 'harbor-telemetry-robot',
     )
     string(
-      name: 'DOCKER_REGISTRY_URL',
+      name: 'DOCKER_REGISTRY',
       description: 'URL of the Docker Registry',
-      defaultValue: params.DOCKER_REGISTRY_URL ?: 'https://harbor.status.im'
+      defaultValue: params.DOCKER_REGISTRY ?: 'harbor.status.im'
     )
     string(
       name: 'NIMFLAGS',
@@ -55,7 +55,7 @@ pipeline {
     stage('Build') {
       steps { script {
         image = docker.build(
-          "${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
+          "${DOCKER_REGISTRY}/${params.IMAGE_NAME}:${params.IMAGE_TAG ?: env.GIT_COMMIT.take(8)}",
           "--label=commit='${git.commit()}' " +
           "--label=version='${git.describe('--tags')}' " +
           "--build-arg=MAKE_TARGET='liteprotocoltester' " +
@@ -79,9 +79,9 @@ pipeline {
       when { expression { params.IMAGE_TAG != '' } }
       steps { script {
         withDockerRegistry([
-          credentialsId: params.DOCKER_CRED, url: params.DOCKER_REGISTRY_URL
+          credentialsId: params.DOCKER_CRED, url: 'https://${params.DOCKER_REGISTRY}'
         ]) {
-          image.push()
+          image.push(params.IMAGE_TAG)
         }
       } }
     }
