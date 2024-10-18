@@ -42,10 +42,13 @@ else
     # Build rln instead
     # first, check if submodule version = version in Makefile
     cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml"
-    submodule_version=$(
-      cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" \
-        | jq -r '.packages[] | select(.name == "rln") | .version'
-    )
+
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+        submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | sed -n 's/.*"name":"rln","version":"\([^"]*\)".*/\1/p')
+    else
+        submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | jq -r '.packages[] | select(.name == "rln") | .version')
+    fi
+    
     if [[ "v${submodule_version}" != "${rln_version}" ]]; then
         echo "Submodule version (v${submodule_version}) does not match version in Makefile (${rln_version})"
         echo "Please update the submodule to ${rln_version}"
