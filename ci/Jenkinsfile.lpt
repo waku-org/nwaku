@@ -81,7 +81,7 @@ pipeline {
         withDockerRegistry([
           credentialsId: params.DOCKER_CRED, url: params.DOCKER_REGISTRY_URL
         ]) {
-          image.push(params.IMAGE_TAG)
+          image.push()
         }
       } }
     }
