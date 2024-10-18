@@ -88,13 +88,6 @@ pipeline {
   } // stages
 
   post {
-    success { script {
-      discord.send(
-        header: '**Nim-Waku:liteprotocoltester deployment successful!**',
-        cred: 'discord-waku-deployments-webhook',
-        descPrefix: "Image: [`${IMAGE_NAME}:${IMAGE_TAG}`](https://hub.docker.com/r/${IMAGE_NAME}/tags?name=${IMAGE_TAG})"
-      )
-    } }
-    always { sh 'docker image prune -f' }
+    cleanup { cleanWs() }
   } // post
 } // pipeline
