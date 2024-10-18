@@ -29,13 +29,6 @@ if defined(windows):
   # because these require direct manipulations of the stdout File object.
   switch("define", "chronicles_colors=off")
 
-  # Add these lines for miniupnpc
-  switch("passC", "-D_WIN32_WINNT=0x0A00")  # Target Windows 10 and later
-  switch("passC", "-DMINIUPNP_STATICLIB")
-  switch("passC", "-DWIN32_LEAN_AND_MEAN")
-  switch("passC", "-I./vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/src")
-  switch("passL", "-lws2_32 -liphlpapi -lole32 -luuid")
-
 # https://github.com/status-im/nimbus-eth2/blob/stable/docs/cpu_features.md#ssse3-supplemental-sse3
 # suggests that SHA256 hashing with SSSE3 is 20% faster than without SSSE3, so
 # given its near-ubiquity in the x86 installed base, it renders a distribution

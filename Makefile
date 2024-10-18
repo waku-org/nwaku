@@ -13,6 +13,7 @@ FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
 
+
 ifeq ($(NIM_PARAMS),)
 # "variables.mk" was not included, so we update the submodules.
 GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
