@@ -1,7 +1,8 @@
 {.push raises: [].}
 
-import std/[options, bitops, sequtils, net], results, eth/keys, libp2p/crypto/crypto
-import ../common/enr
+import
+  std/[options, bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
+import ../common/enr, ../waku_core/codecs
 
 const CapabilitiesEnrField* = "waku2"
 
@@ -19,6 +20,14 @@ type
     Filter = 2
     Lightpush = 3
     Sync = 4
+
+const capabilityToCodec = {
+  Capabilities.Relay: WakuRelayCodec,
+  Capabilities.Store: WakuStoreCodec,
+  Capabilities.Filter: WakuFilterSubscribeCodec,
+  Capabilities.Lightpush: WakuLightPushCodec,
+  Capabilities.Sync: WakuSyncCodec,
+}.toTable
 
 func init*(
     T: type CapabilitiesBitfield, lightpush, filter, store, relay, sync: bool = false
@@ -101,3 +110,7 @@ proc getCapabilities*(r: Record): seq[Capabilities] =
 
   let bitfield = bitfieldOpt.get()
   bitfield.toCapabilities()
+
+proc getCapabilitiesCodecs*(r: Record): seq[string] {.raises: [ValueError].} =
+  let capabilities = r.getCapabilities()
+  return capabilities.mapIt(capabilityToCodec[it])
