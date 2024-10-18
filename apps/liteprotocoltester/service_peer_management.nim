@@ -76,7 +76,7 @@ proc selectRandomCapablePeer*(
     debug "Dialing random peer",
       idx = $rndPeerIndex, peer = constructMultiaddrStr(randomPeer)
 
-    supportivePeers.delete(rndPeerIndex, rndPeerIndex)
+    supportivePeers.delete(rndPeerIndex..rndPeerIndex)
 
     let connOpt = pm.dialPeer(randomPeer, codec)
     if (await connOpt.withTimeout(10.seconds)):

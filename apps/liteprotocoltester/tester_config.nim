@@ -61,7 +61,7 @@ type LiteProtocolTesterConf* = object
 
   bootstrapNode* {.
     desc:
-      "Peer multiaddr of the service node. If `service-node` not set, it is used to retrieve potential service nodes of the network.",
+      "Peer multiaddr of the bootstrap node. If `service-node` not set, it is used to retrieve potential service nodes of the network.",
     defaultValue: "",
     name: "bootstrap-node"
   .}: string
