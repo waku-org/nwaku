@@ -79,7 +79,7 @@ pipeline {
       when { expression { params.IMAGE_TAG != '' } }
       steps { script {
         withDockerRegistry([
-          credentialsId: params.DOCKER_CRED, url: 'https://${params.DOCKER_REGISTRY}'
+          credentialsId: params.DOCKER_CRED, url: "https://${params.DOCKER_REGISTRY}"
         ]) {
           image.push(params.IMAGE_TAG)
         }
