@@ -1,9 +1,9 @@
 #!/bin/sh
-echo "downloading submodule"
+echo "1. Downloading submodule"
+git submodule update --init --recursive 
+mkdir -p tmp
 
-make update
-
-echo "Executing build_all.bat for Windows"
+echo "2. Executing build_all.bat for Windows"
 BUILD_DIR="vendor/nimbus-build-system/vendor/Nim"
 
 if [ ! -d "$BUILD_DIR" ]; then
@@ -24,7 +24,7 @@ else
     cd ../..
 fi
 
-echo "Building wakunode2"
+echo "3. Building wakunode2"
 
 make wakunode2 V=1
 
