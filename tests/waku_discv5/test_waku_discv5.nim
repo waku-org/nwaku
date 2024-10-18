@@ -424,3 +424,23 @@ suite "Waku Discovery v5":
         waku.node.peerManager.wakuPeerStore.peers().anyIt(
           it.enr.isSome() and it.enr.get().toUri() == validEnr
         )
+
+    asyncTest "Invalid discv5 bootstrap node ENRs are ignored":
+      var conf = defaultTestWakuNodeConf()
+
+      let invalidEnr = "invalid-enr"
+
+      conf.discv5BootstrapNodes = @[invalidEnr]
+
+      let waku = Waku.init(conf).valueOr:
+        raiseAssert error
+
+      discard setupDiscoveryV5(
+        waku.node.enr, waku.node.peerManager, waku.node.topicSubscriptionQueue,
+        waku.conf, waku.dynamicBootstrapNodes, waku.rng, waku.key,
+      )
+
+      check:
+        not waku.node.peerManager.wakuPeerStore.peers().anyIt(
+          it.enr.isSome() and it.enr.get().toUri() == invalidEnr
+        )
