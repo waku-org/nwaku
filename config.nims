@@ -8,9 +8,6 @@ else:
 if defined(windows):
   switch("passL", "rln.lib") 
 
-  for path in listDirs("vendor/.nimble/pkgs/"):
-    switch("path", path)
-
   # Automatically add all vendor subdirectories
   for dir in walkDir("./vendor"):
     if dir.kind == pcDir:
