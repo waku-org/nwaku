@@ -928,7 +928,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
         chronos.seconds(int(float(ConnectivityLoopInterval.seconds()) * factor))
 
     # Shorten the connectivity loop interval dynamically based on percentage of peers to fill or connections to prune
-    await sleepAsync(dynamicSleepInterval)
+    await sleepAsync(max(dynamicSleepInterval, chronos.seconds(1)))
 
 proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
   if amount <= 0:
