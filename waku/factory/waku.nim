@@ -275,7 +275,7 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
 
     waku[].node.announcedAddresses = netConf.announcedAddresses
 
-    printNodeNetworkInfo(waku[].node)
+    ?updateAnnouncedAddrWithPrimaryIpAddr(waku[].node)
 
   return ok()
 

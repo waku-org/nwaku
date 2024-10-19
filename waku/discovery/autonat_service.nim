@@ -6,6 +6,8 @@ import
   libp2p/protocols/connectivity/autonat/service,
   libp2p/protocols/connectivity/autonat/core
 
+const AutonatCheckInterval = Opt.some(chronos.seconds(30))
+
 proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   ## AutonatService request other peers to dial us back
   ## flagging us as Reachable or NotReachable.
@@ -15,7 +17,7 @@ proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
   let autonatService = AutonatService.new(
     autonatClient = AutonatClient.new(),
     rng = rng,
-    scheduleInterval = Opt.some(chronos.seconds(120)),
+    scheduleInterval = AutonatCheckInterval,
     askNewConnectedPeers = false,
     numPeersToAsk = 3,
     maxQueueSize = 3,
