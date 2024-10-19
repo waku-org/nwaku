@@ -17,6 +17,8 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
+  libp2p/protocols/connectivity/relay/relay,
+  libp2p/protocols/connectivity/relay/client,
   libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
@@ -50,7 +52,8 @@ import
   ../waku_rln_relay,
   ./config,
   ./peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  waku/discovery/autonat_service
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
@@ -115,33 +118,6 @@ type
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
-
-proc getAutonatService*(rng: ref HmacDrbgContext): AutonatService =
-  ## AutonatService request other peers to dial us back
-  ## flagging us as Reachable or NotReachable.
-  ## minConfidence is used as threshold to determine the state.
-  ## If maxQueueSize > numPeersToAsk past samples are considered
-  ## in the calculation.
-  let autonatService = AutonatService.new(
-    autonatClient = AutonatClient.new(),
-    rng = rng,
-    scheduleInterval = Opt.some(chronos.seconds(120)),
-    askNewConnectedPeers = false,
-    numPeersToAsk = 3,
-    maxQueueSize = 3,
-    minConfidence = 0.7,
-  )
-
-  proc statusAndConfidenceHandler(
-      networkReachability: NetworkReachability, confidence: Opt[float]
-  ): Future[void] {.gcsafe, async.} =
-    if confidence.isSome():
-      info "Peer reachability status",
-        networkReachability = networkReachability, confidence = confidence.get()
-
-  autonatService.statusAndConfidenceHandler(statusAndConfidenceHandler)
-
-  return autonatService
 
 proc new*(
     T: type WakuNode,
@@ -432,9 +408,6 @@ proc startRelay*(node: WakuNode) {.async.} =
       node.wakuRelay.parameters.pruneBackoff + chronos.seconds(BackoffSlackTime)
 
     await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
-
-  # Start the WakuRelay protocol
-  await node.wakuRelay.start()
 
   info "relay started successfully"
 
@@ -1289,11 +1262,11 @@ proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
 
   return false
 
-proc printNodeNetworkInfo*(node: WakuNode): void =
+proc updateAnnouncedAddrWithPrimaryIpAddr*(node: WakuNode): Result[void, string] =
   let peerInfo = node.switch.peerInfo
   var announcedStr = ""
   var listenStr = ""
-  var localIp = ""
+  var localIp = "0.0.0.0"
 
   try:
     localIp = $getPrimaryIPAddr()
@@ -1302,19 +1275,28 @@ proc printNodeNetworkInfo*(node: WakuNode): void =
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
+  var newAnnouncedAddresses = newSeq[MultiAddress](0)
   for address in node.announcedAddresses:
-    var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+    ## Replace "0.0.0.0" or "127.0.0.1" with the localIp
+    let newAddr = ($address).replace("0.0.0.0", localIp).replace("127.0.0.1", localIp)
+    let fulladdr = "[" & $newAddr & "/p2p/" & $peerInfo.peerId & "]"
     announcedStr &= fulladdr
+    let newMultiAddr = MultiAddress.init(newAddr).valueOr:
+      return err("error in updateAnnouncedAddrWithPrimaryIpAddr: " & $error)
+    newAnnouncedAddresses.add(newMultiAddr)
+
+  node.announcedAddresses = newAnnouncedAddresses
 
   for transport in node.switch.transports:
     for address in transport.addrs:
-      var fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
+      let fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
       listenStr &= fulladdr
 
-  ## XXX: this should be /ip4..., / stripped?
   info "Listening on", full = listenStr, localIp = localIp
   info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
+
+  return ok()
 
 proc start*(node: WakuNode) {.async.} =
   ## Starts a created Waku Node and
@@ -1355,7 +1337,8 @@ proc start*(node: WakuNode) {.async.} =
   node.started = true
 
   if not zeroPortPresent:
-    printNodeNetworkInfo(node)
+    updateAnnouncedAddrWithPrimaryIpAddr(node).isOkOr:
+      error "failed update announced addr", error = $error
   else:
     info "Listening port is dynamically allocated, address and ENR generation postponed"
 
