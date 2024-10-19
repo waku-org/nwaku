@@ -249,9 +249,9 @@ type WakuNodeConf* = object
     isRelayClient* {.
       desc:
         """Set the node as a relay-client.
-Set it to true for nodes that might run behind a NAT or firewall and
+Set it to true for nodes that run behind a NAT or firewall and
 hence would have reachability issues.""",
-      defaultValue: false
+      defaultValue: false,
       name: "relay-client"
     .}: bool
 
