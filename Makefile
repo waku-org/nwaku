@@ -49,7 +49,7 @@ ifeq ($(detected_OS),Windows)
   export TEMP := $(TMP_DIR)
   
   # Add the necessary libraries to the linker flags
-  LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll
+  LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll -lminiupnpc
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
 endif
 
@@ -164,7 +164,7 @@ clean: | clean-libbacktrace
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 LIBRLN_VERSION := v0.5.1
 
-ifeq ($(OS),Windows_NT)
+ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
 else
 LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
