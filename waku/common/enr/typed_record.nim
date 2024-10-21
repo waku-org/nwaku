@@ -84,10 +84,16 @@ func tcp*(record: TypedRecord): Option[uint16] =
   record.tryGet("tcp", uint16)
 
 func tcp6*(record: TypedRecord): Option[uint16] =
-  record.tryGet("tcp6", uint16)
+  let port = record.tryGet("tcp6", uint16)
+  if port.isNone():
+    return record.tcp()
+  return port
 
 func udp*(record: TypedRecord): Option[uint16] =
   record.tryGet("udp", uint16)
 
 func udp6*(record: TypedRecord): Option[uint16] =
-  record.tryGet("udp6", uint16)
+  let port = record.tryGet("udp6", uint16)
+  if port.isNone():
+    return record.udp()
+  return port
