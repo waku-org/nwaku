@@ -42,14 +42,14 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      manager.rlnContractDeployedBlockNumber > 0
+      manager.rlnContractDeployedBlockNumber > 0.Quantity
       manager.rlnRelayMaxMessageLimit == 100
 
     await manager.stop()
 
   asyncTest "should error on initialization when chainId does not match":
     let manager = await setup()
-    manager.chainId = CHAIN_ID + 1
+    manager.chainId = utils_onchain.CHAIN_ID + 1
 
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when chainId does not match"

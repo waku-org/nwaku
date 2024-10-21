@@ -3,10 +3,11 @@
 import
   os,
   web3,
-  web3/ethtypes,
+  web3/eth_api_types,
+  web3/primitives,
   eth/keys as keys,
   chronicles,
-  nimcrypto/keccak,
+  nimcrypto/keccak as keccak,
   stint,
   json,
   std/tables,
@@ -30,11 +31,11 @@ logScope:
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: UInt32)
+  proc register(idCommitment: UInt256, userMessageLimit: StUint[32])
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(rateCommitment: UInt256, index: Uint32) {.event.}
+  proc MemberRegistered(rateCommitment: UInt256, index: StUint[32]) {.event.}
 
   # this function denotes existence of a given user
   proc memberExists(idCommitment: Uint256): UInt256 {.view.}
@@ -100,7 +101,7 @@ proc setMetadata*(
   try:
     let metadataSetRes = g.rlnInstance.setMetadata(
       RlnMetadata(
-        lastProcessedBlock: normalizedBlock,
+        lastProcessedBlock: normalizedBlock.uint64,
         chainId: g.chainId,
         contractAddress: g.ethContractAddress,
         validRoots: g.validRoots.toSeq(),
@@ -190,15 +191,15 @@ method register*(
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
-  debug "ts receipt", tsReceipt
+  # debug "ts receipt", tsReceipt
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak256.digest("MemberRegistered(uint256,uint32)").data):
+      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint32)").data):
     raise newException(ValueError, "unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
-  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits 
+  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits
   let arguments = tsReceipt.logs[0].data
   debug "tx log data", arguments = arguments
   let
@@ -231,11 +232,10 @@ proc parseEvent(
   ## returns an error if it cannot parse the `data` parameter
   var rateCommitment: UInt256
   var index: UInt256
-  var data: string
-  # Remove the 0x prefix
+  var data: seq[byte]
   try:
-    data = strip0xPrefix(log["data"].getStr())
-  except CatchableError:
+    data = hexToSeqByte(log["data"].getStr())
+  except ValueError:
     return err(
       "failed to parse the data field of the MemberRegistered event: " &
         getCurrentExceptionMsg()
@@ -243,9 +243,9 @@ proc parseEvent(
   var offset = 0
   try:
     # Parse the rateCommitment
-    offset += decode(data, offset, rateCommitment)
+    offset += decode(data, 0, offset, rateCommitment)
     # Parse the index
-    offset += decode(data, offset, index)
+    offset += decode(data, 0, offset, index)
     return ok(
       Membership(
         rateCommitment: rateCommitment.toRateCommitment(),
@@ -291,13 +291,18 @@ proc getRawEvents(
   let ethRpc = g.ethRpc.get()
   let wakuRlnContract = g.wakuRlnContract.get()
 
-  var events: JsonNode
-  g.retryWrapper(events, "Failed to get the events"):
+  var eventStrs: seq[JsonString]
+  g.retryWrapper(eventStrs, "Failed to get the events"):
     await wakuRlnContract.getJsonLogs(
       MemberRegistered,
-      fromBlock = some(fromBlock.blockId()),
-      toBlock = some(toBlock.blockId()),
+      fromBlock = Opt.some(fromBlock.blockId()),
+      toBlock = Opt.some(toBlock.blockId()),
     )
+
+  var events: JsonNode
+  if events.len == 0:
+    for eventStr in eventStrs:
+      events.add(parseJson($eventStr))
   return events
 
 proc getBlockTable(
@@ -314,7 +319,7 @@ proc getBlockTable(
     return blockTable
 
   for event in events:
-    let blockNumber = parseHexInt(event["blockNumber"].getStr()).uint
+    let blockNumber = parseHexInt(event["blockNumber"].getStr()).Quantity
     let removed = event["removed"].getBool()
     let parsedEventRes = parseEvent(MemberRegistered, event)
     if parsedEventRes.isErr():
@@ -450,13 +455,13 @@ proc startOnchainSync(
   let ethRpc = g.ethRpc.get()
 
   # static block chunk size
-  let blockChunkSize = 2_000
+  let blockChunkSize = 2_000.BlockNumber
   # delay between rpc calls to not overload the rate limit
   let rpcDelay = 200.milliseconds
   # max number of futures to run concurrently
   let maxFutures = 10
 
-  var fromBlock =
+  var fromBlock: BlockNumber =
     if g.latestProcessedBlock > g.rlnContractDeployedBlockNumber:
       info "syncing from last processed block", blockNumber = g.latestProcessedBlock
       g.latestProcessedBlock + 1
@@ -479,11 +484,11 @@ proc startOnchainSync(
       if fromBlock >= currentLatestBlock:
         break
 
-      if fromBlock + blockChunkSize.uint > currentLatestBlock.uint:
+      if fromBlock + blockChunkSize > currentLatestBlock:
         g.retryWrapper(currentLatestBlock, "Failed to get the latest block number"):
           cast[BlockNumber](await ethRpc.provider.eth_blockNumber())
 
-      let toBlock = min(fromBlock + BlockNumber(blockChunkSize), currentLatestBlock)
+      let toBlock = min(fromBlock + blockChunkSize, currentLatestBlock)
       debug "fetching events", fromBlock = fromBlock, toBlock = toBlock
       await sleepAsync(rpcDelay)
       futs.add(g.getAndHandleEvents(fromBlock, toBlock))
@@ -551,7 +556,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
     let pk = g.ethPrivateKey.get()
     let parsedPk = keys.PrivateKey.fromHex(pk).valueOr:
       return err("failed to parse the private key" & ": " & $error)
-    ethRpc.privateKey = some(parsedPk)
+    ethRpc.privateKey = Opt.some(parsedPk)
     ethRpc.defaultAccount =
       ethRpc.privateKey.get().toPublicKey().toCanonicalAddress().Address
 
@@ -605,7 +610,7 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
     if metadata.contractAddress != g.ethContractAddress.toLower():
       return err("persisted data: contract address mismatch")
-    g.latestProcessedBlock = metadata.lastProcessedBlock
+    g.latestProcessedBlock = metadata.lastProcessedBlock.BlockNumber
     g.validRoots = metadata.validRoots.toDeque()
 
   var deployedBlockNumber: Uint256
@@ -661,10 +666,10 @@ method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
 proc isSyncing*(g: OnchainGroupManager): Future[bool] {.async, gcsafe.} =
   let ethRpc = g.ethRpc.get()
 
-  var syncing: JsonNode
+  var syncing: SyncingStatus
   g.retryWrapper(syncing, "Failed to get the syncing status"):
     await ethRpc.provider.eth_syncing()
-  return syncing.getBool()
+  return syncing.syncing
 
 method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
   initializedGuard(g)
@@ -677,7 +682,7 @@ method isReady*(g: OnchainGroupManager): Future[bool] {.async.} =
     cast[BlockNumber](await g.ethRpc.get().provider.eth_blockNumber())
 
   # the node is still able to process messages if it is behind the latest block by a factor of the valid roots
-  if u256(g.latestProcessedBlock) < (u256(currentBlock) - u256(g.validRoots.len)):
+  if u256(g.latestProcessedBlock.uint64) < (u256(currentBlock) - u256(g.validRoots.len)):
     return false
 
   return not (await g.isSyncing())
