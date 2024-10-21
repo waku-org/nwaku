@@ -53,7 +53,7 @@ type WakuArchive* = ref object
 proc validate*(msg: WakuMessage): Result[void, string] =
   if msg.ephemeral:
     # Ephemeral message, do not store
-    return
+    return ok()
 
   let
     now = getNanosecondTime(getTime().toUnixFloat())
@@ -87,9 +87,42 @@ proc handleMessage*(
 ) {.async.} =
   self.validator(msg).isOkOr:
     waku_archive_errors.inc(labelValues = [error])
+    trace "failed to insert message",
+      hash_hash = computeMessageHash(pubsubTopic, msg).to0xHex(),
+      pubsubTopic = pubsubTopic,
+      contentTopic = msg.contentTopic,
+      timestamp = msg.timestamp,
+      error = error
     return
 
   let msgHash = computeMessageHash(pubsubTopic, msg)
+  let insertStartTime = getTime().toUnixFloat()
+
+  (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
+    waku_archive_errors.inc(labelValues = [insertFailure])
+    trace "failed to insert message",
+      hash_hash = msgHash.to0xHex(),
+      pubsubTopic = pubsubTopic,
+      contentTopic = msg.contentTopic,
+      timestamp = msg.timestamp,
+      error = error
+    return
+
+  trace "message archived",
+    hash_hash = msgHash.to0xHex(),
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    timestamp = msg.timestamp
+
+  let insertDuration = getTime().toUnixFloat() - insertStartTime
+  waku_archive_insert_duration_seconds.observe(insertDuration)
+
+proc syncMessageIngress*(
+    self: WakuArchive,
+    msgHash: WakuMessageHash,
+    pubsubTopic: PubsubTopic,
+    msg: WakuMessage,
+) {.async.} =
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
