@@ -53,7 +53,7 @@ type WakuArchive* = ref object
 proc validate*(msg: WakuMessage): Result[void, string] =
   if msg.ephemeral:
     # Ephemeral message, do not store
-    return ok()
+    return
 
   let
     now = getNanosecondTime(getTime().toUnixFloat())
