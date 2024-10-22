@@ -407,6 +407,9 @@ proc startRelay*(node: WakuNode) {.async.} =
 
     await node.peerManager.reconnectPeers(WakuRelayCodec, backoffPeriod)
 
+  # Start the WakuRelay protocol
+  await node.wakuRelay.start()
+
   info "relay started successfully"
 
 proc mountRelay*(
