@@ -48,7 +48,7 @@ proc setup*(): Waku =
     conf.rlnRelay = twnClusterConf.rlnRelay
 
   debug "Starting node"
-  var waku = Waku.init(conf).valueOr:
+  var waku = Waku.new(conf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 

@@ -108,6 +108,19 @@ proc new*(
     topicSubscriptionQueue: queue,
   )
 
+proc updateAnnouncedMultiAddress*(
+    wd: WakuDiscoveryV5, addresses: seq[MultiAddress]
+): Result[void, string] =
+  let encodedAddrs = multiaddr.encodeMultiaddrs(addresses)
+
+  wd.protocol.updateRecord([(MultiaddrEnrField, encodedAddrs)]).isOkOr:
+    return err("failed to update multiaddress in ENR: " & $error)
+
+  debug "ENR updated successfully with new multiaddress",
+    enr = wd.protocol.localNode.record.toUri(), record = $(wd.protocol.localNode.record)
+
+  return ok()
+
 proc updateENRShards(
     wd: WakuDiscoveryV5, newTopics: seq[PubsubTopic], add: bool
 ): Result[void, string] =
@@ -286,7 +299,9 @@ proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
     if subRes.isErr() and unsubRes.isErr():
       continue
 
-    debug "ENR updated successfully"
+    debug "ENR updated successfully",
+      enrUri = wd.protocol.localNode.record.toUri(),
+      enr = $(wd.protocol.localNode.record)
 
     wd.predicate =
       shardingPredicate(wd.protocol.localNode.record, wd.protocol.bootstrapRecords)
@@ -314,7 +329,8 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises:
   asyncSpawn wd.subscriptionsListener()
 
   debug "Successfully started discovery v5 service"
-  info "Discv5: discoverable ENR ", enr = wd.protocol.localNode.record.toUri()
+  info "Discv5: discoverable ENR ",
+    enrUri = wd.protocol.localNode.record.toUri(), enr = $(wd.protocol.localNode.record)
 
   ok()
 

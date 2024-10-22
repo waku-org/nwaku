@@ -77,9 +77,7 @@ proc newWakuSwitch*(
     secureCertPath: string = "",
     agentString = none(string), # defaults to nim-libp2p version
     peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
-    services: seq[switch.Service] = @[],
     rendezvous: RendezVous = nil,
-    isRelayClient: bool = false,
     relay: Relay,
 ): Switch {.raises: [Defect, IOError, LPError].} =
   var b = SwitchBuilder
@@ -116,9 +114,6 @@ proc newWakuSwitch*(
       b = b.withWsTransport()
   else:
     b = b.withAddress(address)
-
-  if services.len > 0:
-    b = b.withServices(services)
 
   if not rendezvous.isNil():
     b = b.withRendezVous(rendezvous)

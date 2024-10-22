@@ -17,8 +17,6 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
-  libp2p/protocols/connectivity/relay/relay,
-  libp2p/protocols/connectivity/relay/client,
   libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
@@ -1275,6 +1273,7 @@ proc updateAnnouncedAddrWithPrimaryIpAddr*(node: WakuNode): Result[void, string]
 
   info "PeerInfo", peerId = peerInfo.peerId, addrs = peerInfo.addrs
 
+  ## Update the WakuNode addresses
   var newAnnouncedAddresses = newSeq[MultiAddress](0)
   for address in node.announcedAddresses:
     ## Replace "0.0.0.0" or "127.0.0.1" with the localIp
@@ -1287,12 +1286,16 @@ proc updateAnnouncedAddrWithPrimaryIpAddr*(node: WakuNode): Result[void, string]
 
   node.announcedAddresses = newAnnouncedAddresses
 
+  ## Update the Switch addresses
+  node.switch.peerInfo.addrs = newAnnouncedAddresses
+
   for transport in node.switch.transports:
     for address in transport.addrs:
       let fulladdr = "[" & $address & "/p2p/" & $peerInfo.peerId & "]"
       listenStr &= fulladdr
 
-  info "Listening on", full = listenStr, localIp = localIp
+  info "Listening on",
+    full = listenStr, localIp = localIp, switchAddress = $(node.switch.peerInfo.addrs)
   info "Announcing addresses", full = announcedStr
   info "DNS: discoverable ENR ", enr = node.enr.toUri()
 

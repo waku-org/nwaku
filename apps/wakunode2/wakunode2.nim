@@ -42,7 +42,7 @@ when isMainModule:
     error "failure while loading the configuration", error = error
     quit(QuitFailure)
 
-  ## Also called within Waku.init. The call to startRestServerEsentials needs the following line
+  ## Also called within Waku.new. The call to startRestServerEsentials needs the following line
   logging.setupLog(conf.logLevel, conf.logFormat)
 
   case conf.cmd
@@ -66,7 +66,7 @@ when isMainModule:
       error "Starting esential REST server failed.", error = $error
       quit(QuitFailure)
 
-    var waku = Waku.init(confCopy).valueOr:
+    var waku = Waku.new(confCopy).valueOr:
       error "Waku initialization failed", error = error
       quit(QuitFailure)
 
