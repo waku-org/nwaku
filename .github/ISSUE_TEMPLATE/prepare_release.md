@@ -66,3 +66,4 @@ All items below are to be completed by the owner of the given release.
 - [ ] **Post release**
   - [ ] Submit a PR from the release branch to master. Important to commit the PR with "create a merge commit" option.
   - [ ] Update waku-org/nwaku-compose with the new release version.
+  - [ ] Update version in js-waku repo. [update only this](https://github.com/waku-org/js-waku/blob/7c0ce7b2eca31cab837da0251e1e4255151be2f7/.github/workflows/ci.yml#L135) by submitting a PR.
