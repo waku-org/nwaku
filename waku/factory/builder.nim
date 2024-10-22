@@ -41,7 +41,7 @@ type
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
     services: seq[Service]
-    relay: Relay
+    circuitRelay: Relay
 
     #Rate limit configs for non-relay req-resp protocols
     rateLimitSettings: Option[seq[string]]
@@ -120,8 +120,8 @@ proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
 proc withRateLimit*(builder: var WakuNodeBuilder, limits: seq[string]) =
   builder.rateLimitSettings = some(limits)
 
-proc withRelay*(builder: var WakuNodeBuilder, relay: Relay) =
-  builder.relay = relay
+proc withCircuitRelay*(builder: var WakuNodeBuilder, circuitRelay: Relay) =
+  builder.circuitRelay = circuitRelay
 
 ## Waku switch
 
@@ -161,6 +161,12 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.record.isNone():
     return err("node record is required")
 
+  let circuitRelay =
+    if builder.circuitRelay.isNil():
+      Relay.new()
+    else:
+      builder.circuitRelay
+
   var switch: Switch
   try:
     switch = newWakuSwitch(
@@ -177,7 +183,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
       agentString = builder.switchAgentString,
       peerStoreCapacity = builder.peerStorageCapacity,
-      relay = builder.relay,
+      circuitRelay = circuitRelay,
     )
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())

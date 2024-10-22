@@ -78,7 +78,7 @@ proc newWakuSwitch*(
     agentString = none(string), # defaults to nim-libp2p version
     peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
     rendezvous: RendezVous = nil,
-    relay: Relay,
+    circuitRelay: Relay,
 ): Switch {.raises: [Defect, IOError, LPError].} =
   var b = SwitchBuilder
     .new()
@@ -93,7 +93,7 @@ proc newWakuSwitch*(
     .withTcpTransport(transportFlags)
     .withNameResolver(nameResolver)
     .withSignedPeerRecord(sendSignedPeerRecord)
-    .withCircuitRelay(relay)
+    .withCircuitRelay(circuitRelay)
     .withAutonat()
 
   if peerStoreCapacity.isSome():
