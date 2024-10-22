@@ -87,8 +87,8 @@ proc handleMessage*(
 ) {.async.} =
   self.validator(msg).isOkOr:
     waku_archive_errors.inc(labelValues = [error])
-    trace "failed to insert message",
-      hash_hash = computeMessageHash(pubsubTopic, msg).to0xHex(),
+    trace "invalid message",
+      msg_hash = computeMessageHash(pubsubTopic, msg).to0xHex(),
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
@@ -101,7 +101,7 @@ proc handleMessage*(
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     trace "failed to insert message",
-      hash_hash = msgHash.to0xHex(),
+      msg_hash = msgHash.to0xHex(),
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
@@ -109,7 +109,7 @@ proc handleMessage*(
     return
 
   trace "message archived",
-    hash_hash = msgHash.to0xHex(),
+    msg_hash = msgHash.to0xHex(),
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     timestamp = msg.timestamp
@@ -128,7 +128,7 @@ proc syncMessageIngress*(
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     trace "failed to insert message",
-      hash_hash = msgHash.to0xHex(),
+      msg_hash = msgHash.to0xHex(),
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
@@ -136,7 +136,7 @@ proc syncMessageIngress*(
     return
 
   trace "message archived",
-    hash_hash = msgHash.to0xHex(),
+    msg_hash = msgHash.to0xHex(),
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     timestamp = msg.timestamp
