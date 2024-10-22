@@ -30,10 +30,10 @@ type WakuFilter* = ref object of LPProtocol
   peerRequestRateLimiter*: PerPeerRateLimiter
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
-  trace "pinging subscriber", peerId = peerId
+  debug "pinging subscriber", peerId = shortLog(peerId)
 
   if not wf.subscriptions.isSubscribed(peerId):
-    debug "pinging peer has no subscriptions", peerId = peerId
+    debug "pinging peer has no subscriptions", peerId = shortLog(peerId)
     return err(FilterSubscribeError.notFound())
 
   wf.subscriptions.refreshSubscription(peerId)
@@ -125,13 +125,20 @@ proc handleSubscribeRequest*(
     ## Handle subscribe request
     case request.filterSubscribeType
     of FilterSubscribeType.SUBSCRIBER_PING:
+      debug "debugging filter ping", peerId
       subscribeResult = wf.pingSubscriber(peerId)
     of FilterSubscribeType.SUBSCRIBE:
+      debug "debugging filter subscribe",
+        peerId, pubsubTopic = $(request.pubsubTopic), cTopics = $(request.contentTopics)
       subscribeResult = wf.subscribe(peerId, request.pubsubTopic, request.contentTopics)
     of FilterSubscribeType.UNSUBSCRIBE:
+      debug "debugging filter unsibscribe",
+        peerId, pubsubTopic = $(request.pubsubTopic), cTopics = $(request.contentTopics)
       subscribeResult =
         wf.unsubscribe(peerId, request.pubsubTopic, request.contentTopics)
     of FilterSubscribeType.UNSUBSCRIBE_ALL:
+      debug "debugging filter unsubscribe all",
+        peerId, pubsubTopic = $(request.pubsubTopic), cTopics = $(request.contentTopics)
       subscribeResult = wf.unsubscribeAll(peerId)
 
   let
@@ -143,16 +150,18 @@ proc handleSubscribeRequest*(
   )
 
   if subscribeResult.isErr():
+    debug "debugging filter is err", error = $(subscribeResult.error)
     return FilterSubscribeResponse(
       requestId: request.requestId,
       statusCode: subscribeResult.error.kind.uint32,
       statusDesc: some($subscribeResult.error),
     )
   else:
+    debug "debugging filter ok"
     return FilterSubscribeResponse.ok(request.requestId)
 
 proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
-  trace "pushing message to subscribed peer", peer_id = shortLog(peer)
+  debug "pushing message to subscribed peer", peer_id = shortLog(peer)
 
   if not wf.peerManager.wakuPeerStore.hasPeer(peer, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
@@ -175,6 +184,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
 proc pushToPeers(
     wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush
 ) {.async.} =
+  debug "debugging filter pushToPeers"
   let targetPeerIds = peers.mapIt(shortLog(it))
   let msgHash =
     messagePush.pubsubTopic.computeMessageHash(messagePush.wakuMessage).to0xHex()
@@ -202,7 +212,7 @@ proc pushToPeers(
     await allFutures(pushFuts)
 
 proc maintainSubscriptions*(wf: WakuFilter) =
-  trace "maintaining subscriptions"
+  debug "maintaining subscriptions"
 
   ## Remove subscriptions for peers that have been removed from peer store
   var peersToRemove: seq[PeerId]
@@ -227,7 +237,7 @@ proc handleMessage*(
 ) {.async.} =
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
 
-  trace "handling message", pubsubTopic = pubsubTopic, msg_hash = msgHash
+  debug "handling message", pubsubTopic = pubsubTopic, msg_hash = msgHash
 
   let handleMessageStartTime = Moment.now()
 
