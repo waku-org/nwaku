@@ -105,7 +105,7 @@ proc initNode(
     maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
   )
   builder.withRateLimit(conf.rateLimits)
-  builder.withRelay(relay)
+  builder.withCircuitRelay(relay)
 
   node =
     ?builder.build().mapErr(
