@@ -40,7 +40,6 @@ type
     switchSslSecureKey: Option[string]
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
-    services: seq[Service]
     circuitRelay: Relay
 
     #Rate limit configs for non-relay req-resp protocols
