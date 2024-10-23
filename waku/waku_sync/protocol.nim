@@ -70,7 +70,7 @@ proc messageIngress*(
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
 
   if self.storage.insert(msg.timestamp, msgHash).isErr():
-    error "failed to insert message ", msg_hash = msgHash.to0xHex()
+    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = $error
 
 proc calculateRange(
     jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
@@ -130,6 +130,9 @@ proc request(
       debug "sync session ended gracefully",
         client = self.peerManager.switch.peerInfo.peerId, server = conn.peerId
 
+      trace "hashes to sync",
+        client = self.peerManager.switch.peerInfo.peerId, msg_hashes = $hashes
+
       return ok(hashes)
 
     continue
@@ -176,6 +179,9 @@ proc handleSyncSession(
       let completed = error # Result[Reconciled, Completed]
 
       let hashes = await completed.serverTerminate()
+
+      trace "hashes to sync",
+        server = self.peerManager.switch.peerInfo.peerId, msg_hashes = $hashes
 
       return ok(hashes)
 
