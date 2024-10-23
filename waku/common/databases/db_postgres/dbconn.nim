@@ -222,7 +222,7 @@ proc containsRiskyPatterns(input: string): bool =
 
 proc isSecureString(input: string): bool =
   ## Returns `false` if the string contains risky characters or patterns, `true` otherwise.
-  let riskyChars = {'\'', '\"', ';', '-', '#', '\\', '%', '_', '/', '*', '\0'}
+  let riskyChars = {'\'', '\"', ';', '#', '\\', '%', '_', '/', '*', '\0'}
 
   for ch in input:
     if ch in riskyChars:

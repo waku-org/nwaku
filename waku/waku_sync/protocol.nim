@@ -289,7 +289,9 @@ proc createTransferCallback(
 
       for kv in response.messages:
         let handleRes = catch:
-          await wakuArchive.handleMessage(kv.pubsubTopic.get(), kv.message.get())
+          await wakuArchive.syncMessageIngress(
+            kv.messageHash, kv.pubsubTopic.get(), kv.message.get()
+          )
 
         if handleRes.isErr():
           error "message transfer failed", error = handleRes.error.msg
