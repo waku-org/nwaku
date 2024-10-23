@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sequtils, times, sugar],
+  std/[options, sequtils, times, sugar, net],
   stew/shims/net as stewNet,
   testutils/unittests,
   chronos,
@@ -270,12 +270,12 @@ procSuite "Peer Manager":
       storage = WakuPeerStorage.new(database)[]
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("127.0.0.1"),
+        ValidIpAddress.init($getPrimaryIPAddr()),
         Port(44048),
         peerStorage = storage,
       )
       node2 = newTestWakuNode(
-        generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(34023)
+        generateSecp256k1Key(), ValidIpAddress.init($getPrimaryIPAddr()), Port(34023)
       )
 
     node1.mountMetadata(0).expect("Mounted Waku Metadata")
@@ -345,12 +345,12 @@ procSuite "Peer Manager":
       storage = WakuPeerStorage.new(database)[]
       node1 = newTestWakuNode(
         generateSecp256k1Key(),
-        ValidIpAddress.init("127.0.0.1"),
+        ValidIpAddress.init($getPrimaryIPAddr()),
         Port(44048),
         peerStorage = storage,
       )
       node2 = newTestWakuNode(
-        generateSecp256k1Key(), ValidIpAddress.init("127.0.0.1"), Port(34023)
+        generateSecp256k1Key(), ValidIpAddress.init($getPrimaryIPAddr()), Port(34023)
       )
 
     node1.mountMetadata(0).expect("Mounted Waku Metadata")

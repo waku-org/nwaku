@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[sequtils, strutils],
+  std/[sequtils, strutils, net],
   stew/byteutils,
   stew/shims/net as stewNet,
   testutils/unittests,
@@ -169,7 +169,7 @@ suite "WakuNode":
       nodeKey = generateSecp256k1Key()
       bindIp = parseIpAddress("0.0.0.0")
       bindPort = Port(61006)
-      extIp = some(parseIpAddress("127.0.0.1"))
+      extIp = some(parseIpAddress($getPrimaryIPAddr()))
       extPort = some(Port(61008))
       node = newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort)
 
@@ -205,7 +205,7 @@ suite "WakuNode":
       nodeKey = generateSecp256k1Key()
       bindIp = parseIpAddress("0.0.0.0")
       bindPort = Port(61010)
-      extIp = some(parseIpAddress("127.0.0.1"))
+      extIp = some(parseIpAddress($getPrimaryIPAddr()))
       extPort = some(Port(61012))
       domainName = "example.com"
       expectedDns4Addr =
