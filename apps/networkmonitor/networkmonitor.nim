@@ -614,6 +614,12 @@ when isMainModule:
   waitFor node.mountRelay()
   waitFor node.mountLibp2pPing()
 
+  var onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
+    ## Action to be taken when an internal error occurs during the node run.
+    ## e.g. the connection with the database is lost and not recovered.
+    error "Unrecoverable error occurred", error = msg
+    quit(QuitFailure)
+
   if conf.rlnRelay and conf.rlnRelayEthContractAddress != "":
     let rlnConf = WakuRlnConfig(
       rlnRelayDynamic: conf.rlnRelayDynamic,
@@ -624,6 +630,7 @@ when isMainModule:
       rlnRelayCredPassword: "",
       rlnRelayTreePath: conf.rlnRelayTreePath,
       rlnEpochSizeSec: conf.rlnEpochSizeSec,
+      onFatalErrorAction: onFatalErrorAction,
     )
 
     try:

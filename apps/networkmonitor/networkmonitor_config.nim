@@ -45,7 +45,9 @@ type NetworkMonitorConf* = object
   .}: seq[uint16]
 
   numShardsInNetwork* {.
-    desc: "Number of shards in the network", name: "num-shards-in-network"
+    desc: "Number of shards in the network",
+    name: "num-shards-in-network",
+    defaultValue: 8
   .}: uint32
 
   refreshInterval* {.
