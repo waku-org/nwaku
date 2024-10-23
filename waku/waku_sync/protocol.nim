@@ -69,8 +69,8 @@ proc messageIngress*(
   trace "inserting message into waku sync storage ",
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
 
-  if self.storage.insert(msg.timestamp, msgHash).isErr():
-    error "failed to insert message ", msg_hash = msgHash.to0xHex()
+  self.storage.insert(msg.timestamp, msgHash).isOkOr:
+    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = error
 
 proc calculateRange(
     jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
@@ -130,6 +130,9 @@ proc request(
       debug "sync session ended gracefully",
         client = self.peerManager.switch.peerInfo.peerId, server = conn.peerId
 
+      trace "hashes to sync",
+        client = self.peerManager.switch.peerInfo.peerId, msg_hashes = $hashes
+
       return ok(hashes)
 
     continue
@@ -176,6 +179,9 @@ proc handleSyncSession(
       let completed = error # Result[Reconciled, Completed]
 
       let hashes = await completed.serverTerminate()
+
+      trace "hashes to sync",
+        server = self.peerManager.switch.peerInfo.peerId, msg_hashes = $hashes
 
       return ok(hashes)
 
@@ -364,7 +370,7 @@ proc new*(
     syncInterval: syncInterval,
     syncRange: syncRange,
     relayJitter: relayJitter,
-    pruneOffset: syncInterval div 100,
+    pruneOffset: syncInterval div 10, # 10% offset
   )
 
   sync.initProtocolHandler()
@@ -399,6 +405,9 @@ proc new*(
 
 proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
   debug "periodic sync initialized", interval = $self.syncInterval
+
+  # to stagger the intervals
+  await sleepAsync((self.syncInterval div 2))
 
   while true: # infinite loop
     await sleepAsync(self.syncInterval)
