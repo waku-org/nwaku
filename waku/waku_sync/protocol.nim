@@ -69,8 +69,8 @@ proc messageIngress*(
   trace "inserting message into waku sync storage ",
     msg_hash = msgHash.to0xHex(), timestamp = msg.timestamp
 
-  if self.storage.insert(msg.timestamp, msgHash).isErr():
-    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = $error
+  self.storage.insert(msg.timestamp, msgHash).isOkOr:
+    error "failed to insert message ", msg_hash = msgHash.to0xHex(), error = error
 
 proc calculateRange(
     jitter: Duration = 20.seconds, syncRange: Duration = 1.hours
