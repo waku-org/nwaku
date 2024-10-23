@@ -11,7 +11,7 @@ The nwaku repository implements Waku, and provides tools related to it.
 
 For more details see the [source code](waku/README.md)
 
-## How to Build & Run
+## How to Build & Run ( Linux, MacOS & WSL )
 
 These instructions are generic. For more detailed instructions, see the Waku source code above.
 
@@ -47,6 +47,17 @@ For more on how to run `wakunode2`, refer to:
 #### Issues
 ##### WSL
 If you encounter difficulties building the project on WSL, consider placing the project within WSL's filesystem, avoiding the `/mnt/` directory.
+
+### How to Build & Run ( Windows )
+
+Note: This is a work in progress. The current setup procedure is as follows:
+Goal: Get rid of windows specific procedures and make the build process the same as linux/macos. 
+
+The current setup procedure is as follows:
+
+1. Clone the repository and checkout master branch
+2. Ensure prerequisites are installed (Make, GCC, MSYS2/MinGW)
+3. Run scripts/windows_setup.sh
 
 ### Developing
 
