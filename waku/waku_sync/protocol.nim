@@ -370,7 +370,7 @@ proc new*(
     syncInterval: syncInterval,
     syncRange: syncRange,
     relayJitter: relayJitter,
-    pruneOffset: syncInterval div 100,
+    pruneOffset: syncInterval div 10, # 10% offset
   )
 
   sync.initProtocolHandler()
@@ -405,6 +405,9 @@ proc new*(
 
 proc periodicSync(self: WakuSync, callback: TransferCallback) {.async.} =
   debug "periodic sync initialized", interval = $self.syncInterval
+
+  # to stagger the intervals
+  await sleepAsync((self.syncInterval div 2))
 
   while true: # infinite loop
     await sleepAsync(self.syncInterval)
