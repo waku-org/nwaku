@@ -177,6 +177,12 @@ int waku_peer_exchange_request(void* ctx,
                                WakuCallBack callback,
                                void* userData);
 
+int waku_ping_peer(void* ctx,
+                        const char* peerAddr,
+                        int timeoutMs,
+                        WakuCallBack callback,
+                        void* userData);
+
 #ifdef __cplusplus
 }
 #endif
