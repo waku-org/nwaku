@@ -627,7 +627,7 @@ proc onPeerMetadata(pm: PeerManager, peerId: PeerId) {.async.} =
 
     return
 
-  info "disconnecting from peer", peerId = peerId, reason = reason
+  debug "disconnecting from peer", peerId = shortLog(peerId), reason = reason
   asyncSpawn(pm.switch.disconnect(peerId))
   pm.wakuPeerStore.delete(peerId)
 
@@ -673,7 +673,8 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
       # pm.colocationLimit == 0 disables the ip colocation limit
       if pm.colocationLimit != 0 and peersBehindIp.len > pm.colocationLimit:
         for peerId in peersBehindIp[0 ..< (peersBehindIp.len - pm.colocationLimit)]:
-          debug "Pruning connection due to ip colocation", peerId = peerId, ip = ip
+          debug "Pruning connection due to ip colocation",
+            peerId = shortLog(peerId), ip = ip
           asyncSpawn(pm.switch.disconnect(peerId))
           pm.wakuPeerStore.delete(peerId)
   of Left:
@@ -889,6 +890,7 @@ proc prunePeerStore*(pm: PeerManager) =
       peersToPrune.incl(peer)
 
   for peer in peersToPrune:
+    debug "deleting peer", peerId = shortLog(peer)
     pm.wakuPeerStore.delete(peer)
 
   let afterNumPeers = pm.wakuPeerStore[AddressBook].book.len
