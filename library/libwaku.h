@@ -180,6 +180,9 @@ int waku_peer_exchange_request(void* ctx,
                                int numPeers,
                                WakuCallBack callback,
                                void* userData);
+int waku_get_health_report(void* ctx,
+                    WakuCallBack callback,
+                    void* userData);
 
 #ifdef __cplusplus
 }

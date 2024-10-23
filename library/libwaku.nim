@@ -672,5 +672,18 @@ proc waku_peer_exchange_request(
   )
   .handleRes(callback, userData)
 
+proc waku_get_health_report(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.DEBUG,
+    DebugNodeRequest.createShared(DebugNodeMsgType.GET_HEALTH_REPORT),
+  )
+  .handleRes(callback, userData)
+
 ### End of exported procs
 ################################################################################
