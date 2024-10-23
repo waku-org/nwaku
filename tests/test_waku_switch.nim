@@ -26,7 +26,7 @@ suite "Waku Switch":
     ## Given
     let
       sourceSwitch = newTestSwitch()
-      wakuSwitch = newWakuSwitch(rng = rng(), relay = Relay.new())
+      wakuSwitch = newWakuSwitch(rng = rng(), circuitRelay = Relay.new())
     await sourceSwitch.start()
     await wakuSwitch.start()
 
@@ -46,7 +46,7 @@ suite "Waku Switch":
   asyncTest "Waku Switch acts as circuit relayer":
     ## Setup
     let
-      wakuSwitch = newWakuSwitch(rng = rng(), relay = Relay.new())
+      wakuSwitch = newWakuSwitch(rng = rng(), circuitRelay = Relay.new())
       sourceClient = RelayClient.new()
       destClient = RelayClient.new()
       sourceSwitch = newCircuitRelayClientSwitch(sourceClient)
