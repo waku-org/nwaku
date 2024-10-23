@@ -29,10 +29,22 @@ GIT_SUBMODULE_UPDATE := git submodule update --init --recursive
 
 else # "variables.mk" was included. Business as usual until the end of this file.
 
-ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
- detected_OS := Windows
-else
- detected_OS := $(strip $(shell uname))
+# Determine the OS
+detected_OS := $(shell uname -s)
+ifneq (,$(findstring MINGW,$(detected_OS)))
+  detected_OS := Windows
+endif
+
+ifeq ($(detected_OS),Windows) 
+  # Define a new temporary directory for Windows
+  TMP_DIR := $(CURDIR)/tmp
+  $(shell mkdir -p $(TMP_DIR))
+  export TMP := $(TMP_DIR)
+  export TEMP := $(TMP_DIR)
+  
+  # Add the necessary libraries to the linker flags
+  LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll -lminiupnpc
+  NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
 endif
 
 ##########
@@ -146,7 +158,7 @@ clean: | clean-libbacktrace
 LIBRLN_BUILDDIR := $(CURDIR)/vendor/zerokit
 LIBRLN_VERSION := v0.5.1
 
-ifeq ($(OS),Windows_NT)
+ifeq ($(detected_OS),Windows)
 LIBRLN_FILE := rln.lib
 else
 LIBRLN_FILE := librln_$(LIBRLN_VERSION).a
