@@ -103,8 +103,10 @@ proc updateDiscv5BootstrapNodes(nodes: string, waku: ptr Waku): Result[void, str
 proc performPeerExchangeRequestTo(
     numPeers: uint64, waku: ptr Waku
 ): Future[Result[int, string]] {.async.} =
-  return (await waku.node.fetchPeerExchangePeers(numPeers)).isOkOr:
-    return err($error)
+  let numPeersRes = await waku.node.fetchPeerExchangePeers(numPeers)
+  if numPeersRes.isErr():
+    return err($numPeersRes.error)
+  return ok(numPeersRes.get())
 
 proc process*(
     self: ptr DiscoveryRequest, waku: ptr Waku
@@ -138,10 +140,12 @@ proc process*(
 
     return ok("discovery request processed correctly")
   of PEER_EXCHANGE:
-    let numValidPeers = (await performPeerExchangeRequestTo(self[].numPeers, waku)).valueOr:
-      error "PEER_EXCHANGE failed", error = error
-      return err("error calling performPeerExchangeRequestTo: " & $error)
-    return ok($numValidPeers)
+    let numValidPeers = await performPeerExchangeRequestTo(self[].numPeers, waku)
+    echo "---------- GABRIEL numValidPeers: ", numValidPeers
+    if numValidPeers.isErr():
+      error "PEER_EXCHANGE failed", error = numValidPeers.error
+      return err("error calling performPeerExchangeRequestTo: " & numValidPeers.error)
+    return ok($numValidPeers.get())
 
   error "discovery request not handled"
   return err("discovery request not handled")
