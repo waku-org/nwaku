@@ -1,5 +1,5 @@
 import
-  std/[strformat, sysrand, random, sequtils],
+  std/[strformat, sysrand, random, strutils, sequtils],
   system/ansi_c,
   chronicles,
   chronos,
@@ -14,11 +14,14 @@ import
     node/peer_manager,
     waku_core,
     waku_lightpush/client,
+    waku_lightpush/common,
     common/utils/parse_size_units,
   ],
   ./tester_config,
   ./tester_message,
-  ./lpt_metrics
+  ./lpt_metrics,
+  ./diagnose_connections,
+  ./service_peer_management
 
 randomize()
 
@@ -73,43 +76,46 @@ var failedToSendCause {.threadvar.}: Table[string, uint32]
 var failedToSendCount {.threadvar.}: uint32
 var numMessagesToSend {.threadvar.}: uint32
 var messagesSent {.threadvar.}: uint32
+var noOfServicePeerSwitches {.threadvar.}: uint32
 
-proc reportSentMessages() {.async.} =
-  while true:
-    await sleepAsync(chtimer.seconds(60))
-    let report = catch:
-      """*----------------------------------------*
+proc reportSentMessages() =
+  let report = catch:
+    """*----------------------------------------*
+|  Service Peer Switches: {noOfServicePeerSwitches:>15} |
+*----------------------------------------*
 |  Expected  |    Sent    |   Failed   |
 |{numMessagesToSend+failedToSendCount:>11} |{messagesSent:>11} |{failedToSendCount:>11} |
 *----------------------------------------*""".fmt()
 
-    if report.isErr:
-      echo "Error while printing statistics"
-    else:
-      echo report.get()
+  if report.isErr:
+    echo "Error while printing statistics"
+  else:
+    echo report.get()
 
-    echo "*--------------------------------------------------------------------------------------------------*"
-    echo "|  Failur cause                                                                         |  count   |"
-    for (cause, count) in failedToSendCause.pairs:
-      echo fmt"|{cause:<87}|{count:>10}|"
-    echo "*--------------------------------------------------------------------------------------------------*"
+  echo "*--------------------------------------------------------------------------------------------------*"
+  echo "|  Failure cause                                                                         |  count   |"
+  for (cause, count) in failedToSendCause.pairs:
+    echo fmt"|{cause:<87}|{count:>10}|"
+  echo "*--------------------------------------------------------------------------------------------------*"
 
-    echo "*--------------------------------------------------------------------------------------------------*"
-    echo "|  Index   | Relayed | Hash                                                                        |"
-    for (index, info) in sentMessages.pairs:
-      echo fmt"|{index:>10}|{info.relayed:<9}| {info.hash:<76}|"
-    echo "*--------------------------------------------------------------------------------------------------*"
-    # evere sent message hash should logged once
-    sentMessages.clear()
+  echo "*--------------------------------------------------------------------------------------------------*"
+  echo "|  Index   | Relayed | Hash                                                                        |"
+  for (index, info) in sentMessages.pairs:
+    echo fmt"|{index+1:>10}|{info.relayed:<9}| {info.hash:<76}|"
+  echo "*--------------------------------------------------------------------------------------------------*"
+  # evere sent message hash should logged once
+  sentMessages.clear()
 
 proc publishMessages(
     wakuNode: WakuNode,
+    servicePeer: RemotePeerInfo,
     lightpushPubsubTopic: PubsubTopic,
     lightpushContentTopic: ContentTopic,
     numMessages: uint32,
     messageSizeRange: SizeRange,
     delayMessages: Duration,
 ) {.async.} =
+  var actualServicePeer = servicePeer
   let startedAt = getNowInNanosecondTime()
   var prevMessageAt = startedAt
   var renderMsgSize = messageSizeRange
@@ -119,24 +125,35 @@ proc publishMessages(
   renderMsgSize.min = min(renderMsgSize.min, renderMsgSize.max)
   renderMsgSize.max = max(renderMsgSize.min, renderMsgSize.max)
 
+  const maxFailedPush = 3
+  var noFailedPush = 0
+  var noFailedServiceNodeSwitches = 0
+
   let selfPeerId = $wakuNode.switch.peerInfo.peerId
   failedToSendCount = 0
   numMessagesToSend = if numMessages == 0: uint32.high else: numMessages
-  messagesSent = 1
+  messagesSent = 0
 
-  while numMessagesToSend >= messagesSent:
+  while messagesSent < numMessagesToSend:
     let (message, msgSize) = prepareMessage(
-      selfPeerId, messagesSent, numMessagesToSend, startedAt, prevMessageAt,
-      lightpushContentTopic, renderMsgSize,
+      selfPeerId,
+      messagesSent + 1,
+      numMessagesToSend,
+      startedAt,
+      prevMessageAt,
+      lightpushContentTopic,
+      renderMsgSize,
     )
-    let wlpRes = await wakuNode.lightpushPublish(some(lightpushPubsubTopic), message)
+    let wlpRes = await wakuNode.lightpushPublish(
+      some(lightpushPubsubTopic), message, actualServicePeer
+    )
 
     let msgHash = computeMessageHash(lightpushPubsubTopic, message).to0xHex
 
     if wlpRes.isOk():
       sentMessages[messagesSent] = (hash: msgHash, relayed: true)
       notice "published message using lightpush",
-        index = messagesSent,
+        index = messagesSent + 1,
         count = numMessagesToSend,
         size = msgSize,
         pubsubTopic = lightpushPubsubTopic,
@@ -144,6 +161,8 @@ proc publishMessages(
       inc(messagesSent)
       lpt_publisher_sent_messages_count.inc()
       lpt_publisher_sent_bytes.inc(amount = msgSize.int64)
+      if noFailedPush > 0:
+        noFailedPush -= 1
     else:
       sentMessages[messagesSent] = (hash: msgHash, relayed: false)
       failedToSendCause.mgetOrPut(wlpRes.error, 1).inc()
@@ -151,17 +170,43 @@ proc publishMessages(
         err = wlpRes.error, hash = msgHash
       inc(failedToSendCount)
       lpt_publisher_failed_messages_count.inc(labelValues = [wlpRes.error])
+      if not wlpRes.error.toLower().contains("dial"):
+        # retry sending after shorter wait
+        await sleepAsync(2.seconds)
+        continue
+      else:
+        noFailedPush += 1
+        lpt_service_peer_failure_count.inc(labelValues = ["publisher"])
+        if noFailedPush > maxFailedPush:
+          info "Max push failure limit reached, Try switching peer."
+          let peerOpt = selectRandomServicePeer(
+            wakuNode.peerManager, some(actualServicePeer), WakuLightPushCodec
+          )
+          if peerOpt.isOk():
+            actualServicePeer = peerOpt.get()
+
+            info "New service peer in use",
+              codec = lightpushPubsubTopic,
+              peer = constructMultiaddrStr(actualServicePeer)
+
+            noFailedPush = 0
+            noOfServicePeerSwitches += 1
+            lpt_change_service_peer_count.inc(labelValues = ["publisher"])
+            continue # try again with new peer without delay
+          else:
+            error "Failed to find new service peer. Exiting."
+            noFailedServiceNodeSwitches += 1
+            break
 
     await sleepAsync(delayMessages)
 
-  waitFor reportSentMessages()
-
-  discard c_raise(ansi_c.SIGTERM)
-
-proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
+proc setupAndPublish*(
+    wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
+) =
   if isNil(wakuNode.wakuLightpushClient):
-    error "WakuFilterClient not initialized"
-    return
+    # if we have not yet initialized lightpush client, then do it as the only way we can get here is
+    # by having a service peer discovered.
+    wakuNode.mountLightPushClient()
 
   # give some time to receiver side to set up
   let waitTillStartTesting = conf.startPublishingAfter.seconds
@@ -180,14 +225,32 @@ proc setupAndPublish*(wakuNode: WakuNode, conf: LiteProtocolTesterConf) =
   info "Start sending messages to service node using lightpush"
 
   sentMessages.sort(system.cmp)
+
+  let interval = secs(60)
+  var printStats: CallbackFunc
+
+  printStats = CallbackFunc(
+    proc(udata: pointer) {.gcsafe.} =
+      reportSentMessages()
+
+      if messagesSent >= numMessagesToSend:
+        info "All messages are sent. Exiting."
+
+        ## for gracefull shutdown through signal hooks
+        discard c_raise(ansi_c.SIGTERM)
+      else:
+        discard setTimer(Moment.fromNow(interval), printStats)
+  )
+
+  discard setTimer(Moment.fromNow(interval), printStats)
+
   # Start maintaining subscription
   asyncSpawn publishMessages(
     wakuNode,
+    servicePeer,
     conf.pubsubTopics[0],
     conf.contentTopics[0],
     conf.numMessages,
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),
     conf.delayMessages.milliseconds,
   )
-
-  asyncSpawn reportSentMessages()

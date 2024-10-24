@@ -40,6 +40,16 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
   exit 1
 fi
 
+SELECTOR=$4
+if [ -z "${SELECTOR}" ] || [ "${SELECTOR}" = "SERVICE" ]; then
+  SERVICE_NODE_DIRECT=true
+elif [ "${SELECTOR}" = "BOOTSTRAP" ]; then
+  SERVICE_NODE_DIRECT=false
+else
+  echo "Invalid selector '${SELECTOR}'. Failing"
+  exit 1
+fi
+
 DO_DETECT_SERVICENODE=0
 
 if [ "${SERIVCE_NODE_ADDR}" = "servicenode" ]; then
@@ -75,6 +85,12 @@ fi
 if [ -z "${SERIVCE_NODE_ADDR}" ]; then
    echo "Could not get SERIVCE_NODE_ADDR and none provided. Failing"
    exit 1
+fi
+
+if $SERVICE_NODE_DIRECT; then
+  FULL_NODE=--service-node="${SERIVCE_NODE_ADDR}"
+else
+  FULL_NODE=--bootstrap-node="${SERIVCE_NODE_ADDR}"
 fi
 
 if [ -n "${PUBSUB}" ]; then
@@ -119,8 +135,8 @@ echo "My external IP: ${MY_EXT_IP}"
 
 exec "${BINARY_PATH}"\
       --log-level=INFO\
-      --service-node="${SERIVCE_NODE_ADDR}"\
       --nat=extip:${MY_EXT_IP}\
+      ${FULL_NODE}\
       ${DELAY_MESSAGES}\
       ${NUM_MESSAGES}\
       ${PUBSUB}\

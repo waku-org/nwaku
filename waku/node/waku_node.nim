@@ -1072,20 +1072,22 @@ proc lightpushPublish*(
         target_peer_id = peer.peerId,
         msg_hash = msgHash
       return await node.wakuLightPush.handleSelfLightPushRequest(pubsubTopic, message)
+  try:
+    if pubsubTopic.isSome():
+      return await internalPublish(node, pubsubTopic.get(), message, peer)
 
-  if pubsubTopic.isSome():
-    return await internalPublish(node, pubsubTopic.get(), message, peer)
+    let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
 
-  let topicMapRes = node.wakuSharding.parseSharding(pubsubTopic, message.contentTopic)
+    let topicMap =
+      if topicMapRes.isErr():
+        return err(topicMapRes.error)
+      else:
+        topicMapRes.get()
 
-  let topicMap =
-    if topicMapRes.isErr():
-      return err(topicMapRes.error)
-    else:
-      topicMapRes.get()
-
-  for pubsub, _ in topicMap.pairs: # There's only one pair anyway
-    return await internalPublish(node, $pubsub, message, peer)
+    for pubsub, _ in topicMap.pairs: # There's only one pair anyway
+      return await internalPublish(node, $pubsub, message, peer)
+  except CatchableError:
+    return err(getCurrentExceptionMsg())
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc lightpushPublish*(

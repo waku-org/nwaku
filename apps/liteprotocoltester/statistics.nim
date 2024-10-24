@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[sets, tables, strutils, sequtils, options, strformat],
+  std/[sets, tables, sequtils, options, strformat],
   chronos/timer as chtimer,
   chronicles,
   chronos,
@@ -290,6 +290,6 @@ proc checkIfAllMessagesReceived*(self: PerPeerStatistics): Future[bool] {.async.
       shallWait = true
 
   if shallWait:
-    await sleepAsync(chtimer.seconds(20))
+    await sleepAsync(20.seconds)
 
   return true
