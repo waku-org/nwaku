@@ -3,9 +3,10 @@
 import std/[options], results
 import ../waku_core, ../common/paging
 
-const
-  WakuStoreCodec* = "/vac/waku/store-query/3.0.0"
+from ../waku_core/codecs import WakuStoreCodec
+export WakuStoreCodec
 
+const
   DefaultPageSize*: uint64 = 20
 
   MaxPageSize*: uint64 = 100

@@ -1,8 +1,13 @@
 {.used.}
 
 import
-  stew/results, testutils/unittests, libp2p/multiaddress, libp2p/peerid, libp2p/errors
-import waku/waku_core
+  stew/results,
+  testutils/unittests,
+  libp2p/multiaddress,
+  libp2p/peerid,
+  libp2p/errors,
+  confutils/toml/std/net
+import waku/[waku_core, waku_core/codecs, waku_enr], ../testlib/wakucore
 
 suite "Waku Core - Peers":
   test "Peer info parses correctly":
@@ -141,3 +146,34 @@ suite "Waku Core - Peers":
     ## Then
     check:
       parsePeerInfo(address).isErr()
+
+  test "ENRs capabilities are filled when creating RemotePeerInfo":
+    let
+      enrSeqNum = 1u64
+      enrPrivKey = generatesecp256k1key()
+
+    ## When
+    var builder = EnrBuilder.init(enrPrivKey, seqNum = enrSeqNum)
+    builder.withIpAddressAndPorts(
+      ipAddr = some(parseIpAddress("127.0.0.1")),
+      tcpPort = some(Port(0)),
+      udpPort = some(Port(0)),
+    )
+    builder.withWakuCapabilities(Capabilities.Relay, Capabilities.Store)
+
+    let recordRes = builder.build()
+
+    ## Then
+    assert recordRes.isOk(), $recordRes.error
+    let record = recordRes.tryGet()
+
+    let remotePeerInfoRes = record.toRemotePeerInfo()
+    assert remotePeerInfoRes.isOk(),
+      "failed creating RemotePeerInfo: " & $remotePeerInfoRes.error()
+
+    let remotePeerInfo = remotePeerInfoRes.get()
+
+    check:
+      remotePeerInfo.protocols.len == 2
+      remotePeerInfo.protocols.contains(WakuRelayCodec)
+      remotePeerInfo.protocols.contains(WakuStoreCodec)

@@ -2,9 +2,8 @@
 
 import results
 
-const
-  WakuFilterSubscribeCodec* = "/vac/waku/filter-subscribe/2.0.0-beta1"
-  WakuFilterPushCodec* = "/vac/waku/filter-push/2.0.0-beta1"
+from ../waku_core/codecs import WakuFilterSubscribeCodec, WakuFilterPushCodec
+export WakuFilterSubscribeCodec, WakuFilterPushCodec
 
 type
   FilterSubscribeErrorKind* {.pure.} = enum
