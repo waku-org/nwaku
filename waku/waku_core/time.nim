@@ -35,4 +35,3 @@ template nanosecondTime*(collector: Gauge, body: untyped) =
     metrics.set(collector, nowInUnixFloat() - start)
   else:
     body
-    
