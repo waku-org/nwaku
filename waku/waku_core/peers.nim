@@ -16,6 +16,7 @@ import
   libp2p/peerid,
   libp2p/peerinfo,
   libp2p/routing_record,
+  regex,
   json_serialization
 import ../waku_enr/capabilities
 
@@ -110,7 +111,7 @@ proc init*(
 
 ## Parse
 
-proc validWireAddr*(ma: MultiAddress): bool =
+proc validWireAddr(ma: MultiAddress): bool =
   ## Check if wire Address is supported
   const ValidTransports = mapOr(TCP, WebSockets)
   return ValidTransports.match(ma)
@@ -120,9 +121,44 @@ proc parsePeerInfo*(peer: RemotePeerInfo): Result[RemotePeerInfo, string] =
   ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
   ok(peer)
 
-proc parsePeerInfo*(peer: MultiAddress): Result[RemotePeerInfo, string] =
-  ## Parses a fully qualified peer multiaddr, in the
-  ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
+proc parsePeerInfoFromCircuitRelayAddr(
+    address: string
+): Result[RemotePeerInfo, string] =
+  var match: RegexMatch2
+  # Parse like: /ip4/162.19.247.156/tcp/60010/p2p/16Uiu2HAmCzWcYBCw3xKW8De16X9wtcbQrqD8x7CRRv4xpsFJ4oN8/p2p-circuit/p2p/16Uiu2HAm2eqzqp6xn32fzgGi8K4BuF88W4Xy6yxsmDcW8h1gj6ie
+  let maPattern =
+    re2"\/(ip4|ip6|dns|dnsaddr|dns4|dns6)\/[0-9a-fA-F:.]+\/(tcp|ws|wss)\/\d+\/p2p\/(.+)\/p2p-circuit\/p2p\/(.+)"
+  if not regex.match(address, maPattern, match):
+    return err("failed to parse ma: " & address)
+
+  if match.captures.len != 4:
+    return err(
+      "failed parsing p2p-circuit addr, expected 4 regex capture groups: " & address &
+        " found: " & $(match.namedGroups.len)
+    )
+
+  let relayPeerId = address[match.group(2)]
+  let targetPeerIdStr = address[match.group(3)]
+
+  discard PeerID.init(relayPeerId).valueOr:
+    return err("invalid relay peer id from p2p-circuit address: " & address)
+  let targetPeerId = PeerID.init(targetPeerIdStr).valueOr:
+    return err("invalid targetPeerId peer id from p2p-circuit address: " & address)
+
+  let pattern = "/p2p-circuit"
+  let idx = address.find(pattern)
+  let wireAddr: MultiAddress =
+    if idx != -1:
+      # Extract everything from the start up to and including "/p2p-circuit"
+      let adr = address[0 .. (idx + pattern.len - 1)]
+      MultiAddress.init(adr).valueOr:
+        return err("could not create multiaddress from: " & adr)
+    else:
+      return err("could not find /p2p-circuit pattern in: " & address)
+
+  return ok(RemotePeerInfo.init(targetPeerId, @[wireAddr]))
+
+proc parsePeerInfoFromRegularAddr(peer: MultiAddress): Result[RemotePeerInfo, string] =
   var p2pPart: MultiAddress
   var wireAddr = MultiAddress()
   for addrPart in peer.items():
@@ -162,6 +198,16 @@ proc parsePeerInfo*(peer: MultiAddress): Result[RemotePeerInfo, string] =
     return err("invalid multiaddress: no supported transport found")
 
   return ok(RemotePeerInfo.init(peerId, @[wireAddr]))
+
+proc parsePeerInfo*(peer: MultiAddress): Result[RemotePeerInfo, string] =
+  ## Parses a fully qualified peer multiaddr into dialable RemotePeerInfo
+
+  let peerAddrStr = $peer
+
+  if "p2p-circuit" in peerAddrStr:
+    return parsePeerInfoFromCircuitRelayAddr(peerAddrStr)
+
+  return parsePeerInfoFromRegularAddr(peer)
 
 proc parsePeerInfo*(peer: string): Result[RemotePeerInfo, string] =
   ## Parses a fully qualified peer multiaddr, in the

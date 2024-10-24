@@ -502,3 +502,10 @@ proc getNumConnectedPeers*(
     )
 
   return ok(peers.len)
+
+proc getSubscribedTopics*(w: WakuRelay): seq[PubsubTopic] =
+  ## Returns a seq containing the current list of subscribed topics
+  var topics: seq[PubsubTopic]
+  for t in w.validatorInserted.keys():
+    topics.add(t)
+  return topics

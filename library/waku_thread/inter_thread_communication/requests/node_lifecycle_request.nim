@@ -59,7 +59,7 @@ proc createWaku(configJson: cstring): Future[Result[Waku, string]] {.async.} =
             formattedString & ". expected type: " & $typeof(confValue)
         )
 
-  let wakuRes = Waku.init(conf).valueOr:
+  let wakuRes = Waku.new(conf).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 
