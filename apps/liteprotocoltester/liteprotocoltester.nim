@@ -110,8 +110,8 @@ when isMainModule:
   wakuConf.metricsServerPort = 8003
 
   # If bootstrap option is chosen we expect our clients will not mounted
-  # so we will mount PeerExchange to gather possible service peers, if got some
-  # we will mount the client protocols afterward.
+  # so we will mount PeerExchange manually to gather possible service peers,
+  # if got some we will mount the client protocols afterward.
   wakuConf.peerExchange = false
   wakuConf.relay = false
   wakuConf.filter = false

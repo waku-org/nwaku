@@ -35,6 +35,8 @@ import
 logScope:
   topics = "service peer mgmt"
 
+randomize()
+
 proc translateToRemotePeerInfo*(peerAddress: string): Result[RemotePeerInfo, void] =
   var peerInfo: RemotePeerInfo
   var enrRec: enr.Record
@@ -50,8 +52,9 @@ proc translateToRemotePeerInfo*(peerAddress: string): Result[RemotePeerInfo, voi
 
   return ok(peerInfo)
 
-randomize()
-
+## To retrieve peers from PeerExchange partner and return one randomly selected one
+## among the ones successfully dialed
+## Note: This is kept for future use.
 proc selectRandomCapablePeer*(
     pm: PeerManager, codec: string, pubsubTopic: PubsubTopic
 ): Future[Option[RemotePeerInfo]] {.async.} =
@@ -63,8 +66,8 @@ proc selectRandomCapablePeer*(
 
   var supportivePeers = pm.wakuPeerStore.getPeersByCapability(cap)
 
-  debug "Found supportive peers count", count = supportivePeers.len()
-  debug "Found supportive peers", supportivePeers = $supportivePeers
+  trace "Found supportive peers count", count = supportivePeers.len()
+  trace "Found supportive peers", supportivePeers = $supportivePeers
   if supportivePeers.len == 0:
     return none(RemotePeerInfo)
 
@@ -110,10 +113,9 @@ proc tryCallAllPxPeers*(
   if supportivePeers.len == 0:
     return none(seq[RemotePeerInfo])
 
-  var found = none(RemotePeerInfo)
   var okPeers: seq[RemotePeerInfo] = @[]
 
-  while found.isNone() and supportivePeers.len > 0:
+  while supportivePeers.len > 0:
     let rndPeerIndex = rand(0 .. supportivePeers.len - 1)
     let randomPeer = supportivePeers[rndPeerIndex]
 
@@ -191,6 +193,7 @@ proc pxLookupServiceNode*(
 
 var alreadyUsedServicePeers {.threadvar.}: seq[RemotePeerInfo]
 
+## Select service peers by codec from peer store randomly.
 proc selectRandomServicePeer*(
     pm: PeerManager, actualPeer: Option[RemotePeerInfo], codec: string
 ): Result[RemotePeerInfo, void] =

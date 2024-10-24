@@ -208,3 +208,4 @@ docker run --env-file .env liteprotocoltester:latest RECEIVER <bootstrap-node-pe
 docker run --env-file .env liteprotocoltester:latest SENDER <bootstrap-node-peer-address> BOOTSTRAP
 ```
 
+> Notice that official image is also available at harbor.status.im/wakuorg/liteprotocoltester:latest

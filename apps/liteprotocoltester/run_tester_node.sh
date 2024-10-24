@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#set -x
+set -x
 
 if test -f .env; then
   echo "Using .env file"
@@ -87,7 +87,7 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
    exit 1
 fi
 
-if SERVICE_NODE_DIRECT; then
+if $SERVICE_NODE_DIRECT; then
   FULL_NODE=--service-node="${SERIVCE_NODE_ADDR}"
 else
   FULL_NODE=--bootstrap-node="${SERIVCE_NODE_ADDR}"
