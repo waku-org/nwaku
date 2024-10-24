@@ -39,7 +39,7 @@ proc process*(
       return err("could not ping peer: " & getCurrentExceptionMsg())
 
   let pingFuture = ping()
-  var pingRTT: Duration =
+  let pingRTT: Duration =
     if self[].timeout == chronos.milliseconds(0): # No timeout expected
       (await pingFuture).valueOr:
         return err(error)
