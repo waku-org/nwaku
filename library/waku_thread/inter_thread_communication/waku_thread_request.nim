@@ -12,11 +12,13 @@ import
   ./requests/protocols/store_request,
   ./requests/protocols/lightpush_request,
   ./requests/debug_node_request,
-  ./requests/discovery_request
+  ./requests/discovery_request,
+  ./requests/ping_request
 
 type RequestType* {.pure.} = enum
   LIFECYCLE
   PEER_MANAGER
+  PING
   RELAY
   STORE
   DEBUG
@@ -50,6 +52,8 @@ proc process*(
       cast[ptr NodeLifecycleRequest](request[].reqContent).process(waku)
     of PEER_MANAGER:
       cast[ptr PeerManagementRequest](request[].reqContent).process(waku[])
+    of PING:
+      cast[ptr PingRequest](request[].reqContent).process(waku)
     of RELAY:
       cast[ptr RelayRequest](request[].reqContent).process(waku)
     of STORE:

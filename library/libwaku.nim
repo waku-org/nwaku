@@ -22,6 +22,7 @@ import
   ./waku_thread/inter_thread_communication/requests/protocols/lightpush_request,
   ./waku_thread/inter_thread_communication/requests/debug_node_request,
   ./waku_thread/inter_thread_communication/requests/discovery_request,
+  ./waku_thread/inter_thread_communication/requests/ping_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
   ./callback
@@ -669,6 +670,23 @@ proc waku_peer_exchange_request(
   waku_thread
   .sendRequestToWakuThread(
     ctx, RequestType.DISCOVERY, DiscoveryRequest.createPeerExchangeRequest(numPeers)
+  )
+  .handleRes(callback, userData)
+
+proc waku_ping_peer(
+    ctx: ptr WakuContext,
+    peerID: cstring,
+    timeoutMs: cuint,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.PING,
+    PingRequest.createShared(peerID, chronos.milliseconds(timeoutMs)),
   )
   .handleRes(callback, userData)
 
