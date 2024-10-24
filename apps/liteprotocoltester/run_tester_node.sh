@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -x
+#set -x
 
 if test -f .env; then
   echo "Using .env file"
