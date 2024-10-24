@@ -81,7 +81,7 @@ proc maintainSubscription(
         # wakunode.peerManager.peerStore.delete(actualFilterPeer)
 
         if noFailedSubscribes < maxFailedSubscribes:
-          await sleepAsync(chtimer.seconds(2)) # Wait a bit before retrying
+          await sleepAsync(2.seconds) # Wait a bit before retrying
           continue
         else:
           let peerOpt = selectRandomServicePeer(
@@ -90,7 +90,7 @@ proc maintainSubscription(
           if peerOpt.isOk():
             actualFilterPeer = peerOpt.get()
 
-            info "Found new  peer for codec",
+            info "Found new peer for codec",
               codec = filterPubsubTopic, peer = constructMultiaddrStr(actualFilterPeer)
 
             noFailedSubscribes = 0
@@ -109,7 +109,7 @@ proc maintainSubscription(
     else:
       info "subscription is live."
 
-    await sleepAsync(chtimer.seconds(30)) # Subscription maintenance interval
+    await sleepAsync(30.seconds) # Subscription maintenance interval
 
 proc setupAndSubscribe*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo

@@ -36,6 +36,8 @@ docker compose up -d
 # navigate localhost:3033 to see the lite-protocol-tester dashboard
 ```
 
+> See more detailed examples below.
+
 ### Integration with waku-simulator!
 
 - For convenience, integration is done in cooperation with waku-simulator repository, but nothing is tightly coupled.
@@ -163,7 +165,7 @@ Service node or bootstrap addresses can be specified in multiadress or ENR form.
 ### Using bootstrap nodes
 
 There are multiple benefits of using bootstrap nodes. By using them liteprotocoltester will use Peer Exchange protocol to get possible peers from the network that are capable to serve as service peers for testing. Additionally it will test dial them to verify their connectivity - this will be reported in the logs and on dashboard metrics.
-Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds for service peer failures during test and service peer can be switched during the test. Also these service peer failures are reported, thus extening network reliability measures.
+Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds for service peer failures during test and service peer can be switched during the test. Also these service peer failures are reported, thus extending network reliability measures.
 
 ### Docker image notice
 
@@ -209,3 +211,80 @@ docker run --env-file .env liteprotocoltester:latest SENDER <bootstrap-node-peer
 ```
 
 > Notice that official image is also available at harbor.status.im/wakuorg/liteprotocoltester:latest
+
+## Examples
+
+You need not necessary to use .env file, although it can be more convenient.
+
+### Run standalone
+
+Example of running the liteprotocoltester in standalone mode on status.stagin network.
+Testing includes using bootstrap nodes to gather service peers from the network via Peer Exchange protocol.
+Both parties will test-dial all the peers retrieved with the corresponding protocol.
+Sender will start publishing messages after 60 seconds, sending 200 messages with 1 second delay between them.
+Message size will be between 15KiB and 145KiB.
+Cluster id and Pubsub-topic must be accurately set according to the network configuration.
+
+The example shows that either multiaddress or ENR form accepted.
+
+```bash
+export START_PUBLISHING_AFTER=60
+export NUM_MESSAGES=200
+export DELAY_MESSAGES=1000
+export MIN_MESSAGE_SIZE=15Kb
+export MAX_MESSAGE_SIZE=145Kb
+export PUBSUB=/waku/2/rs/16/32
+export CONTENT_TOPIC=/tester/2/light-pubsub-test/fleet
+export CLUSTER_ID=16
+
+docker run harbor.status.im/wakuorg/liteprotocoltester:latest RECEIVER /dns4/boot-01.do-ams3.status.staging.status.im/tcp/30303/p2p/16Uiu2HAmQE7FXQc6iZHdBzYfw3qCSDa9dLc1wsBJKoP4aZvztq2d BOOTSTRAP
+
+# in different terminal session, repeat the exports and run the other party of the test.
+docker run harbor.status.im/wakuorg/liteprotocoltester:latest SENDER enr:-QEiuECJPv2vL00Jp5sTEMAFyW7qXkK2cFgphlU_G8-FJuJqoW_D5aWIy3ylGdv2K8DkiG7PWgng4Ql_VI7Qc2RhBdwfAYJpZIJ2NIJpcIQvTKi6im11bHRpYWRkcnO4cgA2NjFib290LTAxLmFjLWNuLWhvbmdrb25nLWMuc3RhdHVzLnN0YWdpbmcuc3RhdHVzLmltBnZfADg2MWJvb3QtMDEuYWMtY24taG9uZ2tvbmctYy5zdGF0dXMuc3RhZ2luZy5zdGF0dXMuaW0GAbveA4Jyc40AEAUAAQAgAEAAgAEAiXNlY3AyNTZrMaEDkbgV7oqPNmFtX5FzSPi9WH8kkmrPB1R3n9xRXge91M-DdGNwgnZfg3VkcIIjKIV3YWt1Mg0 BOOTSTRAP
+
+```
+
+### Use of lpt-runner
+
+Another method is to use [lpt-runner repository](https://github.com/waku-org/lpt-runner/tree/master).
+This extends testing with grafana dashboard and ease the test setup.
+Please read the corresponding [README](https://github.com/waku-org/lpt-runner/blob/master/README.md) there as well.
+
+In this example we will run similar test as above but there will be 3 instances of publisher nodes and 1 receiver node.
+This test uses waku.sandbox fleet which is connected to TWN. This implies lower message rates due to the RLN rate limation.
+Also leave a gap of 120 seconds before starting to publish messages to let receiver side fully finish peer test-dialing.
+For TWN network it is always wise to use bootstrap nodes with Peer Exchange support.
+
+> Theoritically we can use the same bootstrap nodes for both parties, but it is recommended to use different ones to simulate different network edges, thus getting more meaningful results.
+
+```bash
+git clone https://github.com/waku-org/lpt-runner.git
+cd lpt-runner
+
+export NUM_PUBLISHER_NODES=3
+export NUM_RECEIVER_NODES=1
+export START_PUBLISHING_AFTER=120
+export NUM_MESSAGES=300
+export DELAY_MESSAGES=7000
+export MIN_MESSAGE_SIZE=15Kb
+export MAX_MESSAGE_SIZE=145Kb
+export PUBSUB=/waku/2/rs/1/4
+export CONTENT_TOPIC=/tester/2/light-pubsub-test/twn
+export CLUSTER_ID=1
+
+export FILTER_BOOTSTRAP=/dns4/node-01.ac-cn-hongkong-c.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmQYiojgZ8APsh9wqbWNyCstVhnp9gbeNrxSEQnLJchC92
+export LIGHTPUSH_BOOTSTRAP=/dns4/node-01.do-ams3.waku.sandbox.status.im/tcp/30303/p2p/16Uiu2HAmNaeL4p3WEYzC9mgXBmBWSgWjPHRvatZTXnp8Jgv3iKsb
+
+docker compose up -d
+
+# we can check logs from one or all SENDER
+docker compose logs -f --index 1 publishernode
+
+# for checking receiver side performance
+docker compose logs -f receivernode
+
+# when test completed
+docker compose down
+```
+
+For dashboard navigate to http://localhost:3033

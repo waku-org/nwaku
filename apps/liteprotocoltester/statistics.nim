@@ -290,6 +290,6 @@ proc checkIfAllMessagesReceived*(self: PerPeerStatistics): Future[bool] {.async.
       shallWait = true
 
   if shallWait:
-    await sleepAsync(chtimer.seconds(20))
+    await sleepAsync(20.seconds)
 
   return true

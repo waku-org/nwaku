@@ -1,7 +1,4 @@
-when (NimMajor, NimMinor) < (1, 4):
-  {.push raises: [Defect].}
-else:
-  {.push raises: [].}
+{.push raises: [].}
 
 import
   std/[options, net, sysrand, random, strformat, strutils, sequtils],
@@ -159,6 +156,8 @@ proc pxLookupServiceNode*(
 
   if node.wakuPeerExchange.isNil():
     let peerExchangeNode = translateToRemotePeerInfo(conf.bootstrapNode).valueOr:
+      error "Failed to parse bootstrap node - cannot use PeerExchange.",
+        node = conf.bootstrapNode
       return err()
     info "PeerExchange node", peer = constructMultiaddrStr(peerExchangeNode)
     node.peerManager.addServicePeer(peerExchangeNode, WakuPeerExchangeCodec)
@@ -166,7 +165,7 @@ proc pxLookupServiceNode*(
     try:
       await node.mountPeerExchange(some(conf.clusterId))
     except CatchableError:
-      error "failed to mount waku peer-exchange protocol: ",
+      error "failed to mount waku peer-exchange protocol",
         error = getCurrentExceptionMsg()
       return err()
 
