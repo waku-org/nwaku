@@ -140,6 +140,18 @@ type LiteProtocolTesterConf* = object
     name: "rest-address"
   .}: IpAddress
 
+  testPeers* {.
+    desc: "Run dial test on gathered PeerExchange peers.",
+    defaultValue: true,
+    name: "test-peers"
+  .}: bool
+
+  reqPxPeers* {.
+    desc: "Number of peers to request on PeerExchange.",
+    defaultValue: 100,
+    name: "req-px-peers"
+  .}: uint16
+
   restPort* {.
     desc: "Listening port of the REST HTTP server.",
     defaultValue: 8654,

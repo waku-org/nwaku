@@ -172,7 +172,7 @@ proc pxLookupServiceNode*(
 
   var trialCount = 5
   while trialCount > 0:
-    let futPeers = node.fetchPeerExchangePeers(100)
+    let futPeers = node.fetchPeerExchangePeers(conf.reqPxPeers)
     if not await futPeers.withTimeout(30.seconds):
       notice "Cannot get peers from PX", round = 5 - trialCount
     else:
@@ -180,11 +180,19 @@ proc pxLookupServiceNode*(
         info "PeerExchange reported error", error = futPeers.read().error
         return err()
 
-    let peerOpt = await tryCallAllPxPeers(node.peerManager, codec, conf.pubsubTopics[0])
-    if peerOpt.isSome():
-      info "Found service peers for codec",
-        codec = codec, peer_count = peerOpt.get().len()
-      return ok(peerOpt.get().len > 0)
+    if conf.testPeers:
+      let peersOpt =
+        await tryCallAllPxPeers(node.peerManager, codec, conf.pubsubTopics[0])
+      if peersOpt.isSome():
+        info "Found service peers for codec",
+          codec = codec, peer_count = peersOpt.get().len()
+        return ok(peersOpt.get().len > 0)
+    else:
+      let peerOpt =
+        await selectRandomCapablePeer(node.peerManager, codec, conf.pubsubTopics[0])
+      if peerOpt.isSome():
+        info "Found service peer for codec", codec = codec, peer = peerOpt.get()
+        return ok(true)
 
     await sleepAsync(5.seconds)
     trialCount -= 1
