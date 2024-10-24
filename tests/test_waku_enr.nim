@@ -110,7 +110,7 @@ suite "Waku ENR -  Capabilities bitfield":
       let recordRes = builder.build()
 
       ## Then
-      check recordRes.isOk()
+      assert recordRes.isOk(), $recordRes.error
       let record = recordRes.tryGet()
 
       let codecs = record.getCapabilitiesCodecs()

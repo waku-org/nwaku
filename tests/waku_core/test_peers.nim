@@ -164,7 +164,7 @@ suite "Waku Core - Peers":
     let recordRes = builder.build()
 
     ## Then
-    check recordRes.isOk()
+    assert recordRes.isOk(), $recordRes.error
     let record = recordRes.tryGet()
 
     let remotePeerInfoRes = record.toRemotePeerInfo()

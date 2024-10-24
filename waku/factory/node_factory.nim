@@ -398,13 +398,19 @@ proc startNode*(
     return err("failed to start waku node: " & getCurrentExceptionMsg())
 
   # Connect to configured static nodes
-  if conf.relay and conf.staticnodes.len > 0:
+  if conf.staticnodes.len > 0:
+    if not conf.relay:
+      return err("waku relay (--relay=true) should be set when configuring staticnodes")
     try:
       await connectToNodes(node, conf.staticnodes, "static")
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
-  if conf.relay and dynamicBootstrapNodes.len > 0:
+  if dynamicBootstrapNodes.len > 0:
+    if not conf.relay:
+      return err(
+        "waku relay (--relay=true) should be set when configuring dynamicBootstrapNodes"
+      )
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
