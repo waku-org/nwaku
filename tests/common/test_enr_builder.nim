@@ -120,7 +120,7 @@ suite "nim-eth ENR - Ext: IP address and TCP/UDP ports":
       @(record.secp256k1.get()) == expectedPubKey
       record.ip == none(array[4, byte])
       record.tcp == none(uint16)
-      record.udp == none(uint16)
       record.ip6 == some(enrIpAddr.address_v6)
       record.tcp6 == none(uint16)
       record.udp6 == some(enrUdpPort.uint16)
+      record.udp == some(enrUdpPort.uint16)

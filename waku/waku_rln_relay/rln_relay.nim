@@ -8,7 +8,7 @@ import
   stint,
   web3,
   json,
-  web3/ethtypes,
+  web3/eth_api_types,
   eth/keys,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/pubsub/pubsub,
@@ -277,7 +277,7 @@ proc validateMessageAndUpdateLog*(
   if proofMetadataRes.isErr():
     return MessageValidationResult.Invalid
 
-  # insert the message to the log (never errors) only if the 
+  # insert the message to the log (never errors) only if the
   # message is valid.
   if isValidMessage == MessageValidationResult.Valid:
     discard rlnPeer.updateLog(msgProof.epoch, proofMetadataRes.get())
