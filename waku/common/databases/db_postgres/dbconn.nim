@@ -167,7 +167,7 @@ proc sendQueryPrepared(
   return ok()
 
 proc waitQueryToFinish(
-    dbConnWrapper: DbConnWrapper, rowCallback: DataProc = nil
+    dbConnWrapper: DbConnWrapper, rowCallback: DataProc = nil, query: string
 ): Future[Result[void, string]] {.async.} =
   ## The 'rowCallback' param is != nil when the underlying query wants to retrieve results (SELECT.)
   ## For other queries, like "INSERT", 'rowCallback' should be nil.
@@ -180,9 +180,24 @@ proc waitQueryToFinish(
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
+  let loop = asyncengine.getThreadDispatcher()
+  if loop.contains(asyncFd):
+    warn "The fd was already registerd", query
+    asyncengine.removeReader2(asyncFd).isOkOr:
+      error "failed to remove fd even after it beeing already registered",
+        query, error = $error
+      return err(
+        "failed to remove fd even after it beeing already registered. query: " & query &
+          ". error: " & $error
+      )
+
   asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
     dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
-    return err("failed to add event reader in waitQueryToFinish: " & $error)
+    error "failed to add event reader in waitQueryToFinish", query, error = $error
+    return err(
+      "failed to add event reader in waitQueryToFinish. query: " & query & " : error. " &
+        $error
+    )
   defer:
     asyncengine.removeReader2(asyncFd).isOkOr:
       return err("failed to remove event reader in waitQueryToFinish: " & $error)
@@ -264,7 +279,7 @@ proc dbConnQuery*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await dbConnWrapper.waitQueryToFinish(rowCallback)).isOkOr:
+  (await dbConnWrapper.waitQueryToFinish(rowCallback, $query)).isOkOr:
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
@@ -305,7 +320,7 @@ proc dbConnQueryPrepared*(
 
   queryStartTime = getTime().toUnixFloat()
 
-  (await dbConnWrapper.waitQueryToFinish(rowCallback)).isOkOr:
+  (await dbConnWrapper.waitQueryToFinish(rowCallback, stmtName)).isOkOr:
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
