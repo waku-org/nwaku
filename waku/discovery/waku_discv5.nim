@@ -117,7 +117,7 @@ proc updateAnnouncedMultiAddress*(
     return err("failed to update multiaddress in ENR: " & $error)
 
   debug "ENR updated successfully with new multiaddress",
-    enr = wd.protocol.localNode.record.toUri(), record = $(wd.protocol.localNode.record)
+    enrUri = wd.protocol.localNode.record.toUri(), enr = $(wd.protocol.localNode.record)
 
   return ok()
 
