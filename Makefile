@@ -354,6 +354,33 @@ docker-image:
 docker-push:
 	docker push $(DOCKER_IMAGE_NAME)
 
+####################################
+## Container lite-protocol-tester ##
+####################################
+# -d:insecure - Necessary to enable Prometheus HTTP endpoint for metrics
+# -d:chronicles_colors:none - Necessary to disable colors in logs for Docker
+DOCKER_LPT_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
+
+# build a docker image for the fleet
+docker-liteprotocoltester: DOCKER_LPT_TAG ?= latest
+docker-liteprotocoltester: DOCKER_LPT_NAME ?= wakuorg/liteprotocoltester:$(DOCKER_LPT_TAG)
+docker-liteprotocoltester:
+	docker build \
+	  --no-cache \
+		--build-arg="MAKE_TARGET=liteprotocoltester" \
+		--build-arg="NIMFLAGS=$(DOCKER_LPT_NIMFLAGS)" \
+		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
+		--build-arg="LOG_LEVEL=TRACE" \
+		--label="commit=$(shell git rev-parse HEAD)" \
+		--label="version=$(GIT_VERSION)" \
+		--target $(TARGET) \
+		--tag $(DOCKER_LPT_NAME) \
+		--file apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile \
+		.
+
+docker-liteprotocoltester-push:
+	docker push $(DOCKER_LPT_NAME)
+
 
 ################
 ## C Bindings ##
