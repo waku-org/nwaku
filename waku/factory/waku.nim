@@ -139,6 +139,11 @@ proc setupSwitchServices(
 
 ## Initialisation
 
+proc newCircuitRelay(isRelayClient: bool): Relay =
+  if isRelayClient:
+    return RelayClient.new()
+  return Relay.new()
+
 proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
@@ -220,9 +225,7 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
       "Retrieving dynamic bootstrap nodes failed: " & dynamicBootstrapNodesRes.error
     )
 
-  var relay = Relay.new()
-  if confCopy.isRelayClient:
-    relay = RelayClient.new()
+  var relay = newCircuitRelay(confCopy.isRelayClient)
 
   let nodeRes = setupNode(confCopy, rng, relay)
   if nodeRes.isErr():
