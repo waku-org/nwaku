@@ -167,6 +167,12 @@ type LiteProtocolTesterConf* = object
     name: "rest-allow-origin"
   .}: seq[string]
 
+  metricsPort* {.
+    desc: "Listening port of the REST HTTP server.",
+    defaultValue: 8003,
+    name: "metrics-port"
+  .}: uint16
+
 {.push warning[ProveInit]: off.}
 
 proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =

@@ -157,6 +157,7 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 | --rest-allow-origin | For convenience rest configuration can be done here | * |
 | --log-level | Log level for the application | DEBUG |
 | --log-format | Logging output format (TEXT or JSON) | TEXT |
+| --metrics-port | Metrics scarpe port | 8003 |
 
 ### Specifying peer addresses
 
@@ -165,7 +166,8 @@ Service node or bootstrap addresses can be specified in multiadress or ENR form.
 ### Using bootstrap nodes
 
 There are multiple benefits of using bootstrap nodes. By using them liteprotocoltester will use Peer Exchange protocol to get possible peers from the network that are capable to serve as service peers for testing. Additionally it will test dial them to verify their connectivity - this will be reported in the logs and on dashboard metrics.
-Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds for service peer failures during test and service peer can be switched during the test. Also these service peer failures are reported, thus extending network reliability measures.
+Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds count for service peer failures (3) after service peer will be switched during the test. Also there will be max 10 trials of switching peer before test declared failed and quit.
+These service peer failures are reported, thus extending network reliability measures.
 
 ### Docker image notice
 
@@ -214,7 +216,16 @@ docker run --env-file .env liteprotocoltester:latest SENDER <bootstrap-node-peer
 
 ## Examples
 
+### Bootstrap or Service node selection
+
+The easiest way to get the proper bootstrap nodes for the tests from https://fleets.status.im page.
+Adjust on which fleets you would like to run the tests.
+
+> Please note that not all of them configured to support Peer Exchange protocol, those ones cannot be for bootstrap nodes for `liteprotocoltester`.
+
+### Environment variables
 You need not necessary to use .env file, although it can be more convenient.
+Anytime you can override all or part of the environment variables defined in the .env file.
 
 ### Run standalone
 

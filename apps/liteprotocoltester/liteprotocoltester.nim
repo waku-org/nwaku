@@ -106,7 +106,7 @@ when isMainModule:
 
   wakuConf.metricsServer = true
   wakuConf.metricsServerAddress = parseIpAddress("0.0.0.0")
-  wakuConf.metricsServerPort = 8003
+  wakuConf.metricsServerPort = conf.metricsPort
 
   # If bootstrap option is chosen we expect our clients will not mounted
   # so we will mount PeerExchange manually to gather possible service peers,
