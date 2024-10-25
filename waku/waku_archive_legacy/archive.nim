@@ -82,6 +82,13 @@ proc handleMessage*(
   let
     msgHash = computeMessageHash(pubsubTopic, msg)
     msgHashHex = msgHash.to0xHex()
+    msgTimestamp =
+      if msg.timestamp > 0:
+        msg.timestamp
+      else:
+        getNanosecondTime(getTime().toUnixFloat())
+    msgDigest = computeDigest(msg)
+    msgDigestHex = msgDigest.data.to0xHex()
 
   self.validator(msg).isOkOr:
     error "failed validator message",
@@ -94,15 +101,6 @@ proc handleMessage*(
       error = $error
     waku_legacy_archive_errors.inc(labelValues = [error])
     return
-
-  let
-    msgDigest = computeDigest(msg)
-    msgDigestHex = msgDigest.data.to0xHex()
-    msgTimestamp =
-      if msg.timestamp > 0:
-        msg.timestamp
-      else:
-        getNanosecondTime(getTime().toUnixFloat())
 
   trace "handling message",
     msg_hash = msgHashHex,

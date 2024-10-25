@@ -88,6 +88,11 @@ proc handleMessage*(
   let
     msgHash = computeMessageHash(pubsubTopic, msg)
     msgHashHex = msgHash.to0xHex()
+    msgTimestamp =
+      if msg.timestamp > 0:
+        msg.timestamp
+      else:
+        getNanosecondTime(getTime().toUnixFloat())
 
   self.validator(msg).isOkOr:
     error "failed validator message",
@@ -96,7 +101,6 @@ proc handleMessage*(
       contentTopic = msg.contentTopic,
       msgTimestamp = msg.timestamp,
       usedTimestamp = msgTimestamp,
-      digest = msgDigestHex,
       error = $error
     waku_archive_errors.inc(labelValues = [error])
     return
@@ -118,8 +122,7 @@ proc handleMessage*(
     pubsubTopic = pubsubTopic,
     contentTopic = msg.contentTopic,
     msgTimestamp = msg.timestamp,
-    usedTimestamp = msgTimestamp,
-    digest = msgDigestHex
+    usedTimestamp = msgTimestamp
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
