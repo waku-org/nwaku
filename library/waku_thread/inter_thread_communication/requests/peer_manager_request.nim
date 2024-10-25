@@ -11,6 +11,7 @@ type PeerManagementMsgType* {.pure.} = enum
   GET_ALL_PEER_IDS
   GET_PEER_IDS_BY_PROTOCOL
   DISCONNECT_PEER_BY_ID
+  DIAL_PEER
   DIAL_PEER_BY_ID
 
 type PeerManagementRequest* = object
@@ -95,6 +96,15 @@ proc process*(
       return err($error)
     await waku.node.peerManager.disconnectNode(peerId)
     return ok("")
+  of DIAL_PEER:
+    let remotePeerInfo = parsePeerInfo($self[].peerMultiAddr).valueOr:
+      error "DIAL_PEER failed", error = $error
+      return err($error)
+    let conn = await waku.node.peerManager.dialPeer(remotePeerInfo, $self[].protocol)
+    if conn.isNone():
+      let msg = "failed dialing peer"
+      error "DIAL_PEER failed", error = msg
+      return err(msg)
   of DIAL_PEER_BY_ID:
     let peerId = PeerId.init($self[].peerId).valueOr:
       error "DIAL_PEER_BY_ID failed", error = $error
