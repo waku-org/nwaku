@@ -1,3 +1,23 @@
 FROM python:3.9.18-alpine3.18
 
+ENV METRICS_PORT=8004
+ENV NODE_REST_ADDRESS="http://nwaku:8645"
+ENV QUERY_DELAY=60
+ENV STORE_NODES=""
+ENV CLUSTER_ID=1
+ENV SHARD=1
+ENV HEALTH_THRESHOLD=5
+
+WORKDIR /opt
+
+COPY sonda.py /opt/sonda.py
+
 RUN pip install requests argparse prometheus_client
+
+CMD python -u /opt/sonda.py \
+    --metrics-port=$METRICS_PORT \
+    --node-rest-address="${NODE_REST_ADDRESS}" \
+    --delay-seconds=$QUERY_DELAY \
+    --pubsub-topic="/waku/2/rs/${CLUSTER_ID}/${SHARD}" \
+    --store-nodes="${STORE_NODES}" \
+    --health-threshold=$HEALTH_THRESHOLD
