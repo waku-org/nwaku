@@ -1182,9 +1182,10 @@ proc peerExchangeLoop(node: WakuNode) {.async.} =
     await sleepAsync(1.minutes)
 
 proc startPeerExchangeLoop*(node: WakuNode) =
-  info "starting peer exchange loop"
-
-  asyncSpawn node.peerExchangeLoop()
+  if node.wakuPeerExchange.isNil():
+    error "startPeerExchangeLoop: Peer Exchange is not mounted"
+    return
+  node.wakuPeerExchange.pxLoopHandle = node.peerExchangeLoop()
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(
@@ -1382,6 +1383,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.stopWait()
+
+  if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
+    await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
 
   node.started = false
 

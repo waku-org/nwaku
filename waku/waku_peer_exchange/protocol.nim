@@ -57,6 +57,7 @@ type
     cluster*: Option[uint16]
       # todo: next step: ring buffer; future: implement cache satisfying https://rfc.vac.dev/spec/34/
     requestRateLimiter*: RequestRateLimiter
+    pxLoopHandle*: Future[void]
 
 proc request*(
     wpx: WakuPeerExchange, numPeers = DefaultPXNumPeersReq, conn: Connection
