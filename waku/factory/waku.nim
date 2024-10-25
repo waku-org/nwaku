@@ -137,9 +137,6 @@ proc setupSwitchServices(
   else:
     waku.node.switch.services = @[Service(autonatService)]
 
-    if conf.isRelayClient:
-      let relay = RelayClient.new()
-
 ## Initialisation
 
 proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
