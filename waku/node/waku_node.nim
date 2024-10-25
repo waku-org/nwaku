@@ -51,7 +51,7 @@ import
   ./config,
   ./peer_manager,
   ../common/rate_limit/setting,
-  waku/discovery/autonat_service
+  ../discovery/autonat_service
 
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
