@@ -1,6 +1,6 @@
 {.used.}
 
-import testutils/unittests, chronos
+import testutils/unittests, chronos, libp2p/protocols/connectivity/relay/relay
 
 import ../testlib/wakunode, waku/factory/node_factory, waku/waku_node
 
