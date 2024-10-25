@@ -1146,7 +1146,7 @@ proc mountPeerExchange*(
     error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
 
 proc fetchPeerExchangePeers*(
-    node: Wakunode, amount: uint64
+    node: Wakunode, amount = DefaultPXNumPeersReq
 ): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
@@ -1174,6 +1174,16 @@ proc fetchPeerExchangePeers*(
     warn "failed to retrieve peer info via peer exchange protocol",
       error = pxPeersRes.error
     return err(pxPeersRes.error)
+
+proc peerExchangeLoop(node: WakuNode) {.async.} =
+  (await node.fetchPeerExchangePeers()).isOkOr:
+    warn "error while fetching peers from peer exchange", error = error
+  await sleepAsync(1.minutes)
+
+proc startPeerExchangeLoop*(node: WakuNode) =
+  info "starting peer exchange loop"
+
+  asyncSpawn node.peerExchangeLoop()
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(

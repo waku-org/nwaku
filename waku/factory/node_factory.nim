@@ -424,6 +424,9 @@ proc startNode*(
       error "error while fetching peers from peer exchange", error = error
       quit(QuitFailure)
 
+  if conf.peerExchange and not conf.discv5Discovery:
+    node.startPeerExchangeLoop()
+
   # Start keepalive, if enabled
   if conf.keepAlive:
     node.startKeepalive()
