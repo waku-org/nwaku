@@ -8,7 +8,7 @@ suite "Node Factory":
   test "Set up a node based on default configurations":
     let conf = defaultTestWakuNodeConf()
 
-    let node = setupNode(conf).valueOr:
+    let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
 
     check:
@@ -23,7 +23,7 @@ suite "Node Factory":
     var conf = defaultTestWakuNodeConf()
     conf.store = true
 
-    let node = setupNode(conf).valueOr:
+    let node = setupNode(conf, relay = Relay.new()).valueOr:
       raiseAssert error
 
     check:
@@ -35,7 +35,7 @@ test "Set up a node with Filter enabled":
   var conf = defaultTestWakuNodeConf()
   conf.filter = true
 
-  let node = setupNode(conf).valueOr:
+  let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error
 
   check:
@@ -45,7 +45,7 @@ test "Set up a node with Filter enabled":
 test "Start a node based on default configurations":
   let conf = defaultTestWakuNodeConf()
 
-  let node = setupNode(conf).valueOr:
+  let node = setupNode(conf, relay = Relay.new()).valueOr:
     raiseAssert error
 
   assert not node.isNil(), "Node can't be nil"

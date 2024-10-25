@@ -435,9 +435,7 @@ proc startNode*(
   return ok()
 
 proc setupNode*(
-    conf: WakuNodeConf,
-    rng: ref HmacDrbgContext = crypto.newRng(),
-    relay: Relay = Relay.new(),
+    conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
   # Use provided key only if corresponding rng is also provided
   let key =
