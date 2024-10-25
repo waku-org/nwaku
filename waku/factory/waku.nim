@@ -121,8 +121,9 @@ proc setupSwitchServices(
     debug "waku node announced addresses updated",
       announcedAddresses = waku.node.announcedAddresses
 
-    waku.wakuDiscv5.updateAnnouncedMultiAddress(addresses).isOkOr:
-      error "failed to update announced multiaddress", error = $error
+    if not isNil(waku.wakuDiscv5):
+      waku.wakuDiscv5.updateAnnouncedMultiAddress(addresses).isOkOr:
+        error "failed to update announced multiaddress", error = $error
 
   let autonatService = getAutonatService(rng)
   if conf.isRelayClient:
