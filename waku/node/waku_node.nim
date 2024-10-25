@@ -1176,9 +1176,10 @@ proc fetchPeerExchangePeers*(
     return err(pxPeersRes.error)
 
 proc peerExchangeLoop(node: WakuNode) {.async.} =
-  (await node.fetchPeerExchangePeers()).isOkOr:
-    warn "error while fetching peers from peer exchange", error = error
-  await sleepAsync(1.minutes)
+  while node.started:
+    (await node.fetchPeerExchangePeers()).isOkOr:
+      warn "error while fetching peers from peer exchange", error = error
+    await sleepAsync(1.minutes)
 
 proc startPeerExchangeLoop*(node: WakuNode) =
   info "starting peer exchange loop"
