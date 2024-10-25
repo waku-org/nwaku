@@ -38,15 +38,9 @@ suite "Waku v2 Rest API - Admin":
   var client {.threadvar.}: RestClientRef
 
   asyncSetup:
-    node1 = newTestWakuNode(
-      generateSecp256k1Key(), getPrimaryIPAddr(), Port(60600)
-    )
-    node2 = newTestWakuNode(
-      generateSecp256k1Key(), getPrimaryIPAddr(), Port(60602)
-    )
-    node3 = newTestWakuNode(
-      generateSecp256k1Key(), getPrimaryIPAddr(), Port(60604)
-    )
+    node1 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60600))
+    node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60602))
+    node3 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(60604))
 
     await allFutures(node1.start(), node2.start(), node3.start())
     await allFutures(
