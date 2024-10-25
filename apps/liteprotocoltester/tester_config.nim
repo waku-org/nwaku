@@ -168,7 +168,7 @@ type LiteProtocolTesterConf* = object
   .}: seq[string]
 
   metricsPort* {.
-    desc: "Listening port of the REST HTTP server.",
+    desc: "Listening port of the Metrics HTTP server.",
     defaultValue: 8003,
     name: "metrics-port"
   .}: uint16
@@ -182,7 +182,8 @@ proc load*(T: type LiteProtocolTesterConf, version = ""): ConfResult[T] =
       secondarySources = proc(
           conf: LiteProtocolTesterConf, sources: auto
       ) {.gcsafe, raises: [ConfigurationError].} =
-        sources.addConfigFile(Envvar, InputFile("liteprotocoltester")),
+        sources.addConfigFile(Envvar, InputFile("liteprotocoltester"))
+      ,
     )
     ok(conf)
   except CatchableError:
