@@ -26,10 +26,12 @@ node_health = Gauge('node_health', "Binary indicator of a node's health. 1 is he
 
 # Argparser configuration
 parser = argparse.ArgumentParser(description='')
-parser.add_argument('-p', '--pubsub-topic', type=str, help='pubsub topic', default='/waku/2/rs/1/0')
-parser.add_argument('-d', '--delay-seconds', type=int, help='delay in second between messages', default=60)
-parser.add_argument('-n', '--store-nodes', type=str, help='comma separated list of store nodes to query', required=True)
-parser.add_argument('-t', '--health-threshold', type=int, help='consecutive successful store requests to consider a store node healthy', default=5)
+parser.add_argument('-m', '--metrics-port',      type=int, default=8004,                help='Port to expose prometheus metrics.')
+parser.add_argument('-a', '--node-rest-address', type=str, default="http://nwaku:8645", help='Address of the waku node to send messages to.')
+parser.add_argument('-p', '--pubsub-topic',      type=str, default='/waku/2/rs/1/0',    help='PubSub topic.')
+parser.add_argument('-d', '--delay-seconds',     type=int, default=60,                  help='Delay in seconds between messages.')
+parser.add_argument('-n', '--store-nodes',       type=str, required=True,               help='Comma separated list of store nodes to query.')
+parser.add_argument('-t', '--health-threshold',  type=int, default=5,                   help='Consecutive successful store requests to consider a store node healthy.')
 args = parser.parse_args()
 
 
@@ -178,22 +180,21 @@ def main():
       store_nodes = [s.strip() for s in args.store_nodes.split(",")]
   log_with_utc(f'Store nodes to query: {store_nodes}')
 
-  # Start Prometheus HTTP server at port 8004
-  start_http_server(8004)
+  # Start Prometheus HTTP server at port set by the CLI(default 8004)
+  start_http_server(args.metrics_port)
 
-  node_rest_address = 'http://nwaku:8645'
   while True:
     timestamp = time.time_ns()
       
     # Send Sonda message
-    res = send_sonda_msg(node_rest_address, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
+    res = send_sonda_msg(args.node_rest_address, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
 
     log_with_utc(f'sleeping: {args.delay_seconds} seconds')
     time.sleep(args.delay_seconds)
 
     # Only send store query if message was successfully published
     if(res):
-      send_store_queries(node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
+      send_store_queries(args.node_rest_address, store_nodes, args.pubsub_topic, SONDA_CONTENT_TOPIC, timestamp)
     
     # Update node health metrics
     for store_node in store_nodes:

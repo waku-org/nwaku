@@ -1,5 +1,4 @@
 
-version: "3.7"
 x-logging: &logging
   logging:
     driver: json-file
@@ -15,6 +14,8 @@ x-rln-environment: &rln_env
   RLN_RELAY_CRED_PASSWORD: ${RLN_RELAY_CRED_PASSWORD:-} # Optional: Add your RLN_RELAY_CRED_PASSWORD after the "-"
 
 x-sonda-env: &sonda_env
+  METRICS_PORT: ${METRICS_PORT:-8004}
+  NODE_REST_ADDRESS: ${NODE_REST_ADDRESS:-"http://nwaku:8645"}
   CLUSTER_ID: ${CLUSTER_ID:-1}
   SHARD: ${SHARD:-0}
   STORE_NODES: ${STORE_NODES:-}
@@ -24,7 +25,8 @@ x-sonda-env: &sonda_env
 # Services definitions
 services:
   nwaku:
-    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:v0.30.1}
+    image: ${NWAKU_IMAGE:-harbor.status.im/wakuorg/nwaku:deploy-status-prod}
+    container_name: nwaku
     restart: on-failure
     ports:
       - 30304:30304/tcp
@@ -54,29 +56,27 @@ services:
     entrypoint: sh
     command:
       - /opt/run_node.sh
+    networks:
+      - nwaku-sonda
 
   sonda:
     build:
       context: .
       dockerfile: Dockerfile.sonda
+    container_name: sonda
     ports:
-      - 127.0.0.1:8004:8004
+      - 127.0.0.1:${METRICS_PORT}:${METRICS_PORT}
     environment:
       <<:
         - *sonda_env
-    command: >
-      python -u /opt/sonda.py
-      --delay-seconds=${QUERY_DELAY}
-      --pubsub-topic=/waku/2/rs/${CLUSTER_ID}/${SHARD}
-      --store-nodes=${STORE_NODES}
-      --health-threshold=${HEALTH_THRESHOLD}
-    volumes:
-      - ./sonda.py:/opt/sonda.py:Z
     depends_on:
       - nwaku
+    networks:
+      - nwaku-sonda
   
   prometheus:
     image: docker.io/prom/prometheus:latest
+    container_name: prometheus
     volumes:
       - ./monitoring/prometheus-config.yml:/etc/prometheus/prometheus.yml:Z
     command:
@@ -86,9 +86,12 @@ services:
     restart: on-failure:5
     depends_on:
       - nwaku
+    networks:
+      - nwaku-sonda
 
   grafana:
     image: docker.io/grafana/grafana:latest
+    container_name: grafana
     env_file:
       - ./monitoring/configuration/grafana-plugins.env
     volumes:
@@ -104,4 +107,8 @@ services:
     restart: on-failure:5
     depends_on:
       - prometheus
+    networks:
+      - nwaku-sonda
 
+networks:
+  nwaku-sonda:
