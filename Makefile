@@ -8,7 +8,6 @@ BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
 LOG_LEVEL := TRACE
-NPH := vendor/nph/src/nph
 FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk
@@ -35,13 +34,13 @@ ifneq (,$(findstring MINGW,$(detected_OS)))
   detected_OS := Windows
 endif
 
-ifeq ($(detected_OS),Windows) 
+ifeq ($(detected_OS),Windows)
   # Define a new temporary directory for Windows
   TMP_DIR := $(CURDIR)/tmp
   $(shell mkdir -p $(TMP_DIR))
   export TMP := $(TMP_DIR)
   export TEMP := $(TMP_DIR)
-  
+
   # Add the necessary libraries to the linker flags
   LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll -lminiupnpc
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
@@ -63,6 +62,7 @@ waku.nims:
 update: | update-common
 	rm -rf waku.nims && \
 		$(MAKE) waku.nims $(HANDLE_OUTPUT)
+	$(MAKE) build-nph
 
 clean:
 	rm -rf build
@@ -287,8 +287,17 @@ networkmonitor: | build deps librln
 ############
 .PHONY: build-nph install-nph clean-nph print-nph-path
 
-build-nph:
-		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim
+# Default location for nph binary shall be next to nim binary to make it available on the path.
+NPH:=$(shell dirname $(NIM_BINARY))/nph
+
+build-nph: | build deps
+ifeq ("$(wildcard $(NPH))","")
+		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim && \
+		mv vendor/nph/src/nph $(shell dirname $(NPH))
+		echo "nph utility is available at " $(NPH)
+else
+		echo "nph utility already exists at " $(NPH)
+endif
 
 GIT_PRE_COMMIT_HOOK := .git/hooks/pre-commit
 
@@ -300,7 +309,7 @@ else
 	exit 1
 endif
 
-nph/%: build-nph
+nph/%: | build-nph
 	echo -e $(FORMAT_MSG) "nph/$*" && \
 		$(NPH) $*
 
