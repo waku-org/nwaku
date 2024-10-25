@@ -23,6 +23,9 @@ x-test-running-conditions: &test_running_conditions
   MAX_MESSAGE_SIZE: ${MAX_MESSAGE_SIZE:-150Kb}
   START_PUBLISHING_AFTER: ${START_PUBLISHING_AFTER:-5}  # seconds
   STANDALONE: ${STANDALONE:-1}
+  RECEIVER_METRICS_PORT: 8003
+  PUBLISHER_METRICS_PORT: 8003
+
 
 # Services definitions
 services:

@@ -160,7 +160,7 @@ type WakuNodeConf* = object
     .}: uint16
 
     agentString* {.
-      defaultValue: "nwaku-" & git_version,
+      defaultValue: "nwaku-" & external_config.git_version,
       desc: "Node agent string which is used as identifier in network",
       name: "agent-string"
     .}: string

@@ -1,8 +1,6 @@
 import
-  std/[strutils, strformat],
   results,
   chronos,
-  regex,
   confutils,
   confutils/defs,
   confutils/std/net,
@@ -11,9 +9,8 @@ import
   libp2p/crypto/crypto,
   libp2p/crypto/secp,
   libp2p/multiaddress,
-  nimcrypto/utils,
-  secp256k1,
-  json
+  secp256k1
+
 import
   waku/[
     common/confutils/envvar/defs as confEnvvarDefs,
@@ -58,8 +55,16 @@ type LiteProtocolTesterConf* = object
   .}: logging.LogFormat
 
   ## Test configuration
-  servicenode* {.desc: "Peer multiaddr of the service node.", name: "service-node".}:
-    string
+  serviceNode* {.
+    desc: "Peer multiaddr of the service node.", defaultValue: "", name: "service-node"
+  .}: string
+
+  bootstrapNode* {.
+    desc:
+      "Peer multiaddr of the bootstrap node. If `service-node` not set, it is used to retrieve potential service nodes of the network.",
+    defaultValue: "",
+    name: "bootstrap-node"
+  .}: string
 
   nat* {.
     desc:
@@ -135,6 +140,18 @@ type LiteProtocolTesterConf* = object
     name: "rest-address"
   .}: IpAddress
 
+  testPeers* {.
+    desc: "Run dial test on gathered PeerExchange peers.",
+    defaultValue: true,
+    name: "test-peers"
+  .}: bool
+
+  reqPxPeers* {.
+    desc: "Number of peers to request on PeerExchange.",
+    defaultValue: 100,
+    name: "req-px-peers"
+  .}: uint16
+
   restPort* {.
     desc: "Listening port of the REST HTTP server.",
     defaultValue: 8654,
@@ -149,6 +166,12 @@ type LiteProtocolTesterConf* = object
     defaultValue: @["*"],
     name: "rest-allow-origin"
   .}: seq[string]
+
+  metricsPort* {.
+    desc: "Listening port of the Metrics HTTP server.",
+    defaultValue: 8003,
+    name: "metrics-port"
+  .}: uint16
 
 {.push warning[ProveInit]: off.}
 
