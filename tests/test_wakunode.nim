@@ -169,7 +169,7 @@ suite "WakuNode":
       nodeKey = generateSecp256k1Key()
       bindIp = parseIpAddress("0.0.0.0")
       bindPort = Port(61006)
-      extIp = some(parseIpAddress($getPrimaryIPAddr()))
+      extIp = some(getPrimaryIPAddr())
       extPort = some(Port(61008))
       node = newTestWakuNode(nodeKey, bindIp, bindPort, extIp, extPort)
 
@@ -205,7 +205,7 @@ suite "WakuNode":
       nodeKey = generateSecp256k1Key()
       bindIp = parseIpAddress("0.0.0.0")
       bindPort = Port(61010)
-      extIp = some(parseIpAddress($getPrimaryIPAddr()))
+      extIp = some(getPrimaryIPAddr())
       extPort = some(Port(61012))
       domainName = "example.com"
       expectedDns4Addr =

@@ -269,14 +269,9 @@ procSuite "Peer Manager":
       database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
       node1 = newTestWakuNode(
-        generateSecp256k1Key(),
-        ValidIpAddress.init($getPrimaryIPAddr()),
-        Port(44048),
-        peerStorage = storage,
+        generateSecp256k1Key(), getPrimaryIPAddr(), Port(44048), peerStorage = storage
       )
-      node2 = newTestWakuNode(
-        generateSecp256k1Key(), ValidIpAddress.init($getPrimaryIPAddr()), Port(34023)
-      )
+      node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(34023))
 
     node1.mountMetadata(0).expect("Mounted Waku Metadata")
     node2.mountMetadata(0).expect("Mounted Waku Metadata")
@@ -344,14 +339,9 @@ procSuite "Peer Manager":
       database = SqliteDatabase.new(":memory:")[]
       storage = WakuPeerStorage.new(database)[]
       node1 = newTestWakuNode(
-        generateSecp256k1Key(),
-        ValidIpAddress.init($getPrimaryIPAddr()),
-        Port(44048),
-        peerStorage = storage,
+        generateSecp256k1Key(), getPrimaryIPAddr(), Port(44048), peerStorage = storage
       )
-      node2 = newTestWakuNode(
-        generateSecp256k1Key(), ValidIpAddress.init($getPrimaryIPAddr()), Port(34023)
-      )
+      node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(34023))
 
     node1.mountMetadata(0).expect("Mounted Waku Metadata")
     node2.mountMetadata(0).expect("Mounted Waku Metadata")
