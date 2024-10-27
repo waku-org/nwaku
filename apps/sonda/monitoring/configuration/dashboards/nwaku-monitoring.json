@@ -2292,7 +2292,7 @@
           "useBackend": false
         }
       ],
-      "title": "RLN Proof Verification Total",
+      "title": "RLN Light Proof Verify",
       "type": "timeseries"
     },
     {
