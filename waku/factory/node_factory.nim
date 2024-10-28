@@ -4,6 +4,7 @@ import
   chronos,
   libp2p/peerid,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/dnsresolver,
   libp2p/crypto/crypto
 
@@ -59,6 +60,7 @@ proc initNode(
     nodeKey: crypto.PrivateKey,
     record: enr.Record,
     peerStore: Option[WakuPeerStorage],
+    relay: Relay,
     dynamicBootstrapNodes: openArray[RemotePeerInfo] = @[],
 ): Result[WakuNode, string] =
   ## Setup a basic Waku v2 node based on a supplied configuration
@@ -103,6 +105,7 @@ proc initNode(
     maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
   )
   builder.withRateLimit(conf.rateLimits)
+  builder.withCircuitRelay(relay)
 
   node =
     ?builder.build().mapErr(
@@ -438,21 +441,15 @@ proc startNode*(
   return ok()
 
 proc setupNode*(
-    conf: WakuNodeConf, rng: Option[ref HmacDrbgContext] = none(ref HmacDrbgContext)
+    conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
-  var nodeRng =
-    if rng.isSome():
-      rng.get()
-    else:
-      crypto.newRng()
-
   # Use provided key only if corresponding rng is also provided
   let key =
-    if conf.nodeKey.isSome() and rng.isSome():
+    if conf.nodeKey.isSome():
       conf.nodeKey.get()
     else:
-      warn "missing key or rng, generating new set"
-      crypto.PrivateKey.random(Secp256k1, nodeRng[]).valueOr:
+      warn "missing key, generating new"
+      crypto.PrivateKey.random(Secp256k1, rng[]).valueOr:
         error "Failed to generate key", error = error
         return err("Failed to generate key: " & $error)
 
@@ -479,7 +476,7 @@ proc setupNode*(
 
   debug "Initializing node"
 
-  let node = initNode(conf, netConfig, nodeRng, key, record, peerStore).valueOr:
+  let node = initNode(conf, netConfig, rng, key, record, peerStore, relay).valueOr:
     error "Initializing node failed", error = error
     return err("Initializing node failed: " & error)
 

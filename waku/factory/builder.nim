@@ -7,7 +7,9 @@ import
   libp2p/crypto/crypto,
   libp2p/builders,
   libp2p/nameresolving/nameresolver,
-  libp2p/transports/wstransport
+  libp2p/transports/wstransport,
+  libp2p/protocols/connectivity/relay/client,
+  libp2p/protocols/connectivity/relay/relay
 import
   ../waku_enr,
   ../discovery/waku_discv5,
@@ -38,6 +40,7 @@ type
     switchSslSecureKey: Option[string]
     switchSslSecureCert: Option[string]
     switchSendSignedPeerRecord: Option[bool]
+    circuitRelay: Relay
 
     #Rate limit configs for non-relay req-resp protocols
     rateLimitSettings: Option[seq[string]]
@@ -116,6 +119,9 @@ proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
 proc withRateLimit*(builder: var WakuNodeBuilder, limits: seq[string]) =
   builder.rateLimitSettings = some(limits)
 
+proc withCircuitRelay*(builder: var WakuNodeBuilder, circuitRelay: Relay) =
+  builder.circuitRelay = circuitRelay
+
 ## Waku switch
 
 proc withSwitchConfiguration*(
@@ -154,6 +160,12 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   if builder.record.isNone():
     return err("node record is required")
 
+  let circuitRelay =
+    if builder.circuitRelay.isNil():
+      Relay.new()
+    else:
+      builder.circuitRelay
+
   var switch: Switch
   try:
     switch = newWakuSwitch(
@@ -170,7 +182,7 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
       sendSignedPeerRecord = builder.switchSendSignedPeerRecord.get(false),
       agentString = builder.switchAgentString,
       peerStoreCapacity = builder.peerStorageCapacity,
-      services = @[Service(getAutonatService(rng))],
+      circuitRelay = circuitRelay,
     )
   except CatchableError:
     return err("failed to create switch: " & getCurrentExceptionMsg())

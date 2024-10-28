@@ -132,7 +132,7 @@ when isMainModule:
     error "Starting esential REST server failed.", error = $error
     quit(QuitFailure)
 
-  var wakuApp = Waku.init(wakuConf).valueOr:
+  var wakuApp = Waku.new(wakuConf).valueOr:
     error "Waku initialization failed", error = error
     quit(QuitFailure)
 

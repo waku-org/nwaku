@@ -9,6 +9,7 @@ import
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/rendezvous,
+  libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/nameresolver,
   libp2p/builders,
   libp2p/switch,
@@ -76,8 +77,8 @@ proc newWakuSwitch*(
     secureCertPath: string = "",
     agentString = none(string), # defaults to nim-libp2p version
     peerStoreCapacity = none(int), # defaults to 1.25 maxConnections
-    services: seq[switch.Service] = @[],
     rendezvous: RendezVous = nil,
+    circuitRelay: Relay,
 ): Switch {.raises: [Defect, IOError, LPError].} =
   var b = SwitchBuilder
     .new()
@@ -92,7 +93,7 @@ proc newWakuSwitch*(
     .withTcpTransport(transportFlags)
     .withNameResolver(nameResolver)
     .withSignedPeerRecord(sendSignedPeerRecord)
-    .withCircuitRelay()
+    .withCircuitRelay(circuitRelay)
     .withAutonat()
 
   if peerStoreCapacity.isSome():
@@ -113,9 +114,6 @@ proc newWakuSwitch*(
       b = b.withWsTransport()
   else:
     b = b.withAddress(address)
-
-  if services.len > 0:
-    b = b.withServices(services)
 
   if not rendezvous.isNil():
     b = b.withRendezVous(rendezvous)

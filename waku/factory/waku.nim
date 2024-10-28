@@ -1,16 +1,22 @@
 {.push raises: [].}
 
 import
-  std/options,
+  std/[options, sequtils],
   results,
   chronicles,
   chronos,
+  libp2p/protocols/connectivity/relay/relay,
+  libp2p/protocols/connectivity/relay/client,
   libp2p/wire,
-  libp2p/multicodec,
   libp2p/crypto/crypto,
   libp2p/protocols/pubsub/gossipsub,
+  libp2p/services/autorelayservice,
+  libp2p/services/hpservice,
   libp2p/peerid,
+  libp2p/discovery/discoverymngr,
+  libp2p/discovery/rendezvousinterface,
   eth/keys,
+  eth/p2p/discoveryv5/enr,
   presto,
   metrics,
   metrics/chronos_httpserver
@@ -24,8 +30,10 @@ import
   ../waku_api/message_cache,
   ../waku_api/rest/server,
   ../waku_archive,
+  ../waku_relay/protocol,
   ../discovery/waku_dnsdisc,
   ../discovery/waku_discv5,
+  ../discovery/autonat_service,
   ../waku_enr/sharding,
   ../waku_rln_relay,
   ../waku_store,
@@ -33,7 +41,8 @@ import
   ../factory/networks_config,
   ../factory/node_factory,
   ../factory/internal_config,
-  ../factory/external_config
+  ../factory/external_config,
+  ../waku_enr/multiaddr
 
 logScope:
   topics = "wakunode waku"
@@ -41,7 +50,7 @@ logScope:
 # Git version in git describe format (defined at compile time)
 const git_version* {.strdefine.} = "n/a"
 
-type Waku* = object
+type Waku* = ref object
   version: string
   conf: WakuNodeConf
   rng: ref HmacDrbgContext
@@ -49,6 +58,7 @@ type Waku* = object
 
   wakuDiscv5*: WakuDiscoveryV5
   dynamicBootstrapNodes: seq[RemotePeerInfo]
+  discoveryMngr: DiscoveryManager
 
   node*: WakuNode
 
@@ -99,9 +109,43 @@ proc validateShards(conf: WakuNodeConf): Result[void, string] =
 
   return ok()
 
+proc setupSwitchServices(
+    waku: Waku, conf: WakuNodeConf, circuitRelay: Relay, rng: ref HmacDrbgContext
+) =
+  proc onReservation(addresses: seq[MultiAddress]) {.gcsafe, raises: [].} =
+    debug "circuit relay handler new reserve event",
+      addrs_before = $(waku.node.announcedAddresses), addrs = $addresses
+
+    waku.node.announcedAddresses.setLen(0) ## remove previous addresses
+    waku.node.announcedAddresses.add(addresses)
+    debug "waku node announced addresses updated",
+      announcedAddresses = waku.node.announcedAddresses
+
+    if not isNil(waku.wakuDiscv5):
+      waku.wakuDiscv5.updateAnnouncedMultiAddress(addresses).isOkOr:
+        error "failed to update announced multiaddress", error = $error
+
+  let autonatService = getAutonatService(rng)
+  if conf.isRelayClient:
+    ## The node is considered to be behind a NAT or firewall and then it
+    ## should struggle to be reachable and establish connections to other nodes
+    const MaxNumRelayServers = 2
+    let autoRelayService = AutoRelayService.new(
+      MaxNumRelayServers, RelayClient(circuitRelay), onReservation, rng
+    )
+    let holePunchService = HPService.new(autonatService, autoRelayService)
+    waku.node.switch.services = @[Service(holePunchService)]
+  else:
+    waku.node.switch.services = @[Service(autonatService)]
+
 ## Initialisation
 
-proc init*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
+proc newCircuitRelay(isRelayClient: bool): Relay =
+  if isRelayClient:
+    return RelayClient.new()
+  return Relay.new()
+
+proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
   logging.setupLog(confCopy.logLevel, confCopy.logFormat)
@@ -182,13 +226,16 @@ proc init*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
       "Retrieving dynamic bootstrap nodes failed: " & dynamicBootstrapNodesRes.error
     )
 
-  let nodeRes = setupNode(confCopy, some(rng))
+  var relay = newCircuitRelay(confCopy.isRelayClient)
+
+  let nodeRes = setupNode(confCopy, rng, relay)
   if nodeRes.isErr():
     error "Failed setting up node", error = nodeRes.error
     return err("Failed setting up node: " & nodeRes.error)
 
   let node = nodeRes.get()
 
+  ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
   if confCopy.reliabilityEnabled:
     if confCopy.storenode == "":
@@ -211,6 +258,8 @@ proc init*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
     dynamicBootstrapNodes: dynamicBootstrapNodesRes.get(),
     deliveryMonitor: deliveryMonitor,
   )
+
+  waku.setupSwitchServices(confCopy, relay, rng)
 
   ok(waku)
 
@@ -249,7 +298,10 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
 
   return ok(netConf)
 
-proc updateEnr(waku: ptr Waku, netConf: NetConfig): Result[void, string] =
+proc updateEnr(waku: ptr Waku): Result[void, string] =
+  let netConf: NetConfig = getRunningNetConfig(waku).valueOr:
+    return err("error calling updateNetConfig: " & $error)
+
   let record = enrConfiguration(waku[].conf, netConf, waku[].key).valueOr:
     return err("ENR setup failed: " & error)
 
@@ -260,17 +312,42 @@ proc updateEnr(waku: ptr Waku, netConf: NetConfig): Result[void, string] =
 
   return ok()
 
+proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
+  let addresses: seq[MultiAddress] = waku[].node.announcedAddresses
+  let encodedAddrs = multiaddr.encodeMultiaddrs(addresses)
+
+  ## First update the enr info contained in WakuNode
+  let keyBytes = waku[].key.getRawBytes().valueOr:
+    return err("failed to retrieve raw bytes from waku key: " & $error)
+
+  let parsedPk = keys.PrivateKey.fromHex(keyBytes.toHex()).valueOr:
+    return err("failed to parse the private key: " & $error)
+
+  let enrFields = @[toFieldPair(MultiaddrEnrField, encodedAddrs)]
+  waku[].node.enr.update(parsedPk, enrFields).isOkOr:
+    return err("failed to update multiaddress in ENR updateAddressInENR: " & $error)
+
+  debug "Waku node ENR updated successfully with new multiaddress",
+    enr = waku[].node.enr.toUri(), record = $(waku[].node.enr)
+
+  ## Now update the ENR infor in discv5
+  if not waku[].wakuDiscv5.isNil():
+    waku[].wakuDiscv5.protocol.localNode.record = waku[].node.enr
+    let enr = waku[].wakuDiscv5.protocol.localNode.record
+
+    debug "Waku discv5 ENR updated successfully with new multiaddress",
+      enr = enr.toUri(), record = $(enr)
+
+  return ok()
+
 proc updateWaku(waku: ptr Waku): Result[void, string] =
   if waku[].conf.tcpPort == Port(0) or waku[].conf.websocketPort == Port(0):
-    let netConf = getRunningNetConfig(waku).valueOr:
-      return err("error calling updateNetConfig: " & $error)
-
-    updateEnr(waku, netConf).isOkOr:
+    updateEnr(waku).isOkOr:
       return err("error calling updateEnr: " & $error)
 
-    waku[].node.announcedAddresses = netConf.announcedAddresses
+  ?updateAnnouncedAddrWithPrimaryIpAddr(waku[].node)
 
-    printNodeNetworkInfo(waku[].node)
+  ?updateAddressInENR(waku)
 
   return ok()
 
@@ -296,6 +373,16 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
   ## Reliability
   if not waku[].deliveryMonitor.isNil():
     waku[].deliveryMonitor.startDeliveryMonitor()
+
+  ## libp2p DiscoveryManager
+  waku[].discoveryMngr = DiscoveryManager()
+  waku[].discoveryMngr.add(
+    RendezVousInterface.new(rdv = waku[].node.rendezvous, tta = 1.minutes)
+  )
+  if not isNil(waku[].node.wakuRelay):
+    for topic in waku[].node.wakuRelay.getSubscribedTopics():
+      debug "advertise rendezvous namespace", topic
+      waku[].discoveryMngr.advertise(RdvNamespace(topic))
 
   return ok()
 
