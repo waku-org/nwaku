@@ -191,7 +191,7 @@ method register*(
   g.registrationTxHash = some(txHash)
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
-  # debug "ts receipt", tsReceipt
+  debug "ts receipt", receipt = tsReceipt[]
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
@@ -299,10 +299,9 @@ proc getRawEvents(
       toBlock = Opt.some(toBlock.blockId()),
     )
 
-  var events: JsonNode
-  if events.len == 0:
-    for eventStr in eventStrs:
-      events.add(parseJson($eventStr))
+  var events = newJArray()
+  for eventStr in eventStrs:
+    events.add(parseJson($eventStr))
   return events
 
 proc getBlockTable(
