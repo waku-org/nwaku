@@ -13,6 +13,7 @@ type PeerManagementMsgType* {.pure.} = enum
   DISCONNECT_PEER_BY_ID
   DIAL_PEER
   DIAL_PEER_BY_ID
+  GET_CONNECTED_PEERS
 
 type PeerManagementRequest* = object
   operation: PeerManagementMsgType
@@ -114,5 +115,11 @@ proc process*(
       let msg = "failed dialing peer"
       error "DIAL_PEER_BY_ID failed", error = msg
       return err(msg)
+  of GET_CONNECTED_PEERS:
+    ## returns a comma-separated string of peerIDs
+    let
+      (inPeerIds, outPeerIds) = waku.node.peerManager.connectedPeers()
+      connectedPeerids = concat(inPeerIds, outPeerIds)
+    return ok(connectedPeerids.mapIt($it).join(","))
 
   return ok("")

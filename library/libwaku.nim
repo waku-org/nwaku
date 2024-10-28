@@ -553,6 +553,19 @@ proc waku_get_peerids_from_peerstore(
   )
   .handleRes(callback, userData)
 
+proc waku_get_connected_peers(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(PeerManagementMsgType.GET_CONNECTED_PEERS),
+  )
+  .handleRes(callback, userData)
+
 proc waku_get_peerids_by_protocol(
     ctx: ptr WakuContext, protocol: cstring, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =

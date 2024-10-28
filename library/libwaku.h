@@ -147,6 +147,10 @@ int waku_listen_addresses(void* ctx,
                           WakuCallBack callback,
                           void* userData);
 
+int waku_get_connected_peers(void* ctx,
+                          WakuCallBack callback,
+                          void* userData);
+
 // Returns a list of multiaddress given a url to a DNS discoverable ENR tree
 // Parameters
 //     char* entTreeUrl: URL containing a discoverable ENR tree
