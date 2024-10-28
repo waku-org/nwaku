@@ -21,7 +21,7 @@
       }
     ]
   },
-  "description": "Basic metrics for a single running nwaku node",
+  "description": "Basic metrics for a single running nwaku node testing for nwaku-compose",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
