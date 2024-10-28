@@ -38,7 +38,7 @@
       },
       "id": 45,
       "panels": [],
-      "title": "Waku Node TMP ",
+      "title": "Waku Node",
       "type": "row"
     },
     {
@@ -172,7 +172,7 @@
           "refId": "A"
         }
       ],
-      "title": "Average Message Size (Last Hour)",
+      "title": "Average Msg Size (Last Hour)",
       "type": "stat"
     },
     {
@@ -2292,7 +2292,7 @@
           "useBackend": false
         }
       ],
-      "title": "RLN Light Proof Verify",
+      "title": "RLN Proof Verification Total",
       "type": "timeseries"
     },
     {
