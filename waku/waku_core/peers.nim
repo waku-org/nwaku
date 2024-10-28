@@ -199,26 +199,37 @@ proc parsePeerInfoFromRegularAddr(peer: MultiAddress): Result[RemotePeerInfo, st
 
   return ok(RemotePeerInfo.init(peerId, @[wireAddr]))
 
-proc parsePeerInfo*(peer: MultiAddress): Result[RemotePeerInfo, string] =
+proc parsePeerInfo*(maddrs: varargs[MultiAddress]): Result[RemotePeerInfo, string] =
   ## Parses a fully qualified peer multiaddr into dialable RemotePeerInfo
+  var peerID: PeerID
+  var addrs = newSeq[MultiAddress]()
+  for i in 0 ..< maddrs.len:
+    let peerAddrStr = $maddrs[i]
+    let peerInfo =
+      if "p2p-circuit" in peerAddrStr:
+        ?parsePeerInfoFromCircuitRelayAddr(peerAddrStr)
+      else:
+        ?parsePeerInfoFromRegularAddr(maddrs[i])
+    if i == 0:
+      peerID = peerInfo.peerID
+    elif peerID.cmp(peerInfo.peerID) != 0:
+      return err("Error in parsePeerInfo: multiple peerIds received")
+    addrs.add(peerInfo.addrs[0])
+  return ok(RemotePeerInfo.init(peerID, addrs))
 
-  let peerAddrStr = $peer
-
-  if "p2p-circuit" in peerAddrStr:
-    return parsePeerInfoFromCircuitRelayAddr(peerAddrStr)
-
-  return parsePeerInfoFromRegularAddr(peer)
-
-proc parsePeerInfo*(peer: string): Result[RemotePeerInfo, string] =
+proc parsePeerInfo*(maddrs: varargs[string]): Result[RemotePeerInfo, string] =
   ## Parses a fully qualified peer multiaddr, in the
   ## format `(ip4|ip6)/tcp/p2p`, into dialable PeerInfo
-  let multiAddr =
-    ?MultiAddress.init(peer).mapErr(
-      proc(err: string): string =
-        "MultiAddress.init [" & err & "]"
-    )
+  var multiAddresses = newSeq[MultiAddress]()
+  for maddr in maddrs:
+    let multiAddr =
+      ?MultiAddress.init(maddr).mapErr(
+        proc(err: string): string =
+          "MultiAddress.init [" & err & "]"
+      )
+    multiAddresses.add(multiAddr)
 
-  parsePeerInfo(multiAddr)
+  parsePeerInfo(multiAddresses)
 
 func getTransportProtocol(typedR: TypedRecord): Option[IpTransportProtocol] =
   if typedR.tcp6.isSome() or typedR.tcp.isSome():

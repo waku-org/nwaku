@@ -1,4 +1,4 @@
-import std/json
+import std/[json, strutils]
 import chronos, results
 import libp2p/[protocols/ping, switch, multiaddress, multicodec]
 import ../../../../waku/[factory/waku, waku_core/peers, node/waku_node], ../../../alloc
@@ -25,12 +25,15 @@ proc process*(
   defer:
     destroyShared(self)
 
-  let peerInfo = peers.parsePeerInfo($self[].peerAddr).valueOr:
+  let peerInfo = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
     return err("PingRequest failed to parse peer addr: " & $error)
 
   proc ping(): Future[Result[Duration, string]] {.async, gcsafe.} =
     try:
       let conn = await waku.node.switch.dial(peerInfo.peerId, peerInfo.addrs, PingCodec)
+      defer:
+        await conn.close()
+
       let pingRTT = await waku.node.libp2pPing.ping(conn)
       if pingRTT == 0.nanos:
         return err("could not ping peer: rtt-0")
