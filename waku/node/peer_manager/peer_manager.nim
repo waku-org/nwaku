@@ -400,28 +400,18 @@ proc dialPeer(
     proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Result[Option[Connection], string]] {.async.} =
+): Future[Option[Connection]] {.async.} =
   if peerId == pm.switch.peerInfo.peerId:
-    let msg = "could not dial self"
-    error "dialPeer failed", error = msg
-    return err(msg)
+    error "could not dial self"
+    return none(Connection)
 
   if proto == WakuRelayCodec:
-    let msg = "dial shall not be used to connect to relays"
-    error "dialPeer failed", error = msg
-    return err(msg)
+    error "dial shall not be used to connect to relays"
+    return none(Connection)
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
 
   # Dial Peer
-
-  if proto == "":
-    if not await pm.switch.connect(peerId, addrs).withTimeout(dialTimeout):
-      let msg = "connection attempt timed out"
-      error "dialPeer failed", peerId = peerId, error = msg
-      return err(msg)
-    return ok(none(Connection))
-
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
   let res = catch:
@@ -434,7 +424,7 @@ proc dialPeer(
 
   trace "Dialing peer failed", peerId = peerId, reason = reasonFailed, proto = proto
 
-  return err(reasonFailed)
+  return none(Connection)
 
 proc dialPeer*(
     pm: PeerManager,
@@ -442,7 +432,7 @@ proc dialPeer*(
     proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Result[Option[Connection]]] {.async.} =
+): Future[Option[Connection]] {.async.} =
   # Dial a given peer and add it to the list of known peers
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
@@ -463,7 +453,7 @@ proc dialPeer*(
     proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Result[Option[Connection]]] {.async.} =
+): Future[Option[Connection]] {.async.} =
   # Dial an existing peer by looking up it's existing addrs in the switch's peerStore
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
