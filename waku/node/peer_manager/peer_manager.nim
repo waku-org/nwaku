@@ -279,7 +279,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.}
 # Connects to a given node. Note that this function uses `connect` and
 # does not provide a protocol. Streams for relay (gossipsub) are created
 # automatically without the needing to dial.
-proc connectRelay*(
+proc connect*(
     pm: PeerManager,
     peer: RemotePeerInfo,
     dialTimeout = DefaultDialTimeout,
@@ -291,11 +291,11 @@ proc connectRelay*(
   if peerId == pm.switch.peerInfo.peerId:
     return false
 
-  if not pm.wakuPeerStore.hasPeer(peerId, WakuRelayCodec):
+  if not pm.wakuPeerStore.peerExists(peerId):
     pm.addPeer(peer)
 
   let failedAttempts = pm.wakuPeerStore[NumberFailedConnBook][peerId]
-  trace "Connecting to relay peer",
+  trace "Connecting to peer",
     wireAddr = peer.addrs, peerId = peerId, failedAttempts = failedAttempts
 
   var deadline = sleepAsync(dialTimeout)
@@ -328,7 +328,7 @@ proc connectRelay*(
   pm.wakuPeerStore[LastFailedConnBook][peerId] = Moment.init(getTime().toUnix, Second)
   pm.wakuPeerStore[ConnectionBook][peerId] = CannotConnect
 
-  trace "Connecting relay peer failed",
+  trace "Connecting peer failed",
     peerId = peerId,
     reason = reasonFailed,
     failedAttempts = pm.wakuPeerStore[NumberFailedConnBook][peerId]
@@ -352,7 +352,7 @@ proc connectToNodes*(
   for node in nodes:
     let node = parsePeerInfo(node)
     if node.isOk():
-      futConns.add(pm.connectRelay(node.value))
+      futConns.add(pm.connect(node.value))
       connectedPeers.add(node.value)
     else:
       error "Couldn't parse node info", error = node.error

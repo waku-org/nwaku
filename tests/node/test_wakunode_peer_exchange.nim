@@ -271,9 +271,7 @@ suite "Waku Peer Exchange with discv5":
       attempts -= 1
 
     # node2 can be connected, so will be returned by peer exchange
-    require (
-      await node1.peerManager.connectRelay(node2.switch.peerInfo.toRemotePeerInfo())
-    )
+    require (await node1.peerManager.connect(node2.switch.peerInfo.toRemotePeerInfo()))
 
     # Mount peer exchange
     await node1.mountPeerExchange()

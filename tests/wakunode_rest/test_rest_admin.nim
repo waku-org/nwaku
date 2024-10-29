@@ -184,8 +184,8 @@ suite "Waku v2 Rest API - Admin":
     node1.peerManager.addPeer(peerInfo3, PeerExchange)
 
     # Connecting to both peers
-    let conn2 = await node1.peerManager.connectRelay(peerInfo2)
-    let conn3 = await node1.peerManager.connectRelay(peerInfo3)
+    let conn2 = await node1.peerManager.connect(peerInfo2)
+    let conn3 = await node1.peerManager.connect(peerInfo3)
 
     # Check successful connections
     check:
