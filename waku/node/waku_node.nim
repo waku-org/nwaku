@@ -1215,18 +1215,6 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
   except LPError:
     error "failed to mount libp2pPing", error = getCurrentExceptionMsg()
 
-#[ proc dnsDiscoverWithBackoff*(
-    node: WakuNode, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
-) {.async.} =
-  var discoveredPeers: seq[RemotePeerInfo] = @[]
-
-  while node.started and bootstrapNodes.len == 0:
-    discoveredPeers:
-      seq[RemotePeerInfo] = retrieveDynamicBootstrapNodes(
-        true, dnsDiscoveryUrl, dnsDiscoveryNameServers
-      ).valueOr:
-        await sleepAsync(30.seconds) ]#
-
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while node.started:

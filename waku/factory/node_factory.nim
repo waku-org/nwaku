@@ -430,9 +430,6 @@ proc startNode*(
       error "error while fetching peers from peer exchange", error = error
       quit(QuitFailure)
 
-  #[   if conf.dnsDiscovery and dynamicBootstrapNodes.len == 0:
-    retrieveDynamicBootstrapNodes() ]#
-
   # Start keepalive, if enabled
   if conf.keepAlive:
     node.startKeepalive()
