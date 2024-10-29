@@ -91,7 +91,7 @@ proc retrieveBootstrapNodes(
 
   for discPeer in discoveredPeers:
     for address in discPeer.addrs:
-      multiAddresses.add($address & "/" & $discPeer)
+      multiAddresses.add($address & "/p2p/" & $discPeer)
 
   return ok(multiAddresses)
 
