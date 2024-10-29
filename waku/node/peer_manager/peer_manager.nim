@@ -397,26 +397,36 @@ proc dialPeer(
     pm: PeerManager,
     peerId: PeerID,
     addrs: seq[MultiAddress],
-    proto: string,
+    proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Option[Connection]] {.async.} =
+): Future[Result[Option[Connection], string]] {.async.} =
   if peerId == pm.switch.peerInfo.peerId:
-    error "could not dial self"
-    return none(Connection)
+    let msg = "could not dial self"
+    error "dialPeer failed", error = msg
+    return err(msg)
 
   if proto == WakuRelayCodec:
-    error "dial shall not be used to connect to relays"
-    return none(Connection)
+    let msg = "dial shall not be used to connect to relays"
+    error "dialPeer failed", error = msg
+    return err(msg)
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
 
   # Dial Peer
+
+  if proto == "":
+    if not await pm.switch.connect(peerId, addrs).withTimeout(dialTimeout):
+      let msg = "connection attempt timed out"
+      error "dialPeer failed", peerId = peerId, error = msg
+      return err(msg)
+    return ok(none(Connection))
+
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
   let res = catch:
     if await dialFut.withTimeout(dialTimeout):
-      return some(dialFut.read())
+      return ok(some(dialFut.read()))
     else:
       await cancelAndWait(dialFut)
 
@@ -424,15 +434,15 @@ proc dialPeer(
 
   trace "Dialing peer failed", peerId = peerId, reason = reasonFailed, proto = proto
 
-  return none(Connection)
+  return err(reasonFailed)
 
 proc dialPeer*(
     pm: PeerManager,
     remotePeerInfo: RemotePeerInfo,
-    proto: string,
+    proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Option[Connection]] {.async.} =
+): Future[Result[Option[Connection]]] {.async.} =
   # Dial a given peer and add it to the list of known peers
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
@@ -450,10 +460,10 @@ proc dialPeer*(
 proc dialPeer*(
     pm: PeerManager,
     peerId: PeerID,
-    proto: string,
+    proto: "",
     dialTimeout = DefaultDialTimeout,
     source = "api",
-): Future[Option[Connection]] {.async.} =
+): Future[Result[Option[Connection]]] {.async.} =
   # Dial an existing peer by looking up it's existing addrs in the switch's peerStore
   # TODO: check peer validity and score before continuing. Limit number of peers to be managed.
 
