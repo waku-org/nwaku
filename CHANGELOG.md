@@ -1,3 +1,67 @@
+## v0.34.0 (2024-10-29)
+
+### Notes:
+
+
+
+### Features
+
+- change latency buckets ([#3153](https://github.com/waku-org/nwaku/issues/3153)) ([956fde6e](https://github.com/waku-org/nwaku/commit/956fde6e))
+- **libwaku:** ping peer ([#3144](https://github.com/waku-org/nwaku/issues/3144)) ([de11e576](https://github.com/waku-org/nwaku/commit/de11e576))
+- initial windows support ([#3107](https://github.com/waku-org/nwaku/issues/3107)) ([ff21c01e](https://github.com/waku-org/nwaku/commit/ff21c01e))
+- Circuit relay ([#3112](https://github.com/waku-org/nwaku/issues/3112)) ([cfde7eea](https://github.com/waku-org/nwaku/commit/cfde7eea))
+
+### Bug Fixes
+
+- linting error ([#3146](https://github.com/waku-org/nwaku/issues/3146)) ([b4d3678a](https://github.com/waku-org/nwaku/commit/b4d3678a))
+- peer exchange libwaku response handling ([#3141](https://github.com/waku-org/nwaku/issues/3141)) ([76606421](https://github.com/waku-org/nwaku/commit/76606421))
+- add more logs, stagger intervals & set prune offset to 10% for waku sync ([#3142](https://github.com/waku-org/nwaku/issues/3142)) ([a386880b](https://github.com/waku-org/nwaku/commit/a386880b))
+- add log and archive message ingress for sync ([#3133](https://github.com/waku-org/nwaku/issues/3133)) ([80c7581a](https://github.com/waku-org/nwaku/commit/80c7581a))
+- add a limit of max 10 content topics per query ([#3117](https://github.com/waku-org/nwaku/issues/3117)) ([c35dc549](https://github.com/waku-org/nwaku/commit/c35dc549))
+- avoid segfault by setting a default num peers requested in PX ([#3122](https://github.com/waku-org/nwaku/issues/3122)) ([82fd5dde](https://github.com/waku-org/nwaku/commit/82fd5dde))
+- returning peerIds in base 64 ([#3105](https://github.com/waku-org/nwaku/issues/3105)) ([37edaf62](https://github.com/waku-org/nwaku/commit/37edaf62))
+- changing libwaku's error handling format ([#3093](https://github.com/waku-org/nwaku/issues/3093)) ([2e6c299d](https://github.com/waku-org/nwaku/commit/2e6c299d))
+- remove spammy log ([#3091](https://github.com/waku-org/nwaku/issues/3091)) ([1d2b910f](https://github.com/waku-org/nwaku/commit/1d2b910f))
+- out connections leak ([#3077](https://github.com/waku-org/nwaku/issues/3077)) ([eb2bbae6](https://github.com/waku-org/nwaku/commit/eb2bbae6))
+- rejecting excess relay connections ([#3065](https://github.com/waku-org/nwaku/issues/3065)) ([8b0884c7](https://github.com/waku-org/nwaku/commit/8b0884c7))
+- static linking negentropy in ARM based mac ([#3046](https://github.com/waku-org/nwaku/issues/3046)) ([256b7853](https://github.com/waku-org/nwaku/commit/256b7853))
+
+### Changes
+
+- support ping with multiple multiaddresses and close stream ([#3154](https://github.com/waku-org/nwaku/issues/3154)) ([3665991a](https://github.com/waku-org/nwaku/commit/3665991a))
+- ** liteprotocoltester:** easy setup fleets for lpt ([#3125](https://github.com/waku-org/nwaku/issues/3125)) ([268e7e66](https://github.com/waku-org/nwaku/commit/268e7e66))
+- saving peers enr capabilities ([#3127](https://github.com/waku-org/nwaku/issues/3127)) ([69d9524f](https://github.com/waku-org/nwaku/commit/69d9524f))
+- **networkmonitor:** add missing field on RlnRelay init, set default for num of shard ([#3136](https://github.com/waku-org/nwaku/issues/3136)) ([edcb0e15](https://github.com/waku-org/nwaku/commit/edcb0e15))
+- add to libwaku peer id retrieval proc ([#3124](https://github.com/waku-org/nwaku/issues/3124)) ([c5a825e2](https://github.com/waku-org/nwaku/commit/c5a825e2))
+- adding to libwaku dial and disconnect by peerIds ([#3111](https://github.com/waku-org/nwaku/issues/3111)) ([25da8102](https://github.com/waku-org/nwaku/commit/25da8102))
+- dbconn - add requestId info as a comment in the database logs ([#3110](https://github.com/waku-org/nwaku/issues/3110)) ([30c072a4](https://github.com/waku-org/nwaku/commit/30c072a4))
+- improving get_peer_ids_by_protocol by returning the available protocols of connected peers ([#3109](https://github.com/waku-org/nwaku/issues/3109)) ([ed0ee5be](https://github.com/waku-org/nwaku/commit/ed0ee5be))
+- remove warnings ([#3106](https://github.com/waku-org/nwaku/issues/3106)) ([c861fa9f](https://github.com/waku-org/nwaku/commit/c861fa9f))
+- better store logs ([#3103](https://github.com/waku-org/nwaku/issues/3103)) ([21b03551](https://github.com/waku-org/nwaku/commit/21b03551))
+- Improve binding for waku_sync ([#3102](https://github.com/waku-org/nwaku/issues/3102)) ([c3756e3a](https://github.com/waku-org/nwaku/commit/c3756e3a))
+- improving and temporarily skipping flaky rln test ([#3094](https://github.com/waku-org/nwaku/issues/3094)) ([a6ed80a5](https://github.com/waku-org/nwaku/commit/a6ed80a5))
+- update master after release v0.33.1 ([#3089](https://github.com/waku-org/nwaku/issues/3089)) ([54c3083d](https://github.com/waku-org/nwaku/commit/54c3083d))
+- re-arrange function based on responsibility of peer-manager ([#3086](https://github.com/waku-org/nwaku/issues/3086)) ([0f8e8740](https://github.com/waku-org/nwaku/commit/0f8e8740))
+- waku_keystore: give some more context in case of error ([#3064](https://github.com/waku-org/nwaku/issues/3064)) ([3ad613ca](https://github.com/waku-org/nwaku/commit/3ad613ca))
+- bump negentropy ([#3078](https://github.com/waku-org/nwaku/issues/3078)) ([643ab20f](https://github.com/waku-org/nwaku/commit/643ab20f))
+- Optimize store ([#3061](https://github.com/waku-org/nwaku/issues/3061)) ([5875ed63](https://github.com/waku-org/nwaku/commit/5875ed63))
+- wrap peer store  ([#3051](https://github.com/waku-org/nwaku/issues/3051)) ([729e63f5](https://github.com/waku-org/nwaku/commit/729e63f5))
+- disabling metrics for libwaku ([#3058](https://github.com/waku-org/nwaku/issues/3058)) ([b358c90f](https://github.com/waku-org/nwaku/commit/b358c90f))
+- test peer connection management ([#3049](https://github.com/waku-org/nwaku/issues/3049)) ([711e7db1](https://github.com/waku-org/nwaku/commit/711e7db1))
+- updating upload and download artifact actions to v4 ([#3047](https://github.com/waku-org/nwaku/issues/3047)) ([7c4a9717](https://github.com/waku-org/nwaku/commit/7c4a9717))
+- Better database query logs and logarithmic scale in grafana store panels ([#3048](https://github.com/waku-org/nwaku/issues/3048)) ([d68b06f1](https://github.com/waku-org/nwaku/commit/d68b06f1))
+- extending store metrics ([#3042](https://github.com/waku-org/nwaku/issues/3042)) ([fd83b42f](https://github.com/waku-org/nwaku/commit/fd83b42f))
+
+This release supports the following [libp2p protocols](https://docs.libp2p.io/concepts/protocols/):
+| Protocol | Spec status | Protocol id |
+| ---: | :---: | :--- |
+| [`11/WAKU2-RELAY`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/11/relay.md) | `stable` | `/vac/waku/relay/2.0.0` |
+| [`12/WAKU2-FILTER`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/12/filter.md) | `draft` | `/vac/waku/filter/2.0.0-beta1` <br />`/vac/waku/filter-subscribe/2.0.0-beta1` <br />`/vac/waku/filter-push/2.0.0-beta1` |
+| [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
+| [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
+| [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
+| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/feat--waku-sync/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
+
 ## v0.33.1 (2024-10-03)
 
 ### Bug fixes
@@ -31,7 +95,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
     - `volume` must be an integer value, representing number of requests over the period of time allowed.
     - `period <time-unit>` must be an integer with defined unit as one of h|m|s|ms
     - If not set, no rate limit will be applied to request/response protocols, except for the filter protocol.
-    
+
 
 ### Release highlights
 
@@ -362,7 +426,7 @@ Release highlights:
 
 * Store V3 has been merged
 * Implemented an enhanced and more robust node health check mechanism
-* Introduced the Waku object to libwaku in order to setup a node and its protocols 
+* Introduced the Waku object to libwaku in order to setup a node and its protocols
 
 ### Features
 
