@@ -279,7 +279,7 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.}
 # Connects to a given node. Note that this function uses `connect` and
 # does not provide a protocol. Streams for relay (gossipsub) are created
 # automatically without the needing to dial.
-proc connect*(
+proc connectPeer*(
     pm: PeerManager,
     peer: RemotePeerInfo,
     dialTimeout = DefaultDialTimeout,
@@ -352,7 +352,7 @@ proc connectToNodes*(
   for node in nodes:
     let node = parsePeerInfo(node)
     if node.isOk():
-      futConns.add(pm.connect(node.value))
+      futConns.add(pm.connectPeer(node.value))
       connectedPeers.add(node.value)
     else:
       error "Couldn't parse node info", error = node.error

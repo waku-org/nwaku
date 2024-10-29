@@ -213,8 +213,9 @@ suite "WakuNode - Relay":
     await allFutures(nodes.mapIt(it.mountRelay()))
 
     # Connect nodes
-    let connOk =
-      await nodes[0].peerManager.connect(nodes[1].switch.peerInfo.toRemotePeerInfo())
+    let connOk = await nodes[0].peerManager.connectPeer(
+      nodes[1].switch.peerInfo.toRemotePeerInfo()
+    )
     require:
       connOk == true
 
@@ -520,7 +521,7 @@ suite "WakuNode - Relay":
       for j in 0 ..< 5:
         if i == j:
           continue
-        let connOk = await nodes[i].peerManager.connect(
+        let connOk = await nodes[i].peerManager.connectPeer(
           nodes[j].switch.peerInfo.toRemotePeerInfo()
         )
         require connOk

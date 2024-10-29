@@ -137,9 +137,11 @@ suite "WakuNode":
     await node3.start()
     await node3.mountRelay()
 
-    discard await node1.peerManager.connect(node2.switch.peerInfo.toRemotePeerInfo())
+    discard
+      await node1.peerManager.connectPeer(node2.switch.peerInfo.toRemotePeerInfo())
     await sleepAsync(3.seconds)
-    discard await node1.peerManager.connect(node3.switch.peerInfo.toRemotePeerInfo())
+    discard
+      await node1.peerManager.connectPeer(node3.switch.peerInfo.toRemotePeerInfo())
 
     check:
       # Verify that only the first connection succeeded
