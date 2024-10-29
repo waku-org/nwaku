@@ -416,7 +416,7 @@ proc dialPeer(
 
   let res = catch:
     if await dialFut.withTimeout(dialTimeout):
-      return ok(some(dialFut.read()))
+      return some(dialFut.read())
     else:
       await cancelAndWait(dialFut)
 
