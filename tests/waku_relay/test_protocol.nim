@@ -1252,7 +1252,7 @@ suite "Waku Relay":
 
       check await peerManager.connectPeer(otherRemotePeerInfo)
 
-      # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connect, as below
+      # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectPeer, as below
       # check await otherPeerManager.connectPeer(otherRemotePeerInfo)
 
       # When sending a message from node
