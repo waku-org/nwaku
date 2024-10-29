@@ -1177,9 +1177,11 @@ proc fetchPeerExchangePeers*(
 
 proc peerExchangeLoop(node: WakuNode) {.async.} =
   while true:
+    await sleepAsync(1.minutes)
+    if not node.started:
+      continue
     (await node.fetchPeerExchangePeers()).isOkOr:
       warn "error while fetching peers from peer exchange", error = error
-    await sleepAsync(1.minutes)
 
 proc startPeerExchangeLoop*(node: WakuNode) =
   if node.wakuPeerExchange.isNil():
@@ -1230,6 +1232,10 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
   while true:
+    await sleepAsync(keepalive)
+    if not node.started:
+      continue
+
     # Keep connected peers alive while running
     # Each node is responsible of keeping its outgoing connections alive
     trace "Running keepalive"
@@ -1246,8 +1252,6 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
         await conn.close()
       except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
-
-    await sleepAsync(keepalive)
 
 proc startKeepalive*(node: WakuNode) =
   let defaultKeepalive = 2.minutes # 20% of the default chronosstream timeout duration
