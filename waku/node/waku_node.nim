@@ -1176,7 +1176,7 @@ proc fetchPeerExchangePeers*(
     return err(pxPeersRes.error)
 
 proc peerExchangeLoop(node: WakuNode) {.async.} =
-  while node.started:
+  while true:
     (await node.fetchPeerExchangePeers()).isOkOr:
       warn "error while fetching peers from peer exchange", error = error
     await sleepAsync(1.minutes)
@@ -1229,7 +1229,7 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
 
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
-  while node.started:
+  while true:
     # Keep connected peers alive while running
     # Each node is responsible of keeping its outgoing connections alive
     trace "Running keepalive"
