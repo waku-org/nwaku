@@ -37,7 +37,7 @@ import
   ./testlib/wakunode
 
 procSuite "Peer Manager":
-  asyncTest "connect() works":
+  asyncTest "connectPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(
         newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
