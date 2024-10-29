@@ -37,7 +37,7 @@ import
   ./testlib/wakunode
 
 procSuite "Peer Manager":
-  asyncTest "connectRelay() works":
+  asyncTest "connectPeer() works":
     # Create 2 nodes
     let nodes = toSeq(0 ..< 2).mapIt(
         newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
@@ -45,7 +45,7 @@ procSuite "Peer Manager":
     await allFutures(nodes.mapIt(it.start()))
 
     let connOk =
-      await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
+      await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
     await sleepAsync(chronos.milliseconds(500))
 
     check:
@@ -178,7 +178,7 @@ procSuite "Peer Manager":
 
     let nonExistentPeer = nonExistentPeerRes.value
     require:
-      (await nodes[0].peerManager.connectRelay(nonExistentPeer)) == false
+      (await nodes[0].peerManager.connectPeer(nonExistentPeer)) == false
     await sleepAsync(chronos.milliseconds(500))
 
     check:
@@ -188,7 +188,7 @@ procSuite "Peer Manager":
 
     # Successful connection
     require:
-      (await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())) ==
+      (await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())) ==
         true
     await sleepAsync(chronos.milliseconds(500))
 
@@ -229,7 +229,7 @@ procSuite "Peer Manager":
     nodes[0].peerManager.backoffFactor = 2
 
     # try to connect to peer that doesnt exist
-    let conn1Ok = await nodes[0].peerManager.connectRelay(nonExistentPeer)
+    let conn1Ok = await nodes[0].peerManager.connectPeer(nonExistentPeer)
     check:
       # Cannot connect to node2
       nodes[0].peerManager.wakuPeerStore.connectedness(nonExistentPeer.peerId) ==
@@ -256,7 +256,7 @@ procSuite "Peer Manager":
     nodes[0].peerManager.wakuPeerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] =
       4
     let conn2Ok =
-      await nodes[0].peerManager.connectRelay(nodes[1].peerInfo.toRemotePeerInfo())
+      await nodes[0].peerManager.connectPeer(nodes[1].peerInfo.toRemotePeerInfo())
     check:
       conn2Ok == true
       nodes[0].peerManager.wakuPeerStore[NumberFailedConnBook][nodes[1].peerInfo.peerId] ==
@@ -286,7 +286,7 @@ procSuite "Peer Manager":
     var remotePeerInfo2 = peerInfo2.toRemotePeerInfo()
     remotePeerInfo2.enr = some(node2.enr)
 
-    let is12Connected = await node1.peerManager.connectRelay(remotePeerInfo2)
+    let is12Connected = await node1.peerManager.connectPeer(remotePeerInfo2)
     assert is12Connected == true, "Node 1 and 2 not connected"
 
     check:
@@ -356,7 +356,7 @@ procSuite "Peer Manager":
     var remotePeerInfo2 = peerInfo2.toRemotePeerInfo()
     remotePeerInfo2.enr = some(node2.enr)
 
-    let is12Connected = await node1.peerManager.connectRelay(remotePeerInfo2)
+    let is12Connected = await node1.peerManager.connectPeer(remotePeerInfo2)
     assert is12Connected == true, "Node 1 and 2 not connected"
 
     check:
@@ -485,7 +485,7 @@ procSuite "Peer Manager":
     node2.wakuRelay.codec = betaCodec
 
     require:
-      (await node1.peerManager.connectRelay(peerInfo2.toRemotePeerInfo())) == true
+      (await node1.peerManager.connectPeer(peerInfo2.toRemotePeerInfo())) == true
     check:
       # Currently connected to node2
       node1.peerManager.wakuPeerStore.peers().len == 1
@@ -682,9 +682,9 @@ procSuite "Peer Manager":
 
     # all nodes connect to peer 0
     require:
-      (await nodes[1].peerManager.connectRelay(peerInfos[0])) == true
-      (await nodes[2].peerManager.connectRelay(peerInfos[0])) == true
-      (await nodes[3].peerManager.connectRelay(peerInfos[0])) == true
+      (await nodes[1].peerManager.connectPeer(peerInfos[0])) == true
+      (await nodes[2].peerManager.connectPeer(peerInfos[0])) == true
+      (await nodes[3].peerManager.connectPeer(peerInfos[0])) == true
 
     await sleepAsync(chronos.milliseconds(500))
 
@@ -810,9 +810,9 @@ procSuite "Peer Manager":
     # create some connections/streams
     check:
       # some relay connections
-      (await nodes[0].peerManager.connectRelay(pInfos[1])) == true
-      (await nodes[0].peerManager.connectRelay(pInfos[2])) == true
-      (await nodes[1].peerManager.connectRelay(pInfos[2])) == true
+      (await nodes[0].peerManager.connectPeer(pInfos[1])) == true
+      (await nodes[0].peerManager.connectPeer(pInfos[2])) == true
+      (await nodes[1].peerManager.connectPeer(pInfos[2])) == true
 
       (await nodes[0].peerManager.dialPeer(pInfos[1], WakuFilterSubscribeCodec)).isSome() ==
         true
@@ -1129,16 +1129,16 @@ procSuite "Peer Manager":
     nodes[0].peerManager.colocationLimit = 1
 
     # 2 in connections
-    discard await nodes[1].peerManager.connectRelay(pInfos[0])
-    discard await nodes[2].peerManager.connectRelay(pInfos[0])
+    discard await nodes[1].peerManager.connectPeer(pInfos[0])
+    discard await nodes[2].peerManager.connectPeer(pInfos[0])
     await sleepAsync(chronos.milliseconds(500))
 
     # but one is pruned
     check nodes[0].peerManager.switch.connManager.getConnections().len == 1
 
     # 2 out connections
-    discard await nodes[0].peerManager.connectRelay(pInfos[3])
-    discard await nodes[0].peerManager.connectRelay(pInfos[4])
+    discard await nodes[0].peerManager.connectPeer(pInfos[3])
+    discard await nodes[0].peerManager.connectPeer(pInfos[4])
     await sleepAsync(chronos.milliseconds(500))
 
     # they are also prunned

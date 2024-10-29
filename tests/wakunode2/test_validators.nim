@@ -60,7 +60,7 @@ suite "WakuNode2 - Validators":
       for j in 0 ..< 5:
         if i == j:
           continue
-        let connOk = await nodes[i].peerManager.connectRelay(
+        let connOk = await nodes[i].peerManager.connectPeer(
           nodes[j].switch.peerInfo.toRemotePeerInfo()
         )
         require connOk
@@ -150,7 +150,7 @@ suite "WakuNode2 - Validators":
       for j in 0 ..< 5:
         if i == j:
           continue
-        let connOk = await nodes[i].peerManager.connectRelay(
+        let connOk = await nodes[i].peerManager.connectPeer(
           nodes[j].switch.peerInfo.toRemotePeerInfo()
         )
         require connOk
@@ -305,7 +305,7 @@ suite "WakuNode2 - Validators":
       )
 
     # nodes[0] is connected only to nodes[1]
-    let connOk1 = await nodes[0].peerManager.connectRelay(
+    let connOk1 = await nodes[0].peerManager.connectPeer(
       nodes[1].switch.peerInfo.toRemotePeerInfo()
     )
     require connOk1
@@ -315,7 +315,7 @@ suite "WakuNode2 - Validators":
       for j in 1 ..< 5:
         if i == j:
           continue
-        let connOk2 = await nodes[i].peerManager.connectRelay(
+        let connOk2 = await nodes[i].peerManager.connectPeer(
           nodes[j].switch.peerInfo.toRemotePeerInfo()
         )
         require connOk2

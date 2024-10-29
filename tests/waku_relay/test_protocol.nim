@@ -104,7 +104,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(
@@ -165,7 +165,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(
@@ -284,7 +284,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(
@@ -374,7 +374,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       var otherHandlerFuture = newPushHandlerFuture()
       proc otherSimpleFutureHandler(
@@ -456,8 +456,8 @@ suite "Waku Relay":
         anotherPeerId = anotherRemotePeerInfo.peerId
 
       check:
-        await peerManager.connectRelay(otherRemotePeerInfo)
-        await peerManager.connectRelay(anotherRemotePeerInfo)
+        await peerManager.connectPeer(otherRemotePeerInfo)
+        await peerManager.connectPeer(anotherRemotePeerInfo)
 
       # Given the first node is subscribed to two pubsub topics
       var handlerFuture2 = newPushHandlerFuture()
@@ -673,7 +673,7 @@ suite "Waku Relay":
         otherMsg6 == fromOtherNodeWakuMessage3
 
       # Given anotherNode is reconnected, but to otherNode
-      check await anotherPeerManager.connectRelay(otherRemotePeerInfo)
+      check await anotherPeerManager.connectPeer(otherRemotePeerInfo)
       check:
         anotherPeerManager.switch.isConnected(otherPeerId)
         otherPeerManager.switch.isConnected(anotherPeerId)
@@ -848,7 +848,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
@@ -1014,7 +1014,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
@@ -1145,7 +1145,7 @@ suite "Waku Relay":
 
       await allFutures(otherSwitch.start(), otherNode.start())
       let otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
       # Create a different handler than the default to include messages in a seq
@@ -1230,7 +1230,7 @@ suite "Waku Relay":
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
 
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
@@ -1250,10 +1250,10 @@ suite "Waku Relay":
       await otherSwitch.stop()
       await otherSwitch.start()
 
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
-      # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectRelay, as below
-      # check await otherPeerManager.connectRelay(otherRemotePeerInfo)
+      # FIXME: Once stopped and started, nodes are not considered connected, nor do they reconnect after running connectPeer, as below
+      # check await otherPeerManager.connectPeer(otherRemotePeerInfo)
 
       # When sending a message from node
       let msg1 = fakeWakuMessage(testMessage, pubsubTopic)
@@ -1282,7 +1282,7 @@ suite "Waku Relay":
       # Given node is stopped and restarted
       await switch.stop()
       await switch.start()
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # When sending a message from node
       handlerFuture = newPushHandlerFuture()
@@ -1325,7 +1325,7 @@ suite "Waku Relay":
         otherRemotePeerInfo = otherSwitch.peerInfo.toRemotePeerInfo()
         otherPeerId = otherRemotePeerInfo.peerId
 
-      check await peerManager.connectRelay(otherRemotePeerInfo)
+      check await peerManager.connectPeer(otherRemotePeerInfo)
 
       # Given both are subscribed to the same pubsub topic
       var otherHandlerFuture = newPushHandlerFuture()
