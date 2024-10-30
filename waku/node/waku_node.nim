@@ -1253,12 +1253,11 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
       except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
-proc startKeepalive*(node: WakuNode) =
-  let defaultKeepalive = 2.minutes # 20% of the default chronosstream timeout duration
+# 2 minutes default - 20% of the default chronosstream timeout duration
+proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
+  info "starting keepalive", keepalive = keepalive
 
-  info "starting keepalive", keepalive = defaultKeepalive
-
-  asyncSpawn node.keepaliveLoop(defaultKeepalive)
+  asyncSpawn node.keepaliveLoop(keepalive)
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"

@@ -44,7 +44,7 @@ suite "Waku Keepalive":
 
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
 
-    node1.startKeepalive()
+    node1.startKeepalive(2.seconds)
 
     check:
       (await completionFut.withTimeout(5.seconds)) == true
