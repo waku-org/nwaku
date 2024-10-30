@@ -1181,7 +1181,7 @@ proc peerExchangeLoop(node: WakuNode) {.async.} =
     if not node.started:
       continue
     (await node.fetchPeerExchangePeers()).isOkOr:
-      warn "error while fetching peers from peer exchange", error = error
+      warn "Cannot fetch peers from peer exchange", cause = error
 
 proc startPeerExchangeLoop*(node: WakuNode) =
   if node.wakuPeerExchange.isNil():
