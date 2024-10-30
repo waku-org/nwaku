@@ -104,7 +104,7 @@ proc process*(
     let conn = await waku.node.peerManager.dialPeer(remotePeerInfo, $self[].protocol)
     if conn.isNone():
       let msg = "failed dialing peer"
-      error "DIAL_PEER failed", error = msg
+      error "DIAL_PEER failed", error = msg, peerId = $remotePeerInfo.peerId
       return err(msg)
   of DIAL_PEER_BY_ID:
     let peerId = PeerId.init($self[].peerId).valueOr:
@@ -113,7 +113,7 @@ proc process*(
     let conn = await waku.node.peerManager.dialPeer(peerId, $self[].protocol)
     if conn.isNone():
       let msg = "failed dialing peer"
-      error "DIAL_PEER_BY_ID failed", error = msg
+      error "DIAL_PEER_BY_ID failed", error = msg, peerId = $peerId
       return err(msg)
   of GET_CONNECTED_PEERS:
     ## returns a comma-separated string of peerIDs
