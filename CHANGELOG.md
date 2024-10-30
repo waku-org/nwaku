@@ -13,7 +13,6 @@
 
 ### Bug Fixes
 
-- linting error ([#3146](https://github.com/waku-org/nwaku/issues/3146)) ([b4d3678a](https://github.com/waku-org/nwaku/commit/b4d3678a))
 - peer exchange libwaku response handling ([#3141](https://github.com/waku-org/nwaku/issues/3141)) ([76606421](https://github.com/waku-org/nwaku/commit/76606421))
 - add more logs, stagger intervals & set prune offset to 10% for waku sync ([#3142](https://github.com/waku-org/nwaku/issues/3142)) ([a386880b](https://github.com/waku-org/nwaku/commit/a386880b))
 - add log and archive message ingress for sync ([#3133](https://github.com/waku-org/nwaku/issues/3133)) ([80c7581a](https://github.com/waku-org/nwaku/commit/80c7581a))
@@ -60,7 +59,7 @@ This release supports the following [libp2p protocols](https://docs.libp2p.io/co
 | [`13/WAKU2-STORE`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/13/store.md) | `draft` | `/vac/waku/store/2.0.0-beta4` |
 | [`19/WAKU2-LIGHTPUSH`](https://github.com/vacp2p/rfc-index/blob/main/waku/standards/core/19/lightpush.md) | `draft` | `/vac/waku/lightpush/2.0.0-beta1` |
 | [`66/WAKU2-METADATA`](https://github.com/waku-org/specs/blob/master/standards/core/metadata.md) | `raw` | `/vac/waku/metadata/1.0.0` |
-| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/feat--waku-sync/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
+| [`WAKU-SYNC`](https://github.com/waku-org/specs/blob/master/standards/core/sync.md) | `draft` | `/vac/waku/sync/1.0.0` |
 
 ## v0.33.1 (2024-10-03)
 
