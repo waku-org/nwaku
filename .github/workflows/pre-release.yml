@@ -47,7 +47,7 @@ jobs:
       - name: prep variables
         id: vars
         run: |
-          ARCH=${{matrix.arch}} 
+          ARCH=${{matrix.arch}}
 
           echo "arch=${ARCH}" >> $GITHUB_OUTPUT
 
@@ -159,5 +159,5 @@ jobs:
           TARGET=$([[ "${{ needs.tag-name.outputs.tag }}" == "nightly" ]] && echo "--target ${{steps.vars.outputs.ref}}" || echo "")
 
           gh release create ${{ needs.tag-name.outputs.tag }} --prerelease ${TARGET} \
-            --title ${{ needs.tag-name.outputs.tag }} --notes-file release_notes.md \
-            wakunode2/* wakutools/*
+            --title ${{ needs.tag-name.outputs.tag }} --notes-file release_notes.md
+
