@@ -411,6 +411,7 @@ proc dialPeer(
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
 
+  # Dial Peer
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
   let res = catch:
