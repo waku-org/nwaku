@@ -397,7 +397,7 @@ proc dialPeer(
     pm: PeerManager,
     peerId: PeerID,
     addrs: seq[MultiAddress],
-    proto = "",
+    proto: string,
     dialTimeout = DefaultDialTimeout,
     source = "api",
 ): Future[Option[Connection]] {.async.} =
@@ -410,11 +410,6 @@ proc dialPeer(
     return none(Connection)
 
   trace "Dialing peer", wireAddr = addrs, peerId = peerId, proto = proto
-
-  # Dial Peer
-  if proto == "":
-    await pm.switch.connect(peerId, addrs)
-    return none(Connection)
 
   let dialFut = pm.switch.dial(peerId, addrs, proto)
 
@@ -433,7 +428,7 @@ proc dialPeer(
 proc dialPeer*(
     pm: PeerManager,
     remotePeerInfo: RemotePeerInfo,
-    proto = "",
+    proto: string,
     dialTimeout = DefaultDialTimeout,
     source = "api",
 ): Future[Option[Connection]] {.async.} =
@@ -454,7 +449,7 @@ proc dialPeer*(
 proc dialPeer*(
     pm: PeerManager,
     peerId: PeerID,
-    proto = "",
+    proto: string,
     dialTimeout = DefaultDialTimeout,
     source = "api",
 ): Future[Option[Connection]] {.async.} =
