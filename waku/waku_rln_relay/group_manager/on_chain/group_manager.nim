@@ -31,11 +31,11 @@ logScope:
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
-  proc register(idCommitment: UInt256, userMessageLimit: StUint[32])
+  proc register(idCommitment: UInt256, userMessageLimit: UInt256)
   # Initializes the implementation contract (only used in unit tests)
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
-  proc MemberRegistered(rateCommitment: UInt256, index: StUint[32]) {.event.}
+  proc MemberRegistered(rateCommitment: UInt256, index: UInt256) {.event.}
 
   # this function denotes existence of a given user
   proc memberExists(idCommitment: Uint256): UInt256 {.view.}
@@ -179,7 +179,7 @@ method register*(
     idCommitment = idCommitment, userMessageLimit = userMessageLimit
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32)).send(
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(256)).send(
       gasPrice = gasPrice
     )
 
@@ -192,11 +192,15 @@ method register*(
   # the receipt topic holds the hash of signature of the raised events
   # TODO: make this robust. search within the event list for the event
   debug "ts receipt", receipt = tsReceipt[]
+
+  if tsReceipt.status.isNone() or tsReceipt.status.get() != 1.Quantity:
+    raise newException(ValueError, "register: transaction failed")
+
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint32)").data):
-    raise newException(ValueError, "unexpected event signature")
+      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint256)").data):
+    raise newException(ValueError, "register: unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
   # data = rateCommitment encoded as 256 bits || index encoded as 32 bits
@@ -301,7 +305,7 @@ proc getRawEvents(
 
   var events = newJArray()
   for eventStr in eventStrs:
-    events.add(parseJson($eventStr))
+    events.add(parseJson(eventStr.string))
   return events
 
 proc getBlockTable(
@@ -318,7 +322,7 @@ proc getBlockTable(
     return blockTable
 
   for event in events:
-    let blockNumber = parseHexInt(event["blockNumber"].getStr()).Quantity
+    let blockNumber = parseHexInt(event["blockNumber"].getStr()).BlockNumber
     let removed = event["removed"].getBool()
     let parsedEventRes = parseEvent(MemberRegistered, event)
     if parsedEventRes.isErr():
