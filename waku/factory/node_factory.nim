@@ -422,7 +422,11 @@ proc startNode*(
       desiredOutDegree = node.wakuRelay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       error "error while fetching peers from peer exchange", error = error
-      quit(QuitFailure)
+
+  # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
+  # periodic loop to find peers and px returned peers actually come from discv5
+  if conf.peerExchange and not conf.discv5Discovery:
+    node.startPeerExchangeLoop()
 
   # Start keepalive, if enabled
   if conf.keepAlive:
