@@ -120,6 +120,13 @@ int waku_disconnect_peer_by_id(void* ctx,
                  WakuCallBack callback,
                  void* userData);
 
+int waku_dial_peer(void* ctx,
+                 const char* peerMultiAddr,
+                 const char* protocol,
+                 int timeoutMs,
+                 WakuCallBack callback,
+                 void* userData);
+
 int waku_dial_peer_by_id(void* ctx,
                  const char* peerId,
                  const char* protocol,
@@ -137,6 +144,10 @@ int waku_get_peerids_by_protocol(void* ctx,
                                  void* userData);
 
 int waku_listen_addresses(void* ctx,
+                          WakuCallBack callback,
+                          void* userData);
+
+int waku_get_connected_peers(void* ctx,
                           WakuCallBack callback,
                           void* userData);
 
