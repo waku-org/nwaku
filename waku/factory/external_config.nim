@@ -137,13 +137,6 @@ type WakuNodeConf* = object
     .}: bool
   of noCommand:
     ##  Application-level configuration
-    protectedTopics* {.
-      desc:
-        "Deprecated. Topics and its public key to be used for message validation, topic:pubkey. Argument may be repeated.",
-      defaultValue: newSeq[ProtectedShard](0),
-      name: "protected-topic"
-    .}: seq[ProtectedShard]
-
     protectedShards* {.
       desc:
         "Shards and its public keys to be used for message validation, shard:pubkey. Argument may be repeated.",
