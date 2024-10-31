@@ -1,6 +1,8 @@
 import std/options
 import ../common/protobuf, ../waku_core, ./rpc
 
+const DefaultMaxRpcSize* = -1
+
 # Codec for EligibilityProof
 
 proc encode*(epRpc: EligibilityProof): ProtoBuffer =
