@@ -89,7 +89,6 @@ proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
   let signaledOnTime = ctx.reqSignal.fireSync().valueOr:
     return err("error in destroyWakuThread: " & $error)
   if not signaledOnTime:
-    error "failed to signal reqSignal on time in destroyWakuThread"
     return err("failed to signal reqSignal on time in destroyWakuThread")
 
   joinThread(ctx.thread)
