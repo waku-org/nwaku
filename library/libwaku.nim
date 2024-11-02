@@ -168,7 +168,7 @@ proc waku_destroy(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread.stopWakuThread(ctx).handleRes(callback, userData)
+  waku_thread.destroyWakuThread(ctx).handleRes(callback, userData)
 
 proc waku_version(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
