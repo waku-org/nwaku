@@ -33,7 +33,7 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
     await ctx.reqSignal.wait()
 
     if ctx.running.load == false:
-      break;
+      break
 
     ## Trying to get a request from the libwaku requestor thread
     var request: ptr InterThreadRequest
@@ -51,7 +51,8 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
     ## Send the response back to the thread that sent the request
     let sentOk = ctx.respChannel.trySend(threadSafeResp)
     if not sentOk:
-      error "could not send a request to the requester thread", original_request = $request[]
+      error "could not send a request to the requester thread",
+        original_request = $request[]
 
     let fireRes = ctx.respSignal.fireSync()
     if fireRes.isErr():
