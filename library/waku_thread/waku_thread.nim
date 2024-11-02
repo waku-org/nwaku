@@ -56,8 +56,7 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
 
     let fireRes = ctx.respSignal.fireSync()
     if fireRes.isErr():
-      error "could not fireSync back to requester thread",
-        original_request = $request[], error = fireRes.error
+      error "could not fireSync back to requester thread", error = fireRes.error
 
 proc run(ctx: ptr WakuContext) {.thread.} =
   ## Launch waku worker
