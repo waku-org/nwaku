@@ -710,7 +710,7 @@ proc waku_peer_exchange_request(
 
 proc waku_ping_peer(
     ctx: ptr WakuContext,
-    peerID: cstring,
+    peerAddr: cstring,
     timeoutMs: cuint,
     callback: WakuCallBack,
     userData: pointer,
@@ -721,7 +721,7 @@ proc waku_ping_peer(
   .sendRequestToWakuThread(
     ctx,
     RequestType.PING,
-    PingRequest.createShared(peerID, chronos.milliseconds(timeoutMs)),
+    PingRequest.createShared(peerAddr, chronos.milliseconds(timeoutMs)),
   )
   .handleRes(callback, userData)
 
