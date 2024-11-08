@@ -489,6 +489,14 @@ procSuite "WakuNode - RLN relay":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
 
+    # Helper function
+    proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
+      for i in 0 .. 10: # Try for up to 5 seconds (10 * 500ms)
+        if node.wakuRlnRelay.nullifierLog.len() == expectedLen:
+          return true
+        await sleepAsync(500.millis)
+      return false
+
     # Given both nodes mount relay and rlnrelay
     await node1.mountRelay(shardSeq)
     let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
@@ -591,7 +599,7 @@ procSuite "WakuNode - RLN relay":
     await sleepAsync(publishSleepDuration)
     check:
       node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 4
+      await waitForNullifierLog(node2, 4)
 
     # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
     # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
