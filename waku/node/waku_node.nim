@@ -1265,8 +1265,8 @@ proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   # Workaround for lazy libp2p change, only Rendezvous new declares possible exception.
   # Until it not gets fixed we need to call setup separately.
   try:
-    node.rendezvous = RendezVous.new(node.switch)
-    # node.rendezvous.setup(node.switch)
+    node.rendezvous = RendezVous.new()
+    node.rendezvous.setup(node.switch)
   except Exception as e:
     error "failed to create rendezvous", error = getCurrentExceptionMsg()
     return
