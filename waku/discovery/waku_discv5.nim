@@ -39,6 +39,11 @@ type WakuDiscoveryV5Config* = object
 type WakuDiscv5Predicate* =
   proc(record: waku_enr.Record): bool {.closure, gcsafe, raises: [].}
 
+type WakuDiscoveryV5Handles = object
+  searchLoopHandle: Future[void]
+  subsListenerHandle: Future[void]
+  reseedLoopHandle: Future[void]
+
 type WakuDiscoveryV5* = ref object
   conf: WakuDiscoveryV5Config
   protocol*: protocol.Protocol
@@ -46,6 +51,7 @@ type WakuDiscoveryV5* = ref object
   predicate: Option[WakuDiscv5Predicate]
   peerManager: Option[PeerManager]
   topicSubscriptionQueue: AsyncEventQueue[SubscriptionEvent]
+  futureHandles: WakuDiscoveryV5Handles
 
 proc shardingPredicate*(
     record: Record, bootnodes: seq[Record] = @[]
@@ -271,6 +277,18 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
     # Also, give some time to dial the discovered nodes and update stats, etc.
     await sleepAsync(5.seconds)
 
+proc reseedLoop(wd: WakuDiscoveryV5) {.async.} =
+  ## Continuously add newly discovered nodes
+
+  info "Reseeding discv5 tables"
+
+  wd.protocol.seedTable()
+  # Discovery `queryRandom` can have a synchronous fast path for example
+  # when no peers are in the routing table. Don't run it in continuous loop.
+  #
+  # Also, give some time to dial the discovered nodes and update stats, etc.
+  await sleepAsync(10.minutes)
+
 proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
 
@@ -325,8 +343,8 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises:
   trace "start discv5 service"
   wd.protocol.start()
 
-  asyncSpawn wd.searchLoop()
-  asyncSpawn wd.subscriptionsListener()
+  wd.futureHandles.searchLoopHandle = wd.searchLoop()
+  wd.futureHandles.subsListenerHandle = wd.subscriptionsListener()
 
   debug "Successfully started discovery v5 service"
   info "Discv5: discoverable ENR ",
