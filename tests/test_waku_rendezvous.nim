@@ -1,6 +1,6 @@
 {.used.}
 
-import chronos, testutils/unittests, libp2p, libp2p/protocols/rendezvous
+import chronos, testutils/unittests, libp2p/builders, libp2p/protocols/rendezvous
 
 import waku/node/waku_switch, ./testlib/common, ./testlib/wakucore
 
