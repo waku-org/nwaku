@@ -1,4 +1,4 @@
-import std/[json, sugar, options]
+import std/[json, sugar, strutils, options]
 import chronos, chronicles, results
 import
   ../../../../../waku/factory/waku,
@@ -125,7 +125,7 @@ proc process(
 
   let storeQueryRequest = JsonStoreQueryRequest.fromJsonNode(jsonContentRes.get())
 
-  let peer = peers.parsePeerInfo($self[].peerAddr).valueOr:
+  let peer = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
     return err("JsonStoreQueryRequest failed to parse peer addr: " & $error)
 
   let queryResponse = (await waku.node.wakuStoreClient.query(storeQueryRequest, peer)).valueOr:
