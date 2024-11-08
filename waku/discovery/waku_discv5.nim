@@ -278,16 +278,20 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
     await sleepAsync(5.seconds)
 
 proc reseedLoop(wd: WakuDiscoveryV5) {.async.} =
-  ## Continuously add newly discovered nodes
+  let peerManager = wd.peerManager.valueOr:
+    debug "DiscV5 reseed loop: failed fetching peer manager instance"
+    return
 
-  info "Reseeding discv5 tables"
+  while true:
+    let
+      (inPeerIds, outPeerIds) = peerManager.connectedPeers()
+      totalConnected = inPeerIds.len() + outPeerIds.len()
 
-  wd.protocol.seedTable()
-  # Discovery `queryRandom` can have a synchronous fast path for example
-  # when no peers are in the routing table. Don't run it in continuous loop.
-  #
-  # Also, give some time to dial the discovered nodes and update stats, etc.
-  await sleepAsync(10.minutes)
+    if totalConnected < 4:
+      info "Reseeding discv5 tables"
+      wd.protocol.seedTable()
+
+    await sleepAsync(10.seconds)
 
 proc subscriptionsListener(wd: WakuDiscoveryV5) {.async.} =
   ## Listen for pubsub topics subscriptions changes
@@ -345,6 +349,7 @@ proc start*(wd: WakuDiscoveryV5): Future[Result[void, string]] {.async: (raises:
 
   wd.futureHandles.searchLoopHandle = wd.searchLoop()
   wd.futureHandles.subsListenerHandle = wd.subscriptionsListener()
+  wd.futureHandles.reseedLoopHandle = wd.reseedLoop()
 
   debug "Successfully started discovery v5 service"
   info "Discv5: discoverable ENR ",
@@ -357,6 +362,13 @@ proc stop*(wd: WakuDiscoveryV5): Future[void] {.async.} =
     return
 
   info "Stopping discovery v5 service"
+
+  var futures: seq[Future[void]]
+  futures.add(wd.futureHandles.searchLoopHandle.cancelAndWait())
+  futures.add(wd.futureHandles.subsListenerHandle.cancelAndWait())
+  futures.add(wd.futureHandles.reseedLoopHandle.cancelAndWait())
+
+  await noCancel(allFutures(futures))
 
   wd.listening = false
   trace "Stop listening on discv5 port"
