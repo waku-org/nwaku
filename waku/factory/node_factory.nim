@@ -377,7 +377,7 @@ proc setupProtocols(
 ## Start node
 
 proc startNode*(
-    node: WakuNode, conf: WakuNodeConf = @[]
+    node: WakuNode, conf: WakuNodeConf, dynamicBootstrapNodes: seq[RemotePeerInfo] = @[]
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Start a configured node and all mounted protocols.
   ## Connect to static nodes and start
@@ -396,13 +396,13 @@ proc startNode*(
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
-  #[ if dynamicBootstrapNodes.len > 0:
+  if dynamicBootstrapNodes.len > 0:
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
     except CatchableError:
       return
-        err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg()) ]#
+        err("failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg())
 
   # retrieve px peers and add the to the peer store
   if conf.peerExchangeNode != "":

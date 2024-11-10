@@ -353,7 +353,7 @@ proc crawlNetwork(
 
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
-proc retrieveDynamicBootstrapNodes*(
+proc retrieveDynamicBootstrapNodes(
     dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
 ): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
   ## Retrieve dynamic bootstrap nodes (DNS discovery)
