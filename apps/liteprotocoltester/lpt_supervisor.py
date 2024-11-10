@@ -20,7 +20,7 @@ def start_tester_node():
   for key, value in env_vars.items():
     if key not in env:
       env[key] = value
-  script_cmd = ['sh', '/usr/bin/run_tester_node_at_infra.sh', '/usr/bin/liteprotocoltester ',role]
+  script_cmd = ['sh', '/usr/bin/run_tester_node_at_infra.sh', '/usr/bin/liteprotocoltester', role]
   process = Popen(script_cmd, env=env)
   return process
 
