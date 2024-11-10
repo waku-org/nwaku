@@ -353,9 +353,11 @@ proc crawlNetwork(
 
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
-proc retrieveDynamicBootstrapNodes(
+proc retrieveDynamicBootstrapNodes*(
     dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
-): Result[seq[RemotePeerInfo], string] =
+): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
+  ## Retrieve dynamic bootstrap nodes (DNS discovery)
+
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
     debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
@@ -373,10 +375,10 @@ proc retrieveDynamicBootstrapNodes(
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
     if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers().mapErr(
-          proc(e: cstring): string =
-            $e
-        )
+      return (await wakuDnsDiscovery.get().findPeers()).mapErr(
+        proc(e: cstring): string =
+          $e
+      )
     else:
       warn "Failed to init Waku DNS discovery"
 

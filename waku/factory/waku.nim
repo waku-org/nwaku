@@ -216,9 +216,17 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
     confCopy.nodekey = some(keyRes.get())
 
   debug "Retrieve dynamic bootstrap nodes"
-  let dynamicBootstrapNodesRes = waku_dnsdisc.retrieveDynamicBootstrapNodes(
-    confCopy.dnsDiscovery, confCopy.dnsDiscoveryUrl, confCopy.dnsDiscoveryNameServers
-  )
+
+  var dynamicBootstrapNodesRes: Result[seq[RemotePeerInfo], string]
+
+  try:
+    dynamicBootstrapNodesRes = waitfor waku_dnsdisc.retrieveDynamicBootstrapNodes(
+      confCopy.dnsDiscovery, confCopy.dnsDiscoveryUrl, confCopy.dnsDiscoveryNameServers
+    )
+  except Exception:
+    error "Failed to synchronise client tree"
+    waku_dnsdisc_errors.inc(labelValues = ["tree_sync_failure"])
+    return err("Node discovery failed")
   if dynamicBootstrapNodesRes.isErr():
     error "Retrieving dynamic bootstrap nodes failed",
       error = dynamicBootstrapNodesRes.error
