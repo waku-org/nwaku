@@ -361,7 +361,7 @@ proc updateWaku(waku: ptr Waku): Result[void, string] =
 
 proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: []).} =
   if not waku[].conf.discv5Only:
-    (await startNode(waku.node, waku.conf, waku.dynamicBootstrapNodes)).isOkOr:
+    (await startNode(waku.node, waku.conf)).isOkOr:
       return err("error while calling startNode: " & $error)
 
     # Update waku data that is set dynamically on node start
