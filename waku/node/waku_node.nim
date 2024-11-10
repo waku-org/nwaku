@@ -1262,7 +1262,11 @@ proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.rendezvous = RendezVous.new(node.switch)
+  try:
+    node.rendezvous = RendezVous.new(node.switch)
+  except Exception as e:
+    error "failed to create rendezvous", error = getCurrentExceptionMsg()
+    return
 
   if node.started:
     try:

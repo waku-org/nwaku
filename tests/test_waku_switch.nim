@@ -3,7 +3,7 @@
 import
   testutils/unittests,
   chronos,
-  libp2p,
+  libp2p/builders,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/protocols/connectivity/relay/client,
