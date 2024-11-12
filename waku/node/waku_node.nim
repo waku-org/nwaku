@@ -429,11 +429,10 @@ proc mountFilter*(
     some(rateLimitSetting),
   )
 
-  if node.started:
-    try:
-      await node.wakuFilter.start()
-    except CatchableError:
-      error "failed to start wakuFilter", error = getCurrentExceptionMsg()
+  try:
+    await node.wakuFilter.start()
+  except CatchableError:
+    error "failed to start wakuFilter", error = getCurrentExceptionMsg()
 
   try:
     node.switch.mount(node.wakuFilter, protocolMatcher(WakuFilterSubscribeCodec))

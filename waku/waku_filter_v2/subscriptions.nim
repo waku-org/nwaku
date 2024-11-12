@@ -1,7 +1,18 @@
 {.push raises: [].}
 
-import std/[sets, tables], chronicles, chronos, libp2p/peerid, stew/shims/sets
-import ../waku_core, ../utils/tableutils
+import
+  std/[options, sets, tables, sequtils],
+  chronicles,
+  chronos,
+  libp2p/peerid,
+  libp2p/stream/connection,
+  stew/shims/sets
+import
+  ../waku_core,
+  ../utils/tableutils,
+  ../common/rate_limit/setting,
+  ../node/peer_manager,
+  ./common
 
 logScope:
   topics = "waku filter subscriptions"
@@ -20,16 +31,16 @@ type
 
   SubscribedPeers* = HashSet[PeerID] # a sequence of peer ids
 
-  PeerData* = tuple[lastSeen: Moment, criteriaCount: uint]
+  PeerData* = tuple[lastSeen: Moment, criteriaCount: uint, connection: Connection]
 
-  FilterSubscriptions* = object
+  FilterSubscriptions* = ref object
     peersSubscribed*: Table[PeerID, PeerData]
     subscriptions: Table[FilterCriterion, SubscribedPeers]
     subscriptionTimeout: Duration
     maxPeers: uint
     maxCriteriaPerPeer: uint
 
-proc init*(
+proc new*(
     T: type FilterSubscriptions,
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
@@ -44,7 +55,7 @@ proc init*(
     maxCriteriaPerPeer: maxFilterCriteriaPerPeer,
   )
 
-proc isSubscribed*(s: var FilterSubscriptions, peerId: PeerID): bool =
+proc isSubscribed*(s: FilterSubscriptions, peerId: PeerID): bool =
   s.peersSubscribed.withValue(peerId, data):
     return Moment.now() - data.lastSeen <= s.subscriptionTimeout
 
@@ -54,7 +65,7 @@ proc subscribedPeerCount*(s: FilterSubscriptions): uint =
   return cast[uint](s.peersSubscribed.len)
 
 proc getPeerSubscriptions*(
-    s: var FilterSubscriptions, peerId: PeerID
+    s: FilterSubscriptions, peerId: PeerID
 ): seq[FilterCriterion] =
   ## Get all pubsub-content topics a peer is subscribed to
   var subscribedContentTopics: seq[FilterCriterion] = @[]
@@ -69,7 +80,7 @@ proc getPeerSubscriptions*(
   return subscribedContentTopics
 
 proc findSubscribedPeers*(
-    s: var FilterSubscriptions, pubsubTopic: PubsubTopic, contentTopic: ContentTopic
+    s: FilterSubscriptions, pubsubTopic: PubsubTopic, contentTopic: ContentTopic
 ): seq[PeerID] =
   let filterCriterion: FilterCriterion = (pubsubTopic, contentTopic)
 
@@ -82,15 +93,36 @@ proc findSubscribedPeers*(
 
   return foundPeers
 
-proc removePeer*(s: var FilterSubscriptions, peerId: PeerID) =
+proc removePeer*(s: FilterSubscriptions, peerId: PeerID) {.async.} =
   ## Remove all subscriptions for a given peer
+  debug "removePeer",
+    currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)), peerId = peerId
+
+  s.peersSubscribed.withValue(peerId, peerData):
+    debug "closing connection with peer", peerId = shortLog(peerId)
+    await peerData.connection.close()
+
   s.peersSubscribed.del(peerId)
 
-proc removePeers*(s: var FilterSubscriptions, peerIds: seq[PeerID]) =
-  ## Remove all subscriptions for a given list of peers
-  s.peersSubscribed.keepItIf(key notin peerIds)
+  debug "removePeer after deletion",
+    currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)), peerId = peerId
 
-proc cleanUp*(fs: var FilterSubscriptions) =
+proc removePeers*(s: FilterSubscriptions, peerIds: seq[PeerID]) {.async.} =
+  ## Remove all subscriptions for a given list of peers
+  debug "removePeers",
+    currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)),
+    peerIds = peerIds.mapIt(shortLog(it))
+
+  for peer in peerIds:
+    await s.removePeer(peer)
+
+  debug "removePeers after deletion",
+    currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)),
+    peerIds = peerIds.mapIt(shortLog(it))
+
+proc cleanUp*(fs: FilterSubscriptions) =
+  debug "cleanUp", currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
+
   ## Remove all subscriptions for peers that have not been seen for a while
   let now = Moment.now()
   fs.peersSubscribed.keepItIf(now - val.lastSeen <= fs.subscriptionTimeout)
@@ -101,14 +133,23 @@ proc cleanUp*(fs: var FilterSubscriptions) =
 
   fs.subscriptions.keepItIf(val.len > 0)
 
+  debug "after cleanUp",
+    currentPeerIds = toSeq(fs.peersSubscribed.keys).mapIt(shortLog(it))
+
 proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
   s.peersSubscribed.withValue(peerId, data):
     data.lastSeen = Moment.now()
 
 proc addSubscription*(
-    s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
-): Result[void, string] =
+    s: FilterSubscriptions,
+    peerId: PeerID,
+    filterCriteria: FilterCriteria,
+    peerManager: PeerManager,
+): Future[Result[void, string]] {.async.} =
   ## Add a subscription for a given peer
+  ##
+  ## The peerManager is needed to establish the first Connection through
+  ## /vac/waku/filter-push/2.0.0-beta1
   var peerData: ptr PeerData
 
   s.peersSubscribed.withValue(peerId, data):
@@ -120,9 +161,17 @@ proc addSubscription*(
   do:
     ## not yet subscribed
     if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
-      return err("node has reached maximum number of subscriptions")
+      return err("node has reached maximum number of subscriptions: " & $(s.maxPeers))
 
-    let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
+    let connRes = await peerManager.dialPeer(peerId, WakuFilterPushCodec)
+    if connRes.isNone():
+      ## We do not remove this peer, but allow the underlying peer manager
+      ## to do so if it is deemed necessary
+      return err("addSubscription no connection to peer: " & shortLog(peerId))
+
+    let newPeerData: PeerData =
+      (lastSeen: Moment.now(), criteriaCount: 0, connection: connRes.get())
+
     peerData = addr(s.peersSubscribed.mgetOrPut(peerId, newPeerData))
 
   for filterCriterion in filterCriteria:
@@ -134,7 +183,7 @@ proc addSubscription*(
   return ok()
 
 proc removeSubscription*(
-    s: var FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
+    s: FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
 ): Result[void, string] =
   ## Remove a subscription for a given peer
 
@@ -156,3 +205,12 @@ proc removeSubscription*(
     return ok()
   do:
     return err("Peer has no subscriptions")
+
+proc getConnectionByPeerId*(
+    s: FilterSubscriptions, peerId: PeerID
+): Result[Connection, string] =
+  if not s.peersSubscribed.hasKey(peerId):
+    return err("peer not subscribed: " & shortLog(peerId))
+
+  let peerData = s.peersSubscribed.getOrDefault(peerId)
+  return ok(peerData.connection)
