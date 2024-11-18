@@ -1,7 +1,9 @@
 {.push raises: [].}
 
-import std/options, results, chronicles, chronos, metrics, bearssl/rand
+import std/options, results, chronicles, chronos, metrics, bearssl/rand, stew/byteutils
+import libp2p/peerid
 import
+  ../waku_core/peers,
   ../node/peer_manager,
   ../node/delivery_monitor/publish_observer,
   ../utils/requests,
@@ -71,8 +73,15 @@ proc publish*(
     message: WakuMessage,
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
-  info "publish",
-    peerId = shortLog(peer), msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
+  when peer is PeerId:
+    info "publish",
+      peerId = shortLog(peer),
+      msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
+  else:
+    info "publish",
+      peerId = shortLog(peer.peerId),
+      msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
+
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   ?await wl.sendPushRequest(pushRequest, peer)
 
