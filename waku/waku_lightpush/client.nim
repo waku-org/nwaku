@@ -71,6 +71,8 @@ proc publish*(
     message: WakuMessage,
     peer: PeerId | RemotePeerInfo,
 ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+  info "publish",
+    peerId = shortLog(peer), msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   ?await wl.sendPushRequest(pushRequest, peer)
 
@@ -84,6 +86,8 @@ proc publishToAny*(
 ): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we don't specify a particular peer and instead we get it from peer manager
+
+  info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
 
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     return err("could not retrieve a peer supporting WakuLightPushCodec")
