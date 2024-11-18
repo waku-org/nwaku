@@ -11,6 +11,7 @@ import
   ./requests/protocols/relay_request,
   ./requests/protocols/store_request,
   ./requests/protocols/lightpush_request,
+  ./requests/protocols/filter_request,
   ./requests/debug_node_request,
   ./requests/discovery_request,
   ./requests/ping_request
@@ -24,6 +25,7 @@ type RequestType* {.pure.} = enum
   DEBUG
   DISCOVERY
   LIGHTPUSH
+  FILTER
 
 type InterThreadRequest* = object
   reqType: RequestType
@@ -64,6 +66,8 @@ proc process*(
       cast[ptr DiscoveryRequest](request[].reqContent).process(waku)
     of LIGHTPUSH:
       cast[ptr LightpushRequest](request[].reqContent).process(waku)
+    of FILTER:
+      cast[ptr FilterRequest](request[].reqContent).process(waku)
 
   return await retFut
 

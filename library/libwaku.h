@@ -92,6 +92,22 @@ int waku_relay_unsubscribe(void* ctx,
                            WakuCallBack callback,
                            void* userData);
 
+int waku_filter_subscribe(void* ctx,
+                          const char* pubSubTopic,
+                          const char* contentTopics,
+                          WakuCallBack callback,
+                          void* userData);
+
+int waku_filter_unsubscribe(void* ctx,
+                            const char* pubSubTopic,
+                            const char* contentTopics,
+                            WakuCallBack callback,
+                            void* userData);
+
+int waku_filter_unsubscribe_all(void* ctx,
+                                WakuCallBack callback,
+                                void* userData);
+
 int waku_relay_get_num_connected_peers(void* ctx,
                            const char* pubSubTopic,
                            WakuCallBack callback,

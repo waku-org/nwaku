@@ -20,6 +20,7 @@ import
   ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
   ./waku_thread/inter_thread_communication/requests/protocols/store_request,
   ./waku_thread/inter_thread_communication/requests/protocols/lightpush_request,
+  ./waku_thread/inter_thread_communication/requests/protocols/filter_request,
   ./waku_thread/inter_thread_communication/requests/debug_node_request,
   ./waku_thread/inter_thread_communication/requests/discovery_request,
   ./waku_thread/inter_thread_communication/requests/ping_request,
@@ -416,6 +417,51 @@ proc waku_relay_get_num_peers_in_mesh(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_subscribe(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    contentTopics: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.FILTER,
+    FilterRequest.createShared(FilterMsgType.SUBSCRIBE, pubSubTopic, contentTopics),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_unsubscribe(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    contentTopics: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.FILTER,
+    FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE, pubSubTopic, contentTopics),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_unsubscribe_all(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx, RequestType.FILTER, FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE_ALL)
   )
   .handleRes(callback, userData)
 
