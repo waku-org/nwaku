@@ -12,6 +12,7 @@ import
   waku/waku_core/message/message,
   waku/node/waku_node,
   waku/waku_core/topics/pubsub_topic,
+  waku/waku_core/subscription/push_handler,
   waku/waku_relay/protocol,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
@@ -73,7 +74,7 @@ proc handleRes[T: string | void](
     callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
-proc relayEventCallback(ctx: ptr WakuContext): WakuRelayHandler =
+proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
   ): Future[system.void] {.async.} =
@@ -301,7 +302,7 @@ proc waku_relay_publish(
     RelayRequest.createShared(
       RelayMsgType.PUBLISH,
       PubsubTopic($pst),
-      WakuRelayHandler(relayEventCallback(ctx)),
+      WakuRelayHandler(onReceivedMessage(ctx)),
       wakuMessage,
     ),
   )
@@ -344,7 +345,7 @@ proc waku_relay_subscribe(
   let pst = pubSubTopic.alloc()
   defer:
     deallocShared(pst)
-  var cb = relayEventCallback(ctx)
+  var cb = onReceivedMessage(ctx)
 
   waku_thread
   .sendRequestToWakuThread(
@@ -375,7 +376,7 @@ proc waku_relay_unsubscribe(
     RelayRequest.createShared(
       RelayMsgType.SUBSCRIBE,
       PubsubTopic($pst),
-      WakuRelayHandler(relayEventCallback(ctx)),
+      WakuRelayHandler(onReceivedMessage(ctx)),
     ),
   )
   .handleRes(callback, userData)
@@ -433,7 +434,12 @@ proc waku_filter_subscribe(
   .sendRequestToWakuThread(
     ctx,
     RequestType.FILTER,
-    FilterRequest.createShared(FilterMsgType.SUBSCRIBE, pubSubTopic, contentTopics),
+    FilterRequest.createShared(
+      FilterMsgType.SUBSCRIBE,
+      pubSubTopic,
+      contentTopics,
+      FilterPushHandler(onReceivedMessage(ctx)),
+    ),
   )
   .handleRes(callback, userData)
 

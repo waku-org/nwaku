@@ -21,17 +21,20 @@ type FilterRequest* = object
   operation: FilterMsgType
   pubsubTopic: cstring
   contentTopics: cstring ## comma-separated list of content-topics
+  filterPushEventCallback: FilterPushHandler ## handles incompung filter pushed msgs
 
 proc createShared*(
     T: type FilterRequest,
     op: FilterMsgType,
     pubsubTopic: cstring = "",
     contentTopics: cstring = "",
+    filterPushEventCallback: FilterPushHandler = nil,
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
   ret[].pubsubTopic = pubsubTopic.alloc()
   ret[].contentTopics = contentTopics.alloc()
+  ret[].filterPushEventCallback = filterPushEventCallback
 
   return ret
 
@@ -54,6 +57,8 @@ proc process*(
 
   case self.operation
   of SUBSCRIBE:
+    waku.node.wakuFilterClient.registerPushHandler(self.filterPushEventCallback)
+
     let peer = waku.node.peerManager.selectPeer(WakuFilterSubscribeCodec).valueOr:
       let errorMsg =
         "could not find peer with WakuFilterSubscribeCodec when subscribing"
