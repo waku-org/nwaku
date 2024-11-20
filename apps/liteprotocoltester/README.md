@@ -169,9 +169,37 @@ There are multiple benefits of using bootstrap nodes. By using them liteprotocol
 Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds count for service peer failures (3) after service peer will be switched during the test. Also there will be max 10 trials of switching peer before test declared failed and quit.
 These service peer failures are reported, thus extending network reliability measures.
 
-### Docker image notice
+### Building docker image
 
-#### Building for docker compose runs on simulator or standalone
+Easiest way to build the docker image is to use the provided Makefile target.
+
+```bash
+cd <your-repository>
+make docker-liteprotocoltester
+```
+This will build liteprotocoltester from the ground up and create a docker image with the binary copied to it under image name and tag `wakuorg/liteprotocoltester:latest`.
+
+#### Building public image
+
+If you want to push the image to a public registry, you can use the jenkins job to do so.
+The job is available at https://ci.status.im/job/waku/job/liteprotocoltester/job/build-liteprotocoltester-image
+
+#### Building and deployment for infra testing
+
+For specific and continuous testing purposes we have a deployment of `liteprotocoltester` test suite to our infra appliances.
+This has its own configuration, constraints and requirements. To ease this job, image shall be built and pushed with `deploy` tag.
+This can be done by the jenkins job mentioned above.
+
+or manually by:
+```bash
+cd <your-repository>
+make DOCKER_LPT_TAG=deploy docker-liteprotocoltester
+```
+
+The image created with this method will be different from under any other tag. It prepared to run a preconfigured test suite continuously.
+It will also miss prometheus metrics scraping endpoint and grafana, thus it is not recommended to use it for general testing.
+
+#### Manually building for docker compose runs on simulator or standalone
 Please note that currently to ease testing and development tester application docker image is based on ubuntu and uses the externally pre-built binary of 'liteprotocoltester'.
 This speeds up image creation. Another dokcer build file is provided for proper build of boundle image.
 
