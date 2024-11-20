@@ -2,7 +2,7 @@
 
 ### Notes:
 
-
+* The `--protected-topic` CLI configuration has been removed. Equivalent flag, `--protected-shard`, shall be used instead.
 
 ### Features
 
