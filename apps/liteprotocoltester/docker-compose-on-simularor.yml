@@ -15,7 +15,7 @@ x-rln-environment: &rln_env
 
 x-test-running-conditions: &test_running_conditions
   NUM_MESSAGES: ${NUM_MESSAGES:-120}
-  DELAY_MESSAGES: "${DELAY_MESSAGES:-1000}"
+  MESSAGE_INTERVAL_MILLIS: "${MESSAGE_INTERVAL_MILLIS:-1000}"
   PUBSUB: ${PUBSUB:-/waku/2/rs/66/0}
   CONTENT_TOPIC: ${CONTENT_TOPIC:-/tester/2/light-pubsub-test/wakusim}
   CLUSTER_ID: ${CLUSTER_ID:-66}

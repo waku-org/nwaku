@@ -113,7 +113,7 @@ proc publishMessages(
     lightpushContentTopic: ContentTopic,
     numMessages: uint32,
     messageSizeRange: SizeRange,
-    delayMessages: Duration,
+    messageInterval: Duration,
 ) {.async.} =
   var actualServicePeer = servicePeer
   let startedAt = getNowInNanosecondTime()
@@ -198,7 +198,7 @@ proc publishMessages(
             noFailedServiceNodeSwitches += 1
             break
 
-    await sleepAsync(delayMessages)
+    await sleepAsync(messageInterval)
 
 proc setupAndPublish*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
@@ -252,5 +252,5 @@ proc setupAndPublish*(
     conf.contentTopics[0],
     conf.numMessages,
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),
-    conf.delayMessages.milliseconds,
+    conf.messageInterval.milliseconds,
   )

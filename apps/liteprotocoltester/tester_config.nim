@@ -89,10 +89,10 @@ type LiteProtocolTesterConf* = object
     name: "start-publishing-after"
   .}: uint32
 
-  delayMessages* {.
+  messageInterval* {.
     desc: "Delay between messages in milliseconds.",
     defaultValue: 1000,
-    name: "delay-messages"
+    name: "message-interval"
   .}: uint32
 
   pubsubTopics* {.

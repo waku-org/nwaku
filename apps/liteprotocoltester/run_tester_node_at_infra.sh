@@ -79,8 +79,8 @@ if [ -n "${NUM_MESSAGES}" ]; then
     NUM_MESSAGES=--num-messages="${NUM_MESSAGES}"
 fi
 
-if [ -n "${DELAY_MESSAGES}" ]; then
-    DELAY_MESSAGES=--delay-messages="${DELAY_MESSAGES}"
+if [ -n "${MESSAGE_INTERVAL_MILLIS}" ]; then
+    MESSAGE_INTERVAL_MILLIS=--message-interval="${MESSAGE_INTERVAL_MILLIS}"
 fi
 
 echo "Running binary: ${BINARY_PATH}"
@@ -92,7 +92,7 @@ exec "${BINARY_PATH}"\
       --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
       ${NODE_ARG}\
-      ${DELAY_MESSAGES}\
+      ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\
       ${PUBSUB}\
       ${CONTENT_TOPIC}\
