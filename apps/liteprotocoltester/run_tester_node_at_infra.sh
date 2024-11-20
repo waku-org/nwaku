@@ -62,8 +62,8 @@ if [ -n "${CLUSTER_ID}" ]; then
     CLUSTER_ID=--cluster-id="${CLUSTER_ID}"
 fi
 
-if [ -n "${START_PUBLISHING_AFTER}" ]; then
-    START_PUBLISHING_AFTER=--start-publishing-after="${START_PUBLISHING_AFTER}"
+if [ -n "${START_PUBLISHING_AFTER_SECS}" ]; then
+    START_PUBLISHING_AFTER_SECS=--start-publishing-after="${START_PUBLISHING_AFTER_SECS}"
 fi
 
 if [ -n "${MIN_MESSAGE_SIZE}" ]; then
@@ -98,7 +98,7 @@ exec "${BINARY_PATH}"\
       ${CONTENT_TOPIC}\
       ${CLUSTER_ID}\
       ${FUNCTION}\
-      ${START_PUBLISHING_AFTER}\
+      ${START_PUBLISHING_AFTER_SECS}\
       ${MIN_MESSAGE_SIZE}\
       ${MAX_MESSAGE_SIZE}\
       ${METRICS_PORT}

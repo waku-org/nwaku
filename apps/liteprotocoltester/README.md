@@ -130,7 +130,7 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 | PUBSUB | Used pubsub_topic for testing | /waku/2/rs/66/0 |
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | CLUSTER_ID  | cluster_id of the network | 16 |
-| START_PUBLISHING_AFTER | Delay in seconds before starting to publish to let service node connected | 5 |
+| START_PUBLISHING_AFTER_SECS | Delay in seconds before starting to publish to let service node connected | 5 |
 | MIN_MESSAGE_SIZE | Minimum message size in bytes | 1KiB |
 | MAX_MESSAGE_SIZE | Maximum message size in bytes | 120KiB |
 
@@ -239,7 +239,7 @@ Cluster id and Pubsub-topic must be accurately set according to the network conf
 The example shows that either multiaddress or ENR form accepted.
 
 ```bash
-export START_PUBLISHING_AFTER=60
+export START_PUBLISHING_AFTER_SECS=60
 export NUM_MESSAGES=200
 export MESSAGE_INTERVAL_MILLIS=1000
 export MIN_MESSAGE_SIZE=15Kb
@@ -274,7 +274,7 @@ cd lpt-runner
 
 export NUM_PUBLISHER_NODES=3
 export NUM_RECEIVER_NODES=1
-export START_PUBLISHING_AFTER=120
+export START_PUBLISHING_AFTER_SECS=120
 export NUM_MESSAGES=300
 export MESSAGE_INTERVAL_MILLIS=7000
 export MIN_MESSAGE_SIZE=15Kb
