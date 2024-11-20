@@ -142,7 +142,7 @@ type LiteProtocolTesterConf* = object
 
   testPeers* {.
     desc: "Run dial test on gathered PeerExchange peers.",
-    defaultValue: true,
+    defaultValue: false,
     name: "test-peers"
   .}: bool
 
@@ -157,6 +157,13 @@ type LiteProtocolTesterConf* = object
     defaultValue: 8654,
     name: "rest-port"
   .}: uint16
+
+  fixedServicePeer* {.
+    desc:
+      "Prevent changing the service peer in case of failures, the full test will stict to the first service peer in use.",
+    defaultValue: false,
+    name: "fixed-service-peer"
+  .}: bool
 
   restAllowOrigin* {.
     desc:

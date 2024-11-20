@@ -91,6 +91,7 @@ echo "My external IP: ${MY_EXT_IP}"
 exec "${BINARY_PATH}"\
       --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
+      --test-peers\
       ${NODE_ARG}\
       ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\

@@ -44,7 +44,10 @@ proc unsubscribe(
     notice "unsubscribe request successful"
 
 proc maintainSubscription(
-    wakuNode: WakuNode, filterPubsubTopic: PubsubTopic, filterContentTopic: ContentTopic
+    wakuNode: WakuNode,
+    filterPubsubTopic: PubsubTopic,
+    filterContentTopic: ContentTopic,
+    preventPeerSwitch: bool,
 ) {.async.} =
   const maxFailedSubscribes = 3
   const maxFailedServiceNodeSwitches = 10
@@ -83,7 +86,7 @@ proc maintainSubscription(
         if noFailedSubscribes < maxFailedSubscribes:
           await sleepAsync(2.seconds) # Wait a bit before retrying
           continue
-        else:
+        elif not preventPeerSwitch:
           let peerOpt = selectRandomServicePeer(
             wakuNode.peerManager, some(actualFilterPeer), WakuFilterSubscribeCodec
           )
@@ -164,4 +167,6 @@ proc setupAndSubscribe*(
   discard setTimer(Moment.fromNow(interval), printStats)
 
   # Start maintaining subscription
-  asyncSpawn maintainSubscription(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
+  asyncSpawn maintainSubscription(
+    wakuNode, conf.pubsubTopics[0], conf.contentTopics[0], conf.fixedServicePeer
+  )

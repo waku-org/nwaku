@@ -88,7 +88,7 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
 fi
 
 if $SERVICE_NODE_DIRECT; then
-  FULL_NODE=--service-node="${SERIVCE_NODE_ADDR}"
+  FULL_NODE=--service-node="${SERIVCE_NODE_ADDR} --fixed-service-peer"
 else
   FULL_NODE=--bootstrap-node="${SERIVCE_NODE_ADDR}"
 fi
@@ -136,6 +136,7 @@ echo "My external IP: ${MY_EXT_IP}"
 exec "${BINARY_PATH}"\
       --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
+      --test-peers\
       ${FULL_NODE}\
       ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\
