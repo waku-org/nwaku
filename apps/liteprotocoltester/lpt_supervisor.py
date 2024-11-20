@@ -6,19 +6,19 @@ from subprocess import Popen
 import sys
 
 def load_env(file_path):
-  env_vars = {}
+  predefined_test_env = {}
   with open(file_path) as f:
     for line in f:
       if line.strip() and not line.startswith('#'):
         key, value = line.strip().split('=', 1)
-        env_vars[key] = value
-  return env_vars
+        predefined_test_env[key] = value
+  return predefined_test_env
 
-def start_tester_node():
+def start_tester_node(predefined_test_env):
   role = sys.argv[1]
   env = os.environ.copy()
-  for key, value in env_vars.items():
-    if key not in env:
+  # override incoming environment variables with the ones from the file to prefer predefined testing environment.
+  for key, value in predefined_test_env.items():
       env[key] = value
   script_cmd = ['sh', '/usr/bin/run_tester_node_at_infra.sh', '/usr/bin/liteprotocoltester', role]
   process = Popen(script_cmd, env=env)
@@ -29,17 +29,17 @@ if __name__ == "__main__":
     print("Error: First argument must be either 'RECEIVER' or 'SENDER'")
     sys.exit(1)
 
-  env_file = '/usr/bin/infra.env'
-  env_vars = load_env(env_file)
+  predefined_test_env_file = '/usr/bin/infra.env'
+  predefined_test_env = load_env(predefined_test_env_file)
 
-  test_interval_minutes = int(env_vars.get('TEST_INTERVAL_MINUTES', 60))  # Default to 60 minutes if not set
+  test_interval_minutes = int(predefined_test_env.get('TEST_INTERVAL_MINUTES', 60))  # Default to 60 minutes if not set
 
   while True:
     start_time = time.time()
     print(f"supervisor: Tester node started at {time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))}")
-    print(f"supervisor: with arguments: {env_vars}")
+    print(f"supervisor: with arguments: {predefined_test_env}")
 
-    process = start_tester_node()
+    process = start_tester_node(predefined_test_env)
     process.wait()
 
     end_time = time.time()
