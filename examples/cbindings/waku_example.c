@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <pthread.h>
 
 #include <sys/types.h>
 #include <unistd.h>
@@ -13,6 +14,22 @@
 #include "base64.h"
 #include "../../library/libwaku.h"
 
+
+// Shared synchronization variables
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int callback_executed = 0;
+
+void waitForCallback() {
+    pthread_mutex_lock(&mutex);
+    while (!callback_executed) {
+        pthread_cond_wait(&cond, &mutex);
+    }
+    callback_executed = 0;
+    pthread_mutex_unlock(&mutex);
+}
+
+
 #define WAKU_CALL(call)                                                        \
 do {                                                                           \
   int ret = call;                                                              \
@@ -20,6 +37,7 @@ do {                                                                           \
     printf("Failed the call to: %s. Returned code: %d\n", #call, ret);         \
     exit(1);                                                                   \
   }                                                                            \
+  waitForCallback();                                                           \
 } while (0)
 
 struct ConfigNode {
@@ -99,6 +117,21 @@ void event_handler(int callerRet, const char* msg, size_t len, void* userData) {
     else if (callerRet == RET_OK) {
         printf("Receiving event: %s\n", msg);
     }
+
+    pthread_mutex_lock(&mutex);
+    callback_executed = 1;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
+}
+
+void on_event_received(int callerRet, const char* msg, size_t len, void* userData) {
+    if (callerRet == RET_ERR) {
+        printf("Error: %s\n", msg);
+        exit(1);
+    }
+    else if (callerRet == RET_OK) {
+        printf("Receiving event: %s\n", msg);
+    }
 }
 
 char* contentTopic = NULL;
@@ -161,10 +194,20 @@ void show_help_and_exit() {
 
 void print_default_pubsub_topic(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Default pubsub topic: %s\n", msg);
+
+    pthread_mutex_lock(&mutex);
+    callback_executed = 1;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
 }
 
 void print_waku_version(int callerRet, const char* msg, size_t len, void* userData) {
     printf("Git Version: %s\n", msg);
+
+    pthread_mutex_lock(&mutex);
+    callback_executed = 1;
+    pthread_cond_signal(&cond);
+    pthread_mutex_unlock(&mutex);
 }
 
 // Beginning of UI program logic
@@ -247,15 +290,13 @@ void handle_user_input() {
 // End of UI program logic
 
 int main(int argc, char** argv) {
-    waku_setup();
-
     struct ConfigNode cfgNode;
     // default values
     snprintf(cfgNode.host, 128, "0.0.0.0");
     cfgNode.port = 60000;
     cfgNode.relay = 1;
 
-    cfgNode.store = 1;
+    cfgNode.store = 0;
     snprintf(cfgNode.storeNode, 2048, "");
     snprintf(cfgNode.storeRetentionPolicy, 64, "time:6000000");
     snprintf(cfgNode.storeDbUrl, 256, "postgres://postgres:test123@localhost:5432/postgres");
@@ -296,6 +337,7 @@ int main(int argc, char** argv) {
                                     cfgNode.storeMaxNumDbConnections);
 
     ctx = waku_new(jsonConfig, event_handler, userData);
+    waitForCallback();
 
     WAKU_CALL( waku_default_pubsub_topic(ctx, print_default_pubsub_topic, userData) );
     WAKU_CALL( waku_version(ctx, print_waku_version, userData) );
@@ -303,10 +345,12 @@ int main(int argc, char** argv) {
     printf("Bind addr: %s:%u\n", cfgNode.host, cfgNode.port);
     printf("Waku Relay enabled: %s\n", cfgNode.relay == 1 ? "YES": "NO");
 
-    waku_set_event_callback(ctx, event_handler, userData);
-    waku_start(ctx, event_handler, userData);
+    waku_set_event_callback(ctx, on_event_received, userData);
 
-    waku_listen_addresses(ctx, event_handler, userData);
+    waku_start(ctx, event_handler, userData);
+    waitForCallback();
+
+    WAKU_CALL( waku_listen_addresses(ctx, event_handler, userData) );
 
     printf("Establishing connection with: %s\n", cfgNode.peers);
 
@@ -334,4 +378,7 @@ int main(int argc, char** argv) {
     while(1) {
         handle_user_input();
     }
+
+    pthread_mutex_destroy(&mutex);
+    pthread_cond_destroy(&cond);
 }
