@@ -7,9 +7,9 @@
 ### Features
 
 - change latency buckets ([#3153](https://github.com/waku-org/nwaku/issues/3153)) ([956fde6e](https://github.com/waku-org/nwaku/commit/956fde6e))
-- **libwaku:** ping peer ([#3144](https://github.com/waku-org/nwaku/issues/3144)) ([de11e576](https://github.com/waku-org/nwaku/commit/de11e576))
+- libwaku: ping peer ([#3144](https://github.com/waku-org/nwaku/issues/3144)) ([de11e576](https://github.com/waku-org/nwaku/commit/de11e576))
 - initial windows support ([#3107](https://github.com/waku-org/nwaku/issues/3107)) ([ff21c01e](https://github.com/waku-org/nwaku/commit/ff21c01e))
-- Circuit relay ([#3112](https://github.com/waku-org/nwaku/issues/3112)) ([cfde7eea](https://github.com/waku-org/nwaku/commit/cfde7eea))
+- circuit relay support ([#3112](https://github.com/waku-org/nwaku/issues/3112)) ([cfde7eea](https://github.com/waku-org/nwaku/commit/cfde7eea))
 
 ### Bug Fixes
 
@@ -17,23 +17,23 @@
 - add more logs, stagger intervals & set prune offset to 10% for waku sync ([#3142](https://github.com/waku-org/nwaku/issues/3142)) ([a386880b](https://github.com/waku-org/nwaku/commit/a386880b))
 - add log and archive message ingress for sync ([#3133](https://github.com/waku-org/nwaku/issues/3133)) ([80c7581a](https://github.com/waku-org/nwaku/commit/80c7581a))
 - add a limit of max 10 content topics per query ([#3117](https://github.com/waku-org/nwaku/issues/3117)) ([c35dc549](https://github.com/waku-org/nwaku/commit/c35dc549))
-- avoid segfault by setting a default num peers requested in PX ([#3122](https://github.com/waku-org/nwaku/issues/3122)) ([82fd5dde](https://github.com/waku-org/nwaku/commit/82fd5dde))
+- avoid segfault by setting a default num peers requested in Peer eXchange ([#3122](https://github.com/waku-org/nwaku/issues/3122)) ([82fd5dde](https://github.com/waku-org/nwaku/commit/82fd5dde))
 - returning peerIds in base 64 ([#3105](https://github.com/waku-org/nwaku/issues/3105)) ([37edaf62](https://github.com/waku-org/nwaku/commit/37edaf62))
 - changing libwaku's error handling format ([#3093](https://github.com/waku-org/nwaku/issues/3093)) ([2e6c299d](https://github.com/waku-org/nwaku/commit/2e6c299d))
 - remove spammy log ([#3091](https://github.com/waku-org/nwaku/issues/3091)) ([1d2b910f](https://github.com/waku-org/nwaku/commit/1d2b910f))
-- out connections leak ([#3077](https://github.com/waku-org/nwaku/issues/3077)) ([eb2bbae6](https://github.com/waku-org/nwaku/commit/eb2bbae6))
+- avoid out connections leak ([#3077](https://github.com/waku-org/nwaku/issues/3077)) ([eb2bbae6](https://github.com/waku-org/nwaku/commit/eb2bbae6))
 - rejecting excess relay connections ([#3065](https://github.com/waku-org/nwaku/issues/3065)) ([8b0884c7](https://github.com/waku-org/nwaku/commit/8b0884c7))
 - static linking negentropy in ARM based mac ([#3046](https://github.com/waku-org/nwaku/issues/3046)) ([256b7853](https://github.com/waku-org/nwaku/commit/256b7853))
 
 ### Changes
 
 - support ping with multiple multiaddresses and close stream ([#3154](https://github.com/waku-org/nwaku/issues/3154)) ([3665991a](https://github.com/waku-org/nwaku/commit/3665991a))
-- ** liteprotocoltester:** easy setup fleets for lpt ([#3125](https://github.com/waku-org/nwaku/issues/3125)) ([268e7e66](https://github.com/waku-org/nwaku/commit/268e7e66))
+- liteprotocoltester: easy setup fleets ([#3125](https://github.com/waku-org/nwaku/issues/3125)) ([268e7e66](https://github.com/waku-org/nwaku/commit/268e7e66))
 - saving peers enr capabilities ([#3127](https://github.com/waku-org/nwaku/issues/3127)) ([69d9524f](https://github.com/waku-org/nwaku/commit/69d9524f))
-- **networkmonitor:** add missing field on RlnRelay init, set default for num of shard ([#3136](https://github.com/waku-org/nwaku/issues/3136)) ([edcb0e15](https://github.com/waku-org/nwaku/commit/edcb0e15))
+- networkmonitor: add missing field on RlnRelay init, set default for num of shard ([#3136](https://github.com/waku-org/nwaku/issues/3136)) ([edcb0e15](https://github.com/waku-org/nwaku/commit/edcb0e15))
 - add to libwaku peer id retrieval proc ([#3124](https://github.com/waku-org/nwaku/issues/3124)) ([c5a825e2](https://github.com/waku-org/nwaku/commit/c5a825e2))
 - adding to libwaku dial and disconnect by peerIds ([#3111](https://github.com/waku-org/nwaku/issues/3111)) ([25da8102](https://github.com/waku-org/nwaku/commit/25da8102))
-- dbconn - add requestId info as a comment in the database logs ([#3110](https://github.com/waku-org/nwaku/issues/3110)) ([30c072a4](https://github.com/waku-org/nwaku/commit/30c072a4))
+- dbconn: add requestId info as a comment in the database logs ([#3110](https://github.com/waku-org/nwaku/issues/3110)) ([30c072a4](https://github.com/waku-org/nwaku/commit/30c072a4))
 - improving get_peer_ids_by_protocol by returning the available protocols of connected peers ([#3109](https://github.com/waku-org/nwaku/issues/3109)) ([ed0ee5be](https://github.com/waku-org/nwaku/commit/ed0ee5be))
 - remove warnings ([#3106](https://github.com/waku-org/nwaku/issues/3106)) ([c861fa9f](https://github.com/waku-org/nwaku/commit/c861fa9f))
 - better store logs ([#3103](https://github.com/waku-org/nwaku/issues/3103)) ([21b03551](https://github.com/waku-org/nwaku/commit/21b03551))
