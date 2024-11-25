@@ -21,7 +21,7 @@ type FilterRequest* = object
   operation: FilterMsgType
   pubsubTopic: cstring
   contentTopics: cstring ## comma-separated list of content-topics
-  filterPushEventCallback: FilterPushHandler ## handles incompung filter pushed msgs
+  filterPushEventCallback: FilterPushHandler ## handles incoming filter pushed msgs
 
 proc createShared*(
     T: type FilterRequest,
