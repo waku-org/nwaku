@@ -50,6 +50,7 @@ RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
 COPY --from=nim-build /app/build/liteprotocoltester /usr/bin/
 COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node.sh /usr/bin/
+COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node_on_fleet.sh /usr/bin/
 
 ENTRYPOINT ["/usr/bin/run_tester_node.sh", "/usr/bin/liteprotocoltester"]
 
