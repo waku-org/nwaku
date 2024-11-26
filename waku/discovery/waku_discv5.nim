@@ -454,10 +454,9 @@ proc updateBootstrapRecords*(
 
 proc updateBootstrapRecords*(
     self: var WakuDiscoveryV5, updatedRecords: seq[enr.Record]
-): Result[void, string] =
+): void =
   self.protocol.bootstrapRecords = updatedRecords
 
   # If we're updating the table with nodes that already existed, it will log an error when trying
   # to add a bootstrap node that was already there. That's ok.
   self.protocol.seedTable()
-  return ok()

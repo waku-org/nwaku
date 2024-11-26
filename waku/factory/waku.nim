@@ -355,8 +355,9 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
     waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
     if not waku[].wakuDiscv5.isNil():
-      let dynamicBootstrapEnrs =
-        waku[].dynamicBootstrapNodes.filterIt(it.hasUdpPort()).mapIt(it.enr.get())
+      let dynamicBootstrapEnrs = waku[].dynamicBootstrapNodes
+        .filterIt(it.hasUdpPort())
+        .mapIt(it.enr.get().toUri())
       var discv5BootstrapEnrs: seq[enr.Record]
       # parse enrURIs from the configuration and add the resulting ENRs to the discv5BootstrapEnrs seq
       for enrUri in dynamicBootstrapEnrs:
@@ -368,12 +369,14 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
 
     info "Connecting to dynamic bootstrap peers"
     try:
-      await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
+      await connectToNodes(
+        waku[].node, waku[].dynamicBootstrapNodes, "dynamic bootstrap"
+      )
     except CatchableError:
       error "failed to connect to dynamic bootstrap nodes: " & getCurrentExceptionMsg()
     return
 
-proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: []).} =
+proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
 
   let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
@@ -383,7 +386,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
   if dynamicBootstrapNodesRes.isErr():
     error "Retrieving dynamic bootstrap nodes failed",
       error = dynamicBootstrapNodesRes.error
-    dnsRetryLoopHandle = some(waku[].startDnsDiscoveryRetryLoop())
+    waku[].dnsRetryLoopHandle = some(waku.startDnsDiscoveryRetryLoop())
   else:
     waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
