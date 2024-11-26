@@ -29,6 +29,7 @@
 
   COPY build/liteprotocoltester /usr/bin/
   COPY apps/liteprotocoltester/run_tester_node.sh /usr/bin/
+  COPY apps/liteprotocoltester/run_tester_node_on_fleet.sh /usr/bin/
 
   ENTRYPOINT ["/usr/bin/run_tester_node.sh", "/usr/bin/liteprotocoltester"]
 
