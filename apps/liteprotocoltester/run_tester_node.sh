@@ -88,7 +88,7 @@ if [ -z "${SERIVCE_NODE_ADDR}" ]; then
 fi
 
 if $SERVICE_NODE_DIRECT; then
-  FULL_NODE=--service-node="${SERIVCE_NODE_ADDR}"
+  FULL_NODE=--service-node="${SERIVCE_NODE_ADDR} --fixed-service-peer"
 else
   FULL_NODE=--bootstrap-node="${SERIVCE_NODE_ADDR}"
 fi
@@ -107,8 +107,8 @@ if [ -n "${CLUSTER_ID}" ]; then
     CLUSTER_ID=--cluster-id="${CLUSTER_ID}"
 fi
 
-if [ -n "${START_PUBLISHING_AFTER}" ]; then
-    START_PUBLISHING_AFTER=--start-publishing-after="${START_PUBLISHING_AFTER}"
+if [ -n "${START_PUBLISHING_AFTER_SECS}" ]; then
+    START_PUBLISHING_AFTER_SECS=--start-publishing-after="${START_PUBLISHING_AFTER_SECS}"
 fi
 
 if [ -n "${MIN_MESSAGE_SIZE}" ]; then
@@ -124,8 +124,8 @@ if [ -n "${NUM_MESSAGES}" ]; then
     NUM_MESSAGES=--num-messages="${NUM_MESSAGES}"
 fi
 
-if [ -n "${DELAY_MESSAGES}" ]; then
-    DELAY_MESSAGES=--delay-messages="${DELAY_MESSAGES}"
+if [ -n "${MESSAGE_INTERVAL_MILLIS}" ]; then
+    MESSAGE_INTERVAL_MILLIS=--message-interval="${MESSAGE_INTERVAL_MILLIS}"
 fi
 
 echo "Running binary: ${BINARY_PATH}"
@@ -136,14 +136,15 @@ echo "My external IP: ${MY_EXT_IP}"
 exec "${BINARY_PATH}"\
       --log-level=INFO\
       --nat=extip:${MY_EXT_IP}\
+      --test-peers\
       ${FULL_NODE}\
-      ${DELAY_MESSAGES}\
+      ${MESSAGE_INTERVAL_MILLIS}\
       ${NUM_MESSAGES}\
       ${PUBSUB}\
       ${CONTENT_TOPIC}\
       ${CLUSTER_ID}\
       ${FUNCTION}\
-      ${START_PUBLISHING_AFTER}\
+      ${START_PUBLISHING_AFTER_SECS}\
       ${MIN_MESSAGE_SIZE}\
       ${MAX_MESSAGE_SIZE}
       # --config-file=config.toml\

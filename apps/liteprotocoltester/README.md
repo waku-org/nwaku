@@ -126,11 +126,11 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 |   Variable     | Description | Default |
 | ---: | :--- | :--- |
 | NUM_MESSAGES   | Number of message to publish, 0 means infinite | 120 |
-| DELAY_MESSAGES | Frequency of messages in milliseconds | 1000 |
+| MESSAGE_INTERVAL_MILLIS | Frequency of messages in milliseconds | 1000 |
 | PUBSUB | Used pubsub_topic for testing | /waku/2/rs/66/0 |
 | CONTENT_TOPIC  | content_topic for testing | /tester/1/light-pubsub-example/proto |
 | CLUSTER_ID  | cluster_id of the network | 16 |
-| START_PUBLISHING_AFTER | Delay in seconds before starting to publish to let service node connected | 5 |
+| START_PUBLISHING_AFTER_SECS | Delay in seconds before starting to publish to let service node connected | 5 |
 | MIN_MESSAGE_SIZE | Minimum message size in bytes | 1KiB |
 | MAX_MESSAGE_SIZE | Maximum message size in bytes | 120KiB |
 
@@ -143,7 +143,7 @@ Run a SENDER role liteprotocoltester and a RECEIVER role one on different termin
 | --service-node| Address of the service node to use for lightpush and/or filter service | - |
 | --bootstrap-node| Address of the fleet's bootstrap node to use to determine service peer randomly choosen from the network. `--service-node` switch has precedence over this | - |
 | --num-messages | Number of message to publish | 120 |
-| --delay-messages | Frequency of messages in milliseconds | 1000 |
+| --message-interval | Frequency of messages in milliseconds | 1000 |
 | --min-message-size | Minimum message size in bytes | 1KiB |
 | --max-message-size | Maximum message size in bytes | 120KiB |
 | --start-publishing-after | Delay in seconds before starting to publish to let service node connected in seconds | 5 |
@@ -169,9 +169,37 @@ There are multiple benefits of using bootstrap nodes. By using them liteprotocol
 Also by using bootstrap node and peer exchange discovery, litprotocoltester will be able to simulate service peer switch in case of failures. There are built in tresholds count for service peer failures (3) after service peer will be switched during the test. Also there will be max 10 trials of switching peer before test declared failed and quit.
 These service peer failures are reported, thus extending network reliability measures.
 
-### Docker image notice
+### Building docker image
 
-#### Building for docker compose runs on simulator or standalone
+Easiest way to build the docker image is to use the provided Makefile target.
+
+```bash
+cd <your-repository>
+make docker-liteprotocoltester
+```
+This will build liteprotocoltester from the ground up and create a docker image with the binary copied to it under image name and tag `wakuorg/liteprotocoltester:latest`.
+
+#### Building public image
+
+If you want to push the image to a public registry, you can use the jenkins job to do so.
+The job is available at https://ci.status.im/job/waku/job/liteprotocoltester/job/build-liteprotocoltester-image
+
+#### Building and deployment for infra testing
+
+For specific and continuous testing purposes we have a deployment of `liteprotocoltester` test suite to our infra appliances.
+This has its own configuration, constraints and requirements. To ease this job, image shall be built and pushed with `deploy` tag.
+This can be done by the jenkins job mentioned above.
+
+or manually by:
+```bash
+cd <your-repository>
+make DOCKER_LPT_TAG=deploy docker-liteprotocoltester
+```
+
+The image created with this method will be different from under any other tag. It prepared to run a preconfigured test suite continuously.
+It will also miss prometheus metrics scraping endpoint and grafana, thus it is not recommended to use it for general testing.
+
+#### Manually building for docker compose runs on simulator or standalone
 Please note that currently to ease testing and development tester application docker image is based on ubuntu and uses the externally pre-built binary of 'liteprotocoltester'.
 This speeds up image creation. Another dokcer build file is provided for proper build of boundle image.
 
@@ -239,9 +267,9 @@ Cluster id and Pubsub-topic must be accurately set according to the network conf
 The example shows that either multiaddress or ENR form accepted.
 
 ```bash
-export START_PUBLISHING_AFTER=60
+export START_PUBLISHING_AFTER_SECS=60
 export NUM_MESSAGES=200
-export DELAY_MESSAGES=1000
+export MESSAGE_INTERVAL_MILLIS=1000
 export MIN_MESSAGE_SIZE=15Kb
 export MAX_MESSAGE_SIZE=145Kb
 export PUBSUB=/waku/2/rs/16/32
@@ -274,9 +302,9 @@ cd lpt-runner
 
 export NUM_PUBLISHER_NODES=3
 export NUM_RECEIVER_NODES=1
-export START_PUBLISHING_AFTER=120
+export START_PUBLISHING_AFTER_SECS=120
 export NUM_MESSAGES=300
-export DELAY_MESSAGES=7000
+export MESSAGE_INTERVAL_MILLIS=7000
 export MIN_MESSAGE_SIZE=15Kb
 export MAX_MESSAGE_SIZE=145Kb
 export PUBSUB=/waku/2/rs/1/4

@@ -22,6 +22,9 @@ declarePublicCounter lpt_receiver_duplicate_messages_count,
 declarePublicGauge lpt_receiver_distinct_duplicate_messages_count,
   "number of distinct duplicate messages per peer", ["peer"]
 
+declarePublicGauge lpt_receiver_latencies,
+  "Message delivery latency per peer (min-avg-max)", ["peer", "latency"]
+
 declarePublicCounter lpt_receiver_lost_subscription_count,
   "number of filter service peer failed PING requests - lost subscription"
 

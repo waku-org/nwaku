@@ -189,8 +189,11 @@ proc dupMsgs(self: Statistics): string =
     )
   return dupMsgs
 
-proc echoStat*(self: Statistics) =
+proc echoStat*(self: Statistics, peerId: string) =
   let (minL, maxL, avgL) = self.calcLatency()
+  lpt_receiver_latencies.set(labelValues = [peerId, "min"], value = minL.nanos())
+  lpt_receiver_latencies.set(labelValues = [peerId, "avg"], value = avgL.nanos())
+  lpt_receiver_latencies.set(labelValues = [peerId, "max"], value = maxL.nanos())
 
   let printable = catch:
     """*------------------------------------------------------------------------------------------*
@@ -248,7 +251,7 @@ proc echoStats*(self: var PerPeerStatistics) =
       echo "Error while printing statistics"
     else:
       echo peerLine.get()
-      stats.echoStat()
+      stats.echoStat(peerId)
 
 proc jsonStats*(self: PerPeerStatistics): string =
   try:
