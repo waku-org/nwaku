@@ -37,8 +37,7 @@ declarePublicGauge networkmonitor_peer_user_agents,
 
 declarePublicHistogram networkmonitor_peer_ping,
   "Histogram tracking ping durations for discovered peers",
-  buckets =
-    [10.0, 20.0, 50.0, 100.0, 200.0, 300.0, 500.0, 800.0, 1000.0, 2000.0, Inf]
+  buckets = [10.0, 20.0, 50.0, 100.0, 200.0, 300.0, 500.0, 800.0, 1000.0, 2000.0, Inf]
 
 declarePublicGauge networkmonitor_peer_count,
   "Number of discovered peers", labels = ["connected"]

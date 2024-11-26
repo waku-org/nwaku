@@ -140,7 +140,7 @@ proc installAdminV1PostPeersHandler(router: var RestRouter, node: WakuNode) =
         let e = $error
         return RestApiResponse.badRequest(fmt("Couldn't parse remote peer info: {e}"))
 
-      if not (await node.peerManager.connectRelay(peerInfo, source = "rest")):
+      if not (await node.peerManager.connectPeer(peerInfo, source = "rest")):
         return RestApiResponse.badRequest(
           fmt("Failed to connect to peer at index: {i} - {peer}")
         )

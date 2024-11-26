@@ -402,18 +402,12 @@ proc startNode*(
 
   # Connect to configured static nodes
   if conf.staticnodes.len > 0:
-    if not conf.relay:
-      return err("waku relay (--relay=true) should be set when configuring staticnodes")
     try:
       await connectToNodes(node, conf.staticnodes, "static")
     except CatchableError:
       return err("failed to connect to static nodes: " & getCurrentExceptionMsg())
 
   if dynamicBootstrapNodes.len > 0:
-    if not conf.relay:
-      return err(
-        "waku relay (--relay=true) should be set when configuring dynamicBootstrapNodes"
-      )
     info "Connecting to dynamic bootstrap peers"
     try:
       await connectToNodes(node, dynamicBootstrapNodes, "dynamic bootstrap")
@@ -428,7 +422,11 @@ proc startNode*(
       desiredOutDegree = node.wakuRelay.parameters.d.uint64()
     (await node.fetchPeerExchangePeers(desiredOutDegree)).isOkOr:
       error "error while fetching peers from peer exchange", error = error
-      quit(QuitFailure)
+
+  # Use px to periodically get peers if discv5 is disabled, as discv5 nodes have their own
+  # periodic loop to find peers and px returned peers actually come from discv5
+  if conf.peerExchange and not conf.discv5Discovery:
+    node.startPeerExchangeLoop()
 
   # Start keepalive, if enabled
   if conf.keepAlive:

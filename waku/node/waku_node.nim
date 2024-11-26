@@ -56,7 +56,9 @@ import
 declarePublicCounter waku_node_messages, "number of messages received", ["type"]
 declarePublicHistogram waku_histogram_message_size,
   "message size histogram in kB",
-  buckets = [0.0, 1.0, 3.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 500.0, 700.0, 1000.0, Inf]
+  buckets = [
+    0.0, 1.0, 3.0, 5.0, 15.0, 50.0, 75.0, 100.0, 125.0, 150.0, 500.0, 700.0, 1000.0, Inf
+  ]
 
 declarePublicGauge waku_version,
   "Waku version info (in git describe format)", ["version"]
@@ -1144,7 +1146,7 @@ proc mountPeerExchange*(
     error "failed to mount wakuPeerExchange", error = getCurrentExceptionMsg()
 
 proc fetchPeerExchangePeers*(
-    node: Wakunode, amount: uint64
+    node: Wakunode, amount = DefaultPXNumPeersReq
 ): Future[Result[int, PeerExchangeResponseStatus]] {.async: (raises: []).} =
   if node.wakuPeerExchange.isNil():
     error "could not get peers from px, waku peer-exchange is nil"
@@ -1172,6 +1174,20 @@ proc fetchPeerExchangePeers*(
     warn "failed to retrieve peer info via peer exchange protocol",
       error = pxPeersRes.error
     return err(pxPeersRes.error)
+
+proc peerExchangeLoop(node: WakuNode) {.async.} =
+  while true:
+    await sleepAsync(1.minutes)
+    if not node.started:
+      continue
+    (await node.fetchPeerExchangePeers()).isOkOr:
+      warn "Cannot fetch peers from peer exchange", cause = error
+
+proc startPeerExchangeLoop*(node: WakuNode) =
+  if node.wakuPeerExchange.isNil():
+    error "startPeerExchangeLoop: Peer Exchange is not mounted"
+    return
+  node.wakuPeerExchange.pxLoopHandle = node.peerExchangeLoop()
 
 # TODO: Move to application module (e.g., wakunode2.nim)
 proc setPeerExchangePeer*(
@@ -1215,7 +1231,11 @@ proc mountLibp2pPing*(node: WakuNode) {.async: (raises: []).} =
 
 # TODO: Move this logic to PeerManager
 proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
-  while node.started:
+  while true:
+    await sleepAsync(keepalive)
+    if not node.started:
+      continue
+
     # Keep connected peers alive while running
     # Each node is responsible of keeping its outgoing connections alive
     trace "Running keepalive"
@@ -1233,19 +1253,20 @@ proc keepaliveLoop(node: WakuNode, keepalive: chronos.Duration) {.async.} =
       except CatchableError as exc:
         waku_node_errors.inc(labelValues = ["keep_alive_failure"])
 
-    await sleepAsync(keepalive)
+# 2 minutes default - 20% of the default chronosstream timeout duration
+proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
+  info "starting keepalive", keepalive = keepalive
 
-proc startKeepalive*(node: WakuNode) =
-  let defaultKeepalive = 2.minutes # 20% of the default chronosstream timeout duration
-
-  info "starting keepalive", keepalive = defaultKeepalive
-
-  asyncSpawn node.keepaliveLoop(defaultKeepalive)
+  asyncSpawn node.keepaliveLoop(keepalive)
 
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.rendezvous = RendezVous.new(node.switch)
+  try:
+    node.rendezvous = RendezVous.new(node.switch)
+  except Exception as e:
+    error "failed to create rendezvous", error = getCurrentExceptionMsg()
+    return
 
   if node.started:
     try:
@@ -1369,6 +1390,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.stopWait()
+
+  if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
+    await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
 
   node.started = false
 

@@ -168,7 +168,7 @@ proc waku_destroy(
 ): cint {.dynlib, exportc.} =
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread.stopWakuThread(ctx).handleRes(callback, userData)
+  waku_thread.destroyWakuThread(ctx).handleRes(callback, userData)
 
 proc waku_version(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
@@ -498,6 +498,28 @@ proc waku_disconnect_peer_by_id(
   )
   .handleRes(callback, userData)
 
+proc waku_dial_peer(
+    ctx: ptr WakuContext,
+    peerMultiAddr: cstring,
+    protocol: cstring,
+    timeoutMs: cuint,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(
+      op = PeerManagementMsgType.DIAL_PEER,
+      peerMultiAddr = $peerMultiAddr,
+      protocol = $protocol,
+    ),
+  )
+  .handleRes(callback, userData)
+
 proc waku_dial_peer_by_id(
     ctx: ptr WakuContext,
     peerId: cstring,
@@ -513,7 +535,7 @@ proc waku_dial_peer_by_id(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
-      op = PeerManagementMsgType.DIAL_PEER_BY_ID, peerId = $peerId
+      op = PeerManagementMsgType.DIAL_PEER_BY_ID, peerId = $peerId, protocol = $protocol
     ),
   )
   .handleRes(callback, userData)
@@ -528,6 +550,19 @@ proc waku_get_peerids_from_peerstore(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(PeerManagementMsgType.GET_ALL_PEER_IDS),
+  )
+  .handleRes(callback, userData)
+
+proc waku_get_connected_peers(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.PEER_MANAGER,
+    PeerManagementRequest.createShared(PeerManagementMsgType.GET_CONNECTED_PEERS),
   )
   .handleRes(callback, userData)
 
@@ -675,7 +710,7 @@ proc waku_peer_exchange_request(
 
 proc waku_ping_peer(
     ctx: ptr WakuContext,
-    peerID: cstring,
+    peerAddr: cstring,
     timeoutMs: cuint,
     callback: WakuCallBack,
     userData: pointer,
@@ -686,7 +721,7 @@ proc waku_ping_peer(
   .sendRequestToWakuThread(
     ctx,
     RequestType.PING,
-    PingRequest.createShared(peerID, chronos.milliseconds(timeoutMs)),
+    PingRequest.createShared(peerAddr, chronos.milliseconds(timeoutMs)),
   )
   .handleRes(callback, userData)
 
