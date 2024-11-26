@@ -215,8 +215,7 @@ proc findRandomPeers*(
 
   var discoveredRecords = discoveredNodes.mapIt(it.record)
 
-  when defined(debugDiscv5):
-    logDiscv5FoundPeers(discoveredRecords)
+  logDiscv5FoundPeers(discoveredRecords)
 
   # Filter out nodes that do not match the predicate
   if overridePred.isSome():
@@ -237,7 +236,7 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
   info "Starting discovery v5 search"
 
   while wd.listening:
-    trace "running discv5 discovery loop"
+    info "running discv5 discovery loop"
     let discoveredRecords = await wd.findRandomPeers()
 
     var discoveredPeers: seq[RemotePeerInfo]
@@ -253,11 +252,11 @@ proc searchLoop(wd: WakuDiscoveryV5) {.async.} =
 
       discoveredPeers.add(peerInfo)
 
-    trace "discv5 discovered peers",
+    info "discv5 discovered peers",
       num_discovered_peers = discoveredPeers.len,
       peers = toSeq(discoveredPeers.mapIt(shortLog(it.peerId)))
 
-    trace "discv5 discarded wrong records",
+    info "discv5 discarded wrong records",
       wrong_records =
         wrongRecordsReasons.mapIt("(" & it.record & "," & it.errorDescription & ")")
 
