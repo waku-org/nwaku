@@ -25,9 +25,8 @@ RUN make -j$(nproc) deps QUICK_AND_DIRTY_COMPILER=1 ${NIM_COMMIT}
 RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="${NIMFLAGS}"
 
 
-# PRODUCTION IMAGE -------------------------------------------------------------
-
-FROM alpine:3.18 AS prod
+# REFERENCE IMAGE as BASE for specialized PRODUCTION IMAGES----------------------------------------
+FROM alpine:3.18 AS base_lpt
 
 ARG MAKE_TARGET=liteprotocoltester
 
@@ -43,16 +42,33 @@ EXPOSE 30303 60000 8545
 # Referenced in the binary
 RUN apk add --no-cache libgcc pcre-dev libpq-dev \
   wget \
-  iproute2
+  iproute2 \
+  python3
 
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3
 
 COPY --from=nim-build /app/build/liteprotocoltester /usr/bin/
+RUN chmod +x /usr/bin/liteprotocoltester
+
+# Standalone image to be used manually and in lpt-runner -------------------------------------------
+FROM base_lpt AS standalone_lpt
+
 COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node.sh /usr/bin/
-COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node_on_fleet.sh /usr/bin/
+RUN chmod +x /usr/bin/run_tester_node.sh
 
 ENTRYPOINT ["/usr/bin/run_tester_node.sh", "/usr/bin/liteprotocoltester"]
 
-# # By default just show help if called without arguments
-CMD ["--help"]
+# Image for infra deployment -------------------------------------------
+FROM base_lpt AS deployment_lpt
+
+# let supervisor python script flush logs immediately
+ENV PYTHONUNBUFFERED="1"
+
+COPY --from=nim-build /app/apps/liteprotocoltester/run_tester_node_at_infra.sh /usr/bin/
+COPY --from=nim-build /app/apps/liteprotocoltester/infra.env /usr/bin/
+COPY --from=nim-build /app/apps/liteprotocoltester/lpt_supervisor.py /usr/bin/
+RUN chmod +x /usr/bin/run_tester_node_at_infra.sh
+RUN chmod +x /usr/bin/lpt_supervisor.py
+
+ENTRYPOINT ["/usr/bin/lpt_supervisor.py"]

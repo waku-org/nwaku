@@ -61,6 +61,7 @@ pipeline {
           "--build-arg=MAKE_TARGET='liteprotocoltester' " +
           "--build-arg=NIMFLAGS='${params.NIMFLAGS}' " +
           "--build-arg=LOG_LEVEL='${params.LOWEST_LOG_LEVEL_ALLOWED}' "  +
+          "--target ${params.IMAGE_TAG == 'deploy' ? 'deployment_lpt' : 'standalone_lpt'} " +
           "--file=apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile " +
           " ."
         )

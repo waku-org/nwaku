@@ -373,16 +373,16 @@ DOCKER_LPT_NIMFLAGS ?= -d:chronicles_colors:none -d:insecure
 # build a docker image for the fleet
 docker-liteprotocoltester: DOCKER_LPT_TAG ?= latest
 docker-liteprotocoltester: DOCKER_LPT_NAME ?= wakuorg/liteprotocoltester:$(DOCKER_LPT_TAG)
+# --no-cache
 docker-liteprotocoltester:
 	docker build \
-	  --no-cache \
 		--build-arg="MAKE_TARGET=liteprotocoltester" \
 		--build-arg="NIMFLAGS=$(DOCKER_LPT_NIMFLAGS)" \
 		--build-arg="NIM_COMMIT=$(DOCKER_NIM_COMMIT)" \
 		--build-arg="LOG_LEVEL=TRACE" \
 		--label="commit=$(shell git rev-parse HEAD)" \
 		--label="version=$(GIT_VERSION)" \
-		--target $(TARGET) \
+		--target $(if $(filter deploy,$(DOCKER_LPT_TAG)),deployment_lpt,standalone_lpt) \
 		--tag $(DOCKER_LPT_NAME) \
 		--file apps/liteprotocoltester/Dockerfile.liteprotocoltester.compile \
 		.

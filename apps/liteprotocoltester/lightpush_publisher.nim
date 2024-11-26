@@ -113,7 +113,8 @@ proc publishMessages(
     lightpushContentTopic: ContentTopic,
     numMessages: uint32,
     messageSizeRange: SizeRange,
-    delayMessages: Duration,
+    messageInterval: Duration,
+    preventPeerSwitch: bool,
 ) {.async.} =
   var actualServicePeer = servicePeer
   let startedAt = getNowInNanosecondTime()
@@ -177,7 +178,7 @@ proc publishMessages(
       else:
         noFailedPush += 1
         lpt_service_peer_failure_count.inc(labelValues = ["publisher"])
-        if noFailedPush > maxFailedPush:
+        if not preventPeerSwitch and noFailedPush > maxFailedPush:
           info "Max push failure limit reached, Try switching peer."
           let peerOpt = selectRandomServicePeer(
             wakuNode.peerManager, some(actualServicePeer), WakuLightPushCodec
@@ -198,7 +199,7 @@ proc publishMessages(
             noFailedServiceNodeSwitches += 1
             break
 
-    await sleepAsync(delayMessages)
+    await sleepAsync(messageInterval)
 
 proc setupAndPublish*(
     wakuNode: WakuNode, conf: LiteProtocolTesterConf, servicePeer: RemotePeerInfo
@@ -252,5 +253,6 @@ proc setupAndPublish*(
     conf.contentTopics[0],
     conf.numMessages,
     (min: parsedMinMsgSize, max: parsedMaxMsgSize),
-    conf.delayMessages.milliseconds,
+    conf.messageInterval.milliseconds,
+    conf.fixedServicePeer,
   )
