@@ -386,6 +386,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   if dynamicBootstrapNodesRes.isErr():
     error "Retrieving dynamic bootstrap nodes failed",
       error = dynamicBootstrapNodesRes.error
+    # Start Dns Discovery retry loop
     waku[].dnsRetryLoopHandle = some(waku.startDnsDiscoveryRetryLoop())
   else:
     waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
@@ -438,3 +439,6 @@ proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
 
   if not waku.node.isNil():
     await waku.node.stop()
+
+  if waku.dnsRetryLoopHandle.isSome():
+    await waku.dnsRetryLoopHandle.get().cancelAndWait()
