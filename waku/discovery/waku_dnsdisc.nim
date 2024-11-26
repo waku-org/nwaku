@@ -114,7 +114,8 @@ proc retrieveDynamicBootstrapNodes*(
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
       trace "resolving", domain = domain
       let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
+      if resolved.len > 0:
+        return resolved[0] # Use only first answer
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
     if wakuDnsDiscovery.isOk():
