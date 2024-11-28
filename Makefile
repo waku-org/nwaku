@@ -178,35 +178,6 @@ clean-librln:
 # Extend clean target
 clean: | clean-librln
 
-######################
-###   NEGENTROPY   ###
-######################
-.PHONY: negentropy
-
-LIBNEGENTROPY_BUILDDIR := $(CURDIR)/vendor/negentropy/cpp
-LIBNEGENTROPY_FILE := libnegentropy.a
-
-deps: | negentropy
-
-clean: | negentropy-clean
-
-$(LIBNEGENTROPY_FILE):
-	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) && \
-		cp $(LIBNEGENTROPY_BUILDDIR)/${LIBNEGENTROPY_FILE} ${LIBNEGENTROPY_FILE}
-
-negentropy: | $(LIBNEGENTROPY_FILE)
-    ## Pass libnegentropy and it's deps to linker.
-    $(eval LIBNEGENTROPY_PATH := $(shell if [ -f "$(LIBNEGENTROPY_FILE)" ]; then echo "$(LIBNEGENTROPY_FILE)"; else echo "./$(LIBNEGENTROPY_FILE)"; fi))
-    $(eval NIM_PARAMS += --passL:$(LIBNEGENTROPY_PATH) --passL:-lcrypto --passL:-lssl --passL:-lstdc++)
-ifeq ($(detected_OS),Darwin)
-    $(eval NIM_PARAMS += --passL:-L/opt/homebrew/lib/)
-endif
-
-negentropy-clean:
-	$(MAKE) -C $(LIBNEGENTROPY_BUILDDIR) clean && \
-		rm ${LIBNEGENTROPY_FILE}
-
-
 #################
 ## Waku Common ##
 #################
@@ -480,7 +451,6 @@ cwaku_example: | build libwaku
 		./examples/cbindings/base64.c \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
-		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \
@@ -493,7 +463,6 @@ cppwaku_example: | build libwaku
 		./examples/cpp/base64.cpp \
 		-lwaku -Lbuild/ \
 		-pthread -ldl -lm \
-		-lnegentropy -Lvendor/negentropy/cpp/ \
 		-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc/build/ \
 		-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream/ \
 		vendor/nim-libbacktrace/libbacktrace_wrapper.o \

@@ -16,7 +16,6 @@ import
   ../../../waku_relay,
   ../../../waku_peer_exchange,
   ../../../waku_node,
-  ../../../waku_sync,
   ../../../node/peer_manager,
   ../responses,
   ../serdes,
@@ -105,18 +104,6 @@ proc installAdminV1GetPeersHandler(router: var RestRouter, node: WakuNode) =
         )
       )
     tuplesToWakuPeers(peers, pxPeers)
-
-    if not node.wakuSync.isNil():
-      # Map WakuSync peers to WakuPeers and add to return list
-      let syncPeers = node.peerManager.wakuPeerStore.peers(WakuSyncCodec).mapIt(
-          (
-            multiaddr: constructMultiaddrStr(it),
-            protocol: WakuSyncCodec,
-            connected: it.connectedness == Connectedness.Connected,
-            origin: it.origin,
-          )
-        )
-      tuplesToWakuPeers(peers, syncPeers)
 
     let resp = RestApiResponse.jsonResponse(peers, status = Http200)
     if resp.isErr():
