@@ -127,12 +127,12 @@ proc tryCallAllPxPeers*(
         okPeers.add(randomPeer)
         info "Dialing successful",
           peer = constructMultiaddrStr(randomPeer), codec = codec
-        lpt_dialed_peers.inc()
+        lpt_dialed_peers.inc(labelValues = [randomPeer.agent])
       else:
-        lpt_dial_failures.inc()
+        lpt_dial_failures.inc(labelValues = [randomPeer.agent])
         error "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
     else:
-      lpt_dial_failures.inc()
+      lpt_dial_failures.inc(labelValues = [randomPeer.agent])
       error "Timeout dialing service peer",
         peer = constructMultiaddrStr(randomPeer), codec = codec
 

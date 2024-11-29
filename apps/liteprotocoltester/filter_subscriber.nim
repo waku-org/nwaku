@@ -73,7 +73,9 @@ proc maintainSubscription(
 
       if subscribeRes.isErr():
         noFailedSubscribes += 1
-        lpt_service_peer_failure_count.inc(labelValues = ["receiver"])
+        lpt_service_peer_failure_count.inc(
+          labelValues = ["receiver", actualFilterPeer.agent]
+        )
         error "Subscribe request failed.",
           err = subscribeRes.error,
           peer = actualFilterPeer,

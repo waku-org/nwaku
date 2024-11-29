@@ -177,7 +177,9 @@ proc publishMessages(
         continue
       else:
         noFailedPush += 1
-        lpt_service_peer_failure_count.inc(labelValues = ["publisher"])
+        lpt_service_peer_failure_count.inc(
+          labelValues = ["publisher", actualServicePeer.agent]
+        )
         if not preventPeerSwitch and noFailedPush > maxFailedPush:
           info "Max push failure limit reached, Try switching peer."
           let peerOpt = selectRandomServicePeer(

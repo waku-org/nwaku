@@ -36,7 +36,7 @@ declarePublicCounter lpt_publisher_failed_messages_count,
 declarePublicCounter lpt_publisher_sent_bytes, "number of total bytes sent"
 
 declarePublicCounter lpt_service_peer_failure_count,
-  "number of failure during using service peer [publisher/receiever]", ["role"]
+  "number of failure during using service peer [publisher/receiever]", ["role", "agent"]
 
 declarePublicCounter lpt_change_service_peer_count,
   "number of times [publisher/receiver] had to change service peer", ["role"]
@@ -44,6 +44,6 @@ declarePublicCounter lpt_change_service_peer_count,
 declarePublicGauge lpt_px_peers,
   "Number of peers PeerExchange discovered and can be dialed"
 
-declarePublicGauge lpt_dialed_peers, "Number of peers successfully dialed"
+declarePublicGauge lpt_dialed_peers, "Number of peers successfully dialed", ["agent"]
 
-declarePublicGauge lpt_dial_failures, "Number of dial failures by cause"
+declarePublicGauge lpt_dial_failures, "Number of dial failures by cause", ["agent"]
