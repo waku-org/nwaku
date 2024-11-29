@@ -311,8 +311,8 @@ proc checkIfAllMessagesReceived*(
     let lastMessageAt = self.lastMessageArrivedAt().valueOr:
       return false
 
-    if Moment.now() - lastMessageAt > maxWaitForLastMessage:
-      return true
+    if Moment.now() - lastMessageAt < maxWaitForLastMessage:
+      return false
 
   ## Ok, we see last message arrived from all peers,
   ## lets check if all messages are received
