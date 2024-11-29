@@ -650,7 +650,7 @@ with the drawback of consuming some more bandwitdh.""",
     ## Rendez vous
     rendezvous* {.
       desc: "Enable waku rendezvous discovery server",
-      defaultValue: false,
+      defaultValue: true,
       name: "rendezvous"
     .}: bool
 
