@@ -1302,10 +1302,7 @@ proc start*(node: WakuNode) {.async.} =
     await node.wakuStoreResume.start()
 
   if not node.wakuRendezvous.isNil():
-    try:
-      await node.wakuRendezvous.start()
-    except CatchableError:
-      error "failed to start rendezvous", error = getCurrentExceptionMsg()
+    await node.wakuRendezvous.start()
 
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
