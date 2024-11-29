@@ -44,9 +44,9 @@ proc allPeers(pm: PeerManager): string =
   var allStr: string = ""
   for idx, peer in pm.wakuPeerStore.peers():
     allStr.add(
-      "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | agent: " & peer.agent &
-        " | protos: " & $peer.protocols & " | caps: " & $peer.enr.map(getCapabilities) &
-        "\n"
+      "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | agent: " &
+        peer.getAgent() & " | protos: " & $peer.protocols & " | caps: " &
+        $peer.enr.map(getCapabilities) & "\n"
     )
   return allStr
 
