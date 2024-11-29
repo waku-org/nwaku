@@ -36,8 +36,8 @@ proc batchAdvertise*(
     namespace: string,
     ttl: Duration = MinimumDuration,
     peers: seq[PeerId],
-): Future[Result[void, string]] {.async.} =
-  ## Register with all rendez vous peers under a namespace
+): Future[Result[void, string]] {.async: (raises: []).} =
+  ## Register with all rendezvous peers under a namespace
 
   let catchable = catch:
     await procCall RendezVous(self).advertise(namespace, ttl, peers)
@@ -52,8 +52,8 @@ proc batchRequest*(
     namespace: string,
     count: int = DiscoverLimit,
     peers: seq[PeerId],
-): Future[Result[seq[PeerRecord], string]] {.async.} =
-  ## Request all records from all rendez vous peers with matching a namespace
+): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
+  ## Request all records from all rendezvous peers matching a namespace
 
   let catchable = catch:
     await RendezVous(self).request(namespace, count, peers)
@@ -63,6 +63,83 @@ proc batchRequest*(
 
   return ok(catchable.get())
 
+proc advertiseAll(
+    self: WakuRendezVous
+): Future[Result[void, string]] {.async: (raises: []).} =
+  let pubsubTopics = self.relayShard.topics()
+
+  let futs = collect(newSeq):
+    for pubsubTopic in pubsubTopics:
+      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
+
+      # Get a random RDV peer for that shard
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        continue
+
+      # Advertise yourself on that peer
+      self.advertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
+
+  let catchable = catch:
+    await allFinished(futs)
+
+  if catchable.isErr():
+    return err(catchable.error.msg)
+
+  for fut in catchable.get():
+    if fut.failed():
+      warn "rendezvous advertisement failed", error = fut.error.msg
+
+  debug "waku rendezvous advertisements finished"
+
+  return ok()
+
+proc initialRequestAll*(
+    self: WakuRendezVous
+): Future[Result[void, string]] {.async: (raises: []).} =
+  let pubsubTopics = self.relayShard.topics()
+
+  let futs = collect(newSeq):
+    for pubsubTopic in pubsubTopics:
+      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
+
+      # Get a random RDV peer for that shard
+      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        continue
+
+      # Ask for 12 peer records for that shard
+      self.request(namespace, 12, @[rpi.peerId])
+
+  let catchable = catch:
+    await allFinished(futs)
+
+  if catchable.isErr():
+    return err(catchable.error.msg)
+
+  for fut in catchable.get():
+    if fut.failed():
+      warn "rendezvous request failed", error = fut.error.msg
+    elif fut.finished():
+      let peers = fut.value()
+
+      for peer in peers:
+        peerFoundTotal.inc()
+        self.peerManager.addPeer(peer)
+
+  debug "waku rendezvous requests finished"
+
+  return ok()
+
+proc periodicRegistration(self: WakuRendezVous) {.async.} =
+  debug "waku rendezvous periodic registration started",
+    interval = DefaultRegistrationInterval
+
+  # infinite loop
+  while true:
+    await sleepAsync(DefaultRegistrationInterval)
+
+    (await self.advertiseAll()).isOkOr:
+      debug "waku rendezvous advertisements failed", error = error
+
 proc getRelayShards(enr: enr.Record): Option[RelayShards] =
   let typedRecord = enr.toTyped().valueOr:
     return none(RelayShards)
@@ -71,7 +148,7 @@ proc getRelayShards(enr: enr.Record): Option[RelayShards] =
 
 proc new*(
     T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
-): T =
+): T {.raises: [].} =
   let relayshard = getRelayShards(enr).valueOr:
     warn "Using default cluster id 0"
     RelayShards(clusterID: 0, shardIds: @[])
@@ -91,75 +168,13 @@ proc new*(
 
   return wrv
 
-proc advertiseAll(self: WakuRendezVous) {.async.} =
-  let pubsubTopics = self.relayShard.topics()
-
-  let futs = collect(newSeq):
-    for pubsubTopic in pubsubTopics:
-      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
-
-      # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        continue
-
-      # Advertise yourself on that peer
-      self.advertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
-
-  let handles = await allFinished(futs)
-
-  for fut in handles:
-    let res = fut.read
-
-    if res.isErr():
-      warn "rendezvous advertise failed", error = res.error
-
-  debug "waku rendezvous advertisements finished", adverCount = handles.len
-
-proc initialRequestAll*(self: WakuRendezVous) {.async.} =
-  let pubsubTopics = self.relayShard.topics()
-
-  let futs = collect(newSeq):
-    for pubsubTopic in pubsubTopics:
-      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
-
-      # Get a random RDV peer for that shard
-      let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        continue
-
-      # Ask for 12 peer records for that shard
-      self.batchRequest(namespace, 12, @[rpi.peerId])
-
-  let handles = await allFinished(futs)
-
-  for fut in handles:
-    let res = fut.read
-
-    if res.isErr():
-      warn "rendezvous request failed", error = res.error
-    else:
-      for peer in res.get():
-        peerFoundTotal.inc()
-        self.peerManager.addPeer(peer)
-
-  debug "waku rendezvous requests finished", requestCount = handles.len
-
-proc periodicRegistration(self: WakuRendezVous) {.async.} =
-  debug "waku rendezvous periodic registration started",
-    interval = DefaultRegistrationInterval
-
-  # infinite loop
-  while true:
-    await sleepAsync(DefaultRegistrationInterval)
-
-    await self.advertiseAll()
-
-proc start*(self: WakuRendezVous) {.async.} =
+proc start*(self: WakuRendezVous) {.async: (raises: []).} =
   debug "starting waku rendezvous discovery"
 
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 
-proc stopWait*(self: WakuRendezVous) {.async.} =
+proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   debug "stopping waku rendezvous discovery"
 
   if not self.periodicRegistrationFut.isNil():

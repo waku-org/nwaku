@@ -377,7 +377,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async: (raises: 
   ## libp2p DiscoveryManager
   waku[].discoveryMngr = DiscoveryManager()
   waku[].discoveryMngr.add(
-    RendezVousInterface.new(rdv = waku[].node.rendezvous, tta = 1.minutes)
+    RendezVousInterface.new(rdv = waku[].node.wakuRendezvous, tta = 1.minutes)
   )
   if not isNil(waku[].node.wakuRelay):
     for topic in waku[].node.wakuRelay.getSubscribedTopics():
