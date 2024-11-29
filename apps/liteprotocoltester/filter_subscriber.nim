@@ -150,11 +150,17 @@ proc setupAndSubscribe*(
   let interval = millis(20000)
   var printStats: CallbackFunc
 
+  # calculate max wait after the last known message arrived before exiting
+  # 20% of expected messages times the expected interval but capped to 10min
+  let maxWaitForLastMessage: Duration =
+    min(conf.messageInterval.milliseconds * (conf.numMessages div 5), 10.minutes)
+
   printStats = CallbackFunc(
     proc(udata: pointer) {.gcsafe.} =
       stats.echoStats()
 
-      if conf.numMessages > 0 and waitFor stats.checkIfAllMessagesReceived():
+      if conf.numMessages > 0 and
+          waitFor stats.checkIfAllMessagesReceived(maxWaitForLastMessage):
         waitFor unsubscribe(wakuNode, conf.pubsubTopics[0], conf.contentTopics[0])
         info "All messages received. Exiting."
 

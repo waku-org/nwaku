@@ -126,6 +126,11 @@ proc addMessage*(
 
   lpt_receiver_sender_peer_count.set(value = self.len)
 
+proc lastMessageArrivedAt*(self: Statistics): Result[Moment, void] =
+  if self.receivedMessages > 0:
+    return ok(self.helper.prevArrivedAt)
+  return err()
+
 proc lossCount*(self: Statistics): uint32 =
   self.helper.maxIndex - self.receivedMessages
 
@@ -274,15 +279,40 @@ proc jsonStats*(self: PerPeerStatistics): string =
       "{\"result:\": \"Error while generating json stats: " & getCurrentExceptionMsg() &
       "\"}"
 
-proc checkIfAllMessagesReceived*(self: PerPeerStatistics): Future[bool] {.async.} =
+proc lastMessageArrivedAt*(self: PerPeerStatistics): Result[Moment, void] =
+  var lastArrivedAt = Moment.init(0, Millisecond)
+  for stat in self.values:
+    let lastMsgFromPeerAt = stat.lastMessageArrivedAt().valueOr:
+      continue
+
+    if lastMsgFromPeerAt > lastArrivedAt:
+      lastArrivedAt = lastMsgFromPeerAt
+
+  if lastArrivedAt == Moment.init(0, Millisecond):
+    return err()
+
+  return ok(lastArrivedAt)
+
+proc checkIfAllMessagesReceived*(
+    self: PerPeerStatistics, maxWaitForLastMessage: Duration
+): Future[bool] {.async.} =
   # if there are no peers have sent messages, assume we just have started.
   if self.len == 0:
     return false
 
+  var messageCheck = true
   for stat in self.values:
     if (stat.allMessageCount == 0 and stat.receivedMessages == 0) or
         stat.helper.maxIndex < stat.allMessageCount:
+      messageCheck = false
+      break
+
+  if not messageCheck:
+    let lastMessageAt = self.lastMessageArrivedAt().valueOr:
       return false
+
+    if Moment.now() - lastMessageAt > maxWaitForLastMessage:
+      return true
 
   ## Ok, we see last message arrived from all peers,
   ## lets check if all messages are received
