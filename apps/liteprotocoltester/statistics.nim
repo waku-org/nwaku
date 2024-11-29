@@ -313,6 +313,8 @@ proc checkIfAllMessagesReceived*(
 
     if Moment.now() - lastMessageAt < maxWaitForLastMessage:
       return false
+    else:
+      info "No message since max wait time", maxWait = $maxWaitForLastMessage
 
   ## Ok, we see last message arrived from all peers,
   ## lets check if all messages are received
