@@ -320,10 +320,10 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku lightpush protocol: " & getCurrentExceptionMsg())
 
+  mountLightPushClient(node)
   if conf.lightpushnode != "":
     let lightPushNode = parsePeerInfo(conf.lightpushnode)
     if lightPushNode.isOk():
-      mountLightPushClient(node)
       node.peerManager.addServicePeer(lightPushNode.value, WakuLightPushCodec)
     else:
       return err("failed to set node waku lightpush peer: " & lightPushNode.error)
@@ -341,11 +341,11 @@ proc setupProtocols(
     except CatchableError:
       return err("failed to mount waku filter protocol: " & getCurrentExceptionMsg())
 
+  await node.mountFilterClient()
   if conf.filternode != "":
     let filterNode = parsePeerInfo(conf.filternode)
     if filterNode.isOk():
       try:
-        await node.mountFilterClient()
         node.peerManager.addServicePeer(filterNode.value, WakuFilterSubscribeCodec)
       except CatchableError:
         return err(

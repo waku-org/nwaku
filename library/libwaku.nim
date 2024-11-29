@@ -12,6 +12,7 @@ import
   waku/waku_core/message/message,
   waku/node/waku_node,
   waku/waku_core/topics/pubsub_topic,
+  waku/waku_core/subscription/push_handler,
   waku/waku_relay/protocol,
   ./events/json_message_event,
   ./waku_thread/waku_thread,
@@ -20,6 +21,7 @@ import
   ./waku_thread/inter_thread_communication/requests/protocols/relay_request,
   ./waku_thread/inter_thread_communication/requests/protocols/store_request,
   ./waku_thread/inter_thread_communication/requests/protocols/lightpush_request,
+  ./waku_thread/inter_thread_communication/requests/protocols/filter_request,
   ./waku_thread/inter_thread_communication/requests/debug_node_request,
   ./waku_thread/inter_thread_communication/requests/discovery_request,
   ./waku_thread/inter_thread_communication/requests/ping_request,
@@ -72,7 +74,7 @@ proc handleRes[T: string | void](
     callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
-proc relayEventCallback(ctx: ptr WakuContext): WakuRelayHandler =
+proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(
       pubsubTopic: PubsubTopic, msg: WakuMessage
   ): Future[system.void] {.async.} =
@@ -300,7 +302,7 @@ proc waku_relay_publish(
     RelayRequest.createShared(
       RelayMsgType.PUBLISH,
       PubsubTopic($pst),
-      WakuRelayHandler(relayEventCallback(ctx)),
+      WakuRelayHandler(onReceivedMessage(ctx)),
       wakuMessage,
     ),
   )
@@ -343,7 +345,7 @@ proc waku_relay_subscribe(
   let pst = pubSubTopic.alloc()
   defer:
     deallocShared(pst)
-  var cb = relayEventCallback(ctx)
+  var cb = onReceivedMessage(ctx)
 
   waku_thread
   .sendRequestToWakuThread(
@@ -374,7 +376,7 @@ proc waku_relay_unsubscribe(
     RelayRequest.createShared(
       RelayMsgType.SUBSCRIBE,
       PubsubTopic($pst),
-      WakuRelayHandler(relayEventCallback(ctx)),
+      WakuRelayHandler(onReceivedMessage(ctx)),
     ),
   )
   .handleRes(callback, userData)
@@ -416,6 +418,56 @@ proc waku_relay_get_num_peers_in_mesh(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_subscribe(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    contentTopics: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.FILTER,
+    FilterRequest.createShared(
+      FilterMsgType.SUBSCRIBE,
+      pubSubTopic,
+      contentTopics,
+      FilterPushHandler(onReceivedMessage(ctx)),
+    ),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_unsubscribe(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    contentTopics: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx,
+    RequestType.FILTER,
+    FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE, pubSubTopic, contentTopics),
+  )
+  .handleRes(callback, userData)
+
+proc waku_filter_unsubscribe_all(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+): cint {.dynlib, exportc.} =
+  checkLibwakuParams(ctx, callback, userData)
+
+  waku_thread
+  .sendRequestToWakuThread(
+    ctx, RequestType.FILTER, FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE_ALL)
   )
   .handleRes(callback, userData)
 
