@@ -662,7 +662,7 @@ proc waku_store_query(
   handleRequest(
     ctx,
     RequestType.STORE,
-    JsonStoreQueryRequest.createShared(jsonQuery, peerAddr, timeoutMs),
+    StoreRequest.createShared(StoreReqType.REMOTE_QUERY, jsonQuery, peerAddr, timeoutMs),
     callback,
     userData,
   )
