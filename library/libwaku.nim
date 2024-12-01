@@ -647,7 +647,7 @@ proc waku_store_query(
   .sendRequestToWakuThread(
     ctx,
     RequestType.STORE,
-    JsonStoreQueryRequest.createShared(jsonQuery, peerAddr, timeoutMs),
+    StoreRequest.createShared(StoreReqType.REMOTE_QUERY, jsonQuery, peerAddr, timeoutMs),
   )
   .handleRes(callback, userData)
 
