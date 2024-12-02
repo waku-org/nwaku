@@ -16,7 +16,7 @@ TODO
 Within `examples/` you can find a `publisher` and a `subscriber`. The first one publishes messages to the default pubsub topic on a given content topic, and the second one runs forever listening to that pubsub topic and printing the content it receives.
 
 **Some notes:**
-* These examples are meant to work even in if you are behind a firewall and you can't be discovered by discv5.
+* These examples are meant to work even if you are behind a firewall and you can't be discovered by discv5.
 * You only need to provide a reachable bootstrap peer (see our [fleets](https://fleets.status.im/))
 * The examples are meant to work out of the box.
 * Note that both services wait for some time until a given minimum amount of connections are reached. This is to ensure messages are gossiped.
