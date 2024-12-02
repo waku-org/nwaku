@@ -177,7 +177,6 @@ jclass loadClass(JNIEnv *env, const char *className) {
 }
 
 void Java_com_mobile_WakuModule_wakuSetup(JNIEnv *env, jobject thiz) {
-  waku_setup();
   LOGD("log example for debugging purposes...")
 }
 

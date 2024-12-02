@@ -13,8 +13,6 @@ pub type WakuCallback =
     );
 
 extern "C" {
-    pub fn waku_setup();
-
     pub fn waku_new(
         config_json: *const u8,
         cb: WakuCallback,
@@ -70,8 +68,6 @@ fn main() {
     }";
 
     unsafe {
-        waku_setup();
-
         // Create the waku node
         let closure = |ret: i32, data: &str| {
             println!("Ret {ret}. Error creating waku node {data}");

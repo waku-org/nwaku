@@ -199,8 +199,6 @@ auto cify(F&& f) {
 }
 
 int main(int argc, char** argv) {
-    waku_setup();
-
     struct ConfigNode cfgNode;
     // default values
     snprintf(cfgNode.host, 128, "0.0.0.0");

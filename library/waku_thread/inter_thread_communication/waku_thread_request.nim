@@ -3,9 +3,10 @@
 ## the Waku Thread.
 
 import std/json, results
-import chronos
+import chronos, chronos/threadsync
 import
   ../../../waku/factory/waku,
+  ../../ffi_types,
   ./requests/node_lifecycle_request,
   ./requests/peer_manager_request,
   ./requests/protocols/relay_request,
@@ -27,27 +28,55 @@ type RequestType* {.pure.} = enum
   LIGHTPUSH
   FILTER
 
-type InterThreadRequest* = object
+type WakuThreadRequest* = object
   reqType: RequestType
   reqContent: pointer
+  callback: WakuCallBack
+  userData: pointer
 
 proc createShared*(
-    T: type InterThreadRequest, reqType: RequestType, reqContent: pointer
+    T: type WakuThreadRequest,
+    reqType: RequestType,
+    reqContent: pointer,
+    callback: WakuCallBack,
+    userData: pointer,
 ): ptr type T =
   var ret = createShared(T)
   ret[].reqType = reqType
   ret[].reqContent = reqContent
+  ret[].callback = callback
+  ret[].userData = userData
   return ret
 
-proc process*(
-    T: type InterThreadRequest, request: ptr InterThreadRequest, waku: ptr Waku
-): Future[Result[string, string]] {.async.} =
-  ## Processes the request and deallocates its memory
+proc handleRes[T: string | void](
+    res: Result[T, string], request: ptr WakuThreadRequest
+) =
+  ## Handles the Result responses, which can either be Result[string, string] or
+  ## Result[void, string].
+
   defer:
     deallocShared(request)
 
-  echo "Request received: " & $request[].reqType
+  if res.isErr():
+    foreignThreadGc:
+      let msg = "libwaku error: handleRes fireSyncRes error: " & $res.error
+      request[].callback(
+        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), request[].userData
+      )
+    return
 
+  foreignThreadGc:
+    var msg: cstring = ""
+    when T is string:
+      msg = res.get().cstring()
+    request[].callback(
+      RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), request[].userData
+    )
+  return
+
+proc process*(
+    T: type WakuThreadRequest, request: ptr WakuThreadRequest, waku: ptr Waku
+) {.async.} =
   let retFut =
     case request[].reqType
     of LIFECYCLE:
@@ -69,7 +98,7 @@ proc process*(
     of FILTER:
       cast[ptr FilterRequest](request[].reqContent).process(waku)
 
-  return await retFut
+  handleRes(await retFut, request)
 
-proc `$`*(self: InterThreadRequest): string =
+proc `$`*(self: WakuThreadRequest): string =
   return $self.reqType

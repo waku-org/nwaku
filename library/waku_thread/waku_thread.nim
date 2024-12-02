@@ -4,17 +4,12 @@
 
 import std/[options, atomics, os, net]
 import chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, results
-import
-  waku/factory/waku,
-  ./inter_thread_communication/waku_thread_request,
-  ./inter_thread_communication/waku_thread_response
+import waku/factory/waku, ./inter_thread_communication/waku_thread_request, ../ffi_types
 
 type WakuContext* = object
   thread: Thread[(ptr WakuContext)]
-  reqChannel: ChannelSPSCSingle[ptr InterThreadRequest]
+  reqChannel: ChannelSPSCSingle[ptr WakuThreadRequest]
   reqSignal: ThreadSignalPtr
-  respChannel: ChannelSPSCSingle[ptr InterThreadResponse]
-  respSignal: ThreadSignalPtr
   userData*: pointer
   eventCallback*: pointer
   eventUserdata*: pointer
@@ -36,27 +31,14 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
       break
 
     ## Trying to get a request from the libwaku requestor thread
-    var request: ptr InterThreadRequest
+    var request: ptr WakuThreadRequest
     let recvOk = ctx.reqChannel.tryRecv(request)
     if not recvOk:
       error "waku thread could not receive a request"
       continue
 
     ## Handle the request
-    let resultResponse = waitFor InterThreadRequest.process(request, addr waku)
-
-    ## Converting a `Result` into a thread-safe transferable response type
-    let threadSafeResp = InterThreadResponse.createShared(resultResponse)
-
-    ## Send the response back to the thread that sent the request
-    let sentOk = ctx.respChannel.trySend(threadSafeResp)
-    if not sentOk:
-      error "could not send a request to the requester thread",
-        original_request = $request[]
-
-    let fireRes = ctx.respSignal.fireSync()
-    if fireRes.isErr():
-      error "could not fireSync back to requester thread", error = fireRes.error
+    asyncSpawn WakuThreadRequest.process(request, addr waku)
 
 proc run(ctx: ptr WakuContext) {.thread.} =
   ## Launch waku worker
@@ -68,8 +50,6 @@ proc createWakuThread*(): Result[ptr WakuContext, string] =
   var ctx = createShared(WakuContext, 1)
   ctx.reqSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqSignal ThreadSignalPtr")
-  ctx.respSignal = ThreadSignalPtr.new().valueOr:
-    return err("couldn't create respSignal ThreadSignalPtr")
 
   ctx.running.store(true)
 
@@ -93,36 +73,31 @@ proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
 
   joinThread(ctx.thread)
   ?ctx.reqSignal.close()
-  ?ctx.respSignal.close()
   freeShared(ctx)
 
   return ok()
 
 proc sendRequestToWakuThread*(
-    ctx: ptr WakuContext, reqType: RequestType, reqContent: pointer
-): Result[string, string] =
-  let req = InterThreadRequest.createShared(reqType, reqContent)
+    ctx: ptr WakuContext,
+    reqType: RequestType,
+    reqContent: pointer,
+    callback: WakuCallBack,
+    userData: pointer,
+): Result[void, string] =
+  let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
+    deallocShared(req)
     return err("Couldn't send a request to the waku thread: " & $req[])
 
   let fireSyncRes = ctx.reqSignal.fireSync()
   if fireSyncRes.isErr():
+    deallocShared(req)
     return err("failed fireSync: " & $fireSyncRes.error)
 
   if fireSyncRes.get() == false:
+    deallocShared(req)
     return err("Couldn't fireSync in time")
 
-  # Waiting for the response
-  let res = waitSync(ctx.respSignal)
-  if res.isErr():
-    return err("Couldnt receive response signal")
-
-  var response: ptr InterThreadResponse
-  var recvOk = ctx.respChannel.tryRecv(response)
-  if recvOk == false:
-    return err("Couldn't receive response from the waku thread: " & $req[])
-
-  ## Converting the thread-safe response into a managed/CG'ed `Result`
-  return InterThreadResponse.process(response)
+  ok()

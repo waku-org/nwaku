@@ -6,7 +6,7 @@ when defined(linux):
   {.passl: "-Wl,-soname,libwaku.so".}
 
 import std/[json, atomics, strformat, options, atomics]
-import chronicles, chronos
+import chronicles, chronos, chronos/threadsync
 import
   waku/common/base64,
   waku/waku_core/message/message,
@@ -27,51 +27,35 @@ import
   ./waku_thread/inter_thread_communication/requests/ping_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
-  ./callback
+  ./ffi_types
 
 ################################################################################
 ### Wrapper around the waku node
 ################################################################################
 
 ################################################################################
-### Exported types
-
-const RET_OK: cint = 0
-const RET_ERR: cint = 1
-const RET_MISSING_CALLBACK: cint = 2
-
-### End of exported types
-################################################################################
-
-################################################################################
 ### Not-exported components
 
-template foreignThreadGc(body: untyped) =
-  when declared(setupForeignThreadGc):
-    setupForeignThreadGc()
+template checkLibwakuParams*(
+    ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
+) =
+  ctx[].userData = userData
 
-  body
+  if isNil(callback):
+    return RET_MISSING_CALLBACK
 
-  when declared(tearDownForeignThreadGc):
-    tearDownForeignThreadGc()
-
-proc handleRes[T: string | void](
-    res: Result[T, string], callback: WakuCallBack, userData: pointer
+proc handleRequest(
+    ctx: ptr WakuContext,
+    requestType: RequestType,
+    content: pointer,
+    callback: WakuCallBack,
+    userData: pointer,
 ): cint =
-  ## Handles the Result responses, which can either be Result[string, string] or
-  ## Result[void, string]. Notice that in case of Result[void, string], it is enough to
-  ## just return RET_OK and not provide any additional feedback through the callback.
-  if res.isErr():
-    foreignThreadGc:
-      let msg = "libwaku error: " & $res.error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+  waku_thread.sendRequestToWakuThread(ctx, requestType, content, callback, userData).isOkOr:
+    let msg = "libwaku error: " & $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
-  foreignThreadGc:
-    var msg: cstring = ""
-    when T is string:
-      msg = res.get().cstring()
-    callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
@@ -87,15 +71,14 @@ proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
       error "eventUserData is nil"
       return
 
-    try:
-      let event = $JsonMessageEvent.new(pubsubTopic, msg)
-      foreignThreadGc:
+    foreignThreadGc:
+      try:
+        let event = $JsonMessageEvent.new(pubsubTopic, msg)
         cast[WakuCallBack](ctx[].eventCallback)(
           RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
         )
-    except Exception, CatchableError:
-      let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-      foreignThreadGc:
+      except Exception, CatchableError:
+        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
         cast[WakuCallBack](ctx[].eventCallback)(
           RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
         )
@@ -121,24 +104,27 @@ if defined(android):
     ) {.raises: [].} =
       echo logLevel, msg
 
+proc initializeLibrary() {.exported.} =
+  if not initialized.exchange(true):
+    NimMain() # Every Nim library needs to call `NimMain` once exactly
+  when declared(setupForeignThreadGc):
+    setupForeignThreadGc()
+  when declared(nimGC_setStackBottom):
+    var locals {.volatile, noinit.}: pointer
+    locals = addr(locals)
+    nimGC_setStackBottom(locals)
+
 ### End of library setup
 ################################################################################
 
 ################################################################################
 ### Exported procs
-proc waku_setup() {.dynlib, exportc.} =
-  NimMain()
-  if not initialized.load:
-    initialized.store(true)
-
-    when declared(nimGC_setStackBottom):
-      var locals {.volatile, noinit.}: pointer
-      locals = addr(locals)
-      nimGC_setStackBottom(locals)
 
 proc waku_new(
     configJson: cstring, callback: WakuCallback, userData: pointer
 ): pointer {.dynlib, exportc, cdecl.} =
+  initializeLibrary()
+
   ## Creates a new instance of the WakuNode.
   if isNil(callback):
     echo "error: missing callback in waku_new"
@@ -146,50 +132,56 @@ proc waku_new(
 
   ## Create the Waku thread that will keep waiting for req from the main thread.
   var ctx = waku_thread.createWakuThread().valueOr:
-    foreignThreadGc:
-      let msg = "Error in createWakuThread: " & $error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    let msg = "Error in createWakuThread: " & $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return nil
 
   ctx.userData = userData
 
-  waku_thread.sendRequestToWakuThread(
+  let retCode = handleRequest(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
-  ).isOkOr:
-    foreignThreadGc:
-      let msg = $error
-      callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
-      return nil
+    callback,
+    userData,
+  )
+
+  if retCode == RET_ERR:
+    return nil
 
   return ctx
 
 proc waku_destroy(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread.destroyWakuThread(ctx).handleRes(callback, userData)
+  waku_thread.destroyWakuThread(ctx).isOkOr:
+    let msg = "libwaku error: " & $error
+    callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
+    return RET_ERR
+
+  return RET_OK
 
 proc waku_version(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
-
-  foreignThreadGc:
-    callback(
-      RET_OK,
-      cast[ptr cchar](WakuNodeVersionString),
-      cast[csize_t](len(WakuNodeVersionString)),
-      userData,
-    )
+  callback(
+    RET_OK,
+    cast[ptr cchar](WakuNodeVersionString),
+    cast[csize_t](len(WakuNodeVersionString)),
+    userData,
+  )
 
   return RET_OK
 
 proc waku_set_event_callback(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ) {.dynlib, exportc.} =
+  initializeLibrary()
   ctx[].eventCallback = cast[pointer](callback)
   ctx[].eventUserData = userData
 
@@ -204,6 +196,7 @@ proc waku_content_topic(
 ): cint {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_content_topicchar-applicationname-unsigned-int-applicationversion-char-contenttopicname-char-encoding
 
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let appStr = appName.alloc()
@@ -226,6 +219,7 @@ proc waku_pubsub_topic(
 ): cint {.dynlib, exportc, cdecl.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_pubsub_topicchar-name-char-encoding
 
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let topicNameStr = topicName.alloc()
@@ -244,6 +238,7 @@ proc waku_default_pubsub_topic(
 ): cint {.dynlib, exportc.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_default_pubsub_topic
 
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   callback(
@@ -265,6 +260,7 @@ proc waku_relay_publish(
 ): cint {.dynlib, exportc, cdecl.} =
   # https://rfc.vac.dev/spec/36/#extern-char-waku_relay_publishchar-messagejson-char-pubsubtopic-int-timeoutms
 
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let jwm = jsonWakuMessage.alloc()
@@ -295,8 +291,7 @@ proc waku_relay_publish(
     else:
       $pst
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
@@ -305,34 +300,35 @@ proc waku_relay_publish(
       WakuRelayHandler(onReceivedMessage(ctx)),
       wakuMessage,
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_start(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
-
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.START_NODE),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_stop(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
-
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(NodeLifecycleMsgType.STOP_NODE),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_relay_subscribe(
     ctx: ptr WakuContext,
@@ -340,6 +336,7 @@ proc waku_relay_subscribe(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
@@ -347,15 +344,15 @@ proc waku_relay_subscribe(
     deallocShared(pst)
   var cb = onReceivedMessage(ctx)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
       RelayMsgType.SUBSCRIBE, PubsubTopic($pst), WakuRelayHandler(cb)
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_relay_unsubscribe(
     ctx: ptr WakuContext,
@@ -363,14 +360,14 @@ proc waku_relay_unsubscribe(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
   defer:
     deallocShared(pst)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
@@ -378,8 +375,9 @@ proc waku_relay_unsubscribe(
       PubsubTopic($pst),
       WakuRelayHandler(onReceivedMessage(ctx)),
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_relay_get_num_connected_peers(
     ctx: ptr WakuContext,
@@ -387,19 +385,20 @@ proc waku_relay_get_num_connected_peers(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
   defer:
     deallocShared(pst)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, PubsubTopic($pst)),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_relay_get_num_peers_in_mesh(
     ctx: ptr WakuContext,
@@ -407,19 +406,20 @@ proc waku_relay_get_num_peers_in_mesh(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let pst = pubSubTopic.alloc()
   defer:
     deallocShared(pst)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_filter_subscribe(
     ctx: ptr WakuContext,
@@ -428,10 +428,10 @@ proc waku_filter_subscribe(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.FILTER,
     FilterRequest.createShared(
@@ -440,8 +440,9 @@ proc waku_filter_subscribe(
       contentTopics,
       FilterPushHandler(onReceivedMessage(ctx)),
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_filter_unsubscribe(
     ctx: ptr WakuContext,
@@ -450,26 +451,30 @@ proc waku_filter_unsubscribe(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.FILTER,
     FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE, pubSubTopic, contentTopics),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_filter_unsubscribe_all(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
-    ctx, RequestType.FILTER, FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE_ALL)
+  handleRequest(
+    ctx,
+    RequestType.FILTER,
+    FilterRequest.createShared(FilterMsgType.UNSUBSCRIBE_ALL),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_lightpush_publish(
     ctx: ptr WakuContext,
@@ -478,6 +483,7 @@ proc waku_lightpush_publish(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc, cdecl.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
   let jwm = jsonWakuMessage.alloc()
@@ -506,15 +512,15 @@ proc waku_lightpush_publish(
     else:
       $pst
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.LIGHTPUSH,
     LightpushRequest.createShared(
       LightpushMsgType.PUBLISH, PubsubTopic($pst), wakuMessage
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_connect(
     ctx: ptr WakuContext,
@@ -523,32 +529,34 @@ proc waku_connect(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
       PeerManagementMsgType.CONNECT_TO, $peerMultiAddr, chronos.milliseconds(timeoutMs)
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_disconnect_peer_by_id(
     ctx: ptr WakuContext, peerId: cstring, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
       op = PeerManagementMsgType.DISCONNECT_PEER_BY_ID, peerId = $peerId
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_dial_peer(
     ctx: ptr WakuContext,
@@ -558,10 +566,10 @@ proc waku_dial_peer(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
@@ -569,8 +577,9 @@ proc waku_dial_peer(
       peerMultiAddr = $peerMultiAddr,
       protocol = $protocol,
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_dial_peer_by_id(
     ctx: ptr WakuContext,
@@ -580,58 +589,62 @@ proc waku_dial_peer_by_id(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
       op = PeerManagementMsgType.DIAL_PEER_BY_ID, peerId = $peerId, protocol = $protocol
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_get_peerids_from_peerstore(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(PeerManagementMsgType.GET_ALL_PEER_IDS),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_get_connected_peers(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(PeerManagementMsgType.GET_CONNECTED_PEERS),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_get_peerids_by_protocol(
     ctx: ptr WakuContext, protocol: cstring, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
     PeerManagementRequest.createShared(
       op = PeerManagementMsgType.GET_PEER_IDS_BY_PROTOCOL, protocol = $protocol
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_store_query(
     ctx: ptr WakuContext,
@@ -641,28 +654,30 @@ proc waku_store_query(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.STORE,
     JsonStoreQueryRequest.createShared(jsonQuery, peerAddr, timeoutMs),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_listen_addresses(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.DEBUG,
     DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_LISTENING_ADDRESSES),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_dns_discovery(
     ctx: ptr WakuContext,
@@ -672,93 +687,106 @@ proc waku_dns_discovery(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.DISCOVERY,
     DiscoveryRequest.createRetrieveBootstrapNodesRequest(
       DiscoveryMsgType.GET_BOOTSTRAP_NODES, entTreeUrl, nameDnsServer, timeoutMs
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_discv5_update_bootnodes(
     ctx: ptr WakuContext, bootnodes: cstring, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   ## Updates the bootnode list used for discovering new peers via DiscoveryV5
   ## bootnodes - JSON array containing the bootnode ENRs i.e. `["enr:...", "enr:..."]`
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.DISCOVERY,
     DiscoveryRequest.createUpdateBootstrapNodesRequest(
       DiscoveryMsgType.UPDATE_DISCV5_BOOTSTRAP_NODES, bootnodes
     ),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_get_my_enr(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.DEBUG,
     DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_MY_ENR),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_get_my_peerid(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.DEBUG,
     DebugNodeRequest.createShared(DebugNodeMsgType.RETRIEVE_MY_PEER_ID),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_start_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
-    ctx, RequestType.DISCOVERY, DiscoveryRequest.createDiscV5StartRequest()
+  handleRequest(
+    ctx,
+    RequestType.DISCOVERY,
+    DiscoveryRequest.createDiscV5StartRequest(),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_stop_discv5(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
-    ctx, RequestType.DISCOVERY, DiscoveryRequest.createDiscV5StopRequest()
+  handleRequest(
+    ctx,
+    RequestType.DISCOVERY,
+    DiscoveryRequest.createDiscV5StopRequest(),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_peer_exchange_request(
     ctx: ptr WakuContext, numPeers: uint64, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
-    ctx, RequestType.DISCOVERY, DiscoveryRequest.createPeerExchangeRequest(numPeers)
+  handleRequest(
+    ctx,
+    RequestType.DISCOVERY,
+    DiscoveryRequest.createPeerExchangeRequest(numPeers),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 proc waku_ping_peer(
     ctx: ptr WakuContext,
@@ -767,15 +795,16 @@ proc waku_ping_peer(
     callback: WakuCallBack,
     userData: pointer,
 ): cint {.dynlib, exportc.} =
+  initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
-  waku_thread
-  .sendRequestToWakuThread(
+  handleRequest(
     ctx,
     RequestType.PING,
     PingRequest.createShared(peerAddr, chronos.milliseconds(timeoutMs)),
+    callback,
+    userData,
   )
-  .handleRes(callback, userData)
 
 ### End of exported procs
 ################################################################################

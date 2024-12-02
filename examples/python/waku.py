@@ -58,9 +58,6 @@ json_config = "{ \
 
 callback_type = ctypes.CFUNCTYPE(None, ctypes.c_int, ctypes.c_char_p, ctypes.c_size_t)
 
-# libwaku setup
-libwaku.waku_setup()
-
 # Node creation
 libwaku.waku_new.restype = ctypes.c_void_p
 libwaku.waku_new.argtypes = [ctypes.c_char_p,
