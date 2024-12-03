@@ -300,17 +300,22 @@ proc checkIfAllMessagesReceived*(
   if self.len == 0:
     return false
 
-  var messageCheck = true
+  # check if numerically all messages are received.
+  # this suggest we received at least one message already from one peer
+  var isAlllMessageReceived = true
   for stat in self.values:
     if (stat.allMessageCount == 0 and stat.receivedMessages == 0) or
         stat.helper.maxIndex < stat.allMessageCount:
-      messageCheck = false
+      isAlllMessageReceived = false
       break
 
-  if not messageCheck:
+  if not isAlllMessageReceived:
+    # if not all message received we still need to check if last message arrived within a time frame
+    # to avoid endless waiting while publishers are already quit.
     let lastMessageAt = self.lastMessageArrivedAt().valueOr:
       return false
 
+    # last message shall arrived within time limit
     if Moment.now() - lastMessageAt < maxWaitForLastMessage:
       return false
     else:
