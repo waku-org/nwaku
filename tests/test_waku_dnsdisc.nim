@@ -79,7 +79,7 @@ suite "Waku DNS Discovery":
 
     var wakuDnsDisc = WakuDnsDiscovery.init(location, resolver).get()
 
-    let res = wakuDnsDisc.findPeers()
+    let res = await wakuDnsDisc.findPeers()
 
     check:
       # We have discovered all three nodes
