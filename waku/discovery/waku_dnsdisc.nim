@@ -6,7 +6,7 @@
 ## EIP-1459 is defined in https://eips.ethereum.org/EIPS/eip-1459
 
 import
-  std/[options, net],
+  std/[options, net, sequtils],
   chronicles,
   chronos,
   metrics,
@@ -40,7 +40,9 @@ proc emptyResolver*(domain: string): Future[string] {.async, gcsafe.} =
   debug "Empty resolver called", domain = domain
   return ""
 
-proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring] =
+proc findPeers*(
+    wdd: WakuDnsDiscovery
+): Future[Result[seq[RemotePeerInfo], cstring]] {.async.} =
   ## Find peers to connect to using DNS based discovery
 
   info "Finding peers using Waku DNS discovery"
@@ -48,14 +50,13 @@ proc findPeers*(wdd: var WakuDnsDiscovery): Result[seq[RemotePeerInfo], cstring]
   # Synchronise client tree using configured resolver
   var tree: Tree
   try:
-    tree = wdd.client.getTree(wdd.resolver)
-      # @TODO: this is currently a blocking operation to not violate memory safety
+    tree = (await syncTree(wdd.resolver, wdd.client.loc)).tryGet()
   except Exception:
     error "Failed to synchronise client tree"
     waku_dnsdisc_errors.inc(labelValues = ["tree_sync_failure"])
     return err("Node discovery failed")
 
-  let discoveredEnr = wdd.client.getNodeRecords()
+  let discoveredEnr = tree.getNodes().mapIt(it.record)
 
   if discoveredEnr.len > 0:
     info "Successfully discovered ENR", count = discoveredEnr.len
@@ -97,7 +98,7 @@ proc init*(
 
 proc retrieveDynamicBootstrapNodes*(
     dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
-): Result[seq[RemotePeerInfo], string] =
+): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
   ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
   if dnsDiscovery and dnsDiscoveryUrl != "":
@@ -113,14 +114,15 @@ proc retrieveDynamicBootstrapNodes*(
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
       trace "resolving", domain = domain
       let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
+      if resolved.len > 0:
+        return resolved[0] # Use only first answer
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
     if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers().mapErr(
-          proc(e: cstring): string =
-            $e
-        )
+      return (await wakuDnsDiscovery.get().findPeers()).mapErr(
+        proc(e: cstring): string =
+          $e
+      )
     else:
       warn "Failed to init Waku DNS discovery"
 

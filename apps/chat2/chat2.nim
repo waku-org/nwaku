@@ -439,7 +439,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl.get(), resolver)
     if wakuDnsDiscovery.isOk:
-      let discoveredPeers = wakuDnsDiscovery.get().findPeers()
+      let discoveredPeers = await wakuDnsDiscovery.get().findPeers()
       if discoveredPeers.isOk:
         info "Connecting to discovered peers"
         discoveredNodes = discoveredPeers.get()

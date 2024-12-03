@@ -355,7 +355,9 @@ proc crawlNetwork(
 
 proc retrieveDynamicBootstrapNodes(
     dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
-): Result[seq[RemotePeerInfo], string] =
+): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
+  ## Retrieve dynamic bootstrap nodes (DNS discovery)
+
   if dnsDiscovery and dnsDiscoveryUrl != "":
     # DNS discovery
     debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
@@ -369,14 +371,15 @@ proc retrieveDynamicBootstrapNodes(
     proc resolver(domain: string): Future[string] {.async, gcsafe.} =
       trace "resolving", domain = domain
       let resolved = await dnsResolver.resolveTxt(domain)
-      return resolved[0] # Use only first answer
+      if resolved.len > 0:
+        return resolved[0] # Use only first answer
 
     var wakuDnsDiscovery = WakuDnsDiscovery.init(dnsDiscoveryUrl, resolver)
     if wakuDnsDiscovery.isOk():
-      return wakuDnsDiscovery.get().findPeers().mapErr(
-          proc(e: cstring): string =
-            $e
-        )
+      return (await wakuDnsDiscovery.get().findPeers()).mapErr(
+        proc(e: cstring): string =
+          $e
+      )
     else:
       warn "Failed to init Waku DNS discovery"
 
@@ -385,11 +388,11 @@ proc retrieveDynamicBootstrapNodes(
 
 proc getBootstrapFromDiscDns(
     conf: NetworkMonitorConf
-): Result[seq[enr.Record], string] =
+): Future[Result[seq[enr.Record], string]] {.async.} =
   try:
     let dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
     let dynamicBootstrapNodesRes =
-      retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
+      await retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
     if not dynamicBootstrapNodesRes.isOk():
       error("failed discovering peers from DNS")
     let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
@@ -412,7 +415,7 @@ proc getBootstrapFromDiscDns(
 
 proc initAndStartApp(
     conf: NetworkMonitorConf
-): Result[(WakuNode, WakuDiscoveryV5), string] =
+): Future[Result[(WakuNode, WakuDiscoveryV5), string]] {.async.} =
   let bindIp =
     try:
       parseIpAddress("0.0.0.0")
@@ -472,7 +475,7 @@ proc initAndStartApp(
     else:
       nodeRes.get()
 
-  var discv5BootstrapEnrsRes = getBootstrapFromDiscDns(conf)
+  var discv5BootstrapEnrsRes = await getBootstrapFromDiscDns(conf)
   if discv5BootstrapEnrsRes.isErr():
     error("failed discovering peers from DNS")
   var discv5BootstrapEnrs = discv5BootstrapEnrsRes.get()
@@ -604,7 +607,7 @@ when isMainModule:
   let restClient = clientRest.get()
 
   # start waku node
-  let nodeRes = initAndStartApp(conf)
+  let nodeRes = waitFor initAndStartApp(conf)
   if nodeRes.isErr():
     error "could not start node"
     quit 1

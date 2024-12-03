@@ -80,10 +80,10 @@ proc destroyShared(self: ptr DiscoveryRequest) =
 
 proc retrieveBootstrapNodes(
     enrTreeUrl: string, ipDnsServer: string
-): Result[seq[string], string] =
+): Future[Result[seq[string], string]] {.async.} =
   let dnsNameServers = @[parseIpAddress(ipDnsServer)]
-  let discoveredPeers: seq[RemotePeerInfo] = retrieveDynamicBootstrapNodes(
-    true, enrTreeUrl, dnsNameServers
+  let discoveredPeers: seq[RemotePeerInfo] = (
+    await retrieveDynamicBootstrapNodes(true, enrTreeUrl, dnsNameServers)
   ).valueOr:
     return err("failed discovering peers from DNS: " & $error)
 
@@ -126,7 +126,9 @@ proc process*(
 
     return ok("discv5 stopped correctly")
   of GET_BOOTSTRAP_NODES:
-    let nodes = retrieveBootstrapNodes($self[].enrTreeUrl, $self[].nameDnsServer).valueOr:
+    let nodes = (
+      await retrieveBootstrapNodes($self[].enrTreeUrl, $self[].nameDnsServer)
+    ).valueOr:
       error "GET_BOOTSTRAP_NODES failed", error = error
       return err($error)
 
