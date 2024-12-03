@@ -1217,7 +1217,9 @@ proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr)
+  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr).valueOr:
+    error "rendezvous new failed", error = error
+    return
 
   # Always start discovering peers at startup
   (await node.wakuRendezvous.initialRequestAll()).isOkOr:
@@ -1347,7 +1349,7 @@ proc stop*(node: WakuNode) {.async.} =
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
 
   if not node.wakuRendezvous.isNil():
-    await node.wakuRendezvous.stop()
+    await node.wakuRendezvous.stopWait()
 
   node.started = false
 

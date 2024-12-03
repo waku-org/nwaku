@@ -1,51 +1,51 @@
 {.used.}
 
-import chronos, testutils/unittests, libp2p/builders, libp2p/protocols/rendezvous
+import chronos, testutils/unittests, libp2p/builders
 
-import waku/node/waku_switch, ./testlib/common, ./testlib/wakucore
-
-proc newRendezvousClientSwitch(rdv: RendezVous): Switch =
-  SwitchBuilder
-  .new()
-  .withRng(rng())
-  .withAddresses(@[MultiAddress.init("/ip4/0.0.0.0/tcp/0").tryGet()])
-  .withTcpTransport()
-  .withMplex()
-  .withNoise()
-  .withRendezVous(rdv)
-  .build()
+import
+  waku/waku_core/peers,
+  waku/node/waku_node,
+  waku/node/peer_manager/peer_manager,
+  waku/waku_rendezvous/protocol,
+  ./testlib/[wakucore, wakunode]
 
 procSuite "Waku Rendezvous":
-  asyncTest "Waku Switch uses Rendezvous":
-    ## Setup
-
+  asyncTest "Simple remote test":
     let
-      wakuClient = RendezVous.new()
-      sourceClient = RendezVous.new()
-      destClient = RendezVous.new()
-      wakuSwitch = newRendezvousClientSwitch(wakuClient) #rendezvous point
-      sourceSwitch = newRendezvousClientSwitch(sourceClient) #client
-      destSwitch = newRendezvousClientSwitch(destClient) #client
+      clusterId = 10.uint16
+      node1 = newTestWakuNode(
+        generateSecp256k1Key(),
+        parseIpAddress("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId,
+      )
+      node2 = newTestWakuNode(
+        generateSecp256k1Key(),
+        parseIpAddress("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId,
+      )
 
-    # Setup client rendezvous
-    wakuClient.setup(wakuSwitch)
-    sourceClient.setup(sourceSwitch)
-    destClient.setup(destSwitch)
+    # Start nodes
+    await allFutures([node1.start(), node2.start()])
 
-    await allFutures(wakuSwitch.start(), sourceSwitch.start(), destSwitch.start())
+    let remotePeerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
+    let remotePeerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
 
-    # Connect clients to the rendezvous point
-    await sourceSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
-    await destSwitch.connect(wakuSwitch.peerInfo.peerId, wakuSwitch.peerInfo.addrs)
+    node2.peerManager.addPeer(remotePeerInfo1)
 
-    let res0 = await sourceClient.request("empty")
-    check res0.len == 0
+    let namespace = "test/name/space"
 
-    # Check that source client gets peer info of dest client from rendezvous point
-    await sourceClient.advertise("foo")
-    let res1 = await destClient.request("foo")
+    let res = await node2.wakuRendezvous.batchAdvertise(
+      namespace, peers = @[remotePeerInfo1.peerId]
+    )
+    assert res.isOk(), $res.error
+
+    let response =
+      await node2.wakuRendezvous.batchRequest(namespace, 1, @[remotePeerInfo1.peerId])
+    assert response.isOk(), $response.error
+
+    let records = response.get()
+
     check:
-      res1.len == 1
-      res1[0] == sourceSwitch.peerInfo.signedPeerRecord.data
-
-    await allFutures(wakuSwitch.stop(), sourceSwitch.stop(), destSwitch.stop())
+      records[0].peerId == remotePeerInfo2.peerId

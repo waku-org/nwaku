@@ -20,7 +20,7 @@ import
   ./common
 
 logScope:
-  topics = "waku rendez vous"
+  topics = "waku rendezvous"
 
 declarePublicCounter peerFoundTotal, "total number of peers found via rendezvous"
 
@@ -40,7 +40,8 @@ proc batchAdvertise*(
   ## Register with all rendezvous peers under a namespace
 
   let catchable = catch:
-    await procCall RendezVous(self).advertise(namespace, ttl, peers)
+    #await procCall RendezVous(self).advertise(namespace, ttl, peers)
+    await self.advertise(namespace, ttl, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
@@ -56,7 +57,8 @@ proc batchRequest*(
   ## Request all records from all rendezvous peers matching a namespace
 
   let catchable = catch:
-    await RendezVous(self).request(namespace, count, peers)
+    #await procCall RendezVous(self).request(namespace, count, peers)
+    await self.request(namespace, count, peers)
 
   if catchable.isErr():
     return err(catchable.error.msg)
@@ -77,6 +79,9 @@ proc advertiseAll(
         continue
 
       # Advertise yourself on that peer
+      #[ procCall RendezVous(self).advertise(
+        namespace, DefaultRegistrationTTL, @[rpi.peerId]
+      ) ]#
       self.advertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
 
   let catchable = catch:
@@ -106,8 +111,9 @@ proc initialRequestAll*(
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
         continue
 
-      # Ask for 12 peer records for that shard
-      self.request(namespace, 12, @[rpi.peerId])
+      # Ask for peer records for that shard
+      #procCall RendezVous(self).request(namespace, PeersRequestedCount, @[rpi.peerId])
+      self.request(namespace, PeersRequestedCount, @[rpi.peerId])
 
   let catchable = catch:
     await allFinished(futs)
@@ -148,34 +154,41 @@ proc getRelayShards(enr: enr.Record): Option[RelayShards] =
 
 proc new*(
     T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
-): T {.raises: [].} =
+): Result[T, string] {.raises: [].} =
   let relayshard = getRelayShards(enr).valueOr:
     warn "Using default cluster id 0"
     RelayShards(clusterID: 0, shardIds: @[])
 
   let capabilities = enr.getCapabilities()
 
-  let wrv = WakuRendezVous(
-    peerManager: peerManager, relayshard: relayshard, capabilities: capabilities
-  )
+  let catchable = catch:
+    procCall RendezVous.new(switch)
 
-  RendezVous(wrv).setup(switch)
+  if catchable.isErr():
+    return err(catchable.error.msg)
+
+  let rv = catchable.get()
+
+  var wrv = WakuRendezVous(rv)
+  wrv.peerManager = peerManager
+  wrv.relayshard = relayshard
+  wrv.capabilities = capabilities
 
   debug "waku rendezvous initialized",
     cluster = relayshard.clusterId,
     shards = relayshard.shardIds,
     capabilities = capabilities
 
-  return wrv
+  return ok(wrv)
 
 proc start*(self: WakuRendezVous) {.async: (raises: []).} =
-  debug "starting waku rendezvous discovery"
-
   # start registering forever
   self.periodicRegistrationFut = self.periodicRegistration()
 
-proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
-  debug "stopping waku rendezvous discovery"
+  debug "waku rendezvous discovery started"
 
+proc stopWait*(self: WakuRendezVous) {.async: (raises: []).} =
   if not self.periodicRegistrationFut.isNil():
     await self.periodicRegistrationFut.cancelAndWait()
+
+  debug "waku rendezvous discovery stopped"
