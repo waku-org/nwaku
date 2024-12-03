@@ -58,7 +58,7 @@ type Waku* = ref object
 
   wakuDiscv5*: WakuDiscoveryV5
   dynamicBootstrapNodes: seq[RemotePeerInfo]
-  dnsRetryLoopHandle: Option[Future[void]]
+  dnsRetryLoopHandle: Future[void]
   discoveryMngr: DiscoveryManager
 
   node*: WakuNode
@@ -387,7 +387,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
     error "Retrieving dynamic bootstrap nodes failed",
       error = dynamicBootstrapNodesRes.error
     # Start Dns Discovery retry loop
-    waku[].dnsRetryLoopHandle = some(waku.startDnsDiscoveryRetryLoop())
+    waku[].dnsRetryLoopHandle = waku.startDnsDiscoveryRetryLoop()
   else:
     waku[].dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
 
@@ -440,5 +440,5 @@ proc stop*(waku: Waku): Future[void] {.async: (raises: [Exception]).} =
   if not waku.node.isNil():
     await waku.node.stop()
 
-  if waku.dnsRetryLoopHandle.isSome():
-    await waku.dnsRetryLoopHandle.get().cancelAndWait()
+  if not waku.dnsRetryLoopHandle.isNil():
+    await waku.dnsRetryLoopHandle.cancelAndWait()
