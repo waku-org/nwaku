@@ -132,7 +132,7 @@ jobs:
     with:
       node_nwaku: ${{ needs.build-docker-image.outputs.image }}
 
-    secrets: inherit
+    secrets: inherit 
 
 
   js-waku-node:
