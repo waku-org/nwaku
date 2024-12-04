@@ -127,6 +127,8 @@ jobs:
     secrets: inherit
 
   QA_tests_clone:
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@CI_RUNNERS
         with:
