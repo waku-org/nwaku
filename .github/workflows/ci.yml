@@ -127,7 +127,10 @@ jobs:
     secrets: inherit
 
   QA_tests:
-
+    steps:
+      - uses: actions/checkout@master
+        with:
+          repository: waku-org/waku-interop-tests
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@CI_RUNNERS
     secrets: inherit
 
