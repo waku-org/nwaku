@@ -13,6 +13,11 @@ type
     NOT_MOUNTED
     SHUTTING_DOWN
 
+  TopicHealth* = enum
+    UNHEALTHY
+    MINIMALLY_HEALTHY
+    SUFFICIENTLY_HEALTHY
+
   ProtocolHealth* = object
     protocol*: string
     health*: HealthStatus
@@ -85,3 +90,10 @@ proc setNode*(hm: WakuNodeHealthMonitor, node: WakuNode) =
 
 proc setOverallHealth*(hm: WakuNodeHealthMonitor, health: HealthStatus) =
   hm.nodeHealth = health
+
+proc `$`*(t: TopicHealth): string =
+  result =
+    case t
+    of UNHEALTHY: "UnHealthy"
+    of MINIMALLY_HEALTHY: "MinimallyHealthy"
+    of SUFFICIENTLY_HEALTHY: "SufficientlyHealthy"

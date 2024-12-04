@@ -84,6 +84,31 @@ proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
           RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
         )
 
+proc onTopicHealthChange(ctx: ptr WakuContext): WakuRelayHandler =
+  return proc(
+      pubsubTopic: PubsubTopic, topicHealth: TopicHealth
+  ): Future[system.void] {.async.} =
+    # Callback that hadles the Waku Relay events. i.e. messages or errors.
+    if isNil(ctx[].eventCallback):
+      error "eventCallback is nil"
+      return
+
+    if isNil(ctx[].eventUserData):
+      error "eventUserData is nil"
+      return
+
+    foreignThreadGc:
+      try:
+        let event = $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+        )
+      except Exception, CatchableError:
+        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+        )
+
 ### End of not-exported components
 ################################################################################
 
