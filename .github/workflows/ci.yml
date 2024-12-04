@@ -127,11 +127,8 @@ jobs:
     secrets: inherit
 
   QA_tests_clone:
-
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@CI_RUNNERS
-        with:
+    uses: actions/checkout@CI_RUNNERS
+    with:
           repository: waku-org/waku-interop-tests
           path: ${{ github.workspace }}
 
