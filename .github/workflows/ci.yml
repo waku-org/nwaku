@@ -131,7 +131,7 @@ jobs:
       - uses: actions/checkout@CI_RUNNERS
         with:
           repository: waku-org/waku-interop-tests
-    secrets: inherit
+          path: ${{ github.workspace }}
 
 
   js-waku-node:
