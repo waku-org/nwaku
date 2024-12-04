@@ -129,7 +129,7 @@ jobs:
   QA_tests:
 
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@smoke_tests
-    secrets: inherit
+    secrets: inherit  
 
 
   js-waku-node:
