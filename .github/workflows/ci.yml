@@ -126,11 +126,10 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
-  QA_tests_clone:
-    uses: actions/checkout@CI_RUNNERS
-    with:
-          repository: waku-org/waku-interop-tests
-          path: ${{ github.workspace }}
+  QA_tests:
+
+    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@CI_RUNNERS
+    secrets: inherit
 
 
   js-waku-node:
