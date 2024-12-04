@@ -126,12 +126,11 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
-  QA_tests:
+  QA_tests_clone:
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@CI_RUNNERS
         with:
           repository: waku-org/waku-interop-tests
-    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@CI_RUNNERS
     secrets: inherit
 
 
