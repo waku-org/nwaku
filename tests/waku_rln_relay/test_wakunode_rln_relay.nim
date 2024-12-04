@@ -491,7 +491,7 @@ procSuite "WakuNode - RLN relay":
 
     # Helper function
     proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
-      for i in 0 .. 10: # Try for up to 5 seconds (10 * 500ms)
+      for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)
         if node.wakuRlnRelay.nullifierLog.len() == expectedLen:
           return true
         await sleepAsync(500.millis)

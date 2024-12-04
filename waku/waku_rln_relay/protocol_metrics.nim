@@ -62,6 +62,16 @@ declarePublicGauge(
   "time taken to import membership credentials",
 )
 
+declarePublicGauge(
+  waku_rln_proof_remining,
+  "number of proofs remaining to be generated for the current epoch",
+)
+
+declarePublicGauge(
+  waku_rln_proofs_generated_total,
+  "total number of proofs generated since the node started",
+)
+
 type RLNMetricsLogger = proc() {.gcsafe, raises: [Defect].}
 
 proc getRlnMetricsLogger*(): RLNMetricsLogger =
@@ -72,7 +82,8 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
   var cumulativeSpamMessages = 0.float64
   var cumulativeInvalidMessages = 0.float64
   var cumulativeValidMessages = 0.float64
-  var cumulativeProofs = 0.float64
+  var cumulativeProofsVerified = 0.float64
+  var cumulativeProofsGenerated = 0.float64
 
   when defined(metrics):
     logMetrics = proc() =
@@ -87,13 +98,17 @@ proc getRlnMetricsLogger*(): RLNMetricsLogger =
           parseAndAccumulate(waku_rln_invalid_messages_total, cumulativeInvalidMessages)
         let freshValidMsgCount =
           parseAndAccumulate(waku_rln_valid_messages_total, cumulativeValidMessages)
-        let freshProofCount =
-          parseAndAccumulate(waku_rln_proof_verification_total, cumulativeProofs)
+        let freshProofsVerifiedCount = parseAndAccumulate(
+          waku_rln_proof_verification_total, cumulativeProofsVerified
+        )
+        let freshProofsGeneratedCount =
+          parseAndAccumulate(waku_rln_proofs_generated_total, cumulativeProofsGenerated)
 
         info "Total messages", count = freshMsgCount
         info "Total spam messages", count = freshSpamCount
         info "Total invalid messages", count = freshInvalidMsgCount
         info "Total valid messages", count = freshValidMsgCount
         info "Total errors", count = freshErrorCount
-        info "Total proofs verified", count = freshProofCount
+        info "Total proofs verified", count = freshProofsVerifiedCount
+        info "Total proofs generated", count = freshProofsGeneratedCount
   return logMetrics
