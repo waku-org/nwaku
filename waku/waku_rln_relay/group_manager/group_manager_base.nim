@@ -180,6 +180,7 @@ method generateProof*(
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
 ): GroupManagerResult[RateLimitProof] {.base, gcsafe, raises: [].} =
+  var lastProcessedEpoch {.global.}: Epoch
   ## generates a proof for the given data and epoch
   ## the proof is generated using the current merkle root
   if g.idCredentials.isNone():
@@ -200,6 +201,13 @@ method generateProof*(
     ).valueOr:
       return err("proof generation failed: " & $error)
   return ok(proof)
+
+  if lastProcessedEpoch != epoch:
+    lastProcessedEpoch = epoch
+    waku_rln_proof_remining.set(g.userMessageLimit.get().float64 - 1)
+  else:
+    waku_rln_proof_remining.dec()
+  waku_rln_proofs_generated_total.inc()
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
   raise newException(
