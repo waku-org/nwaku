@@ -130,6 +130,7 @@ jobs:
     needs: build-docker-image
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@CI_RUNNERS
     secrets: inherit
+    
 
   js-waku-node:
     needs: build-docker-image
