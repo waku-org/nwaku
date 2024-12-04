@@ -126,6 +126,11 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
+  QA_tests:
+    needs: build-docker-image
+    uses: waku-org/waku-interop-tests/.github/workflows/your_workflows.yml@CI_RUNNERS
+    secrets: inherit
+    
   js-waku-node:
     needs: build-docker-image
     uses: waku-org/js-waku/.github/workflows/test-node.yml@master
