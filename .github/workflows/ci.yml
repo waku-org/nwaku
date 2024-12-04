@@ -131,7 +131,7 @@ jobs:
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@smoke_tests
     with:
       node1: ${{ needs.build-docker-image.outputs.image }}
-    secrets: inherit
+    secrets: inherit  
 
 
   js-waku-node:
