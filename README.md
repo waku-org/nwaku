@@ -64,7 +64,7 @@ The current setup procedure is as follows:
 #### Nim Runtime
 This repository is bundled with a Nim runtime that includes the necessary dependencies for the project.
 
-Before you can utilise the runtime you'll need to build the project, as detailed in a previous section.
+Before you can utilize the runtime you'll need to build the project, as detailed in a previous section.
 This will generate a `vendor` directory containing various dependencies, including the `nimbus-build-system` which has the bundled nim runtime.
 
 After successfully building the project, you may bring the bundled runtime into scope by running:
@@ -82,7 +82,7 @@ make test
 
 ### Building single test files
 
-During development it is handful to build and run a single test file.
+During development it is helpful to build and run a single test file.
 To support this make has a specific target:
 
 targets:
