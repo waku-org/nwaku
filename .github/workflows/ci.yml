@@ -127,7 +127,6 @@ jobs:
     secrets: inherit
 
   QA_tests:
-    runs-on: ubuntu-22.04
     needs: build-docker-image
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@smoke_tests
     with:
