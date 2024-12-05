@@ -24,8 +24,10 @@ logScope:
 
 declarePublicCounter peerFoundTotal, "total number of peers found via rendezvous"
 
-type WakuRendezVous* = ref object of RendezVous
+type WakuRendezVous* = ref object of RootObj
+  rendezvous: Rendezvous
   peerManager: PeerManager
+
   relayShard: RelayShards
   capabilities: seq[Capabilities]
 
@@ -34,17 +36,26 @@ type WakuRendezVous* = ref object of RendezVous
 proc batchAdvertise*(
     self: WakuRendezVous,
     namespace: string,
-    ttl: Duration = MinimumDuration,
+    ttl: Duration = DefaultRegistrationTTL,
     peers: seq[PeerId],
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Register with all rendezvous peers under a namespace
 
-  let catchable = catch:
-    #await procCall RendezVous(self).advertise(namespace, ttl, peers)
-    await self.advertise(namespace, ttl, peers)
+  var futs = collect(newSeq):
+    for peerId in peers:
+      self.peerManager.dialPeer(peerId, RendezVousCodec)
 
-  if catchable.isErr():
-    return err(catchable.error.msg)
+  let dialCatch = catch:
+    await allFinished(futs)
+
+  if dialCatch.isErr():
+    return err(dialCatch.error.msg)
+
+  let advertCatch = catch:
+    await self.rendezvous.advertise(namespace, ttl, peers)
+
+  if advertCatch.isErr():
+    return err(advertCatch.error.msg)
 
   return ok()
 
@@ -56,14 +67,23 @@ proc batchRequest*(
 ): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
   ## Request all records from all rendezvous peers matching a namespace
 
-  let catchable = catch:
-    #await procCall RendezVous(self).request(namespace, count, peers)
-    await self.request(namespace, count, peers)
+  var futs = collect(newSeq):
+    for peerId in peers:
+      self.peerManager.dialPeer(peerId, RendezVousCodec)
 
-  if catchable.isErr():
-    return err(catchable.error.msg)
+  let dialCatch = catch:
+    await allFinished(futs)
 
-  return ok(catchable.get())
+  if dialCatch.isErr():
+    return err(dialCatch.error.msg)
+
+  let reqCatch = catch:
+    await self.rendezvous.request(namespace, count, peers)
+
+  if reqCatch.isErr():
+    return err(reqCatch.error.msg)
+
+  return ok(reqCatch.get())
 
 proc advertiseAll(
     self: WakuRendezVous
@@ -79,10 +99,7 @@ proc advertiseAll(
         continue
 
       # Advertise yourself on that peer
-      #[ procCall RendezVous(self).advertise(
-        namespace, DefaultRegistrationTTL, @[rpi.peerId]
-      ) ]#
-      self.advertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
+      self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
 
   let catchable = catch:
     await allFinished(futs)
@@ -112,8 +129,7 @@ proc initialRequestAll*(
         continue
 
       # Ask for peer records for that shard
-      #procCall RendezVous(self).request(namespace, PeersRequestedCount, @[rpi.peerId])
-      self.request(namespace, PeersRequestedCount, @[rpi.peerId])
+      self.batchRequest(namespace, PeersRequestedCount, @[rpi.peerId])
 
   let catchable = catch:
     await allFinished(futs)
@@ -125,13 +141,16 @@ proc initialRequestAll*(
     if fut.failed():
       warn "rendezvous request failed", error = fut.error.msg
     elif fut.finished():
-      let peers = fut.value()
+      let res = fut.value()
 
-      for peer in peers:
+      let records = res.valueOr:
+        return err($res.error)
+
+      for record in records:
         peerFoundTotal.inc()
-        self.peerManager.addPeer(peer)
+        self.peerManager.addPeer(record)
 
-  debug "waku rendezvous requests finished"
+  debug "waku rendezvous initial requests finished"
 
   return ok()
 
@@ -146,12 +165,6 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
     (await self.advertiseAll()).isOkOr:
       debug "waku rendezvous advertisements failed", error = error
 
-proc getRelayShards(enr: enr.Record): Option[RelayShards] =
-  let typedRecord = enr.toTyped().valueOr:
-    return none(RelayShards)
-
-  return typedRecord.relaySharding()
-
 proc new*(
     T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
 ): Result[T, string] {.raises: [].} =
@@ -161,15 +174,22 @@ proc new*(
 
   let capabilities = enr.getCapabilities()
 
-  let catchable = catch:
-    procCall RendezVous.new(switch)
+  let rvCatchable = catch:
+    RendezVous.new(switch = switch, minDuration = DefaultRegistrationTTL)
 
-  if catchable.isErr():
-    return err(catchable.error.msg)
+  if rvCatchable.isErr():
+    return err(rvCatchable.error.msg)
 
-  let rv = catchable.get()
+  let rv = rvCatchable.get()
 
-  var wrv = WakuRendezVous(rv)
+  let mountCatchable = catch:
+    switch.mount(rv)
+
+  if mountCatchable.isErr():
+    return err(mountCatchable.error.msg)
+
+  var wrv = WakuRendezVous()
+  wrv.rendezvous = rv
   wrv.peerManager = peerManager
   wrv.relayshard = relayshard
   wrv.capabilities = capabilities

@@ -1,8 +1,8 @@
 {.push raises: [].}
 
-import chronos
+import std/options, chronos
 
-import ../waku_enr/capabilities
+import ../common/enr, ../waku_enr/capabilities, ../waku_enr/sharding
 
 const DiscoverLimit* = 1000
 const DefaultRegistrationTTL* = 60.seconds
@@ -28,3 +28,9 @@ proc computeNamespace*(clusterId: uint16, shard: uint16, cap: Capabilities): str
   namespace &= $cap
 
   return namespace
+
+proc getRelayShards*(enr: enr.Record): Option[RelayShards] =
+  let typedRecord = enr.toTyped().valueOr:
+    return none(RelayShards)
+
+  return typedRecord.relaySharding()

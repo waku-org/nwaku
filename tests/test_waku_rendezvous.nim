@@ -1,6 +1,6 @@
 {.used.}
 
-import chronos, testutils/unittests, libp2p/builders
+import std/options, chronos, testutils/unittests, libp2p/builders
 
 import
   waku/waku_core/peers,
@@ -25,27 +25,43 @@ procSuite "Waku Rendezvous":
         Port(0),
         clusterId = clusterId,
       )
+      node3 = newTestWakuNode(
+        generateSecp256k1Key(),
+        parseIpAddress("0.0.0.0"),
+        Port(0),
+        clusterId = clusterId,
+      )
 
-    # Start nodes
-    await allFutures([node1.start(), node2.start()])
+    await allFutures(
+      [
+        node1.mountWakuRendezvous(),
+        node2.mountWakuRendezvous(),
+        node3.mountWakuRendezvous(),
+      ]
+    )
+    await allFutures([node1.start(), node2.start(), node3.start()])
 
-    let remotePeerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
-    let remotePeerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
+    let peerInfo1 = node1.switch.peerInfo.toRemotePeerInfo()
+    let peerInfo2 = node2.switch.peerInfo.toRemotePeerInfo()
+    let peerInfo3 = node3.switch.peerInfo.toRemotePeerInfo()
 
-    node2.peerManager.addPeer(remotePeerInfo1)
+    node1.peerManager.addPeer(peerInfo2)
+    node2.peerManager.addPeer(peerInfo1)
+    node2.peerManager.addPeer(peerInfo3)
+    node3.peerManager.addPeer(peerInfo2)
 
     let namespace = "test/name/space"
 
-    let res = await node2.wakuRendezvous.batchAdvertise(
-      namespace, peers = @[remotePeerInfo1.peerId]
+    let res = await node1.wakuRendezvous.batchAdvertise(
+      namespace, 60.seconds, @[peerInfo2.peerId]
     )
     assert res.isOk(), $res.error
 
     let response =
-      await node2.wakuRendezvous.batchRequest(namespace, 1, @[remotePeerInfo1.peerId])
+      await node3.wakuRendezvous.batchRequest(namespace, 1, @[peerInfo2.peerId])
     assert response.isOk(), $response.error
-
     let records = response.get()
 
     check:
-      records[0].peerId == remotePeerInfo2.peerId
+      records.len == 1
+      records[0].peerId == peerInfo1.peerId
