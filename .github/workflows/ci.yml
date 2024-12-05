@@ -127,12 +127,13 @@ jobs:
     secrets: inherit
 
   QA_tests:
+    runs-on: ubuntu-22.04
     needs: build-docker-image
-    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_daily.yml@smoke_tests
+    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@smoke_tests
     with:
       node_nwaku: ${{ needs.build-docker-image.outputs.image }}
 
-    secrets: inherit 
+    secrets: inherit
 
 
   js-waku-node:
