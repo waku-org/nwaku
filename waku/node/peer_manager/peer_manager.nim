@@ -19,9 +19,10 @@ import
   ../../waku_enr/capabilities,
   ../../waku_metadata,
   ./peer_store/peer_storage,
-  ./waku_peer_store
+  ./waku_peer_store,
+  ./topic_health
 
-export waku_peer_store, peer_storage, peers
+export waku_peer_store, peer_storage, peers, topic_health
 
 declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
@@ -71,6 +72,10 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
+type NodeTopicDetails* = ref object of RootObj
+  topic*: string
+  healthStatus*: TopicHealth
+
 type PeerManager* = ref object of RootObj
   switch*: Switch
   wakuPeerStore*: WakuPeerStore
@@ -87,6 +92,7 @@ type PeerManager* = ref object of RootObj
   colocationLimit*: int
   started: bool
   shardedPeerManagement: bool # temp feature flag
+  subRelayTopics*: Table[string, seq[PeerId]]
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #

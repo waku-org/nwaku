@@ -1,7 +1,7 @@
 import system, results, std/json
 import stew/byteutils
 import ../../waku/common/base64, ./json_base_event
-import ../../waku/node/health_monitor
+import ../../waku/node/peer_manager/topic_health
 
 type JsonTopicHealthChangeEvent* = ref object of JsonEvent
   pubsubTopic*: string
@@ -17,5 +17,5 @@ proc new*(
     eventType: "topic_health_change", pubsubTopic: pubsubTopic, topicHealth: topicHealth
   )
 
-method `$`*(jsonTopicHealthChange: JsonMessageEventEvent): string =
+method `$`*(jsonTopicHealthChange: JsonTopicHealthChangeEvent): string =
   $(%*jsonTopicHealthChange)

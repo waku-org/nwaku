@@ -11,10 +11,11 @@ import
   waku/common/base64,
   waku/waku_core/message/message,
   waku/node/waku_node,
+  waku/node/peer_manager/topic_health,
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
   waku/waku_relay/protocol,
-  ./events/json_message_event,
+  ./events/[json_message_event, json_topic_health_change_event],
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
@@ -84,7 +85,7 @@ proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
           RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
         )
 
-proc onTopicHealthChange(ctx: ptr WakuContext): WakuRelayHandler =
+proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
   return proc(
       pubsubTopic: PubsubTopic, topicHealth: TopicHealth
   ): Future[system.void] {.async.} =
