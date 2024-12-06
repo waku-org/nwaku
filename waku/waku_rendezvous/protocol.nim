@@ -22,9 +22,10 @@ import
 logScope:
   topics = "waku rendezvous"
 
-declarePublicCounter peerFoundTotal, "total number of peers found via rendezvous"
+declarePublicCounter rendezvousPeerFoundTotal,
+  "total number of peers found via rendezvous"
 
-type WakuRendezVous* = ref object of RootObj
+type WakuRendezVous* = ref object
   rendezvous: Rendezvous
   peerManager: PeerManager
 
@@ -41,6 +42,8 @@ proc batchAdvertise*(
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Register with all rendezvous peers under a namespace
 
+  # rendezvous.advertise except already opened connections
+  # must dial first
   var futs = collect(newSeq):
     for peerId in peers:
       self.peerManager.dialPeer(peerId, RendezVousCodec)
@@ -49,13 +52,34 @@ proc batchAdvertise*(
     await allFinished(futs)
 
   if dialCatch.isErr():
-    return err(dialCatch.error.msg)
+    return err("batchAdvertise: " & dialCatch.error.msg)
+
+  futs = dialCatch.get()
+
+  let conns = collect(newSeq):
+    for fut in futs:
+      let catchable = catch:
+        fut.read()
+
+      if catchable.isErr():
+        error "rendezvous dial failed", error = catchable.error.msg
+        continue
+
+      let connOpt = catchable.get()
+
+      let conn = connOpt.valueOr:
+        continue
+
+      conn
 
   let advertCatch = catch:
     await self.rendezvous.advertise(namespace, ttl, peers)
 
+  for conn in conns:
+    await conn.close()
+
   if advertCatch.isErr():
-    return err(advertCatch.error.msg)
+    return err("batchAdvertise: " & advertCatch.error.msg)
 
   return ok()
 
@@ -67,6 +91,8 @@ proc batchRequest*(
 ): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
   ## Request all records from all rendezvous peers matching a namespace
 
+  # rendezvous.request except already opened connections
+  # must dial first
   var futs = collect(newSeq):
     for peerId in peers:
       self.peerManager.dialPeer(peerId, RendezVousCodec)
@@ -75,28 +101,52 @@ proc batchRequest*(
     await allFinished(futs)
 
   if dialCatch.isErr():
-    return err(dialCatch.error.msg)
+    return err("batchRequest: " & dialCatch.error.msg)
+
+  futs = dialCatch.get()
+
+  let conns = collect(newSeq):
+    for fut in futs:
+      let catchable = catch:
+        fut.read()
+
+      if catchable.isErr():
+        error "rendezvous dial failed", error = catchable.error.msg
+        continue
+
+      let connOpt = catchable.get()
+
+      let conn = connOpt.valueOr:
+        continue
+
+      conn
 
   let reqCatch = catch:
     await self.rendezvous.request(namespace, count, peers)
 
+  for conn in conns:
+    await conn.close()
+
   if reqCatch.isErr():
-    return err(reqCatch.error.msg)
+    return err("batchRequest: " & reqCatch.error.msg)
 
   return ok(reqCatch.get())
 
 proc advertiseAll(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
+  debug "waku rendezvous advertisements started"
+
   let pubsubTopics = self.relayShard.topics()
 
   let futs = collect(newSeq):
     for pubsubTopic in pubsubTopics:
-      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
-
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        error "could not get a peer supporting RendezVousCodec"
         continue
+
+      let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
 
       # Advertise yourself on that peer
       self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
@@ -109,7 +159,7 @@ proc advertiseAll(
 
   for fut in catchable.get():
     if fut.failed():
-      warn "rendezvous advertisement failed", error = fut.error.msg
+      error "rendezvous advertisement failed", error = fut.error.msg
 
   debug "waku rendezvous advertisements finished"
 
@@ -118,6 +168,8 @@ proc advertiseAll(
 proc initialRequestAll*(
     self: WakuRendezVous
 ): Future[Result[void, string]] {.async: (raises: []).} =
+  debug "waku rendezvous initial requests started"
+
   let pubsubTopics = self.relayShard.topics()
 
   let futs = collect(newSeq):
@@ -126,6 +178,7 @@ proc initialRequestAll*(
 
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
+        error "could not get a peer supporting RendezVousCodec"
         continue
 
       # Ask for peer records for that shard
@@ -139,7 +192,7 @@ proc initialRequestAll*(
 
   for fut in catchable.get():
     if fut.failed():
-      warn "rendezvous request failed", error = fut.error.msg
+      error "rendezvous request failed", error = fut.error.msg
     elif fut.finished():
       let res = fut.value()
 
@@ -147,7 +200,7 @@ proc initialRequestAll*(
         return err($res.error)
 
       for record in records:
-        peerFoundTotal.inc()
+        rendezvousPeerFoundTotal.inc()
         self.peerManager.addPeer(record)
 
   debug "waku rendezvous initial requests finished"

@@ -1214,7 +1214,7 @@ proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
 
   asyncSpawn node.keepaliveLoop(keepalive)
 
-proc mountWakuRendezvous*(node: WakuNode) {.async: (raises: []).} =
+proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
   node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr).valueOr:
