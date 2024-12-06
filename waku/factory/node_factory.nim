@@ -209,7 +209,7 @@ proc setupProtocols(
 
     # Only relay nodes should be rendezvous points.
     if conf.rendezvous:
-      await mountWakuRendezvous(node)
+      await mountRendezvous(node)
 
   # Keepalive mounted on all nodes
   try:
