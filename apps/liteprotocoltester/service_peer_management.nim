@@ -126,21 +126,29 @@ proc tryCallAllPxPeers*(
       if connOpt.value().isSome():
         okPeers.add(randomPeer)
         info "Dialing successful",
-          peer = constructMultiaddrStr(randomPeer), codec = codec
-        lpt_dialed_peers.inc()
+          peer = constructMultiaddrStr(randomPeer),
+          agent = randomPeer.getAgent(),
+          codec = codec
+        lpt_dialed_peers.inc(labelValues = [randomPeer.getAgent()])
       else:
-        lpt_dial_failures.inc()
-        error "Dialing failed", peer = constructMultiaddrStr(randomPeer), codec = codec
+        lpt_dial_failures.inc(labelValues = [randomPeer.getAgent()])
+        error "Dialing failed",
+          peer = constructMultiaddrStr(randomPeer),
+          agent = randomPeer.getAgent(),
+          codec = codec
     else:
-      lpt_dial_failures.inc()
+      lpt_dial_failures.inc(labelValues = [randomPeer.getAgent()])
       error "Timeout dialing service peer",
-        peer = constructMultiaddrStr(randomPeer), codec = codec
+        peer = constructMultiaddrStr(randomPeer),
+        agent = randomPeer.getAgent(),
+        codec = codec
 
   var okPeersStr: string = ""
   for idx, peer in okPeers:
     okPeersStr.add(
-      "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | protos: " &
-        $peer.protocols & " | caps: " & $peer.enr.map(getCapabilities) & "\n"
+      "    " & $idx & ". | " & constructMultiaddrStr(peer) & " | agent: " &
+        peer.getAgent() & " | protos: " & $peer.protocols & " | caps: " &
+        $peer.enr.map(getCapabilities) & "\n"
     )
   echo "PX returned peers found callable for " & codec & " / " & $capability & ":\n"
   echo okPeersStr

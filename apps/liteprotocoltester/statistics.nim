@@ -126,6 +126,11 @@ proc addMessage*(
 
   lpt_receiver_sender_peer_count.set(value = self.len)
 
+proc lastMessageArrivedAt*(self: Statistics): Option[Moment] =
+  if self.receivedMessages > 0:
+    return some(self.helper.prevArrivedAt)
+  return none(Moment)
+
 proc lossCount*(self: Statistics): uint32 =
   self.helper.maxIndex - self.receivedMessages
 
@@ -274,15 +279,48 @@ proc jsonStats*(self: PerPeerStatistics): string =
       "{\"result:\": \"Error while generating json stats: " & getCurrentExceptionMsg() &
       "\"}"
 
-proc checkIfAllMessagesReceived*(self: PerPeerStatistics): Future[bool] {.async.} =
+proc lastMessageArrivedAt*(self: PerPeerStatistics): Option[Moment] =
+  var lastArrivedAt = Moment.init(0, Millisecond)
+  for stat in self.values:
+    let lastMsgFromPeerAt = stat.lastMessageArrivedAt().valueOr:
+      continue
+
+    if lastMsgFromPeerAt > lastArrivedAt:
+      lastArrivedAt = lastMsgFromPeerAt
+
+  if lastArrivedAt == Moment.init(0, Millisecond):
+    return none(Moment)
+
+  return some(lastArrivedAt)
+
+proc checkIfAllMessagesReceived*(
+    self: PerPeerStatistics, maxWaitForLastMessage: Duration
+): Future[bool] {.async.} =
   # if there are no peers have sent messages, assume we just have started.
   if self.len == 0:
     return false
 
+  # check if numerically all messages are received.
+  # this suggest we received at least one message already from one peer
+  var isAlllMessageReceived = true
   for stat in self.values:
     if (stat.allMessageCount == 0 and stat.receivedMessages == 0) or
         stat.helper.maxIndex < stat.allMessageCount:
+      isAlllMessageReceived = false
+      break
+
+  if not isAlllMessageReceived:
+    # if not all message received we still need to check if last message arrived within a time frame
+    # to avoid endless waiting while publishers are already quit.
+    let lastMessageAt = self.lastMessageArrivedAt()
+    if lastMessageAt.isNone():
       return false
+
+    # last message shall arrived within time limit
+    if Moment.now() - lastMessageAt.get() < maxWaitForLastMessage:
+      return false
+    else:
+      info "No message since max wait time", maxWait = $maxWaitForLastMessage
 
   ## Ok, we see last message arrived from all peers,
   ## lets check if all messages are received
