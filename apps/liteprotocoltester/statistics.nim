@@ -126,10 +126,10 @@ proc addMessage*(
 
   lpt_receiver_sender_peer_count.set(value = self.len)
 
-proc lastMessageArrivedAt*(self: Statistics): Result[Moment, void] =
+proc lastMessageArrivedAt*(self: Statistics): Option[Moment] =
   if self.receivedMessages > 0:
-    return ok(self.helper.prevArrivedAt)
-  return err()
+    return some(self.helper.prevArrivedAt)
+  return none(Moment)
 
 proc lossCount*(self: Statistics): uint32 =
   self.helper.maxIndex - self.receivedMessages
@@ -279,7 +279,7 @@ proc jsonStats*(self: PerPeerStatistics): string =
       "{\"result:\": \"Error while generating json stats: " & getCurrentExceptionMsg() &
       "\"}"
 
-proc lastMessageArrivedAt*(self: PerPeerStatistics): Result[Moment, void] =
+proc lastMessageArrivedAt*(self: PerPeerStatistics): Option[Moment] =
   var lastArrivedAt = Moment.init(0, Millisecond)
   for stat in self.values:
     let lastMsgFromPeerAt = stat.lastMessageArrivedAt().valueOr:
@@ -289,9 +289,9 @@ proc lastMessageArrivedAt*(self: PerPeerStatistics): Result[Moment, void] =
       lastArrivedAt = lastMsgFromPeerAt
 
   if lastArrivedAt == Moment.init(0, Millisecond):
-    return err()
+    return none(Moment)
 
-  return ok(lastArrivedAt)
+  return some(lastArrivedAt)
 
 proc checkIfAllMessagesReceived*(
     self: PerPeerStatistics, maxWaitForLastMessage: Duration
@@ -312,11 +312,12 @@ proc checkIfAllMessagesReceived*(
   if not isAlllMessageReceived:
     # if not all message received we still need to check if last message arrived within a time frame
     # to avoid endless waiting while publishers are already quit.
-    let lastMessageAt = self.lastMessageArrivedAt().valueOr:
+    let lastMessageAt = self.lastMessageArrivedAt()
+    if lastMessageAt.isNone():
       return false
 
     # last message shall arrived within time limit
-    if Moment.now() - lastMessageAt < maxWaitForLastMessage:
+    if Moment.now() - lastMessageAt.get() < maxWaitForLastMessage:
       return false
     else:
       info "No message since max wait time", maxWait = $maxWaitForLastMessage
