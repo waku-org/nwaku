@@ -58,7 +58,7 @@ type WakuNodeConf* = object
 
   logFormat* {.
     desc:
-      "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
+      "Specifies what kind of logs should be written to stdout. Supported formats: TEXT, JSON",
     defaultValue: logging.LogFormat.TEXT,
     name: "log-format"
   .}: logging.LogFormat
@@ -491,7 +491,7 @@ hence would have reachability issues.""",
     reliabilityEnabled* {.
       desc:
         """Adds an extra effort in the delivery/reception of messages by leveraging store-v3 requests.
-with the drawback of consuming some more bandwitdh.""",
+with the drawback of consuming some more bandwidth.""",
       defaultValue: false,
       name: "reliability"
     .}: bool
