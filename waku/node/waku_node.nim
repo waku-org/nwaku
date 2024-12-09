@@ -399,6 +399,7 @@ proc mountRelay*(
     await node.startRelay()
 
   node.switch.mount(node.wakuRelay, protocolMatcher(WakuRelayCodec))
+  node.peerManager.wakuRelay = node.wakuRelay
 
   info "relay mounted successfully", shards = shards
 

@@ -80,6 +80,7 @@ type PeerManager* = ref object of RootObj
   switch*: Switch
   wakuPeerStore*: WakuPeerStore
   wakuMetadata*: WakuMetadata
+  wakuRelay*: WakuRelay
   initialBackoffInSec*: int
   backoffFactor*: int
   maxFailedAttempts*: int
@@ -92,7 +93,8 @@ type PeerManager* = ref object of RootObj
   colocationLimit*: int
   started: bool
   shardedPeerManagement: bool # temp feature flag
-  subRelayTopics*: Table[string, seq[PeerId]]
+  topicsHealth*: Table[string, TopicHealth]
+  onTopicHealthChange: TopicHealthChangeHandler
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -912,6 +914,55 @@ proc prunePeerStoreLoop(pm: PeerManager) {.async.} =
     pm.prunePeerStore()
     await sleepAsync(PrunePeerStoreInterval)
 
+proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
+  let numPeersInMesh = wakuRelay.getNumPeersInMesh(topic).valueOr:
+    error "Could not calculate topic health", topic = topic, error = error
+    return TopicHealth.UNHEALTHY
+
+  if numPeersInMesh < 1:
+    return TopicHealth.UNHEALTHY
+  elif numPeersInMesh < wakuRelay.parameters.dLow:
+    return TopicHealth.MINIMALLY_HEALTHY
+  return TopicHealth.SUFFICIENTLY_HEALTHY
+
+proc updateTopicsHealth(pm: PeerManager): Future[void] =
+  if pm.wakuRelay.isNil():
+    return
+
+  var futs = newSeq[Future[void]]()
+  for topic in toSeq(pm.wakuRelay.topics.keys):
+    let
+      oldHealth = pm.topicsHealth.getOrDefault(topic)
+      currentHealth = pm.wakuRelay.calculateTopicHealth(topic)
+
+    if oldHealth == currentHealth:
+      continue
+
+    pm.topicsHealth[topic] = currentHealth
+    if not pm.onTopicHealthChange.isNil():
+      let fut = pm.onTopicHealthChange(topic, currentHealth)
+      if not fut.completed(): # Fast path for successful sync handlers
+        futs.add(fut)
+
+  if futs.len() > 0:
+    proc waiter(): Future[void] {.async.} =
+      # slow path - we have to wait for the handlers to complete
+      try:
+        futs = await allFinished(futs)
+      except CancelledError:
+        # propagate cancellation
+        for fut in futs:
+          if not (fut.finished):
+            await fut.cancelAndWait()
+
+      # check for errors in futures
+      for fut in futs:
+        if fut.failed:
+          let err = fut.readError()
+          warn "Error in health change handler", description = err.msg
+
+    return waiter()
+
 # Ensures a healthy amount of connected relay peers
 proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
   trace "Starting relay connectivity loop"
@@ -920,6 +971,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await pm.manageRelayPeers()
     else:
       await pm.connectToRelayPeers()
+    await pm.updateTopicsHealth()
     let
       (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
       excessInConns = max(inRelayPeers.len - pm.inRelayPeersTarget, 0)
@@ -964,6 +1016,7 @@ proc new*(
     T: type PeerManager,
     switch: Switch,
     wakuMetadata: WakuMetadata = nil,
+    wakuRelay: WakuRelay = nil,
     maxRelayPeers: Option[int] = none(int),
     storage: PeerStorage = nil,
     initialBackoffInSec = InitialBackoffInSec,
@@ -1010,6 +1063,7 @@ proc new*(
   let pm = PeerManager(
     switch: switch,
     wakuMetadata: wakuMetadata,
+    wakuRelay: wakuRelay,
     wakuPeerStore: createWakuPeerStore(switch.peerStore),
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
@@ -1043,6 +1097,7 @@ proc new*(
 
   pm.serviceSlots = initTable[string, RemotePeerInfo]()
   pm.ipTable = initTable[string, seq[PeerId]]()
+  pm.topicsHealth = initTable[string, TopicHealth]()
 
   if not storage.isNil():
     trace "found persistent peer storage"
