@@ -238,7 +238,7 @@ suite "WakuNode2 - Validators":
     # Since we have a full mesh with 5 nodes and each one publishes 25+25+25+25+25 msgs
     # there are 625 messages being sent.
     # 125 are received ok in the handler (first hop)
-    # 500 are are wrong so rejected (rejected not relayed)
+    # 500 are wrong so rejected (rejected not relayed)
 
     var msgRejected = 0
 
