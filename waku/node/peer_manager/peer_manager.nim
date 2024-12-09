@@ -971,7 +971,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await pm.manageRelayPeers()
     else:
       await pm.connectToRelayPeers()
-    await pm.updateTopicsHealth()
+    discard pm.updateTopicsHealth()
     let
       (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
       excessInConns = max(inRelayPeers.len - pm.inRelayPeersTarget, 0)
