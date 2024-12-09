@@ -46,14 +46,20 @@ func fromJsonNode(
       none(string)
 
   let startTime =
-    if jsonContent.contains("time_start"):
-      some(Timestamp(jsonContent["time_start"].getInt()))
+    if jsonContent.hasKey("time_start"):
+      if jsonContent["time_start"].kind == JString:
+        some(Timestamp(parseInt(jsonContent["time_start"].getStr())))
+      else:
+        some(Timestamp(jsonContent{"time_start"}.getBiggestInt()))
     else:
       none(Timestamp)
 
   let endTime =
-    if jsonContent.contains("time_end"):
-      some(Timestamp(jsonContent["time_end"].getInt()))
+    if jsonContent.hasKey("time_end"):
+      if jsonContent["time_end"].kind == JString:
+        some(Timestamp(parseInt(jsonContent["time_end"].getStr())))
+      else:
+        some(Timestamp(jsonContent{"time_end"}.getBiggestInt()))
     else:
       none(Timestamp)
 

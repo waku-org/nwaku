@@ -1,4 +1,4 @@
-import system, results, std/json
+import system, results, std/json, std/strutils
 import stew/byteutils
 import
   ../../waku/common/base64,
@@ -21,7 +21,15 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
     payload: Base64String(jsonContent["payload"].getStr()),
     contentTopic: jsonContent["contentTopic"].getStr(),
     version: uint32(jsonContent{"version"}.getInt()),
-    timestamp: int64(jsonContent{"timestamp"}.getBiggestInt()),
+    timestamp:
+      if jsonContent.hasKey("timestamp"):
+        if jsonContent["timestamp"].kind == JString:
+          parseInt(jsonContent["timestamp"].getStr())
+        else:
+          jsonContent{"timestamp"}.getBiggestInt()
+      else:
+        0
+    ,
     ephemeral: jsonContent{"ephemeral"}.getBool(),
     meta: Base64String(jsonContent{"meta"}.getStr()),
     proof: Base64String(jsonContent{"proof"}.getStr()),
