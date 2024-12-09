@@ -17,7 +17,6 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/protocols/connectivity/autonat/client,
   libp2p/protocols/connectivity/autonat/service,
-  libp2p/protocols/rendezvous,
   libp2p/builders,
   libp2p/transports/transport,
   libp2p/transports/tcptransport,
@@ -39,6 +38,7 @@ import
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
   ../waku_metadata,
+  ../waku_rendezvous/protocol,
   ../waku_lightpush/client as lightpush_client,
   ../waku_lightpush/common,
   ../waku_lightpush/protocol,
@@ -110,7 +110,7 @@ type
     enr*: enr.Record
     libp2pPing*: Ping
     rng*: ref rand.HmacDrbgContext
-    rendezvous*: RendezVous
+    wakuRendezvous*: WakuRendezVous
     announcedAddresses*: seq[MultiAddress]
     started*: bool # Indicates that node has started listening
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
@@ -1217,22 +1217,16 @@ proc startKeepalive*(node: WakuNode, keepalive = 2.minutes) =
 proc mountRendezvous*(node: WakuNode) {.async: (raises: []).} =
   info "mounting rendezvous discovery protocol"
 
-  try:
-    node.rendezvous = RendezVous.new(node.switch)
-  except Exception as e:
-    error "failed to create rendezvous", error = getCurrentExceptionMsg()
+  node.wakuRendezvous = WakuRendezVous.new(node.switch, node.peerManager, node.enr).valueOr:
+    error "initializing waku rendezvous failed", error = error
     return
 
-  if node.started:
-    try:
-      await node.rendezvous.start()
-    except CatchableError:
-      error "failed to start rendezvous", error = getCurrentExceptionMsg()
+  # Always start discovering peers at startup
+  (await node.wakuRendezvous.initialRequestAll()).isOkOr:
+    error "rendezvous failed initial requests", error = error
 
-  try:
-    node.switch.mount(node.rendezvous)
-  except LPError:
-    error "failed to mount rendezvous", error = getCurrentExceptionMsg()
+  if node.started:
+    await node.wakuRendezvous.start()
 
 proc isBindIpWithZeroPort(inputMultiAdd: MultiAddress): bool =
   let inputStr = $inputMultiAdd
@@ -1304,6 +1298,9 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.start()
 
+  if not node.wakuRendezvous.isNil():
+    await node.wakuRendezvous.start()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper = proc(
@@ -1345,6 +1342,9 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()
+
+  if not node.wakuRendezvous.isNil():
+    await node.wakuRendezvous.stopWait()
 
   node.started = false
 

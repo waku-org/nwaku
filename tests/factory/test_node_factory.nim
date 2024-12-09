@@ -17,7 +17,7 @@ suite "Node Factory":
       node.wakuStore.isNil()
       node.wakuFilter.isNil()
       not node.wakuStoreClient.isNil()
-      not node.rendezvous.isNil()
+      not node.wakuRendezvous.isNil()
 
   test "Set up a node with Store enabled":
     var conf = defaultTestWakuNodeConf()

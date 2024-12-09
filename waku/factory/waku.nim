@@ -413,16 +413,6 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   if not waku[].deliveryMonitor.isNil():
     waku[].deliveryMonitor.startDeliveryMonitor()
 
-  ## libp2p DiscoveryManager
-  waku[].discoveryMngr = DiscoveryManager()
-  waku[].discoveryMngr.add(
-    RendezVousInterface.new(rdv = waku[].node.rendezvous, tta = 1.minutes)
-  )
-  if not isNil(waku[].node.wakuRelay):
-    for topic in waku[].node.wakuRelay.getSubscribedTopics():
-      debug "advertise rendezvous namespace", topic
-      waku[].discoveryMngr.advertise(RdvNamespace(topic))
-
   return ok()
 
 # Waku shutdown
