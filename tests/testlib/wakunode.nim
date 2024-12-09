@@ -40,6 +40,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     clusterId: DefaultClusterId,
     shards: @[DefaultShardId],
     relay: true,
+    rendezvous: true,
     storeMessageDbUrl: "sqlite://store.sqlite3",
   )
 
