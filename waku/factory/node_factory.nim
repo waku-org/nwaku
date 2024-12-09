@@ -207,12 +207,9 @@ proc setupProtocols(
         protectedShard = shardKey.shard, publicKey = shardKey.key
     node.wakuRelay.addSignedShardsValidator(subscribedProtectedShards, conf.clusterId)
 
-    # Enable Rendezvous Discovery protocol when Relay is enabled
-    try:
-      await mountRendezvous(node)
-    except CatchableError:
-      return
-        err("failed to mount waku rendezvous protocol: " & getCurrentExceptionMsg())
+    # Only relay nodes should be rendezvous points.
+    if conf.rendezvous:
+      await node.mountRendezvous()
 
   # Keepalive mounted on all nodes
   try:
