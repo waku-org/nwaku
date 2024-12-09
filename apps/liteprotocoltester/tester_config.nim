@@ -49,7 +49,7 @@ type LiteProtocolTesterConf* = object
 
   logFormat* {.
     desc:
-      "Specifies what kind of logs should be written to stdout. Suported formats: TEXT, JSON",
+      "Specifies what kind of logs should be written to stdout. Supported formats: TEXT, JSON",
     defaultValue: logging.LogFormat.TEXT,
     name: "log-format"
   .}: logging.LogFormat

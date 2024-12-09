@@ -358,3 +358,10 @@ func hasUdpPort*(peer: RemotePeerInfo): bool =
 
   let typedEnr = typedEnrRes.get()
   typedEnr.udp.isSome() or typedEnr.udp6.isSome()
+
+proc getAgent*(peer: RemotePeerInfo): string =
+  ## Returns the agent version of a peer
+  if peer.agent.isEmptyOrWhitespace():
+    return "unknown"
+
+  return peer.agent

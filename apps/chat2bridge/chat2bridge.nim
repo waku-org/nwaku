@@ -59,7 +59,7 @@ type
   MbMessageHandler = proc(jsonNode: JsonNode) {.async.}
 
 ###################
-# Helper funtions #
+# Helper functions #
 ###################S
 
 proc containsOrAdd(sequence: var seq[Hash], hash: Hash): bool =
