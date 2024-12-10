@@ -2542,7 +2542,7 @@ suite "Waku Filter - End to End":
 
       await sleepAsync(2200)
 
-      wakuFilter.maintainSubscriptions()
+      await wakuFilter.maintainSubscriptions()
 
       check not wakuFilter.subscriptions.isSubscribed(clientPeerId)
       check not wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
