@@ -83,7 +83,7 @@ proc readValue*(
         )
       connected = some(reader.readValue(bool))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if connected.isNone():
     reader.raiseUnexpectedValue("Field `connected` is missing")
@@ -116,7 +116,7 @@ proc readValue*(
         reader.raiseUnexpectedField("Multiple `origin` fields found", "WakuPeer")
       origin = some(reader.readValue(PeerOrigin))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if multiaddr.isNone():
     reader.raiseUnexpectedValue("Field `multiaddr` is missing")
@@ -153,7 +153,7 @@ proc readValue*(
         )
       contentTopic = some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if pubsubTopic.isNone():
     reader.raiseUnexpectedValue("Field `pubsubTopic` is missing")
@@ -185,7 +185,7 @@ proc readValue*(
         )
       filterCriteria = some(reader.readValue(seq[FilterTopic]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if peerId.isNone():
     reader.raiseUnexpectedValue("Field `peerId` is missing")
