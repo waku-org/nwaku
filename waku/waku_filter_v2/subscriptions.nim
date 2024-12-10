@@ -18,7 +18,7 @@ logScope:
   topics = "waku filter subscriptions"
 
 const
-  MaxFilterPeers* = 1000
+  MaxFilterPeers* = 100
   MaxFilterCriteriaPerPeer* = 1000
   DefaultSubscriptionTimeToLiveSec* = 5.minutes
   MessageCacheTTL* = 2.minutes
