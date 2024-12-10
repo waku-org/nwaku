@@ -4,6 +4,7 @@ import
   ../../waku/common/base64,
   ../../waku/waku_core/message,
   ../../waku/waku_core/message/message,
+  ../utils,
   ./json_base_event
 
 type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type
@@ -21,15 +22,7 @@ func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
     payload: Base64String(jsonContent["payload"].getStr()),
     contentTopic: jsonContent["contentTopic"].getStr(),
     version: uint32(jsonContent{"version"}.getInt()),
-    timestamp:
-      if jsonContent.hasKey("timestamp"):
-        if jsonContent["timestamp"].kind == JString:
-          parseInt(jsonContent["timestamp"].getStr())
-        else:
-          jsonContent{"timestamp"}.getBiggestInt()
-      else:
-        0
-    ,
+    timestamp: jsonContent.getProtoInt64("timestamp").get(0),
     ephemeral: jsonContent{"ephemeral"}.getBool(),
     meta: Base64String(jsonContent{"meta"}.getStr()),
     proof: Base64String(jsonContent{"proof"}.getStr()),

@@ -3,6 +3,7 @@ import chronos, chronicles, results
 import
   ../../../../../waku/factory/waku,
   ../../../../alloc,
+  ../../../../utils,
   ../../../../../waku/waku_core/peers,
   ../../../../../waku/waku_core/time,
   ../../../../../waku/waku_core/message/digest,
@@ -45,24 +46,6 @@ func fromJsonNode(
     else:
       none(string)
 
-  let startTime =
-    if jsonContent.hasKey("time_start"):
-      if jsonContent["time_start"].kind == JString:
-        some(Timestamp(parseInt(jsonContent["time_start"].getStr())))
-      else:
-        some(Timestamp(jsonContent{"time_start"}.getBiggestInt()))
-    else:
-      none(Timestamp)
-
-  let endTime =
-    if jsonContent.hasKey("time_end"):
-      if jsonContent["time_end"].kind == JString:
-        some(Timestamp(parseInt(jsonContent["time_end"].getStr())))
-      else:
-        some(Timestamp(jsonContent{"time_end"}.getBiggestInt()))
-    else:
-      none(Timestamp)
-
   let paginationCursor =
     if jsonContent.contains("pagination_cursor"):
       var hash: WakuMessageHash
@@ -90,8 +73,8 @@ func fromJsonNode(
     includeData: jsonContent["include_data"].getBool(),
     pubsubTopic: pubsubTopic,
     contentTopics: contentTopics,
-    startTime: startTime,
-    endTime: endTime,
+    startTime: jsonContent.getProtoInt64("time_start"),
+    endTime: jsonContent.getProtoInt64("time_end"),
     messageHashes: msgHashes,
     paginationCursor: paginationCursor,
     paginationForward: paginationForward,
