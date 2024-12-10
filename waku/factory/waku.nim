@@ -148,6 +148,9 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
     return RelayClient.new()
   return Relay.new()
 
+proc setupCallbacks(node: var WakuNode, callbacks: WakuCallbacks) =
+  return
+
 proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
   let rng = crypto.newRng()
 
@@ -226,6 +229,8 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
     return err("Failed setting up node: " & nodeRes.error)
 
   let node = nodeRes.get()
+
+  node.setupCallbacks(callbacks)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
