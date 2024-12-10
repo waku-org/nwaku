@@ -267,7 +267,8 @@ proc waku_relay_publish(
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
-    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+      raise newException(JsonParsingError, $error)
   except JsonParsingError:
     deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
@@ -495,7 +496,8 @@ proc waku_lightpush_publish(
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
-    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+      raise newException(JsonParsingError, $error)
   except JsonParsingError:
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)

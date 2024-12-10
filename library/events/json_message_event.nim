@@ -16,16 +16,20 @@ type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type
   meta*: Base64String
   proof*: Base64String
 
-func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
+func fromJsonNode*(
+    T: type JsonMessage, jsonContent: JsonNode
+): Result[JsonMessage, string] =
   # Visit https://rfc.vac.dev/spec/14/ for further details
-  JsonMessage(
-    payload: Base64String(jsonContent["payload"].getStr()),
-    contentTopic: jsonContent["contentTopic"].getStr(),
-    version: uint32(jsonContent{"version"}.getInt()),
-    timestamp: jsonContent.getProtoInt64("timestamp").get(0),
-    ephemeral: jsonContent{"ephemeral"}.getBool(),
-    meta: Base64String(jsonContent{"meta"}.getStr()),
-    proof: Base64String(jsonContent{"proof"}.getStr()),
+  ok(
+    JsonMessage(
+      payload: Base64String(jsonContent["payload"].getStr()),
+      contentTopic: jsonContent["contentTopic"].getStr(),
+      version: uint32(jsonContent{"version"}.getInt()),
+      timestamp: (?jsonContent.getProtoInt64("timestamp")).get(0),
+      ephemeral: jsonContent{"ephemeral"}.getBool(),
+      meta: Base64String(jsonContent{"meta"}.getStr()),
+      proof: Base64String(jsonContent{"proof"}.getStr()),
+    )
   )
 
 proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =

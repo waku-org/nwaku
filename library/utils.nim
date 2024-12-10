@@ -1,18 +1,20 @@
 import std/[json, options, strutils]
 import results
-import ../waku/waku_core/time
 
-proc getProtoInt64*(node: JsonNode, key: string): Option[int64] =
-  let (value, ok) =
-    if node.hasKey(key):
-      if node[key].kind == JString:
-        (parseBiggestInt(node[key].getStr()), true)
+proc getProtoInt64*(node: JsonNode, key: string): Result[Option[int64], string] =
+  try:
+    let (value, ok) =
+      if node.hasKey(key):
+        if node[key].kind == JString:
+          (parseBiggestInt(node[key].getStr()), true)
+        else:
+          (node[key].getBiggestInt(), true)
       else:
-        (node[key].getBiggestInt(), true)
-    else:
-      (0, false)
+        (0, false)
 
-  if ok:
-    return some(value)
+    if ok:
+      return ok(some(value))
 
-  return none(int64)
+    return ok(none(int64))
+  except CatchableError:
+    return err("Invalid int64 value in `" & key & "`")
