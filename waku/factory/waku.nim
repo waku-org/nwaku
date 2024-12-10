@@ -149,9 +149,15 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
   return Relay.new()
 
 proc setupCallbacks(node: var WakuNode, callbacks: WakuCallbacks) =
-  return
+  if callbacks.isNil():
+    return
 
-proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
+  if not callbacks.onReceivedMessage.isNil():
+    
+
+proc new*(
+    T: type Waku, confCopy: var WakuNodeConf, callbacks: WakuCallbacks = nil
+): Result[Waku, string] =
   let rng = crypto.newRng()
 
   logging.setupLog(confCopy.logLevel, confCopy.logFormat)
@@ -230,7 +236,8 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
 
   let node = nodeRes.get()
 
-  node.setupCallbacks(callbacks)
+  if not callbacks.isNil():
+    node.setupCallbacks(callbacks)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
