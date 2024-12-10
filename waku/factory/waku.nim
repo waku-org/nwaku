@@ -42,6 +42,7 @@ import
   ../factory/node_factory,
   ../factory/internal_config,
   ../factory/external_config,
+  ../factory/waku_callbacks,
   ../waku_enr/multiaddr
 
 logScope:
@@ -67,6 +68,7 @@ type Waku* = ref object
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
+  callbacks*: WakuCallbacks
 
 proc logConfig(conf: WakuNodeConf) =
   info "Configuration: Enabled protocols",
