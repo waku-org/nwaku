@@ -155,9 +155,9 @@ proc setupCallbacks(
     info "No external callbacks to be set"
     return ok()
 
-  if not callbacks.onReceivedMessage.isNil():
+  if not callbacks.relayHandler.isNil():
     if node.wakuRelay.isNil():
-      return err("Cannot configure onReceivedMessage callback without Relay mounted")
+      return err("Cannot configure relayHandler callback without Relay mounted")
 
     let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
       return err("Could not get autoshards: " & error)
@@ -167,7 +167,7 @@ proc setupCallbacks(
     let shards = confShards & autoShards
 
     for shard in shards:
-      discard node.wakuRelay.subscribe($shard, callbacks.onReceivedMessage)
+      discard node.wakuRelay.subscribe($shard, callbacks.relayHandler)
 
 proc new*(
     T: type Waku, confCopy: var WakuNodeConf, callbacks: WakuCallbacks = nil
