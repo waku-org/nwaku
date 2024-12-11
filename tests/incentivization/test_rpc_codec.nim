@@ -26,7 +26,7 @@ suite "Waku Incentivization Eligibility Codec":
         eligibilityProof == decoded
   
   asyncTest "encode eligibility status":
-    let eligibilityStatus = genEligibilityStatus(true)
+    let eligibilityStatus = new(EligibilityStatus, true)
     let encoded = encode(eligibilityStatus)
     let decoded = EligibilityStatus.decode(encoded.buffer).get()
     check:

@@ -2,7 +2,10 @@ import std/options
 
 import waku/incentivization/rpc
 
-proc genEligibilityStatus*(isEligible: bool): EligibilityStatus = 
+proc new*(
+  T: type EligibilityStatus,
+  isEligible: bool
+): T =
   if isEligible:
     EligibilityStatus(
       statusCode: uint32(200),
