@@ -152,9 +152,13 @@ proc setupCallbacks(
     node: WakuNode, conf: WakuNodeConf, callbacks: WakuCallbacks
 ): Result[void, string] =
   if callbacks.isNil():
-    return
+    info "No external callbacks to be set"
+    return ok()
 
-  if not callbacks.onReceivedMessage.isNil() and not node.wakuRelay.isNil():
+  if not callbacks.onReceivedMessage.isNil():
+    if node.wakuRelay.isNil():
+      return err("Cannot configure onReceivedMessage callback without Relay mounted")
+
     let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
       return err("Could not get autoshards: " & error)
 
@@ -246,10 +250,9 @@ proc new*(
 
   let node = nodeRes.get()
 
-  if not callbacks.isNil():
-    node.setupCallbacks(confCopy, callbacks).isOkOr:
-      error "Failed setting callbacks", error = error
-      return err("Failed setting up node: " & $error)
+  node.setupCallbacks(confCopy, callbacks).isOkOr:
+    error "Failed setting callbacks", error = error
+    return err("Failed setting up node: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
