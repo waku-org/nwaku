@@ -5,6 +5,7 @@ import waku/incentivization/rpc
 
 # Function to convert a hex string to Address
 proc toAddress*(hexStr: string): Address =
+  #[]#
   # Remove the "0x" prefix if it exists
   let cleaned = if hexStr.startsWith("0x"): hexStr[2..^1] else: hexStr
 
@@ -25,28 +26,26 @@ proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.asyn
   try:
     let tx = await web3.provider.eth_getTransactionByHash(txHash)
     let txReceipt = await web3.getMinedTransactionReceipt(txHash)
-    result = true
-    if result:
-      # check that it is not a contract creation tx
-      let toAddressOption = txReceipt.to
-      let isContractCreationTx = toAddressOption.isNone
-      if isContractCreationTx:
+    # check that it is not a contract creation tx
+    let toAddressOption = txReceipt.to
+    let isContractCreationTx = toAddressOption.isNone
+    if isContractCreationTx:
+      result = false
+    else:
+      # check that it is a simple transfer (not a contract call)
+      # a simple transfer uses 21000 gas
+      let gasUsed = txReceipt.gasUsed
+      let isSimpleTransferTx = (gasUsed == Quantity(21000))
+      if not isSimpleTransferTx:
         result = false
       else:
-        # check that it is a simple transfer (not a contract call)
-        # a simple transfer uses 21000 gas
-        let gasUsed = txReceipt.gasUsed
-        let isSimpleTransferTx = (gasUsed == Quantity(21000))
-        if not isSimpleTransferTx:
-          result = false
-        else:
-          # check that the amount is "as expected" (hard-coded for now)
-          let txValue = tx.value
-          let hasExpectedValue = (txValue == 200500000000005063.u256)
-          # check that the to address is "as expected" (hard-coded for now)
-          let toAddress = toAddressOption.get()
-          let hasExpectedToAddress = (toAddress == toAddress("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
-          result = true
+        # check that the amount is "as expected" (hard-coded for now)
+        let txValue = tx.value
+        let hasExpectedValue = (txValue == 200500000000005063.u256)
+        # check that the to address is "as expected" (hard-coded for now)
+        let toAddress = toAddressOption.get()
+        let hasExpectedToAddress = (toAddress == toAddress("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
+        result = true
   except ValueError as e:
     result = false
   await web3.close()
