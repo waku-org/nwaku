@@ -254,7 +254,7 @@ proc new*(
 
   node.setupCallbacks(confCopy, callbacks).isOkOr:
     error "Failed setting callbacks", error = error
-    return err("Failed setting up node: " & $error)
+    return err("Failed setting up callbacks: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
@@ -277,6 +277,7 @@ proc new*(
     key: confCopy.nodekey.get(),
     node: node,
     deliveryMonitor: deliveryMonitor,
+    callbacks: callbacks,
   )
 
   waku.setupSwitchServices(confCopy, relay, rng)
