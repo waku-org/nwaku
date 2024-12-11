@@ -3,24 +3,6 @@ import std/options, chronos, web3, stew/byteutils, stint, strutils
 import waku/incentivization/rpc
 
 
-# Function to convert a hex string to Address
-proc toAddress*(hexStr: string): Address =
-  #[]#
-  # Remove the "0x" prefix if it exists
-  let cleaned = if hexStr.startsWith("0x"): hexStr[2..^1] else: hexStr
-
-  # Ensure the length is exactly 40 characters (20 bytes)
-  if cleaned.len != 40:
-    raise newException(ValueError, "Invalid hexadecimal string length for Address")
-
-  var arr: array[20, byte]
-  for i in 0 ..< 20:
-    let byteValue = cleaned[i * 2 ..< i * 2 + 2]  # Get two hex characters
-    arr[i] = byte(parseHexInt(byteValue))
-
-  result = Address(arr)
-
-
 proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.async.} =
   let web3 = await newWeb3(ethClient)
   try:
@@ -44,7 +26,7 @@ proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.asyn
         let hasExpectedValue = (txValue == 200500000000005063.u256)
         # check that the to address is "as expected" (hard-coded for now)
         let toAddress = toAddressOption.get()
-        let hasExpectedToAddress = (toAddress == toAddress("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
+        let hasExpectedToAddress = (toAddress == Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
         result = true
   except ValueError as e:
     result = false
