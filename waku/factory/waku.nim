@@ -148,12 +148,22 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
     return RelayClient.new()
   return Relay.new()
 
-proc setupCallbacks(node: var WakuNode, callbacks: WakuCallbacks) =
+proc setupCallbacks(
+    node: WakuNode, conf: WakuNodeConf, callbacks: WakuCallbacks
+): Result[void, string] =
   if callbacks.isNil():
     return
 
-  if not callbacks.onReceivedMessage.isNil():
-    
+  if not callbacks.onReceivedMessage.isNil() and not node.wakuRelay.isNil():
+    let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
+      return err("Could not get autoshards: " & error)
+
+    let confShards =
+      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+    let shards = confShards & autoShards
+
+    for shard in shards:
+      discard node.wakuRelay.subscribe($shard, callbacks.onReceivedMessage)
 
 proc new*(
     T: type Waku, confCopy: var WakuNodeConf, callbacks: WakuCallbacks = nil
@@ -237,7 +247,9 @@ proc new*(
   let node = nodeRes.get()
 
   if not callbacks.isNil():
-    node.setupCallbacks(callbacks)
+    node.setupCallbacks(confCopy, callbacks).isOkOr:
+      error "Failed setting callbacks", error = error
+      return err("Failed setting up node: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
