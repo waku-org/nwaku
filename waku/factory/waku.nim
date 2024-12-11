@@ -169,6 +169,8 @@ proc setupCallbacks(
     for shard in shards:
       discard node.wakuRelay.subscribe($shard, callbacks.relayHandler)
 
+    return ok()
+
 proc new*(
     T: type Waku, confCopy: var WakuNodeConf, callbacks: WakuCallbacks = nil
 ): Result[Waku, string] =
