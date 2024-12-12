@@ -39,7 +39,7 @@ proc setupNat*(
       warn "NAT already initialized, skipping as cannot be done multiple times"
     else:
       singletonNat = true
-      var extIp = none(IpAddress)
+      var extIp = Opt.none(IpAddress)
       try:
         extIp = getExternalIP(strategy)
       except Exception:

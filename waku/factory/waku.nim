@@ -313,7 +313,7 @@ proc updateAddressInENR(waku: ptr Waku): Result[void, string] =
     return err("failed to parse the private key: " & $error)
 
   let enrFields = @[toFieldPair(MultiaddrEnrField, encodedAddrs)]
-  waku[].node.enr.update(parsedPk, enrFields).isOkOr:
+  waku[].node.enr.update(parsedPk, extraFields = enrFields).isOkOr:
     return err("failed to update multiaddress in ENR updateAddressInENR: " & $error)
 
   debug "Waku node ENR updated successfully with new multiaddress",
