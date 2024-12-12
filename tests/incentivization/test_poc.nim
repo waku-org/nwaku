@@ -11,7 +11,7 @@ import
 import
   waku/[node/peer_manager, waku_core],
   ../testlib/[assertions, wakucore, testasync, futures, testutils],
-  waku/incentivization/[rpc, rpc_codec, common, txid_proof, eligibility]
+  waku/incentivization/[rpc, rpc_codec, common, txid_proof]
 
 # All txids from Ethereum Sepolia testnet
 const TxHashNonExisting* =
