@@ -28,7 +28,7 @@ import
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
   ./ffi_types,
-  ../waku/factory/waku_callbacks
+  ../waku/factory/app_callbacks
 
 ################################################################################
 ### Wrapper around the waku node
@@ -139,13 +139,13 @@ proc waku_new(
 
   ctx.userData = userData
 
-  let callbacks = WakuCallbacks(relayHandler: onReceivedMessage(ctx))
+  let appCallbacks = AppCallbacks(relayHandler: onReceivedMessage(ctx))
 
   let retCode = handleRequest(
     ctx,
     RequestType.LIFECYCLE,
     NodeLifecycleRequest.createShared(
-      NodeLifecycleMsgType.CREATE_NODE, configJson, callbacks
+      NodeLifecycleMsgType.CREATE_NODE, configJson, appCallbacks
     ),
     callback,
     userData,

@@ -7,7 +7,7 @@ import
   ../../../../waku/factory/waku,
   ../../../../waku/factory/node_factory,
   ../../../../waku/factory/networks_config,
-  ../../../../waku/factory/waku_callbacks,
+  ../../../../waku/factory/app_callbacks,
   ../../../alloc
 
 type NodeLifecycleMsgType* = enum
@@ -18,17 +18,17 @@ type NodeLifecycleMsgType* = enum
 type NodeLifecycleRequest* = object
   operation: NodeLifecycleMsgType
   configJson: cstring ## Only used in 'CREATE_NODE' operation
-  callbacks: WakuCallbacks
+  appCallbacks: AppCallbacks
 
 proc createShared*(
     T: type NodeLifecycleRequest,
     op: NodeLifecycleMsgType,
     configJson: cstring = "",
-    callbacks: WakuCallbacks = nil,
+    appCallbacks: AppCallbacks = nil,
 ): ptr type T =
   var ret = createShared(T)
   ret[].operation = op
-  ret[].callbacks = callbacks
+  ret[].appCallbacks = appCallbacks
   ret[].configJson = configJson.alloc()
   return ret
 
@@ -37,7 +37,7 @@ proc destroyShared(self: ptr NodeLifecycleRequest) =
   deallocShared(self)
 
 proc createWaku(
-    configJson: cstring, callbacks: WakuCallbacks = nil
+    configJson: cstring, appCallbacks: AppCallbacks = nil
 ): Future[Result[Waku, string]] {.async.} =
   var conf = defaultWakuNodeConf().valueOr:
     return err("Failed creating node: " & error)
@@ -67,7 +67,7 @@ proc createWaku(
             formattedString & ". expected type: " & $typeof(confValue)
         )
 
-  let wakuRes = Waku.new(conf, callbacks).valueOr:
+  let wakuRes = Waku.new(conf, appCallbacks).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
 
@@ -81,7 +81,7 @@ proc process*(
 
   case self.operation
   of CREATE_NODE:
-    waku[] = (await createWaku(self.configJson, self.callbacks)).valueOr:
+    waku[] = (await createWaku(self.configJson, self.appCallbacks)).valueOr:
       error "CREATE_NODE failed", error = error
       return err("error processing createWaku request: " & $error)
   of START_NODE:

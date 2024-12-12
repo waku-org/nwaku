@@ -42,7 +42,7 @@ import
   ../factory/node_factory,
   ../factory/internal_config,
   ../factory/external_config,
-  ../factory/waku_callbacks,
+  ../factory/app_callbacks,
   ../waku_enr/multiaddr
 
 logScope:
@@ -68,7 +68,7 @@ type Waku* = ref object
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
-  callbacks*: WakuCallbacks
+  appCallbacks*: AppCallbacks
 
 proc logConfig(conf: WakuNodeConf) =
   info "Configuration: Enabled protocols",
@@ -148,14 +148,14 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
     return RelayClient.new()
   return Relay.new()
 
-proc setupCallbacks(
-    node: WakuNode, conf: WakuNodeConf, callbacks: WakuCallbacks
+proc setupAppCallbacks(
+    node: WakuNode, conf: WakuNodeConf, appCallbacks: AppCallbacks
 ): Result[void, string] =
-  if callbacks.isNil():
+  if appCallbacks.isNil():
     info "No external callbacks to be set"
     return ok()
 
-  if not callbacks.relayHandler.isNil():
+  if not appCallbacks.relayHandler.isNil():
     if node.wakuRelay.isNil():
       return err("Cannot configure relayHandler callback without Relay mounted")
 
@@ -167,12 +167,12 @@ proc setupCallbacks(
     let shards = confShards & autoShards
 
     for shard in shards:
-      discard node.wakuRelay.subscribe($shard, callbacks.relayHandler)
+      discard node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
 
     return ok()
 
 proc new*(
-    T: type Waku, confCopy: var WakuNodeConf, callbacks: WakuCallbacks = nil
+    T: type Waku, confCopy: var WakuNodeConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
   let rng = crypto.newRng()
 
@@ -252,9 +252,9 @@ proc new*(
 
   let node = nodeRes.get()
 
-  node.setupCallbacks(confCopy, callbacks).isOkOr:
-    error "Failed setting callbacks", error = error
-    return err("Failed setting up callbacks: " & $error)
+  node.setupCallbacks(confCopy, appCallbacks).isOkOr:
+    error "Failed setting up app callbacks", error = error
+    return err("Failed setting up app callbacks: " & $error)
 
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor

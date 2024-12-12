@@ -1,4 +1,4 @@
 import ../waku_relay/protocol
 
-type WakuCallbacks* = ref object
+type AppCallbacks* = ref object
   relayHandler*: WakuRelayHandler
