@@ -2,6 +2,7 @@ import std/options, chronos, web3, stew/byteutils, stint, strutils
 
 import waku/incentivization/rpc
 
+const SimpleTransferGasUsed = Quantity(21000)
 
 proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.async.} =
   let web3 = await newWeb3(ethClient)
@@ -16,7 +17,7 @@ proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.asyn
     # check that it is a simple transfer (not a contract call)
     # a simple transfer uses 21000 gas
     let gasUsed = txReceipt.gasUsed
-    let isSimpleTransferTx = (gasUsed == Quantity(21000))
+    let isSimpleTransferTx = (gasUsed == SimpleTransferGasUsed)
     if not isSimpleTransferTx:
       return false
     # check that the amount is "as expected" (hard-coded for now)
