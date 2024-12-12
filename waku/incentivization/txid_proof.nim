@@ -10,28 +10,26 @@ proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.asyn
     let txReceipt = await web3.getMinedTransactionReceipt(txHash)
     # check that it is not a contract creation tx
     let toAddressOption = txReceipt.to
-    let isContractCreationTx = toAddressOption.isNone
-    if isContractCreationTx:
-      result = false
-    else:
-      # check that it is a simple transfer (not a contract call)
-      # a simple transfer uses 21000 gas
-      let gasUsed = txReceipt.gasUsed
-      let isSimpleTransferTx = (gasUsed == Quantity(21000))
-      if not isSimpleTransferTx:
-        result = false
-      else:
-        # check that the amount is "as expected" (hard-coded for now)
-        let txValue = tx.value
-        let hasExpectedValue = (txValue == 200500000000005063.u256)
-        # check that the to address is "as expected" (hard-coded for now)
-        let toAddress = toAddressOption.get()
-        let hasExpectedToAddress = (toAddress == Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
-        result = true
+    if toAddressOption.isNone:
+      # this is a contract creation tx
+      return false
+    # check that it is a simple transfer (not a contract call)
+    # a simple transfer uses 21000 gas
+    let gasUsed = txReceipt.gasUsed
+    let isSimpleTransferTx = (gasUsed == Quantity(21000))
+    if not isSimpleTransferTx:
+      return false
+    # check that the amount is "as expected" (hard-coded for now)
+    let txValue = tx.value
+    let hasExpectedValue = (txValue == 200500000000005063.u256)
+    # check that the to address is "as expected" (hard-coded for now)
+    let toAddress = toAddressOption.get()
+    let hasExpectedToAddress = (toAddress == Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
+    defer:
+      await web3.close()
+    return (hasExpectedValue and hasExpectedToAddress)
   except ValueError as e:
-    result = false
-  await web3.close()
-  result
+    return false
 
 proc txidEligiblityCriteriaMet*(
     eligibilityProof: EligibilityProof, ethClient: string
