@@ -35,7 +35,7 @@ type
 
   FilterSubscriptions* = ref object
     peersSubscribed*: Table[PeerID, PeerData]
-    subscriptions: Table[FilterCriterion, SubscribedPeers]
+    subscriptions*: Table[FilterCriterion, SubscribedPeers]
     subscriptionTimeout: Duration
     maxPeers: uint
     maxCriteriaPerPeer: uint
@@ -90,6 +90,11 @@ proc findSubscribedPeers*(
     for peer in peers[]:
       if s.isSubscribed(peer):
         foundPeers.add(peer)
+
+  debug "findSubscribedPeers result",
+    filter_criterion = filterCriterion,
+    subscr_set = s.subscriptions,
+    found_peers = foundPeers
 
   return foundPeers
 
@@ -172,6 +177,8 @@ proc addSubscription*(
     let newPeerData: PeerData =
       (lastSeen: Moment.now(), criteriaCount: 0, connection: connRes.get())
 
+    debug "new WakuFilterPushCodec stream", conn = connRes.get()
+
     peerData = addr(s.peersSubscribed.mgetOrPut(peerId, newPeerData))
 
   for filterCriterion in filterCriteria:
@@ -179,6 +186,9 @@ proc addSubscription*(
     if peerId notin peersOfSub[]:
       peersOfSub[].incl(peerId)
       peerData.criteriaCount += 1
+
+  debug "subscription added correctly",
+    new_peer = shortLog(peerId), subscr_set = s.subscriptions
 
   return ok()
 
@@ -214,3 +224,6 @@ proc getConnectionByPeerId*(
 
   let peerData = s.peersSubscribed.getOrDefault(peerId)
   return ok(peerData.connection)
+
+proc setSubscriptionTimeout*(s: FilterSubscriptions, newTimeout: Duration) =
+  s.subscriptionTimeout = newTimeout

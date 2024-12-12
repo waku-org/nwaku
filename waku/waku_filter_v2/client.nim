@@ -175,28 +175,34 @@ proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
 
 proc initProtocolHandler(wfc: WakuFilterClient) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(int(DefaultMaxPushSize))
+    ## Notice that the client component is acting as a server of WakuFilterPushCodec messages
+    while not conn.atEof():
+      var buf: seq[byte]
+      try:
+        buf = await conn.readLp(int(DefaultMaxPushSize))
+      except CancelledError, LPStreamError:
+        error "error while reading conn", error = getCurrentExceptionMsg()
 
-    let msgPush = MessagePush.decode(buf).valueOr:
-      error "Failed to decode message push", peerId = conn.peerId, error = $error
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
-      return
+      let msgPush = MessagePush.decode(buf).valueOr:
+        error "Failed to decode message push", peerId = conn.peerId, error = $error
+        waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+        return
 
-    let msg_hash =
-      computeMessageHash(msgPush.pubsubTopic, msgPush.wakuMessage).to0xHex()
+      let msg_hash =
+        computeMessageHash(msgPush.pubsubTopic, msgPush.wakuMessage).to0xHex()
 
-    debug "Received message push",
-      peerId = conn.peerId,
-      msg_hash,
-      payload = shortLog(msgPush.wakuMessage.payload),
-      pubsubTopic = msgPush.pubsubTopic,
-      content_topic = msgPush.wakuMessage.contentTopic
+      debug "Received message push",
+        peerId = conn.peerId,
+        msg_hash,
+        payload = shortLog(msgPush.wakuMessage.payload),
+        pubsubTopic = msgPush.pubsubTopic,
+        content_topic = msgPush.wakuMessage.contentTopic,
+        conn
 
-    for handler in wfc.pushHandlers:
-      asyncSpawn handler(msgPush.pubsubTopic, msgPush.wakuMessage)
+      for handler in wfc.pushHandlers:
+        asyncSpawn handler(msgPush.pubsubTopic, msgPush.wakuMessage)
 
-    # Protocol specifies no response for now
-    return
+      # Protocol specifies no response for now
 
   wfc.handler = handler
   wfc.codec = WakuFilterPushCodec

@@ -40,6 +40,9 @@ proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
 
   ok()
 
+proc setSubscriptionTimeout*(wf: WakuFilter, newTimeout: Duration) =
+  wf.subscriptions.setSubscriptionTimeout(newTimeout)
+
 proc subscribe(
     wf: WakuFilter,
     peerId: PeerID,
@@ -176,7 +179,7 @@ proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
     return
 
   await conn.writeLp(buffer)
-  debug "published successful", peerId = shortLog(peer)
+  debug "published successful", peerId = shortLog(peer), conn
   waku_service_network_bytes.inc(
     amount = buffer.len().int64, labelValues = [WakuFilterPushCodec, "out"]
   )
@@ -281,7 +284,8 @@ proc handleMessage*(
 
 proc initProtocolHandler(wf: WakuFilter) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    debug "filter subscribe request handler triggered", peerId = shortLog(conn.peerId)
+    debug "filter subscribe request handler triggered",
+      peerId = shortLog(conn.peerId), conn
 
     var response: FilterSubscribeResponse
 

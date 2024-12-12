@@ -456,11 +456,10 @@ proc mountFilterClient*(node: WakuNode) {.async: (raises: []).} =
 
   node.wakuFilterClient = WakuFilterClient.new(node.peerManager, node.rng)
 
-  if node.started:
-    try:
-      await node.wakuFilterClient.start()
-    except CatchableError:
-      error "failed to start wakuFilterClient", error = getCurrentExceptionMsg()
+  try:
+    await node.wakuFilterClient.start()
+  except CatchableError:
+    error "failed to start wakuFilterClient", error = getCurrentExceptionMsg()
 
   try:
     node.switch.mount(node.wakuFilterClient, protocolMatcher(WakuFilterSubscribeCodec))

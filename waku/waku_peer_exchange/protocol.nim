@@ -71,13 +71,15 @@ proc request*(
     await conn.writeLP(rpc.encode().buffer)
     buffer = await conn.readLp(DefaultMaxRpcSize.int)
   except CatchableError as exc:
-    error "exception when handling peer exchange request", error = getCurrentExceptionMsg()
+    error "exception when handling peer exchange request",
+      error = getCurrentExceptionMsg()
     waku_px_errors.inc(labelValues = [exc.msg])
     callResult = (
       status_code: PeerExchangeResponseStatusCode.SERVICE_UNAVAILABLE,
       status_desc: some($exc.msg),
     )
   finally:
+    debug "JJJJ"
     # close, no more data is expected
     await conn.closeWithEof()
 
@@ -95,7 +97,8 @@ proc request*(
       )
     )
   if decodedBuff.get().response.status_code != PeerExchangeResponseStatusCode.SUCCESS:
-    error "peer exchange request error", status_code = decodedBuff.get().response.status_code
+    error "peer exchange request error",
+      status_code = decodedBuff.get().response.status_code
     return err(
       (
         status_code: decodedBuff.get().response.status_code,
@@ -283,6 +286,7 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
       ).isOkOr:
         error "Failed to respond with TOO_MANY_REQUESTS:", error = $error
     # close, no data is expected
+    debug "JJJJ"
     await conn.closeWithEof()
 
   wpx.handler = handler
