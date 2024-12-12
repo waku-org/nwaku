@@ -2227,8 +2227,7 @@ suite "Waku Filter - End to End":
   suite "Subscription timeout":
     var server {.threadvar.}: WakuNode
     var client {.threadvar.}: WakuNode
-    var clientSwitch2nd {.threadvar.}: Switch
-    var wakuFilterClient2nd {.threadvar.}: WakuFilterClient
+    var client2nd {.threadvar.}: WakuNode
     var serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
     var pubsubTopic {.threadvar.}: PubsubTopic
     var contentTopic {.threadvar.}: ContentTopic
@@ -2262,29 +2261,28 @@ suite "Waku Filter - End to End":
       pubsubTopic = DefaultPubsubTopic
       contentTopic = DefaultContentTopic
       contentTopicSeq = @[contentTopic]
-      clientSwitch2nd = newStandardSwitch()
-      wakuFilterClient2nd = await newTestWakuFilterClient(clientSwitch2nd)
 
       client =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(23450))
       server =
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(23451))
+      client2nd =
+        newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(23452))
 
-      await allFutures(server.start(), client.start(), clientSwitch2nd.start())
+      await allFutures(server.start(), client.start(), client2nd.start())
 
       await client.mountFilterClient()
+      await client2nd.mountFilterClient()
       await server.mountFilter()
 
       client.wakuFilterClient.registerPushHandler(messagePushHandler)
-      wakuFilterClient2nd.registerPushHandler(messagePushHandler2nd)
+      client2nd.wakuFilterClient.registerPushHandler(messagePushHandler2nd)
       clientPeerId = client.switch.peerInfo.peerId
-      clientPeerId2nd = clientSwitch2nd.peerInfo.peerId
+      clientPeerId2nd = client2nd.switch.peerInfo.peerId
       serverRemotePeerInfo = server.switch.peerInfo
 
     asyncTeardown:
-      await allFutures(
-        wakuFilterClient2nd.stop(), clientSwitch2nd.stop(), client.stop(), server.stop()
-      )
+      await allFutures(client2nd.stop(), client.stop(), server.stop())
 
     asyncTest "client unsubscribe by timeout":
       server.wakuFilter.setSubscriptionTimeout(1.seconds)
@@ -2453,6 +2451,7 @@ suite "Waku Filter - End to End":
         pushedMsg2 == msg2
 
     asyncTest "two clients shifted subscription and timeout":
+      server.wakuFilter.setSubscriptionTimeout(1.seconds)
       # Given
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq.add(contentTopic2nd)
@@ -2462,9 +2461,9 @@ suite "Waku Filter - End to End":
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
-      await sleepAsync(1000)
+      await sleepAsync(500)
 
-      let subscribeResponse2nd = await wakuFilterClient2nd.subscribe(
+      let subscribeResponse2nd = await client2nd.wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
 
@@ -2490,7 +2489,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic1 == pubsubTopic
           pushedMsg1 == msg1
 
-      await sleepAsync(1200)
+      await sleepAsync(700)
 
       check not server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
@@ -2507,11 +2506,12 @@ suite "Waku Filter - End to End":
         pushedMsgPubsubTopic2 == pubsubTopic
         pushedMsg2 == msg2
 
-      await sleepAsync(1000)
+      await sleepAsync(500)
 
       check not server.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
 
     asyncTest "two clients timeout maintenance":
+      server.wakuFilter.setSubscriptionTimeout(500.milliseconds)
       # Given
       let contentTopic2nd = "content-topic-2nd"
       contentTopicSeq.add(contentTopic2nd)
@@ -2521,10 +2521,9 @@ suite "Waku Filter - End to End":
       assert subscribeResponse.isOk(), $subscribeResponse.error
       check server.wakuFilter.subscriptions.isSubscribed(clientPeerId)
 
-      let subscribeResponse2nd = await wakuFilterClient2nd.subscribe(
+      let subscribeResponse2nd = await client2nd.wakuFilterClient.subscribe(
         serverRemotePeerInfo, pubsubTopic, contentTopicSeq
       )
-
       assert subscribeResponse2nd.isOk(), $subscribeResponse2nd.error
       check server.wakuFilter.subscriptions.isSubscribed(clientPeerId2nd)
 
@@ -2547,7 +2546,7 @@ suite "Waku Filter - End to End":
           pushedMsgPubsubTopic1 == pubsubTopic
           pushedMsg1 == msg1
 
-      await sleepAsync(2200)
+      await sleepAsync(700)
 
       await server.wakuFilter.maintainSubscriptions()
 
