@@ -252,7 +252,7 @@ proc new*(
 
   let node = nodeRes.get()
 
-  node.setupCallbacks(confCopy, appCallbacks).isOkOr:
+  node.setupAppCallbacks(confCopy, appCallbacks).isOkOr:
     error "Failed setting up app callbacks", error = error
     return err("Failed setting up app callbacks: " & $error)
 
@@ -277,7 +277,7 @@ proc new*(
     key: confCopy.nodekey.get(),
     node: node,
     deliveryMonitor: deliveryMonitor,
-    callbacks: callbacks,
+    appCallbacks: appCallbacks,
   )
 
   waku.setupSwitchServices(confCopy, relay, rng)
