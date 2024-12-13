@@ -42,6 +42,7 @@ import
   ../factory/node_factory,
   ../factory/internal_config,
   ../factory/external_config,
+  ../factory/app_callbacks,
   ../waku_enr/multiaddr
 
 logScope:
@@ -67,6 +68,7 @@ type Waku* = ref object
 
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
+  appCallbacks*: AppCallbacks
 
 proc logConfig(conf: WakuNodeConf) =
   info "Configuration: Enabled protocols",
@@ -146,7 +148,32 @@ proc newCircuitRelay(isRelayClient: bool): Relay =
     return RelayClient.new()
   return Relay.new()
 
-proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
+proc setupAppCallbacks(
+    node: WakuNode, conf: WakuNodeConf, appCallbacks: AppCallbacks
+): Result[void, string] =
+  if appCallbacks.isNil():
+    info "No external callbacks to be set"
+    return ok()
+
+  if not appCallbacks.relayHandler.isNil():
+    if node.wakuRelay.isNil():
+      return err("Cannot configure relayHandler callback without Relay mounted")
+
+    let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
+      return err("Could not get autoshards: " & error)
+
+    let confShards =
+      conf.shards.mapIt(RelayShard(clusterId: conf.clusterId, shardId: uint16(it)))
+    let shards = confShards & autoShards
+
+    for shard in shards:
+      discard node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
+
+    return ok()
+
+proc new*(
+    T: type Waku, confCopy: var WakuNodeConf, appCallbacks: AppCallbacks = nil
+): Result[Waku, string] =
   let rng = crypto.newRng()
 
   logging.setupLog(confCopy.logLevel, confCopy.logFormat)
@@ -225,6 +252,10 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
 
   let node = nodeRes.get()
 
+  node.setupAppCallbacks(confCopy, appCallbacks).isOkOr:
+    error "Failed setting up app callbacks", error = error
+    return err("Failed setting up app callbacks: " & $error)
+
   ## Delivery Monitor
   var deliveryMonitor: DeliveryMonitor
   if confCopy.reliabilityEnabled:
@@ -246,6 +277,7 @@ proc new*(T: type Waku, confCopy: var WakuNodeConf): Result[Waku, string] =
     key: confCopy.nodekey.get(),
     node: node,
     deliveryMonitor: deliveryMonitor,
+    appCallbacks: appCallbacks,
   )
 
   waku.setupSwitchServices(confCopy, relay, rng)
