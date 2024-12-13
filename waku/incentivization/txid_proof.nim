@@ -25,7 +25,8 @@ proc checkTxIdIsEligible(txHash: TxHash, ethClient: string): Future[bool] {.asyn
     let hasExpectedValue = (txValue == 200500000000005063.u256)
     # check that the to address is "as expected" (hard-coded for now)
     let toAddress = toAddressOption.get()
-    let hasExpectedToAddress = (toAddress == Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
+    let hasExpectedToAddress =
+      (toAddress == Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284"))
     defer:
       await web3.close()
     return hasExpectedValue and hasExpectedToAddress
