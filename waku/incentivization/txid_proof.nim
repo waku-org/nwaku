@@ -4,6 +4,25 @@ import waku/incentivization/rpc
 
 const SimpleTransferGasUsed = Quantity(21000)
 
+proc eth_getTransactionByHash_async(
+    txHash: TxHash, web3: Web3
+): Future[TransactionObject] {.async.} =
+  await web3.provider.eth_getTransactionByHash(txHash)
+
+proc getMinedTransactionReceipt_async(
+    txHash: TxHash, web3: Web3
+): Future[ReceiptObject] {.async.} =
+  await web3.getMinedTransactionReceipt(txHash)
+
+proc getTxAndTxReceipt(
+    txHash: TxHash, web3: Web3
+): Future[(TransactionObject, ReceiptObject)] {.async.} =
+  let txFuture = eth_getTransactionByHash_async(txHash, web3)
+  let receiptFuture = getMinedTransactionReceipt_async(txHash, web3)
+  let tx = await txFuture
+  let txReceipt = await receiptFuture
+  return (tx, txReceipt)
+
 proc isEligibleTxId*(
     eligibilityProof: EligibilityProof,
     expectedToAddress: Address,
@@ -28,9 +47,7 @@ proc isEligibleTxId*(
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
   try:
-    # TODO: make requests in parallel (?)
-    tx = await web3.provider.eth_getTransactionByHash(txHash)
-    txReceipt = await web3.getMinedTransactionReceipt(txHash)
+    (tx, txReceipt) = waitFor getTxAndTxReceipt(txHash, web3)
   except ValueError:
     let errorMsg = "Failed to fetch tx or tx receipt: " & getCurrentExceptionMsg()
     error "exception in isEligibleTxId", error = $errorMsg
