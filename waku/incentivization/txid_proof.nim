@@ -16,10 +16,17 @@ proc isEligibleTxId*(
   ## See spec: https://github.com/waku-org/specs/blob/master/standards/core/incentivization.md
   if eligibilityProof.proofOfPayment.isNone():
     return err("Eligibility proof is empty")
-  let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
-  let web3 = await newWeb3(ethClient)
+  var web3: Web3
+  try:
+    web3 = await newWeb3(ethClient)
+  except ValueError:
+    let errorMsg =
+      "Failed to set up a web3 provider connection: " & getCurrentExceptionMsg()
+    error "exception in isEligibleTxId", error = $errorMsg
+    return err($errorMsg)
   var tx: TransactionObject
   var txReceipt: ReceiptObject
+  let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
   try:
     # TODO: make requests in parallel (?)
     tx = await web3.provider.eth_getTransactionByHash(txHash)

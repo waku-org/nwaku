@@ -73,3 +73,4 @@ suite "Waku Incentivization PoC Eligibility Proofs":
       isEligible.isOk()
 
   # TODO: add tests for simple transfer txs with wrong amount and wrong receiver
+  # TODO: add test for failing Web3 provider
