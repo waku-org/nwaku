@@ -1,4 +1,4 @@
-import std/options, chronos, web3, stew/byteutils, stint, strutils, results
+import std/options, chronos, web3, stew/byteutils, stint, strutils, results, chronicles
 
 import waku/incentivization/rpc
 
@@ -44,5 +44,7 @@ proc isEligibleTxId*(
     defer:
       await web3.close()
     return ok()
-  except ValueError as e:
-    return err("Failed to fetch tx or tx receipt")
+  except ValueError:
+    let errorMsg = "Failed to fetch tx or tx receipt: " & getCurrentExceptionMsg()
+    error "exception in isEligibleTxId", error = $errorMsg
+    return err($errorMsg)
