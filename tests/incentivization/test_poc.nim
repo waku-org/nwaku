@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options], testutils/unittests, chronos, web3, stew/byteutils, stint, strutils
+  std/[options], testutils/unittests, chronos, web3, stew/byteutils, stint, strutils, os
 
 import
   waku/[node/peer_manager, waku_core],
@@ -19,7 +19,10 @@ const TxHashSimpleTransfer* =
   TxHash.fromHex("0xa3985984b2ec3f1c3d473eb57a4820a56748f25dabbf9414f2b8380312b439cc")
 const ExpectedToAddress = Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284")
 const ExpectedValue = 200500000000005063.u256
-const EthClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
+
+# To set up the environment variable (replace Infura with your provider if needed):
+# $ export WEB3_RPC_URL="https://sepolia.infura.io/v3/YOUR_API_KEY"
+const EthClient = os.getEnv("WEB3_RPC_URL")
 
 suite "Waku Incentivization PoC Eligibility Proofs":
   ## Tests for service incentivization PoC.
