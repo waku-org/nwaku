@@ -52,9 +52,6 @@ proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =
 proc `%`*(value: Base64String): JsonNode =
   %(value.string)
 
-proc `%`*(value: WakuMessageHash): JsonNode =
-  %(to0xHex(value))
-
 type JsonMessageEvent* = ref object of JsonEvent
   pubsubTopic*: string
   messageHash*: WakuMessageHash
