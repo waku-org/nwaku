@@ -35,41 +35,41 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     ## Test that an unconfirmed tx is not eligible.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
-    let isEligibleTxId = await isEligibleTxId(
+    let isEligible = await isEligibleTxId(
       eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
     )
     check:
-      not isEligibleTxId
+      isEligible.isErr()
 
   asyncTest "incentivization PoC: contract creation tx is not eligible":
     ## Test that a contract creation tx is not eligible.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCreation.bytes())))
-    let isEligibleTxId = await isEligibleTxId(
+    let isEligible = await isEligibleTxId(
       eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
     )
     check:
-      not isEligibleTxId
+      isEligible.isErr()
 
   asyncTest "incentivization PoC: contract call tx is not eligible":
     ## Test that a contract call tx is not eligible.
     ## This assumes a payment in native currency (ETH), not a token.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCall.bytes())))
-    let isEligibleTxId = await isEligibleTxId(
+    let isEligible = await isEligibleTxId(
       eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
     )
     check:
-      not isEligibleTxId
+      isEligible.isErr()
 
   asyncTest "incentivization PoC: simple transfer tx is eligible":
     ## Test that a simple transfer tx is eligible (if necessary conditions hold).
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashSimpleTransfer.bytes())))
-    let txIdExists = await isEligibleTxId(
+    let isEligible = await isEligibleTxId(
       eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
     )
     check:
-      txIdExists
+      isEligible.isOk()
 
   # TODO: add tests for simple transfer txs with wrong amount and wrong receiver
