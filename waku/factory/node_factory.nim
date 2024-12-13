@@ -124,6 +124,16 @@ proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
   # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
   return uint32(MaxShardIndex + 1)
 
+proc getAutoshards*(
+    node: WakuNode, contentTopics: seq[string]
+): Result[seq[RelayShard], string] =
+  var autoShards: seq[RelayShard]
+  for contentTopic in contentTopics:
+    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
+      return err("Could not parse content topic: " & error)
+    autoShards.add(shard)
+  return ok(autoshards)
+
 proc setupProtocols(
     node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
 ): Future[Result[void, string]] {.async.} =
@@ -169,11 +179,8 @@ proc setupProtocols(
 
     peerExchangeHandler = some(handlePeerExchange)
 
-  var autoShards: seq[RelayShard]
-  for contentTopic in conf.contentTopics:
-    let shard = node.wakuSharding.getShard(contentTopic).valueOr:
-      return err("Could not parse content topic: " & error)
-    autoShards.add(shard)
+  let autoShards = node.getAutoshards(conf.contentTopics).valueOr:
+    return err("Could not get autoshards: " & error)
 
   debug "Shards created from content topics",
     contentTopics = conf.contentTopics, shards = autoShards
