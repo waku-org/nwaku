@@ -377,7 +377,7 @@ proc waku_relay_unsubscribe(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.SUBSCRIBE,
+      RelayMsgType.UNSUBSCRIBE,
       PubsubTopic($pst),
       WakuRelayHandler(onReceivedMessage(ctx)),
     ),
