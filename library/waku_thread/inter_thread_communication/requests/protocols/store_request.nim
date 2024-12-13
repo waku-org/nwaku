@@ -20,7 +20,9 @@ type StoreRequest* = object
   peerAddr: cstring
   timeoutMs: cint
 
-func fromJsonNode(T: type StoreRequest, jsonContent: JsonNode): StoreQueryRequest =
+func fromJsonNode(
+    T: type StoreRequest, jsonContent: JsonNode
+): Result[StoreQueryRequest, string] =
   let contentTopics = collect(newSeq):
     for cTopic in jsonContent["content_topics"].getElems():
       cTopic.getStr()
@@ -64,14 +66,17 @@ func fromJsonNode(T: type StoreRequest, jsonContent: JsonNode): StoreQueryReques
     else:
       none(uint64)
 
+  let startTime = ?jsonContent.getProtoInt64("time_start")
+  let endTime = ?jsonContent.getProtoInt64("time_end")
+
   return ok(
     StoreQueryRequest(
       requestId: jsonContent["request_id"].getStr(),
       includeData: jsonContent["include_data"].getBool(),
       pubsubTopic: pubsubTopic,
       contentTopics: contentTopics,
-      startTime: ?jsonContent.getProtoInt64("time_start"),
-      endTime: ?jsonContent.getProtoInt64("time_end"),
+      startTime: startTime,
+      endTime: endTime,
       messageHashes: msgHashes,
       paginationCursor: paginationCursor,
       paginationForward: paginationForward,
@@ -110,12 +115,12 @@ proc process_remote_query(
   if jsonContentRes.isErr():
     return err("StoreRequest failed parsing store request: " & jsonContentRes.error.msg)
 
-  let storeQueryRequest = StoreRequest.fromJsonNode(jsonContentRes.get())
+  let storeQueryRequest = ?StoreRequest.fromJsonNode(jsonContentRes.get())
 
   let peer = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
     return err("StoreRequest failed to parse peer addr: " & $error)
 
-  let queryResponse = (await waku.node.wakuStoreClient.query(?storeQueryRequest, peer)).valueOr:
+  let queryResponse = (await waku.node.wakuStoreClient.query(storeQueryRequest, peer)).valueOr:
     return err("StoreRequest failed store query: " & $error)
 
   return ok($(%*queryResponse)) ## returning the response in json format
