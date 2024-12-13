@@ -1,16 +1,11 @@
 {.used.}
 
 import
-  std/[options, strscans],
-  testutils/unittests,
-  chronicles,
-  chronos,
-  libp2p/crypto/crypto,
-  web3
+  std/[options], testutils/unittests, chronos, web3, stew/byteutils, stint, strutils
 
 import
   waku/[node/peer_manager, waku_core],
-  ../testlib/[assertions, wakucore, testasync, futures, testutils],
+  ../testlib/[assertions],
   waku/incentivization/[rpc, rpc_codec, common, txid_proof]
 
 # All txids from Ethereum Sepolia testnet
@@ -22,7 +17,8 @@ const TxHashContractCall* =
   TxHash.fromHex("0x2761f066eeae9a259a0247f529133dd01b7f57bf74254a64d897433397d321cb")
 const TxHashSimpleTransfer* =
   TxHash.fromHex("0xa3985984b2ec3f1c3d473eb57a4820a56748f25dabbf9414f2b8380312b439cc")
-
+const ExpectedToAddress = Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284")
+const ExpectedValue = 200500000000005063.u256
 const EthClient = "https://sepolia.infura.io/v3/470c2e9a16f24057aee6660081729fb9"
 
 suite "Waku Incentivization PoC Eligibility Proofs":
@@ -39,32 +35,40 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     ## Test that an unconfirmed tx is not eligible.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
-    let txIsEligible = await isEligible(eligibilityProof, EthClient)
+    let isEligibleTxId = await isEligibleTxId(
+      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+    )
     check:
-      not txIsEligible
+      not isEligibleTxId
 
   asyncTest "incentivization PoC: contract creation tx is not eligible":
     ## Test that a contract creation tx is not eligible.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCreation.bytes())))
-    let txIsEligible = await isEligible(eligibilityProof, EthClient)
+    let isEligibleTxId = await isEligibleTxId(
+      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+    )
     check:
-      not txIsEligible
+      not isEligibleTxId
 
   asyncTest "incentivization PoC: contract call tx is not eligible":
     ## Test that a contract call tx is not eligible.
     ## This assumes a payment in native currency (ETH), not a token.
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCall.bytes())))
-    let txIsEligible = await isEligible(eligibilityProof, EthClient)
+    let isEligibleTxId = await isEligibleTxId(
+      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+    )
     check:
-      not txIsEligible
+      not isEligibleTxId
 
   asyncTest "incentivization PoC: simple transfer tx is eligible":
     ## Test that a simple transfer tx is eligible (if necessary conditions hold).
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashSimpleTransfer.bytes())))
-    let txIdExists = await isEligible(eligibilityProof, EthClient)
+    let txIdExists = await isEligibleTxId(
+      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+    )
     check:
       txIdExists
 
