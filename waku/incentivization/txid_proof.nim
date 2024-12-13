@@ -1,4 +1,4 @@
-import std/options, chronos, web3, stew/byteutils, stint, strutils, results, chronicles
+import std/options, chronos, web3, stew/byteutils, stint, results, chronicles
 
 import waku/incentivization/rpc
 
