@@ -117,7 +117,7 @@ proc readValue*(
     of "ephemeral":
       ephemeral = some(reader.readValue(bool))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if payload.isNone() or isEmptyOrWhitespace(string(payload.get())):
     reader.raiseUnexpectedValue("Field `payload` is missing or empty")

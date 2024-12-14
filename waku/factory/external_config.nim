@@ -647,6 +647,13 @@ with the drawback of consuming some more bandwidth.""",
       name: "peer-exchange-node"
     .}: string
 
+    ## Rendez vous
+    rendezvous* {.
+      desc: "Enable waku rendezvous discovery server",
+      defaultValue: true,
+      name: "rendezvous"
+    .}: bool
+
     ## websocket config
     websocketSupport* {.
       desc: "Enable websocket:  true|false",

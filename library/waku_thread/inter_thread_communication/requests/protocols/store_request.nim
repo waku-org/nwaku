@@ -3,6 +3,7 @@ import chronos, chronicles, results
 import
   ../../../../../waku/factory/waku,
   ../../../../alloc,
+  ../../../../utils,
   ../../../../../waku/waku_core/peers,
   ../../../../../waku/waku_core/time,
   ../../../../../waku/waku_core/message/digest,
@@ -24,7 +25,7 @@ type StoreRequest* = object
 
 func fromJsonNode(
     T: type JsonStoreQueryRequest, jsonContent: JsonNode
-): StoreQueryRequest =
+): Result[StoreQueryRequest, string] =
   let contentTopics = collect(newSeq):
     for cTopic in jsonContent["content_topics"].getElems():
       cTopic.getStr()
@@ -44,18 +45,6 @@ func fromJsonNode(
       some(jsonContent["pubsub_topic"].getStr())
     else:
       none(string)
-
-  let startTime =
-    if jsonContent.contains("time_start"):
-      some(Timestamp(jsonContent["time_start"].getInt()))
-    else:
-      none(Timestamp)
-
-  let endTime =
-    if jsonContent.contains("time_end"):
-      some(Timestamp(jsonContent["time_end"].getInt()))
-    else:
-      none(Timestamp)
 
   let paginationCursor =
     if jsonContent.contains("pagination_cursor"):
@@ -79,17 +68,19 @@ func fromJsonNode(
     else:
       none(uint64)
 
-  return StoreQueryRequest(
-    requestId: jsonContent["request_id"].getStr(),
-    includeData: jsonContent["include_data"].getBool(),
-    pubsubTopic: pubsubTopic,
-    contentTopics: contentTopics,
-    startTime: startTime,
-    endTime: endTime,
-    messageHashes: msgHashes,
-    paginationCursor: paginationCursor,
-    paginationForward: paginationForward,
-    paginationLimit: paginationLimit,
+  return ok(
+    StoreQueryRequest(
+      requestId: jsonContent["request_id"].getStr(),
+      includeData: jsonContent["include_data"].getBool(),
+      pubsubTopic: pubsubTopic,
+      contentTopics: contentTopics,
+      startTime: ?jsonContent.getProtoInt64("time_start"),
+      endTime: ?jsonContent.getProtoInt64("time_end"),
+      messageHashes: msgHashes,
+      paginationCursor: paginationCursor,
+      paginationForward: paginationForward,
+      paginationLimit: paginationLimit,
+    )
   )
 
 proc createShared*(
@@ -128,7 +119,7 @@ proc process(
   let peer = peers.parsePeerInfo(($self[].peerAddr).split(",")).valueOr:
     return err("JsonStoreQueryRequest failed to parse peer addr: " & $error)
 
-  let queryResponse = (await waku.node.wakuStoreClient.query(storeQueryRequest, peer)).valueOr:
+  let queryResponse = (await waku.node.wakuStoreClient.query(?storeQueryRequest, peer)).valueOr:
     return err("JsonStoreQueryRequest failed store query: " & $error)
 
   return ok($(%*queryResponse)) ## returning the response in json format

@@ -62,7 +62,7 @@ suite "Wakunode2 - Waku initialization":
       node.wakuArchive.isNil()
       node.wakuStore.isNil()
       not node.wakuStoreClient.isNil()
-      not node.rendezvous.isNil()
+      not node.wakuRendezvous.isNil()
 
     ## Cleanup
     waitFor waku.stop()
@@ -92,7 +92,7 @@ suite "Wakunode2 - Waku initialization":
       node.wakuArchive.isNil()
       node.wakuStore.isNil()
       not node.wakuStoreClient.isNil()
-      not node.rendezvous.isNil()
+      not node.wakuRendezvous.isNil()
 
       # DS structures are updated with dynamic ports
       typedNodeEnr.get().tcp.get() != 0

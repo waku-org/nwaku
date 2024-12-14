@@ -65,7 +65,7 @@ proc readValue*(
 
       protocolsHealth = some(reader.readValue(seq[ProtocolHealth]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if nodeHealth.isNone():
     reader.raiseUnexpectedValue("Field `nodeHealth` is missing")

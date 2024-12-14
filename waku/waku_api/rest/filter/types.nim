@@ -187,7 +187,7 @@ proc readValue*(
     of "ephemeral":
       ephemeral = some(reader.readValue(bool))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if payload.isNone():
     reader.raiseUnexpectedValue("Field `payload` is missing")
@@ -225,7 +225,7 @@ proc readValue*(
     of "contentFilters":
       contentFilters = some(reader.readValue(seq[ContentTopic]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if contentFilters.isNone():
     reader.raiseUnexpectedValue("Field `contentFilters` is missing")
@@ -262,7 +262,7 @@ proc readValue*(
     of "requestId":
       requestId = some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
@@ -296,7 +296,7 @@ proc readValue*(
     of "contentFilters":
       contentFilters = some(reader.readValue(seq[ContentTopic]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
@@ -344,7 +344,7 @@ proc readValue*(
     of "contentFilters":
       contentFilters = some(reader.readValue(seq[ContentTopic]))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
@@ -385,7 +385,7 @@ proc readValue*(
     of "requestId":
       requestId = some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")
@@ -416,7 +416,7 @@ proc readValue*(
     of "statusDesc":
       statusDesc = some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if requestId.isNone():
     reader.raiseUnexpectedValue("Field `requestId` is missing")

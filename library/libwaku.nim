@@ -27,7 +27,8 @@ import
   ./waku_thread/inter_thread_communication/requests/ping_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
-  ./ffi_types
+  ./ffi_types,
+  ../waku/factory/app_callbacks
 
 ################################################################################
 ### Wrapper around the waku node
@@ -138,10 +139,14 @@ proc waku_new(
 
   ctx.userData = userData
 
+  let appCallbacks = AppCallbacks(relayHandler: onReceivedMessage(ctx))
+
   let retCode = handleRequest(
     ctx,
     RequestType.LIFECYCLE,
-    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
+    NodeLifecycleRequest.createShared(
+      NodeLifecycleMsgType.CREATE_NODE, configJson, appCallbacks
+    ),
     callback,
     userData,
   )
@@ -267,7 +272,8 @@ proc waku_relay_publish(
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
-    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+      raise newException(JsonParsingError, $error)
   except JsonParsingError:
     deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
@@ -371,7 +377,7 @@ proc waku_relay_unsubscribe(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.SUBSCRIBE,
+      RelayMsgType.UNSUBSCRIBE,
       PubsubTopic($pst),
       WakuRelayHandler(onReceivedMessage(ctx)),
     ),
@@ -495,7 +501,8 @@ proc waku_lightpush_publish(
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
-    jsonMessage = JsonMessage.fromJsonNode(jsonContent)
+    jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
+      raise newException(JsonParsingError, $error)
   except JsonParsingError:
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
