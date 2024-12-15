@@ -126,7 +126,7 @@ jobs:
     uses: waku-org/nwaku/.github/workflows/container-image.yml@master
     secrets: inherit
 
-  QA_tests:
+  nwaku-nwaku-interop-tests:
     needs: build-docker-image
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@SMOKE_TESTS
     with:
