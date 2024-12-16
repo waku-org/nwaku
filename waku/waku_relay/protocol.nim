@@ -460,10 +460,9 @@ proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, str
   ## The 'mesh' atribute is defined in the GossipSub ref object.
 
   if not w.mesh.hasKey(pubsubTopic):
-    return err(
-      "getNumPeersInMesh - there is no mesh peer for the given pubsub topic: " &
-        pubsubTopic
-    )
+    debug "getNumPeersInMesh - there is no mesh peer for the given pubsub topic",
+      pubsubTopic = pubsubTopic
+    return ok(0)
 
   let peersRes = catch:
     w.mesh[pubsubTopic]
