@@ -72,10 +72,6 @@ const
   # Max peers that we allow from the same IP
   DefaultColocationLimit* = 5
 
-type NodeTopicDetails* = ref object of RootObj
-  topic*: string
-  healthStatus*: TopicHealth
-
 type PeerManager* = ref object of RootObj
   switch*: Switch
   wakuPeerStore*: WakuPeerStore
@@ -971,7 +967,7 @@ proc relayConnectivityLoop*(pm: PeerManager) {.async.} =
       await pm.manageRelayPeers()
     else:
       await pm.connectToRelayPeers()
-    discard pm.updateTopicsHealth()
+    discard pm.updateTopicsHealth() # we don't want to await for the callbacks to finish
     let
       (inRelayPeers, outRelayPeers) = pm.connectedPeers(WakuRelayCodec)
       excessInConns = max(inRelayPeers.len - pm.inRelayPeersTarget, 0)

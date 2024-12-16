@@ -165,7 +165,10 @@ proc waku_new(
 
   ctx.userData = userData
 
-  let appCallbacks = AppCallbacks(relayHandler: onReceivedMessage(ctx))
+  let appCallbacks = AppCallbacks(
+    relayHandler: onReceivedMessage(ctx),
+    topicHealthChangeHandler: onTopicHealthChange(ctx),
+  )
 
   let retCode = handleRequest(
     ctx,

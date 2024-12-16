@@ -14,7 +14,9 @@ proc new*(
   # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
 
   return JsonTopicHealthChangeEvent(
-    eventType: "topic_health_change", pubsubTopic: pubsubTopic, topicHealth: topicHealth
+    eventType: "relay_topic_health_change",
+    pubsubTopic: pubsubTopic,
+    topicHealth: topicHealth,
   )
 
 method `$`*(jsonTopicHealthChange: JsonTopicHealthChangeEvent): string =
