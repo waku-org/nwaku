@@ -1,0 +1,283 @@
+{.push raises: [].}
+
+import std/sequtils, stew/leb128
+
+import ../common/protobuf, ../waku_core/message, ../waku_core/time, ./common
+
+proc encode*(value: WakuMessagePayload): ProtoBuffer =
+  var pb = initProtoBuffer()
+
+  pb.write3(1, value.pubsub)
+  pb.write3(2, value.message.encode())
+
+  return pb
+
+proc deltaEncode*(itemSet: ItemSet): seq[byte] =
+  let capacity = 1 + (itemSet.elements.len * 41)
+
+  var
+    output = newSeqOfCap[byte](capacity)
+    lastTime = Timestamp(0)
+    buf = Leb128Buf[uint64]()
+
+  for id in itemSet.elements:
+    let timeDiff = uint64(id.time) - uint64(lastTime)
+    lastTime = id.time
+
+    # encode timestamp
+    buf = timediff.toBytes(Leb128)
+    output &= @buf
+
+    output &= id.fingerprint
+
+  output &= byte(itemSet.reconciled)
+
+  return output
+
+proc deltaEncode*(value: SyncPayload): seq[byte] =
+  if value.ranges.len == 0:
+    return @[0]
+
+  var
+    output = newSeqOfCap[byte](1000)
+    buf = Leb128Buf[uint64]()
+    lastTimestamp: Timestamp
+    lastHash: Fingerprint
+    i = 0
+    j = 0
+
+  # the first range is implicit but must be explicit when encoded
+  let (bound, _) = value.ranges[0]
+
+  lastTimestamp = bound.a.time
+  lastHash = bound.a.fingerprint
+
+  # encode first timestamp
+  buf = uint64(lastTimestamp).toBytes(Leb128)
+  output &= @buf
+
+  #echo "First Timestamp: " & $lastTimestamp
+
+  # implicit first fingerprint is always 0 and range type is always skip
+
+  for (bound, rangeType) in value.ranges:
+    let timeDiff = uint64(bound.b.time) - uint64(lastTimestamp)
+    lastTimestamp = bound.b.time
+
+    # encode timestamp
+    buf = timeDiff.toBytes(Leb128)
+    output &= @buf
+
+    #echo "Timestamp: " & $timeDiff
+
+    if timeDiff == 0:
+      var sameBytes = 0
+      for (byte1, byte2) in zip(lastHash, bound.b.fingerprint):
+        sameBytes.inc()
+
+        if byte1 != byte2:
+          break
+
+      # encode number of same bytes
+      output &= byte(sameBytes)
+
+      #echo "Same Bytes: " & $sameBytes
+
+      # encode fingerprint bytes
+      output &= bound.b.fingerprint[0 ..< sameBytes]
+
+    # encode rangeType
+    output &= byte(rangeType)
+
+    case rangeType
+    of skipRange:
+      #echo "Skip Range"
+      continue
+    of fingerprintRange:
+      let fingerprint = value.fingerprints[i]
+      i.inc()
+
+      #echo "Encode Fingerprint"
+
+      output &= fingerprint
+    of itemSetRange:
+      let itemSet = value.itemSets[j]
+      j.inc()
+
+      # encode how many elements are in the set
+      buf = uint64(itemSet.elements.len).toBytes(Leb128)
+      output &= @buf
+
+      #echo "Set elements: " & $itemSet.elements.len
+
+      let encodedSet = itemSet.deltaEncode()
+
+      #echo "Encoded Set"
+
+      output &= encodedSet
+
+    continue
+
+  return output
+
+proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int =
+  var
+    lastTime = Timestamp(0)
+    val = 0.uint64
+    len = 0.int8
+    idx = 0
+
+  while itemSet.elements.len < setLength:
+    var slice = buffer[idx ..< idx + 9]
+    (val, len) = uint64.fromBytes(slice, Leb128)
+    idx += len
+
+    let time = lastTime + Timestamp(val)
+    lastTime = time
+
+    #echo "Timestamp: " & $time
+    #echo "IDX: " & $idx
+
+    slice = buffer[idx ..< idx + 32]
+    idx += 32
+    var fingerprint = EmptyFingerprint
+    for i, bytes in slice:
+      fingerprint[i] = bytes
+
+    #echo "Hash: " & $fingerprint
+    #echo "IDX: " & $idx
+
+    let id = ID(time: time, fingerprint: fingerprint)
+
+    itemSet.elements.add(id)
+
+  itemSet.reconciled = bool(buffer[idx])
+  idx += 1
+
+  #echo "Reconciled: " & $itemSet.reconciled
+  #echo "IDX: " & $idx
+
+  return idx
+
+proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
+  #echo "buffer length: " & $buffer.len
+
+  if buffer.len == 1:
+    return SyncPayload()
+
+  var
+    payload = SyncPayload()
+    lastTime = Timestamp(0)
+    val = 0.uint64
+    len = 0.int8
+    idx = 0
+    slice = buffer[idx ..< idx + 9]
+
+  # first timestamp
+  (val, len) = uint64.fromBytes(slice, Leb128)
+  idx += len
+  lastTime = Timestamp(val)
+
+  #echo "First Range Timestamp: " & $lastTime
+  #echo "IDX: " & $idx
+
+  # implicit first fingerprint is always 0 
+  # implicit first range mode is alway skip
+
+  while idx < buffer.len - 1:
+    let lowerRangeBound = ID(time: lastTime, fingerprint: EmptyFingerprint)
+
+    # decode timestamp diff
+    let min = min(idx + 9, buffer.len)
+    slice = buffer[idx ..< min]
+    (val, len) = uint64.fromBytes(slice, Leb128)
+    idx += len
+    let timeDiff = Timestamp(val)
+
+    #echo "Range Timestamp diff: " & $timeDiff
+    #echo "IDX: " & $idx
+
+    var fingerprint = EmptyFingerprint
+    if timeDiff == 0:
+      # decode number of same bytes
+      let sameBytes = int(buffer[idx])
+      idx += 1
+
+      #echo "Same Bytes Count: " & $sameBytes
+      #echo "IDX: " & $idx
+
+      # decode same bytes
+      slice = buffer[idx ..< idx + sameBytes]
+      idx += sameBytes
+      for i, bytes in slice:
+        fingerprint[i] = bytes
+
+      #echo "Same Bytes: " & $fingerprint
+      #echo "IDX: " & $idx
+
+    let thisTime = lastTime + timeDiff
+    lastTime = thisTime
+
+    #echo "Range Timestamp: " & $thisTime
+
+    let upperRangeBound = ID(time: thisTime, fingerprint: fingerprint)
+
+    let bounds = lowerRangeBound .. upperRangeBound
+
+    # decode range type
+    let rangeType = RangeType(buffer[idx])
+    idx += 1
+
+    #echo "Range Type: " & $rangeType
+    #echo "IDX: " & $idx
+
+    payload.ranges.add((bounds, rangeType))
+
+    if rangeType == fingerprintRange:
+      # decode fingerprint
+      slice = buffer[idx ..< idx + 32]
+      idx += 32
+      var fingerprint = EmptyFingerprint
+      for i, bytes in slice:
+        fingerprint[i] = bytes
+
+      #echo "Fingerprint: " & $fingerprint
+      #echo "IDX: " & $idx
+
+      payload.fingerprints.add(fingerprint)
+    elif rangeType == itemSetRange:
+      # decode item set length
+      let min = min(idx + 9, buffer.len)
+      slice = buffer[idx ..< min]
+      (val, len) = uint64.fromBytes(slice, Leb128)
+      idx += len
+      let itemSetLength = int(val)
+
+      #echo "Set length: " & $itemSetLength
+      #echo "IDX: " & $idx
+
+      # decode item set
+      var itemSet = ItemSet()
+      slice = buffer[idx ..< buffer.len]
+      let count = deltaDecode(itemSet, slice, itemSetLength)
+      idx += count
+
+      #echo "Set Decoded"
+      #echo "IDX: " & $idx
+
+      payload.itemSets.add(itemSet)
+
+  return payload
+
+proc decode*(T: type WakuMessagePayload, buffer: seq[byte]): ProtobufResult[T] =
+  let pb = initProtoBuffer(buffer)
+
+  var pubsub: string
+  discard ?pb.getField(1, pubsub)
+
+  var proto: ProtoBuffer
+  discard ?pb.getField(2, proto)
+
+  let message = ?WakuMessage.decode(proto.buffer)
+
+  return ok(WakuMessagePayload(pubsub: pubsub, message: message))
