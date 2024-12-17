@@ -47,7 +47,7 @@ proc isEligibleTxId*(
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
   try:
-    (tx, txReceipt) = waitFor getTxAndTxReceipt(txHash, web3)
+    (tx, txReceipt) = await getTxAndTxReceipt(txHash, web3)
   except ValueError:
     let errorMsg = "Failed to fetch tx or tx receipt: " & getCurrentExceptionMsg()
     error "exception in isEligibleTxId", error = $errorMsg
