@@ -4,12 +4,12 @@ import waku/incentivization/rpc
 
 const SimpleTransferGasUsed = Quantity(21000)
 
-proc eth_getTransactionByHash_async(
+proc getTransactionByHash(
     txHash: TxHash, web3: Web3
 ): Future[TransactionObject] {.async.} =
   await web3.provider.eth_getTransactionByHash(txHash)
 
-proc getMinedTransactionReceipt_async(
+proc getMinedTransactionReceipt(
     txHash: TxHash, web3: Web3
 ): Future[ReceiptObject] {.async.} =
   await web3.getMinedTransactionReceipt(txHash)
@@ -17,8 +17,8 @@ proc getMinedTransactionReceipt_async(
 proc getTxAndTxReceipt(
     txHash: TxHash, web3: Web3
 ): Future[(TransactionObject, ReceiptObject)] {.async.} =
-  let txFuture = eth_getTransactionByHash_async(txHash, web3)
-  let receiptFuture = getMinedTransactionReceipt_async(txHash, web3)
+  let txFuture = getTransactionByHash(txHash, web3)
+  let receiptFuture = getMinedTransactionReceipt(txHash, web3)
   let tx = await txFuture
   let txReceipt = await receiptFuture
   return (tx, txReceipt)
