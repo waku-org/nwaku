@@ -74,7 +74,7 @@ suite "WakuNode2 - Validators":
 
     # Subscribe all nodes to the same topic/handler
     for node in nodes:
-      discard node.wakuRelay.subscribe($spamProtectedShard, handler)
+      node.wakuRelay.subscribe($spamProtectedShard, handler)
     await sleepAsync(500.millis)
 
     # Each node publishes 10 signed messages
@@ -164,7 +164,7 @@ suite "WakuNode2 - Validators":
 
     # Subscribe all nodes to the same topic/handler
     for node in nodes:
-      discard node.wakuRelay.subscribe($spamProtectedShard, handler)
+      node.wakuRelay.subscribe($spamProtectedShard, handler)
     await sleepAsync(500.millis)
 
     # Each node sends 5 messages, signed but with a non-whitelisted key (total = 25)
@@ -292,7 +292,7 @@ suite "WakuNode2 - Validators":
 
     # Subscribe all nodes to the same topic/handler
     for node in nodes:
-      discard node.wakuRelay.subscribe($spamProtectedShard, handler)
+      node.wakuRelay.subscribe($spamProtectedShard, handler)
     await sleepAsync(500.millis)
 
     # Add signed message validator to all nodes. They will only route signed messages

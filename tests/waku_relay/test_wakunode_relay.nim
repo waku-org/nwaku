@@ -513,7 +513,7 @@ suite "WakuNode - Relay":
     # subscribe all nodes to a topic
     let topic = "topic"
     for node in nodes:
-      discard node.wakuRelay.subscribe(topic, nil)
+      node.wakuRelay.subscribe(topic, nil)
     await sleepAsync(500.millis)
 
     # connect nodes in full mesh

@@ -238,7 +238,7 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
 
-  discard node.wakuRelay.subscribe(topic, defaultHandler)
+  node.wakuRelay.subscribe(topic, defaultHandler)
 
 proc subscribe*(
     node: WakuNode, subscription: SubscriptionEvent, handler = none(WakuRelayHandler)
@@ -271,7 +271,8 @@ proc subscribe*(
   node.registerRelayDefaultHandler(pubsubTopic)
 
   if handler.isSome():
-    let wrappedHandler = node.wakuRelay.subscribe(pubsubTopic, handler.get())
+    node.wakuRelay.subscribe(pubsubTopic, handler.get())
+    let wrappedHandler = wrapHandler(handler.get())
 
     if contentTopicOp.isSome():
       node.contentTopicHandlers[contentTopicOp.get()] = wrappedHandler

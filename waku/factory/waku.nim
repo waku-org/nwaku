@@ -167,7 +167,7 @@ proc setupAppCallbacks(
     let shards = confShards & autoShards
 
     for shard in shards:
-      discard node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
+      node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
 
     return ok()
 

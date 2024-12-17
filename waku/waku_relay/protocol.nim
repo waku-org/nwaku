@@ -383,12 +383,7 @@ proc validateMessage*(
 
   return ok()
 
-proc subscribe*(
-    w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler
-): TopicHandler =
-  debug "subscribe", pubsubTopic = pubsubTopic
-
-  # We need to wrap the handler since gossipsub doesnt understand WakuMessage
+proc wrapHandler*(handler: WakuRelayHandler): TopicHandler =
   let wrappedHandler = proc(
       pubsubTopic: string, data: seq[byte]
   ): Future[void] {.gcsafe, raises: [].} =
@@ -406,8 +401,15 @@ proc subscribe*(
       waku_relay_network_bytes.inc(
         data.len.int64 + pubsubTopic.len.int64, labelValues = [pubsubTopic, "net", "in"]
       )
-
       return handler(pubsubTopic, decMsg.get())
+
+  return wrappedHandler
+
+proc subscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: WakuRelayHandler) =
+  debug "subscribe", pubsubTopic = pubsubTopic
+
+  # We need to wrap the handler since gossipsub doesnt understand WakuMessage
+  let wrappedHandler = wrapHandler(handler)
 
   # Add the ordered validator to the topic
   # This assumes that if `w.validatorInserted.hasKey(pubSubTopic) is true`, it contains the ordered validator.
@@ -422,7 +424,7 @@ proc subscribe*(
   # subscribe to the topic with our wrapped handler
   procCall GossipSub(w).subscribe(pubsubTopic, wrappedHandler)
 
-  return wrappedHandler
+  return
 
 proc unsubscribeAll*(w: WakuRelay, pubsubTopic: PubsubTopic) =
   ## Unsubscribe all handlers on this pubsub topic

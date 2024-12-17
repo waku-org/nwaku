@@ -94,7 +94,7 @@ proc process*(
   case self.operation
   of SUBSCRIBE:
     # TO DO: properly perform 'subscribe'
-    discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
+    waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
   of UNSUBSCRIBE:
     # TODO: properly perform 'unsubscribe'
     waku.node.wakuRelay.unsubscribeAll($self.pubsubTopic)
