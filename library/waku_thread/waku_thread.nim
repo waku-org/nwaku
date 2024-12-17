@@ -113,6 +113,9 @@ proc sendRequestToWakuThread*(
   ## wait until the Waku Thread properly received the request
   let res = ctx.reqReceivedSignal.waitSync()
   if res.isErr():
+    deallocShared(req)
     return err("Couldn't receive reqReceivedSignal signal")
 
+  ## Notice that in case of "ok", the deallocShared(req) is performed by the Waku Thread in the
+  ## process proc.
   ok()
