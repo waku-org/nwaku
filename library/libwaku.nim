@@ -89,8 +89,6 @@ proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
   return proc(
       pubsubTopic: PubsubTopic, topicHealth: TopicHealth
   ): Future[system.void] {.async.} =
-    echo "------------ GABRIEL onTopicHealthChange ----------"
-
     # Callback that hadles the Waku Relay events. i.e. messages or errors.
     if isNil(ctx[].eventCallback):
       error "eventCallback is nil"

@@ -911,10 +911,6 @@ proc prunePeerStoreLoop(pm: PeerManager) {.async.} =
     await sleepAsync(PrunePeerStoreInterval)
 
 proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
-  echo "-------- printing topics in mesh"
-  for topic in toSeq(wakuRelay.mesh.keys):
-    echo "------- topic in mesh: ", topic
-
   let numPeersInMesh = wakuRelay.getNumPeersInMesh(topic).valueOr:
     error "Could not calculate topic health", topic = topic, error = error
     return TopicHealth.UNHEALTHY
@@ -935,15 +931,11 @@ proc updateTopicsHealth(pm: PeerManager): Future[void] =
       oldHealth = pm.topicsHealth.getOrDefault(topic)
       currentHealth = pm.wakuRelay.calculateTopicHealth(topic)
 
-    info "----------- updateTopicsHealth",
-      topic = topic, oldHealth = oldHealth, currentHealth = currentHealth
     if oldHealth == currentHealth:
       continue
 
-    echo "--------- GABRIEL topic health change 1"
     pm.topicsHealth[topic] = currentHealth
     if not pm.onTopicHealthChange.isNil():
-      echo "--------- GABRIEL topic health change 2"
       let fut = pm.onTopicHealthChange(topic, currentHealth)
       if not fut.completed(): # Fast path for successful sync handlers
         futs.add(fut)
