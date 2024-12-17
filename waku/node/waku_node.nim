@@ -34,6 +34,7 @@ import
   ../waku_store/client as store_client,
   ../waku_store/common as store_common,
   ../waku_store/resume,
+  ../waku_store_sync,
   ../waku_filter_v2,
   ../waku_filter_v2/client as filter_client,
   ../waku_filter_v2/subscriptions as filter_subscriptions,
@@ -99,6 +100,8 @@ type
     wakuStore*: store.WakuStore
     wakuStoreClient*: store_client.WakuStoreClient
     wakuStoreResume*: StoreResume
+    wakuStoreReconciliation*: SyncReconciliation
+    wakuStoreTransfer*: SyncTransfer
     wakuFilter*: waku_filter_v2.WakuFilter
     wakuFilterClient*: filter_client.WakuFilterClient
     wakuRlnRelay*: WakuRLNRelay
@@ -201,6 +204,35 @@ proc mountSharding*(
   node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
   return ok()
 
+## Waku Sync
+
+proc mountStoreSync*(
+    node: WakuNode,
+    storeSyncRange = 3600,
+    storeSyncInterval = 300,
+    storeSyncRelayJitter = 20,
+): Future[Result[void, string]] {.async.} =
+  let idsChannel = newAsyncQueue[ID](100)
+  let wantsChannel = newAsyncQueue[(PeerId, Fingerprint)](100)
+  let needsChannel = newAsyncQueue[(PeerId, Fingerprint)](100)
+
+  let recon =
+    ?await SyncReconciliation.new(
+      node.peerManager, node.wakuArchive, storeSyncRange.seconds,
+      storeSyncInterval.seconds, storeSyncRelayJitter.seconds, idsChannel, wantsChannel,
+      needsChannel,
+    )
+
+  node.wakuStoreReconciliation = recon
+
+  let transfer = SyncTransfer.new(
+    node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
+  )
+
+  node.wakuStoreTransfer = transfer
+
+  return ok()
+
 ## Waku relay
 
 proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
@@ -231,12 +263,16 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
 
     await node.wakuArchive.handleMessage(topic, msg)
 
+  proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    node.wakuStoreReconciliation.messageIngress(topic, msg)
+
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
   ): Future[void] {.async, gcsafe.} =
     await traceHandler(topic, msg)
     await filterHandler(topic, msg)
     await archiveHandler(topic, msg)
+    await syncHandler(topic, msg)
 
   discard node.wakuRelay.subscribe(topic, defaultHandler)
 
@@ -1295,6 +1331,12 @@ proc start*(node: WakuNode) {.async.} =
   if not node.wakuRendezvous.isNil():
     await node.wakuRendezvous.start()
 
+  if not node.wakuStoreReconciliation.isNil():
+    node.wakuStoreReconciliation.start()
+
+  if not node.wakuStoreTransfer.isNil():
+    node.wakuStoreTransfer.start()
+
   ## The switch uses this mapper to update peer info addrs
   ## with announced addrs after start
   let addressMapper = proc(
@@ -1333,6 +1375,12 @@ proc stop*(node: WakuNode) {.async.} =
 
   if not node.wakuStoreResume.isNil():
     await node.wakuStoreResume.stopWait()
+
+  if not node.wakuStoreReconciliation.isNil():
+    await node.wakuStoreReconciliation.stopWait()
+
+  if not node.wakuStoreTransfer.isNil():
+    await node.wakuStoreTransfer.stopWait()
 
   if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()

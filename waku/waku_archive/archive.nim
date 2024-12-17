@@ -128,12 +128,12 @@ proc syncMessageIngress*(
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     trace "failed to insert message",
-      msg_hash = msgHash.to0xHex(),
+      msg_hash = msgHash.toHex(),
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
-      error = error
-    return err("failed to insert message")
+      error = $error
+    return err(error)
 
   trace "message archived",
     msg_hash = msgHash.to0xHex(),
