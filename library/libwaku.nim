@@ -11,10 +11,12 @@ import
   waku/common/base64,
   waku/waku_core/message/message,
   waku/node/waku_node,
+  waku/node/peer_manager,
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
   waku/waku_relay,
-  ./events/[json_message_event, json_topic_health_change_event],
+  ./events/
+    [json_message_event, json_topic_health_change_event, json_connection_change_event],
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
@@ -58,6 +60,29 @@ proc handleRequest(
     return RET_ERR
 
   return RET_OK
+
+proc onConnectionChange(ctx: ptr WakuContext): ConnectionChangeHandler =
+  return proc(peerId: PeerId, peerEvent: PeerEventKind): Future[system.void] {.async.} =
+    # Callback that handles connection change events
+    if isNil(ctx[].eventCallback):
+      error "eventCallback is nil"
+      return
+
+    if isNil(ctx[].eventUserData):
+      error "eventUserData is nil"
+      return
+
+    foreignThreadGc:
+      try:
+        let event = $JsonConnectionChangeEvent.new(peerId, peerEvent)
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+        )
+      except Exception, CatchableError:
+        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+        )
 
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(
@@ -167,6 +192,7 @@ proc waku_new(
   let appCallbacks = AppCallbacks(
     relayHandler: onReceivedMessage(ctx),
     topicHealthChangeHandler: onTopicHealthChange(ctx),
+    connectionChangeHandler: onConnectionChange(ctx),
   )
 
   let retCode = handleRequest(
