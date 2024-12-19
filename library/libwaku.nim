@@ -297,12 +297,7 @@ proc waku_relay_publish(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(
-      RelayMsgType.PUBLISH,
-      PubsubTopic($pst),
-      WakuRelayHandler(onReceivedMessage(ctx)),
-      wakuMessage,
-    ),
+    RelayRequest.createShared(RelayMsgType.PUBLISH, PubsubTopic($pst), nil, wakuMessage),
     callback,
     userData,
   )
