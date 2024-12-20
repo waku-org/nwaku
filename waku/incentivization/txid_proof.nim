@@ -22,15 +22,14 @@ proc getMinedTransactionReceipt(
 proc getTxAndTxReceipt(
     txHash: TxHash, web3: Web3
 ): Future[Result[(TransactionObject, ReceiptObject), string]] {.async.} =
-  # get tx
   let txFuture = getTransactionByHash(txHash, web3)
-  let tx = await txFuture
-  # get tx receipt
   let receiptFuture = getMinedTransactionReceipt(txHash, web3)
-  let txReceipt = await receiptFuture
+  await allFutures(txFuture, receiptFuture)
+  let tx = txFuture.read()
+  let txReceipt = receiptFuture.read()
   if txReceipt.isErr:
     return err("Cannot get tx receipt")
-  return ok((tx, txReceipt.value()))
+  return ok((tx, txReceipt.get()))
 
 proc isEligibleTxId*(
     eligibilityProof: EligibilityProof,
@@ -55,10 +54,15 @@ proc isEligibleTxId*(
   var tx: TransactionObject
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
-  let txAndTxReceipt = await getTxAndTxReceipt(txHash, web3)
-  txAndTxReceipt.isOkOr:
-    return err("Failed to fetch tx or tx receipt")
-  (tx, txReceipt) = txAndTxReceipt.value()
+  try:
+    let txAndTxReceipt = await getTxAndTxReceipt(txHash, web3)
+    txAndTxReceipt.isOkOr:
+      return err("Failed to fetch tx or tx receipt")
+    (tx, txReceipt) = txAndTxReceipt.value()
+  except ValueError:
+    let errorMsg = "Failed to fetch tx or tx receipt: " & getCurrentExceptionMsg()
+    error "exception in isEligibleTxId", error = $errorMsg
+    return err($errorMsg)
   # check that it is not a contract creation tx
   let toAddressOption = txReceipt.to
   if toAddressOption.isNone:
