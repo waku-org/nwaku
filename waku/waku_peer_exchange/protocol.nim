@@ -79,7 +79,6 @@ proc request*(
       status_desc: some($exc.msg),
     )
   finally:
-    debug "JJJJ"
     # close, no more data is expected
     await conn.closeWithEof()
 
@@ -286,7 +285,6 @@ proc initProtocolHandler(wpx: WakuPeerExchange) =
       ).isOkOr:
         error "Failed to respond with TOO_MANY_REQUESTS:", error = $error
     # close, no data is expected
-    debug "JJJJ"
     await conn.closeWithEof()
 
   wpx.handler = handler
