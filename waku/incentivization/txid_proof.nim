@@ -3,6 +3,7 @@ import std/options, chronos, web3, stew/byteutils, stint, results, chronicles
 import waku/incentivization/rpc
 
 const SimpleTransferGasUsed = Quantity(21000)
+const TxReceiptQueryTimeout = 3.seconds
 
 proc getTransactionByHash(
     txHash: TxHash, web3: Web3
@@ -11,17 +12,25 @@ proc getTransactionByHash(
 
 proc getMinedTransactionReceipt(
     txHash: TxHash, web3: Web3
-): Future[ReceiptObject] {.async.} =
-  await web3.getMinedTransactionReceipt(txHash)
+): Future[Result[ReceiptObject, string]] {.async.} =
+  let txReceipt = web3.getMinedTransactionReceipt(txHash)
+  if (await txReceipt.withTimeout(TxReceiptQueryTimeout)):
+    return ok(txReceipt.value())
+  else:
+    return err("Timeout on tx receipt query")
 
 proc getTxAndTxReceipt(
     txHash: TxHash, web3: Web3
-): Future[(TransactionObject, ReceiptObject)] {.async.} =
+): Future[Result[(TransactionObject, ReceiptObject), string]] {.async.} =
+  # get tx
   let txFuture = getTransactionByHash(txHash, web3)
-  let receiptFuture = getMinedTransactionReceipt(txHash, web3)
   let tx = await txFuture
+  # get tx receipt
+  let receiptFuture = getMinedTransactionReceipt(txHash, web3)
   let txReceipt = await receiptFuture
-  return (tx, txReceipt)
+  if txReceipt.isErr:
+    return err("Cannot get tx receipt")
+  return ok((tx, txReceipt.value()))
 
 proc isEligibleTxId*(
     eligibilityProof: EligibilityProof,
@@ -33,7 +42,7 @@ proc isEligibleTxId*(
   ## in the context of service incentivization PoC,
   ## if it is confirmed and pays the expected amount to the server's address.
   ## See spec: https://github.com/waku-org/specs/blob/master/standards/core/incentivization.md
-  if eligibilityProof.proofOfPayment.isNone():
+  if eligibilityProof.proofOfPayment.isNone:
     return err("Eligibility proof is empty")
   var web3: Web3
   try:
@@ -46,12 +55,10 @@ proc isEligibleTxId*(
   var tx: TransactionObject
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
-  try:
-    (tx, txReceipt) = await getTxAndTxReceipt(txHash, web3)
-  except ValueError:
-    let errorMsg = "Failed to fetch tx or tx receipt: " & getCurrentExceptionMsg()
-    error "exception in isEligibleTxId", error = $errorMsg
-    return err($errorMsg)
+  let txAndTxReceipt = await getTxAndTxReceipt(txHash, web3)
+  txAndTxReceipt.isOkOr:
+    return err("Failed to fetch tx or tx receipt")
+  (tx, txReceipt) = txAndTxReceipt.value()
   # check that it is not a contract creation tx
   let toAddressOption = txReceipt.to
   if toAddressOption.isNone:
