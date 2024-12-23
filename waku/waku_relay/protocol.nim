@@ -343,7 +343,7 @@ proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
     return TopicHealth.MINIMALLY_HEALTHY
   return TopicHealth.SUFFICIENTLY_HEALTHY
 
-proc updateTopicsHealth(wakuRelay: WakuRelay): Future[void] =
+proc updateTopicsHealth(wakuRelay: WakuRelay) {.async.} =
   var futs = newSeq[Future[void]]()
   for topic in toSeq(wakuRelay.topics.keys):
     ## loop over all the topics I'm subscribed to
@@ -360,27 +360,20 @@ proc updateTopicsHealth(wakuRelay: WakuRelay): Future[void] =
       if not fut.completed(): # Fast path for successful sync handlers
         futs.add(fut)
 
-  if futs.len() > 0:
-    proc waiter(): Future[void] {.async.} =
+    if futs.len() > 0:
       # slow path - we have to wait for the handlers to complete
       try:
         futs = await allFinished(futs)
       except CancelledError:
-        # propagate cancellation
+        # check for errors in futures
         for fut in futs:
-          if not (fut.finished):
-            await fut.cancelAndWait()
-
-      # check for errors in futures
-      for fut in futs:
-        if fut.failed:
-          let err = fut.readError()
-          warn "Error in health change handler", description = err.msg
-
-    return waiter()
+          if fut.failed:
+            let err = fut.readError()
+            warn "Error in health change handler", description = err.msg
 
 proc topicsHealthLoop(wakuRelay: WakuRelay) {.async.} =
   while true:
+    # don't wait for all the callbacks to finish
     await wakuRelay.updateTopicsHealth()
     await sleepAsync(10.seconds)
 
