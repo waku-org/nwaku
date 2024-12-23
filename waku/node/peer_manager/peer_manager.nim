@@ -927,6 +927,7 @@ proc updateTopicsHealth(pm: PeerManager): Future[void] =
 
   var futs = newSeq[Future[void]]()
   for topic in toSeq(pm.wakuRelay.topics.keys):
+    ## loop over all the topics I'm subscribed to
     let
       oldHealth = pm.topicsHealth.getOrDefault(topic)
       currentHealth = pm.wakuRelay.calculateTopicHealth(topic)

@@ -86,16 +86,14 @@ proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
         )
 
 proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
-  return proc(
-      pubsubTopic: PubsubTopic, topicHealth: TopicHealth
-  ): Future[system.void] {.async.} =
+  return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
     # Callback that hadles the Waku Relay events. i.e. messages or errors.
     if isNil(ctx[].eventCallback):
-      error "eventCallback is nil"
+      error "onTopicHealthChange - eventCallback is nil"
       return
 
     if isNil(ctx[].eventUserData):
-      error "eventUserData is nil"
+      error "onTopicHealthChange - eventUserData is nil"
       return
 
     foreignThreadGc:
@@ -105,7 +103,9 @@ proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
           RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
         )
       except Exception, CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
+        let msg =
+          "Exception onTopicHealthChange when calling 'eventCallBack': " &
+          getCurrentExceptionMsg()
         cast[WakuCallBack](ctx[].eventCallback)(
           RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
         )
