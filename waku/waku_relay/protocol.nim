@@ -18,7 +18,8 @@ import
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
   libp2p/switch
-import ../waku_core, ./message_id, ../node/delivery_monitor/publish_observer
+import
+  ../waku_core, ./message_id, ./topic_health, ../node/delivery_monitor/publish_observer
 
 from ../waku_core/codecs import WakuRelayCodec
 export WakuRelayCodec
@@ -131,6 +132,9 @@ type
     # a map of validators to error messages to return when validation fails
     validatorInserted: Table[PubsubTopic, bool]
     publishObservers: seq[PublishObserver]
+    topicsHealth*: Table[string, TopicHealth]
+    onTopicHealthChange*: TopicHealthChangeHandler
+    topicHealthLoopHandle*: Future[void]
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -289,6 +293,7 @@ proc new*(
     procCall GossipSub(w).initPubSub()
     w.initProtocolHandler()
     w.initRelayObservers()
+    w.topicsHealth = initTable[string, TopicHealth]()
   except InitializationError:
     return err("initialization error: " & getCurrentExceptionMsg())
 
@@ -309,13 +314,86 @@ proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
   ## Observes when a message is sent/received from the GossipSub PoV
   procCall GossipSub(w).addObserver(observer)
 
+proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
+  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
+  ## The 'mesh' atribute is defined in the GossipSub ref object.
+
+  if not w.mesh.hasKey(pubsubTopic):
+    debug "getNumPeersInMesh - there is no mesh peer for the given pubsub topic",
+      pubsubTopic = pubsubTopic
+    return ok(0)
+
+  let peersRes = catch:
+    w.mesh[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  return ok(peers.len)
+
+proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
+  let numPeersInMesh = wakuRelay.getNumPeersInMesh(topic).valueOr:
+    error "Could not calculate topic health", topic = topic, error = error
+    return TopicHealth.UNHEALTHY
+
+  if numPeersInMesh < 1:
+    return TopicHealth.UNHEALTHY
+  elif numPeersInMesh < wakuRelay.parameters.dLow:
+    return TopicHealth.MINIMALLY_HEALTHY
+  return TopicHealth.SUFFICIENTLY_HEALTHY
+
+proc updateTopicsHealth(wakuRelay: WakuRelay): Future[void] =
+  var futs = newSeq[Future[void]]()
+  for topic in toSeq(wakuRelay.topics.keys):
+    ## loop over all the topics I'm subscribed to
+    let
+      oldHealth = wakuRelay.topicsHealth.getOrDefault(topic)
+      currentHealth = wakuRelay.calculateTopicHealth(topic)
+
+    if oldHealth == currentHealth:
+      continue
+
+    wakuRelay.topicsHealth[topic] = currentHealth
+    if not wakuRelay.onTopicHealthChange.isNil():
+      let fut = wakuRelay.onTopicHealthChange(topic, currentHealth)
+      if not fut.completed(): # Fast path for successful sync handlers
+        futs.add(fut)
+
+  if futs.len() > 0:
+    proc waiter(): Future[void] {.async.} =
+      # slow path - we have to wait for the handlers to complete
+      try:
+        futs = await allFinished(futs)
+      except CancelledError:
+        # propagate cancellation
+        for fut in futs:
+          if not (fut.finished):
+            await fut.cancelAndWait()
+
+      # check for errors in futures
+      for fut in futs:
+        if fut.failed:
+          let err = fut.readError()
+          warn "Error in health change handler", description = err.msg
+
+    return waiter()
+
+proc topicsHealthLoop(wakuRelay: WakuRelay) {.async.} =
+  while true:
+    await wakuRelay.updateTopicsHealth()
+    await sleepAsync(10.seconds)
+
 method start*(w: WakuRelay) {.async, base.} =
   debug "start"
   await procCall GossipSub(w).start()
+  w.topicHealthLoopHandle = w.topicsHealthLoop()
 
 method stop*(w: WakuRelay) {.async, base.} =
   debug "stop"
   await procCall GossipSub(w).stop()
+  if not w.topicHealthLoopHandle.isNil():
+    await w.topicHealthLoopHandle.cancelAndWait()
 
 proc isSubscribed*(w: WakuRelay, topic: PubsubTopic): bool =
   GossipSub(w).topics.hasKey(topic)
@@ -454,24 +532,6 @@ proc publish*(
       obs.onMessagePublished(pubSubTopic, message)
 
   return relayedPeerCount
-
-proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
-  ## Returns the number of peers in a mesh defined by the passed pubsub topic.
-  ## The 'mesh' atribute is defined in the GossipSub ref object.
-
-  if not w.mesh.hasKey(pubsubTopic):
-    debug "getNumPeersInMesh - there is no mesh peer for the given pubsub topic",
-      pubsubTopic = pubsubTopic
-    return ok(0)
-
-  let peersRes = catch:
-    w.mesh[pubsubTopic]
-
-  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
-    return
-      err("getNumPeersInMesh - exception accessing " & pubsubTopic & ": " & error.msg)
-
-  return ok(peers.len)
 
 proc getNumConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic

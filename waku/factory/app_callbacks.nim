@@ -1,4 +1,4 @@
-import ../waku_relay/protocol, ../node/peer_manager/topic_health
+import ../waku_relay
 
 type AppCallbacks* = ref object
   relayHandler*: WakuRelayHandler

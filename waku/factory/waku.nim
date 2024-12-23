@@ -177,7 +177,7 @@ proc setupAppCallbacks(
       return err(
         "Cannot configure topicHealthChangeHandler callback with empty peer manager"
       )
-    node.peerManager.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
+    node.wakuRelay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
 
   return ok()
 
