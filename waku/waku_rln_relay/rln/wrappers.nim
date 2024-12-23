@@ -227,7 +227,7 @@ proc proofGen*(
   )
   var inputBuffer = toBuffer(serializedInputs)
 
-  # debug "input buffer ", inputBuffer = repr(inputBuffer)
+  debug "input buffer ", inputBuffer = repr(inputBuffer)
 
   # generate the proof
   var proof: Buffer
