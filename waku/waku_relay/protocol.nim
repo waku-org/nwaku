@@ -373,7 +373,6 @@ proc updateTopicsHealth(wakuRelay: WakuRelay) {.async.} =
 
 proc topicsHealthLoop(wakuRelay: WakuRelay) {.async.} =
   while true:
-    # don't wait for all the callbacks to finish
     await wakuRelay.updateTopicsHealth()
     await sleepAsync(10.seconds)
 
