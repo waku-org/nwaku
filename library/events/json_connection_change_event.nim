@@ -13,7 +13,7 @@ proc new*(
   # https://rfc.vac.dev/spec/36/#jsonmessageevent-type
 
   return JsonConnectionChangeEvent(
-    eventType: "relay_connection_change", peerId: peerId, peerEvent: peerEvent
+    eventType: "connection_change", peerId: peerId, peerEvent: peerEvent
   )
 
 method `$`*(jsonConnectionChangeEvent: JsonConnectionChangeEvent): string =
