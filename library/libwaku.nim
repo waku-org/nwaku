@@ -47,6 +47,29 @@ template checkLibwakuParams*(
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
+template eventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
+  if isNil(ctx[].eventCallback):
+    error eventName & " - eventCallback is nil"
+    return
+
+  if isNil(ctx[].eventUserData):
+    error eventName & " - eventUserData is nil"
+    return
+
+  foreignThreadGc:
+    try:
+      let event = body
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+      )
+    except Exception, CatchableError:
+      let msg =
+        "Exception " & eventName & " when calling 'eventCallBack': " &
+        getCurrentExceptionMsg()
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+      )
+
 proc handleRequest(
     ctx: ptr WakuContext,
     requestType: RequestType,
@@ -62,77 +85,19 @@ proc handleRequest(
   return RET_OK
 
 proc onConnectionChange(ctx: ptr WakuContext): ConnectionChangeHandler =
-  return proc(peerId: PeerId, peerEvent: PeerEventKind): Future[system.void] {.async.} =
-    # Callback that handles connection change events
-    if isNil(ctx[].eventCallback):
-      error "eventCallback is nil"
-      return
-
-    if isNil(ctx[].eventUserData):
-      error "eventUserData is nil"
-      return
-
-    foreignThreadGc:
-      try:
-        let event = $JsonConnectionChangeEvent.new(peerId, peerEvent)
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-        )
-      except Exception, CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-        )
+  return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
+    eventCallback(ctx, "onConnectionChange"):
+      $JsonConnectionChangeEvent.new(peerId, peerEvent)
 
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
-  return proc(
-      pubsubTopic: PubsubTopic, msg: WakuMessage
-  ): Future[system.void] {.async.} =
-    # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if isNil(ctx[].eventCallback):
-      error "eventCallback is nil"
-      return
-
-    if isNil(ctx[].eventUserData):
-      error "eventUserData is nil"
-      return
-
-    foreignThreadGc:
-      try:
-        let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-        )
-      except Exception, CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-        )
+  return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+    eventCallback(ctx, "onReceivedMessage"):
+      $JsonMessageEvent.new(pubsubTopic, msg)
 
 proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
   return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
-    # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if isNil(ctx[].eventCallback):
-      error "onTopicHealthChange - eventCallback is nil"
-      return
-
-    if isNil(ctx[].eventUserData):
-      error "onTopicHealthChange - eventUserData is nil"
-      return
-
-    foreignThreadGc:
-      try:
-        let event = $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-        )
-      except Exception, CatchableError:
-        let msg =
-          "Exception onTopicHealthChange when calling 'eventCallBack': " &
-          getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-        )
+    eventCallBack(ctx, "onTopicHealthChange"):
+      $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
 
 ### End of not-exported components
 ################################################################################
