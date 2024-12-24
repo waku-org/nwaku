@@ -13,8 +13,8 @@ import
   waku/node/waku_node,
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
-  waku/waku_relay/protocol,
-  ./events/json_message_event,
+  waku/waku_relay,
+  ./events/[json_message_event, json_topic_health_change_event],
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
@@ -84,6 +84,31 @@ proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
           RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
         )
 
+proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
+  return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
+    # Callback that hadles the Waku Relay events. i.e. messages or errors.
+    if isNil(ctx[].eventCallback):
+      error "onTopicHealthChange - eventCallback is nil"
+      return
+
+    if isNil(ctx[].eventUserData):
+      error "onTopicHealthChange - eventUserData is nil"
+      return
+
+    foreignThreadGc:
+      try:
+        let event = $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+        )
+      except Exception, CatchableError:
+        let msg =
+          "Exception onTopicHealthChange when calling 'eventCallBack': " &
+          getCurrentExceptionMsg()
+        cast[WakuCallBack](ctx[].eventCallback)(
+          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+        )
+
 ### End of not-exported components
 ################################################################################
 
@@ -139,7 +164,10 @@ proc waku_new(
 
   ctx.userData = userData
 
-  let appCallbacks = AppCallbacks(relayHandler: onReceivedMessage(ctx))
+  let appCallbacks = AppCallbacks(
+    relayHandler: onReceivedMessage(ctx),
+    topicHealthChangeHandler: onTopicHealthChange(ctx),
+  )
 
   let retCode = handleRequest(
     ctx,
