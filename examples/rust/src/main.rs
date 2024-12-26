@@ -1,16 +1,9 @@
-
-use std::os::raw::{c_char, c_int, c_void};
-use std::{slice, thread, time};
 use std::cell::OnceCell;
 use std::ffi::CString;
+use std::os::raw::{c_char, c_int, c_void};
+use std::{slice, thread, time};
 
-pub type WakuCallback =
-    unsafe extern "C" fn(
-        c_int,
-        *const c_char,
-        usize,
-        *const c_void,
-    );
+pub type WakuCallback = unsafe extern "C" fn(c_int, *const c_char, usize, *const c_void);
 
 extern "C" {
     pub fn waku_new(
@@ -19,11 +12,9 @@ extern "C" {
         user_data: *const c_void,
     ) -> *mut c_void;
 
-    pub fn waku_version(
-        ctx: *const c_void,
-        cb: WakuCallback,
-        user_data: *const c_void,
-    ) -> c_int;
+    pub fn waku_version(ctx: *const c_void, cb: WakuCallback, user_data: *const c_void) -> c_int;
+
+    pub fn waku_start(ctx: *const c_void, cb: WakuCallback, user_data: *const c_void) -> c_int;
 
     pub fn waku_default_pubsub_topic(
         ctx: *mut c_void,
@@ -43,9 +34,8 @@ pub unsafe extern "C" fn trampoline<C>(
     let closure = &mut *(data as *mut C);
 
     let buffer_utf8 =
-    String::from_utf8(slice::from_raw_parts(buffer as *mut u8, buffer_len)
-                    .to_vec())
-                    .expect("valid utf8");
+        String::from_utf8(slice::from_raw_parts(buffer as *mut u8, buffer_len).to_vec())
+            .expect("valid utf8");
 
     closure(return_val, &buffer_utf8);
 }
@@ -70,7 +60,7 @@ fn main() {
     unsafe {
         // Create the waku node
         let closure = |ret: i32, data: &str| {
-            println!("Ret {ret}. Error creating waku node {data}");
+            println!("Ret {ret}. waku_new closure called {data}");
         };
         let cb = get_trampoline(&closure);
         let config_json_str = CString::new(config_json).unwrap();
@@ -99,14 +89,20 @@ fn main() {
             let _ = default_pubsub_topic.set(data.to_string());
         };
         let cb = get_trampoline(&closure);
-        let _ret = waku_default_pubsub_topic(
-            ctx,
-            cb,
-            &closure as *const _ as *const c_void,
-        );
+        let _ret = waku_default_pubsub_topic(ctx, cb, &closure as *const _ as *const c_void);
 
         println!("Version: {}", version.get_or_init(|| unreachable!()));
-        println!("Default pubsubTopic: {}", default_pubsub_topic.get_or_init(|| unreachable!()));
+        println!(
+            "Default pubsubTopic: {}",
+            default_pubsub_topic.get_or_init(|| unreachable!())
+        );
+
+        // Start the Waku node
+        let closure = |ret: i32, data: &str| {
+            println!("Ret {ret}. waku_start closure called {data}");
+        };
+        let cb = get_trampoline(&closure);
+        let _ret = waku_start(ctx, cb, &closure as *const _ as *const c_void);
     }
 
     loop {
