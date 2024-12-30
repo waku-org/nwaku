@@ -128,7 +128,7 @@ jobs:
 
   nwaku-nwaku-interop-tests:
     needs: build-docker-image
-    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@smoke_tests_review
+    uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@master
     with:
       node_nwaku: ${{ needs.build-docker-image.outputs.image }}
 
