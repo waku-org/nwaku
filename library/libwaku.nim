@@ -162,8 +162,6 @@ proc waku_destroy(
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
-  let msg = "correctly destroyed"
-  callback(RET_OK, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
   return RET_OK
 
 proc waku_version(
