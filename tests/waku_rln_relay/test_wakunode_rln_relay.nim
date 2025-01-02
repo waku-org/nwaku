@@ -32,6 +32,14 @@ proc buildWakuRlnConfig(
     rlnRelayTreePath: treePath,
   )
 
+proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
+  ## Helper function
+  for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)
+    if node.wakuRlnRelay.nullifierLog.len() == expectedLen:
+      return true
+    await sleepAsync(500.millis)
+  return false
+
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
   asyncTest "testing rln-relay with valid proof":
@@ -489,14 +497,6 @@ procSuite "WakuNode - RLN relay":
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
 
-    # Helper function
-    proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async.} =
-      for i in 0 .. 100: # Try for up to 50 seconds (100 * 500ms)
-        if node.wakuRlnRelay.nullifierLog.len() == expectedLen:
-          return true
-        await sleepAsync(500.millis)
-      return false
-
     # Given both nodes mount relay and rlnrelay
     await node1.mountRelay(shardSeq)
     let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
@@ -562,8 +562,8 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm2)
     await sleepAsync(publishSleepDuration)
     check:
-      node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 1
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(1)
 
     # Epoch 2
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, startTime + float(1 * epochSizeSec)).isOkOr:
@@ -571,8 +571,8 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm3)
     await sleepAsync(publishSleepDuration)
     check:
-      node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 2
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(2)
 
     # Epoch 3
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, startTime + float(2 * epochSizeSec)).isOkOr:
@@ -580,8 +580,8 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm4)
     await sleepAsync(publishSleepDuration)
     check:
-      node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 3
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(3)
 
     # Epoch 4
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, startTime + float(3 * epochSizeSec)).isOkOr:
@@ -589,8 +589,8 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm5)
     await sleepAsync(publishSleepDuration)
     check:
-      node1.wakuRlnRelay.nullifierLog.len() == 0
-      node2.wakuRlnRelay.nullifierLog.len() == 4
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(4)
 
     # Epoch 5
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, startTime + float(4 * epochSizeSec)).isOkOr:
@@ -598,8 +598,8 @@ procSuite "WakuNode - RLN relay":
     discard await node1.publish(some(DefaultPubsubTopic), wm6)
     await sleepAsync(publishSleepDuration)
     check:
-      node1.wakuRlnRelay.nullifierLog.len() == 0
-      await waitForNullifierLog(node2, 4)
+      await node1.waitForNullifierLog(0)
+      await node2.waitForNullifierLog(4)
 
     # Then the node 2 should have cleared the nullifier log for epochs > MaxEpochGap
     # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
