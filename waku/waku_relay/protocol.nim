@@ -345,6 +345,7 @@ proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
 
 proc updateTopicsHealth(wakuRelay: WakuRelay) {.async.} =
   var futs = newSeq[Future[void]]()
+  debug "AAAA updateTopicsHealth", len = wakuRelay.topics.keys.len
   for topic in toSeq(wakuRelay.topics.keys):
     ## loop over all the topics I'm subscribed to
     let
