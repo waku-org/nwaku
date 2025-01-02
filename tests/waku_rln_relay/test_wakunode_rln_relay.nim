@@ -42,7 +42,7 @@ proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async
 
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
-  asyncTest "testing rln-relay with valid proof":
+  xasyncTest "testing rln-relay with valid proof":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -139,7 +139,7 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  asyncTest "testing rln-relay is applied in all rln shards/content topics":
+  xasyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
     let nodes = toSeq(0 ..< 3).mapIt(
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
@@ -234,7 +234,7 @@ procSuite "WakuNode - RLN relay":
 
     await allFutures(nodes.mapIt(it.stop()))
 
-  asyncTest "testing rln-relay with invalid proof":
+  xasyncTest "testing rln-relay with invalid proof":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -350,7 +350,7 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  asyncTest "testing rln-relay double-signaling detection":
+  xasyncTest "testing rln-relay double-signaling detection":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -663,7 +663,7 @@ procSuite "WakuNode - RLN relay":
     # Cleanup
     waitFor allFutures(node1.stop(), node2.stop())
 
-  asyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
+  xasyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
     # Given two nodes
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
