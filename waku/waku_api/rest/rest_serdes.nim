@@ -57,7 +57,7 @@ func decodeRequestBody*[T](
   if T.hasKey("pubsubTopic"):
     let pubsubTopic = T["pubsubTopic"]
     if pubsubTopic != encodeUrl(pubsubTopic):
-      return err(RestApiResponse.badRequest("Invalid or non-encoded pubsubTopic parameter"))
+      return err(RestApiResponse.badRequest("Invalid or non-URL-encoded pubsubTopic parameter"))
 
   if T.hasKey("contentTopics"):
     let contentTopics = T["contentTopics"]
