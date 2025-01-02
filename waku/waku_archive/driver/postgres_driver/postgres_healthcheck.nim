@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import chronos, results
+import chronos, chronicles, results
 import ../../../common/databases/db_postgres, ../../../common/error_handling
 
 ## Simple query to validate that the postgres is working and attending requests
