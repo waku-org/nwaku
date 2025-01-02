@@ -1,4 +1,5 @@
-import ../waku_relay/protocol
+import ../waku_relay
 
 type AppCallbacks* = ref object
   relayHandler*: WakuRelayHandler
+  topicHealthChangeHandler*: TopicHealthChangeHandler
