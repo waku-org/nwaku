@@ -63,7 +63,7 @@ func decodeRequestBody*[T](
     let contentTopics = T["contentTopics"]
     for topic in contentTopics:
       if topic != encodeUrl(topic):
-        return err(RestApiResponse.badRequest("Invalid or non-encoded content_topic parameter"))
+        return err(RestApiResponse.badRequest("Invalid or non-URL-encoded content_topic parameter"))
 
   return ok(requestResult.get())
 
