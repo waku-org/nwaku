@@ -28,7 +28,7 @@ proc getTxAndTxReceipt(
   let tx = txFuture.read()
   let txReceipt = receiptFuture.read()
   if txReceipt.isErr():
-    return err("Cannot get tx receipt")
+    return err("Cannot get tx receipt: " & txReceipt.error)
   return ok((tx, txReceipt.get()))
 
 proc isEligibleTxId*(
