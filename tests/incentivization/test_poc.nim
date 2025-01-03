@@ -72,8 +72,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     let isEligible = await isEligibleTxId(
       eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
     )
-    check:
-      isEligible.isOk()
+    assert isEligible.isOk(), isEligible.error
 
   # TODO: add tests for simple transfer txs with wrong amount and wrong receiver
   # TODO: add test for failing Web3 provider
