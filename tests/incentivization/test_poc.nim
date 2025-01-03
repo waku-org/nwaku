@@ -36,43 +36,55 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
   asyncTest "incentivization PoC: non-existent tx is not eligible":
     ## Test that an unconfirmed tx is not eligible.
+    let eligibilityManager = await EligibilityManager.init(EthClient)
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
     let isEligible = await isEligibleTxId(
-      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+      eligibilityManager, eligibilityProof, ExpectedToAddress, ExpectedValue
     )
     check:
       isEligible.isErr()
+    defer:
+      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: contract creation tx is not eligible":
     ## Test that a contract creation tx is not eligible.
+    let eligibilityManager = await EligibilityManager.init(EthClient)
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCreation.bytes())))
     let isEligible = await isEligibleTxId(
-      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+      eligibilityManager, eligibilityProof, ExpectedToAddress, ExpectedValue
     )
     check:
       isEligible.isErr()
+    defer:
+      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: contract call tx is not eligible":
     ## Test that a contract call tx is not eligible.
     ## This assumes a payment in native currency (ETH), not a token.
+    let eligibilityManager = await EligibilityManager.init(EthClient)
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashContractCall.bytes())))
     let isEligible = await isEligibleTxId(
-      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+      eligibilityManager, eligibilityProof, ExpectedToAddress, ExpectedValue
     )
     check:
       isEligible.isErr()
+    defer:
+      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: simple transfer tx is eligible":
     ## Test that a simple transfer tx is eligible (if necessary conditions hold).
+    let eligibilityManager = await EligibilityManager.init(EthClient)
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashSimpleTransfer.bytes())))
     let isEligible = await isEligibleTxId(
-      eligibilityProof, ExpectedToAddress, ExpectedValue, EthClient
+      eligibilityManager, eligibilityProof, ExpectedToAddress, ExpectedValue
     )
     assert isEligible.isOk(), isEligible.error
+    defer:
+      await eligibilityManager.close()
 
   # TODO: add tests for simple transfer txs with wrong amount and wrong receiver
   # TODO: add test for failing Web3 provider

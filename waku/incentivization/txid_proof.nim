@@ -5,25 +5,39 @@ import waku/incentivization/rpc
 const SimpleTransferGasUsed = Quantity(21000)
 const TxReceiptQueryTimeout = 3.seconds
 
+type EligibilityManager* = ref object
+  web3: Web3
+
+# Initialize the eligibilityManager with a web3 instance
+proc init*(
+    T: type EligibilityManager, ethClient: string
+): Future[EligibilityManager] {.async.} =
+  result = EligibilityManager(web3: await newWeb3(ethClient))
+  # TODO: handle error if web3 instance is not established
+
+# Clean up the web3 instance
+proc close*(eligibilityManager: EligibilityManager): Future[void] {.async.} =
+  await eligibilityManager.web3.close()
+
 proc getTransactionByHash(
-    txHash: TxHash, web3: Web3
+    eligibilityManager: EligibilityManager, txHash: TxHash
 ): Future[TransactionObject] {.async.} =
-  await web3.provider.eth_getTransactionByHash(txHash)
+  await eligibilityManager.web3.provider.eth_getTransactionByHash(txHash)
 
 proc getMinedTransactionReceipt(
-    txHash: TxHash, web3: Web3
+    eligibilityManager: EligibilityManager, txHash: TxHash
 ): Future[Result[ReceiptObject, string]] {.async.} =
-  let txReceipt = web3.getMinedTransactionReceipt(txHash)
+  let txReceipt = eligibilityManager.web3.getMinedTransactionReceipt(txHash)
   if (await txReceipt.withTimeout(TxReceiptQueryTimeout)):
     return ok(txReceipt.value())
   else:
     return err("Timeout on tx receipt query")
 
 proc getTxAndTxReceipt(
-    txHash: TxHash, web3: Web3
+    eligibilityManager: EligibilityManager, txHash: TxHash
 ): Future[Result[(TransactionObject, ReceiptObject), string]] {.async.} =
-  let txFuture = getTransactionByHash(txHash, web3)
-  let receiptFuture = getMinedTransactionReceipt(txHash, web3)
+  let txFuture = eligibilityManager.getTransactionByHash(txHash)
+  let receiptFuture = eligibilityManager.getMinedTransactionReceipt(txHash)
   await allFutures(txFuture, receiptFuture)
   let tx = txFuture.read()
   let txReceipt = receiptFuture.read()
@@ -32,10 +46,10 @@ proc getTxAndTxReceipt(
   return ok((tx, txReceipt.get()))
 
 proc isEligibleTxId*(
+    eligibilityManager: EligibilityManager,
     eligibilityProof: EligibilityProof,
     expectedToAddress: Address,
     expectedValue: UInt256,
-    ethClient: string,
 ): Future[Result[void, string]] {.async.} =
   ## We consider a tx eligible,
   ## in the context of service incentivization PoC,
@@ -43,19 +57,12 @@ proc isEligibleTxId*(
   ## See spec: https://github.com/waku-org/specs/blob/master/standards/core/incentivization.md
   if eligibilityProof.proofOfPayment.isNone():
     return err("Eligibility proof is empty")
-  var web3: Web3
-  try:
-    web3 = await newWeb3(ethClient)
-  except ValueError:
-    let errorMsg =
-      "Failed to set up a web3 provider connection: " & getCurrentExceptionMsg()
-    error "exception in isEligibleTxId", error = $errorMsg
-    return err($errorMsg)
+  #var web3 = eligibilityManager.web3
   var tx: TransactionObject
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
   try:
-    let txAndTxReceipt = await getTxAndTxReceipt(txHash, web3)
+    let txAndTxReceipt = await eligibilityManager.getTxAndTxReceipt(txHash)
     txAndTxReceipt.isOkOr:
       return err("Failed to fetch tx or tx receipt")
     (tx, txReceipt) = txAndTxReceipt.value()
@@ -82,6 +89,4 @@ proc isEligibleTxId*(
   let txValue = tx.value
   if txValue != expectedValue:
     return err("Wrong tx value: got " & $txValue & ", expected " & $expectedValue)
-  defer:
-    await web3.close()
   return ok()
