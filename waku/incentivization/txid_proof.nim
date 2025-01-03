@@ -27,7 +27,7 @@ proc getTxAndTxReceipt(
   await allFutures(txFuture, receiptFuture)
   let tx = txFuture.read()
   let txReceipt = receiptFuture.read()
-  if txReceipt.isErr:
+  if txReceipt.isErr():
     return err("Cannot get tx receipt")
   return ok((tx, txReceipt.get()))
 
@@ -41,7 +41,7 @@ proc isEligibleTxId*(
   ## in the context of service incentivization PoC,
   ## if it is confirmed and pays the expected amount to the server's address.
   ## See spec: https://github.com/waku-org/specs/blob/master/standards/core/incentivization.md
-  if eligibilityProof.proofOfPayment.isNone:
+  if eligibilityProof.proofOfPayment.isNone():
     return err("Eligibility proof is empty")
   var web3: Web3
   try:
@@ -65,7 +65,7 @@ proc isEligibleTxId*(
     return err($errorMsg)
   # check that it is not a contract creation tx
   let toAddressOption = txReceipt.to
-  if toAddressOption.isNone:
+  if toAddressOption.isNone():
     # this is a contract creation tx
     return err("A contract creation tx is not eligible")
   # check that it is a simple transfer (not a contract call)
