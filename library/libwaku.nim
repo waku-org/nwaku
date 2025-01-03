@@ -47,7 +47,7 @@ template checkLibwakuParams*(
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
-template eventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
+template callEventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
   if isNil(ctx[].eventCallback):
     error eventName & " - eventCallback is nil"
     return
@@ -86,17 +86,17 @@ proc handleRequest(
 
 proc onConnectionChange(ctx: ptr WakuContext): ConnectionChangeHandler =
   return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
-    eventCallback(ctx, "onConnectionChange"):
+    callEventCallback(ctx, "onConnectionChange"):
       $JsonConnectionChangeEvent.new(peerId, peerEvent)
 
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
-    eventCallback(ctx, "onReceivedMessage"):
+    callEventCallback(ctx, "onReceivedMessage"):
       $JsonMessageEvent.new(pubsubTopic, msg)
 
 proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
   return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
-    eventCallBack(ctx, "onTopicHealthChange"):
+    callEventCallback(ctx, "onTopicHealthChange"):
       $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
 
 ### End of not-exported components
