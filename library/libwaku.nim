@@ -195,6 +195,9 @@ proc waku_destroy(
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
+  ## always need to invoke the callback although we don't retrieve value to the caller
+  callback(RET_OK, nil, 0, userData)
+
   return RET_OK
 
 proc waku_version(
