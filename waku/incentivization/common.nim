@@ -1,4 +1,4 @@
-import std/options, chronos
+import std/options
 
 import waku/incentivization/[rpc, txid_proof]
 
