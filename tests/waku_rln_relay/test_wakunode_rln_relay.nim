@@ -42,7 +42,7 @@ proc waitForNullifierLog(node: WakuNode, expectedLen: int): Future[bool] {.async
 
 procSuite "WakuNode - RLN relay":
   # NOTE: we set the rlnRelayUserMessageLimit to 1 to make the tests easier to reason about
-  xasyncTest "testing rln-relay with valid proof":
+  asyncTest "testing rln-relay with valid proof":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -139,7 +139,7 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  xasyncTest "testing rln-relay is applied in all rln shards/content topics":
+  asyncTest "testing rln-relay is applied in all rln shards/content topics":
     # create 3 nodes
     let nodes = toSeq(0 ..< 3).mapIt(
         newTestWakuNode(generateSecp256k1Key(), parseIpAddress("0.0.0.0"), Port(0))
@@ -234,7 +234,7 @@ procSuite "WakuNode - RLN relay":
 
     await allFutures(nodes.mapIt(it.stop()))
 
-  xasyncTest "testing rln-relay with invalid proof":
+  asyncTest "testing rln-relay with invalid proof":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -350,7 +350,7 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  xasyncTest "testing rln-relay double-signaling detection":
+  asyncTest "testing rln-relay double-signaling detection":
     let
       # publisher node
       nodeKey1 = generateSecp256k1Key()
@@ -663,7 +663,7 @@ procSuite "WakuNode - RLN relay":
     # Cleanup
     waitFor allFutures(node1.stop(), node2.stop())
 
-  xasyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
+  asyncTest "Spam Detection and Slashing (currently gossipsub score decrease)":
     # Given two nodes
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -718,3 +718,6 @@ procSuite "WakuNode - RLN relay":
     check:
       node1.wakuRelay.peerStats[node2.switch.peerInfo.peerId].score == 0.1
       node2.wakuRelay.peerStats[node1.switch.peerInfo.peerId].score == -99.4
+
+    await node1.stop()
+    await node2.stop()
