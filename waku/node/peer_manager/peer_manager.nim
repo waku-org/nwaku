@@ -683,7 +683,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
           pm.wakuPeerStore.delete(peerId)
     if not pm.onConnectionChange.isNil():
       # we don't want to await for the callback to finish
-      discard pm.onConnectionChange(peerId, Joined)
+      asyncSpawn pm.onConnectionChange(peerId, Joined)
   of Left:
     direction = UnknownDirection
     connectedness = CanConnect
@@ -697,7 +697,7 @@ proc onPeerEvent(pm: PeerManager, peerId: PeerId, event: PeerEvent) {.async.} =
         break
     if not pm.onConnectionChange.isNil():
       # we don't want to await for the callback to finish
-      discard pm.onConnectionChange(peerId, Left)
+      asyncSpawn pm.onConnectionChange(peerId, Left)
   of Identified:
     debug "event identified", peerId = peerId
 
