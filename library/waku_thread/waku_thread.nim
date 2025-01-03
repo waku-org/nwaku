@@ -10,6 +10,9 @@ type WakuContext* = object
   thread: Thread[(ptr WakuContext)]
   reqChannel: ChannelSPSCSingle[ptr WakuThreadRequest]
   reqSignal: ThreadSignalPtr
+    # to inform The Waku Thread (a.k.a TWT) that a new request is sent
+  reqReceivedSignal: ThreadSignalPtr
+    # to inform the main thread that the request is rx by TWT
   userData*: pointer
   eventCallback*: pointer
   eventUserdata*: pointer
@@ -37,6 +40,10 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
       error "waku thread could not receive a request"
       continue
 
+    let fireRes = ctx.reqReceivedSignal.fireSync()
+    if fireRes.isErr():
+      error "could not fireSync back to requester thread", error = fireRes.error
+
     ## Handle the request
     asyncSpawn WakuThreadRequest.process(request, addr waku)
 
@@ -50,6 +57,8 @@ proc createWakuThread*(): Result[ptr WakuContext, string] =
   var ctx = createShared(WakuContext, 1)
   ctx.reqSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqSignal ThreadSignalPtr")
+  ctx.reqReceivedSignal = ThreadSignalPtr.new().valueOr:
+    return err("couldn't create reqReceivedSignal ThreadSignalPtr")
 
   ctx.running.store(true)
 
@@ -73,6 +82,7 @@ proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
 
   joinThread(ctx.thread)
   ?ctx.reqSignal.close()
+  ?ctx.reqReceivedSignal.close()
   freeShared(ctx)
 
   return ok()
@@ -100,4 +110,12 @@ proc sendRequestToWakuThread*(
     deallocShared(req)
     return err("Couldn't fireSync in time")
 
+  ## wait until the Waku Thread properly received the request
+  let res = ctx.reqReceivedSignal.waitSync()
+  if res.isErr():
+    deallocShared(req)
+    return err("Couldn't receive reqReceivedSignal signal")
+
+  ## Notice that in case of "ok", the deallocShared(req) is performed by the Waku Thread in the
+  ## process proc.
   ok()
