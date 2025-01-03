@@ -2,7 +2,7 @@ import std/options
 
 import waku/incentivization/[rpc, txid_proof]
 
-proc new*(T: type EligibilityStatus, isEligible: bool): T =
+proc init*(T: type EligibilityStatus, isEligible: bool): T =
   if isEligible:
     EligibilityStatus(statusCode: uint32(200), statusDesc: some("OK"))
   else:
