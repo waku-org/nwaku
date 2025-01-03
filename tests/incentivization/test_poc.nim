@@ -9,13 +9,13 @@ import
   waku/incentivization/[rpc, rpc_codec, common, txid_proof]
 
 # All txids from Ethereum Sepolia testnet
-const TxHashNonExisting* =
+const TxHashNonExisting =
   TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
-const TxHashContractCreation* =
+const TxHashContractCreation =
   TxHash.fromHex("0xa2e39bee557144591fb7b2891ef44e1392f86c5ba1fc0afb6c0e862676ffd50f")
-const TxHashContractCall* =
+const TxHashContractCall =
   TxHash.fromHex("0x2761f066eeae9a259a0247f529133dd01b7f57bf74254a64d897433397d321cb")
-const TxHashSimpleTransfer* =
+const TxHashSimpleTransfer =
   TxHash.fromHex("0xa3985984b2ec3f1c3d473eb57a4820a56748f25dabbf9414f2b8380312b439cc")
 const ExpectedToAddress = Address.fromHex("0x5e809a85aa182a9921edd10a4163745bb3e36284")
 const ExpectedValue = 200500000000005063.u256
