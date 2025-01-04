@@ -345,7 +345,6 @@ proc calculateTopicHealth(wakuRelay: WakuRelay, topic: string): TopicHealth =
 
 proc updateTopicsHealth(wakuRelay: WakuRelay) {.async.} =
   var futs = newSeq[Future[void]]()
-  debug "AAAA updateTopicsHealth", len = toSeq(wakuRelay.topics.keys).len
   for topic in toSeq(wakuRelay.topics.keys):
     ## loop over all the topics I'm subscribed to
     let
@@ -374,11 +373,8 @@ proc updateTopicsHealth(wakuRelay: WakuRelay) {.async.} =
 
 proc topicsHealthLoop(wakuRelay: WakuRelay) {.async.} =
   while true:
-    debug "AAAAA before calling wakuRelay.updateTopicsHealth"
     await wakuRelay.updateTopicsHealth()
-    debug "AAAAA after calling wakuRelay.updateTopicsHealth, before sleepAsync"
     await sleepAsync(10.seconds)
-    debug "AAAAA after sleepAsync 10 seconds"
 
 method start*(w: WakuRelay) {.async, base.} =
   debug "start"

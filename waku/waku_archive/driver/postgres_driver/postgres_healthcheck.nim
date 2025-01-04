@@ -1,6 +1,6 @@
 {.push raises: [].}
 
-import chronos, chronicles, results
+import chronos, results
 import ../../../common/databases/db_postgres, ../../../common/error_handling
 
 ## Simple query to validate that the postgres is working and attending requests
@@ -13,7 +13,6 @@ proc checkConnectivity*(
     connPool: PgAsyncPool, onFatalErrorAction: OnFatalErrorHandler
 ) {.async.} =
   while true:
-    debug "AAAAA connPool.pgQuery(HealthCheckQuery)"
     (await connPool.pgQuery(HealthCheckQuery)).isOkOr:
       ## The connection failed once. Let's try reconnecting for a while.
       ## Notice that the 'exec' proc tries to establish a new connection.
