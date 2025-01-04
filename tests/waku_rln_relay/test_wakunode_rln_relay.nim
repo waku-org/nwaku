@@ -487,7 +487,7 @@ procSuite "WakuNode - RLN relay":
     await node3.stop()
 
   asyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     # Given two nodes
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
@@ -497,24 +497,23 @@ procSuite "WakuNode - RLN relay":
       nodeKey2 = generateSecp256k1Key()
       node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(0))
       epochSizeSec: uint64 = 5 # This means rlnMaxEpochGap = 4
-    debug "AAAA"
 
     # Given both nodes mount relay and rlnrelay
     await node1.mountRelay(shardSeq)
     let wakuRlnConfig1 = buildWakuRlnConfig(1, epochSizeSec, "wakunode_10")
     await node1.mountRlnRelay(wakuRlnConfig1)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Mount rlnrelay in node2 in off-chain mode
     await node2.mountRelay(@[DefaultRelayShard])
     let wakuRlnConfig2 = buildWakuRlnConfig(2, epochSizeSec, "wakunode_11")
     await node2.mountRlnRelay(wakuRlnConfig2)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Given the two nodes are started and connected
     waitFor allFutures(node1.start(), node2.start())
     await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Given some messages
     var
@@ -551,9 +550,9 @@ procSuite "WakuNode - RLN relay":
         if msg == wm6:
           completionFut6.complete(true)
 
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     node2.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Given all messages have an rln proof and are published by the node 1
     let publishSleepDuration: Duration = 5000.millis
@@ -562,80 +561,80 @@ procSuite "WakuNode - RLN relay":
     # Epoch 1
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm1, startTime).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     # Message wm2 is published in the same epoch as wm1, so it'll be considered spam
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm2, startTime).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm1)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm2)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     await sleepAsync(publishSleepDuration)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node1.waitForNullifierLog(0)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node2.waitForNullifierLog(1)
 
     # Epoch 2
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm3, startTime + float(1 * epochSizeSec)).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm3)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     await sleepAsync(publishSleepDuration)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node1.waitForNullifierLog(0)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node2.waitForNullifierLog(2)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Epoch 3
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm4, startTime + float(2 * epochSizeSec)).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm4)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     await sleepAsync(publishSleepDuration)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node1.waitForNullifierLog(0)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node2.waitForNullifierLog(3)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Epoch 4
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm5, startTime + float(3 * epochSizeSec)).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm5)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     await sleepAsync(publishSleepDuration)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node1.waitForNullifierLog(0)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node2.waitForNullifierLog(4)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Epoch 5
     node1.wakuRlnRelay.unsafeAppendRLNProof(wm6, startTime + float(4 * epochSizeSec)).isOkOr:
       raiseAssert $error
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     discard await node1.publish(some(DefaultPubsubTopic), wm6)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     await sleepAsync(publishSleepDuration)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node1.waitForNullifierLog(0)
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       await node2.waitForNullifierLog(4)
 
@@ -643,22 +642,22 @@ procSuite "WakuNode - RLN relay":
     # Therefore, with 4 max epochs, the first 4 messages will be published (except wm2, which shares epoch with wm1)
     check:
       (await completionFut1.waitForResult()).value() == true
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       (await completionFut2.waitForResult()).isErr()
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       (await completionFut3.waitForResult()).value() == true
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       (await completionFut4.waitForResult()).value() == true
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       (await completionFut5.waitForResult()).value() == true
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
     check:
       (await completionFut6.waitForResult()).value() == true
-    debug "AAAA"
+    debug "tmp debug log analyze flaky test"
 
     # Cleanup
     waitFor allFutures(node1.stop(), node2.stop())
