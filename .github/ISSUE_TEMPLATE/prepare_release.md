@@ -23,6 +23,7 @@ All items below are to be completed by the owner of the given release.
 - [ ] Review possible update of [config-options](https://github.com/waku-org/docs.waku.org/blob/develop/docs/guides/nwaku/config-options.md)
 - [ ] _End user impact_: Summarize impact of changes on Status end users (can be a comment in this issue).
 - [ ] **Validate release candidate**
+  - [ ] Bump nwaku dependency in [waku-rust-bindings](https://github.com/waku-org/waku-rust-bindings) and make sure all examples and tests work
 
 - [ ] Automated testing
   - [ ] Ensures js-waku tests are green against release candidate
