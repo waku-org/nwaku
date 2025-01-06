@@ -169,7 +169,13 @@ proc setupAppCallbacks(
     for shard in shards:
       discard node.wakuRelay.subscribe($shard, appCallbacks.relayHandler)
 
-    return ok()
+  if not appCallbacks.topicHealthChangeHandler.isNil():
+    if node.wakuRelay.isNil():
+      return
+        err("Cannot configure topicHealthChangeHandler callback without Relay mounted")
+    node.wakuRelay.onTopicHealthChange = appCallbacks.topicHealthChangeHandler
+
+  return ok()
 
 proc new*(
     T: type Waku, confCopy: var WakuNodeConf, appCallbacks: AppCallbacks = nil
