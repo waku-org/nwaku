@@ -56,8 +56,6 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
   buf = uint64(lastTimestamp).toBytes(Leb128)
   output &= @buf
 
-  #echo "First Timestamp: " & $lastTimestamp
-
   # implicit first fingerprint is always 0 and range type is always skip
 
   for (bound, rangeType) in value.ranges:
@@ -67,8 +65,6 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
     # encode timestamp
     buf = timeDiff.toBytes(Leb128)
     output &= @buf
-
-    #echo "Timestamp: " & $timeDiff
 
     if timeDiff == 0:
       var sameBytes = 0
@@ -81,8 +77,6 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
       # encode number of same bytes
       output &= byte(sameBytes)
 
-      #echo "Same Bytes: " & $sameBytes
-
       # encode fingerprint bytes
       output &= bound.b.fingerprint[0 ..< sameBytes]
 
@@ -91,13 +85,10 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
 
     case rangeType
     of skipRange:
-      #echo "Skip Range"
       continue
     of fingerprintRange:
       let fingerprint = value.fingerprints[i]
       i.inc()
-
-      #echo "Encode Fingerprint"
 
       output &= fingerprint
     of itemSetRange:
@@ -108,11 +99,7 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
       buf = uint64(itemSet.elements.len).toBytes(Leb128)
       output &= @buf
 
-      #echo "Set elements: " & $itemSet.elements.len
-
       let encodedSet = itemSet.deltaEncode()
-
-      #echo "Encoded Set"
 
       output &= encodedSet
 
@@ -135,17 +122,11 @@ proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int 
     let time = lastTime + Timestamp(val)
     lastTime = time
 
-    #echo "Timestamp: " & $time
-    #echo "IDX: " & $idx
-
     slice = buffer[idx ..< idx + 32]
     idx += 32
     var fingerprint = EmptyFingerprint
     for i, bytes in slice:
       fingerprint[i] = bytes
-
-    #echo "Hash: " & $fingerprint
-    #echo "IDX: " & $idx
 
     let id = ID(time: time, fingerprint: fingerprint)
 
@@ -154,14 +135,9 @@ proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int 
   itemSet.reconciled = bool(buffer[idx])
   idx += 1
 
-  #echo "Reconciled: " & $itemSet.reconciled
-  #echo "IDX: " & $idx
-
   return idx
 
 proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
-  #echo "buffer length: " & $buffer.len
-
   if buffer.len == 1:
     return SyncPayload()
 
@@ -178,9 +154,6 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
   idx += len
   lastTime = Timestamp(val)
 
-  #echo "First Range Timestamp: " & $lastTime
-  #echo "IDX: " & $idx
-
   # implicit first fingerprint is always 0 
   # implicit first range mode is alway skip
 
@@ -194,17 +167,11 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
     idx += len
     let timeDiff = Timestamp(val)
 
-    #echo "Range Timestamp diff: " & $timeDiff
-    #echo "IDX: " & $idx
-
     var fingerprint = EmptyFingerprint
     if timeDiff == 0:
       # decode number of same bytes
       let sameBytes = int(buffer[idx])
       idx += 1
-
-      #echo "Same Bytes Count: " & $sameBytes
-      #echo "IDX: " & $idx
 
       # decode same bytes
       slice = buffer[idx ..< idx + sameBytes]
@@ -212,13 +179,8 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
       for i, bytes in slice:
         fingerprint[i] = bytes
 
-      #echo "Same Bytes: " & $fingerprint
-      #echo "IDX: " & $idx
-
     let thisTime = lastTime + timeDiff
     lastTime = thisTime
-
-    #echo "Range Timestamp: " & $thisTime
 
     let upperRangeBound = ID(time: thisTime, fingerprint: fingerprint)
 
@@ -227,9 +189,6 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
     # decode range type
     let rangeType = RangeType(buffer[idx])
     idx += 1
-
-    #echo "Range Type: " & $rangeType
-    #echo "IDX: " & $idx
 
     payload.ranges.add((bounds, rangeType))
 
@@ -241,9 +200,6 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
       for i, bytes in slice:
         fingerprint[i] = bytes
 
-      #echo "Fingerprint: " & $fingerprint
-      #echo "IDX: " & $idx
-
       payload.fingerprints.add(fingerprint)
     elif rangeType == itemSetRange:
       # decode item set length
@@ -253,17 +209,11 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
       idx += len
       let itemSetLength = int(val)
 
-      #echo "Set length: " & $itemSetLength
-      #echo "IDX: " & $idx
-
       # decode item set
       var itemSet = ItemSet()
       slice = buffer[idx ..< buffer.len]
       let count = deltaDecode(itemSet, slice, itemSetLength)
       idx += count
-
-      #echo "Set Decoded"
-      #echo "IDX: " & $idx
 
       payload.itemSets.add(itemSet)
 
