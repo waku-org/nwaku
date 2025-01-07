@@ -97,12 +97,12 @@ proc process*(
       error "PUBLISH failed", error = errorMsg
       return err(errorMsg)
 
-    (
+    let msgHashHex = (
       await waku.node.wakuLightpushClient.publish(
         pubsubTopic, msg, peer = peerOpt.get()
       )
-    ).isOkOr:
+    ).valueOr:
       error "PUBLISH failed", error = error
       return err("LightpushRequest error publishing: " & $error)
 
-  return ok("")
+    return ok(msgHashHex)
