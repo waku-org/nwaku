@@ -26,11 +26,10 @@ const capabilityToCodec = {
   Capabilities.Store: WakuStoreCodec,
   Capabilities.Filter: WakuFilterSubscribeCodec,
   Capabilities.Lightpush: WakuLightPushCodec,
-  Capabilities.Sync: WakuSyncCodec,
 }.toTable
 
 func init*(
-    T: type CapabilitiesBitfield, lightpush, filter, store, relay, sync: bool = false
+    T: type CapabilitiesBitfield, lightpush, filter, store, relay: bool = false
 ): T =
   ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
   var bitfield: uint8
@@ -42,8 +41,6 @@ func init*(
     bitfield.setBit(2)
   if lightpush:
     bitfield.setBit(3)
-  if sync:
-    bitfield.setBit(4)
   CapabilitiesBitfield(bitfield)
 
 func init*(T: type CapabilitiesBitfield, caps: varargs[Capabilities]): T =
