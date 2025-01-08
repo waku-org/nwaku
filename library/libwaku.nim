@@ -322,16 +322,10 @@ proc waku_relay_publish(
   defer:
     deallocShared(pst)
 
-  let targetPubSubTopic =
-    if len(pst) == 0:
-      DefaultPubsubTopic
-    else:
-      $pst
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.PUBLISH, PubsubTopic($pst), nil, wakuMessage),
+    RelayRequest.createShared(RelayMsgType.PUBLISH, pst, nil, wakuMessage),
     callback,
     userData,
   )
@@ -379,9 +373,7 @@ proc waku_relay_subscribe(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(
-      RelayMsgType.SUBSCRIBE, PubsubTopic($pst), WakuRelayHandler(cb)
-    ),
+    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pst, WakuRelayHandler(cb)),
     callback,
     userData,
   )
@@ -407,7 +399,7 @@ proc waku_relay_add_protected_shard(
       RelayMsgType.ADD_PROTECTED_SHARD,
       clusterId = clusterId,
       shardId = shardId,
-      publicKey = $pubk,
+      publicKey = pubk,
     ),
     callback,
     userData,
@@ -430,9 +422,7 @@ proc waku_relay_unsubscribe(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.UNSUBSCRIBE,
-      PubsubTopic($pst),
-      WakuRelayHandler(onReceivedMessage(ctx)),
+      RelayMsgType.UNSUBSCRIBE, pst, WakuRelayHandler(onReceivedMessage(ctx))
     ),
     callback,
     userData,
@@ -454,7 +444,7 @@ proc waku_relay_get_num_connected_peers(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, PubsubTopic($pst)),
+    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, pst),
     callback,
     userData,
   )
@@ -475,7 +465,7 @@ proc waku_relay_get_num_peers_in_mesh(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
+    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, pst),
     callback,
     userData,
   )
@@ -566,18 +556,10 @@ proc waku_lightpush_publish(
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
-  let targetPubSubTopic =
-    if len(pst) == 0:
-      DefaultPubsubTopic
-    else:
-      $pst
-
   handleRequest(
     ctx,
     RequestType.LIGHTPUSH,
-    LightpushRequest.createShared(
-      LightpushMsgType.PUBLISH, PubsubTopic($pst), wakuMessage
-    ),
+    LightpushRequest.createShared(LightpushMsgType.PUBLISH, pst, wakuMessage),
     callback,
     userData,
   )

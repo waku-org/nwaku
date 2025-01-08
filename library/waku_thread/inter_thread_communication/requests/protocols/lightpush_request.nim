@@ -32,7 +32,7 @@ type LightpushRequest* = object
 proc createShared*(
     T: type LightpushRequest,
     op: LightpushMsgType,
-    pubsubTopic: PubsubTopic,
+    pubsubTopic: cstring,
     m = WakuMessage(),
 ): ptr type T =
   var ret = createShared(T)
