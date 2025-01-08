@@ -48,3 +48,11 @@ proc computeMessageHash*(pubsubTopic: PubsubTopic, msg: WakuMessage): WakuMessag
   ctx.update(toBytesBE(uint64(msg.timestamp)))
 
   return ctx.finish() # Computes the hash
+
+proc cmp*(x, y: WakuMessageHash): int =
+  if x < y:
+    return -1
+  elif x == y:
+    return 0
+
+  return 1

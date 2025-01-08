@@ -8,8 +8,6 @@ const
   DefaultSyncInterval*: Duration = 5.minutes
   DefaultSyncRange*: Duration = 1.hours
   RetryDelay*: Duration = 30.seconds
-  SyncReconciliationCodec* = "/vac/waku/reconciliation/1.0"
-  SyncTransferCodec* = "/vac/waku/transfer/1.0"
   DefaultGossipSubJitter*: Duration = 20.seconds
 
 type
@@ -17,7 +15,7 @@ type
 
   ID* = object
     time*: Timestamp
-    fingerprint*: Fingerprint
+    hash*: WakuMessageHash
 
   ItemSet* = object
     elements*: seq[ID]
@@ -33,7 +31,7 @@ type
     fingerprints*: seq[Fingerprint]
     itemSets*: seq[ItemSet]
 
-  WakuMessagePayload* = object
+  WakuMessageAndTopic* = object
     pubsub*: string
     message*: WakuMessage
 
@@ -54,7 +52,7 @@ proc low*(T: type ID): T =
   return ID(time: Timestamp(low(int64)), fingerprint: EmptyFingerprint)
 
 proc `$`*(value: ID): string =
-  return '(' & $value.time & ", " & $value.fingerprint & ')'
+  return '(' & $value.time & ", " & $value.hash & ')'
 
 proc cmp(x, y: Fingerprint): int =
   if x < y:
@@ -66,7 +64,7 @@ proc cmp(x, y: Fingerprint): int =
 
 proc cmp*(x, y: ID): int =
   if x.time == y.time:
-    return cmp(x.fingerprint, y.fingerprint)
+    return cmp(x.hash, y.hash)
 
   if x.time < y.time:
     return -1

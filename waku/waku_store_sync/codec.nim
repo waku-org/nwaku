@@ -4,7 +4,11 @@ import std/sequtils, stew/leb128
 
 import ../common/protobuf, ../waku_core/message, ../waku_core/time, ./common
 
-proc encode*(value: WakuMessagePayload): ProtoBuffer =
+const
+  HashLen = 32
+  VarIntLen = 9
+
+proc encode*(value: WakuMessageAndTopic): ProtoBuffer =
   var pb = initProtoBuffer()
 
   pb.write3(1, value.pubsub)
@@ -13,7 +17,8 @@ proc encode*(value: WakuMessagePayload): ProtoBuffer =
   return pb
 
 proc deltaEncode*(itemSet: ItemSet): seq[byte] =
-  let capacity = 1 + (itemSet.elements.len * 41)
+  # 1 byte for resolved bool and 32 bytes hash plus 9 bytes varint per elements 
+  let capacity = 1 + (itemSet.elements.len * (VarIntLen + HashLen))
 
   var
     output = newSeqOfCap[byte](capacity)
@@ -28,7 +33,7 @@ proc deltaEncode*(itemSet: ItemSet): seq[byte] =
     buf = timediff.toBytes(Leb128)
     output &= @buf
 
-    output &= id.fingerprint
+    output &= id.hash
 
   output &= byte(itemSet.reconciled)
 
@@ -50,13 +55,13 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
   let (bound, _) = value.ranges[0]
 
   lastTimestamp = bound.a.time
-  lastHash = bound.a.fingerprint
+  lastHash = bound.a.hash
 
   # encode first timestamp
   buf = uint64(lastTimestamp).toBytes(Leb128)
   output &= @buf
 
-  # implicit first fingerprint is always 0 and range type is always skip
+  # implicit first hash is always 0 and range type is always skip
 
   for (bound, rangeType) in value.ranges:
     let timeDiff = uint64(bound.b.time) - uint64(lastTimestamp)
@@ -68,7 +73,7 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
 
     if timeDiff == 0:
       var sameBytes = 0
-      for (byte1, byte2) in zip(lastHash, bound.b.fingerprint):
+      for (byte1, byte2) in zip(lastHash, bound.b.hash):
         sameBytes.inc()
 
         if byte1 != byte2:
@@ -77,8 +82,8 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
       # encode number of same bytes
       output &= byte(sameBytes)
 
-      # encode fingerprint bytes
-      output &= bound.b.fingerprint[0 ..< sameBytes]
+      # encode hash bytes
+      output &= bound.b.hash[0 ..< sameBytes]
 
     # encode rangeType
     output &= byte(rangeType)
@@ -115,20 +120,20 @@ proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int 
     idx = 0
 
   while itemSet.elements.len < setLength:
-    var slice = buffer[idx ..< idx + 9]
+    var slice = buffer[idx ..< idx + VarIntLen]
     (val, len) = uint64.fromBytes(slice, Leb128)
     idx += len
 
     let time = lastTime + Timestamp(val)
     lastTime = time
 
-    slice = buffer[idx ..< idx + 32]
-    idx += 32
-    var fingerprint = EmptyFingerprint
+    slice = buffer[idx ..< idx + HashLen]
+    idx += HashLen
+    var hash = EmptyWakuMessageHash
     for i, bytes in slice:
-      fingerprint[i] = bytes
+      hash[i] = bytes
 
-    let id = ID(time: time, fingerprint: fingerprint)
+    let id = ID(time: time, hash: hash)
 
     itemSet.elements.add(id)
 
@@ -147,27 +152,27 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
     val = 0.uint64
     len = 0.int8
     idx = 0
-    slice = buffer[idx ..< idx + 9]
+    slice = buffer[idx ..< idx + VarIntLen]
 
   # first timestamp
   (val, len) = uint64.fromBytes(slice, Leb128)
   idx += len
   lastTime = Timestamp(val)
 
-  # implicit first fingerprint is always 0 
+  # implicit first hash is always 0 
   # implicit first range mode is alway skip
 
   while idx < buffer.len - 1:
-    let lowerRangeBound = ID(time: lastTime, fingerprint: EmptyFingerprint)
+    let lowerRangeBound = ID(time: lastTime, hash: EmptyWakuMessageHash)
 
     # decode timestamp diff
-    let min = min(idx + 9, buffer.len)
+    let min = min(idx + VarIntLen, buffer.len)
     slice = buffer[idx ..< min]
     (val, len) = uint64.fromBytes(slice, Leb128)
     idx += len
     let timeDiff = Timestamp(val)
 
-    var fingerprint = EmptyFingerprint
+    var hash = EmptyWakuMessageHash
     if timeDiff == 0:
       # decode number of same bytes
       let sameBytes = int(buffer[idx])
@@ -177,12 +182,12 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
       slice = buffer[idx ..< idx + sameBytes]
       idx += sameBytes
       for i, bytes in slice:
-        fingerprint[i] = bytes
+        hash[i] = bytes
 
     let thisTime = lastTime + timeDiff
     lastTime = thisTime
 
-    let upperRangeBound = ID(time: thisTime, fingerprint: fingerprint)
+    let upperRangeBound = ID(time: thisTime, hash: hash)
 
     let bounds = lowerRangeBound .. upperRangeBound
 
@@ -194,8 +199,8 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
 
     if rangeType == fingerprintRange:
       # decode fingerprint
-      slice = buffer[idx ..< idx + 32]
-      idx += 32
+      slice = buffer[idx ..< idx + HashLen]
+      idx += HashLen
       var fingerprint = EmptyFingerprint
       for i, bytes in slice:
         fingerprint[i] = bytes
@@ -203,7 +208,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
       payload.fingerprints.add(fingerprint)
     elif rangeType == itemSetRange:
       # decode item set length
-      let min = min(idx + 9, buffer.len)
+      let min = min(idx + VarIntLen, buffer.len)
       slice = buffer[idx ..< min]
       (val, len) = uint64.fromBytes(slice, Leb128)
       idx += len
@@ -219,7 +224,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
 
   return payload
 
-proc decode*(T: type WakuMessagePayload, buffer: seq[byte]): ProtobufResult[T] =
+proc decode*(T: type WakuMessageAndTopic, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)
 
   var pubsub: string
@@ -230,4 +235,4 @@ proc decode*(T: type WakuMessagePayload, buffer: seq[byte]): ProtobufResult[T] =
 
   let message = ?WakuMessage.decode(proto.buffer)
 
-  return ok(WakuMessagePayload(pubsub: pubsub, message: message))
+  return ok(WakuMessageAndTopic(pubsub: pubsub, message: message))
