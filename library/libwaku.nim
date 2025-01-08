@@ -87,7 +87,7 @@ proc handleRequest(
 proc onConnectionChange(ctx: ptr WakuContext): ConnectionChangeHandler =
   return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
     callEventCallback(ctx, "onConnectionChange"):
-      $JsonConnectionChangeEvent.new(peerId, peerEvent)
+      $JsonConnectionChangeEvent.new($peerId, peerEvent)
 
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
   return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
