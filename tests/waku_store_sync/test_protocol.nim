@@ -17,9 +17,10 @@ import
     waku_store_sync/storage/range_processing,
   ],
   ../testlib/[wakucore, testasync],
+  ../waku_archive/archive_utils,
   ./sync_utils
 
-suite "Waku Sync: 2 nodes recon":
+suite "Waku Sync: reconciliation":
   var serverSwitch {.threadvar.}: Switch
   var clientSwitch {.threadvar.}: Switch
 
@@ -230,3 +231,113 @@ suite "Waku Sync: 2 nodes recon":
     check:
       wantsChannel.len > 900
       needsChannel.len > 900
+
+suite "Waku Sync: transfer":
+  var
+    serverSwitch {.threadvar.}: Switch
+    clientSwitch {.threadvar.}: Switch
+
+  var
+    serverArchive {.threadvar.}: WakuArchive
+    clientArchive {.threadvar.}: WakuArchive
+
+  var
+    serverIds {.threadvar.}: AsyncQueue[ID]
+    serverWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    serverNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    clientIds {.threadvar.}: AsyncQueue[ID]
+    clientWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    clientNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+
+  var
+    server {.threadvar.}: SyncTransfer
+    client {.threadvar.}: SyncTransfer
+
+  var
+    serverPeerInfo {.threadvar.}: RemotePeerInfo
+    clientPeerInfo {.threadvar.}: RemotePeerInfo
+
+  asyncSetup:
+    serverSwitch = newTestSwitch()
+    clientSwitch = newTestSwitch()
+
+    await allFutures(serverSwitch.start(), clientSwitch.start())
+
+    let serverDriver = newSqliteArchiveDriver()
+    let clientDriver = newSqliteArchiveDriver()
+
+    serverArchive = newWakuArchive(serverDriver)
+    clientArchive = newWakuArchive(clientDriver)
+
+    let
+      serverPeerManager = PeerManager.new(serverSwitch)
+      clientPeerManager = PeerManager.new(clientSwitch)
+
+    serverIds = newAsyncQueue[ID]()
+    serverWants = newAsyncQueue[(PeerId, Fingerprint)]()
+    serverNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
+
+    server = SyncTransfer.new(
+      peerManager = serverPeerManager,
+      wakuArchive = serverArchive,
+      idsTx = serverIds,
+      wantsRx = serverWants,
+      needsRx = serverNeeds,
+    )
+
+    clientIds = newAsyncQueue[ID]()
+    clientWants = newAsyncQueue[(PeerId, Fingerprint)]()
+    clientNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
+
+    client = SyncTransfer.new(
+      peerManager = clientPeerManager,
+      wakuArchive = clientArchive,
+      idsTx = clientIds,
+      wantsRx = clientWants,
+      needsRx = clientNeeds,
+    )
+
+    server.start()
+    client.start()
+
+    serverSwitch.mount(server)
+    clientSwitch.mount(client)
+
+    serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+    clientPeerInfo = clientSwitch.peerInfo.toRemotePeerInfo()
+
+  asyncTeardown:
+    await sleepAsync(10.milliseconds)
+
+    await allFutures(server.stopWait(), client.stopWait())
+    await allFutures(serverSwitch.stop(), clientSwitch.stop())
+
+  asyncTest "transfer 1 message":
+    let msg = fakeWakuMessage()
+    let hash = computeMessageHash(DefaultPubsubTopic, msg)
+    let msgs = @[msg]
+
+    serverArchive.put(DefaultPubsubTopic, msgs)
+
+    # add server info and msg hash to client want channel
+    let want = (serverPeerInfo.peerId, hash)
+    clientWants.add(want)
+
+    # add client info and msg hash to server need channel
+    let need = (clientPeerInfo.peerId, hash)
+    serverNeeds.add(need)
+
+    # give time for transfer to happen
+    await sleepAsync(10.miliseconds)
+
+    var query = ArchiveQuery()
+    query.includeData = true
+    query.hashes = @[hash]
+
+    let res = await clientArchive.findMessages(query)
+    assert res.isOk(), $res.error
+
+    let recvMsg = response.messages[0]
+
+    check:
+      msg == recvMsg
