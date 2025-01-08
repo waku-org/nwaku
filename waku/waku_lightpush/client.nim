@@ -82,10 +82,10 @@ proc publish*(
     obs.onMessagePublished(pubSubTopic, message)
 
   notice "publishing message with lightpush",
-        pubsubTopic = pubsubTopic,
-        contentTopic = message.contentTopic,
-        target_peer_id = peer.peerId,
-        msg_hash = msg_hash_hex_str
+    pubsubTopic = pubsubTopic,
+    contentTopic = message.contentTopic,
+    target_peer_id = peer.peerId,
+    msg_hash = msg_hash_hex_str
 
   return ok(msg_hash_hex_str)
 
