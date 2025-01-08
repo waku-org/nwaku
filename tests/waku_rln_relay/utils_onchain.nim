@@ -12,7 +12,8 @@ import
   web3,
   json,
   libp2p/crypto/crypto,
-  eth/keys
+  eth/keys,
+  results
 
 import
   waku/[
@@ -101,28 +102,51 @@ proc uploadRLNContract*(ethClientAddress: string): Future[Address] {.async.} =
 
   return proxyAddress
 
-proc createEthAccount*(
-    ethAmount: UInt256 = 1000.u256
-): Future[(keys.PrivateKey, Address)] {.async.} =
-  let web3 = await newWeb3(EthClient)
-  let accounts = await web3.provider.eth_accounts()
+proc sendEthTransfer*(
+    web3: Web3,
+    accountFrom: Address,
+    accountTo: Address,
+    amountWei: UInt256,
+    accountToBalanceBeforeExpectedWei: Option[UInt256] = none(UInt256),
+): Future[TxHash] {.async.} =
+  let doBalanceAssert = accountToBalanceBeforeExpectedWei.isSome()
+
+  if doBalanceAssert:
+    let balanceBeforeWei = await web3.provider.eth_getBalance(accountTo, "latest")
+    let balanceBeforeExpectedWei = accountToBalanceBeforeExpectedWei.get()
+    assert balanceBeforeWei == balanceBeforeExpectedWei,
+      fmt"Balance is {balanceBeforeWei} but expected {balanceBeforeExpectedWei}"
+
   let gasPrice = int(await web3.provider.eth_gasPrice())
+
+  var tx: EthSend
+  tx.source = accountFrom
+  tx.to = some(accountTo)
+  tx.value = some(amountWei)
+  tx.gasPrice = some(gasPrice)
+
+  # TODO: handle the error if sending fails
+  let txHash = await web3.send(tx)
+
+  if doBalanceAssert:
+    let balanceAfterWei = await web3.provider.eth_getBalance(accountTo, "latest")
+    let balanceAfterExpectedWei = accountToBalanceBeforeExpectedWei.get() + amountWei
+    assert balanceAfterWei == balanceAfterExpectedWei,
+      fmt"Balance is {balanceAfterWei} but expected {balanceAfterExpectedWei}"
+
+  return txHash
+
+proc createEthAccount*(
+    web3: Web3, amountEth: UInt256 = 1000.u256
+): Future[(keys.PrivateKey, Address)] {.async.} =
+  let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[0]
 
   let pk = keys.PrivateKey.random(rng[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
 
-  var tx: EthSend
-  tx.source = accounts[0]
-  tx.value = some(ethToWei(ethAmount))
-  tx.to = some(acc)
-  tx.gasPrice = some(gasPrice)
-
-  # Send ethAmount to acc
-  discard await web3.send(tx)
-  let balance = await web3.provider.eth_getBalance(acc, "latest")
-  assert balance == ethToWei(ethAmount),
-    fmt"Balance is {balance} but expected {ethToWei(ethAmount)}"
+  discard
+    await sendEthTransfer(web3, accounts[0], acc, ethToWei(amountEth), some(0.u256))
 
   return (pk, acc)
 
@@ -189,8 +213,8 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
   except:
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
-proc setup*(
-    ethClientAddress: string = EthClient, ethAmount: UInt256 = 10.u256
+proc setupOnchainGroupManager*(
+    ethClientAddress: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =
   let rlnInstanceRes =
     createRlnInstance(tree_path = genTempPath("rln_tree", "group_manager_onchain"))
@@ -207,7 +231,7 @@ proc setup*(
   web3.defaultAccount = accounts[0]
 
   var pk = none(string)
-  let (privateKey, _) = await createEthAccount(ethAmount)
+  let (privateKey, _) = await createEthAccount(web3, amountEth)
   pk = some($privateKey)
 
   let manager = OnchainGroupManager(

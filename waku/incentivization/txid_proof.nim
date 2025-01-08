@@ -1,12 +1,12 @@
 import std/options, chronos, web3, stew/byteutils, stint, results, chronicles
 
-import waku/incentivization/rpc
+import waku/incentivization/rpc, tests/waku_rln_relay/[utils_onchain, utils]
 
 const SimpleTransferGasUsed = Quantity(21000)
 const TxReceiptQueryTimeout = 3.seconds
 
-type EligibilityManager* = ref object
-  web3: Web3
+type EligibilityManager* = ref object # FIXME: make web3 private?
+  web3*: Web3
 
 # Initialize the eligibilityManager with a web3 instance
 proc init*(
@@ -49,7 +49,7 @@ proc isEligibleTxId*(
     eligibilityManager: EligibilityManager,
     eligibilityProof: EligibilityProof,
     expectedToAddress: Address,
-    expectedValue: UInt256,
+    expectedValueWei: UInt256,
 ): Future[Result[void, string]] {.async.} =
   ## We consider a tx eligible,
   ## in the context of service incentivization PoC,
@@ -57,7 +57,6 @@ proc isEligibleTxId*(
   ## See spec: https://github.com/waku-org/specs/blob/master/standards/core/incentivization.md
   if eligibilityProof.proofOfPayment.isNone():
     return err("Eligibility proof is empty")
-  #var web3 = eligibilityManager.web3
   var tx: TransactionObject
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
@@ -86,7 +85,7 @@ proc isEligibleTxId*(
   if toAddress != expectedToAddress:
     return err("Wrong destination address: " & $toAddress)
   # check that the amount is "as expected"
-  let txValue = tx.value
-  if txValue != expectedValue:
-    return err("Wrong tx value: got " & $txValue & ", expected " & $expectedValue)
+  let txValueWei = tx.value
+  if txValueWei != expectedValueWei:
+    return err("Wrong tx value: got " & $txValueWei & ", expected " & $expectedValueWei)
   return ok()
