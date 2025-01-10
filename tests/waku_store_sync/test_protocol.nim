@@ -26,8 +26,8 @@ suite "Waku Sync: reconciliation":
 
   var
     idsChannel {.threadvar.}: AsyncQueue[ID]
-    wantsChannel {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
-    needsChannel {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    localWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    remoteNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
 
   var server {.threadvar.}: SyncReconciliation
   var client {.threadvar.}: SyncReconciliation
@@ -42,31 +42,32 @@ suite "Waku Sync: reconciliation":
     await allFutures(serverSwitch.start(), clientSwitch.start())
 
     idsChannel = newAsyncQueue[ID]()
-    wantsChannel = newAsyncQueue[(PeerId, Fingerprint)]()
-    needsChannel = newAsyncQueue[(PeerId, Fingerprint)]()
+    localWants = newAsyncQueue[(PeerId, Fingerprint)]()
+    remoteNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
 
-    server =
-      await newTestWakuRecon(serverSwitch, idsChannel, wantsChannel, needsChannel)
-    client =
-      await newTestWakuRecon(clientSwitch, idsChannel, wantsChannel, needsChannel)
+    server = await newTestWakuRecon(serverSwitch, idsChannel, localWants, remoteNeeds)
+    client = await newTestWakuRecon(clientSwitch, idsChannel, localWants, remoteNeeds)
 
     serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
     clientPeerInfo = clientSwitch.peerInfo.toRemotePeerInfo()
 
   asyncTeardown:
-    await sleepAsync(10.milliseconds)
-
     await allFutures(server.stop(), client.stop())
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
 
   asyncTest "sync 2 nodes both empty":
+    check:
+      idsChannel.len == 0
+      localWants.len == 0
+      remoteNeeds.len == 0
+
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), res.error
 
     check:
       idsChannel.len == 0
-      wantsChannel.len == 0
-      needsChannel.len == 0
+      localWants.len == 0
+      remoteNeeds.len == 0
 
   asyncTest "sync 2 nodes empty client full server":
     let
@@ -81,13 +82,18 @@ suite "Waku Sync: reconciliation":
     server.messageIngress(hash2, msg2)
     server.messageIngress(hash3, msg3)
 
+    check:
+      remoteNeeds.contains((clientPeerInfo.peerId, hash1)) == false
+      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
+      remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == false
+
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), res.error
 
     check:
-      needsChannel.contains((clientPeerInfo.peerId, hash1)) == true
-      needsChannel.contains((clientPeerInfo.peerId, hash2)) == true
-      needsChannel.contains((clientPeerInfo.peerId, hash3)) == true
+      remoteNeeds.contains((clientPeerInfo.peerId, hash1)) == true
+      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == true
+      remoteNeeds.contains((clientPeerInfo.peerId, hash3)) == true
 
   asyncTest "sync 2 nodes full client empty server":
     let
@@ -102,13 +108,18 @@ suite "Waku Sync: reconciliation":
     client.messageIngress(hash2, msg2)
     client.messageIngress(hash3, msg3)
 
+    check:
+      remoteNeeds.contains((serverPeerInfo.peerId, hash1)) == false
+      remoteNeeds.contains((serverPeerInfo.peerId, hash2)) == false
+      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
+
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), res.error
 
     check:
-      needsChannel.contains((serverPeerInfo.peerId, hash1)) == true
-      needsChannel.contains((serverPeerInfo.peerId, hash2)) == true
-      needsChannel.contains((serverPeerInfo.peerId, hash3)) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, hash1)) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, hash2)) == true
+      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == true
 
   asyncTest "sync 2 nodes different hashes":
     let
@@ -124,14 +135,20 @@ suite "Waku Sync: reconciliation":
     client.messageIngress(hash1, msg1)
     client.messageIngress(hash3, msg3)
 
+    check:
+      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
+      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
+      localWants.contains((clientPeerInfo.peerId, hash3)) == false
+      localWants.contains((serverPeerInfo.peerId, hash2)) == false
+
     var syncRes = await client.storeSynchronization(some(serverPeerInfo))
     assert syncRes.isOk(), $syncRes.error
 
     check:
-      needsChannel.contains((serverPeerInfo.peerId, hash3))
-      needsChannel.contains((clientPeerInfo.peerId, hash2))
-      wantsChannel.contains((clientPeerInfo.peerId, hash3))
-      wantsChannel.contains((serverPeerInfo.peerId, hash2))
+      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == true
+      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == true
+      localWants.contains((clientPeerInfo.peerId, hash3)) == true
+      localWants.contains((serverPeerInfo.peerId, hash2)) == true
 
   asyncTest "sync 2 nodes same hashes":
     let
@@ -145,12 +162,16 @@ suite "Waku Sync: reconciliation":
     server.messageIngress(hash2, msg2)
     client.messageIngress(hash2, msg2)
 
+    check:
+      localWants.len == 0
+      remoteNeeds.len == 0
+
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
     check:
-      wantsChannel.len == 0
-      needsChannel.len == 0
+      localWants.len == 0
+      remoteNeeds.len == 0
 
   asyncTest "sync 2 nodes 100K msgs 1 diff":
     let msgCount = 100_000
@@ -176,14 +197,17 @@ suite "Waku Sync: reconciliation":
         diff = hash
 
       timestamp += Timestamp(part)
-      continue
+
+    check:
+      localWants.contains((serverPeerInfo.peerId, Fingerprint(diff))) == false
+      remoteNeeds.contains((clientPeerInfo.peerId, Fingerprint(diff))) == false
 
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
     check:
-      wantsChannel.contains((serverPeerInfo.peerId, Fingerprint(diff))) == true
-      needsChannel.contains((clientPeerInfo.peerId, Fingerprint(diff))) == true
+      localWants.contains((serverPeerInfo.peerId, Fingerprint(diff))) == true
+      remoteNeeds.contains((clientPeerInfo.peerId, Fingerprint(diff))) == true
 
   asyncTest "sync 2 nodes 10K msgs 1K diffs":
     let msgCount = 10_000
@@ -224,13 +248,17 @@ suite "Waku Sync: reconciliation":
       timestamp += Timestamp(part)
       continue
 
+    check:
+      localWants.len == 0
+      remoteNeeds.len == 0
+
     let res = await client.storeSynchronization(some(serverPeerInfo))
     assert res.isOk(), $res.error
 
     # timimg issue make it hard to match exact numbers
     check:
-      wantsChannel.len > 900
-      needsChannel.len > 900
+      localWants.len > 900
+      remoteNeeds.len > 900
 
 suite "Waku Sync: transfer":
   var
@@ -243,11 +271,11 @@ suite "Waku Sync: transfer":
 
   var
     serverIds {.threadvar.}: AsyncQueue[ID]
-    serverWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
-    serverNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    serverLocalWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    serverRemoteNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
     clientIds {.threadvar.}: AsyncQueue[ID]
-    clientWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
-    clientNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    clientLocalWants {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
+    clientRemoteNeeds {.threadvar.}: AsyncQueue[(PeerId, Fingerprint)]
 
   var
     server {.threadvar.}: SyncTransfer
@@ -274,27 +302,27 @@ suite "Waku Sync: transfer":
       clientPeerManager = PeerManager.new(clientSwitch)
 
     serverIds = newAsyncQueue[ID]()
-    serverWants = newAsyncQueue[(PeerId, Fingerprint)]()
-    serverNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
+    serverLocalWants = newAsyncQueue[(PeerId, Fingerprint)]()
+    serverRemoteNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
 
     server = SyncTransfer.new(
       peerManager = serverPeerManager,
       wakuArchive = serverArchive,
       idsTx = serverIds,
-      wantsRx = serverWants,
-      needsRx = serverNeeds,
+      wantsRx = serverLocalWants,
+      needsRx = serverRemoteNeeds,
     )
 
     clientIds = newAsyncQueue[ID]()
-    clientWants = newAsyncQueue[(PeerId, Fingerprint)]()
-    clientNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
+    clientLocalWants = newAsyncQueue[(PeerId, Fingerprint)]()
+    clientRemoteNeeds = newAsyncQueue[(PeerId, Fingerprint)]()
 
     client = SyncTransfer.new(
       peerManager = clientPeerManager,
       wakuArchive = clientArchive,
       idsTx = clientIds,
-      wantsRx = clientWants,
-      needsRx = clientNeeds,
+      wantsRx = clientLocalWants,
+      needsRx = clientRemoteNeeds,
     )
 
     server.start()
@@ -321,11 +349,11 @@ suite "Waku Sync: transfer":
 
     # add server info and msg hash to client want channel
     let want = (serverPeerInfo.peerId, hash)
-    clientWants.add(want)
+    clientLocalWants.add(want)
 
     # add client info and msg hash to server need channel
     let need = (clientPeerInfo.peerId, hash)
-    serverNeeds.add(need)
+    serverRemoteNeeds.add(need)
 
     # give time for transfer to happen
     await sleepAsync(10.miliseconds)

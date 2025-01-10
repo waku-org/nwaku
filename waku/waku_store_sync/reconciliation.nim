@@ -30,6 +30,8 @@ import
 logScope:
   topics = "waku reconciliation"
 
+const DefaultStorageCap = 50_000
+
 type SyncReconciliation* = ref object of LPProtocol
   peerManager: PeerManager
 
@@ -64,7 +66,7 @@ proc messageIngress*(
   let id = ID(time: msg.timestamp, fingerprint: msgHash)
 
   self.storage.insert(id).isOkOr:
-    error "failed to insert new message", hash = msgHash.toHex(), err = error
+    error "failed to insert new message", msg_hash = msgHash.toHex(), err = error
 
 proc messageIngress*(
     self: SyncReconciliation, msgHash: WakuMessageHash, msg: WakuMessage
@@ -72,11 +74,11 @@ proc messageIngress*(
   let id = ID(time: msg.timestamp, fingerprint: msgHash)
 
   self.storage.insert(id).isOkOr:
-    error "failed to insert new message", hash = msgHash.toHex(), err = error
+    error "failed to insert new message", msg_hash = msgHash.toHex(), err = error
 
 proc messageIngress*(self: SyncReconciliation, id: ID) =
   self.storage.insert(id).isOkOr:
-    error "failed to insert new message", hash = id.fingerprint.toHex(), err = error
+    error "failed to insert new message", msg_hash = id.fingerprint.toHex(), err = error
 
 proc processRequest(
     self: SyncReconciliation, conn: Connection
@@ -85,12 +87,12 @@ proc processRequest(
 
   while true:
     let readRes = catch:
-      await conn.readLp(-1)
+      await conn.readLp(int.high)
 
     let buffer: seq[byte] = readRes.valueOr:
       return err("connection read error: " & error.msg)
 
-    total_bytes_exchanged.observe(buffer.len, labelValues = ["reconciliation_recv"])
+    total_bytes_exchanged.observe(buffer.len, labelValues = [ReconRecv])
 
     let recvPayload = SyncPayload.deltaDecode(buffer)
 
@@ -119,7 +121,7 @@ proc processRequest(
 
     let rawPayload = sendPayload.deltaEncode()
 
-    total_bytes_exchanged.observe(rawPayload.len, labelValues = ["reconciliation_sent"])
+    total_bytes_exchanged.observe(rawPayload.len, labelValues = [ReconSend])
 
     let writeRes = catch:
       await conn.writeLP(rawPayload)
@@ -160,7 +162,7 @@ proc initiate(
 
   let sendPayload = initPayload.deltaEncode()
 
-  total_bytes_exchanged.observe(sendPayload.len, labelValues = ["reconciliation_sent"])
+  total_bytes_exchanged.observe(sendPayload.len, labelValues = [ReconSend])
 
   let writeRes = catch:
     await connection.writeLP(sendPayload)
@@ -225,7 +227,7 @@ proc initFillStorage(
 
   debug "initial storage filling started"
 
-  var ids = newSeq[ID](50_000)
+  var ids = newSeq[ID](DefaultStorageCap)
 
   # we assume IDs are in order
 
@@ -263,7 +265,7 @@ proc new*(
   let storage =
     if res.isErr():
       warn "will not sync messages before this point in time", error = res.error
-      SeqStorage.new(50_000)
+      SeqStorage.new(DefaultStorageCap)
     else:
       SeqStorage.new(res.get())
 
@@ -308,7 +310,7 @@ proc periodicSync(self: SyncReconciliation) {.async.} =
 proc periodicPrune(self: SyncReconciliation) {.async.} =
   debug "periodic prune initialized", interval = $self.syncInterval
 
-  # to stagger the sync/prune intervals
+  # preventing sync and prune loops of happening at the same time.
   await sleepAsync((self.syncInterval div 2))
 
   while true: # infinite loop
@@ -320,7 +322,7 @@ proc periodicPrune(self: SyncReconciliation) {.async.} =
 
     let count = self.storage.prune(time)
 
-    debug "periodic prune done", elementsTrimmed = count
+    debug "periodic prune done", elements_pruned = count
 
 proc idsReceiverLoop(self: SyncReconciliation) {.async.} =
   while true: # infinite loop
