@@ -18,19 +18,18 @@ Json.setWriter JsonWriter, PreferredOutput = string
 #### Type conversion
 
 proc parseHash*(input: Option[string]): Result[Option[WakuMessageHash], string] =
-  let base64UrlEncoded =
+  let hexUrlEncoded =
     if input.isSome():
       input.get()
     else:
       return ok(none(WakuMessageHash))
 
-  if base64UrlEncoded == "":
+  if hexUrlEncoded == "":
     return ok(none(WakuMessageHash))
 
-  let base64Encoded = decodeUrl(base64UrlEncoded, false)
+  let hexDecoded = decodeUrl(hexUrlEncoded, false)
 
-  let decodedBytes = base64.decode(Base64String(base64Encoded)).valueOr:
-    return err("waku message hash parsing error: " & error)
+  let decodedBytes = hexToByteArray(hexDecoded)
 
   if decodedBytes.len != 32:
     return
@@ -58,12 +57,12 @@ proc parseHashes*(input: Option[string]): Result[seq[WakuMessageHash], string] =
   return ok(hashes)
 
 # Converts a given MessageDigest object into a suitable
-# Base64-URL-encoded string suitable to be transmitted in a Rest
-# request-response. The MessageDigest is first base64 encoded
+# Hex-URL-encoded string suitable to be transmitted in a Rest
+# request-response. The MessageDigest is first hex encoded
 # and this result is URL-encoded.
 proc toRestStringWakuMessageHash*(self: WakuMessageHash): string =
-  let base64Encoded = base64.encode(self)
-  encodeUrl($base64Encoded, false)
+  let hexEncoded = self.to0xHex()
+  encodeUrl(hexEncoded, false)
 
 ## WakuMessage serde
 
