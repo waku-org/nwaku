@@ -463,7 +463,11 @@ proc initAndStartApp(
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
   nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
-  nodeBuilder.withPeerManagerConfig(maxRelayPeers = some(20), shardAware = true)
+  nodeBuilder.withPeerManagerConfig(
+    maxConnections = MaxConnectedPeers,
+    relayServiceRatio = "13.33:86.67",
+    shardAware = true,
+  )
   let res = nodeBuilder.withNetworkConfigurationDetails(bindIp, nodeTcpPort)
   if res.isErr():
     return err("node building error" & $res.error)

@@ -314,6 +314,9 @@ proc addObserver*(w: WakuRelay, observer: PubSubObserver) {.gcsafe.} =
   ## Observes when a message is sent/received from the GossipSub PoV
   procCall GossipSub(w).addObserver(observer)
 
+proc getDHigh*(T: type WakuRelay): int =
+  return GossipsubParameters.dHigh
+
 proc getNumPeersInMesh*(w: WakuRelay, pubsubTopic: PubsubTopic): Result[int, string] =
   ## Returns the number of peers in a mesh defined by the passed pubsub topic.
   ## The 'mesh' atribute is defined in the GossipSub ref object.

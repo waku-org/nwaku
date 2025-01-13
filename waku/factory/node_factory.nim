@@ -102,7 +102,9 @@ proc initNode(
   )
   builder.withColocationLimit(conf.colocationLimit)
   builder.withPeerManagerConfig(
-    maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
+    maxConnections = conf.maxConnections,
+    relayServiceRatio = conf.relayServiceRatio,
+    shardAware = conf.relayShardedPeerManagement,
   )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)

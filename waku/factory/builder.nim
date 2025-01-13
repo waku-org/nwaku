@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, net],
+  std/[options, net, math],
   results,
   chronicles,
   libp2p/crypto/crypto,
@@ -15,7 +15,8 @@ import
   ../discovery/waku_discv5,
   ../waku_node,
   ../node/peer_manager,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../common/utils/parse_size_units
 
 type
   WakuNodeBuilder* = object # General
@@ -29,7 +30,8 @@ type
     peerStorageCapacity: Option[int]
 
     # Peer manager config
-    maxRelayPeers: Option[int]
+    maxRelayPeers: int
+    maxServicePeers: int
     colocationLimit: int
     shardAware: bool
 
@@ -108,10 +110,22 @@ proc withPeerStorage*(
   builder.peerStorageCapacity = capacity
 
 proc withPeerManagerConfig*(
-    builder: var WakuNodeBuilder, maxRelayPeers = none(int), shardAware = false
+    builder: var WakuNodeBuilder,
+    maxConnections: int,
+    relayServiceRatio: string,
+    shardAware = false,
 ) =
-  builder.maxRelayPeers = maxRelayPeers
-  builder.shardAware = shardAware
+  try:
+    let (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
+    var relayPeers = int(ceil(float(maxConnections) * relayRatio))
+    var servicePeers = int(floor(float(maxConnections) * serviceRatio))
+
+    builder.maxServicePeers = servicePeers
+    builder.maxRelayPeers = relayPeers
+    builder.shardAware = shardAware
+  except ValueError:
+    error "Invalid relay service ratio format",
+      ratio = relayServiceRatio, error = getCurrentExceptionMsg()
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
@@ -190,7 +204,8 @@ proc build*(builder: WakuNodeBuilder): Result[WakuNode, string] =
   let peerManager = PeerManager.new(
     switch = switch,
     storage = builder.peerStorage.get(nil),
-    maxRelayPeers = builder.maxRelayPeers,
+    maxRelayPeers = some(builder.maxRelayPeers),
+    maxServicePeers = some(builder.maxServicePeers),
     colocationLimit = builder.colocationLimit,
     shardedPeerManagement = builder.shardAware,
   )

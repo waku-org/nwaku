@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[options, sets, sequtils, times, strutils, math, random],
+  std/[options, sets, sequtils, times, strformat, strutils, math, random],
   chronos,
   chronicles,
   metrics,
@@ -13,8 +13,10 @@ import
 import
   ../../common/nimchronos,
   ../../common/enr,
+  ../../common/utils/parse_size_units,
   ../../waku_core,
   ../../waku_relay,
+  ../../waku_relay/protocol,
   ../../waku_enr/sharding,
   ../../waku_enr/capabilities,
   ../../waku_metadata,
@@ -84,7 +86,9 @@ type PeerManager* = ref object of RootObj
   maxFailedAttempts*: int
   storage*: PeerStorage
   serviceSlots*: Table[string, RemotePeerInfo]
+  relayServiceRatio*: string
   maxRelayPeers*: int
+  maxServicePeers*: int
   outRelayPeersTarget: int
   inRelayPeersTarget: int
   ipTable*: Table[string, seq[PeerId]]
@@ -263,6 +267,12 @@ proc addServicePeer*(pm: PeerManager, remotePeerInfo: RemotePeerInfo, proto: str
   # Do not add relay peers
   if proto == WakuRelayCodec:
     warn "Can't add relay peer to service peers slots"
+    return
+
+  # Check if the number of service peers has reached the maximum limit
+  if pm.serviceSlots.len >= pm.maxServicePeers:
+    warn "Maximum number of service peers reached. Cannot add more.",
+      peerId = remotePeerInfo.peerId, service = proto
     return
 
   info "Adding peer to service slots",
@@ -970,6 +980,8 @@ proc new*(
     switch: Switch,
     wakuMetadata: WakuMetadata = nil,
     maxRelayPeers: Option[int] = none(int),
+    maxServicePeers: Option[int] = none(int),
+    relayServiceRatio: string = "60:40",
     storage: PeerStorage = nil,
     initialBackoffInSec = InitialBackoffInSec,
     backoffFactor = BackoffFactor,
@@ -986,31 +998,36 @@ proc new*(
       Defect, "Max number of connections can't be greater than PeerManager capacity"
     )
 
-  var maxRelayPeersValue = 0
-  if maxRelayPeers.isSome():
-    if maxRelayPeers.get() > maxConnections:
-      error "Max number of relay peers can't be greater than the max amount of connections",
-        maxConnections = maxConnections, maxRelayPeers = maxRelayPeers.get()
-      raise newException(
-        Defect,
-        "Max number of relay peers can't be greater than the max amount of connections",
-      )
+  var relayRatio: float64
+  var serviceRatio: float64
+  try:
+    (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
+  except ValueError:
+    error "Invalid relay service ratio format", ratio = relayServiceRatio
+    return
 
-    if maxRelayPeers.get() == maxConnections:
-      warn "Max number of relay peers is equal to max amount of connections, peer won't be contributing to service peers",
-        maxConnections = maxConnections, maxRelayPeers = maxRelayPeers.get()
-    maxRelayPeersValue = maxRelayPeers.get()
-  else:
-    # Leave by default 20% of connections for service peers
-    maxRelayPeersValue = maxConnections - (maxConnections div 5)
+  var relayPeers = int(ceil(float(maxConnections) * relayRatio))
+  var servicePeers = int(floor(float(maxConnections) * serviceRatio))
+
+  let minRelayPeers = WakuRelay.getDHigh()
+
+  if relayPeers < minRelayPeers:
+    let errorMsg =
+      fmt"""Doesn't fulfill minimum criteria for relay (which increases the chance of the node becoming isolated.)
+    relayPeers: {relayPeers}, should be greater or equal than minRelayPeers: {minRelayPeers}
+    relayServiceRatio: {relayServiceRatio}
+    maxConnections: {maxConnections}"""
+    error "Wrong relay peers config", error = errorMsg
+    return
+
+  let outRelayPeersTarget = relayPeers div 3
+  let inRelayPeersTarget = relayPeers - outRelayPeersTarget
 
   # attempt to calculate max backoff to prevent potential overflows or unreasonably high values
   let backoff = calculateBackoff(initialBackoffInSec, backoffFactor, maxFailedAttempts)
   if backoff.weeks() > 1:
     error "Max backoff time can't be over 1 week", maxBackoff = backoff
     raise newException(Defect, "Max backoff time can't be over 1 week")
-
-  let outRelayPeersTarget = maxRelayPeersValue div 3
 
   let pm = PeerManager(
     switch: switch,
@@ -1019,9 +1036,10 @@ proc new*(
     storage: storage,
     initialBackoffInSec: initialBackoffInSec,
     backoffFactor: backoffFactor,
+    maxRelayPeers: relayPeers,
+    maxServicePeers: servicePeers,
     outRelayPeersTarget: outRelayPeersTarget,
-    inRelayPeersTarget: maxRelayPeersValue - outRelayPeersTarget,
-    maxRelayPeers: maxRelayPeersValue,
+    inRelayPeersTarget: inRelayPeersTarget,
     maxFailedAttempts: maxFailedAttempts,
     colocationLimit: colocationLimit,
     shardedPeerManagement: shardedPeerManagement,
