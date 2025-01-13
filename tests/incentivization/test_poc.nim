@@ -7,7 +7,7 @@ import
   waku/[node/peer_manager, waku_core],
   ../testlib/[assertions],
   waku/incentivization/[rpc, rpc_codec, common, txid_proof],
-  ../waku_rln_relay/utils_onchain
+  ../waku_rln_relay/[utils_onchain, utils]
 
 const TxHashNonExisting =
   TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
@@ -18,14 +18,14 @@ const EthClient = "ws://127.0.0.1:8540"
 
 proc setupEligibilityTesting(
     eligibilityManager: EligibilityManager
-): Future[(TxHash, TxHash, TxHash, Address, Address)] {.async.} =
+): Future[(TxHash, TxHash, TxHash, TxHash, Address, Address)] {.async.} =
   ## Populate the local chain (connected to via eligibilityManager)
   ## with txs required for eligibility testing.
   ## 
   ## 1. Depoly a dummy contract that has a publicly callable function.
   ##    (While doing so, we confirm a contract creation tx.)
   ## 2. Confirm these transactions:
-  ## - a conctract call tx (eligibility test must fail)
+  ## - a contract call tx (eligibility test must fail)
   ## - a simple transfer with the wrong receiver (must fail)
   ## - a simple transfer with the wrong amount (must fail)
   ## - a simple transfer with the right receiver and amount (must pass)
@@ -57,11 +57,22 @@ proc setupEligibilityTesting(
   echo $txHashRightReceiverWrongAmount
   echo $txHashRightReceiverRightAmount
 
+  echo "SETTING UP CONTRACT"
+
+  web3.defaultAccount = accounts[0]
+  let ExampleStorageContract =
+    "6080604052348015600e575f80fd5b506101438061001c5f395ff3fe608060405234801561000f575f80fd5b5060043610610034575f3560e01c80632e64cec1146100385780636057361d14610056575b5f80fd5b610040610072565b60405161004d919061009b565b60405180910390f35b610070600480360381019061006b91906100e2565b61007a565b005b5f8054905090565b805f8190555050565b5f819050919050565b61009581610083565b82525050565b5f6020820190506100ae5f83018461008c565b92915050565b5f80fd5b6100c181610083565b81146100cb575f80fd5b50565b5f813590506100dc816100b8565b92915050565b5f602082840312156100f7576100f66100b4565b5b5f610104848285016100ce565b9150509291505056fea26469706673582212209a0dd35336aff1eb3eeb11db76aa60a1427a12c1b92f945ea8c8d1dfa337cf2264736f6c634300081a0033"
+  let receipt = await web3.deployContract(ExampleStorageContract)
+  let txHashContractCreation = receipt.transactionHash
+
+  echo $txHashContractCreation
+
   echo "SETUP COMPLETE"
 
   return (
     txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-    txHashRightReceiverRightAmount, receiverExpected, receiverNotExpected,
+    txHashRightReceiverRightAmount, txHashContractCreation, receiverExpected,
+    receiverNotExpected,
   )
 
 suite "Waku Incentivization PoC Eligibility Proofs":
@@ -80,6 +91,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
   var txHashWrongReceiverRightAmount: TxHash
   var txHashRightReceiverWrongAmount: TxHash
   var txHashRightReceiverRightAmount: TxHash
+  var txHashContractCreation: TxHash
 
   var receiverExpected: Address
   var receiverNotExpected: Address
@@ -91,7 +103,8 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
     let (
       txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, receiverExpected, receiverNotExpected,
+      txHashRightReceiverRightAmount, txHashContractCreation, receiverExpected,
+      receiverNotExpected,
     ) = await setupEligibilityTesting(eligibilityManager)
 
     let eligibilityProof =
@@ -104,20 +117,27 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     defer:
       await eligibilityManager.close()
 
-  #[
   asyncTest "incentivization PoC: contract creation tx is not eligible":
     ## Test that a contract creation tx is not eligible.
-    let eligibilityManager = await EligibilityManager.init(EthClientSepolia)
+    let eligibilityManager = await EligibilityManager.init(EthClient)
+
+    let (
+      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
+      txHashRightReceiverRightAmount, txHashContractCreation, receiverExpected,
+      receiverNotExpected,
+    ) = await setupEligibilityTesting(eligibilityManager)
+
     let eligibilityProof =
-      EligibilityProof(proofOfPayment: some(@(TxHashContractCreation.bytes())))
+      EligibilityProof(proofOfPayment: some(@(txHashContractCreation.bytes())))
     let isEligible = await isEligibleTxId(
-      eligibilityManager, eligibilityProof, ExpectedToAddress, ExpectedValueSepolia
+      eligibilityManager, eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
       isEligible.isErr()
     defer:
       await eligibilityManager.close()
 
+  #[
   asyncTest "incentivization PoC: contract call tx is not eligible":
     ## Test that a contract call tx is not eligible.
     ## This assumes a payment in native currency (ETH), not a token.
@@ -139,7 +159,8 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
     let (
       txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, receiverExpected, receiverNotExpected,
+      txHashRightReceiverRightAmount, txHashContractCreation, receiverExpected,
+      receiverNotExpected,
     ) = await setupEligibilityTesting(eligibilityManager)
 
     let eligibilityProof =
