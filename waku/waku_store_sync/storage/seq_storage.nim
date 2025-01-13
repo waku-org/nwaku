@@ -8,6 +8,9 @@ type SeqStorage* = ref object of SyncStorage
   partitionCount: int
   lengthThreshold: int
 
+method length*(self: SeqStorage): int =
+  return self.elements.len
+
 method insert*(self: SeqStorage, element: ID): Result[void, string] {.raises: [].} =
   let idx = self.elements.lowerBound(element, common.cmp)
 

@@ -73,6 +73,61 @@ suite "Waku Sync Storage":
     check:
       toSend == diffs
 
+  test "insert new element":
+    var rng = initRand()
+
+    let storage = SeqStorage.new(10)
+
+    let element1 = ID(time: Timestamp(1000), fingerprint: randomHash(rng))
+    let element2 = ID(time: Timestamp(2000), fingerprint: randomHash(rng))
+
+    let res1 = storage.insert(element1)
+    assert res1.isOk(), $res1.error
+    let count1 = storage.length()
+
+    let res2 = storage.insert(element2)
+    assert res2.isOk(), $res2.error
+    let count2 = storage.length()
+
+    check:
+      count1 == 1
+      count2 == 2
+
+  test "insert duplicate":
+    var rng = initRand()
+
+    let element = ID(time: Timestamp(1000), fingerprint: randomHash(rng))
+
+    let storage = SeqStorage.new(@[element])
+
+    let res = storage.insert(element)
+
+    check:
+      res.isErr() == true
+
+  test "prune elements":
+    var rng = initRand()
+    let count = 1000
+    var elements = newSeqOfCap[ID](count)
+
+    for i in 0 ..< count:
+      let id = ID(time: Timestamp(i), fingerprint: randomHash(rng))
+
+      elements.add(id)
+
+    let storage = SeqStorage.new(elements)
+
+    let beforeCount = storage.length()
+
+    let pruned = storage.prune(Timestamp(500))
+
+    let afterCount = storage.length()
+
+    check:
+      beforeCount == 1000
+      pruned == 500
+      afterCount == 500
+
   ## disabled tests are rough benchmark 
   #[ test "10M fingerprint":
     var rng = initRand()

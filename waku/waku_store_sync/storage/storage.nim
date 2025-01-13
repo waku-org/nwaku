@@ -31,3 +31,6 @@ method processPayload*(
     hashToRecv: var seq[Fingerprint],
 ): SyncPayload {.base, gcsafe, raises: [].} =
   discard
+
+method length*(self: SyncStorage): int {.base, gcsafe, raises: [].} =
+  discard
