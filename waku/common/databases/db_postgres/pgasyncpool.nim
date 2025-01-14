@@ -29,7 +29,6 @@ proc new*(T: type PgAsyncPool, dbUrl: string, maxConnections: int): DatabaseResu
     if dbUrl.match(regex, m) == false:
       return err("could not properly parse dbUrl: " & dbUrl)
 
-
     let user = dbUrl[m.captures[0]]
       ## m.captures[i] contains an slice with the desired value
     let password = dbUrl[m.captures[1]]
