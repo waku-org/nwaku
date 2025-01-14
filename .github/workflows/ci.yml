@@ -130,6 +130,8 @@ jobs:
     needs: build-docker-image
     uses: waku-org/waku-interop-tests/.github/workflows/nim_waku_PR.yml@SMOKE_TEST_0.0.1
     with:
+      repository: waku-org/waku-interop-tests
+      ref: SMOKE_TEST_0.0.1
       node_nwaku: ${{ needs.build-docker-image.outputs.image }}
 
     secrets: inherit
