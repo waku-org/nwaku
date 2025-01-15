@@ -938,8 +938,8 @@ procSuite "Peer Manager":
 
   test "peer manager cant have more max connections than peerstore size":
     # Peerstore size can't be smaller than max connections
-    let peerStoreSize = 5
-    let maxConnections = 10
+    let peerStoreSize = 50
+    let maxConnections = 50
 
     expect(Defect):
       let pm = PeerManager.new(
@@ -962,11 +962,10 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(10)
-        .withMaxConnections(5)
+        .withPeerStore(50)
+        .withMaxConnections(50)
         .build(),
       maxFailedAttempts = 1,
-      maxRelayPeers = some(5),
       storage = nil,
     )
 
@@ -1018,14 +1017,13 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(10)
-        .withMaxConnections(5)
+        .withPeerStore(50)
+        .withMaxConnections(50)
         .build(),
       initialBackoffInSec = 1,
         # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
       backoffFactor = 2,
       maxFailedAttempts = 10,
-      maxRelayPeers = some(5),
       storage = nil,
     )
     var p1: PeerId
@@ -1075,10 +1073,9 @@ procSuite "Peer Manager":
           .withRng(rng)
           .withMplex()
           .withNoise()
-          .withPeerStore(10)
-          .withMaxConnections(5)
+          .withPeerStore(50)
+          .withMaxConnections(50)
           .build(),
-        maxRelayPeers = some(5),
         maxFailedAttempts = 150,
         storage = nil,
       )
@@ -1091,11 +1088,10 @@ procSuite "Peer Manager":
           .withRng(rng)
           .withMplex()
           .withNoise()
-          .withPeerStore(10)
-          .withMaxConnections(5)
+          .withPeerStore(50)
+          .withMaxConnections(50)
           .build(),
         maxFailedAttempts = 10,
-        maxRelayPeers = some(5),
         storage = nil,
       )
 
@@ -1105,11 +1101,10 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(10)
-        .withMaxConnections(5)
+        .withPeerStore(50)
+        .withMaxConnections(50)
         .build(),
       maxFailedAttempts = 5,
-      maxRelayPeers = some(5),
       storage = nil,
     )
 
