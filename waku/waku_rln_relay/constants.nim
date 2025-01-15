@@ -42,8 +42,14 @@ const
   #  keys are created locally, using createMembershipList proc from waku_rln_relay_utils module, and the results are hardcoded in here
   #  this list is temporary and is created to test the performance of waku-rln-relay for the static groups
   #  in the later versions, this static hardcoded group will be replaced with a dynamic one
-const StaticGroupKeys* =
-  @[
+
+when defined(release):
+  ## the constants are used for testing purposes
+  ## and they enlarge the resulting binary significantly
+  const StaticGroupKeys* = @[]
+else:
+  const StaticGroupKeys* =
+    @[
     (
       "23904f74b07209db3258de20e981b4564b587b238a5d259ba08329b4f84bc68c",
       "294993a5e2720d8e85ddbe69c45245fdb974de3b7e62be0a4147f5de75c83059",
