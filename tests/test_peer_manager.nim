@@ -938,8 +938,8 @@ procSuite "Peer Manager":
 
   test "peer manager cant have more max connections than peerstore size":
     # Peerstore size can't be smaller than max connections
-    let peerStoreSize = 50
-    let maxConnections = 50
+    let peerStoreSize = 20
+    let maxConnections = 25
 
     expect(Defect):
       let pm = PeerManager.new(
@@ -962,53 +962,61 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(50)
-        .withMaxConnections(50)
+        .withPeerStore(25)
+        .withMaxConnections(20)
         .build(),
       maxFailedAttempts = 1,
       storage = nil,
     )
 
-    # Create 15 peers and add them to the peerstore
-    let peers = toSeq(1 .. 15)
+    # Create 30 peers and add them to the peerstore
+    let peers = toSeq(1 .. 30)
       .mapIt(parsePeerInfo("/ip4/0.0.0.0/tcp/0/p2p/" & $PeerId.random().get()))
       .filterIt(it.isOk())
       .mapIt(it.value)
     for p in peers:
       pm.addPeer(p)
 
-    # Check that we have 15 peers in the peerstore
+    # Check that we have 30 peers in the peerstore
     check:
-      pm.wakuPeerStore.peers.len == 15
+      pm.wakuPeerStore.peers.len == 30
 
     # fake that some peers failed to connected
     pm.wakuPeerStore[NumberFailedConnBook][peers[0].peerId] = 2
     pm.wakuPeerStore[NumberFailedConnBook][peers[1].peerId] = 2
     pm.wakuPeerStore[NumberFailedConnBook][peers[2].peerId] = 2
+    pm.wakuPeerStore[NumberFailedConnBook][peers[3].peerId] = 2
+    pm.wakuPeerStore[NumberFailedConnBook][peers[4].peerId] = 2
 
     # fake that some peers are connected
     pm.wakuPeerStore[ConnectionBook][peers[5].peerId] = Connected
     pm.wakuPeerStore[ConnectionBook][peers[8].peerId] = Connected
-    pm.wakuPeerStore[ConnectionBook][peers[10].peerId] = Connected
-    pm.wakuPeerStore[ConnectionBook][peers[12].peerId] = Connected
+    pm.wakuPeerStore[ConnectionBook][peers[15].peerId] = Connected
+    pm.wakuPeerStore[ConnectionBook][peers[18].peerId] = Connected
+    pm.wakuPeerStore[ConnectionBook][peers[24].peerId] = Connected
+    pm.wakuPeerStore[ConnectionBook][peers[29].peerId] = Connected
 
-    # Prune the peerstore (current=15, target=5)
+    # Prune the peerstore (current=30, target=25)
     pm.prunePeerStore()
 
     check:
       # ensure peerstore was pruned
-      pm.wakuPeerStore.peers.len == 10
+      pm.wakuPeerStore.peers.len == 25
 
       # ensure connected peers were not pruned
       pm.wakuPeerStore.peers.anyIt(it.peerId == peers[5].peerId)
       pm.wakuPeerStore.peers.anyIt(it.peerId == peers[8].peerId)
-      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[10].peerId)
-      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[12].peerId)
+      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[15].peerId)
+      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[18].peerId)
+      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[24].peerId)
+      pm.wakuPeerStore.peers.anyIt(it.peerId == peers[29].peerId)
 
       # ensure peers that failed were the first to be pruned
       not pm.wakuPeerStore.peers.anyIt(it.peerId == peers[0].peerId)
       not pm.wakuPeerStore.peers.anyIt(it.peerId == peers[1].peerId)
       not pm.wakuPeerStore.peers.anyIt(it.peerId == peers[2].peerId)
+      not pm.wakuPeerStore.peers.anyIt(it.peerId == peers[3].peerId)
+      not pm.wakuPeerStore.peers.anyIt(it.peerId == peers[4].peerId)
 
   asyncTest "canBeConnected() returns correct value":
     let pm = PeerManager.new(
@@ -1017,8 +1025,8 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(50)
-        .withMaxConnections(50)
+        .withPeerStore(25)
+        .withMaxConnections(20)
         .build(),
       initialBackoffInSec = 1,
         # with InitialBackoffInSec = 1 backoffs are: 1, 2, 4, 8secs.
@@ -1073,8 +1081,8 @@ procSuite "Peer Manager":
           .withRng(rng)
           .withMplex()
           .withNoise()
-          .withPeerStore(50)
-          .withMaxConnections(50)
+          .withPeerStore(25)
+          .withMaxConnections(20)
           .build(),
         maxFailedAttempts = 150,
         storage = nil,
@@ -1088,8 +1096,8 @@ procSuite "Peer Manager":
           .withRng(rng)
           .withMplex()
           .withNoise()
-          .withPeerStore(50)
-          .withMaxConnections(50)
+          .withPeerStore(25)
+          .withMaxConnections(20)
           .build(),
         maxFailedAttempts = 10,
         storage = nil,
@@ -1101,8 +1109,8 @@ procSuite "Peer Manager":
         .withRng(rng)
         .withMplex()
         .withNoise()
-        .withPeerStore(50)
-        .withMaxConnections(50)
+        .withPeerStore(25)
+        .withMaxConnections(20)
         .build(),
       maxFailedAttempts = 5,
       storage = nil,
