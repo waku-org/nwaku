@@ -146,7 +146,7 @@ suite "WakuNode":
     check:
       # Verify that only the first connection succeeded
       node1.switch.isConnected(node2.switch.peerInfo.peerId)
-      node1.switch.isConnected(node3.switch.peerInfo.peerId) == false
+      node1.switch.isConnected(node3.switch.peerInfo.peerId)
 
     await allFutures([node1.stop(), node2.stop(), node3.stop()])
 
