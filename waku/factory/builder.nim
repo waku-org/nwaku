@@ -123,9 +123,8 @@ proc withPeerManagerConfig*(
     builder.maxServicePeers = servicePeers
     builder.maxRelayPeers = relayPeers
     builder.shardAware = shardAware
-  except ValueError:
-    error "Invalid relay service ratio format",
-      ratio = relayServiceRatio, error = getCurrentExceptionMsg()
+  except ValueError as e:
+    error "Error : ", error = e.msg
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit

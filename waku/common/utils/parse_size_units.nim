@@ -53,19 +53,22 @@ proc parseCorrectMsgSize*(input: string): uint64 =
 proc parseRelayServiceRatio*(ratio: string): Result[(float, float), string] =
   ## Parses a relay/service ratio string to [ float, float ]. The total should sum 100%
   ## e.g., (0.4, 0.6) == parseRelayServiceRatio("40:60")
-  let elements = ratio.split(":")
-  if elements.len != 2:
-    return err("Invalid format of relay:service, ratio = " & $ratio)
+  try:
+    let elements = ratio.split(":")
+    if elements.len != 2:
+      raise newException(ValueError, "expected format 'X:Y', ratio = " & ratio)
 
-  let
-    relayRatio = parseFloat(elements[0])
-    serviceRatio = parseFloat(elements[1])
+    let
+      relayRatio = parseFloat(elements[0])
+      serviceRatio = parseFloat(elements[1])
 
-  if relayRatio < 0 or serviceRatio < 0:
-    return err("relay service ratio must be non-negative, ratio = " & $ratio)
+    if relayRatio < 0 or serviceRatio < 0:
+      raise newException(ValueError, "Relay service ratio must be non-negative, ratio = " & ratio)
 
-  let total = relayRatio + serviceRatio
-  if int(total) != 100:
-    return err("Total ratio should be 100, total =" & $total)
+    let total = relayRatio + serviceRatio
+    if int(total) != 100:
+      raise newException(ValueError, "Total ratio should be 100, total = " & $total)
 
-  return ok((relayRatio / 100.0, serviceRatio / 100.0))
+    return ok((relayRatio / 100.0, serviceRatio / 100.0))
+  except ValueError as e:
+    raise newException(ValueError, "Invalid Format Error : " & e.msg)

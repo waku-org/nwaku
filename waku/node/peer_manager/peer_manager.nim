@@ -1002,9 +1002,8 @@ proc new*(
   var serviceRatio: float64
   try:
     (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
-  except ValueError:
-    error "Invalid relay service ratio format", ratio = relayServiceRatio
-    return
+  except ValueError as e:
+    error "Error : ", error = e.msg
 
   var relayPeers = int(ceil(float(maxConnections) * relayRatio))
   var servicePeers = int(floor(float(maxConnections) * serviceRatio))
