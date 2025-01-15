@@ -108,7 +108,7 @@ suite "WakuNode":
 
   asyncTest "Maximum connections can be configured":
     let
-      maxConnections = 2
+      maxConnections = 20
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(
         nodeKey1,
