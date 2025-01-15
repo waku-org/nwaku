@@ -117,9 +117,9 @@ suite "WakuNode":
         maxConnections = maxConnections,
       )
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.2"), Port(60012))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(60012))
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.3"), Port(60014))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(60014))
 
     check:
       # Sanity check, to verify config was applied
