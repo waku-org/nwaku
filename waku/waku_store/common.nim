@@ -134,7 +134,7 @@ proc `$`*(err: StoreError): string =
   of ErrorCode.UNKNOWN:
     "UNKNOWN"
 
-proc toHex(messageData: WakuMessageKeyValue): WakuMessageKeyValueHex =
+proc toHex*(messageData: WakuMessageKeyValue): WakuMessageKeyValueHex =
   WakuMessageKeyValueHex(
     messageHash: messageData.messageHash.to0xHex(),
       # Assuming WakuMessageHash has a toHex method
@@ -142,7 +142,7 @@ proc toHex(messageData: WakuMessageKeyValue): WakuMessageKeyValueHex =
     pubsubTopic: messageData.pubsubTopic,
   )
 
-proc toHex(response: StoreQueryResponse): StoreQueryResponseHex =
+proc toHex*(response: StoreQueryResponse): StoreQueryResponseHex =
   StoreQueryResponseHex(
     requestId: response.requestId,
     statusCode: response.statusCode,
