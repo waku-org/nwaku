@@ -112,20 +112,20 @@ suite "WakuNode":
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(
         nodeKey1,
-        parseIpAddress("0.0.0.0"),
+        parseIpAddress("127.0.0.1"),
         Port(60010),
         maxConnections = maxConnections,
       )
       nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(60012))
+      node2 = newTestWakuNode(nodeKey2, parseIpAddress("127.0.0.1"), Port(60012))
       nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(60014))
+      node3 = newTestWakuNode(nodeKey3, parseIpAddress("127.0.0.1"), Port(60014))
 
     check:
       # Sanity check, to verify config was applied
       node1.switch.connManager.inSema.size == maxConnections
 
-    # Node with connection limit set to 1
+    # Node with connection limit set to 20
     await node1.start()
     await node1.mountRelay()
 
@@ -142,6 +142,7 @@ suite "WakuNode":
     await sleepAsync(3.seconds)
     discard
       await node1.peerManager.connectPeer(node3.switch.peerInfo.toRemotePeerInfo())
+    await sleepAsync(3.seconds)
 
     check:
       # Verify that only the first connection succeeded
