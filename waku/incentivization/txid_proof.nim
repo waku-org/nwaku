@@ -16,7 +16,7 @@ proc init*(
   # TODO: handle error if web3 instance is not established
 
 # Clean up the web3 instance
-proc close*(eligibilityManager: EligibilityManager): Future[void] {.async.} =
+proc close*(eligibilityManager: EligibilityManager) {.async.} =
   await eligibilityManager.web3.close()
 
 proc getTransactionByHash(
@@ -31,7 +31,7 @@ proc getMinedTransactionReceipt(
   if (await txReceipt.withTimeout(TxReceiptQueryTimeout)):
     return ok(txReceipt.value())
   else:
-    return err("Timeout on tx receipt query")
+    return err("Timeout on tx receipt query, tx hash: " & $txHash)
 
 proc getTxAndTxReceipt(
     eligibilityManager: EligibilityManager, txHash: TxHash

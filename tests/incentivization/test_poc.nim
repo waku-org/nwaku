@@ -1,12 +1,18 @@
 {.used.}
 
 import
-  std/[options], testutils/unittests, chronos, web3, stew/byteutils, stint, strutils, os
+  std/[options],
+  testutils/unittests,
+  chronos,
+  web3,
+  stew/byteutils,
+  stint,
+  strutils,
+  tests/testlib/testasync
 
 import
   waku/[node/peer_manager, waku_core],
-  ../testlib/[assertions],
-  waku/incentivization/[rpc, rpc_codec, common, txid_proof],
+  waku/incentivization/[rpc, txid_proof],
   ../waku_rln_relay/[utils_onchain, utils]
 
 const TxHashNonExisting =
@@ -77,7 +83,8 @@ proc setupEligibilityTesting(
   let web3 = eligibilityManager.web3
 
   let accounts = await web3.provider.eth_accounts()
-  let sender = accounts[0]
+  web3.defaultAccount = accounts[0]
+  let sender = web3.defaultAccount
   let receiverExpected = accounts[1]
   let receiverNotExpected = accounts[2]
 
@@ -96,7 +103,6 @@ proc setupEligibilityTesting(
   let txHashRightReceiverRightAmount =
     await sendEthTransfer(web3, sender, receiverExpected, txValueEthExpected)
 
-  web3.defaultAccount = accounts[0]
   let receipt = await web3.deployContract(ExampleStorageContractBytecode)
   let txHashContractCreation = receipt.transactionHash
   let exampleStorageContractAddress = receipt.contractAddress.get()
@@ -124,96 +130,70 @@ suite "Waku Incentivization PoC Eligibility Proofs":
   ## Start Anvil
   let runAnvil {.used.} = runAnvil()
 
-  var txHashWrongReceiverRightAmount: TxHash
-  var txHashRightReceiverWrongAmount: TxHash
-  var txHashRightReceiverRightAmount: TxHash
-  var txHashContractCreation: TxHash
+  var txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
+    txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall: TxHash
 
-  var receiverExpected: Address
-  var receiverNotExpected: Address
+  var receiverExpected, receiverNotExpected: Address
+
+  var eligibilityManager {.threadvar.}: EligibilityManager
+
+  asyncSetup:
+    eligibilityManager = await EligibilityManager.init(EthClient)
+
+    (
+      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
+      txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
+      receiverExpected, receiverNotExpected,
+    ) = await setupEligibilityTesting(eligibilityManager)
+
+  asyncTeardown:
+    defer:
+      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: non-existent tx is not eligible":
     ## Test that an unconfirmed tx is not eligible.
 
-    let eligibilityManager = await EligibilityManager.init(EthClient)
-
-    let (
-      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
-      receiverExpected, receiverNotExpected,
-    ) = await setupEligibilityTesting(eligibilityManager)
-
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
-    let isEligible = await isEligibleTxId(
-      eligibilityManager, eligibilityProof, receiverExpected, TxValueExpectedWei
+    let isEligible = await eligibilityManager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
       isEligible.isErr()
-    defer:
-      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: contract creation tx is not eligible":
     ## Test that a contract creation tx is not eligible.
-    let eligibilityManager = await EligibilityManager.init(EthClient)
-
-    let (
-      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
-      receiverExpected, receiverNotExpected,
-    ) = await setupEligibilityTesting(eligibilityManager)
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCreation.bytes())))
-    let isEligible = await isEligibleTxId(
-      eligibilityManager, eligibilityProof, receiverExpected, TxValueExpectedWei
+    let isEligible = await eligibilityManager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
       isEligible.isErr()
-    defer:
-      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: contract call tx is not eligible":
     ## Test that a contract call tx is not eligible.
     ## This assumes a payment in native currency (ETH), not a token.
-    let eligibilityManager = await EligibilityManager.init(EthClient)
-
-    let (
-      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
-      receiverExpected, receiverNotExpected,
-    ) = await setupEligibilityTesting(eligibilityManager)
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCall.bytes())))
-    let isEligible = await isEligibleTxId(
-      eligibilityManager, eligibilityProof, receiverExpected, TxValueExpectedWei
+    let isEligible = await eligibilityManager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
       isEligible.isErr()
-    defer:
-      await eligibilityManager.close()
 
   asyncTest "incentivization PoC: simple transfer tx is eligible":
     ## Test that a simple transfer tx is eligible (if necessary conditions hold).
-    let eligibilityManager = await EligibilityManager.init(EthClient)
-
-    let (
-      txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
-      txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
-      receiverExpected, receiverNotExpected,
-    ) = await setupEligibilityTesting(eligibilityManager)
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashRightReceiverRightAmount.bytes())))
-    let isEligible = await isEligibleTxId(
-      eligibilityManager, eligibilityProof, receiverExpected, TxValueExpectedWei
+    let isEligible = await eligibilityManager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
     )
-    assert isEligible.isOk(), isEligible.error
-    defer:
-      await eligibilityManager.close()
 
-  # TODO: add tests for simple transfer txs with wrong amount and wrong receiver
+    assert isEligible.isOk(), isEligible.error
 
   # Stop Anvil daemon
   stopAnvil(runAnvil)
