@@ -94,12 +94,12 @@ suite "Waku Store Sync Codec":
     let (bounds3, itemSet3) = randomSetRange(count, time + 20_000_000_000, rng)
     let (bounds4, itemSet4) = randomSetRange(count, time + 30_000_000_000, rng)
 
-    let range1 = (bounds1, RangeType.itemSetRange)
-    let range2 = (bounds2, RangeType.itemSetRange)
-    let range3 = (bounds3, RangeType.itemSetRange)
-    let range4 = (bounds4, RangeType.itemSetRange)
+    let range1 = (bounds1, RangeType.ItemSet)
+    let range2 = (bounds2, RangeType.ItemSet)
+    let range3 = (bounds3, RangeType.ItemSet)
+    let range4 = (bounds4, RangeType.ItemSet)
 
-    let payload = SyncPayload(
+    let payload = RangesData(
       ranges: @[range1, range2, range3, range4],
       fingerprints: @[],
       itemSets: @[itemSet1, itemSet2, itemSet3, itemSet4],
@@ -107,7 +107,7 @@ suite "Waku Store Sync Codec":
 
     let encodedPayload = payload.deltaEncode()
 
-    let decodedPayload = SyncPayload.deltaDecode(encodedPayload)
+    let decodedPayload = RangesData.deltaDecode(encodedPayload)
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
@@ -132,11 +132,11 @@ suite "Waku Store Sync Codec":
       lastTime = nowTime
       let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
       let bounds = lb .. ub
-      let range = (bounds, RangeType.fingerprintRange)
+      let range = (bounds, RangeType.Fingerprint)
 
       ranges.add(range)
 
-    let payload = SyncPayload(
+    let payload = RangesData(
       ranges: ranges,
       fingerprints:
         @[randomHash(rng), randomHash(rng), randomHash(rng), randomHash(rng)],
@@ -145,7 +145,7 @@ suite "Waku Store Sync Codec":
 
     let encodedPayload = payload.deltaEncode()
     #echo "encoding done!"
-    let decodedPayload = SyncPayload.deltaDecode(encodedPayload)
+    let decodedPayload = RangesData.deltaDecode(encodedPayload)
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
@@ -170,7 +170,7 @@ suite "Waku Store Sync Codec":
       lastTime = nowTime
       let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
       let bounds = lb .. ub
-      let range = (bounds, RangeType.fingerprintRange)
+      let range = (bounds, RangeType.Fingerprint)
 
       ranges.add(range)
       fingerprints.add(randomHash(rng))
@@ -178,15 +178,15 @@ suite "Waku Store Sync Codec":
       let (bound, itemSet) = randomSetRange(5, lastTime, rng)
       lastTime += 50_000_000_000 # 50s
 
-      ranges.add((bound, RangeType.itemSetRange))
+      ranges.add((bound, RangeType.ItemSet))
       itemSets.add(itemSet)
 
     let payload =
-      SyncPayload(ranges: ranges, fingerprints: fingerprints, itemSets: itemSets)
+      RangesData(ranges: ranges, fingerprints: fingerprints, itemSets: itemSets)
 
     let encodedPayload = payload.deltaEncode()
     #echo "encoding done!"
-    let decodedPayload = SyncPayload.deltaDecode(encodedPayload)
+    let decodedPayload = RangesData.deltaDecode(encodedPayload)
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b

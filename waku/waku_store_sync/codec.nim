@@ -39,7 +39,7 @@ proc deltaEncode*(itemSet: ItemSet): seq[byte] =
 
   return output
 
-proc deltaEncode*(value: SyncPayload): seq[byte] =
+proc deltaEncode*(value: RangesData): seq[byte] =
   if value.ranges.len == 0:
     return @[0]
 
@@ -142,12 +142,12 @@ proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int 
 
   return idx
 
-proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
+proc deltaDecode*(T: type RangesData, buffer: seq[byte]): T =
   if buffer.len == 1:
-    return SyncPayload()
+    return RangesData()
 
   var
-    payload = SyncPayload()
+    payload = RangesData()
     lastTime = Timestamp(0)
     val = 0.uint64
     len = 0.int8

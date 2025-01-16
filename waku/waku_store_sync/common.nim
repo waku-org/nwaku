@@ -25,7 +25,7 @@ type
     Fingerprint = 1
     ItemSet = 2
 
-  SyncPayload* = object
+  RangesData* = object
     ranges*: seq[(Slice[SyncID], RangeType)]
     fingerprints*: seq[Fingerprint] # Range type fingerprint stored here in order
     itemSets*: seq[ItemSet] # Range type itemset stored here in order
