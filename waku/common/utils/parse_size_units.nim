@@ -63,7 +63,9 @@ proc parseRelayServiceRatio*(ratio: string): Result[(float, float), string] =
       serviceRatio = parseFloat(elements[1])
 
     if relayRatio < 0 or serviceRatio < 0:
-      raise newException(ValueError, "Relay service ratio must be non-negative, ratio = " & ratio)
+      raise newException(
+        ValueError, "Relay service ratio must be non-negative, ratio = " & ratio
+      )
 
     let total = relayRatio + serviceRatio
     if int(total) != 100:

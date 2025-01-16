@@ -139,14 +139,12 @@ proc newTestWakuNode*(
       if secureKey != "":
         some(secureKey)
       else:
-        none(string)
-    ,
+        none(string),
     secureCert =
       if secureCert != "":
         some(secureCert)
       else:
-        none(string)
-    ,
+        none(string),
     agentString = agentString,
   )
 
