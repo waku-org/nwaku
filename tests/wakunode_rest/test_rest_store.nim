@@ -67,8 +67,7 @@ procSuite "Waku Rest API - Store v3":
     let messageHash = computeMessageHash(DefaultPubsubTopic, wakuMsg)
     let restMsgHash = some(messageHash.toRestStringWakuMessageHash())
 
-    let parsedMsgHashRes: Result[Option[WakuMessageHash], system.string] =
-      parseHash(restMsgHash)
+    let parsedMsgHashRes = parseHash(restMsgHash)
     assert parsedMsgHashRes.isOk(), $parsedMsgHashRes.error
 
     check:
