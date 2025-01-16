@@ -13,7 +13,7 @@ import
 
 proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
   var
-    elements = newSeqOfCap[ID](count)
+    elements = newSeqOfCap[SyncID](count)
     lastTime = startTime
 
   for i in 0 ..< count:
@@ -24,7 +24,7 @@ proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
 
     let hash = randomHash(rng)
 
-    let id = ID(time: Timestamp(timestamp), fingerprint: hash)
+    let id = SyncID(time: Timestamp(timestamp), fingerprint: hash)
 
     elements.add(id)
 
@@ -32,7 +32,7 @@ proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
 
 proc randomSetRange(
     count: int, startTime: Timestamp, rng: var Rand
-): (Slice[ID], ItemSet) =
+): (Slice[SyncID], ItemSet) =
   let itemSet = randomItemSet(count, startTime, rng)
 
   var
@@ -122,15 +122,15 @@ suite "Waku Store Sync Codec":
     var
       rng = initRand()
       lastTime = getNowInNanosecondTime()
-      ranges = newSeqOfCap[(Slice[ID], RangeType)](4)
+      ranges = newSeqOfCap[(Slice[SyncID], RangeType)](4)
 
     for i in 0 ..< count:
-      let lb = ID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
+      let lb = SyncID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
       #echo "lower bound: " & $lastTime
       let nowTime = lastTime + 10_000_000_000 # 10s
       #echo "upper bound: " & $nowTime
       lastTime = nowTime
-      let ub = ID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
+      let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
       let bounds = lb .. ub
       let range = (bounds, RangeType.fingerprintRange)
 
@@ -160,15 +160,15 @@ suite "Waku Store Sync Codec":
     var
       rng = initRand()
       lastTime = getNowInNanosecondTime()
-      ranges = newSeqOfCap[(Slice[ID], RangeType)](4)
+      ranges = newSeqOfCap[(Slice[SyncID], RangeType)](4)
       itemSets = newSeqOfCap[ItemSet](4)
       fingerprints = newSeqOfCap[Fingerprint](4)
 
     for i in 1 .. count:
-      let lb = ID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
+      let lb = SyncID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
       let nowTime = lastTime + 10_000_000_000 # 10s
       lastTime = nowTime
-      let ub = ID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
+      let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
       let bounds = lb .. ub
       let range = (bounds, RangeType.fingerprintRange)
 

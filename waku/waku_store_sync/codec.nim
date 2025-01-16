@@ -89,14 +89,14 @@ proc deltaEncode*(value: SyncPayload): seq[byte] =
     output &= byte(rangeType)
 
     case rangeType
-    of skipRange:
+    of RangeType.Skip:
       continue
-    of fingerprintRange:
+    of RangeType.Fingerprint:
       let fingerprint = value.fingerprints[i]
       i.inc()
 
       output &= fingerprint
-    of itemSetRange:
+    of RangeType.ItemSet:
       let itemSet = value.itemSets[j]
       j.inc()
 
@@ -133,7 +133,7 @@ proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int 
     for i, bytes in slice:
       hash[i] = bytes
 
-    let id = ID(time: time, hash: hash)
+    let id = SyncID(time: time, hash: hash)
 
     itemSet.elements.add(id)
 
@@ -163,7 +163,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
   # implicit first range mode is alway skip
 
   while idx < buffer.len - 1:
-    let lowerRangeBound = ID(time: lastTime, hash: EmptyWakuMessageHash)
+    let lowerRangeBound = SyncID(time: lastTime, hash: EmptyWakuMessageHash)
 
     # decode timestamp diff
     let min = min(idx + VarIntLen, buffer.len)
@@ -187,7 +187,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
     let thisTime = lastTime + timeDiff
     lastTime = thisTime
 
-    let upperRangeBound = ID(time: thisTime, hash: hash)
+    let upperRangeBound = SyncID(time: thisTime, hash: hash)
 
     let bounds = lowerRangeBound .. upperRangeBound
 
@@ -197,7 +197,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
 
     payload.ranges.add((bounds, rangeType))
 
-    if rangeType == fingerprintRange:
+    if rangeType == RangeType.Fingerprint:
       # decode fingerprint
       slice = buffer[idx ..< idx + HashLen]
       idx += HashLen
@@ -206,7 +206,7 @@ proc deltaDecode*(T: type SyncPayload, buffer: seq[byte]): T =
         fingerprint[i] = bytes
 
       payload.fingerprints.add(fingerprint)
-    elif rangeType == itemSetRange:
+    elif rangeType == RangeType.ItemSet:
       # decode item set length
       let min = min(idx + VarIntLen, buffer.len)
       slice = buffer[idx ..< min]

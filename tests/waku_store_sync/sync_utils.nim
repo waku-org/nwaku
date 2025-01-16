@@ -1,5 +1,3 @@
-{.used.}
-
 import std/[options, random], chronos, chronicles
 
 import waku/[node/peer_manager, waku_core, waku_store_sync], ../testlib/wakucore
@@ -16,7 +14,7 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
 
 proc newTestWakuRecon*(
     switch: Switch,
-    idsRx: AsyncQueue[ID],
+    idsRx: AsyncQueue[SyncID],
     wantsTx: AsyncQueue[(PeerId, Fingerprint)],
     needsTx: AsyncQueue[(PeerId, Fingerprint)],
 ): Future[SyncReconciliation] {.async.} =
@@ -40,7 +38,7 @@ proc newTestWakuRecon*(
 
 proc newTestWakuTransfer*(
     switch: Switch,
-    idsTx: AsyncQueue[ID],
+    idsTx: AsyncQueue[SyncID],
     wantsRx: AsyncQueue[(PeerId, Fingerprint)],
     needsRx: AsyncQueue[(PeerId, Fingerprint)],
 ): SyncTransfer =

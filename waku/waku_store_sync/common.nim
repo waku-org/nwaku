@@ -7,32 +7,31 @@ import ../waku_core
 const
   DefaultSyncInterval*: Duration = 5.minutes
   DefaultSyncRange*: Duration = 1.hours
-  RetryDelay*: Duration = 30.seconds
   DefaultGossipSubJitter*: Duration = 20.seconds
 
 type
   Fingerprint* = array[32, byte]
 
-  ID* = object
+  SyncID* = object
     time*: Timestamp
     hash*: WakuMessageHash
 
   ItemSet* = object
-    elements*: seq[ID]
+    elements*: seq[SyncID]
     reconciled*: bool
 
-  RangeType* = enum
-    skipRange = 0
-    fingerprintRange = 1
-    itemSetRange = 2
+  RangeType* {.pure.} = enum
+    Skip = 0
+    Fingerprint = 1
+    ItemSet = 2
 
   SyncPayload* = object
-    ranges*: seq[(Slice[ID], RangeType)]
-    fingerprints*: seq[Fingerprint]
-    itemSets*: seq[ItemSet]
+    ranges*: seq[(Slice[SyncID], RangeType)]
+    fingerprints*: seq[Fingerprint] # Range type fingerprint stored here in order
+    itemSets*: seq[ItemSet] # Range type itemset stored here in order
 
   WakuMessageAndTopic* = object
-    pubsub*: string
+    pubsub*: PubSubTopic
     message*: WakuMessage
 
 const EmptyFingerprint*: Fingerprint = [
@@ -45,13 +44,17 @@ const FullFingerprint*: Fingerprint = [
   255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
 ]
 
-proc high*(T: type ID): T =
-  return ID(time: Timestamp(high(int64)), fingerprint: FullFingerprint)
+proc high*(T: type SyncID): T =
+  ## Same as high(int) but for IDs
 
-proc low*(T: type ID): T =
-  return ID(time: Timestamp(low(int64)), fingerprint: EmptyFingerprint)
+  return SyncID(time: Timestamp(high(int64)), fingerprint: FullFingerprint)
 
-proc `$`*(value: ID): string =
+proc low*(T: type SyncID): T =
+  ## Same as low(int) but for IDs
+
+  return SyncID(time: Timestamp(low(int64)), fingerprint: EmptyFingerprint)
+
+proc `$`*(value: SyncID): string =
   return '(' & $value.time & ", " & $value.hash & ')'
 
 proc cmp(x, y: Fingerprint): int =
@@ -62,7 +65,7 @@ proc cmp(x, y: Fingerprint): int =
 
   return 1
 
-proc cmp*(x, y: ID): int =
+proc cmp*(x, y: SyncID): int =
   if x.time == y.time:
     return cmp(x.hash, y.hash)
 
@@ -71,8 +74,8 @@ proc cmp*(x, y: ID): int =
 
   return 1
 
-proc `<`*(x, y: ID): bool =
+proc `<`*(x, y: SyncID): bool =
   cmp(x, y) == -1
 
-proc `>`*(x, y: ID): bool =
+proc `>`*(x, y: SyncID): bool =
   cmp(x, y) == 1
