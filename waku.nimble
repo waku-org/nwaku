@@ -101,7 +101,7 @@ task testcommon, "Build & run common tests":
 ### Waku tasks
 task wakunode2, "Build Waku v2 cli node":
   let name = "wakunode2"
-  buildBinary name, "apps/wakunode2/"
+  buildBinary name, "apps/wakunode2/", " -d:chronicles_log_level='TRACE' "
 
 task benchmarks, "Some benchmarks":
   let name = "benchmarks"
