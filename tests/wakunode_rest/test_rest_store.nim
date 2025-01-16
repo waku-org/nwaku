@@ -74,7 +74,8 @@ procSuite "Waku Rest API - Store v3":
       messageHash == parsedMsgHashRes.get().get()
 
     # Random validation. Obtained the raw values manually
-    let expected = some("0x123")
+    let expected =
+      some("0x9e0ea917677a3d2b8610b0126986d89824b6acf76008b5fb9aa8b99ac906c1a7")
 
     let msgHashRes = parseHash(expected)
     assert msgHashRes.isOk(), $msgHashRes.error
