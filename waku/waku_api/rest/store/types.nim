@@ -171,7 +171,7 @@ proc readValue*(
     reader: var JsonReader, value: var WakuMessageKeyValueHex
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
-    messageHash = none(WakuMessageHash)
+    messageHash = none(string)
     message = none(WakuMessage)
     pubsubTopic = none(PubsubTopic)
 
@@ -180,19 +180,19 @@ proc readValue*(
     of "messageHash":
       if messageHash.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `messageHash` fields found", "WakuMessageKeyValue"
+          "Multiple `messageHash` fields found", "WakuMessageKeyValueHex"
         )
       messageHash = some(reader.readValue(string))
     of "message":
       if message.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `message` fields found", "WakuMessageKeyValue"
+          "Multiple `message` fields found", "WakuMessageKeyValueHex"
         )
       message = some(reader.readValue(WakuMessage))
     of "pubsubTopic":
       if pubsubTopic.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `pubsubTopic` fields found", "WakuMessageKeyValue"
+          "Multiple `pubsubTopic` fields found", "WakuMessageKeyValueHex"
         )
       pubsubTopic = some(reader.readValue(string))
     else:
@@ -201,7 +201,7 @@ proc readValue*(
   if messageHash.isNone():
     reader.raiseUnexpectedValue("Field `messageHash` is missing")
 
-  value = WakuMessageKeyValue(
+  value = WakuMessageKeyValueHex(
     messageHash: messageHash.get(), message: message, pubsubTopic: pubsubTopic
   )
 
@@ -237,31 +237,31 @@ proc readValue*(
     of "requestId":
       if requestId.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `requestId` fields found", "StoreQueryResponse"
+          "Multiple `requestId` fields found", "StoreQueryResponseHex"
         )
       requestId = some(reader.readValue(string))
     of "statusCode":
       if code.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `statusCode` fields found", "StoreQueryResponse"
+          "Multiple `statusCode` fields found", "StoreQueryResponseHex"
         )
       code = some(reader.readValue(uint32))
     of "statusDesc":
       if desc.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `statusDesc` fields found", "StoreQueryResponse"
+          "Multiple `statusDesc` fields found", "StoreQueryResponseHex"
         )
       desc = some(reader.readValue(string))
     of "messages":
       if messages.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `messages` fields found", "StoreQueryResponse"
+          "Multiple `messages` fields found", "StoreQueryResponseHex"
         )
       messages = some(reader.readValue(seq[WakuMessageKeyValueHex]))
     of "paginationCursor":
       if cursor.isSome():
         reader.raiseUnexpectedField(
-          "Multiple `paginationCursor` fields found", "StoreQueryResponse"
+          "Multiple `paginationCursor` fields found", "StoreQueryResponseHex"
         )
       cursor = some(reader.readValue(string))
     else:
@@ -279,7 +279,7 @@ proc readValue*(
   if messages.isNone():
     reader.raiseUnexpectedValue("Field `messages` is missing")
 
-  value = StoreQueryResponse(
+  value = StoreQueryResponseHex(
     requestId: requestId.get(),
     statusCode: code.get(),
     statusDesc: desc.get(),

@@ -283,7 +283,7 @@ procSuite "Waku Rest API - Store v3":
 
     var pages = newSeq[seq[WakuMessage]](2)
 
-    var reqHash = none(WakuMessageHash)
+    var reqHash = none(string)
 
     for i in 0 ..< 2:
       let response = await client.getStoreMessagesV3(
@@ -295,7 +295,7 @@ procSuite "Waku Rest API - Store v3":
         "", # end time. Empty ignores the field.
         "", # hashes
         if reqHash.isSome():
-          reqHash.get().toRestStringWakuMessageHash()
+          reqHash.get()
         else:
           "", # base64-encoded digest. Empty ignores the field.
         "true", # ascending
@@ -775,7 +775,7 @@ procSuite "Waku Rest API - Store v3":
     var pages = newSeq[seq[WakuMessage]](2)
 
     var reqPubsubTopic = DefaultPubsubTopic
-    var reqHash = none(WakuMessageHash)
+    var reqHash = none(string)
 
     for i in 0 ..< 2:
       let response = await client.getStoreMessagesV3(
@@ -787,7 +787,7 @@ procSuite "Waku Rest API - Store v3":
         "", # end time. Empty ignores the field.
         "", # hashes
         if reqHash.isSome():
-          reqHash.get().toRestStringWakuMessageHash()
+          reqHash.get()
         else:
           "", # base64-encoded digest. Empty ignores the field.
         "true", # ascending
@@ -823,7 +823,7 @@ procSuite "Waku Rest API - Store v3":
       "", # end time. Empty ignores the field.
       "", # hashes
       if reqHash.isSome():
-        reqHash.get().toRestStringWakuMessageHash()
+        reqHash.get()
       else:
         "", # base64-encoded digest. Empty ignores the field.
     )
@@ -845,7 +845,7 @@ procSuite "Waku Rest API - Store v3":
       "", # end time. Empty ignores the field.
       "", # hashes
       if reqHash.isSome():
-        reqHash.get().toRestStringWakuMessageHash()
+        reqHash.get()
       else:
         "", # base64-encoded digest. Empty ignores the field.
       "true", # ascending
