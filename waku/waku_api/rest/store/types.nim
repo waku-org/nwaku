@@ -29,7 +29,11 @@ proc parseHash*(input: Option[string]): Result[Option[WakuMessageHash], string] 
 
   let hexDecoded = decodeUrl(hexUrlEncoded, false)
 
-  let decodedBytes = hexToByteArray(hexDecoded)
+  var decodedBytes: seq[byte]
+  try:
+    decodedBytes = hexToSeqByte(hexDecoded)
+  except ValueError as e:
+    return err("Exception converting hex string to bytes: " & e.msg)
 
   if decodedBytes.len != 32:
     return
