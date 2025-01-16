@@ -150,14 +150,14 @@ proc readValue*(
     proof: proof,
   )
 
-## WakuMessageKeyValue serde
+## WakuMessageKeyValueHex serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: WakuMessageKeyValue
+    writer: var JsonWriter, value: WakuMessageKeyValueHex
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
 
-  writer.writeField("messageHash", base64.encode(value.messageHash))
+  writer.writeField("messageHash", value.messageHash)
 
   if value.message.isSome():
     writer.writeField("message", value.message.get())
@@ -168,7 +168,7 @@ proc writeValue*(
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var WakuMessageKeyValue
+    reader: var JsonReader, value: var WakuMessageKeyValueHex
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     messageHash = none(WakuMessageHash)
@@ -182,10 +182,7 @@ proc readValue*(
         reader.raiseUnexpectedField(
           "Multiple `messageHash` fields found", "WakuMessageKeyValue"
         )
-      let base64String = reader.readValue(Base64String)
-      let bytes = base64.decode(base64String).valueOr:
-        reader.raiseUnexpectedField("Failed decoding data", "messageHash")
-      messageHash = some(fromBytes(bytes))
+      messageHash = some(reader.readValue(string))
     of "message":
       if message.isSome():
         reader.raiseUnexpectedField(
@@ -211,7 +208,7 @@ proc readValue*(
 ## StoreQueryResponse serde
 
 proc writeValue*(
-    writer: var JsonWriter, value: StoreQueryResponse
+    writer: var JsonWriter, value: StoreQueryResponseHex
 ) {.gcsafe, raises: [IOError].} =
   writer.beginRecord()
 
@@ -221,19 +218,19 @@ proc writeValue*(
   writer.writeField("messages", value.messages)
 
   if value.paginationCursor.isSome():
-    writer.writeField("paginationCursor", base64.encode(value.paginationCursor.get()))
+    writer.writeField("paginationCursor", value.paginationCursor.get())
 
   writer.endRecord()
 
 proc readValue*(
-    reader: var JsonReader, value: var StoreQueryResponse
+    reader: var JsonReader, value: var StoreQueryResponseHex
 ) {.gcsafe, raises: [SerializationError, IOError].} =
   var
     requestId = none(string)
     code = none(uint32)
     desc = none(string)
-    messages = none(seq[WakuMessageKeyValue])
-    cursor = none(WakuMessageHash)
+    messages = none(seq[WakuMessageKeyValueHex])
+    cursor = none(string)
 
   for fieldName in readObjectFields(reader):
     case fieldName
@@ -260,16 +257,13 @@ proc readValue*(
         reader.raiseUnexpectedField(
           "Multiple `messages` fields found", "StoreQueryResponse"
         )
-      messages = some(reader.readValue(seq[WakuMessageKeyValue]))
+      messages = some(reader.readValue(seq[WakuMessageKeyValueHex]))
     of "paginationCursor":
       if cursor.isSome():
         reader.raiseUnexpectedField(
           "Multiple `paginationCursor` fields found", "StoreQueryResponse"
         )
-      let base64String = reader.readValue(Base64String)
-      let bytes = base64.decode(base64String).valueOr:
-        reader.raiseUnexpectedField("Failed decoding data", "paginationCursor")
-      cursor = some(fromBytes(bytes))
+      cursor = some(reader.readValue(string))
     else:
       reader.raiseUnexpectedField("Unrecognided field", cstring(fieldName))
 
