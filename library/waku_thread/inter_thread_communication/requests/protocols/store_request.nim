@@ -40,7 +40,7 @@ func fromJsonNode(
     else:
       none(string)
 
-  let paginationCursor: Option[WakuMessageHash] =
+  let paginationCursor =
     if jsonContent.contains("pagination_cursor"):
       let hash = jsonContent["pagination_cursor"].getStr().hexToHash().valueOr:
           return
