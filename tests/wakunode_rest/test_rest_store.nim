@@ -67,14 +67,15 @@ procSuite "Waku Rest API - Store v3":
     let messageHash = computeMessageHash(DefaultPubsubTopic, wakuMsg)
     let restMsgHash = some(messageHash.toRestStringWakuMessageHash())
 
-    let parsedMsgHashRes = parseHash(restMsgHash)
+    let parsedMsgHashRes: Result[Option[common.ArchiveCursor], system.string] =
+      parseHash(restMsgHash)
     assert parsedMsgHashRes.isOk(), $parsedMsgHashRes.error
 
     check:
       messageHash == parsedMsgHashRes.get().get()
 
     # Random validation. Obtained the raw values manually
-    let expected = some("f6za9OzG1xSiEZagZc2b3litRbkd3zRl61rezDd3pgQ%3D")
+    let expected = some("0x123")
 
     let msgHashRes = parseHash(expected)
     assert msgHashRes.isOk(), $msgHashRes.error
