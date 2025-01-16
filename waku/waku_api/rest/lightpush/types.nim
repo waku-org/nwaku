@@ -52,7 +52,7 @@ proc readValue*(
     of "message":
       message = some(reader.readValue(RelayWakuMessage))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if message.isNone():
     reader.raiseUnexpectedValue("Field `message` is missing")

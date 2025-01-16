@@ -2,6 +2,7 @@
 
 import chronicles, json_serialization, json_serialization/std/options
 import ../../../waku_node, ../serdes
+import std/typetraits
 
 #### Types
 
@@ -47,7 +48,7 @@ proc readValue*(
         reader.raiseUnexpectedField("Multiple `enrUri` fields found", "DebugWakuInfo")
       enrUri = some(reader.readValue(string))
     else:
-      unrecognizedFieldWarning()
+      unrecognizedFieldWarning(value)
 
   if listenAddresses.isNone():
     reader.raiseUnexpectedValue("Field `listenAddresses` is missing")

@@ -1,9 +1,10 @@
-import system, results, std/json
+import system, results, std/json, std/strutils
 import stew/byteutils
 import
   ../../waku/common/base64,
   ../../waku/waku_core/message,
   ../../waku/waku_core/message/message,
+  ../utils,
   ./json_base_event
 
 type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type
@@ -15,16 +16,20 @@ type JsonMessage* = ref object # https://rfc.vac.dev/spec/36/#jsonmessage-type
   meta*: Base64String
   proof*: Base64String
 
-func fromJsonNode*(T: type JsonMessage, jsonContent: JsonNode): JsonMessage =
+func fromJsonNode*(
+    T: type JsonMessage, jsonContent: JsonNode
+): Result[JsonMessage, string] =
   # Visit https://rfc.vac.dev/spec/14/ for further details
-  JsonMessage(
-    payload: Base64String(jsonContent["payload"].getStr()),
-    contentTopic: jsonContent["contentTopic"].getStr(),
-    version: uint32(jsonContent{"version"}.getInt()),
-    timestamp: int64(jsonContent{"timestamp"}.getBiggestInt()),
-    ephemeral: jsonContent{"ephemeral"}.getBool(),
-    meta: Base64String(jsonContent{"meta"}.getStr()),
-    proof: Base64String(jsonContent{"proof"}.getStr()),
+  ok(
+    JsonMessage(
+      payload: Base64String(jsonContent["payload"].getStr()),
+      contentTopic: jsonContent["contentTopic"].getStr(),
+      version: uint32(jsonContent{"version"}.getInt()),
+      timestamp: (?jsonContent.getProtoInt64("timestamp")).get(0),
+      ephemeral: jsonContent{"ephemeral"}.getBool(),
+      meta: Base64String(jsonContent{"meta"}.getStr()),
+      proof: Base64String(jsonContent{"proof"}.getStr()),
+    )
   )
 
 proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =
@@ -51,9 +56,6 @@ proc toWakuMessage*(self: JsonMessage): Result[WakuMessage, string] =
 
 proc `%`*(value: Base64String): JsonNode =
   %(value.string)
-
-proc `%`*(value: WakuMessageHash): JsonNode =
-  %(to0xHex(value))
 
 type JsonMessageEvent* = ref object of JsonEvent
   pubsubTopic*: string
