@@ -43,13 +43,13 @@ type SyncReconciliation* = ref object of LPProtocol
   idsRx: AsyncQueue[ID]
 
   # Send Hashes to transfer protocol for reception
-  wantsTx: AsyncQueue[(PeerId, Fingerprint)]
+  localWantsTx: AsyncQueue[(PeerId, Fingerprint)]
 
   # Send Hashes to transfer protocol for transmission
-  needsTx: AsyncQueue[(PeerId, Fingerprint)]
+  remoteNeedsTx: AsyncQueue[(PeerId, Fingerprint)]
 
   # params
-  syncInterval: timer.Duration # Time between each syncronisation attempt
+  syncInterval: timer.Duration # Time between each synchronization attempt
   syncRange: timer.Duration # Amount of time in the past to sync
   relayJitter: Duration # Amount of time since the present to ignore when syncing
 
@@ -114,7 +114,7 @@ proc processRequest(
     let sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
 
     for hash in hashToSend:
-      await self.needsTx.addLast((conn.peerId, hash))
+      await self.remoteNeedsTx.addLast((conn.peerId, hash))
 
     for hash in hashToRecv:
       await self.wantstx.addLast((conn.peerId, hash))
@@ -258,8 +258,8 @@ proc new*(
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
     idsRx: AsyncQueue[ID],
-    wantsTx: AsyncQueue[(PeerId, Fingerprint)],
-    needsTx: AsyncQueue[(PeerId, Fingerprint)],
+    localWantsTx: AsyncQueue[(PeerId, Fingerprint)],
+    remoteNeedsTx: AsyncQueue[(PeerId, Fingerprint)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
   let storage =
@@ -276,8 +276,8 @@ proc new*(
     syncInterval: syncInterval,
     relayJitter: relayJitter,
     idsRx: idsRx,
-    wantsTx: wantsTx,
-    needsTx: needsTx,
+    localWantsTx: localWantsTx,
+    remoteNeedsTx: remoteNeedsTx,
   )
 
   let handler = proc(conn: Connection, proto: string) {.async, closure.} =
