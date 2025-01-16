@@ -125,7 +125,7 @@ suite "WakuNode":
     var otherNodes: seq[WakuNode] = @[]
 
     # Create and start 20 other nodes
-    for i in 0..<=maxConnections:
+    for i in 0..<maxConnections + 1:
       let
         nodeKey = generateSecp256k1Key()
         port = 60012 + i * 2  # Ensure unique ports for each node
