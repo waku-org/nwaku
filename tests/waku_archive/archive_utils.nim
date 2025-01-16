@@ -9,6 +9,7 @@ import
     waku_archive,
     waku_archive/common,
     waku_archive/driver/sqlite_driver,
+    waku_archive/driver/sqlite_driver/migrations,
     common/databases/db_sqlite,
   ],
   ../testlib/[wakucore]
@@ -18,7 +19,8 @@ proc newSqliteDatabase*(path: Option[string] = string.none()): SqliteDatabase =
 
 proc newSqliteArchiveDriver*(): ArchiveDriver =
   let database = newSqliteDatabase()
-  SqliteDriver.new(database).tryGet()
+  migrate(database).tryGet()
+  return SqliteDriver.new(database).tryGet()
 
 proc newWakuArchive*(driver: ArchiveDriver): WakuArchive =
   WakuArchive.new(driver).get()
