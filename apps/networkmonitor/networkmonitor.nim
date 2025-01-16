@@ -463,6 +463,11 @@ proc initAndStartApp(
   nodeBuilder.withNodeKey(key)
   nodeBuilder.withRecord(record)
   nodeBUilder.withSwitchConfiguration(maxConnections = some(MaxConnectedPeers))
+
+  # Backword compatibility for maxRelayPeer
+  if conf.maxRelayPeer != "":
+    debug "maxRelayPeer is deprecated, using relayServiceRatio instead ( recommendation ), if relayServiceRatio is not set, by default it will be 60:40, maxRelayPeer and maxServicePeer is calculated accordingly"
+
   nodeBuilder.withPeerManagerConfig(
     maxConnections = MaxConnectedPeers,
     relayServiceRatio = "13.33:86.67",
