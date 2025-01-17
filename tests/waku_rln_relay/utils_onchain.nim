@@ -205,6 +205,9 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
   except:
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
 
+proc ethToWei(eth: UInt256): UInt256 =
+  eth * 1000000000000000000.u256
+
 proc setupOnchainGroupManager*(
     ethClientAddress: string = EthClient, amountEth: UInt256 = 10.u256
 ): Future[OnchainGroupManager] {.async.} =

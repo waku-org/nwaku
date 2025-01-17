@@ -18,9 +18,21 @@ import
 const TxHashNonExisting =
   TxHash.fromHex("0x0000000000000000000000000000000000000000000000000000000000000000")
 
-# Constants for Anvil
-const TxValueExpectedWei = 1000.u256
+# Anvil RPC URL
 const EthClient = "ws://127.0.0.1:8540"
+
+const TxValueExpectedWei = 1000.u256
+
+## Storage.sol contract from https://remix.ethereum.org/
+## Compiled with Solidity compiler version "0.8.26+commit.8a97fa7a"
+
+const ExampleStorageContractBytecode =
+  "6080604052348015600e575f80fd5b506101438061001c5f395ff3fe608060405234801561000f575f80fd5b5060043610610034575f3560e01c80632e64cec1146100385780636057361d14610056575b5f80fd5b610040610072565b60405161004d919061009b565b60405180910390f35b610070600480360381019061006b91906100e2565b61007a565b005b5f8054905090565b805f8190555050565b5f819050919050565b61009581610083565b82525050565b5f6020820190506100ae5f83018461008c565b92915050565b5f80fd5b6100c181610083565b81146100cb575f80fd5b50565b5f813590506100dc816100b8565b92915050565b5f602082840312156100f7576100f66100b4565b5b5f610104848285016100ce565b9150509291505056fea26469706673582212209a0dd35336aff1eb3eeb11db76aa60a1427a12c1b92f945ea8c8d1dfa337cf2264736f6c634300081a0033"
+
+contract(ExampleStorageContract):
+  proc number(): UInt256 {.view.}
+  proc store(num: UInt256)
+  proc retrieve(): UInt256 {.view.}
 
 #[
 // SPDX-License-Identifier: GPL-3.0
@@ -54,22 +66,10 @@ contract Storage {
 }
 ]#
 
-## Storage.sol contract from https://remix.ethereum.org/
-## Compiled with Solidity compiler version:
-## "0.8.26+commit.8a97fa7a"
-
-const ExampleStorageContractBytecode =
-  "6080604052348015600e575f80fd5b506101438061001c5f395ff3fe608060405234801561000f575f80fd5b5060043610610034575f3560e01c80632e64cec1146100385780636057361d14610056575b5f80fd5b610040610072565b60405161004d919061009b565b60405180910390f35b610070600480360381019061006b91906100e2565b61007a565b005b5f8054905090565b805f8190555050565b5f819050919050565b61009581610083565b82525050565b5f6020820190506100ae5f83018461008c565b92915050565b5f80fd5b6100c181610083565b81146100cb575f80fd5b50565b5f813590506100dc816100b8565b92915050565b5f602082840312156100f7576100f66100b4565b5b5f610104848285016100ce565b9150509291505056fea26469706673582212209a0dd35336aff1eb3eeb11db76aa60a1427a12c1b92f945ea8c8d1dfa337cf2264736f6c634300081a0033"
-
-contract(ExampleStorageContract):
-  proc number(): UInt256 {.view.}
-  proc store(num: UInt256)
-  proc retrieve(): UInt256 {.view.}
-
-proc setupEligibilityTesting(
-    eligibilityManager: EligibilityManager
+proc setup(
+    manager: EligibilityManager
 ): Future[(TxHash, TxHash, TxHash, TxHash, TxHash, Address, Address)] {.async.} =
-  ## Populate the local chain (connected to via eligibilityManager)
+  ## Populate the local chain (connected to via manager)
   ## with txs required for eligibility testing.
   ## 
   ## 1. Depoly a dummy contract that has a publicly callable function.
@@ -80,7 +80,7 @@ proc setupEligibilityTesting(
   ## - a simple transfer with the wrong amount (must fail)
   ## - a simple transfer with the right receiver and amount (must pass)
 
-  let web3 = eligibilityManager.web3
+  let web3 = manager.web3
 
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[0]
@@ -93,15 +93,15 @@ proc setupEligibilityTesting(
 
   # wrong receiver, wrong amount
   let txHashWrongReceiverRightAmount =
-    await sendEthTransfer(web3, sender, receiverNotExpected, txValueEthExpected)
+    await web3.sendEthTransfer(sender, receiverNotExpected, txValueEthExpected)
 
   # right receiver, wrong amount
   let txHashRightReceiverWrongAmount =
-    await sendEthTransfer(web3, sender, receiverExpected, txValueEthNotExpected)
+    await web3.sendEthTransfer(sender, receiverExpected, txValueEthNotExpected)
 
   # right receiver, right amount
   let txHashRightReceiverRightAmount =
-    await sendEthTransfer(web3, sender, receiverExpected, txValueEthExpected)
+    await web3.sendEthTransfer(sender, receiverExpected, txValueEthExpected)
 
   let receipt = await web3.deployContract(ExampleStorageContractBytecode)
   let txHashContractCreation = receipt.transactionHash
@@ -135,27 +135,27 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
   var receiverExpected, receiverNotExpected: Address
 
-  var eligibilityManager {.threadvar.}: EligibilityManager
+  var manager {.threadvar.}: EligibilityManager
 
   asyncSetup:
-    eligibilityManager = await EligibilityManager.init(EthClient)
+    manager = await EligibilityManager.init(EthClient)
 
     (
       txHashWrongReceiverRightAmount, txHashRightReceiverWrongAmount,
       txHashRightReceiverRightAmount, txHashContractCreation, txHashContractCall,
       receiverExpected, receiverNotExpected,
-    ) = await setupEligibilityTesting(eligibilityManager)
+    ) = await manager.setup()
 
   asyncTeardown:
     defer:
-      await eligibilityManager.close()
+      await manager.close()
 
   asyncTest "incentivization PoC: non-existent tx is not eligible":
     ## Test that an unconfirmed tx is not eligible.
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(TxHashNonExisting.bytes())))
-    let isEligible = await eligibilityManager.isEligibleTxId(
+    let isEligible = await manager.isEligibleTxId(
       eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
@@ -166,7 +166,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCreation.bytes())))
-    let isEligible = await eligibilityManager.isEligibleTxId(
+    let isEligible = await manager.isEligibleTxId(
       eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
@@ -178,7 +178,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashContractCall.bytes())))
-    let isEligible = await eligibilityManager.isEligibleTxId(
+    let isEligible = await manager.isEligibleTxId(
       eligibilityProof, receiverExpected, TxValueExpectedWei
     )
     check:
@@ -189,7 +189,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
 
     let eligibilityProof =
       EligibilityProof(proofOfPayment: some(@(txHashRightReceiverRightAmount.bytes())))
-    let isEligible = await eligibilityManager.isEligibleTxId(
+    let isEligible = await manager.isEligibleTxId(
       eligibilityProof, receiverExpected, TxValueExpectedWei
     )
 
