@@ -11,7 +11,8 @@ import
   stint,
   web3,
   libp2p/crypto/crypto,
-  eth/keys
+  eth/keys,
+  tests/testlib/testasync
 
 import
   waku/[
@@ -33,8 +34,16 @@ suite "Onchain group manager":
   # We run Anvil
   let runAnvil {.used.} = runAnvil()
 
+  var manager {.threadvar.}: OnchainGroupManager
+
+  asyncSetup:
+    manager = await setupOnchainGroupManager()
+
+  asyncTeardown:
+    defer:
+      await manager.stop()
+
   asyncTest "should initialize successfully":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -45,24 +54,19 @@ suite "Onchain group manager":
       manager.rlnContractDeployedBlockNumber > 0
       manager.rlnRelayMaxMessageLimit == 100
 
-    await manager.stop()
-
   asyncTest "should error on initialization when chainId does not match":
-    let manager = await setupOnchainGroupManager()
     manager.chainId = CHAIN_ID + 1
 
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when chainId does not match"
 
   asyncTest "should initialize when chainId is set to 0":
-    let manager = await setupOnchainGroupManager()
     manager.chainId = 0
 
     (await manager.init()).isOkOr:
       raiseAssert $error
 
   asyncTest "should error on initialization when loaded metadata does not match":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -76,8 +80,6 @@ suite "Onchain group manager":
     assert metadata.chainId == 1337, "chainId is not equal to 1337"
     assert metadata.contractAddress == manager.ethContractAddress,
       "contractAddress is not equal to " & manager.ethContractAddress
-
-    await manager.stop()
 
     let differentContractAddress = await uploadRLNContract(manager.ethClientUrl)
     # simulating a change in the contractAddress
@@ -101,7 +103,6 @@ suite "Onchain group manager":
   asyncTest "should error if contract does not exist":
     var triggeredError = false
 
-    let manager = await setupOnchainGroupManager()
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
     manager.onFatalErrorAction = proc(msg: string) {.gcsafe, closure.} =
       echo "---"
@@ -116,7 +117,6 @@ suite "Onchain group manager":
     check triggeredError
 
   asyncTest "should error when keystore path and password are provided but file doesn't exist":
-    let manager = await setupOnchainGroupManager()
     manager.keystorePath = some("/inexistent/file")
     manager.keystorePassword = some("password")
 
@@ -124,25 +124,18 @@ suite "Onchain group manager":
       raiseAssert "Expected error when keystore file doesn't exist"
 
   asyncTest "startGroupSync: should start group sync":
-    let manager = await setupOnchainGroupManager()
-
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
-    await manager.stop()
+    #await manager.stop()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
-    let manager = await setupOnchainGroupManager()
-
     (await manager.startGroupSync()).isErrOr:
       raiseAssert "Expected error when not initialized"
 
-    await manager.stop()
-
   asyncTest "startGroupSync: should sync to the state of the group":
-    let manager = await setupOnchainGroupManager()
     let credentials = generateCredentials(manager.rlnInstance)
     let rateCommitment = getRateCommitment(credentials, UserMessageLimit(1)).valueOr:
       raiseAssert $error
@@ -182,10 +175,8 @@ suite "Onchain group manager":
     check:
       metadataOpt.get().validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
-    await manager.stop()
 
   asyncTest "startGroupSync: should fetch history correctly":
-    let manager = await setupOnchainGroupManager()
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
@@ -231,10 +222,8 @@ suite "Onchain group manager":
     check:
       merkleRootBefore != merkleRootAfter
       manager.validRootBuffer.len() == credentialCount - AcceptableRootWindowSize
-    await manager.stop()
 
   asyncTest "register: should guard against uninitialized state":
-    let manager = await setupOnchainGroupManager()
     let dummyCommitment = default(IDCommitment)
 
     try:
@@ -248,10 +237,7 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await manager.stop()
-
   asyncTest "register: should register successfully":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -276,11 +262,8 @@ suite "Onchain group manager":
     check:
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
       manager.latestIndex == 1
-    await manager.stop()
 
   asyncTest "register: callback is called":
-    let manager = await setupOnchainGroupManager()
-
     let idCredentials = generateCredentials(manager.rlnInstance)
     let idCommitment = idCredentials.idCommitment
 
@@ -310,10 +293,7 @@ suite "Onchain group manager":
 
     await fut
 
-    await manager.stop()
-
   asyncTest "withdraw: should guard against uninitialized state":
-    let manager = await setupOnchainGroupManager()
     let idSecretHash = generateCredentials(manager.rlnInstance).idSecretHash
 
     try:
@@ -323,10 +303,7 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-    await manager.stop()
-
   asyncTest "validateRoot: should validate good root":
-    let manager = await setupOnchainGroupManager()
     let credentials = generateCredentials(manager.rlnInstance)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -372,10 +349,8 @@ suite "Onchain group manager":
 
     check:
       validated
-    await manager.stop()
 
   asyncTest "validateRoot: should reject bad root":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -405,10 +380,8 @@ suite "Onchain group manager":
 
     check:
       validated == false
-    await manager.stop()
 
   asyncTest "verifyProof: should verify valid proof":
-    let manager = await setupOnchainGroupManager()
     let credentials = generateCredentials(manager.rlnInstance)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -451,10 +424,8 @@ suite "Onchain group manager":
 
     check:
       verified
-    await manager.stop()
 
   asyncTest "verifyProof: should reject invalid proof":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -500,10 +471,8 @@ suite "Onchain group manager":
 
     check:
       verified == false
-    await manager.stop()
 
   asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
-    let manager = await setupOnchainGroupManager()
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
@@ -557,10 +526,8 @@ suite "Onchain group manager":
       manager.validRoots.len() == credentialCount - 1
       manager.validRootBuffer.len() == 0
       manager.validRoots[credentialCount - 2] == expectedLastRoot
-    await manager.stop()
 
   asyncTest "isReady should return false if ethRpc is none":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -575,10 +542,7 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-    await manager.stop()
-
   asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -591,10 +555,7 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-    await manager.stop()
-
   asyncTest "isReady should return true if ethRpc is ready":
-    let manager = await setupOnchainGroupManager()
     (await manager.init()).isOkOr:
       raiseAssert $error
     # node can only be ready after group sync is done
@@ -609,8 +570,6 @@ suite "Onchain group manager":
 
     check:
       isReady == true
-
-    await manager.stop()
 
   ################################
   ## Terminating/removing Anvil
