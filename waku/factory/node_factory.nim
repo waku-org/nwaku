@@ -35,7 +35,8 @@ import
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush/common,
   ../common/utils/parse_size_units,
-  ../common/rate_limit/setting
+  ../common/rate_limit/setting,
+  ../common/databases/dburl
 
 ## Peer persistence
 
@@ -273,12 +274,18 @@ proc setupProtocols(
     ## This breaks compatibility between store's and legacy store's schemas in sqlite
     ## So for now, we need to make sure that when legacy store is enabled and we use sqlite
     ## that we migrate our db according to legacy store's schema to have the extra field
-    var postgres = false
-    when defined(postgres):
-      postgres = true
+
+    let engineRes = dburl.getDbEngine(conf.storeMessageDbUrl)
+    if engineRes.isErr():
+      return err("error getting db engine in setupProtocols: " & engineRes.error)
+
+    let engine = engineRes.get()
 
     let migrate =
-      if not postgres and conf.legacyStore: false else: conf.storeMessageDbMigration
+      if engine == "sqlite" and conf.legacyStore:
+        false
+      else:
+        conf.storeMessageDbMigration
 
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, migrate,
