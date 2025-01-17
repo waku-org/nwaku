@@ -268,12 +268,18 @@ proc setupProtocols(
     ## Regarding storage, the only diff between the current/future archive driver and the legacy
     ## one, is that the legacy stores an extra field: the id (message digest.)
 
+    ## TODO: remove this "migrate" variable once legacy store is removed
+    ## It is now necessary because sqlite's legacy store has an extra field: storedAt
+    ## This breaks compatibility between store's and legacy store's schemas in sqlite
+    ## So for now, we need to make sure that when legacy store is enabled and we use sqlite
+    ## that we migrate our db according to legacy store's schema to have the extra field
     var postgres = false
     when defined(postgres):
       postgres = true
 
     let migrate =
       if not postgres and conf.legacyStore: false else: conf.storeMessageDbMigration
+
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, migrate,
       conf.storeMaxNumDbConnections, onFatalErrorAction,
