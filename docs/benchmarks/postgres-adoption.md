@@ -100,7 +100,7 @@ The following diagram shows the topology used:
 
 For that, the next apps were used:
 
-1. [Waku-publisher.](https://github.com/alrevuelta/waku-publisher/tree/9fb206c14a17dd37d20a9120022e86475ce0503f) This app can publish Relay messages with different numbers of clients 
+1. [Waku-publisher.](https://github.com/alrevuelta/waku-publisher/tree/9fb206c14a17dd37d20a9120022e86475ce0503f) This app can publish Relay messages with different numbers of clients
 2. [Waku-store-query-generator](https://github.com/Ivansete-status/waku-store-query-generator/tree/19e6455537b6d44199cf0c8558480af5c6788b0d). This app is based on the Waku-publisher but in this case, it can spawn concurrent go-waku Store clients.
 
 That topology is defined in [this](https://github.com/waku-org/test-waku-query/blob/7090cd125e739306357575730d0e54665c279670/docker/docker-compose-manual-binaries.yml) docker-compose file.
@@ -109,7 +109,7 @@ Notice that the two `nwaku` nodes run the very same version, which is compiled l
 
 #### Comparing archive SQLite & Postgres performance in [nwaku-b6dd6899](https://github.com/waku-org/nwaku/tree/b6dd6899030ee628813dfd60ad1ad024345e7b41)
 
-The next results were obtained by running the docker-compose-manual-binaries.yml from [test-waku-query-c078075](https://github.com/waku-org/test-waku-query/tree/c07807597faa781ae6c8c32eefdf48ecac03a7ba) in the sandbox machine (metal-01.he-eu-hel1.wakudev.misc.status.im.)
+The next results were obtained by running the docker-compose-manual-binaries.yml from [test-waku-query-c078075](https://github.com/waku-org/test-waku-query/tree/c07807597faa781ae6c8c32eefdf48ecac03a7ba) in the sandbox machine (metal-01.he-eu-hel1.misc.wakudev.status.im.)
 
 **Scenario 1**
 
@@ -155,7 +155,7 @@ In this case, the performance is similar regarding the timings. The store rate i
 
 This nwaku commit is after a few **Postgres** optimizations were applied.
 
-The next results were obtained by running the docker-compose-manual-binaries.yml from [test-waku-query-c078075](https://github.com/waku-org/test-waku-query/tree/c07807597faa781ae6c8c32eefdf48ecac03a7ba) in the sandbox machine (metal-01.he-eu-hel1.wakudev.misc.status.im.)
+The next results were obtained by running the docker-compose-manual-binaries.yml from [test-waku-query-c078075](https://github.com/waku-org/test-waku-query/tree/c07807597faa781ae6c8c32eefdf48ecac03a7ba) in the sandbox machine (metal-01.he-eu-hel1.misc.wakudev.status.im.)
 
 **Scenario 1**
 
@@ -181,7 +181,7 @@ It cannot be appreciated but the average *****Store***** time was 11ms.
 
 **Scenario 3**
 
-**Store rate:** 25 users generating 1 store-req/sec. Notice that the current Store query used generates pagination which provokes more subsequent queries than the 25 req/sec that would be expected without pagination. 
+**Store rate:** 25 users generating 1 store-req/sec. Notice that the current Store query used generates pagination which provokes more subsequent queries than the 25 req/sec that would be expected without pagination.
 
 **Relay rate:** 1 user generating 10msg/sec, 10KB each.
 
@@ -217,7 +217,7 @@ The `db-postgres-hammer` is aimed to stress the database from the `select` point
 
 #### Results
 
-The following results were obtained by using the sandbox machine (metal-01.he-eu-hel1.wakudev.misc) and running nim-waku nodes from https://github.com/waku-org/nwaku/tree/b452ed865466a33b7f5b87fa937a8471b28e466e and using the `test-waku-query` project from https://github.com/waku-org/test-waku-query/tree/fef29cea182cc744c7940abc6c96d38a68739356
+The following results were obtained by using the sandbox machine (metal-01.he-eu-hel1.misc.wakudev) and running nim-waku nodes from https://github.com/waku-org/nwaku/tree/b452ed865466a33b7f5b87fa937a8471b28e466e and using the `test-waku-query` project from https://github.com/waku-org/test-waku-query/tree/fef29cea182cc744c7940abc6c96d38a68739356
 
 The following shows the results
 
