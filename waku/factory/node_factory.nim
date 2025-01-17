@@ -267,7 +267,13 @@ proc setupProtocols(
     ## then the legacy will be in charge of performing the archiving.
     ## Regarding storage, the only diff between the current/future archive driver and the legacy
     ## one, is that the legacy stores an extra field: the id (message digest.)
-    let migrate = if conf.legacyStore: false else: conf.storeMessageDbMigration
+
+    var postgres = false
+    when defined(postgres):
+      postgres = true
+
+    let migrate =
+      if not postgres and conf.legacyStore: false else: conf.storeMessageDbMigration
     let archiveDriverRes = waitFor driver.ArchiveDriver.new(
       conf.storeMessageDbUrl, conf.storeMessageDbVacuum, migrate,
       conf.storeMaxNumDbConnections, onFatalErrorAction,
