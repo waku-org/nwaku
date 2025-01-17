@@ -136,17 +136,9 @@ proc sendEthTransfer*(
 
   return txHash
 
-proc createEthAccount*(
-    web3: Web3, amountEth: UInt256 = 1000.u256
-): Future[(keys.PrivateKey, Address)] {.async.} =
-  let accounts = await web3.provider.eth_accounts()
-  web3.defaultAccount = accounts[0]
-
+proc createEthAccount*(web3: Web3): (keys.PrivateKey, Address) =
   let pk = keys.PrivateKey.random(rng[])
   let acc = Address(toCanonicalAddress(pk.toPublicKey()))
-
-  discard
-    await sendEthTransfer(web3, accounts[0], acc, ethToWei(amountEth), some(0.u256))
 
   return (pk, acc)
 
@@ -230,15 +222,17 @@ proc setupOnchainGroupManager*(
   let accounts = await web3.provider.eth_accounts()
   web3.defaultAccount = accounts[0]
 
-  var pk = none(string)
-  let (privateKey, _) = await createEthAccount(web3, amountEth)
-  pk = some($privateKey)
+  let (privateKey, acc) = createEthAccount(web3)
+
+  discard await sendEthTransfer(
+    web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
+  )
 
   let manager = OnchainGroupManager(
     ethClientUrl: ethClientAddress,
     ethContractAddress: $contractAddress,
     chainId: CHAIN_ID,
-    ethPrivateKey: pk,
+    ethPrivateKey: some($privateKey),
     rlnInstance: rlnInstance,
     onFatalErrorAction: proc(errStr: string) =
       raiseAssert errStr
