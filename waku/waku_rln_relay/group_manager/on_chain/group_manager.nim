@@ -29,171 +29,22 @@ logScope:
   topics = "waku rln_relay onchain_group_manager"
 
 # using the when predicate does not work within the contract macro, hence need to dupe
-# contract(WakuRlnContract):
-#   # this serves as an entrypoint into the rln membership set
-#   proc register(idCommitment: UInt256, userMessageLimit: UInt256)
-#   # Initializes the implementation contract (only used in unit tests)
-#   proc initialize(maxMessageLimit: UInt256)
-#   # this event is raised when a new member is registered
-#   proc MemberRegistered(rateCommitment: UInt256, index: UInt256) {.event.}
+contract(WakuRlnContract):
+  # this serves as an entrypoint into the rln membership set
+  proc register(idCommitment: UInt256, userMessageLimit: EthereumUInt32)
+  # Initializes the implementation contract (only used in unit tests)
+  proc initialize(maxMessageLimit: UInt256)
+  # this event is raised when a new member is registered
+  proc MemberRegistered(rateCommitment: UInt256, index: EthereumUInt32) {.event.}
 
-#   # this function denotes existence of a given user
-#   proc memberExists(idCommitment: Uint256): UInt256 {.view.}
-#   # this constant describes the next index of a new member
-#   proc commitmentIndex(): UInt256 {.view.}
-#   # this constant describes the block number this contract was deployed on
-#   proc deployedBlockNumber(): UInt256 {.view.}
-#   # this constant describes max message limit of rln contract
-#   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
-
-#####################################
-
-type WakuRlnContract* = object
-proc register*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender],
-    idCommitment: UInt256,
-    userMessageLimit: UInt256,
-): auto =
-  mixin createMutableContractInvocation
-  return createMutableContractInvocation(
-    sender.sender,
-    void,
-    static(
-      keccak256(
-        ["register(", typeSignature(UInt256), ",", typeSignature(UInt256), ")"].join()
-      ).data[0 ..< 4]
-    ) & encode((idCommitment, userMessageLimit)),
-  )
-
-proc initialize*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender], maxMessageLimit: UInt256
-): auto =
-  mixin createMutableContractInvocation
-  return createMutableContractInvocation(
-    sender.sender,
-    void,
-    static(keccak256(["initialize(", typeSignature(UInt256), ")"].join()).data[0 ..< 4]) &
-      encode((maxMessageLimit,)),
-  )
-
-proc memberExists*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender], idCommitment: Uint256
-): auto =
-  mixin createImmutableContractInvocation
-  return createImmutableContractInvocation(
-    sender.sender,
-    UInt256,
-    static(
-      keccak256(["memberExists(", typeSignature(Uint256), ")"].join()).data[0 ..< 4]
-    ) & encode((idCommitment,)),
-  )
-
-proc commitmentIndex*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender]
-): auto =
-  mixin createImmutableContractInvocation
-  return createImmutableContractInvocation(
-    sender.sender,
-    UInt256,
-    static(keccak256(["commitmentIndex(", ")"].join()).data[0 ..< 4]) & encode(()),
-  )
-
-proc deployedBlockNumber*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender]
-): auto =
-  mixin createImmutableContractInvocation
-  return createImmutableContractInvocation(
-    sender.sender,
-    UInt256,
-    static(keccak256(["deployedBlockNumber(", ")"].join()).data[0 ..< 4]) & encode(()),
-  )
-
-proc MAX_MESSAGE_LIMIT*[TSender](
-    sender: ContractInstance[WakuRlnContract, TSender]
-): auto =
-  mixin createImmutableContractInvocation
-  return createImmutableContractInvocation(
-    sender.sender,
-    UInt256,
-    static(keccak256(["MAX_MESSAGE_LIMIT(", ")"].join()).data[0 ..< 4]) & encode(()),
-  )
-
-type MemberRegistered* = object
-template eventTopic*(T: type MemberRegistered): Bytes32 =
-  const r = Bytes32 keccak256(
-    ["MemberRegistered(", typeSignature(UInt256), ",", typeSignature(UInt256), ")"].join()
-  ).data
-  r
-
-proc subscribe[TSender](
-    s: ContractInstance[WakuRlnContract, TSender],
-    t: type MemberRegistered,
-    options: FilterOptions,
-    callback: proc(rateCommitment: UInt256, index: UInt256) {.raises: [], gcsafe.},
-    errorHandler: SubscriptionErrorHandler,
-    withHistoricEvents = true,
-): Future[Subscription] {.used.} =
-  proc eventHandler(j: JsonString) {.gcsafe, raises: [].} =
-    try:
-      let eventData = JrpcConv.decode(j.string, EventData)
-      var offset = 0
-      var tmp_10183770244: UInt256
-      offset += decode(eventData.data, 0, offset, tmp_10183770244)
-      var tmp_10183770245: UInt256
-      offset += decode(eventData.data, 0, offset, tmp_10183770245)
-      callback(tmp_10183770244, tmp_10183770245)
-    except CatchableError as err:
-      errorHandler err[]
-
-  s.sender.subscribeForLogs(
-    options,
-    eventTopic(MemberRegistered),
-    eventHandler,
-    errorHandler,
-    withHistoricEvents,
-  )
-
-proc subscribe[TSender](
-    s: ContractInstance[WakuRlnContract, TSender],
-    t: type MemberRegistered,
-    options: FilterOptions,
-    callback: proc(rateCommitment: UInt256, index: UInt256, j: JsonString) {.
-      raises: [], gcsafe
-    .},
-    errorHandler: SubscriptionErrorHandler,
-    withHistoricEvents = true,
-): Future[Subscription] {.used.} =
-  proc eventHandler(j: JsonString) {.gcsafe, raises: [].} =
-    try:
-      let eventData = JrpcConv.decode(j.string, EventData)
-      var offset = 0
-      var tmp_10183770244: UInt256
-      offset += decode(eventData.data, 0, offset, tmp_10183770244)
-      var tmp_10183770245: UInt256
-      offset += decode(eventData.data, 0, offset, tmp_10183770245)
-      callback(tmp_10183770244, tmp_10183770245, j)
-    except CatchableError as err:
-      errorHandler err[]
-
-  s.sender.subscribeForLogs(
-    options,
-    eventTopic(MemberRegistered),
-    eventHandler,
-    errorHandler,
-    withHistoricEvents,
-  )
-
-proc deployContract*[TSender](
-    sender_10183770273: TSender,
-    contractType: typedesc[WakuRlnContract],
-    contractCode_10183770274: openArray[byte],
-): auto =
-  mixin createContractDeployment
-  return createContractDeployment(
-    sender_10183770273, WakuRlnContract, contractCode_10183770274 & encode(())
-  )
-
-#####################################
+  # this function denotes existence of a given user
+  proc memberExists(idCommitment: Uint256): UInt256 {.view.}
+  # this constant describes the next index of a new member
+  proc commitmentIndex(): UInt256 {.view.}
+  # this constant describes the block number this contract was deployed on
+  proc deployedBlockNumber(): UInt256 {.view.}
+  # this constant describes max message limit of rln contract
+  proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -328,7 +179,7 @@ method register*(
     idCommitment = idCommitment, userMessageLimit = userMessageLimit
   var txHash: TxHash
   g.retryWrapper(txHash, "Failed to register the member"):
-    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(256)).send(
+    await wakuRlnContract.register(idCommitment, userMessageLimit.stuint(32)).send(
       gasPrice = gasPrice
     )
 
@@ -348,7 +199,7 @@ method register*(
   let firstTopic = tsReceipt.logs[0].topics[0]
   # the hash of the signature of MemberRegistered(uint256,uint32) event is equal to the following hex value
   if firstTopic !=
-      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint256)").data):
+      cast[FixedBytes[32]](keccak.keccak256.digest("MemberRegistered(uint256,uint32)").data):
     raise newException(ValueError, "register: unexpected event signature")
 
   # the arguments of the raised event i.e., MemberRegistered are encoded inside the data field
