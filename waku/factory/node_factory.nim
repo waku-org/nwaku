@@ -104,7 +104,7 @@ proc initNode(
 
   # Backword compatibility for maxRelayPeers
   if conf.maxRelayPeers.isSome():
-    debug "maxRelayPeers is deprecated, using relayServiceRatio instead ( recommendation ), if relayServiceRatio is not set, by default it will be 60:40, maxRelayPeers and maxServicePeer is calculated accordingly"
+    error "maxRelayPeers is deprecated, using relayServiceRatio instead ( recommendation ), if relayServiceRatio is not set, by default it will be 60:40, maxRelayPeers and maxServicePeer is calculated accordingly"
 
   builder.withPeerManagerConfig(
     maxConnections = conf.maxConnections,
