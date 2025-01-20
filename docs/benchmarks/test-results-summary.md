@@ -11,14 +11,15 @@ This page summarises key performance metrics for nwaku and provides links to det
 > - libp2p bandwidth usage fluctuates between 5 and 15 KB/s for topologies of up to 1000 nodes, with average bandwidth usage at **10 KB/s**.
 > - The average bandwidth usage remains roughly the same at **9 KB/s** for a larger topology of 2000 nodes.  
 This is expected for Relay networks and the slight fluctuation could be due to simulation artifacts or chance differences in routing or connectivity between test runs.
-> - **0.4s** on average for a message to propagate to 100% of nodes in topologies of up to 2000 Relay nodes
-> - In a network with all nodes continuously online, the average per-node bandwidth usage of the Discv5 protocol is **8.7 KB/s** for incoming traffic and **7.4 KB/s** for outgoing traffic 
+> - The average time for a message to propagate to 100% of nodes in topologies of up to 2000 Relay nodes is **0.4s**.
+> - The average per-node bandwidth usage of the discv5 protocol is **8 KB/s** for incoming traffic and **7.4 KB/s** for outgoing traffic.  
+ This is for a network with 100 continuously online nodes, sending 1KB messages at 1s intervals.
 > - Relevancy to Status App: TODO
 
 
 ## Insights
 
-### Bandwidth Usage: nwaku v0.34
+### Relay Bandwidth Usage: nwaku v0.34.0
 Average `libp2p` per-node bandwidth usage for various message injection rates into a Relay network of constant size `1000`.
 The messages are all 1KB in size.
 
@@ -33,12 +34,21 @@ For each simulation 600 messages of 1KB were sent at a message injection rate of
 Click on a specific config to see the detailed test report.
 
 
-| Config                                                                                                           | Avg Message Propagation Latency (s) | Max Message Propagation Latency (s)|
-|------------------------------------------------------------------------------------------------------------------|-------------------------------------|------------------------------------|
-| [Relay](https://www.notion.so/Waku-regression-testing-v0-34-1618f96fb65c803bb7bad6ecd6bafff9) (1000 nodes)       | 0.05                                | 1.6                                |
-| [Mixed](https://www.notion.so/Mixed-environment-analysis-1688f96fb65c809eb235c59b97d6e15b) (210 nodes)           | 0.0125                              | 0.007                              |
+| Config                                                                                                                       | Avg Message Propagation Latency (s) | Max Message Propagation Latency (s)|
+|------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|------------------------------------|
+| [Relay](https://www.notion.so/Waku-regression-testing-v0-34-1618f96fb65c803bb7bad6ecd6bafff9) (1000 nodes)                   | 0.05                                | 1.6                                |
+| [Mixed](https://www.notion.so/Mixed-environment-analysis-1688f96fb65c809eb235c59b97d6e15b) (210 nodes)                       | 0.0125                              | 0.007                              |
 | [Non-persistent Relay](https://www.notion.so/High-Churn-Relay-Store-Reliability-16c8f96fb65c8008bacaf5e86881160c) (510 nodes)| 0.0125                              | 0.25                               |  
 
+### Discv5 Bandwidth Usage: nwaku v0.34.0
+The average bandwidth usage of discv5 for a network of 100 nodes and message injection rate of 0 or 1msg/s.
+The measurements are based on a stable network where all nodes have already connected to peers to form a healthy mesh.
+
+|Message size         |Average discv5 incoming bandwidth (KB/s)|Average discv5 outgoing bandwidth (KB/s)|
+|-------------------- |----------------------------------------|----------------------------------------|
+| no message injection| 7.88                                   | 6.70                                   |
+| 1KB                 | 8.04                                   | 7.40                                   |
+| 10KB                | 8.03                                   | 7.45                                   |
 
 ## Testing
 ### DST
