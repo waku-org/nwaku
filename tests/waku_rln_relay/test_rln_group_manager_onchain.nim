@@ -128,7 +128,6 @@ suite "Onchain group manager":
     (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
-    #await manager.stop()
 
   asyncTest "startGroupSync: should guard against uninitialized state":
     (await manager.startGroupSync()).isErrOr:
