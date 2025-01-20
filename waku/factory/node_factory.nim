@@ -110,16 +110,18 @@ proc initNode(
       relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
       serviceRatio = 100 - relayRatio
 
-    # Override the relayServiceRatio in config
-    conf.relayServiceRatio = $relayRatio & ":" & $serviceRatio
-
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
     error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
-
-  builder.withPeerManagerConfig(
-    maxConnections = conf.maxConnections,
-    relayServiceRatio = conf.relayServiceRatio,
-    shardAware = conf.relayShardedPeerManagement,
-  )
+  else:
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = conf.relayServiceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)
 
