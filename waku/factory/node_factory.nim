@@ -102,9 +102,18 @@ proc initNode(
   )
   builder.withColocationLimit(conf.colocationLimit)
 
-  # Backword compatibility for maxRelayPeers
   if conf.maxRelayPeers.isSome():
-    error "maxRelayPeers is deprecated, using relayServiceRatio instead ( recommendation ), if relayServiceRatio is not set, by default it will be 60:40, maxRelayPeers and maxServicePeer is calculated accordingly"
+    let
+      maxRelayPeers = conf.maxRelayPeers.get()
+      maxConnections = conf.maxConnections
+      # Calculate the ratio as percentages
+      relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
+      serviceRatio = 100 - relayRatio
+
+    # Override the relayServiceRatio in config
+    conf.relayServiceRatio = $relayRatio & ":" & $serviceRatio
+
+    error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
 
   builder.withPeerManagerConfig(
     maxConnections = conf.maxConnections,
