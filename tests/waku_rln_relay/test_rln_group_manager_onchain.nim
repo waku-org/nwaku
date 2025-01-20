@@ -40,8 +40,7 @@ suite "Onchain group manager":
     manager = await setupOnchainGroupManager()
 
   asyncTeardown:
-    defer:
-      await manager.stop()
+    await manager.stop()
 
   asyncTest "should initialize successfully":
     (await manager.init()).isOkOr:

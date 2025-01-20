@@ -147,8 +147,7 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     ) = await manager.setup()
 
   asyncTeardown:
-    defer:
-      await manager.close()
+    await manager.close()
 
   asyncTest "incentivization PoC: non-existent tx is not eligible":
     ## Test that an unconfirmed tx is not eligible.
