@@ -227,6 +227,8 @@ proc setupOnchainGroupManager*(
 
   let (privateKey, acc) = createEthAccount(web3)
 
+  # we just need to fund the default account
+  # the send procedure returns a tx hash that we don't use, hence discard
   discard await sendEthTransfer(
     web3, web3.defaultAccount, acc, ethToWei(1000.u256), some(0.u256)
   )
