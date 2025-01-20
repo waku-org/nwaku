@@ -5,7 +5,10 @@ import ../../waku_core/time, ../common, ./range_processing, ./storage
 type SeqStorage* = ref object of SyncStorage
   elements: seq[ID]
 
+  # Numer of parts a range will be splitted into.
   partitionCount: int
+
+  # Number of element in a range for which item sets are used instead of fingerprints.
   lengthThreshold: int
 
 method length*(self: SeqStorage): int =
@@ -54,7 +57,9 @@ method prune*(self: SeqStorage, timestamp: Timestamp): int {.raises: [].} =
 
   return idx
 
-proc fingerprinting(self: SeqStorage, sliceOpt: Option[Slice[int]]): Fingerprint =
+proc computefingerprintFromSlice(
+    self: SeqStorage, sliceOpt: Option[Slice[int]]
+): Fingerprint =
   ## XOR all hashes of a slice of the storage.
 
   var fingerprint = EmptyFingerprint
@@ -88,11 +93,11 @@ proc findIdxBounds(self: SeqStorage, slice: Slice[ID]): Option[Slice[int]] =
 
   return some(lower ..< upper)
 
-method fingerprinting*(
+method computeFingerprint*(
     self: SeqStorage, bounds: Slice[ID]
 ): Fingerprint {.raises: [].} =
   let idxSliceOpt = self.findIdxBounds(bounds)
-  return self.fingerprinting(idxSliceOpt)
+  return self.computefingerprintFromSlice(idxSliceOpt)
 
 proc processFingerprintRange*(
     self: SeqStorage,
@@ -124,7 +129,8 @@ proc processFingerprintRange*(
     output.itemSets.add(state)
     return
 
-  for partitionBounds in equalPartitioning(inputBounds, self.partitionCount):
+  let partitions = equalPartitioning(inputBounds, self.partitionCount)
+  for partitionBounds in partitions:
     let sliceOpt = self.findIdxBounds(partitionBounds)
 
     let slice =

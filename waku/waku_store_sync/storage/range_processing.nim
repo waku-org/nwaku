@@ -1,4 +1,4 @@
-import std/math, chronos
+import chronos
 
 import ../../waku_core/time, ../common
 
@@ -28,7 +28,8 @@ proc equalPartitioning*(slice: Slice[ID], count: int): seq[Slice[ID]] =
   if totalLength < count:
     return @[]
 
-  var (parts, rem) = divmod(totalLength, count)
+  let parts = totalLength div count
+  var rem = totalLength mod count
 
   var bounds = newSeqOfCap[Slice[ID]](count)
 

@@ -7,22 +7,22 @@ type SyncStorage* = ref object of RootObj
 method insert*(
     self: SyncStorage, element: ID
 ): Result[void, string] {.base, gcsafe, raises: [].} =
-  discard
+  return err("insert method not implemented for SyncStorage")
 
 method batchInsert*(
     self: SyncStorage, elements: seq[ID]
 ): Result[void, string] {.base, gcsafe, raises: [].} =
-  discard
+  return err("batchInsert method not implemented for SyncStorage")
 
 method prune*(
     self: SyncStorage, timestamp: Timestamp
 ): int {.base, gcsafe, raises: [].} =
-  discard
+  -1
 
-method fingerprinting*(
+method computeFingerprint*(
     self: SyncStorage, bounds: Slice[ID]
 ): Fingerprint {.base, gcsafe, raises: [].} =
-  discard
+  return EmptyFingerprint
 
 method processPayload*(
     self: SyncStorage,
@@ -30,7 +30,7 @@ method processPayload*(
     hashToSend: var seq[Fingerprint],
     hashToRecv: var seq[Fingerprint],
 ): SyncPayload {.base, gcsafe, raises: [].} =
-  discard
+  return SyncPayload()
 
 method length*(self: SyncStorage): int {.base, gcsafe, raises: [].} =
-  discard
+  -1
