@@ -125,10 +125,10 @@ suite "WakuNode":
     var otherNodes: seq[WakuNode] = @[]
 
     # Create and start 20 other nodes
-    for i in 0..<maxConnections + 1:
+    for i in 0 ..< maxConnections + 1:
       let
         nodeKey = generateSecp256k1Key()
-        port = 60012 + i * 2  # Ensure unique ports for each node
+        port = 60012 + i * 2 # Ensure unique ports for each node
         node = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(port))
       await node.start()
       await node.mountRelay()
@@ -136,8 +136,9 @@ suite "WakuNode":
 
     # Connect all other nodes to node1
     for node in otherNodes:
-      discard await node1.peerManager.connectPeer(node.switch.peerInfo.toRemotePeerInfo())
-      await sleepAsync(2.seconds)  # Small delay to avoid hammering the connection process
+      discard
+        await node1.peerManager.connectPeer(node.switch.peerInfo.toRemotePeerInfo())
+      await sleepAsync(2.seconds) # Small delay to avoid hammering the connection process
 
     # Check that the number of connections matches the maxConnections
     check:
