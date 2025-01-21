@@ -79,7 +79,7 @@ proc logConfig(conf: WakuNodeConf) =
     lightpush = conf.lightpush,
     peerExchange = conf.peerExchange
 
-  info "Configuration. Network", cluster = conf.clusterId, maxPeers = conf.maxRelayPeers
+  info "Configuration. Network", cluster = conf.clusterId
 
   for shard in conf.shards:
     info "Configuration. Shards", shard = shard
