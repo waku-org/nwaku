@@ -1,4 +1,4 @@
-import std/strutils, results, regex
+import std/[strutils, math], results, regex
 
 proc parseMsgSize*(input: string): Result[uint64, string] =
   ## Parses size strings such as "1.2 KiB" or "3Kb" and returns the equivalent number of bytes
@@ -49,3 +49,26 @@ proc parseCorrectMsgSize*(input: string): uint64 =
   let ret = parseMsgSize(input).valueOr:
     return 0
   return ret
+
+proc parseRelayServiceRatio*(ratio: string): Result[(float, float), string] =
+  ## Parses a relay/service ratio string to [ float, float ]. The total should sum 100%
+  ## e.g., (0.4, 0.6) == parseRelayServiceRatio("40:60")
+  let elements = ratio.split(":")
+  if elements.len != 2:
+    return err("expected format 'X:Y', ratio = " & ratio)
+
+  var relayRatio, serviceRatio: float
+  try:
+    relayRatio = parseFloat(elements[0])
+    serviceRatio = parseFloat(elements[1])
+  except ValueError:
+    return err("failed to parse ratio numbers: " & ratio)
+
+  if relayRatio < 0 or serviceRatio < 0:
+    return err("relay service ratio must be non-negative, ratio = " & ratio)
+
+  let total = relayRatio + serviceRatio
+  if int(total) != 100:
+    return err("total ratio should be 100, total = " & $total)
+
+  ok((relayRatio / 100.0, serviceRatio / 100.0))

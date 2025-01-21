@@ -36,6 +36,7 @@ proc defaultTestWakuNodeConf*(): WakuNodeConf =
     dnsAddrsNameServers: @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")],
     nat: "any",
     maxConnections: 50,
+    relayServiceRatio: "60:40",
     maxMessageSize: "1024 KiB",
     clusterId: DefaultClusterId,
     shards: @[DefaultShardId],

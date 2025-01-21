@@ -197,7 +197,20 @@ type WakuNodeConf* = object
       desc: "Maximum allowed number of libp2p connections.",
       defaultValue: 50,
       name: "max-connections"
-    .}: uint16
+    .}: int
+
+    maxRelayPeers* {.
+      desc:
+        "Deprecated. Use relay-service-ratio instead. It represents the maximum allowed number of relay peers.",
+      name: "max-relay-peers"
+    .}: Option[int]
+
+    relayServiceRatio* {.
+      desc:
+        "This percentage ratio represents the relay peers to service peers. For example, 60:40, tells that 60% of the max-connections will be used for relay protocol and the other 40% of max-connections will be reserved for other service protocols (e.g., filter, lightpush, store, metadata, etc.)",
+      name: "relay-service-ratio",
+      defaultValue: "60:40" # 60:40 ratio of relay to service peers
+    .}: string
 
     colocationLimit* {.
       desc:
@@ -205,10 +218,6 @@ type WakuNodeConf* = object
       defaultValue: defaultColocationLimit(),
       name: "ip-colocation-limit"
     .}: int
-
-    maxRelayPeers* {.
-      desc: "Maximum allowed number of relay peers.", name: "max-relay-peers"
-    .}: Option[int]
 
     peerStoreCapacity* {.
       desc: "Maximum stored peers in the peerstore.", name: "peer-store-capacity"

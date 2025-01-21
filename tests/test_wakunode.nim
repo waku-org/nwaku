@@ -106,49 +106,52 @@ suite "WakuNode":
 
     await allFutures([node1.stop(), node2.stop()])
 
-  asyncTest "Maximum connections can be configured":
+  asyncTest "Maximum connections can be configured with 20 nodes":
     let
-      maxConnections = 2
+      maxConnections = 20
       nodeKey1 = generateSecp256k1Key()
       node1 = newTestWakuNode(
         nodeKey1,
-        parseIpAddress("0.0.0.0"),
+        parseIpAddress("127.0.0.1"),
         Port(60010),
         maxConnections = maxConnections,
       )
-      nodeKey2 = generateSecp256k1Key()
-      node2 = newTestWakuNode(nodeKey2, parseIpAddress("0.0.0.0"), Port(60012))
-      nodeKey3 = generateSecp256k1Key()
-      node3 = newTestWakuNode(nodeKey3, parseIpAddress("0.0.0.0"), Port(60013))
 
-    check:
-      # Sanity check, to verify config was applied
-      node1.switch.connManager.inSema.size == maxConnections
-
-    # Node with connection limit set to 1
+    # Initialize and start node1
     await node1.start()
     await node1.mountRelay()
 
-    # Remote node 1
-    await node2.start()
-    await node2.mountRelay()
+    # Create an array to hold the other nodes
+    var otherNodes: seq[WakuNode] = @[]
 
-    # Remote node 2
-    await node3.start()
-    await node3.mountRelay()
+    # Create and start 20 other nodes
+    for i in 0 ..< maxConnections + 1:
+      let
+        nodeKey = generateSecp256k1Key()
+        port = 60012 + i * 2 # Ensure unique ports for each node
+        node = newTestWakuNode(nodeKey, parseIpAddress("127.0.0.1"), Port(port))
+      await node.start()
+      await node.mountRelay()
+      otherNodes.add(node)
 
-    discard
-      await node1.peerManager.connectPeer(node2.switch.peerInfo.toRemotePeerInfo())
-    await sleepAsync(3.seconds)
-    discard
-      await node1.peerManager.connectPeer(node3.switch.peerInfo.toRemotePeerInfo())
+    # Connect all other nodes to node1
+    for node in otherNodes:
+      discard
+        await node1.peerManager.connectPeer(node.switch.peerInfo.toRemotePeerInfo())
+      await sleepAsync(2.seconds) # Small delay to avoid hammering the connection process
 
+    # Check that the number of connections matches the maxConnections
     check:
-      # Verify that only the first connection succeeded
-      node1.switch.isConnected(node2.switch.peerInfo.peerId)
-      node1.switch.isConnected(node3.switch.peerInfo.peerId) == false
+      node1.switch.isConnected(otherNodes[0].switch.peerInfo.peerId)
+      node1.switch.isConnected(otherNodes[8].switch.peerInfo.peerId)
+      node1.switch.isConnected(otherNodes[14].switch.peerInfo.peerId)
+      node1.switch.isConnected(otherNodes[20].switch.peerInfo.peerId) == false
 
-    await allFutures([node1.stop(), node2.stop(), node3.stop()])
+    # Stop all nodes
+    var stopFutures = @[node1.stop()]
+    for node in otherNodes:
+      stopFutures.add(node.stop())
+    await allFutures(stopFutures)
 
   asyncTest "Messages fails with wrong key path":
     let nodeKey1 = generateSecp256k1Key()

@@ -102,9 +102,27 @@ proc initNode(
     agentString = some(conf.agentString),
   )
   builder.withColocationLimit(conf.colocationLimit)
-  builder.withPeerManagerConfig(
-    maxRelayPeers = conf.maxRelayPeers, shardAware = conf.relayShardedPeerManagement
-  )
+
+  if conf.maxRelayPeers.isSome():
+    let
+      maxRelayPeers = conf.maxRelayPeers.get()
+      maxConnections = conf.maxConnections
+      # Calculate the ratio as percentages
+      relayRatio = (maxRelayPeers.float / maxConnections.float) * 100
+      serviceRatio = 100 - relayRatio
+
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = $relayRatio & ":" & $serviceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
+    error "maxRelayPeers is deprecated. It is recommended to use relayServiceRatio instead. If relayServiceRatio is not set, it will be automatically calculated based on maxConnections and maxRelayPeers."
+  else:
+    builder.withPeerManagerConfig(
+      maxConnections = conf.maxConnections,
+      relayServiceRatio = conf.relayServiceRatio,
+      shardAware = conf.relayShardedPeerManagement,
+    )
   builder.withRateLimit(conf.rateLimits)
   builder.withCircuitRelay(relay)
 
