@@ -107,7 +107,10 @@ suite "Waku Store Sync Codec":
 
     let encodedPayload = payload.deltaEncode()
 
-    let decodedPayload = RangesData.deltaDecode(encodedPayload)
+    let res = RangesData.deltaDecode(encodedPayload)
+    assert res.isOk(), $res.error
+
+    let decodedPayload = res.get()
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
@@ -126,9 +129,9 @@ suite "Waku Store Sync Codec":
 
     for i in 0 ..< count:
       let lb = SyncID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
-      #echo "lower bound: " & $lastTime
+
       let nowTime = lastTime + 10_000_000_000 # 10s
-      #echo "upper bound: " & $nowTime
+
       lastTime = nowTime
       let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
       let bounds = lb .. ub
@@ -144,8 +147,11 @@ suite "Waku Store Sync Codec":
     )
 
     let encodedPayload = payload.deltaEncode()
-    #echo "encoding done!"
-    let decodedPayload = RangesData.deltaDecode(encodedPayload)
+
+    let res = RangesData.deltaDecode(encodedPayload)
+    assert res.isOk(), $res.error
+
+    let decodedPayload = res.get()
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b
@@ -185,8 +191,11 @@ suite "Waku Store Sync Codec":
       RangesData(ranges: ranges, fingerprints: fingerprints, itemSets: itemSets)
 
     let encodedPayload = payload.deltaEncode()
-    #echo "encoding done!"
-    let decodedPayload = RangesData.deltaDecode(encodedPayload)
+
+    let res = RangesData.deltaDecode(encodedPayload)
+    assert res.isOk(), $res.error
+
+    let decodedPayload = res.get()
 
     check:
       payload.ranges[0][0].b == decodedPayload.ranges[0][0].b

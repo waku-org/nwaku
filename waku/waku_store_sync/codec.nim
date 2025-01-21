@@ -118,7 +118,6 @@ proc getItemSet(idx: var int, buffer: seq[byte], itemSetLength: int): ItemSet =
   idx += count
 
 proc getItemSetLength(idx: var int, buffer: seq[byte]): int =
-  # decode item set length
   let min = min(idx + VarIntLen, buffer.len)
   let slice = buffer[idx ..< min]
   (val, len) = uint64.fromBytes(slice, Leb128)
@@ -126,25 +125,36 @@ proc getItemSetLength(idx: var int, buffer: seq[byte]): int =
 
   return int(val)
 
-proc getFingerprint(idx: var int, buffer: seq[byte]): Fingerprint =
-  # decode fingerprint
+proc getFingerprint(idx: var int, buffer: seq[byte]): Result[Fingerprint, string] =
+  if idx + HashLen > buffer.len:
+    return err("Cannot decode fingerprint")
+
   let slice = buffer[idx ..< idx + HashLen]
   idx += HashLen
   var fingerprint = EmptyFingerprint
   for i, bytes in slice:
     fingerprint[i] = bytes
 
-  return fingerprint
+  return ok(fingerprint)
 
-proc getRangeType(idx: var int, buffer: seq[byte]): RangeType =
+proc getRangeType(idx: var int, buffer: seq[byte]): Result[RangeType, string] =
+  if idx >= buffer.len:
+    return err("Cannot decode range type")
+
   let rangeType = RangeType(buffer[idx])
   idx += 1
 
-  return rangeType
+  return ok(rangeType)
 
 proc updateHash(idx: var int, buffer: seq[byte], hash: var WakuMessageHash) =
+  if idx >= buffer.len:
+    return
+
   let sameBytes = int(buffer[idx])
   idx += 1
+
+  if idx + sameBytes > buffer.len:
+    return
 
   let slice = buffer[idx ..< idx + sameBytes]
   idx += sameBytes
@@ -160,49 +170,60 @@ proc getTimeDiff(idx: var int, buffer: seq[byte]): Timestamp =
 
   return Timestamp(val)
 
-proc getTimestamp(idx: var int, buffer: seq[byte]): Timestamp =
+proc getTimestamp(idx: var int, buffer: seq[byte]): Result[Timestamp, string] =
+  if idx + VarIntLen > buffer.len:
+    return err("Cannot decode timestamp")
+
   let slice = buffer[idx ..< idx + VarIntLen]
   (val, len) = uint64.fromBytes(slice, Leb128)
   idx += len
 
-  return Timestamp(val)
+  return ok(Timestamp(val))
 
-proc getHash(idx: var int, buffer: seq[byte]): WakuMessageHash =
+proc getHash(idx: var int, buffer: seq[byte]): Result[WakuMessageHash, string] =
+  if idx + HashLen > buffer.len:
+    return err("Cannot decode hash")
+
   let slice = buffer[idx ..< idx + HashLen]
   idx += HashLen
   var hash = EmptyWakuMessageHash
   for i, bytes in slice:
     hash[i] = bytes
 
-  return hash
+  return ok(hash)
 
-proc getReconciled(idx: var int, buffer: seq[byte]): bool =
+proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
+  if idx >= buffer.len:
+    return err("Cannot decode reconciled")
+
   let recon = bool(buffer[idx])
   idx += 1
 
-  return recon
+  return ok(recon)
 
-proc deltaDecode*(itemSet: var ItemSet, buffer: seq[byte], setLength: int): int =
+proc deltaDecode*(
+    itemSet: var ItemSet, buffer: seq[byte], setLength: int
+): Result[int, string] =
   var
     lastTime = Timestamp(0)
     idx = 0
 
   while itemSet.elements.len < setLength:
-    let timeDiff = getTimestamp(idx, buffer)
+    let timeDiff = ?getTimestamp(idx, buffer)
     let time = lastTime + timeDiff
     lastTime = time
 
-    let hash = getHash(idx, buffer)
+    let hash = ?getHash(idx, buffer)
 
     let id = SyncID(time: time, hash: hash)
 
     itemSet.elements.add(id)
 
-  itemSet.reconciled = getReconciled(idx, buffer)
+  itemSet.reconciled = ?getReconciled(idx, buffer)
 
   return idx
 
-proc deltaDecode*(T: type RangesData, buffer: seq[byte]): T =
+proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
   if buffer.len == 1:
     return RangesData()
 
@@ -211,7 +232,7 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): T =
     lastTime = Timestamp(0)
     idx = 0
 
-  lastTime = getTimestamp(idx, buffer)
+  lastTime = ?getTimestamp(idx, buffer)
 
   # implicit first hash is always 0 
   # implicit first range mode is alway skip
@@ -231,11 +252,11 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): T =
     let upperRangeBound = SyncID(time: thisTime, hash: hash)
     let bounds = lowerRangeBound .. upperRangeBound
 
-    let rangeType = getRangeType(idx, buffer)
+    let rangeType = ?getRangeType(idx, buffer)
     payload.ranges.add((bounds, rangeType))
 
     if rangeType == RangeType.Fingerprint:
-      let fingerprint = getFingerprint(idx, buffer)
+      let fingerprint = ?getFingerprint(idx, buffer)
       payload.fingerprints.add(fingerprint)
     elif rangeType == RangeType.ItemSet:
       let itemSetLength = getItemSetLength(idx, buffer)
