@@ -115,16 +115,13 @@ proc withPeerManagerConfig*(
     relayServiceRatio: string,
     shardAware = false,
 ) =
-  try:
-    let (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
-    var relayPeers = int(ceil(float(maxConnections) * relayRatio))
-    var servicePeers = int(floor(float(maxConnections) * serviceRatio))
+  let (relayRatio, serviceRatio) = parseRelayServiceRatio(relayServiceRatio).get()
+  var relayPeers = int(ceil(float(maxConnections) * relayRatio))
+  var servicePeers = int(floor(float(maxConnections) * serviceRatio))
 
-    builder.maxServicePeers = servicePeers
-    builder.maxRelayPeers = relayPeers
-    builder.shardAware = shardAware
-  except ValueError as e:
-    error "Error : ", error = e.msg
+  builder.maxServicePeers = servicePeers
+  builder.maxRelayPeers = relayPeers
+  builder.shardAware = shardAware
 
 proc withColocationLimit*(builder: var WakuNodeBuilder, colocationLimit: int) =
   builder.colocationLimit = colocationLimit
