@@ -12,7 +12,7 @@ import
 
 import
   waku/[node/peer_manager, waku_core],
-  waku/incentivization/[rpc, txid_proof],
+  waku/incentivization/[rpc, eligibility_manager],
   ../waku_rln_relay/[utils_onchain, utils]
 
 const TxHashNonExisting =
