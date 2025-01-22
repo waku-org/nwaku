@@ -65,8 +65,13 @@ proc deltaEncode*(value: RangesData): seq[byte] =
   # implicit first hash is always 0 and range type is always skip
 
   for (bound, rangeType) in value.ranges:
+    echo "lastTime: " & $uint64(lastTimestamp)
+    echo "time: " & $uint64(bound.b.time)
+
     let timeDiff = uint64(bound.b.time) - uint64(lastTimestamp)
     lastTimestamp = bound.b.time
+
+    echo "Encoded Time diff: " & $timeDiff
 
     # encode timestamp
     buf = timeDiff.toBytes(Leb128)
@@ -111,16 +116,10 @@ proc deltaEncode*(value: RangesData): seq[byte] =
 
   return output
 
-proc getItemSet(idx: var int, buffer: seq[byte], itemSetLength: int): ItemSet =
-  var itemSet = ItemSet()
-  let slice = buffer[idx ..< buffer.len]
-  let count = deltaDecode(itemSet, slice, itemSetLength)
-  idx += count
-
 proc getItemSetLength(idx: var int, buffer: seq[byte]): int =
   let min = min(idx + VarIntLen, buffer.len)
   let slice = buffer[idx ..< min]
-  (val, len) = uint64.fromBytes(slice, Leb128)
+  let (val, len) = uint64.fromBytes(slice, Leb128)
   idx += len
 
   return int(val)
@@ -141,7 +140,12 @@ proc getRangeType(idx: var int, buffer: seq[byte]): Result[RangeType, string] =
   if idx >= buffer.len:
     return err("Cannot decode range type")
 
-  let rangeType = RangeType(buffer[idx])
+  let val = buffer[idx]
+
+  if val > 2 or val < 0:
+    return err("Cannot decode range type")
+
+  let rangeType = RangeType(val)
   idx += 1
 
   return ok(rangeType)
@@ -151,6 +155,10 @@ proc updateHash(idx: var int, buffer: seq[byte], hash: var WakuMessageHash) =
     return
 
   let sameBytes = int(buffer[idx])
+
+  if sameBytes > 32:
+    return
+
   idx += 1
 
   if idx + sameBytes > buffer.len:
@@ -165,7 +173,7 @@ proc updateHash(idx: var int, buffer: seq[byte], hash: var WakuMessageHash) =
 proc getTimeDiff(idx: var int, buffer: seq[byte]): Timestamp =
   let min = min(idx + VarIntLen, buffer.len)
   let slice = buffer[idx ..< min]
-  (val, len) = uint64.fromBytes(slice, Leb128)
+  let (val, len) = uint64.fromBytes(slice, Leb128)
   idx += len
 
   return Timestamp(val)
@@ -175,7 +183,7 @@ proc getTimestamp(idx: var int, buffer: seq[byte]): Result[Timestamp, string] =
     return err("Cannot decode timestamp")
 
   let slice = buffer[idx ..< idx + VarIntLen]
-  (val, len) = uint64.fromBytes(slice, Leb128)
+  let (val, len) = uint64.fromBytes(slice, Leb128)
   idx += len
 
   return ok(Timestamp(val))
@@ -196,7 +204,12 @@ proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
   if idx >= buffer.len:
     return err("Cannot decode reconciled")
 
-  let recon = bool(buffer[idx])
+  let val = buffer[idx]
+
+  if val > 1 or val < 0:
+    return err("Cannot decode reconciled")
+
+  let recon = bool(val)
   idx += 1
 
   return ok(recon)
@@ -221,11 +234,21 @@ proc deltaDecode*(
 
   itemSet.reconciled = ?getReconciled(idx, buffer)
 
-  return idx
+  return ok(idx)
+
+proc getItemSet(
+    idx: var int, buffer: seq[byte], itemSetLength: int
+): Result[ItemSet, string] =
+  var itemSet = ItemSet()
+  let slice = buffer[idx ..< buffer.len]
+  let count = ?deltaDecode(itemSet, slice, itemSetLength)
+  idx += count
+
+  return ok(itemSet)
 
 proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
   if buffer.len == 1:
-    return RangesData()
+    return err("payload too small")
 
   var
     payload = RangesData()
@@ -241,6 +264,8 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
     let lowerRangeBound = SyncID(time: lastTime, hash: EmptyWakuMessageHash)
 
     let timeDiff = getTimeDiff(idx, buffer)
+
+    echo "Decoded Time diff: " & $timeDiff
 
     var hash = EmptyWakuMessageHash
     if timeDiff == 0:
@@ -260,10 +285,10 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
       payload.fingerprints.add(fingerprint)
     elif rangeType == RangeType.ItemSet:
       let itemSetLength = getItemSetLength(idx, buffer)
-      let itemSet = getItemSet(idx, buffer, itemSetLength)
+      let itemSet = ?getItemSet(idx, buffer, itemSetLength)
       payload.itemSets.add(itemSet)
 
-  return payload
+  return ok(payload)
 
 proc decode*(T: type WakuMessageAndTopic, buffer: seq[byte]): ProtobufResult[T] =
   let pb = initProtoBuffer(buffer)

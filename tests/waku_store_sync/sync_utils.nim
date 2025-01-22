@@ -1,6 +1,6 @@
 import std/[options, random], chronos, chronicles
 
-import waku/[node/peer_manager, waku_core, waku_store_sync], ../testlib/wakucore
+import waku/[node/peer_manager, waku_core, waku_store_sync/common], ../testlib/wakucore
 
 randomize()
 
@@ -12,7 +12,7 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
 
   return hash
 
-proc newTestWakuRecon*(
+#[ proc newTestWakuRecon*(
     switch: Switch,
     idsRx: AsyncQueue[SyncID],
     wantsTx: AsyncQueue[(PeerId, Fingerprint)],
@@ -34,9 +34,9 @@ proc newTestWakuRecon*(
   proto.start()
   switch.mount(proto)
 
-  return proto
+  return proto ]#
 
-proc newTestWakuTransfer*(
+#[ proc newTestWakuTransfer*(
     switch: Switch,
     idsTx: AsyncQueue[SyncID],
     wantsRx: AsyncQueue[(PeerId, Fingerprint)],
@@ -55,4 +55,4 @@ proc newTestWakuTransfer*(
   proto.start()
   switch.mount(proto)
 
-  return proto
+  return proto ]#

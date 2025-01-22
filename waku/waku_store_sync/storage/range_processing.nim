@@ -19,7 +19,7 @@ proc calculateTimeRange*(
 
   return Timestamp(syncStart) .. Timestamp(syncEnd)
 
-proc equalPartitioning*(slice: Slice[ID], count: int): seq[Slice[ID]] =
+proc equalPartitioning*(slice: Slice[SyncID], count: int): seq[Slice[SyncID]] =
   ## Partition into N time slices.
   ## Remainder is distributed equaly to the first slices.
 
@@ -31,7 +31,7 @@ proc equalPartitioning*(slice: Slice[ID], count: int): seq[Slice[ID]] =
   let parts = totalLength div count
   var rem = totalLength mod count
 
-  var bounds = newSeqOfCap[Slice[ID]](count)
+  var bounds = newSeqOfCap[Slice[SyncID]](count)
 
   var lb = slice.a.time
 
@@ -42,8 +42,8 @@ proc equalPartitioning*(slice: Slice[ID], count: int): seq[Slice[ID]] =
       ub += 1
       rem -= 1
 
-    let lower = ID(time: lb, fingerprint: EmptyFingerprint)
-    let upper = ID(time: ub, fingerprint: EmptyFingerprint)
+    let lower = SyncID(time: lb, hash: EmptyFingerprint)
+    let upper = SyncID(time: ub, hash: EmptyFingerprint)
     let bound = lower .. upper
 
     bounds.add(bound)
