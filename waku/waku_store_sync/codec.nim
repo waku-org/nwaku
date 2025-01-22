@@ -65,13 +65,8 @@ proc deltaEncode*(value: RangesData): seq[byte] =
   # implicit first hash is always 0 and range type is always skip
 
   for (bound, rangeType) in value.ranges:
-    echo "lastTime: " & $uint64(lastTimestamp)
-    echo "time: " & $uint64(bound.b.time)
-
     let timeDiff = uint64(bound.b.time) - uint64(lastTimestamp)
     lastTimestamp = bound.b.time
-
-    echo "Encoded Time diff: " & $timeDiff
 
     # encode timestamp
     buf = timeDiff.toBytes(Leb128)
@@ -264,8 +259,6 @@ proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
     let lowerRangeBound = SyncID(time: lastTime, hash: EmptyWakuMessageHash)
 
     let timeDiff = getTimeDiff(idx, buffer)
-
-    echo "Decoded Time diff: " & $timeDiff
 
     var hash = EmptyWakuMessageHash
     if timeDiff == 0:
