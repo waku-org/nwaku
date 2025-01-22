@@ -5,6 +5,8 @@ const
   WakuFilterPushCodec* = "/vac/waku/filter-push/2.0.0-beta1"
   WakuLightPushCodec* = "/vac/waku/lightpush/2.0.0-beta1"
   WakuSyncCodec* = "/vac/waku/sync/1.0.0"
+  WakuReconciliationCodec* = "/vac/waku/reconciliation/1.0.0"
+  WakuTransferCodec* = "/vac/waku/transfer/1.0.0"
   WakuMetadataCodec* = "/vac/waku/metadata/1.0.0"
   WakuPeerExchangeCodec* = "/vac/waku/peer-exchange/2.0.0-alpha1"
   WakuLegacyStoreCodec* = "/vac/waku/store/2.0.0-beta4"
