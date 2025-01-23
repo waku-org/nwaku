@@ -243,7 +243,7 @@ proc getItemSet(
 
 proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
   if buffer.len == 1:
-    return err("payload too small")
+    return ok(RangesData())
 
   var
     payload = RangesData()

@@ -17,7 +17,11 @@ import
   ../common/protobuf,
   ../common/paging,
   ../waku_enr,
-  ../waku_core,
+  ../waku_core/codecs,
+  ../waku_core/time,
+  ../waku_core/topics/pubsub_topic,
+  ../waku_core/message/digest,
+  ../waku_core/message/message,
   ../node/peer_manager/peer_manager,
   ../waku_archive,
   ./common,
@@ -40,13 +44,13 @@ type SyncReconciliation* = ref object of LPProtocol
   storage: SyncStorage
 
   # Receive IDs from transfer protocol for storage
-  idsRx: AsyncQueue[ID]
+  idsRx: AsyncQueue[SyncID]
 
   # Send Hashes to transfer protocol for reception
-  localWantsTx: AsyncQueue[(PeerId, Fingerprint)]
+  localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)]
 
   # Send Hashes to transfer protocol for transmission
-  remoteNeedsTx: AsyncQueue[(PeerId, Fingerprint)]
+  remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)]
 
   # params
   syncInterval: timer.Duration # Time between each synchronization attempt
@@ -63,7 +67,7 @@ proc messageIngress*(
 ) =
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
-  let id = ID(time: msg.timestamp, fingerprint: msgHash)
+  let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id).isOkOr:
     error "failed to insert new message", msg_hash = msgHash.toHex(), err = error
@@ -71,14 +75,14 @@ proc messageIngress*(
 proc messageIngress*(
     self: SyncReconciliation, msgHash: WakuMessageHash, msg: WakuMessage
 ) =
-  let id = ID(time: msg.timestamp, fingerprint: msgHash)
+  let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id).isOkOr:
     error "failed to insert new message", msg_hash = msgHash.toHex(), err = error
 
-proc messageIngress*(self: SyncReconciliation, id: ID) =
+proc messageIngress*(self: SyncReconciliation, id: SyncID) =
   self.storage.insert(id).isOkOr:
-    error "failed to insert new message", msg_hash = id.fingerprint.toHex(), err = error
+    error "failed to insert new message", msg_hash = id.hash.toHex(), err = error
 
 proc processRequest(
     self: SyncReconciliation, conn: Connection
@@ -92,9 +96,10 @@ proc processRequest(
     let buffer: seq[byte] = readRes.valueOr:
       return err("connection read error: " & error.msg)
 
-    total_bytes_exchanged.observe(buffer.len, labelValues = [ReconRecv])
+    total_bytes_exchanged.observe(buffer.len, labelValues = [Reconciliation, Receiving])
 
-    let recvPayload = SyncPayload.deltaDecode(buffer)
+    let recvPayload = RangesData.deltaDecode(buffer).valueOr:
+      return err("payload decoding error: " & error)
 
     roundTrips.inc()
 
@@ -103,13 +108,12 @@ proc processRequest(
       remote = conn.peerId,
       payload = recvPayload
 
-    if recvPayload.ranges.len == 0 or
-        recvPayload.ranges.allIt(it[1] == RangeType.skipRange):
+    if recvPayload.ranges.len == 0 or recvPayload.ranges.allIt(it[1] == RangeType.Skip):
       break
 
     var
-      hashToRecv: seq[Fingerprint]
-      hashToSend: seq[Fingerprint]
+      hashToRecv: seq[WakuMessageHash]
+      hashToSend: seq[WakuMessageHash]
 
     let sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
 
@@ -117,11 +121,13 @@ proc processRequest(
       await self.remoteNeedsTx.addLast((conn.peerId, hash))
 
     for hash in hashToRecv:
-      await self.wantstx.addLast((conn.peerId, hash))
+      await self.localWantstx.addLast((conn.peerId, hash))
 
     let rawPayload = sendPayload.deltaEncode()
 
-    total_bytes_exchanged.observe(rawPayload.len, labelValues = [ReconSend])
+    total_bytes_exchanged.observe(
+      rawPayload.len, labelValues = [Reconciliation, Sending]
+    )
 
     let writeRes = catch:
       await conn.writeLP(rawPayload)
@@ -134,8 +140,7 @@ proc processRequest(
       remote = conn.peerId,
       payload = sendPayload
 
-    if sendPayload.ranges.len == 0 or
-        sendPayload.ranges.allIt(it[1] == RangeType.skipRange):
+    if sendPayload.ranges.len == 0 or sendPayload.ranges.allIt(it[1] == RangeType.Skip):
       break
 
     continue
@@ -151,18 +156,22 @@ proc initiate(
 ): Future[Result[void, string]] {.async.} =
   let
     timeRange = calculateTimeRange(self.relayJitter, self.syncRange)
-    lower = ID(time: timeRange.a, fingerprint: EmptyFingerprint)
-    upper = ID(time: timeRange.b, fingerprint: FullFingerprint)
+    lower = SyncID(time: timeRange.a, hash: EmptyFingerprint)
+    upper = SyncID(time: timeRange.b, hash: FullFingerprint)
     bounds = lower .. upper
 
-    fingerprint = self.storage.fingerprinting(bounds)
-    initPayload = SyncPayload(
-      ranges: @[(bounds, fingerprintRange)], fingerprints: @[fingerprint], itemSets: @[]
+    fingerprint = self.storage.computeFingerprint(bounds)
+    initPayload = RangesData(
+      ranges: @[(bounds, RangeType.Fingerprint)],
+      fingerprints: @[fingerprint],
+      itemSets: @[],
     )
 
   let sendPayload = initPayload.deltaEncode()
 
-  total_bytes_exchanged.observe(sendPayload.len, labelValues = [ReconSend])
+  total_bytes_exchanged.observe(
+    sendPayload.len, labelValues = [Reconciliation, Sending]
+  )
 
   let writeRes = catch:
     await connection.writeLP(sendPayload)
@@ -183,10 +192,10 @@ proc storeSynchronization*(
     self: SyncReconciliation, peerInfo: Option[RemotePeerInfo] = none(RemotePeerInfo)
 ): Future[Result[void, string]] {.async.} =
   let peer = peerInfo.valueOr:
-    self.peerManager.selectPeer(SyncReconciliationCodec).valueOr:
+    self.peerManager.selectPeer(WakuReconciliationCodec).valueOr:
       return err("no suitable peer found for sync")
 
-  let connOpt = await self.peerManager.dialPeer(peer, SyncReconciliationCodec)
+  let connOpt = await self.peerManager.dialPeer(peer, WakuReconciliationCodec)
 
   let conn: Connection = connOpt.valueOr:
     return err("cannot establish sync connection")
@@ -207,7 +216,7 @@ proc storeSynchronization*(
 
 proc initFillStorage(
     syncRange: timer.Duration, wakuArchive: WakuArchive
-): Future[Result[seq[ID], string]] {.async.} =
+): Future[Result[seq[SyncID], string]] {.async.} =
   if wakuArchive.isNil():
     return err("waku archive unavailable")
 
@@ -227,7 +236,7 @@ proc initFillStorage(
 
   debug "initial storage filling started"
 
-  var ids = newSeq[ID](DefaultStorageCap)
+  var ids = newSeq[SyncID](DefaultStorageCap)
 
   # we assume IDs are in order
 
@@ -239,7 +248,7 @@ proc initFillStorage(
       let hash = response.hashes[i]
       let msg = response.messages[i]
 
-      ids.add(ID(time: msg.timestamp, fingerprint: hash))
+      ids.add(SyncID(time: msg.timestamp, hash: hash))
 
     if response.cursor.isNone():
       break
@@ -257,9 +266,9 @@ proc new*(
     syncRange: timer.Duration = DefaultSyncRange,
     syncInterval: timer.Duration = DefaultSyncInterval,
     relayJitter: timer.Duration = DefaultGossipSubJitter,
-    idsRx: AsyncQueue[ID],
-    localWantsTx: AsyncQueue[(PeerId, Fingerprint)],
-    remoteNeedsTx: AsyncQueue[(PeerId, Fingerprint)],
+    idsRx: AsyncQueue[SyncID],
+    localWantsTx: AsyncQueue[(PeerId, WakuMessageHash)],
+    remoteNeedsTx: AsyncQueue[(PeerId, WakuMessageHash)],
 ): Future[Result[T, string]] {.async.} =
   let res = await initFillStorage(syncRange, wakuArchive)
   let storage =
@@ -287,7 +296,7 @@ proc new*(
     return
 
   sync.handler = handler
-  sync.codec = SyncReconciliationCodec
+  sync.codec = WakuReconciliationCodec
 
   info "Store Reconciliation protocol initialized"
 

@@ -122,7 +122,7 @@ proc syncMessageIngress*(
     msgHash: WakuMessageHash,
     pubsubTopic: PubsubTopic,
     msg: WakuMessage,
-) {.async.} =
+): Future[Result[void, string]] {.async.} =
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
@@ -133,7 +133,7 @@ proc syncMessageIngress*(
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
-    return
+    return err("failed to insert message")
 
   trace "message archived",
     msg_hash = msgHash.to0xHex(),
@@ -143,6 +143,8 @@ proc syncMessageIngress*(
 
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
+
+  return ok()
 
 proc findMessages*(
     self: WakuArchive, query: ArchiveQuery
