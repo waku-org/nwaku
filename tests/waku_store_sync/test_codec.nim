@@ -6,7 +6,6 @@ import
   ../../waku/waku_core,
   ../../waku/waku_core/message/digest,
   ../../waku/waku_core/time,
-  ../../waku/waku_store_sync,
   ../../waku/waku_store_sync/common,
   ../../waku/waku_store_sync/codec,
   ./sync_utils
@@ -19,12 +18,12 @@ proc randomItemSet(count: int, startTime: Timestamp, rng: var Rand): ItemSet =
   for i in 0 ..< count:
     let diff = rng.rand(9.uint8) + 1
 
-    let timestamp = lastTime + diff * 1_000_000_000
+    let timestamp = lastTime + diff * 1_000
     lastTime = timestamp
 
     let hash = randomHash(rng)
 
-    let id = SyncID(time: Timestamp(timestamp), fingerprint: hash)
+    let id = SyncID(time: Timestamp(timestamp), hash: hash)
 
     elements.add(id)
 
@@ -40,8 +39,8 @@ proc randomSetRange(
     ub = itemSet.elements[^1]
 
   #for test check equality
-  lb.fingerprint = EmptyFingerprint
-  ub.fingerprint = EmptyFingerprint
+  lb.hash = EmptyWakuMessageHash
+  ub.hash = EmptyWakuMessageHash
 
   let bounds = lb .. ub
 
@@ -90,9 +89,9 @@ suite "Waku Store Sync Codec":
       time = getNowInNanosecondTime()
 
     let (bounds1, itemSet1) = randomSetRange(count, time, rng)
-    let (bounds2, itemSet2) = randomSetRange(count, time + 10_000_000_000, rng)
-    let (bounds3, itemSet3) = randomSetRange(count, time + 20_000_000_000, rng)
-    let (bounds4, itemSet4) = randomSetRange(count, time + 30_000_000_000, rng)
+    let (bounds2, itemSet2) = randomSetRange(count, time + 11_000_000, rng)
+    let (bounds3, itemSet3) = randomSetRange(count, time + 21_000_000, rng)
+    let (bounds4, itemSet4) = randomSetRange(count, time + 31_000_000, rng)
 
     let range1 = (bounds1, RangeType.ItemSet)
     let range2 = (bounds2, RangeType.ItemSet)
@@ -128,12 +127,12 @@ suite "Waku Store Sync Codec":
       ranges = newSeqOfCap[(Slice[SyncID], RangeType)](4)
 
     for i in 0 ..< count:
-      let lb = SyncID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
+      let lb = SyncID(time: Timestamp(lastTime), hash: EmptyWakuMessageHash)
 
       let nowTime = lastTime + 10_000_000_000 # 10s
 
       lastTime = nowTime
-      let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
+      let ub = SyncID(time: Timestamp(nowTime), hash: EmptyWakuMessageHash)
       let bounds = lb .. ub
       let range = (bounds, RangeType.Fingerprint)
 
@@ -171,10 +170,10 @@ suite "Waku Store Sync Codec":
       fingerprints = newSeqOfCap[Fingerprint](4)
 
     for i in 1 .. count:
-      let lb = SyncID(time: Timestamp(lastTime), fingerprint: EmptyFingerprint)
+      let lb = SyncID(time: Timestamp(lastTime), hash: EmptyWakuMessageHash)
       let nowTime = lastTime + 10_000_000_000 # 10s
       lastTime = nowTime
-      let ub = SyncID(time: Timestamp(nowTime), fingerprint: EmptyFingerprint)
+      let ub = SyncID(time: Timestamp(nowTime), hash: EmptyWakuMessageHash)
       let bounds = lb .. ub
       let range = (bounds, RangeType.Fingerprint)
 
