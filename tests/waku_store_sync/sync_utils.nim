@@ -1,6 +1,14 @@
 import std/[options, random], chronos, chronicles
 
-import waku/[node/peer_manager, waku_core, waku_store_sync/common], ../testlib/wakucore
+import
+  waku/[
+    node/peer_manager,
+    waku_core,
+    waku_store_sync/common,
+    waku_store_sync/reconciliation,
+    waku_store_sync/transfer,
+  ],
+  ../testlib/wakucore
 
 randomize()
 
@@ -12,7 +20,7 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
 
   return hash
 
-#[ proc newTestWakuRecon*(
+proc newTestWakuRecon*(
     switch: Switch,
     idsRx: AsyncQueue[SyncID],
     wantsTx: AsyncQueue[(PeerId, Fingerprint)],
@@ -25,8 +33,8 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
     wakuArchive = nil,
     relayJitter = 0.seconds,
     idsRx = idsRx,
-    wantsTx = wantsTx,
-    needsTx = needsTx,
+    localWantsTx = wantsTx,
+    remoteNeedsTx = needsTx,
   )
 
   let proto = res.get()
@@ -34,9 +42,9 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
   proto.start()
   switch.mount(proto)
 
-  return proto ]#
+  return proto
 
-#[ proc newTestWakuTransfer*(
+proc newTestWakuTransfer*(
     switch: Switch,
     idsTx: AsyncQueue[SyncID],
     wantsRx: AsyncQueue[(PeerId, Fingerprint)],
@@ -48,11 +56,11 @@ proc randomHash*(rng: var Rand): WakuMessageHash =
     peerManager = peerManager,
     wakuArchive = nil,
     idsTx = idsTx,
-    wantsRx = wantsRx,
-    needsRx = needsRx,
+    localWantsRx = wantsRx,
+    remoteNeedsRx = needsRx,
   )
 
   proto.start()
   switch.mount(proto)
 
-  return proto ]#
+  return proto
