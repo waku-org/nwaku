@@ -121,10 +121,14 @@ deps: | deps-common nat-libs waku.nims
 ### nim-libbacktrace
 
 # "-d:release" implies "--stacktrace:off" and it cannot be added to config.nims
-ifeq ($(USE_LIBBACKTRACE), 0)
-NIM_PARAMS := $(NIM_PARAMS) -d:debug -d:disable_libbacktrace
-else
+ifeq ($(DEBUG), 0)
 NIM_PARAMS := $(NIM_PARAMS) -d:release
+else
+NIM_PARAMS := $(NIM_PARAMS) -d:debug
+endif
+
+ifeq ($(USE_LIBBACKTRACE), 0)
+NIM_PARAMS := $(NIM_PARAMS) -d:disable_libbacktrace
 endif
 
 libbacktrace:
@@ -366,11 +370,11 @@ docker-liteprotocoltester-push:
 ################
 .PHONY: cbindings cwaku_example libwaku
 
-STATIC ?= false
+STATIC ?= 0
 
 libwaku: | build deps librln
 		rm -f build/libwaku*
-ifeq ($(STATIC), true)
+ifeq ($(STATIC), 1)
 		echo -e $(BUILD_MSG) "build/$@.a" && \
 		$(ENV_SCRIPT) nim libwakuStatic $(NIM_PARAMS) waku.nims
 else
