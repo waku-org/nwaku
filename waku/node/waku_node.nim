@@ -212,9 +212,9 @@ proc mountStoreSync*(
     storeSyncInterval = 300,
     storeSyncRelayJitter = 20,
 ): Future[Result[void, string]] {.async.} =
-  let idsChannel = newAsyncQueue[ID](100)
-  let wantsChannel = newAsyncQueue[(PeerId, Fingerprint)](100)
-  let needsChannel = newAsyncQueue[(PeerId, Fingerprint)](100)
+  let idsChannel = newAsyncQueue[SyncID](100)
+  let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
+  let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
 
   let recon =
     ?await SyncReconciliation.new(

@@ -16,8 +16,6 @@ import
   ../common/protobuf,
   ../waku_enr,
   ../waku_core/codecs,
-  ../waku_core/time,
-  ../waku_core/topics/pubsub_topic,
   ../waku_core/message/digest,
   ../waku_core/message/message,
   ../waku_core/message/default_values,
