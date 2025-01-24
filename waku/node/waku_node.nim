@@ -264,6 +264,9 @@ proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
     await node.wakuArchive.handleMessage(topic, msg)
 
   proc syncHandler(topic: PubsubTopic, msg: WakuMessage) {.async, gcsafe.} =
+    if node.wakuStoreReconciliation.isNil():
+      return
+
     node.wakuStoreReconciliation.messageIngress(topic, msg)
 
   let defaultHandler = proc(
