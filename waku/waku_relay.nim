@@ -1,3 +1,3 @@
-import ./waku_relay/protocol
+import ./waku_relay/[protocol, topic_health]
 
-export protocol
+export protocol, topic_health

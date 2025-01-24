@@ -7,7 +7,6 @@
 BUILD_SYSTEM_DIR := vendor/nimbus-build-system
 EXCLUDED_NIM_PACKAGES := vendor/nim-dnsdisc/vendor
 LINK_PCRE := 0
-LOG_LEVEL := TRACE
 FORMAT_MSG := "\\x1B[95mFormatting:\\x1B[39m"
 # we don't want an error here, so we can handle things later, in the ".DEFAULT" target
 -include $(BUILD_SYSTEM_DIR)/makefiles/variables.mk

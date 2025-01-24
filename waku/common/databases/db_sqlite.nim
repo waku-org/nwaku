@@ -160,7 +160,7 @@ proc exec*[P](s: SqliteStmt[P, void], params: P): DatabaseResult[void] =
 
   let res =
     if (let v = sqlite3_step(s); v != SQLITE_DONE):
-      err($sqlite3_errstr(v))
+      err($sqlite3_errstr(v) & " " & $sqlite3_errmsg(sqlite3_db_handle(s)))
     else:
       ok()
 

@@ -3,7 +3,8 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, nre, strformat],
+  std/[sequtils, strformat],
+  regex,
   results,
   chronos,
   chronos/threadsync,
@@ -23,17 +24,21 @@ proc new*(T: type PgAsyncPool, dbUrl: string, maxConnections: int): DatabaseResu
   var connString: string
 
   try:
-    let regex = re("""^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$""")
-    let matches = find(dbUrl, regex).get.captures
-    let user = matches[0]
-    let password = matches[1]
-    let host = matches[2]
-    let port = matches[3]
-    let dbName = matches[4]
+    let regex = re2("""^postgres:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)$""")
+    var m: RegexMatch2
+    if dbUrl.match(regex, m) == false:
+      return err("could not properly parse dbUrl: " & dbUrl)
+
+    let user = dbUrl[m.captures[0]]
+      ## m.captures[i] contains an slice with the desired value
+    let password = dbUrl[m.captures[1]]
+    let host = dbUrl[m.captures[2]]
+    let port = dbUrl[m.captures[3]]
+    let dbName = dbUrl[m.captures[4]]
+
     connString =
       fmt"user={user} host={host} port={port} dbname={dbName} password={password}"
-  except KeyError, InvalidUnicodeError, RegexInternalError, ValueError, StudyError,
-      SyntaxError:
+  except KeyError, ValueError:
     return err("could not parse postgres string: " & getCurrentExceptionMsg())
 
   let pool = PgAsyncPool(

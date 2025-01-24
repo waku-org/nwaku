@@ -11,10 +11,12 @@ import
   waku/common/base64,
   waku/waku_core/message/message,
   waku/node/waku_node,
+  waku/node/peer_manager,
   waku/waku_core/topics/pubsub_topic,
   waku/waku_core/subscription/push_handler,
-  waku/waku_relay/protocol,
-  ./events/json_message_event,
+  waku/waku_relay,
+  ./events/
+    [json_message_event, json_topic_health_change_event, json_connection_change_event],
   ./waku_thread/waku_thread,
   ./waku_thread/inter_thread_communication/requests/node_lifecycle_request,
   ./waku_thread/inter_thread_communication/requests/peer_manager_request,
@@ -27,7 +29,8 @@ import
   ./waku_thread/inter_thread_communication/requests/ping_request,
   ./waku_thread/inter_thread_communication/waku_thread_request,
   ./alloc,
-  ./ffi_types
+  ./ffi_types,
+  ../waku/factory/app_callbacks
 
 ################################################################################
 ### Wrapper around the waku node
@@ -44,6 +47,29 @@ template checkLibwakuParams*(
   if isNil(callback):
     return RET_MISSING_CALLBACK
 
+template callEventCallback(ctx: ptr WakuContext, eventName: string, body: untyped) =
+  if isNil(ctx[].eventCallback):
+    error eventName & " - eventCallback is nil"
+    return
+
+  if isNil(ctx[].eventUserData):
+    error eventName & " - eventUserData is nil"
+    return
+
+  foreignThreadGc:
+    try:
+      let event = body
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
+      )
+    except Exception, CatchableError:
+      let msg =
+        "Exception " & eventName & " when calling 'eventCallBack': " &
+        getCurrentExceptionMsg()
+      cast[WakuCallBack](ctx[].eventCallback)(
+        RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
+      )
+
 proc handleRequest(
     ctx: ptr WakuContext,
     requestType: RequestType,
@@ -58,30 +84,20 @@ proc handleRequest(
 
   return RET_OK
 
+proc onConnectionChange(ctx: ptr WakuContext): ConnectionChangeHandler =
+  return proc(peerId: PeerId, peerEvent: PeerEventKind) {.async.} =
+    callEventCallback(ctx, "onConnectionChange"):
+      $JsonConnectionChangeEvent.new($peerId, peerEvent)
+
 proc onReceivedMessage(ctx: ptr WakuContext): WakuRelayHandler =
-  return proc(
-      pubsubTopic: PubsubTopic, msg: WakuMessage
-  ): Future[system.void] {.async.} =
-    # Callback that hadles the Waku Relay events. i.e. messages or errors.
-    if isNil(ctx[].eventCallback):
-      error "eventCallback is nil"
-      return
+  return proc(pubsubTopic: PubsubTopic, msg: WakuMessage) {.async.} =
+    callEventCallback(ctx, "onReceivedMessage"):
+      $JsonMessageEvent.new(pubsubTopic, msg)
 
-    if isNil(ctx[].eventUserData):
-      error "eventUserData is nil"
-      return
-
-    foreignThreadGc:
-      try:
-        let event = $JsonMessageEvent.new(pubsubTopic, msg)
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_OK, unsafeAddr event[0], cast[csize_t](len(event)), ctx[].eventUserData
-        )
-      except Exception, CatchableError:
-        let msg = "Exception when calling 'eventCallBack': " & getCurrentExceptionMsg()
-        cast[WakuCallBack](ctx[].eventCallback)(
-          RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), ctx[].eventUserData
-        )
+proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
+  return proc(pubsubTopic: PubsubTopic, topicHealth: TopicHealth) {.async.} =
+    callEventCallback(ctx, "onTopicHealthChange"):
+      $JsonTopicHealthChangeEvent.new(pubsubTopic, topicHealth)
 
 ### End of not-exported components
 ################################################################################
@@ -138,10 +154,18 @@ proc waku_new(
 
   ctx.userData = userData
 
+  let appCallbacks = AppCallbacks(
+    relayHandler: onReceivedMessage(ctx),
+    topicHealthChangeHandler: onTopicHealthChange(ctx),
+    connectionChangeHandler: onConnectionChange(ctx),
+  )
+
   let retCode = handleRequest(
     ctx,
     RequestType.LIFECYCLE,
-    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.CREATE_NODE, configJson),
+    NodeLifecycleRequest.createShared(
+      NodeLifecycleMsgType.CREATE_NODE, configJson, appCallbacks
+    ),
     callback,
     userData,
   )
@@ -161,6 +185,9 @@ proc waku_destroy(
     let msg = "libwaku error: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
+
+  ## always need to invoke the callback although we don't retrieve value to the caller
+  callback(RET_OK, nil, 0, userData)
 
   return RET_OK
 
@@ -286,21 +313,10 @@ proc waku_relay_publish(
   defer:
     deallocShared(pst)
 
-  let targetPubSubTopic =
-    if len(pst) == 0:
-      DefaultPubsubTopic
-    else:
-      $pst
-
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(
-      RelayMsgType.PUBLISH,
-      PubsubTopic($pst),
-      WakuRelayHandler(onReceivedMessage(ctx)),
-      wakuMessage,
-    ),
+    RelayRequest.createShared(RelayMsgType.PUBLISH, pst, nil, wakuMessage),
     callback,
     userData,
   )
@@ -348,8 +364,33 @@ proc waku_relay_subscribe(
   handleRequest(
     ctx,
     RequestType.RELAY,
+    RelayRequest.createShared(RelayMsgType.SUBSCRIBE, pst, WakuRelayHandler(cb)),
+    callback,
+    userData,
+  )
+
+proc waku_relay_add_protected_shard(
+    ctx: ptr WakuContext,
+    clusterId: cint,
+    shardId: cint,
+    publicKey: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc, cdecl.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+  let pubk = publicKey.alloc()
+  defer:
+    deallocShared(pubk)
+
+  handleRequest(
+    ctx,
+    RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.SUBSCRIBE, PubsubTopic($pst), WakuRelayHandler(cb)
+      RelayMsgType.ADD_PROTECTED_SHARD,
+      clusterId = clusterId,
+      shardId = shardId,
+      publicKey = pubk,
     ),
     callback,
     userData,
@@ -372,9 +413,7 @@ proc waku_relay_unsubscribe(
     ctx,
     RequestType.RELAY,
     RelayRequest.createShared(
-      RelayMsgType.SUBSCRIBE,
-      PubsubTopic($pst),
-      WakuRelayHandler(onReceivedMessage(ctx)),
+      RelayMsgType.UNSUBSCRIBE, pst, WakuRelayHandler(onReceivedMessage(ctx))
     ),
     callback,
     userData,
@@ -396,7 +435,7 @@ proc waku_relay_get_num_connected_peers(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, PubsubTopic($pst)),
+    RelayRequest.createShared(RelayMsgType.LIST_CONNECTED_PEERS, pst),
     callback,
     userData,
   )
@@ -417,7 +456,7 @@ proc waku_relay_get_num_peers_in_mesh(
   handleRequest(
     ctx,
     RequestType.RELAY,
-    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, PubsubTopic($pst)),
+    RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, pst),
     callback,
     userData,
   )
@@ -508,18 +547,10 @@ proc waku_lightpush_publish(
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
-  let targetPubSubTopic =
-    if len(pst) == 0:
-      DefaultPubsubTopic
-    else:
-      $pst
-
   handleRequest(
     ctx,
     RequestType.LIGHTPUSH,
-    LightpushRequest.createShared(
-      LightpushMsgType.PUBLISH, PubsubTopic($pst), wakuMessage
-    ),
+    LightpushRequest.createShared(LightpushMsgType.PUBLISH, pst, wakuMessage),
     callback,
     userData,
   )
@@ -662,7 +693,7 @@ proc waku_store_query(
   handleRequest(
     ctx,
     RequestType.STORE,
-    JsonStoreQueryRequest.createShared(jsonQuery, peerAddr, timeoutMs),
+    StoreRequest.createShared(StoreReqType.REMOTE_QUERY, jsonQuery, peerAddr, timeoutMs),
     callback,
     userData,
   )
