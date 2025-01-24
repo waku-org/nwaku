@@ -134,11 +134,11 @@ proc sendEthTransfer*(
 
   let gasPrice = int(await web3.provider.eth_gasPrice())
 
-  var tx: EthSend
-  tx.source = accountFrom
-  tx.to = some(accountTo)
-  tx.value = some(amountWei)
-  tx.gasPrice = some(gasPrice)
+  var tx: TransactionArgs
+  tx.`from` = Opt.some(accountFrom)
+  tx.to = Opt.some(accountTo)
+  tx.value = Opt.some(amountWei)
+  tx.gasPrice = Opt.some(Quantity(gasPrice))
 
   # TODO: handle the error if sending fails
   let txHash = await web3.send(tx)
@@ -150,6 +150,9 @@ proc sendEthTransfer*(
       fmt"Balance is {balanceAfterWei} but expected {balanceAfterExpectedWei}"
 
   return txHash
+
+proc ethToWei(eth: UInt256): UInt256 =
+  eth * 1000000000000000000.u256
 
 proc createEthAccount*(
     ethAmount: UInt256 = 1000.u256
@@ -166,7 +169,7 @@ proc createEthAccount*(
   tx.`from` = Opt.some(accounts[0])
   tx.value = Opt.some(ethToWei(ethAmount))
   tx.to = Opt.some(acc)
-  tx.gasPrice = Opt.some(gasPrice)
+  tx.gasPrice = Opt.some(Quantity(gasPrice))
 
   # Send ethAmount to acc
   discard await web3.send(tx)
@@ -244,9 +247,6 @@ proc stopAnvil*(runAnvil: Process) {.used.} =
     debug "Sent SIGTERM to Anvil", anvilPID = anvilPID
   except:
     error "Anvil daemon termination failed: ", err = getCurrentExceptionMsg()
-
-proc ethToWei(eth: UInt256): UInt256 =
-  eth * 1000000000000000000.u256
 
 proc setupOnchainGroupManager*(
     ethClientAddress: string = EthClient, amountEth: UInt256 = 10.u256
