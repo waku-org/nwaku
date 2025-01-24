@@ -368,7 +368,7 @@ suite "Waku Sync: transfer":
     await serverRemoteNeeds.put(need)
 
     # give time for transfer to happen
-    await sleepAsync(250.milliseconds)
+    await sleepAsync(500.milliseconds)
 
     var query = ArchiveQuery()
     query.includeData = true
