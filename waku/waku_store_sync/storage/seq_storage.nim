@@ -54,6 +54,9 @@ method prune*(self: SeqStorage, timestamp: Timestamp): int {.raises: [].} =
   ## Remove all elements before the timestamp.
   ## Returns # of elements pruned.
 
+  if self.elements.len == 0:
+    return 0
+
   let bound = SyncID(time: timestamp, hash: EmptyWakuMessageHash)
 
   let idx = self.elements.lowerBound(bound, common.cmp)

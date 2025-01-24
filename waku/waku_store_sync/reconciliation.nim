@@ -355,13 +355,13 @@ proc start*(self: SyncReconciliation) =
 
   info "Store Sync Reconciliation protocol started"
 
-proc stopWait*(self: SyncReconciliation) {.async.} =
+proc stop*(self: SyncReconciliation) =
   if self.syncInterval > ZeroDuration:
-    await self.periodicSyncFut.cancelAndWait()
+    self.periodicSyncFut.cancelSoon()
 
   if self.syncInterval > ZeroDuration:
-    await self.periodicPruneFut.cancelAndWait()
+    self.periodicPruneFut.cancelSoon()
 
-  await self.idsReceiverFut.cancelAndWait()
+  self.idsReceiverFut.cancelSoon()
 
   info "Store Sync Reconciliation protocol stopped"
