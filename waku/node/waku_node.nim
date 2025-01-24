@@ -1377,10 +1377,10 @@ proc stop*(node: WakuNode) {.async.} =
     await node.wakuStoreResume.stopWait()
 
   if not node.wakuStoreReconciliation.isNil():
-    await node.wakuStoreReconciliation.stopWait()
+    node.wakuStoreReconciliation.stop()
 
   if not node.wakuStoreTransfer.isNil():
-    await node.wakuStoreTransfer.stopWait()
+    node.wakuStoreTransfer.stop()
 
   if not node.wakuPeerExchange.isNil() and not node.wakuPeerExchange.pxLoopHandle.isNil():
     await node.wakuPeerExchange.pxLoopHandle.cancelAndWait()

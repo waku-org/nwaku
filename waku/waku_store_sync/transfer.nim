@@ -213,10 +213,10 @@ proc start*(self: SyncTransfer) =
 
   info "Store Sync Transfer protocol started"
 
-proc stopWait*(self: SyncTransfer) {.async.} =
+proc stop*(self: SyncTransfer) =
   self.started = false
 
-  await self.localWantsRxFut.cancelAndWait()
-  await self.remoteNeedsRxFut.cancelAndWait()
+  self.localWantsRxFut.cancelSoon()
+  self.remoteNeedsRxFut.cancelSoon()
 
   info "Store Sync Transfer protocol stopped"
