@@ -54,6 +54,9 @@ import
   ./waku_store_legacy/test_waku_store,
   ./waku_store_legacy/test_wakunode_store
 
+# Waku store sync suite
+import ./waku_store_sync/test_all
+
 when defined(waku_exp_store_resume):
   # TODO: Review store resume test cases (#1282)
   import ./waku_store_legacy/test_resume

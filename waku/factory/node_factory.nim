@@ -396,6 +396,14 @@ proc setupProtocols(
     else:
       return err("failed to set node waku filter peer: " & filterNode.error)
 
+  if conf.storeSync:
+    (
+      await node.mountStoreSync(
+        conf.storeSyncRange, conf.storeSyncInterval, conf.storeSyncRelayJitter
+      )
+    ).isOkOr:
+      return err("failed to mount waku store sync protocol: " & $error)
+
   # waku peer exchange setup
   if conf.peerExchange:
     try:

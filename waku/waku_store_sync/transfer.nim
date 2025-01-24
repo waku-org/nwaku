@@ -16,8 +16,6 @@ import
   ../common/protobuf,
   ../waku_enr,
   ../waku_core/codecs,
-  ../waku_core/time,
-  ../waku_core/topics/pubsub_topic,
   ../waku_core/message/digest,
   ../waku_core/message/message,
   ../waku_core/message/default_values,
@@ -215,10 +213,10 @@ proc start*(self: SyncTransfer) =
 
   info "Store Sync Transfer protocol started"
 
-proc stopWait*(self: SyncTransfer) {.async.} =
+proc stop*(self: SyncTransfer) =
   self.started = false
 
-  await self.localWantsRxFut.cancelAndWait()
-  await self.remoteNeedsRxFut.cancelAndWait()
+  self.localWantsRxFut.cancelSoon()
+  self.remoteNeedsRxFut.cancelSoon()
 
   info "Store Sync Transfer protocol stopped"
