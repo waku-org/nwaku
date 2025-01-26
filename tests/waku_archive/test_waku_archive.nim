@@ -491,7 +491,8 @@ procSuite "Waku Archive - find messages":
       response.messages.mapIt(it.timestamp) == @[ts(30, timeOrigin), ts(50, timeOrigin)]
 
   test "handle temporal history query with a zero-size time window":
-    ## A zero-size window results in an empty list of history messages
+    ## A zero-size window results in an error to the store client. That kind of queries
+    ## are pointless and we need to rapidly inform about that to the client.
     ## Given
     let req = ArchiveQuery(
       contentTopics: @[ContentTopic("1")],
@@ -503,27 +504,19 @@ procSuite "Waku Archive - find messages":
     let res = waitFor archiveA.findMessages(req)
 
     ## Then
-    check res.isOk()
-
-    let response = res.tryGet()
-    check:
-      response.messages.len == 0
+    check not res.isOk()
 
   test "handle temporal history query with an invalid time window":
-    ## A history query with an invalid time range results in an empty list of history messages
+    ## A query with an invalid time range should immediately return a query error to the client
     ## Given
     let req = ArchiveQuery(
       contentTopics: @[ContentTopic("1")],
       startTime: some(Timestamp(5)),
-      endTime: some(Timestamp(2)),
+      endTime: some(Timestamp(4)),
     )
 
     ## When
     let res = waitFor archiveA.findMessages(req)
 
     ## Then
-    check res.isOk()
-
-    let response = res.tryGet()
-    check:
-      response.messages.len == 0
+    check not res.isOk()
