@@ -520,3 +520,21 @@ procSuite "Waku Archive - find messages":
 
     ## Then
     check not res.isOk()
+
+  test "time range should be smaller than 24h":
+    let oneDayRangeNanos = 86_400_000_000_000
+    let now = getNowInNanosecondTime()
+
+    ## It fails if range is a bit bigger than 24h
+    check not (waitFor archiveA.findMessages(ArchiveQuery(
+      contentTopics: @[ContentTopic("1")],
+      startTime: some(Timestamp(now - oneDayRangeNanos - 1)), ## one nano beyond the allowed limit
+      endTime: some(Timestamp(now)),
+    ))).isOk()
+
+    ## Ok if range is 24h
+    check (waitFor archiveA.findMessages(ArchiveQuery(
+      contentTopics: @[ContentTopic("1")],
+      startTime: some(Timestamp(now - oneDayRangeNanos)), ## one nano beyond the allowed limit
+      endTime: some(Timestamp(now)),
+    ))).isOk()
