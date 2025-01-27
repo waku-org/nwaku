@@ -216,9 +216,17 @@ proc mountStoreSync*(
   let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
   let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
 
+  var shards = seq[uint16]
+  let enrRes = node.enr.toTyped()
+  if enrRes.isOk():
+    let shardingRes = enrRes.get().relaySharding()
+    if shardingRes.isSome():
+      let relayShard = shardingRes.get()
+      shards = relayShard.shardIds
+
   let recon =
     ?await SyncReconciliation.new(
-      node.peerManager, node.wakuArchive, storeSyncRange.seconds,
+      shards, node.peerManager, node.wakuArchive, storeSyncRange.seconds,
       storeSyncInterval.seconds, storeSyncRelayJitter.seconds, idsChannel, wantsChannel,
       needsChannel,
     )

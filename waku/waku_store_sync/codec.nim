@@ -52,6 +52,14 @@ proc deltaEncode*(value: RangesData): seq[byte] =
     i = 0
     j = 0
 
+  # encode shards
+  buf = uint64(value.shards.len).toBytes(Leb128)
+  output &= @buf
+
+  for shard in value.shards:
+    buf = uint64(shard).toBytes(Leb128)
+    output &= @buf
+
   # the first range is implicit but must be explicit when encoded
   let (bound, _) = value.ranges[0]
 
@@ -209,6 +217,28 @@ proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
 
   return ok(recon)
 
+proc getShards(idx: var int, buffer: seq[byte]): Result[seq[uint16], string] =
+  if idx + VarIntLen > buffer.len:
+    return err("Cannot decode shards")
+
+  let slice = buffer[idx ..< idx + VarIntLen]
+  let (val, len) = uint64.fromBytes(slice, Leb128)
+  idx += len
+  let shardsLen = val
+
+  var shards: seq[uint16]
+  for _ in 0 ..< shardsLen:
+    if idx + VarIntLen > buffer.len:
+      return err("Cannot decode shards")
+
+    let slice = buffer[idx ..< idx + VarIntLen]
+    let (val, len) = uint64.fromBytes(slice, Leb128)
+    idx += len
+
+    shards.add(uint16(val))
+
+  return ok(shards)
+
 proc deltaDecode*(
     itemSet: var ItemSet, buffer: seq[byte], setLength: int
 ): Result[int, string] =
@@ -242,13 +272,15 @@ proc getItemSet(
   return ok(itemSet)
 
 proc deltaDecode*(T: type RangesData, buffer: seq[byte]): Result[T, string] =
-  if buffer.len == 1:
+  if buffer.len <= 1:
     return ok(RangesData())
 
   var
     payload = RangesData()
     lastTime = Timestamp(0)
     idx = 0
+
+  payload.shards = ?getShards(idx, buffer)
 
   lastTime = ?getTimestamp(idx, buffer)
 

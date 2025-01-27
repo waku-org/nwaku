@@ -157,6 +157,40 @@ suite "Waku Sync: reconciliation":
       localWants.contains((clientPeerInfo.peerId, hash3)) == true
       localWants.contains((serverPeerInfo.peerId, hash2)) == true
 
+  asyncTest "sync 2 nodes different shards":
+    let
+      msg1 = fakeWakuMessage(ts = now(), contentTopic = DefaultContentTopic)
+      msg2 = fakeWakuMessage(ts = now() + 1, contentTopic = DefaultContentTopic)
+      msg3 = fakeWakuMessage(ts = now() + 2, contentTopic = DefaultContentTopic)
+      hash1 = computeMessageHash(DefaultPubsubTopic, msg1)
+      hash2 = computeMessageHash(DefaultPubsubTopic, msg2)
+      hash3 = computeMessageHash(DefaultPubsubTopic, msg3)
+
+    server.messageIngress(hash1, msg1)
+    server.messageIngress(hash2, msg2)
+    client.messageIngress(hash1, msg1)
+    client.messageIngress(hash3, msg3)
+
+    check:
+      remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
+      remoteNeeds.contains((clientPeerInfo.peerId, hash2)) == false
+      localWants.contains((clientPeerInfo.peerId, hash3)) == false
+      localWants.contains((serverPeerInfo.peerId, hash2)) == false
+
+    server = await newTestWakuRecon(
+      serverSwitch, idsChannel, localWants, remoteNeeds, @[0.uint16, 1, 2, 3]
+    )
+    client = await newTestWakuRecon(
+      clientSwitch, idsChannel, localWants, remoteNeeds, @[4.uint16, 5, 6, 7]
+    )
+
+    var syncRes = await client.storeSynchronization(some(serverPeerInfo))
+    assert syncRes.isOk(), $syncRes.error
+
+    check:
+      remoteNeeds.len == 0
+      localWants.len == 0
+
   asyncTest "sync 2 nodes same hashes":
     let
       msg1 = fakeWakuMessage(ts = now(), contentTopic = DefaultContentTopic)
