@@ -85,37 +85,46 @@ proc new*(
 proc handleMessage*(
     self: WakuArchive, pubsubTopic: PubsubTopic, msg: WakuMessage
 ) {.async.} =
+  let msgHash = computeMessageHash(pubsubTopic, msg)
+  let msgHashHex = msgHash.to0xHex()
+
+  trace "handling message",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    msgTimestamp = msg.timestamp
+
   self.validator(msg).isOkOr:
     waku_archive_errors.inc(labelValues = [error])
     trace "invalid message",
-      msg_hash = computeMessageHash(pubsubTopic, msg).to0xHex(),
+      msg_hash = msgHashHex,
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
     return
 
-  let msgHash = computeMessageHash(pubsubTopic, msg)
   let insertStartTime = getTime().toUnixFloat()
 
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
     trace "failed to insert message",
-      msg_hash = msgHash.to0xHex(),
+      msg_hash = msgHashHex,
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = error
     return
 
-  trace "message archived",
-    msg_hash = msgHash.to0xHex(),
-    pubsubTopic = pubsubTopic,
-    contentTopic = msg.contentTopic,
-    timestamp = msg.timestamp
-
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
+
+  trace "message archived",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    timestamp = msg.timestamp,
+    insertDuration = insertDuration
 
 proc syncMessageIngress*(
     self: WakuArchive,
@@ -123,26 +132,34 @@ proc syncMessageIngress*(
     pubsubTopic: PubsubTopic,
     msg: WakuMessage,
 ): Future[Result[void, string]] {.async.} =
-  let insertStartTime = getTime().toUnixFloat()
+  let msgHashHex = msgHash.to0xHex()
 
+  trace "handling message in syncMessageIngress",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    timestamp = msg.timestamp
+
+  let insertStartTime = getTime().toUnixFloat()
   (await self.driver.put(msgHash, pubsubTopic, msg)).isOkOr:
     waku_archive_errors.inc(labelValues = [insertFailure])
-    trace "failed to insert message",
-      msg_hash = msgHash.toHex(),
+    trace "failed to insert message in in syncMessageIngress",
+      msg_hash = msgHashHex,
       pubsubTopic = pubsubTopic,
       contentTopic = msg.contentTopic,
       timestamp = msg.timestamp,
       error = $error
     return err(error)
 
-  trace "message archived",
-    msg_hash = msgHash.to0xHex(),
-    pubsubTopic = pubsubTopic,
-    contentTopic = msg.contentTopic,
-    timestamp = msg.timestamp
-
   let insertDuration = getTime().toUnixFloat() - insertStartTime
   waku_archive_insert_duration_seconds.observe(insertDuration)
+
+  trace "message archived in syncMessageIngress",
+    msg_hash = msgHashHex,
+    pubsubTopic = pubsubTopic,
+    contentTopic = msg.contentTopic,
+    timestamp = msg.timestamp,
+    insertDuration = insertDuration
 
   return ok()
 
