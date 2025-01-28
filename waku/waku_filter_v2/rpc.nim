@@ -90,3 +90,7 @@ proc writeValue*(
   if value.contentTopics.len > 0:
     writer.writeField("contentTopics", value.contentTopics)
   writer.endRecord()
+
+proc `$`*(self: MessagePush): string =
+  let msg_hash = computeMessageHash(self.pubsubTopic, self.wakuMessage)
+  return "msg_hash: " & shortLog(msg_hash) & " pubsubTopic: " & self.pubsubTopic
