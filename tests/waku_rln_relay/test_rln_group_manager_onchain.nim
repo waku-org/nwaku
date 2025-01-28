@@ -30,23 +30,9 @@ import
   ./utils_onchain,
   ./utils
 
-proc logAnvilOutput(runAnvil: Process) =
-  # NOTICE: only for temporary debugging purposes
-  # the readLine will block forever....
-  var cmdline: string
-  while true:
-    try:
-      if runAnvil.outputstream.readLine(cmdline):
-        echo "Anvil log - " & cmdLine
-      else:
-        break
-    except Exception, CatchableError:
-      break
-
 suite "Onchain group manager":
   # We run Anvil
-  var runAnvil {.threadvar, used.}: Process
-  runAnvil = runAnvil()
+  let runAnvil {.used.} = runAnvil()
 
   var manager {.threadvar.}: OnchainGroupManager
 
@@ -142,13 +128,11 @@ suite "Onchain group manager":
     (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
-
   asyncTest "startGroupSync: should guard against uninitialized state":
     (await manager.startGroupSync()).isErrOr:
       raiseAssert "Expected error when not initialized"
 
   asyncTest "startGroupSync: should sync to the state of the group":
-
     let credentials = generateCredentials(manager.rlnInstance)
     let rateCommitment = getRateCommitment(credentials, UserMessageLimit(1)).valueOr:
       raiseAssert $error
@@ -176,7 +160,6 @@ suite "Onchain group manager":
       (await manager.startGroupSync()).isOkOr:
         raiseAssert $error
     except Exception, CatchableError:
-      # logAnvilOutput(runAnvil)
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
     await fut

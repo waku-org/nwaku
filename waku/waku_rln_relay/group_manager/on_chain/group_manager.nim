@@ -36,7 +36,6 @@ contract(WakuRlnContract):
   proc initialize(maxMessageLimit: UInt256)
   # this event is raised when a new member is registered
   proc MemberRegistered(rateCommitment: UInt256, index: EthereumUInt32) {.event.}
-
   # this function denotes existence of a given user
   proc memberExists(idCommitment: Uint256): UInt256 {.view.}
   # this constant describes the next index of a new member
