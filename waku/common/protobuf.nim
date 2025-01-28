@@ -57,21 +57,7 @@ proc `==`*(a: zint64, b: zint64): bool =
 proc `$`*(err: ProtobufError): string =
   case err.kind
   of DecodeFailure:
-    case err.error
-    of VarintDecode:
-      return "VarintDecode"
-    of MessageIncomplete:
-      return "MessageIncomplete"
-    of BufferOverflow:
-      return "BufferOverflow"
-    of MessageTooBig:
-      return "MessageTooBig"
-    of BadWireType:
-      return "BadWireType"
-    of IncorrectBlob:
-      return "IncorrectBlob"
-    of RequiredFieldMissing:
-      return "RequiredFieldMissing"
+    return $err.error ## assume that ProtoError is pure
   of MissingRequiredField:
     return "MissingRequiredField " & err.field
   of InvalidLengthField:
