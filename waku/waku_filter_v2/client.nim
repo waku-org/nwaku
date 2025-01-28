@@ -2,7 +2,13 @@
 
 {.push raises: [].}
 
-import std/options, chronicles, chronos, libp2p/protocols/protocol, bearssl/rand
+import
+  std/options,
+  chronicles,
+  chronos,
+  libp2p/protocols/protocol,
+  bearssl/rand,
+  stew/byteutils
 import
   ../node/peer_manager,
   ../node/delivery_monitor/subscriptions_observer,
@@ -101,6 +107,7 @@ proc sendSubscribeRequest(
 proc ping*(
     wfc: WakuFilterClient, servicePeer: RemotePeerInfo
 ): Future[FilterSubscribeResult] {.async.} =
+  debug "sending ping", servicePeer = shortLog($servicePeer)
   let requestId = generateRequestId(wfc.rng)
   let filterSubscribeRequest = FilterSubscribeRequest.ping(requestId)
 
@@ -168,22 +175,34 @@ proc registerPushHandler*(wfc: WakuFilterClient, handler: FilterPushHandler) =
 
 proc initProtocolHandler(wfc: WakuFilterClient) =
   proc handler(conn: Connection, proto: string) {.async.} =
-    let buf = await conn.readLp(int(DefaultMaxPushSize))
+    ## Notice that the client component is acting as a server of WakuFilterPushCodec messages
+    while not conn.atEof():
+      var buf: seq[byte]
+      try:
+        buf = await conn.readLp(int(DefaultMaxPushSize))
+      except CancelledError, LPStreamError:
+        error "error while reading conn", error = getCurrentExceptionMsg()
 
-    let decodeRes = MessagePush.decode(buf)
-    if decodeRes.isErr():
-      error "Failed to decode message push", peerId = conn.peerId
-      waku_filter_errors.inc(labelValues = [decodeRpcFailure])
-      return
+      let msgPush = MessagePush.decode(buf).valueOr:
+        error "Failed to decode message push", peerId = conn.peerId, error = $error
+        waku_filter_errors.inc(labelValues = [decodeRpcFailure])
+        return
 
-    let messagePush = decodeRes.value #TODO: toAPI() split here
-    trace "Received message push", peerId = conn.peerId, messagePush
+      let msg_hash =
+        computeMessageHash(msgPush.pubsubTopic, msgPush.wakuMessage).to0xHex()
 
-    for handler in wfc.pushHandlers:
-      asyncSpawn handler(messagePush.pubsubTopic, messagePush.wakuMessage)
+      debug "Received message push",
+        peerId = conn.peerId,
+        msg_hash,
+        payload = shortLog(msgPush.wakuMessage.payload),
+        pubsubTopic = msgPush.pubsubTopic,
+        content_topic = msgPush.wakuMessage.contentTopic,
+        conn
 
-    # Protocol specifies no response for now
-    return
+      for handler in wfc.pushHandlers:
+        asyncSpawn handler(msgPush.pubsubTopic, msgPush.wakuMessage)
+
+      # Protocol specifies no response for now
 
   wfc.handler = handler
   wfc.codec = WakuFilterPushCodec
