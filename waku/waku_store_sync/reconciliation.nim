@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/sequtils,
+  std/[sequtils, options],
   stew/byteutils,
   results,
   chronicles,

@@ -87,7 +87,7 @@ proc createRLNInstanceLocal(
   ## generates an instance of RLN
   ## An RLN instance supports both zkSNARKs logics and Merkle tree data structure and operations
   ## d indicates the depth of Merkle tree
-  ## tree_path indicates the path of the Merkle tree 
+  ## tree_path indicates the path of the Merkle tree
   ## Returns an error if the instance creation fails
 
   let rln_config = RlnConfig(

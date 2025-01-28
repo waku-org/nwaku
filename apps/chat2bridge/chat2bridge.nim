@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[tables, times, strutils, hashes, sequtils],
+  std/[tables, times, strutils, hashes, sequtils, json],
   chronos,
   confutils,
   chronicles,
@@ -11,7 +11,6 @@ import
   metrics/chronos_httpserver,
   stew/byteutils,
   eth/net/nat,
-  json_rpc/rpcserver,
   # Matterbridge client imports
   # Waku v2 imports
   libp2p/crypto/crypto,
