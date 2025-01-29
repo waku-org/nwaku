@@ -26,6 +26,7 @@ type
     ItemSet = 2
 
   RangesData* = object
+    cluster*: uint16
     shards*: seq[uint16]
 
     ranges*: seq[(Slice[SyncID], RangeType)]

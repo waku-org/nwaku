@@ -178,10 +178,10 @@ suite "Waku Sync: reconciliation":
       localWants.contains((serverPeerInfo.peerId, hash2)) == false
 
     server = await newTestWakuRecon(
-      serverSwitch, idsChannel, localWants, remoteNeeds, @[0.uint16, 1, 2, 3]
+      serverSwitch, idsChannel, localWants, remoteNeeds, shards = @[0.uint16, 1, 2, 3]
     )
     client = await newTestWakuRecon(
-      clientSwitch, idsChannel, localWants, remoteNeeds, @[4.uint16, 5, 6, 7]
+      clientSwitch, idsChannel, localWants, remoteNeeds, shards = @[4.uint16, 5, 6, 7]
     )
 
     var syncRes = await client.storeSynchronization(some(serverPeerInfo))

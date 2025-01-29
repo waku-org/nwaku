@@ -37,6 +37,7 @@ logScope:
 const DefaultStorageCap = 50_000
 
 type SyncReconciliation* = ref object of LPProtocol
+  cluster: uint16
   shards: PackedSet[uint16]
 
   peerManager: PeerManager
@@ -119,10 +120,12 @@ proc processRequest(
       sendPayload: RangesData
       rawPayload: seq[byte]
 
-    # Only process the ranges IF the shards matches
-    if recvPayload.shards.toPackedSet() == self.shards:
+    # Only process the ranges IF the shards and cluster matches
+    if self.cluster == recvPayload.cluster and
+        recvPayload.shards.toPackedSet() == self.shards:
       sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
 
+      sendPayload.cluster = self.cluster
       sendPayload.shards = self.shards.toSeq()
 
       for hash in hashToSend:
@@ -170,6 +173,7 @@ proc initiate(
 
     fingerprint = self.storage.computeFingerprint(bounds)
     initPayload = RangesData(
+      cluster: self.cluster,
       shards: self.shards.toSeq(),
       ranges: @[(bounds, RangeType.Fingerprint)],
       fingerprints: @[fingerprint],
@@ -270,6 +274,7 @@ proc initFillStorage(
 
 proc new*(
     T: type SyncReconciliation,
+    cluster: uint16,
     shards: seq[uint16],
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
@@ -289,6 +294,7 @@ proc new*(
       SeqStorage.new(res.get())
 
   var sync = SyncReconciliation(
+    cluster: cluster,
     shards: shards.toPackedSet(),
     peerManager: peerManager,
     storage: storage,
