@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options],
+  std/[options, sets],
   testutils/unittests,
   chronos,
   web3,
@@ -193,6 +193,22 @@ suite "Waku Incentivization PoC Eligibility Proofs":
     )
 
     assert isEligible.isOk(), isEligible.error
+
+  asyncTest "incentivization PoC: double-spend tx is not eligible":
+    ## Test that the same tx submitted twice is not eligible the second time
+
+    let eligibilityProof =
+      EligibilityProof(proofOfPayment: some(@(txHashRightReceiverRightAmount.bytes())))
+
+    let isEligibleOnce = await manager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
+    )
+
+    let isEligibleTwice = await manager.isEligibleTxId(
+      eligibilityProof, receiverExpected, TxValueExpectedWei
+    )
+
+    assert (isEligibleOnce.isOk() and isEligibleTwice.isErr()), isEligibleTwice.error
 
   # Stop Anvil daemon
   stopAnvil(runAnvil)
