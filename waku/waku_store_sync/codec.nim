@@ -219,7 +219,7 @@ proc getReconciled(idx: var int, buffer: seq[byte]): Result[bool, string] =
 
 proc getShards(idx: var int, buffer: seq[byte]): Result[seq[uint16], string] =
   if idx + VarIntLen > buffer.len:
-    return err("Cannot decode shards")
+    return err("Cannot decode shards count")
 
   let slice = buffer[idx ..< idx + VarIntLen]
   let (val, len) = uint64.fromBytes(slice, Leb128)
@@ -227,9 +227,9 @@ proc getShards(idx: var int, buffer: seq[byte]): Result[seq[uint16], string] =
   let shardsLen = val
 
   var shards: seq[uint16]
-  for _ in 0 ..< shardsLen:
+  for i in 0 ..< shardsLen:
     if idx + VarIntLen > buffer.len:
-      return err("Cannot decode shards")
+      return err("Cannot decode shard value. idx: " & $i)
 
     let slice = buffer[idx ..< idx + VarIntLen]
     let (val, len) = uint64.fromBytes(slice, Leb128)
