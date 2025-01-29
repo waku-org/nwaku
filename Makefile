@@ -75,7 +75,7 @@ TARGET ?= prod
 ## Git version
 GIT_VERSION ?= $(shell git describe --abbrev=6 --always --tags)
 ## Compilation parameters. If defined in the CLI the assignments won't be executed
-NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\"
+NIM_PARAMS := $(NIM_PARAMS) -d:git_version=\"$(GIT_VERSION)\" --skipParentCfg:on
 
 ## Heaptracker options
 HEAPTRACKER ?= 0
@@ -266,7 +266,7 @@ NPH:=$(shell dirname $(NIM_BINARY))/nph
 
 build-nph: | build deps
 ifeq ("$(wildcard $(NPH))","")
-		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim && \
+		$(ENV_SCRIPT) nim c --skipParentCfg:on vendor/nph/src/nph.nim && \
 		mv vendor/nph/src/nph $(shell dirname $(NPH))
 		echo "nph utility is available at " $(NPH)
 else
