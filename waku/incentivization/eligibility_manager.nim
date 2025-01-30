@@ -13,8 +13,7 @@ type EligibilityManager* = ref object # FIXME: make web3 private?
 proc init*(
     T: type EligibilityManager, ethClient: string
 ): Future[EligibilityManager] {.async.} =
-  result =
-    EligibilityManager(web3: await newWeb3(ethClient), seenTxIds: initHashSet[TxHash]())
+  return EligibilityManager(web3: await newWeb3(ethClient), seenTxIds: initHashSet[TxHash]())
   # TODO: handle error if web3 instance is not established
 
 # Clean up the web3 instance
@@ -66,7 +65,7 @@ proc isEligibleTxId*(
   let txHashWasSeen = (txHash in eligibilityManager.seenTxIds)
   eligibilityManager.seenTxIds.incl(txHash)
   if txHashWasSeen:
-    return err("TxHash " & $txHash & "was already checked (double-spend attempt)")
+    return err("TxHash " & $txHash & " was already checked (double-spend attempt)")
   try:
     let txAndTxReceipt = await eligibilityManager.getTxAndTxReceipt(txHash)
     txAndTxReceipt.isOkOr:
