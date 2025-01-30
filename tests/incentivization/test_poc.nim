@@ -1,7 +1,7 @@
 {.used.}
 
 import
-  std/[options, sets],
+  std/options,
   testutils/unittests,
   chronos,
   web3,
