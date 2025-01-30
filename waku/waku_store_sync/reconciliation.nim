@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[sequtils, options],
+  std/[sequtils, options, packedsets],
   stew/byteutils,
   results,
   chronicles,
@@ -37,6 +37,9 @@ logScope:
 const DefaultStorageCap = 50_000
 
 type SyncReconciliation* = ref object of LPProtocol
+  cluster: uint16
+  shards: PackedSet[uint16]
+
   peerManager: PeerManager
 
   wakuArchive: WakuArchive
@@ -114,16 +117,24 @@ proc processRequest(
     var
       hashToRecv: seq[WakuMessageHash]
       hashToSend: seq[WakuMessageHash]
+      sendPayload: RangesData
+      rawPayload: seq[byte]
 
-    let sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
+    # Only process the ranges IF the shards and cluster matches
+    if self.cluster == recvPayload.cluster and
+        recvPayload.shards.toPackedSet() == self.shards:
+      sendPayload = self.storage.processPayload(recvPayload, hashToSend, hashToRecv)
 
-    for hash in hashToSend:
-      await self.remoteNeedsTx.addLast((conn.peerId, hash))
+      sendPayload.cluster = self.cluster
+      sendPayload.shards = self.shards.toSeq()
 
-    for hash in hashToRecv:
-      await self.localWantstx.addLast((conn.peerId, hash))
+      for hash in hashToSend:
+        await self.remoteNeedsTx.addLast((conn.peerId, hash))
 
-    let rawPayload = sendPayload.deltaEncode()
+      for hash in hashToRecv:
+        await self.localWantstx.addLast((conn.peerId, hash))
+
+      rawPayload = sendPayload.deltaEncode()
 
     total_bytes_exchanged.observe(
       rawPayload.len, labelValues = [Reconciliation, Sending]
@@ -162,6 +173,8 @@ proc initiate(
 
     fingerprint = self.storage.computeFingerprint(bounds)
     initPayload = RangesData(
+      cluster: self.cluster,
+      shards: self.shards.toSeq(),
       ranges: @[(bounds, RangeType.Fingerprint)],
       fingerprints: @[fingerprint],
       itemSets: @[],
@@ -261,6 +274,8 @@ proc initFillStorage(
 
 proc new*(
     T: type SyncReconciliation,
+    cluster: uint16,
+    shards: seq[uint16],
     peerManager: PeerManager,
     wakuArchive: WakuArchive,
     syncRange: timer.Duration = DefaultSyncRange,
@@ -279,6 +294,8 @@ proc new*(
       SeqStorage.new(res.get())
 
   var sync = SyncReconciliation(
+    cluster: cluster,
+    shards: shards.toPackedSet(),
     peerManager: peerManager,
     storage: storage,
     syncRange: syncRange,
