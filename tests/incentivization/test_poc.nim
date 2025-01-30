@@ -208,7 +208,8 @@ suite "Waku Incentivization PoC Eligibility Proofs":
       eligibilityProof, receiverExpected, TxValueExpectedWei
     )
 
-    assert (isEligibleOnce.isOk() and isEligibleTwice.isErr()), isEligibleTwice.error
+    assert isEligibleOnce.isOk()
+    assert isEligibleTwice.isErr(), isEligibleTwice.error
 
   # Stop Anvil daemon
   stopAnvil(runAnvil)
