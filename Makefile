@@ -266,7 +266,7 @@ NPH:=$(shell dirname $(NIM_BINARY))/nph
 
 build-nph: | build deps
 ifeq ("$(wildcard $(NPH))","")
-		$(ENV_SCRIPT) nim c vendor/nph/src/nph.nim && \
+		$(ENV_SCRIPT) nim c --skipParentCfg:on vendor/nph/src/nph.nim && \
 		mv vendor/nph/src/nph $(shell dirname $(NPH))
 		echo "nph utility is available at " $(NPH)
 else
