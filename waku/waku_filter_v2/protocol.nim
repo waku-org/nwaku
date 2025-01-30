@@ -69,7 +69,7 @@ proc subscribe(
   debug "subscribing peer to filter criteria",
     peerId = peerId, filterCriteria = filterCriteria
 
-  (await wf.subscriptions.addSubscription(peerId, filterCriteria, wf.peerManager)).isOkOr:
+  (await wf.subscriptions.addSubscription(peerId, filterCriteria)).isOkOr:
     return err(FilterSubscribeError.serviceUnavailable(error))
 
   debug "correct subscription", peerId = peerId
@@ -335,7 +335,7 @@ proc new*(
 ): T =
   let wf = WakuFilter(
     subscriptions: FilterSubscriptions.new(
-      subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer
+      subscriptionTimeout, maxFilterPeers, maxFilterCriteriaPerPeer, peerManager
     ),
     peerManager: peerManager,
     messageCache: init(TimedCache[string], messageCacheTTL),

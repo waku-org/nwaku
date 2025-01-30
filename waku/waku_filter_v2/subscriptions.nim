@@ -39,21 +39,40 @@ type
     subscriptionTimeout: Duration
     maxPeers: uint
     maxCriteriaPerPeer: uint
+    peerManager: PeerManager
+
+proc onPeerEventHandler(
+    s: FilterSubscriptions, peerId: PeerId, event: PeerEvent
+) {.async.} =
+  case event.kind
+  of Left:
+    ## Drop all the existing subscriptions with that peer
+    s.peersSubscribed.del(peerId)
+  else:
+    discard
 
 proc new*(
     T: type FilterSubscriptions,
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
+    peerManager: PeerManager,
 ): FilterSubscriptions =
-  ## Create a new filter subscription object
-  return FilterSubscriptions(
+  let fs = FilterSubscriptions(
     peersSubscribed: initTable[PeerID, PeerData](),
     subscriptions: initTable[FilterCriterion, SubscribedPeers](),
     subscriptionTimeout: subscriptionTimeout,
     maxPeers: maxFilterPeers,
     maxCriteriaPerPeer: maxFilterCriteriaPerPeer,
+    peerManager: peerManager,
   )
+
+  proc peerEventHandler(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
+    fs.onPeerEventHandler(peerId, event)
+
+  peerManager.addExtPeerEventHandler(peerEventHandler, PeerEventKind.Left)
+
+  return fs
 
 proc isSubscribed*(s: FilterSubscriptions, peerId: PeerID): bool =
   s.peersSubscribed.withValue(peerId, data):
@@ -146,10 +165,7 @@ proc refreshSubscription*(s: var FilterSubscriptions, peerId: PeerID) =
     data.lastSeen = Moment.now()
 
 proc addSubscription*(
-    s: FilterSubscriptions,
-    peerId: PeerID,
-    filterCriteria: FilterCriteria,
-    peerManager: PeerManager,
+    s: FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
 ): Future[Result[void, string]] {.async.} =
   ## Add a subscription for a given peer
   ##
@@ -168,7 +184,7 @@ proc addSubscription*(
     if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
       return err("node has reached maximum number of subscriptions: " & $(s.maxPeers))
 
-    let connRes = await peerManager.dialPeer(peerId, WakuFilterPushCodec)
+    let connRes = await s.peerManager.dialPeer(peerId, WakuFilterPushCodec)
     if connRes.isNone():
       ## We do not remove this peer, but allow the underlying peer manager
       ## to do so if it is deemed necessary
