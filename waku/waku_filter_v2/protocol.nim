@@ -175,7 +175,7 @@ proc pushToPeer(
   if not wf.peerManager.wakuPeerStore.hasPeer(peerId, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
     error "no addresses for peer", peerId = shortLog(peerId)
-    return
+    return err("no addresses for peer: " & $peerId)
 
   let conn =
     if wf.peerConnections.contains(peerId):
