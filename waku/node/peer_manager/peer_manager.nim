@@ -953,6 +953,11 @@ proc pruneInRelayConns(pm: PeerManager, amount: int) {.async.} =
     trace "Pruning Peer", Peer = $p
     asyncSpawn(pm.switch.disconnect(p))
 
+proc addExtPeerEventHandler*(
+    pm: PeerManager, eventHandler: PeerEventHandler, eventKind: PeerEventKind
+) =
+  pm.switch.addPeerEventHandler(eventHandler, eventKind)
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
 # Initialization and Constructor #
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
