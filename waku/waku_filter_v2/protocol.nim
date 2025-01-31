@@ -28,6 +28,7 @@ type WakuFilter* = ref object of LPProtocol
   messageCache: TimedCache[string]
   peerRequestRateLimiter*: PerPeerRateLimiter
   subscriptionsManagerFut: Future[void]
+  peerConnections: Table[PeerId, Connection]
 
 proc pingSubscriber(wf: WakuFilter, peerId: PeerID): FilterSubscribeResult =
   debug "pinging subscriber", peerId = peerId
@@ -69,7 +70,7 @@ proc subscribe(
   debug "subscribing peer to filter criteria",
     peerId = peerId, filterCriteria = filterCriteria
 
-  (await wf.subscriptions.addSubscription(peerId, filterCriteria, wf.peerManager)).isOkOr:
+  (await wf.subscriptions.addSubscription(peerId, filterCriteria)).isOkOr:
     return err(FilterSubscribeError.serviceUnavailable(error))
 
   debug "correct subscription", peerId = peerId
@@ -166,23 +167,39 @@ proc handleSubscribeRequest*(
   else:
     return FilterSubscribeResponse.ok(request.requestId)
 
-proc pushToPeer(wf: WakuFilter, peer: PeerId, buffer: seq[byte]) {.async.} =
-  debug "pushing message to subscribed peer", peerId = shortLog(peer)
+proc pushToPeer(
+    wf: WakuFilter, peerId: PeerId, buffer: seq[byte]
+): Future[Result[void, string]] {.async.} =
+  debug "pushing message to subscribed peer", peerId = shortLog(peerId)
 
-  if not wf.peerManager.wakuPeerStore.hasPeer(peer, WakuFilterPushCodec):
+  if not wf.peerManager.wakuPeerStore.hasPeer(peerId, WakuFilterPushCodec):
     # Check that peer has not been removed from peer store
-    error "no addresses for peer", peerId = shortLog(peer)
-    return
+    error "no addresses for peer", peerId = shortLog(peerId)
+    return err("no addresses for peer: " & $peerId)
 
-  let conn = wf.subscriptions.getConnectionByPeerId(peer).valueOr:
-    error "could not get connection by peer id", error = $error
-    return
+  let conn =
+    if wf.peerConnections.contains(peerId):
+      wf.peerConnections[peerId]
+    else:
+      ## we never pushed a message before, let's dial then
+      let connRes = await wf.peerManager.dialPeer(peerId, WakuFilterPushCodec)
+      if connRes.isNone():
+        ## We do not remove this peer, but allow the underlying peer manager
+        ## to do so if it is deemed necessary
+        error "pushToPeer no connection to peer", peerId = shortLog(peerId)
+        return err("pushToPeer no connection to peer: " & shortLog(peerId))
+
+      let newConn = connRes.get()
+      wf.peerConnections[peerId] = newConn
+      newConn
 
   await conn.writeLp(buffer)
-  debug "published successful", peerId = shortLog(peer), conn
+  debug "published successful", peerId = shortLog(peerId), conn
   waku_service_network_bytes.inc(
     amount = buffer.len().int64, labelValues = [WakuFilterPushCodec, "out"]
   )
+
+  return ok()
 
 proc pushToPeers(
     wf: WakuFilter, peers: seq[PeerId], messagePush: MessagePush
@@ -208,11 +225,12 @@ proc pushToPeers(
       msg_hash = msgHash
 
     let bufferToPublish = messagePush.encode().buffer
-    var pushFuts: seq[Future[void]]
+    var pushFuts: seq[Future[Result[void, string]]]
 
     for peerId in peers:
       let pushFut = wf.pushToPeer(peerId, bufferToPublish)
       pushFuts.add(pushFut)
+
     await allFutures(pushFuts)
 
 proc maintainSubscriptions*(wf: WakuFilter) {.async.} =
@@ -324,6 +342,15 @@ proc initProtocolHandler(wf: WakuFilter) =
   wf.handler = handler
   wf.codec = WakuFilterSubscribeCodec
 
+proc onPeerEventHandler(wf: WakuFilter, peerId: PeerId, event: PeerEvent) {.async.} =
+  ## These events are dispatched nim-libp2p, triggerPeerEvents proc
+  case event.kind
+  of Left:
+    ## Drop the previous known connection reference
+    wf.peerConnections.del(peerId)
+  else:
+    discard
+
 proc new*(
     T: type WakuFilter,
     peerManager: PeerManager,
@@ -341,6 +368,11 @@ proc new*(
     messageCache: init(TimedCache[string], messageCacheTTL),
     peerRequestRateLimiter: PerPeerRateLimiter(setting: rateLimitSetting),
   )
+
+  proc peerEventHandler(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
+    wf.onPeerEventHandler(peerId, event)
+
+  peerManager.addExtPeerEventHandler(peerEventHandler, PeerEventKind.Left)
 
   wf.initProtocolHandler()
   setServiceLimitMetric(WakuFilterSubscribeCodec, rateLimitSetting)

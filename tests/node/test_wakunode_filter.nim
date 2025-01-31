@@ -556,7 +556,7 @@ suite "Waku Filter - End to End":
       )
 
     discard await wakuFilter.subscriptions.addSubscription(
-      clientPeerId, filterCriteria.toHashSet(), peerManager
+      clientPeerId, filterCriteria.toHashSet()
     )
 
     let
@@ -605,7 +605,6 @@ suite "Waku Filter - End to End":
         await wakuFilter.subscriptions.addSubscription(
           peers[index].switch.peerInfo.peerId,
           @[(DefaultPubsubTopic, DefaultContentTopic)].toHashSet(),
-          peerManager,
         )
       ).isOkOr:
         assert false, $error
