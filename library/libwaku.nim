@@ -79,6 +79,7 @@ proc handleRequest(
 ): cint =
   waku_thread.sendRequestToWakuThread(ctx, requestType, content, callback, userData).isOkOr:
     let msg = "libwaku error: " & $error
+    echo msg
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
 
