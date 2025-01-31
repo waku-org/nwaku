@@ -224,11 +224,17 @@ proc pushToPeers(
       msg_hash = msgHash
 
     let bufferToPublish = messagePush.encode().buffer
-    var pushFuts: seq[Future[void]]
+    var pushFuts: seq[Future[Result[void, string]]]
 
     for peerId in peers:
-      (await wf.pushToPeer(peerId, bufferToPublish)).isOkOr:
-        error "could not push", error = error
+      let pushFut = wf.pushToPeer(peerId, bufferToPublish)
+      pushFuts.add(pushFut)
+
+    await allFutures(pushFuts)
+
+    for fut in pushFuts:
+      if fut.read().isErr():
+        error "error pushing message", error = fut.read().error
 
 proc maintainSubscriptions*(wf: WakuFilter) {.async.} =
   debug "maintaining subscriptions"
