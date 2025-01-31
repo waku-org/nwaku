@@ -188,7 +188,9 @@ proc pushToPeer(
         ## to do so if it is deemed necessary
         return err("pushToPeer no connection to peer: " & shortLog(peerId))
 
-      connRes.get()
+      let newConn = connRes.get()
+      wf.peerConnections[peerId] = newConn
+      newConn
 
   await conn.writeLp(buffer)
   debug "published successful", peerId = shortLog(peerId), conn
