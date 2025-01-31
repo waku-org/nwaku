@@ -1,4 +1,4 @@
-import std/options, chronos, web3, stew/byteutils, stint, results, chronicles
+import std/[options, sets], chronos, web3, stew/byteutils, stint, results, chronicles
 
 import waku/incentivization/rpc, tests/waku_rln_relay/[utils_onchain, utils]
 
@@ -7,12 +7,13 @@ const TxReceiptQueryTimeout = 3.seconds
 
 type EligibilityManager* = ref object # FIXME: make web3 private?
   web3*: Web3
+  seenTxIds*: HashSet[TxHash]
 
 # Initialize the eligibilityManager with a web3 instance
 proc init*(
     T: type EligibilityManager, ethClient: string
 ): Future[EligibilityManager] {.async.} =
-  result = EligibilityManager(web3: await newWeb3(ethClient))
+  return EligibilityManager(web3: await newWeb3(ethClient), seenTxIds: initHashSet[TxHash]())
   # TODO: handle error if web3 instance is not established
 
 # Clean up the web3 instance
@@ -60,6 +61,11 @@ proc isEligibleTxId*(
   var tx: TransactionObject
   var txReceipt: ReceiptObject
   let txHash = TxHash.fromHex(byteutils.toHex(eligibilityProof.proofOfPayment.get()))
+  # check that it is not a double-spend
+  let txHashWasSeen = (txHash in eligibilityManager.seenTxIds)
+  eligibilityManager.seenTxIds.incl(txHash)
+  if txHashWasSeen:
+    return err("TxHash " & $txHash & " was already checked (double-spend attempt)")
   try:
     let txAndTxReceipt = await eligibilityManager.getTxAndTxReceipt(txHash)
     txAndTxReceipt.isOkOr:
