@@ -186,6 +186,7 @@ proc pushToPeer(
       if connRes.isNone():
         ## We do not remove this peer, but allow the underlying peer manager
         ## to do so if it is deemed necessary
+        error "pushToPeer no connection to peer", peerId = shortLog(peerId)
         return err("pushToPeer no connection to peer: " & shortLog(peerId))
 
       let newConn = connRes.get()
@@ -231,10 +232,6 @@ proc pushToPeers(
       pushFuts.add(pushFut)
 
     await allFutures(pushFuts)
-
-    for fut in pushFuts:
-      if fut.read().isErr():
-        error "error pushing message", error = fut.read().error
 
 proc maintainSubscriptions*(wf: WakuFilter) {.async.} =
   debug "maintaining subscriptions"
