@@ -31,7 +31,7 @@ type
 
   SubscribedPeers* = HashSet[PeerID] # a sequence of peer ids
 
-  PeerData* = tuple[lastSeen: Moment, criteriaCount: uint, connection: Connection]
+  PeerData* = tuple[lastSeen: Moment, criteriaCount: uint]
 
   FilterSubscriptions* = ref object
     peersSubscribed*: Table[PeerID, PeerData]
@@ -39,40 +39,20 @@ type
     subscriptionTimeout: Duration
     maxPeers: uint
     maxCriteriaPerPeer: uint
-    peerManager: PeerManager
-
-proc onPeerEventHandler(
-    s: FilterSubscriptions, peerId: PeerId, event: PeerEvent
-) {.async.} =
-  case event.kind
-  of Left:
-    ## Drop all the existing subscriptions with that peer
-    s.peersSubscribed.del(peerId)
-  else:
-    discard
 
 proc new*(
     T: type FilterSubscriptions,
     subscriptionTimeout: Duration = DefaultSubscriptionTimeToLiveSec,
     maxFilterPeers: uint32 = MaxFilterPeers,
     maxFilterCriteriaPerPeer: uint32 = MaxFilterCriteriaPerPeer,
-    peerManager: PeerManager,
 ): FilterSubscriptions =
-  let fs = FilterSubscriptions(
+  return FilterSubscriptions(
     peersSubscribed: initTable[PeerID, PeerData](),
     subscriptions: initTable[FilterCriterion, SubscribedPeers](),
     subscriptionTimeout: subscriptionTimeout,
     maxPeers: maxFilterPeers,
     maxCriteriaPerPeer: maxFilterCriteriaPerPeer,
-    peerManager: peerManager,
   )
-
-  proc peerEventHandler(peerId: PeerId, event: PeerEvent): Future[void] {.gcsafe.} =
-    fs.onPeerEventHandler(peerId, event)
-
-  peerManager.addExtPeerEventHandler(peerEventHandler, PeerEventKind.Left)
-
-  return fs
 
 proc isSubscribed*(s: FilterSubscriptions, peerId: PeerID): bool =
   s.peersSubscribed.withValue(peerId, data):
@@ -122,10 +102,6 @@ proc removePeer*(s: FilterSubscriptions, peerId: PeerID) {.async.} =
   debug "removePeer",
     currentPeerIds = toSeq(s.peersSubscribed.keys).mapIt(shortLog(it)), peerId = peerId
 
-  s.peersSubscribed.withValue(peerId, peerData):
-    debug "closing connection with peer", peerId = shortLog(peerId)
-    await peerData.connection.close()
-
   s.peersSubscribed.del(peerId)
 
   debug "removePeer after deletion",
@@ -168,9 +144,7 @@ proc addSubscription*(
     s: FilterSubscriptions, peerId: PeerID, filterCriteria: FilterCriteria
 ): Future[Result[void, string]] {.async.} =
   ## Add a subscription for a given peer
-  ##
-  ## The peerManager is needed to establish the first Connection through
-  ## /vac/waku/filter-push/2.0.0-beta1
+
   var peerData: ptr PeerData
 
   s.peersSubscribed.withValue(peerId, data):
@@ -184,17 +158,7 @@ proc addSubscription*(
     if cast[uint](s.peersSubscribed.len) >= s.maxPeers:
       return err("node has reached maximum number of subscriptions: " & $(s.maxPeers))
 
-    let connRes = await s.peerManager.dialPeer(peerId, WakuFilterPushCodec)
-    if connRes.isNone():
-      ## We do not remove this peer, but allow the underlying peer manager
-      ## to do so if it is deemed necessary
-      return err("addSubscription no connection to peer: " & shortLog(peerId))
-
-    let newPeerData: PeerData =
-      (lastSeen: Moment.now(), criteriaCount: 0, connection: connRes.get())
-
-    debug "new WakuFilterPushCodec stream", conn = connRes.get()
-
+    let newPeerData: PeerData = (lastSeen: Moment.now(), criteriaCount: 0)
     peerData = addr(s.peersSubscribed.mgetOrPut(peerId, newPeerData))
 
   for filterCriterion in filterCriteria:
@@ -231,15 +195,6 @@ proc removeSubscription*(
     return ok()
   do:
     return err("Peer has no subscriptions")
-
-proc getConnectionByPeerId*(
-    s: FilterSubscriptions, peerId: PeerID
-): Result[Connection, string] =
-  if not s.peersSubscribed.hasKey(peerId):
-    return err("peer not subscribed: " & shortLog(peerId))
-
-  let peerData = s.peersSubscribed.getOrDefault(peerId)
-  return ok(peerData.connection)
 
 proc setSubscriptionTimeout*(s: FilterSubscriptions, newTimeout: Duration) =
   s.subscriptionTimeout = newTimeout
