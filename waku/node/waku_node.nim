@@ -316,7 +316,8 @@ proc registerRelayHandler(
     if node.wakuStoreReconciliation.isNil():
       return
 
-    node.wakuStoreReconciliation.messageIngress(topic, msg)
+    node.wakuStoreReconciliation.messageIngress(topic, msg).isOkOr:
+      error "message ingress failed", error = error
 
   let uniqueTopicHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
