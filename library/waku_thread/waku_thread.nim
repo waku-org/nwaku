@@ -8,7 +8,7 @@ import waku/factory/waku, ./inter_thread_communication/waku_thread_request, ../f
 
 type WakuContext* = object
   thread: Thread[(ptr WakuContext)]
-  reqChannel: Channel[ptr WakuThreadRequest]
+  reqChannel: ChannelSPSCSingle[ptr WakuThreadRequest]
   reqSignal: ThreadSignalPtr
     # to inform The Waku Thread (a.k.a TWT) that a new request is sent
   reqReceivedSignal: ThreadSignalPtr
@@ -33,15 +33,9 @@ proc runWaku(ctx: ptr WakuContext) {.async.} =
     if ctx.running.load == false:
       break
 
-    var recvOk: bool
-    var request: ptr WakuThreadRequest
     ## Trying to get a request from the libwaku requestor thread
-    # var request: ptr WakuThreadRequest
-    try:
-      (recvOk, request) = ctx.reqChannel.tryRecv()
-    except Exception:
-      error "exception trying to receive a request"
-      continue
+    var request: ptr WakuThreadRequest
+    let recvOk = ctx.reqChannel.tryRecv(request)
     if not recvOk:
       error "waku thread could not receive a request"
       continue
@@ -61,7 +55,6 @@ proc createWakuThread*(): Result[ptr WakuContext, string] =
   ## This proc is called from the main thread and it creates
   ## the Waku working thread.
   var ctx = createShared(WakuContext, 1)
-  ctx.reqChannel.open()
   ctx.reqSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqSignal ThreadSignalPtr")
   ctx.reqReceivedSignal = ThreadSignalPtr.new().valueOr:
@@ -88,7 +81,6 @@ proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
     return err("failed to signal reqSignal on time in destroyWakuThread")
 
   joinThread(ctx.thread)
-  ctx.reqChannel.close()
   ?ctx.reqSignal.close()
   ?ctx.reqReceivedSignal.close()
   freeShared(ctx)
