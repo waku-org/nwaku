@@ -102,15 +102,18 @@ proc sendRequestToWakuThread*(
   ctx.lock.acquire()
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
+    ctx.lock.release()
     deallocShared(req)
     return err("Couldn't send a request to the waku thread: " & $req[])
 
   let fireSyncRes = ctx.reqSignal.fireSync()
   if fireSyncRes.isErr():
+    ctx.lock.release()
     deallocShared(req)
     return err("failed fireSync: " & $fireSyncRes.error)
 
   if fireSyncRes.get() == false:
+    ctx.lock.release()
     deallocShared(req)
     return err("Couldn't fireSync in time")
 
