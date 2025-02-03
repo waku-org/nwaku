@@ -2,12 +2,13 @@
 {.pragma: callback, cdecl, raises: [], gcsafe.}
 {.passc: "-fPIC".}
 
-import std/[options, atomics, os, net]
+import std/[options, atomics, os, net, locks]
 import chronicles, chronos, chronos/threadsync, taskpools/channels_spsc_single, results
 import waku/factory/waku, ./inter_thread_communication/waku_thread_request, ../ffi_types
 
 type WakuContext* = object
   thread: Thread[(ptr WakuContext)]
+  lock: Lock
   reqChannel: ChannelSPSCSingle[ptr WakuThreadRequest]
   reqSignal: ThreadSignalPtr
     # to inform The Waku Thread (a.k.a TWT) that a new request is sent
@@ -59,6 +60,7 @@ proc createWakuThread*(): Result[ptr WakuContext, string] =
     return err("couldn't create reqSignal ThreadSignalPtr")
   ctx.reqReceivedSignal = ThreadSignalPtr.new().valueOr:
     return err("couldn't create reqReceivedSignal ThreadSignalPtr")
+  ctx.lock.initLock()
 
   ctx.running.store(true)
 
@@ -81,6 +83,7 @@ proc destroyWakuThread*(ctx: ptr WakuContext): Result[void, string] =
     return err("failed to signal reqSignal on time in destroyWakuThread")
 
   joinThread(ctx.thread)
+  ctx.lock.deinitLock()
   ?ctx.reqSignal.close()
   ?ctx.reqReceivedSignal.close()
   freeShared(ctx)
@@ -96,6 +99,7 @@ proc sendRequestToWakuThread*(
 ): Result[void, string] =
   let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
   ## Sending the request
+  ctx.lock.acquire()
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
     deallocShared(req)
@@ -112,6 +116,8 @@ proc sendRequestToWakuThread*(
 
   ## wait until the Waku Thread properly received the request
   let res = ctx.reqReceivedSignal.waitSync()
+  ctx.lock.release()
+
   if res.isErr():
     deallocShared(req)
     return err("Couldn't receive reqReceivedSignal signal")
