@@ -101,7 +101,7 @@ proc sendRequestToWakuThread*(
 
   # This lock is only necessary while we use a SP Channel and while the signalling
   # between threads assumes that there aren't concurrent requests.
-  # Rearchitecting the signaling + migrating to a MP Channel will allow us receive
+  # Rearchitecting the signaling + migrating to a MP Channel will allow us to receive
   # requests concurrently and spare us the need of locks
   ctx.lock.acquire()
   ## Sending the request
