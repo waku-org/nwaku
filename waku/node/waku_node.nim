@@ -214,7 +214,7 @@ proc mountStoreSync*(
     storeSyncInterval = 300,
     storeSyncRelayJitter = 20,
 ): Future[Result[void, string]] {.async.} =
-  let idsChannel = newAsyncQueue[SyncID](100)
+  let idsChannel = newAsyncQueue[(SyncID, uint16)](100)
   let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
   let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
 
@@ -290,7 +290,8 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
     if node.wakuStoreReconciliation.isNil():
       return
 
-    node.wakuStoreReconciliation.messageIngress(topic, msg)
+    node.wakuStoreReconciliation.messageIngress(topic, msg).isOkOr:
+      error "message ingress failed", error = error
 
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage
