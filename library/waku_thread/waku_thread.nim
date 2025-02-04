@@ -98,8 +98,13 @@ proc sendRequestToWakuThread*(
     userData: pointer,
 ): Result[void, string] =
   let req = WakuThreadRequest.createShared(reqType, reqContent, callback, userData)
-  ## Sending the request
+
+  # This lock is only necessary while we use a SP Channel and while the signalling
+  # between threads assumes that there aren't concurrent requests.
+  # Rearchitecting the signaling + migrating to a MP Channel will allow us receive
+  # requests concurrently and spare us the need of locks
   ctx.lock.acquire()
+  ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
     ctx.lock.release()
