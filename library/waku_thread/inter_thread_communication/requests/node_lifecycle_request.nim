@@ -67,6 +67,11 @@ proc createWaku(
             formattedString & ". expected type: " & $typeof(confValue)
         )
 
+  # Don't send relay app callbacks if relay is disabled
+  if not conf.relay and not appCallbacks.isNil():
+    appCallbacks.relayHandler = nil
+    appCallbacks.topicHealthChangeHandler = nil
+
   let wakuRes = Waku.new(conf, appCallbacks).valueOr:
     error "waku initialization failed", error = error
     return err("Failed setting up Waku: " & $error)
