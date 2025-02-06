@@ -49,7 +49,9 @@ proc check(db: DbConn): Result[void, string] =
     return err("exception in check: " & getCurrentExceptionMsg())
 
   if message.len > 0:
-    return err($message)
+    let truncatedErr = message[0 .. 80]
+      ## libpq sometimes gives extremely long error messages
+    return err(truncatedErr)
 
   return ok()
 
