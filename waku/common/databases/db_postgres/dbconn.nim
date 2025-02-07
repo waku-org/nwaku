@@ -49,7 +49,9 @@ proc check(db: DbConn): Result[void, string] =
     return err("exception in check: " & getCurrentExceptionMsg())
 
   if message.len > 0:
-    return err($message)
+    let truncatedErr = message[0 .. 80]
+      ## libpq sometimes gives extremely long error messages
+    return err(truncatedErr)
 
   return ok()
 
@@ -249,7 +251,7 @@ proc dbConnQuery*(
   ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
   var querySummary = cleanedQuery.replace(re2("""(['"]).*?\\1"""), "")
   querySummary = querySummary.replace(re2"\d+", "")
-  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 200)]
+  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 128)]
 
   var queryStartTime = getTime().toUnixFloat()
 
@@ -300,8 +302,9 @@ proc dbConnQueryPrepared*(
     error "error in dbConnQueryPrepared", error = $error
     return err("error in dbConnQueryPrepared calling sendQuery: " & $error)
 
+  let stmtNameSummary = stmtName[0 ..< min(stmtName.len, 128)]
   let sendDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(sendDuration, [stmtName, "sendToDBQuery"])
+  query_time_secs.set(sendDuration, [stmtNameSummary, "sendToDBQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
@@ -309,9 +312,9 @@ proc dbConnQueryPrepared*(
     return err("error in dbConnQueryPrepared calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(waitDuration, [stmtName, "waitFinish"])
+  query_time_secs.set(waitDuration, [stmtNameSummary, "waitFinish"])
 
-  query_count.inc(labelValues = [stmtName])
+  query_count.inc(labelValues = [stmtNameSummary])
 
   if "insert" notin stmtName.toLower():
     debug "dbConnQueryPrepared",
