@@ -100,7 +100,9 @@ suite "Waku v2 Rest API - lightpush":
     let restLightPushTest = await RestLightPushTest.init()
 
     let message: RelayWakuMessage = fakeWakuMessage(
-        contentTopic = DefaultContentTopic, payload = toBytes("TEST-1")
+        contentTopic = DefaultContentTopic,
+        payload = toBytes("TEST-1"),
+        proof = toBytes("proof-test"),
       )
       .toRelayWakuMessage()
 
