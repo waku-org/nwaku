@@ -122,7 +122,8 @@ suite "Waku Sync Storage":
     let res = storage.insert(element, DefaultPubsubTopic, DefaultContentTopic)
 
     check:
-      res.isErr() == true
+      res.isErr() == false
+      storage.length() == 1
 
   test "prune elements":
     var rng = initRand()

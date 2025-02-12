@@ -95,9 +95,9 @@ suite "Waku Sync: reconciliation":
       hash2 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
       hash3 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg3)
 
-    discard server.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard server.messageIngress(hash2, DefaultPubsubTopic, msg2)
-    discard server.messageIngress(hash3, DefaultPubsubTopic, msg3)
+    server.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    server.messageIngress(hash2, DefaultPubsubTopic, msg2)
+    server.messageIngress(hash3, DefaultPubsubTopic, msg3)
 
     check:
       remoteNeeds.len == 0
@@ -128,9 +128,9 @@ suite "Waku Sync: reconciliation":
       hash2 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
       hash3 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg3)
 
-    discard client.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard client.messageIngress(hash2, DefaultPubsubTopic, msg2)
-    discard client.messageIngress(hash3, DefaultPubsubTopic, msg3)
+    client.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    client.messageIngress(hash2, DefaultPubsubTopic, msg2)
+    client.messageIngress(hash3, DefaultPubsubTopic, msg3)
 
     check:
       remoteNeeds.len == 0
@@ -161,10 +161,10 @@ suite "Waku Sync: reconciliation":
       hash2 = computeMessageHash(DefaultPubsubTopic, msg2)
       hash3 = computeMessageHash(DefaultPubsubTopic, msg3)
 
-    discard server.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard server.messageIngress(hash2, DefaultPubsubTopic, msg2)
-    discard client.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard client.messageIngress(hash3, DefaultPubsubTopic, msg3)
+    server.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    server.messageIngress(hash2, DefaultPubsubTopic, msg2)
+    client.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    client.messageIngress(hash3, DefaultPubsubTopic, msg3)
 
     check:
       remoteNeeds.len == 0
@@ -214,9 +214,9 @@ suite "Waku Sync: reconciliation":
       hash5 = computeMessageHash("/waku/2/rs/2/5", msg5)
       hash6 = computeMessageHash("/waku/2/rs/2/6", msg6)
 
-    discard server.messageIngress(hash1, "/waku/2/rs/2/1", msg1)
-    discard server.messageIngress(hash2, "/waku/2/rs/2/2", msg2)
-    discard server.messageIngress(hash3, "/waku/2/rs/2/3", msg3)
+    server.messageIngress(hash1, "/waku/2/rs/2/1", msg1)
+    server.messageIngress(hash2, "/waku/2/rs/2/2", msg2)
+    server.messageIngress(hash3, "/waku/2/rs/2/3", msg3)
 
     check:
       remoteNeeds.contains((serverPeerInfo.peerId, hash3)) == false
@@ -256,10 +256,10 @@ suite "Waku Sync: reconciliation":
       hash1 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg1)
       hash2 = computeMessageHash(pubsubTopic = DefaultPubsubTopic, msg2)
 
-    discard server.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard client.messageIngress(hash1, DefaultPubsubTopic, msg1)
-    discard server.messageIngress(hash2, DefaultPubsubTopic, msg2)
-    discard client.messageIngress(hash2, DefaultPubsubTopic, msg2)
+    server.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    client.messageIngress(hash1, DefaultPubsubTopic, msg1)
+    server.messageIngress(hash2, DefaultPubsubTopic, msg2)
+    client.messageIngress(hash2, DefaultPubsubTopic, msg2)
 
     check:
       remoteNeeds.len == 0
@@ -289,10 +289,10 @@ suite "Waku Sync: reconciliation":
       let msg = fakeWakuMessage(ts = timestamp, contentTopic = DefaultContentTopic)
       let hash = computeMessageHash(DefaultPubsubTopic, msg)
 
-      discard server.messageIngress(hash, DefaultPubsubTopic, msg)
+      server.messageIngress(hash, DefaultPubsubTopic, msg)
 
       if i != diffIndex:
-        discard client.messageIngress(hash, DefaultPubsubTopic, msg)
+        client.messageIngress(hash, DefaultPubsubTopic, msg)
       else:
         diff = hash
 

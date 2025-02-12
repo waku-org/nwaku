@@ -237,8 +237,8 @@ proc mountStoreSync*(
     storeSyncInterval = 300,
     storeSyncRelayJitter = 20,
 ): Future[Result[void, string]] {.async.} =
-  let idsChannel = newAsyncQueue[SyncID](0)
-  let wantsChannel = newAsyncQueue[PeerId](0)
+  let idsChannel = newAsyncQueue[(SyncID, PubsubTopic, ContentTopic)](0)
+  let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
   let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
 
   let pubsubTopics = shards.mapIt($RelayShard(clusterId: cluster, shardId: it))
@@ -311,8 +311,7 @@ proc registerRelayHandler(
     if node.wakuStoreReconciliation.isNil():
       return
 
-    node.wakuStoreReconciliation.messageIngress(topic, msg).isOkOr:
-      error "message ingress failed", error = error
+    node.wakuStoreReconciliation.messageIngress(topic, msg)
 
   let uniqueTopicHandler = proc(
       topic: PubsubTopic, msg: WakuMessage

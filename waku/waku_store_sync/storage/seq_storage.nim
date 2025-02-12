@@ -70,9 +70,10 @@ proc insertAt(
     element: SyncID,
     pubsubTopic: PubSubTopic,
     contentTopic: ContentTopic,
-): Result[void, string] =
+) =
   if idx < self.elements.len and self.elements[idx] == element:
-    return err("duplicate element")
+    # duplicate element ignore
+    return
 
   self.elements.insert(element, idx)
 
@@ -82,8 +83,6 @@ proc insertAt(
   self.pubsubTopicIndexes.insert(pubsubIndex, idx)
   self.contentTopicIndexes.insert(contentIndex, idx)
 
-  return ok()
-
 method insert*(
     self: SeqStorage,
     element: SyncID,
@@ -91,7 +90,9 @@ method insert*(
     contentTopic: ContentTopic,
 ): Result[void, string] {.raises: [].} =
   let idx = self.elements.lowerBound(element, common.cmp)
-  return self.insertAt(idx, element, pubsubTopic, contentTopic)
+  self.insertAt(idx, element, pubsubTopic, contentTopic)
+
+  return ok()
 
 method batchInsert*(
     self: SeqStorage,
@@ -115,8 +116,7 @@ method batchInsert*(
 
     idx = self.elements[idx ..< self.elements.len].lowerBound(element, common.cmp)
 
-    # We don't care about duplicates, discard result
-    discard self.insertAt(idx, element, pubsubTopic, contentTopic)
+    self.insertAt(idx, element, pubsubTopic, contentTopic)
 
   return ok()
 
