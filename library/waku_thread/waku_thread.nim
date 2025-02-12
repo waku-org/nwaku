@@ -104,27 +104,25 @@ proc sendRequestToWakuThread*(
   # Rearchitecting the signaling + migrating to a MP Channel will allow us to receive
   # requests concurrently and spare us the need of locks
   ctx.lock.acquire()
+  defer:
+    ctx.lock.release()
   ## Sending the request
   let sentOk = ctx.reqChannel.trySend(req)
   if not sentOk:
-    ctx.lock.release()
     deallocShared(req)
     return err("Couldn't send a request to the waku thread: " & $req[])
 
   let fireSyncRes = ctx.reqSignal.fireSync()
   if fireSyncRes.isErr():
-    ctx.lock.release()
     deallocShared(req)
     return err("failed fireSync: " & $fireSyncRes.error)
 
   if fireSyncRes.get() == false:
-    ctx.lock.release()
     deallocShared(req)
     return err("Couldn't fireSync in time")
 
   ## wait until the Waku Thread properly received the request
   let res = ctx.reqReceivedSignal.waitSync()
-  ctx.lock.release()
 
   if res.isErr():
     deallocShared(req)
