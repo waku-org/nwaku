@@ -23,9 +23,11 @@ type StoreRequest* = object
 func fromJsonNode(
     T: type StoreRequest, jsonContent: JsonNode
 ): Result[StoreQueryRequest, string] =
-  let contentTopics = collect(newSeq):
-    for cTopic in jsonContent["content_topics"].getElems():
-      cTopic.getStr()
+  var contentTopics: seq[string]
+  if jsonContent.contains("content_topics"):
+    contentTopics = collect(newSeq):
+      for cTopic in jsonContent["content_topics"].getElems():
+        cTopic.getStr()
 
   var msgHashes: seq[WakuMessageHash]
   if jsonContent.contains("message_hashes"):
