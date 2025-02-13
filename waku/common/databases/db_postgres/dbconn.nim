@@ -290,11 +290,7 @@ proc dbConnQuery*(
 
   dbConnWrapper.futBecomeFree = newFuture[void]("dbConnQuery")
 
-  let cleanedQuery = ($query).replace(" ", "").replace("\n", "")
-  ## remove everything between ' or " all possible sequence of numbers. e.g. rm partition partition
-  var querySummary = cleanedQuery.replace(re2("""(['"]).*?\\1"""), "")
-  querySummary = querySummary.replace(re2"\d+", "")
-  querySummary = "query_tag_" & querySummary[0 ..< min(querySummary.len, 128)]
+  let metricLabel = convertQueryToMetricLabel($query)
 
   var queryStartTime = getTime().toUnixFloat()
 
@@ -305,7 +301,7 @@ proc dbConnQuery*(
     return err("error in dbConnQuery calling sendQuery: " & $error)
 
   let sendDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(sendDuration, [querySummary, "sendToDBQuery"])
+  query_time_secs.set(sendDuration, [metricLabel, "sendToDBQuery"])
 
   queryStartTime = getTime().toUnixFloat()
 
@@ -313,16 +309,16 @@ proc dbConnQuery*(
     return err("error in dbConnQuery calling waitQueryToFinish: " & $error)
 
   let waitDuration = getTime().toUnixFloat() - queryStartTime
-  query_time_secs.set(waitDuration, [querySummary, "waitFinish"])
+  query_time_secs.set(waitDuration, [metricLabel, "waitFinish"])
 
-  query_count.inc(labelValues = [querySummary])
+  query_count.inc(labelValues = [metricLabel])
 
   if "insert" notin ($query).toLower():
     debug "dbConnQuery",
       requestId,
       query = $query,
       args,
-      querySummary,
+      metricLabel,
       waitDbQueryDurationSecs = waitDuration,
       sendToDBDurationSecs = sendDuration
 
