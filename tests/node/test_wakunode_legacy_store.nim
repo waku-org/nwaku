@@ -141,7 +141,7 @@ suite "Waku Store - End to End - Sorted Archive":
       check:
         otherQueryResponse.get().messages == archiveMessages[0 ..< 5]
 
-    suite "Pagination with Differente Page Sizes":
+    suite "Pagination with Different Page Sizes":
       asyncTest "Pagination with Small Page Size":
         # Given the first query (1/5)
         historyQuery.pageSize = 2
