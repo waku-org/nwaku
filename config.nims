@@ -8,7 +8,24 @@ else:
 if defined(windows):
   switch("passL", "rln.lib")
   switch("define", "postgres=false")
-  # Exclude postgres-related files from compilation
+
+  # MinGW library paths
+  switch("passL", "-L/mingw64/lib")
+  switch("passC", "-I/mingw64/include")
+
+  # Standard MinGW linking
+  switch("passL", "-static -lws2_32 -lbcrypt -luserenv -lntdll")
+
+  # NAT traversal libraries
+  switch("passL", "-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc")
+  switch("passL", "-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream")
+
+  # Disable timestamp in PE headers
+  switch("passL", "-Wl,--no-insert-timestamp")
+  switch("passL", "-Wl,--stack,8388608")
+
+  # Chronicles configuration
+  switch("define", "chronicles_colors=off")
 
   # Automatically add all vendor subdirectories
   for dir in walkDir("./vendor"):
