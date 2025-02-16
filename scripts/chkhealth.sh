@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# optional argument to specgify the ip address
+# optional argument to specify the ip address
 ip_address="localhost:8645"
 plain_text_out=false
 
