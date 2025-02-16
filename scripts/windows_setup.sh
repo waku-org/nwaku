@@ -58,7 +58,7 @@ cd ../../../..
 echo "5. Building miniupnpc"
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 git checkout little_chore_windows_support
-# ./mingw32make.bat
+mingw32-make -f Makefile.mingw CC=gcc CXX=g++
 cd ../../../../..
 
 echo "6. Building libnatpmp"
