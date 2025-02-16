@@ -72,7 +72,7 @@ proc setup(
   ## Populate the local chain (connected to via manager)
   ## with txs required for eligibility testing.
   ## 
-  ## 1. Depoly a dummy contract that has a publicly callable function.
+  ## 1. Deploy a dummy contract that has a publicly callable function.
   ##    (While doing so, we confirm a contract creation tx.)
   ## 2. Confirm these transactions:
   ## - a contract call tx (eligibility test must fail)
