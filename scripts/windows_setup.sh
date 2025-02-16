@@ -55,10 +55,30 @@ cd vendor/nimbus-build-system/vendor/Nim
 ./build_all.bat
 cd ../../../..
 
+echo "4. Building libunwind"
+cd vendor/nim-libbacktrace
+make all V=1
+make install/usr/lib/libunwind.a V=1
+cd ../../
+
 echo "5. Building miniupnpc"
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 git checkout little_chore_windows_support
-mingw32-make -f Makefile.mingw CC=gcc CXX=g++
+
+timeout 5m mingw32-make -f Makefile.mingw CC=gcc CXX=g++ V=1 &
+
+# Capture the process ID
+MAKE_PID=$!
+
+# Wait and check exit status
+wait $MAKE_PID
+MAKE_EXIT=$?
+
+if [ $MAKE_EXIT -eq 124 ]; then
+  echo "Build timed out after 5 minutes. Continuing..."
+  # Add cleanup if needed (e.g., kill child processes)
+fi
+
 cd ../../../../..
 
 echo "6. Building libnatpmp"
@@ -67,11 +87,6 @@ cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
 mv natpmp.a libnatpmp.a
 cd ../../../../
 
-echo "7. Building libunwind"
-cd vendor/nim-libbacktrace
-make all
-make install/usr/lib/libunwind.a
-cd ../../
 
 echo "8. Building wakunode2"
 make wakunode2 LOG_LEVEL=DEBUG
