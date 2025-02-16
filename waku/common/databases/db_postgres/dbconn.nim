@@ -182,12 +182,12 @@ proc waitQueryToFinish(
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
-  asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
-    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
-    return err("failed to add event reader in waitQueryToFinish: " & $error)
-  defer:
-    asyncengine.removeReader2(asyncFd).isOkOr:
-      return err("failed to remove event reader in waitQueryToFinish: " & $error)
+  ## asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
+  ##  dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
+  ##  return err("failed to add event reader in waitQueryToFinish: " & $error)
+  ## defer:
+  ##  asyncengine.removeReader2(asyncFd).isOkOr:
+  ##    return err("failed to remove event reader in waitQueryToFinish: " & $error)
 
   await futDataAvailable
 
