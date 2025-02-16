@@ -40,7 +40,7 @@ suite "Token Bucket":
       bucket.tryConsume(100, start) == false
       bucket.tryConsume(800, fullTime) == true
       bucket.tryConsume(200, fullTime) == true
-      # Due not using the bucket for a full period the compensation will satisfy this request
+      # Due to not using the bucket for a full period the compensation will satisfy this request
       bucket.tryConsume(100, fullTime) == true
 
   test "TokenBucket Max compensation":
