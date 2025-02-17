@@ -291,18 +291,17 @@ proc waku_relay_publish(
   checkLibwakuParams(ctx, callback, userData)
 
   let jwm = jsonWakuMessage.alloc()
+  defer:
+    deallocShared(jwm)
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
     jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
       raise newException(JsonParsingError, $error)
   except JsonParsingError:
-    deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
-  finally:
-    deallocShared(jwm)
 
   let wakuMessage = jsonMessage.toWakuMessage().valueOr:
     let msg = "Problem building the WakuMessage: " & $error
