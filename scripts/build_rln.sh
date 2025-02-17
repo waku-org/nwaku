@@ -43,12 +43,13 @@ else
     # first, check if submodule version = version in Makefile
     cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml"
 
-    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    detected_OS=$(uname -s)
+    if [[ "$detected_OS" == MINGW* || "$detected_OS" == MSYS* ]]; then
         submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | sed -n 's/.*"name":"rln","version":"\([^"]*\)".*/\1/p')
     else
         submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | jq -r '.packages[] | select(.name == "rln") | .version')
     fi
-    
+
     if [[ "v${submodule_version}" != "${rln_version}" ]]; then
         echo "Submodule version (v${submodule_version}) does not match version in Makefile (${rln_version})"
         echo "Please update the submodule to ${rln_version}"
@@ -57,4 +58,11 @@ else
     # if submodule version = version in Makefile, build rln
     cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" --features arkzkey
     cp "${build_dir}/target/release/librln.a" "${output_filename}"
+fi
+
+if [[ "${output_filename}" == *".lib"* ]]; then
+  # We assume is Windows OS
+  cp "${build_dir}/target/release/rln.lib" "${output_filename}"
+else
+  cp "${build_dir}/target/release/librln.a" "${output_filename}"
 fi

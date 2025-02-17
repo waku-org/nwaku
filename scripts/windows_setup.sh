@@ -32,7 +32,7 @@ build_component() {
     local dir="$1"
     local command="$2"
     local name="$3"
-    
+
     echo "Building $name"
     if [ -d "$dir" ]; then
         change_directory "$dir"
@@ -51,18 +51,44 @@ echo "2. Creating tmp directory"
 execute_command "mkdir -p tmp"
 
 echo "3. Building Nim"
-build_component "vendor/nimbus-build-system/vendor/Nim" "./build_all.bat" "Nim"
+cd vendor/nimbus-build-system/vendor/Nim
+./build_all.bat
+cd ../../../..
 
-echo "4. Building miniupnpc"
-build_component "vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc" "./mingw32make.bat" "miniupnpc"
+echo "4. Building libunwind"
+cd vendor/nim-libbacktrace
+make all V=1
+make install/usr/lib/libunwind.a V=1
+cd ../../
 
-echo "5. Building libnatpmp"
-build_component "vendor/nim-nat-traversal/vendor/libnatpmp-upstream" "./build.bat" "libnatpmp"
+echo "5. Building miniupnpc"
+cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
+git checkout little_chore_windows_support
 
-echo "6. Building libunwind"
-build_component "vendor/nim-libbacktrace" "make install/usr/lib/libunwind.a" "libunwind"
+timeout 5m mingw32-make -f Makefile.mingw CC=gcc CXX=g++ V=1 &
 
-echo "7. Building wakunode2"
-execute_command "make wakunode2 V=1 NIMFLAGS="-d:disableMarchNative -d:postgres -d:chronicles_colors:none" "
+# Capture the process ID
+MAKE_PID=$!
+
+# Wait and check exit status
+wait $MAKE_PID
+MAKE_EXIT=$?
+
+if [ $MAKE_EXIT -eq 124 ]; then
+  echo "Build timed out after 5 minutes. Continuing..."
+  # Add cleanup if needed (e.g., kill child processes)
+fi
+
+cd ../../../../..
+
+echo "6. Building libnatpmp"
+cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
+./build.bat
+mv natpmp.a libnatpmp.a
+cd ../../../../
+
+
+echo "8. Building wakunode2"
+make wakunode2 LOG_LEVEL=DEBUG
 
 echo "Windows setup completed successfully!"
