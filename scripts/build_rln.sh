@@ -45,11 +45,9 @@ else
 
     detected_OS=$(uname -s)
     if [[ "$detected_OS" == MINGW* || "$detected_OS" == MSYS* ]]; then
-        # Use sed for version extraction in Windows/Git Bash environment
         submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | sed -n 's/.*"name":"rln","version":"\([^"]*\)".*/\1/p')
     else
-        # Use sed instead of jq for cross-platform compatibility
-        submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | sed -n 's/.*"name":"rln","version":"\([^"]*\)".*/\1/p')
+        submodule_version=$(cargo metadata --format-version=1 --no-deps --manifest-path "${build_dir}/rln/Cargo.toml" | jq -r '.packages[] | select(.name == "rln") | .version')
     fi
 
     if [[ "v${submodule_version}" != "${rln_version}" ]]; then
