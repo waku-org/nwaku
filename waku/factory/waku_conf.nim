@@ -3,6 +3,7 @@ import
   chronicles,
   libp2p/crypto/crypto,
   libp2p/multiaddress,
+  libp2p/crypto/curve25519,
   secp256k1,
   results
 
@@ -34,6 +35,10 @@ type StoreSyncConf* {.requiresInit.} = object
   rangeSec*: uint32
   intervalSec*: uint32
   relayJitterSec*: uint32
+
+type MixConf* = ref object
+  mixKey*: Curve25519Key
+  mixPubKey*: Curve25519Key
 
 type StoreServiceConf* {.requiresInit.} = object
   dbMigration*: bool
@@ -92,6 +97,7 @@ type WakuConf* {.requiresInit.} = ref object
   restServerConf*: Option[RestServerConf]
   metricsServerConf*: Option[MetricsServerConf]
   webSocketConf*: Option[WebSocketConf]
+  mixConf*: Option[MixConf]
 
   portsShift*: uint16
   dnsAddrsNameServers*: seq[IpAddress]

@@ -157,6 +157,10 @@ task liteprotocoltester, "Build liteprotocoltester":
   let name = "liteprotocoltester"
   buildBinary name, "apps/liteprotocoltester/"
 
+task lightpushwithmix, "Build lightpushwithmix":
+  let name = "lightpush_publisher_mix"
+  buildBinary name, "examples/lightpush_mix/"
+
 task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
   discard buildModule filepath

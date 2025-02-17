@@ -23,7 +23,8 @@ import
   ./discv5_conf_builder,
   ./web_socket_conf_builder,
   ./metrics_server_conf_builder,
-  ./rln_relay_conf_builder
+  ./rln_relay_conf_builder,
+  ./mix_conf_builder
 
 logScope:
   topics = "waku conf builder"
@@ -72,6 +73,7 @@ type WakuConfBuilder* = object
   restServerConf*: RestServerConfBuilder
   rlnRelayConf*: RlnRelayConfBuilder
   storeServiceConf*: StoreServiceConfBuilder
+  mixConf*: MixConfBuilder
   webSocketConf*: WebSocketConfBuilder
   # End conf builders
   relay: Option[bool]
@@ -79,6 +81,7 @@ type WakuConfBuilder* = object
   peerExchange: Option[bool]
   storeSync: Option[bool]
   relayPeerExchange: Option[bool]
+  mix: Option[bool]
 
   # TODO: move within a relayConf
   rendezvous: Option[bool]
@@ -269,6 +272,9 @@ proc withMaxMessageSize*(builder: var WakuConfBuilder, maxMessageSize: string) =
 proc withStaticNodes*(builder: var WakuConfBuilder, staticNodes: seq[string]) =
   builder.staticNodes = concat(builder.staticNodes, staticNodes)
 
+proc withMix*(builder: var WakuConfBuilder, mix: bool) =
+  builder.mix = some(mix)
+
 proc nodeKey(
     builder: WakuConfBuilder, rng: ref HmacDrbgContext
 ): Result[crypto.PrivateKey, string] =
@@ -398,6 +404,13 @@ proc build*(
       warn "whether to mount rendezvous is not specified, defaulting to not mounting"
       false
 
+  let mix =
+    if builder.mix.isSome():
+      builder.mix.get()
+    else:
+      warn "whether to mount mix is not specified, defaulting to not mounting"
+      false
+
   let relayPeerExchange = builder.relayPeerExchange.get(false)
 
   let nodeKey = ?nodeKey(builder, rng)
@@ -462,6 +475,9 @@ proc build*(
 
   let storeServiceConf = builder.storeServiceConf.build().valueOr:
     return err("Store Conf building failed: " & $error)
+
+  let mixConf = builder.mixConf.build().valueOr:
+    return err("Mix Conf building failed: " & $error)
 
   let webSocketConf = builder.webSocketConf.build().valueOr:
     return err("WebSocket Conf building failed: " & $error)
@@ -570,6 +586,7 @@ proc build*(
     store = storeServiceConf.isSome,
     relay = relay,
     sync = storeServiceConf.isSome() and storeServiceConf.get().storeSyncConf.isSome,
+    mix = mix,
   )
 
   let wakuConf = WakuConf(
@@ -581,6 +598,7 @@ proc build*(
     metricsServerConf: metricsServerConf,
     restServerConf: restServerConf,
     dnsDiscoveryConf: dnsDiscoveryConf,
+    mixConf: mixConf,
     # end confs
     nodeKey: nodeKey,
     clusterId: clusterId,

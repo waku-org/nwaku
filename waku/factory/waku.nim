@@ -9,6 +9,7 @@ import
   libp2p/protocols/connectivity/relay/client,
   libp2p/wire,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/services/autorelayservice,
   libp2p/services/hpservice,

@@ -6,7 +6,8 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/dnsresolver,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  libp2p/crypto/curve25519
 
 import
   ./internal_config,
@@ -415,6 +416,10 @@ proc setupProtocols(
       return
         err("failed to set node waku peer-exchange peer: " & peerExchangeNode.error)
 
+  #mount mix
+  if conf.mixConf.isSome():
+    (await node.mountMix(conf.clusterId, conf.mixConf.get().mixKey)).isOkOr:
+      return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
 ## Start node
