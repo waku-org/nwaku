@@ -297,7 +297,6 @@ proc waku_relay_publish(
     jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
       raise newException(JsonParsingError, $error)
   except JsonParsingError:
-    deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
