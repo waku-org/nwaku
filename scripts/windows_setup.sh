@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Prerequisites:
-# =============
 # 1. Install Git Bash terminal
 #    Download and install from: https://git-scm.com/download/win
 #
@@ -17,6 +15,12 @@
 #    pacman -S --needed cmake                              # Install cmake
 #    pacman -S --needed upx                                # Install upx
 #    pacman -S --needed mingw-w64-ucrt-x86_64-rust         # Install rustc
+#    pacman -S --needed mingw-w64-ucrt-x86_64-postgresql
+#    pacman -S --needed mingw-w64-ucrt-x86_64-gcc 
+#    pacman -S --needed mingw-w64-ucrt-x86_64-gcc-libs 
+#    pacman -S --needed mingw-w64-ucrt-x86_64-libwinpthread-git 
+#    pacman -S --needed mingw-w64-ucrt-x86_64-zlib 
+#    pacman -s --needed mingw-w64-ucrt-x86_64-openssl
 # 
 # 4. Setup PATH 
 #    export PATH="/c/msys64/mingw64/bin"    # this is a default, need to change accordingly
