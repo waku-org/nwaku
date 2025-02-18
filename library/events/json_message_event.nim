@@ -20,6 +20,13 @@ func fromJsonNode*(
     T: type JsonMessage, jsonContent: JsonNode
 ): Result[JsonMessage, string] =
   # Visit https://rfc.vac.dev/spec/14/ for further details
+
+  # Check if required fields exist
+  if not jsonContent.hasKey("payload"):
+    return err("Missing required field in WakuMessage: payload")
+  if not jsonContent.hasKey("contentTopic"):
+    return err("Missing required field in WakuMessage: contentTopic")
+
   ok(
     JsonMessage(
       payload: Base64String(jsonContent["payload"].getStr()),
