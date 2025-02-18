@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# Prerequisites:
+# =============
+# 1. Install Git Bash terminal
+#    Download and install from: https://git-scm.com/download/win
+#
+# 2. Install MSYS2
+#    a. Download the installer from: https://www.msys2.org
+#    b. Run the installer and follow the installation steps
+#
+# 3. Open MSYS2 UCRT64 terminal and run the following commands to install requirements:
+#    pacman -Syu                                           # Update package database and core packages
+#    pacman -S --needed mingw-w64-ucrt-x86_64-toolchain    # Install toolchain
+#    pacman -S --needed base-devel                         # Install development tools
+#    pacman -S --needed make                               # Install make
+#    pacman -S --needed cmake                              # Install cmake
+#    pacman -S --needed upx                                # Install upx
+#    pacman -S --needed mingw-w64-ucrt-x86_64-rust         # Install rustc
+# 
+# 4. Setup PATH 
+#    export PATH="/c/msys64/mingw64/bin"    # this is a default, need to change accordingly
+#    export PATH="/mingw64/bin"             # this one is mandotory
+#
+# 5. on git bash terminal run this scripts 
+
 set -e  # Exit immediately if a command exits with a non-zero status
 
 echo "Windows Setup Script"
@@ -52,43 +76,28 @@ execute_command "mkdir -p tmp"
 
 echo "3. Building Nim"
 cd vendor/nimbus-build-system/vendor/Nim
-./build_all.bat
+execute_command "./build_all.bat"
 cd ../../../..
 
 echo "4. Building libunwind"
 cd vendor/nim-libbacktrace
-make all V=1
-make install/usr/lib/libunwind.a V=1
+execute_command "make all V=1"
+execute_command "make install/usr/lib/libunwind.a V=1"
 cd ../../
 
 echo "5. Building miniupnpc"
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 git checkout little_chore_windows_support
-
-timeout 5m mingw32-make -f Makefile.mingw CC=gcc CXX=g++ V=1 &
-
-# Capture the process ID
-MAKE_PID=$!
-
-# Wait and check exit status
-wait $MAKE_PID
-MAKE_EXIT=$?
-
-if [ $MAKE_EXIT -eq 124 ]; then
-  echo "Build timed out after 5 minutes. Continuing..."
-  # Add cleanup if needed (e.g., kill child processes)
-fi
-
+execute_command "make -f Makefile.mingw CC=gcc CXX=g++ V=1"
 cd ../../../../..
 
 echo "6. Building libnatpmp"
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-./build.bat
-mv natpmp.a libnatpmp.a
+execute_command "./build.bat"
+execute_command "mv natpmp.a libnatpmp.a"
 cd ../../../../
 
-
-echo "8. Building wakunode2"
-make wakunode2 LOG_LEVEL=DEBUG
+echo "7. Building wakunode2"
+execute_command "make wakunode2 LOG_LEVEL=DEBUG"
 
 echo "Windows setup completed successfully!"
