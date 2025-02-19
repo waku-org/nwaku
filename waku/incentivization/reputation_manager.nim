@@ -23,7 +23,9 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): ReputationScore =
   if peer in manager.peerReputation:
     result = manager.peerReputation[peer]
   else:
-    result = false  # Default reputation score if peer is not found
+    # Default reputation score if peer is not found
+    # We assume that peers are good unless they cheat
+    result = true
 
 proc evaluateResponse*(response: DummyResponse): ResponseQuality =
   return response.responseQuality
