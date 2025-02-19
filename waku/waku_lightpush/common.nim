@@ -53,20 +53,30 @@ func lighpushErrorResult*(
   return err((statusCode, some(desc)))
 
 func mapPubishingErrorToPushResult*(
-    resultException: ref PublishingError
+    publishOutcome: PublishOutcome
 ): WakuLightPushResult =
-  if resultException of NoTopicSpecifiedError:
-    return err((LightpushStatusCode.INVALID_MESSAGE_ERROR, some(resultException.msg)))
-  elif resultException of PayloadIsEmptyError:
-    return err((LightpushStatusCode.INVALID_MESSAGE_ERROR, some(resultException.msg)))
-  elif resultException of DuplicateMessageError:
-    return err((LightpushStatusCode.INVALID_MESSAGE_ERROR, some(resultException.msg)))
-  elif resultException of NotSubscribedToTopicError:
-    return
-      err((LightpushStatusCode.UNSUPPORTED_PUBSUB_TOPIC, some(resultException.msg)))
-  elif resultException of NoPeersToPublishError:
-    return err((LightpushStatusCode.NO_PEERS_TO_RELAY, some(resultException.msg)))
-  elif resultException of GeneratingMessageIdError:
-    return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, some(resultException.msg)))
+  case publishOutcome
+  of NoTopicSpecified:
+    return err(
+      (LightpushStatusCode.INVALID_MESSAGE_ERROR, some("Empty topic, skipping publish"))
+    )
+  of DuplicateMessage:
+    return err(
+      (LightpushStatusCode.INVALID_MESSAGE_ERROR, some("Dropping already-seen message"))
+    )
+  of NoPeersToPublish:
+    return err(
+      (
+        LightpushStatusCode.NO_PEERS_TO_RELAY,
+        some("No peers for topic, skipping publish"),
+      )
+    )
+  of CannotGenerateMessageId:
+    return err(
+      (
+        LightpushStatusCode.INTERNAL_SERVER_ERROR,
+        some("Error generating message id, skipping publish"),
+      )
+    )
   else:
-    return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, some(resultException.msg)))
+    return err((LightpushStatusCode.INTERNAL_SERVER_ERROR, none[string]()))

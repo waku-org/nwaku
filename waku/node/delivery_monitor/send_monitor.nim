@@ -174,7 +174,7 @@ proc processMessages(self: SendMonitor) {.async.} =
       let ret = await self.wakuRelay.publish(pubsubTopic, msg)
       if ret.isErr():
         error "could not publish with wakuRelay.publish",
-          msgHash, pubsubTopic, reason = ret.error.msg
+          msgHash, pubsubTopic, reason = $ret.error
       continue
 
     if not self.wakuLegacyLightpushClient.isNil():

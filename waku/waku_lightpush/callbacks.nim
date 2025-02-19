@@ -55,7 +55,7 @@ proc getRelayPushHandler*(
     if publishedResult.isErr():
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       notice "Lightpush request has not been published to any peers",
-        msg_hash = msgHash, reason = publishedResult.error.msg
+        msg_hash = msgHash, reason = $publishedResult.error
       return mapPubishingErrorToPushResult(publishedResult.error)
 
     return lightpushSuccessResult(publishedResult.get().uint32)

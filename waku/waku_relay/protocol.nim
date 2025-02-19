@@ -513,22 +513,21 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
-): Future[Result[int, ref PublishingError]] {.async.} =
+): Future[Result[int, PublishOutcome]] {.async.} =
   let data = message.encode().buffer
 
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
   notice "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
-  try:
-    let relayedPeerCount = await procCall GossipSub(w).publishEx(pubsubTopic, data)
+  let publishRes = await procCall GossipSub(w).doPublish(pubsubTopic, data)
 
-    if relayedPeerCount > 0:
-      for obs in w.publishObservers:
-        obs.onMessagePublished(pubSubTopic, message)
+  publishRes.isOkOr:
+    return err(error)
 
-    return ok(relayedPeerCount)
-  except PublishingError as ex:
-    return err(ex)
+  for obs in w.publishObservers:
+    obs.onMessagePublished(pubSubTopic, message)
+
+  return ok(publishRes.get())
 
 proc getNumConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic

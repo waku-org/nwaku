@@ -54,7 +54,7 @@ proc getRelayPushHandler*(
       ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
       notice "Lightpush request has not been published to any peers",
-        msg_hash = msgHash, reason = publishResult.error.msg
+        msg_hash = msgHash, reason = $publishResult.error
       # for legacy lightpush we do not detail the reason towards clients. All error during publish result in not-published-to-any-peer
       # this let client of the legacy protocol to react as they did so far.
       return err(protocol_metrics.notPublishedAnyPeer)

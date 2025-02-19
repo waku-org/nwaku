@@ -118,7 +118,7 @@ proc process*(
     let publishRes = await waku.node.wakuRelay.publish(pubsubTopic, msg)
     if publishRes.isErr():
       let errorMsg = "Message not sent."
-      error "PUBLISH failed", error = errorMsg, reason = publishRes.error.msg
+      error "PUBLISH failed", error = errorMsg, reason = $publishRes.error
       return err(errorMsg)
     let numPeers = publishRes.get()
     let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
