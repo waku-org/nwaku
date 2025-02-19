@@ -5,26 +5,30 @@
 #
 # 2. Install MSYS2
 #    a. Download the installer from: https://www.msys2.org
-#    b. Run the installer and follow the installation steps
+#    b. Run the installer 
+#    c. inside msys2 directory mutiple terminal you need to use mingw64 terminal all package and library
 #
-# 3. Open MSYS2 UCRT64 terminal and run the following commands to install requirements:
-#    pacman -Syu                                           # Update package database and core packages
-#    pacman -S --needed mingw-w64-ucrt-x86_64-toolchain    # Install toolchain
-#    pacman -S --needed base-devel                         # Install development tools
-#    pacman -S --needed make                               # Install make
-#    pacman -S --needed cmake                              # Install cmake
-#    pacman -S --needed upx                                # Install upx
-#    pacman -S --needed mingw-w64-ucrt-x86_64-rust         # Install rustc
-#    pacman -S --needed mingw-w64-ucrt-x86_64-postgresql
-#    pacman -S --needed mingw-w64-ucrt-x86_64-gcc 
-#    pacman -S --needed mingw-w64-ucrt-x86_64-gcc-libs 
-#    pacman -S --needed mingw-w64-ucrt-x86_64-libwinpthread-git 
-#    pacman -S --needed mingw-w64-ucrt-x86_64-zlib 
-#    pacman -s --needed mingw-w64-ucrt-x86_64-openssl
+# 3. Open MSYS2 MINGW^$ terminal and run the following commands to install requirements:
+#    pacman -Syu --noconfirm
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain
+#    pacman -S --noconfirm --needed base-devel
+#    pacman -S --noconfirm --needed make                         
+#    pacman -S --noconfirm --needed cmake                          
+#    pacman -S --noconfirm --needed upx        
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-rust
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl
 # 
-# 4. Setup PATH 
-#    export PATH="/c/msys64/mingw64/bin"    # this is a default, need to change accordingly
-#    export PATH="/mingw64/bin"             # this one is mandotory
+# 4. Setup PATH
+#    MSYS_DIR = xyz
+#    export PATH="{MSYS_DIR}/msys64/mingw64/bin:$PATH"
+#    export PATH="{MSYS_DIR}/msys64/mingw64/lib:$PATH"   
+#    export PATH="{MSYS_DIR}/msys64/ucrt64/bin:$PATH"    
+#    export PATH="{MSYS_DIR}/msys64/ucrt64/lib:$PATH" 
 #
 # 5. on git bash terminal run this scripts 
 
@@ -102,6 +106,6 @@ execute_command "mv natpmp.a libnatpmp.a"
 cd ../../../../
 
 echo "7. Building wakunode2"
-execute_command "make wakunode2 LOG_LEVEL=DEBUG"
+execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1"
 
 echo "Windows setup completed successfully!"
