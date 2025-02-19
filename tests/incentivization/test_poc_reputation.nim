@@ -10,14 +10,10 @@ import
 
 import
   waku/[node/peer_manager, waku_core],
-  waku/incentivization/[rpc, reputation_manager]
+  waku/incentivization/[rpc, reputation_manager],
+  waku/waku_lightpush/rpc
 
 suite "Waku Incentivization PoC Reputation":
-  ## Tests for a client-side reputation system as part of incentivization PoC.
-  ## A client maintains a ReputationManager that tracks servers' reputation.
-  ## A server's reputation depends on prior interactions with that server.
-  ## TODO: think how to test reputation without integration with an actual protocol.
-
   var manager {.threadvar.}: ReputationManager
 
   setup:
@@ -30,12 +26,16 @@ suite "Waku Incentivization PoC Reputation":
     manager.setReputation("peer1", true)
     check manager.getReputation("peer1") == true
 
-  test "incentivization PoC: reputation: evaluate response":
-    let response = DummyResponse(peerId: "peer1", responseQuality: true)
-    check evaluateResponse(response) == true
+  test "incentivization PoC: reputation: evaluate DummyResponse":
+    let dummyResponse = DummyResponse(peerId: "peer1", responseQuality: true)
+    check evaluateResponse(dummyResponse) == true
 
-  test "incentivization PoC: reputation: update reputation with response":
-    let response = DummyResponse(peerId: "peer1", responseQuality: true)
-    let isGoodPeer = evaluateResponse(response)
-    manager.setReputation("peer1", isGoodPeer)
-    check manager.getReputation("peer1") == isGoodPeer
+  test "incentivization PoC: reputation: evaluate PushResponse valid":
+    let validPR = PushResponse(isSuccess: true, info: some("Everything is OK"))
+    # We expect evaluateResponse to return true if isSuccess is true
+    check evaluateResponse(validPR) == true
+
+  test "incentivization PoC: reputation: evaluate PushResponse invalid":
+    # For example, set isSuccess = false so we expect a returned false
+    let invalidPR = PushResponse(isSuccess: false, info: none(string))
+    check evaluateResponse(invalidPR) == false
