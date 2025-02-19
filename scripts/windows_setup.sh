@@ -106,6 +106,6 @@ execute_command "mv natpmp.a libnatpmp.a"
 cd ../../../../
 
 echo "7. Building wakunode2"
-execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1"
+execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "Windows setup completed successfully!"
