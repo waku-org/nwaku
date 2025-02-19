@@ -16,7 +16,6 @@ suite "Waku Incentivization PoC Reputation":
   ## Tests for a client-side reputation system as part of incentivization PoC.
   ## A client maintains a ReputationManager that tracks servers' reputation.
   ## A server's reputation depends on prior interactions with that server.
-  ## TODO: think how to reuse existing peer scoring.
   ## TODO: think how to test reputation without integration with an actual protocol.
 
   var manager {.threadvar.}: ReputationManager
@@ -37,5 +36,6 @@ suite "Waku Incentivization PoC Reputation":
 
   test "incentivization PoC: reputation: update reputation with response":
     let response = DummyResponse(peerId: "peer1", responseQuality: true)
-    manager.updateReputation(response)
-    check manager.getReputation("peer1") == true
+    let isGoodPeer = evaluateResponse(response)
+    manager.setReputation("peer1", isGoodPeer)
+    check manager.getReputation("peer1") == isGoodPeer
