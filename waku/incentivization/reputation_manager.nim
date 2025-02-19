@@ -3,15 +3,14 @@ import waku/waku_lightpush/rpc
 
 type
   PeerId = string
-  ReputationIndicator = bool
+  ReputationIndicator* = enum
+    BadRep
+    GoodRep
+
   ResponseQuality = bool
 
   ReputationManager* = ref object
     peerReputation*: Table[PeerId, ReputationIndicator]
-
-  DummyResponse* = object
-    peerId*: PeerId
-    responseQuality*: ResponseQuality
 
 proc init*(T: type ReputationManager): ReputationManager =
   return ReputationManager(peerReputation: initTable[PeerId, ReputationIndicator]())
@@ -27,12 +26,12 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): ReputationIndicat
   if peer in manager.peerReputation:
     result = manager.peerReputation[peer]
   else:
-    # Default to true if peer not found
-    result = true
-
-proc evaluateResponse*(response: DummyResponse): ResponseQuality =
-  return response.responseQuality
+    # Default to GoodRep if peer not found
+    result = GoodRep
 
 # Evaluate a PushResponse by checking the isSuccess field.
-proc evaluateResponse*(response: PushResponse): bool =
-  return response.isSuccess
+proc evaluateResponse*(response: PushResponse): ReputationIndicator =
+  if response.isSuccess:
+    return GoodRep
+  else:
+    return BadRep

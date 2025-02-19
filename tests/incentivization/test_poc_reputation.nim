@@ -23,19 +23,16 @@ suite "Waku Incentivization PoC Reputation":
     check manager.peerReputation.len == 0
 
   test "incentivization PoC: reputation: set and get reputation":
-    manager.setReputation("peer1", true)
-    check manager.getReputation("peer1") == true
-
-  test "incentivization PoC: reputation: evaluate DummyResponse":
-    let dummyResponse = DummyResponse(peerId: "peer1", responseQuality: true)
-    check evaluateResponse(dummyResponse) == true
+    manager.setReputation("peer1", GoodRep)
+    check manager.getReputation("peer1") == GoodRep
 
   test "incentivization PoC: reputation: evaluate PushResponse valid":
-    let validPR = PushResponse(isSuccess: true, info: some("Everything is OK"))
-    # We expect evaluateResponse to return true if isSuccess is true
-    check evaluateResponse(validPR) == true
+    let validLightpushResponse =
+      PushResponse(isSuccess: true, info: some("Everything is OK"))
+    # We expect evaluateResponse to return GoodRep if isSuccess is true
+    check evaluateResponse(validLightpushResponse) == GoodRep
 
   test "incentivization PoC: reputation: evaluate PushResponse invalid":
-    # For example, set isSuccess = false so we expect a returned false
-    let invalidPR = PushResponse(isSuccess: false, info: none(string))
-    check evaluateResponse(invalidPR) == false
+    # For example, set isSuccess = false so we expect a returned BadRep
+    let invalidLightpushResponse = PushResponse(isSuccess: false, info: none(string))
+    check evaluateResponse(invalidLightpushResponse) == BadRep
