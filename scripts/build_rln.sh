@@ -59,10 +59,3 @@ else
     cargo build --release -p rln --manifest-path "${build_dir}/rln/Cargo.toml" --features arkzkey
     cp "${build_dir}/target/release/librln.a" "${output_filename}"
 fi
-
-if [[ "${output_filename}" == *".lib"* ]]; then
-  # We assume is Windows OS
-  cp "${build_dir}/target/release/rln.lib" "${output_filename}"
-else
-  cp "${build_dir}/target/release/librln.a" "${output_filename}"
-fi
