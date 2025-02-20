@@ -28,7 +28,7 @@ proc encodeBytesOf*[T](value: T, contentType: string): RestResult[seq[byte]] =
   let encoded = ?encodeIntoJsonBytes(value)
   return ok(encoded)
 
-func decodeRequestBody*[T](
+proc decodeRequestBody*[T](
     contentBody: Option[ContentBody]
 ): Result[T, RestApiResponse] =
   if contentBody.isNone():
@@ -44,6 +44,9 @@ func decodeRequestBody*[T](
     )
 
   let reqBodyData = contentBody.get().data
+
+  info "AAAA before decodeFromJsonBytes",
+    len = reqBodyData.len, data = string.fromBytes(reqBodyData)
 
   let requestResult = decodeFromJsonBytes(T, reqBodyData)
   if requestResult.isErr():
