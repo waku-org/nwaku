@@ -23,8 +23,8 @@ suite "Waku Incentivization PoC Reputation":
     check manager.reputationOf.len == 0
 
   test "incentivization PoC: reputation: set and get reputation":
-    manager.setReputation("peer1", GoodRep)
-    check manager.getReputation("peer1") == GoodRep
+    manager.setReputation("peer1", some(true)) # Encodes GoodRep
+    check manager.getReputation("peer1") == some(true)
 
   test "incentivization PoC: reputation: evaluate PushResponse valid":
     let validLightpushResponse =
@@ -33,7 +33,6 @@ suite "Waku Incentivization PoC Reputation":
     check evaluateResponse(validLightpushResponse) == GoodResponse
 
   test "incentivization PoC: reputation: evaluate PushResponse invalid":
-    # For example, set isSuccess = false so we expect a returned BadResponse
     let invalidLightpushResponse = PushResponse(isSuccess: false, info: none(string))
     check evaluateResponse(invalidLightpushResponse) == BadResponse
 
@@ -41,15 +40,15 @@ suite "Waku Incentivization PoC Reputation":
     let peerId = "peerWithValidResponse"
     let validResp = PushResponse(isSuccess: true, info: some("All good"))
     manager.updateReputationFromResponse(peerId, validResp)
-    check manager.getReputation(peerId) == GoodRep
+    check manager.getReputation(peerId) == some(true)
 
   test "incentivization PoC: reputation: updateReputationFromResponse invalid":
     let peerId = "peerWithInvalidResponse"
     let invalidResp = PushResponse(isSuccess: false, info: none(string))
     manager.updateReputationFromResponse(peerId, invalidResp)
-    check manager.getReputation(peerId) == BadRep
+    check manager.getReputation(peerId) == some(false)
 
-  test "incentivization PoC: reputation: default is UnknownRep":
+  test "incentivization PoC: reputation: default is None":
     let unknownPeerId = "unknown_peer"
-    # peer not in the table yet
-    check manager.getReputation(unknownPeerId) == UnknownRep
+    # The peer is not in the table yet
+    check manager.getReputation(unknownPeerId) == none(bool)
