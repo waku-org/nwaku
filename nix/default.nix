@@ -71,6 +71,21 @@ in stdenv.mkDerivation rec {
   '';
 
   preBuild = ''
+    ln -s waku.nimble waku.nims
+
+    # Step 2: Clean and rebuild waku.nims
+    rm -rf waku.nims || true
+    make waku.nims
+
+    # Step 3: Build nph utility if it doesn't exist
+    NPH_PATH=$(dirname $(readlink -f vendor/nph/src/nph))
+    if [ ! -f "${NPH_PATH}/nph" ]; then
+      ${pkgs.envScript} nim c vendor/nph/src/nph.nim
+      mv vendor/nph/src/nph "${NPH_PATH}/nph"
+      echo "nph utility is available at ${NPH_PATH}/nph"
+    else
+      echo "nph utility already exists at ${NPH_PATH}/nph"
+    fi
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
