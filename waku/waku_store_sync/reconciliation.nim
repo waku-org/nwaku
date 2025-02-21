@@ -113,21 +113,27 @@ proc preProcessPayload(
   if self.cluster != payload.cluster:
     return none(RangesData)
 
-  if payload.pubsubTopics.len > 0:
+  if payload.pubsubTopics.len > 0 and self.pubsubTopics.len > 0:
     let pubsubIntersection = self.pubsubTopics * payload.pubsubTopics.toHashSet()
 
     if pubsubIntersection.len < 1:
       return none(RangesData)
 
     payload.pubsubTopics = pubsubIntersection.toSeq()
+  elif self.pubsubTopics.len > 0:
+    # Always use the smallest topic scope possible
+    payload.pubsubTopics = self.pubsubTopics.toSeq()
 
-  if payload.contentTopics.len > 0:
+  if payload.contentTopics.len > 0 and self.contentTopics.len > 0:
     let contentIntersection = self.contentTopics * payload.contentTopics.toHashSet()
 
     if contentIntersection.len < 1:
       return none(RangesData)
 
     payload.contentTopics = contentIntersection.toSeq()
+  elif self.contentTopics.len > 0:
+    # Always use the smallest topic scope possible
+    payload.contentTopics = self.contentTopics.toSeq()
 
   let timeRange = calculateTimeRange(self.relayJitter, self.syncRange)
   let selfLowerBound = timeRange.a
