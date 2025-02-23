@@ -91,18 +91,18 @@ echo "4. Building libunwind"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1"
 execute_command "make install/usr/lib/libunwind.a V=1"
+cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
 echo "5. Building miniupnpc"
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 git checkout little_chore_windows_support
-execute_command "make -f Makefile.mingw CC=gcc CXX=g++ V=1"
+execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1"
 cd ../../../../..
 
 echo "6. Building libnatpmp"
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-execute_command "./build.bat"
-execute_command "mv natpmp.a libnatpmp.a"
+make -f Makefile CC=gcc CXX=g++ libnatpmp.a V=1
 cd ../../../../
 
 echo "7. Building wakunode2"
