@@ -22,15 +22,30 @@
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl
-# 
-# 4. Setup PATH
-#    MSYS_DIR = xyz
-#    export PATH="{MSYS_DIR}/msys64/mingw64/bin:$PATH"
-#    export PATH="{MSYS_DIR}/msys64/mingw64/lib:$PATH"   
-#    export PATH="{MSYS_DIR}/msys64/ucrt64/bin:$PATH"    
-#    export PATH="{MSYS_DIR}/msys64/ucrt64/lib:$PATH" 
 #
-# 5. on git bash terminal run this scripts 
+# 4. Set Up PATH
+#    Note: This guide assumes that you have installed MSYS2 at "C:\".
+#    
+#    export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH"
+#  
+# 5. Verify Prerequisites
+#    Before proceeding, ensure that all required dependencies are installed.
+#    You can check this by running:
+#
+#    which make cmake gcc g++ rustc cargo python3 upx
+#
+#    This step helps avoid script failures due to missing dependencies.
+#
+# 6. Run the Script
+#    Open Git Bash with administrative privileges and run the required script.
+#
+# 7. Troubleshooting: Build Issues
+#    If "wakunode2.exe" is not generated, there might be conflicting installations on your system.
+#    This often happens if you already have MinGW installed separately.
+#
+#    To resolve this:
+#    - Remove any existing MinGW installations.
+#    - Alternatively, you can completely uninstall Git Bash and MSYS2, then do a fresh installation.
 
 set -e  # Exit immediately if a command exits with a non-zero status
 
