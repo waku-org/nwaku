@@ -6,7 +6,7 @@
 # 2. Install MSYS2
 #    a. Download the installer from: https://www.msys2.org
 #    b. Run the installer 
-#    c. inside msys2 directory mutiple terminal you need to use mingw64 terminal all package and library
+#    c. inside msys2 directory mutiple terminal you need to use ucrt64 terminal all package and library
 #
 # 3. Open MSYS2 MINGW^$ terminal and run the following commands to install requirements:
 #    pacman -Syu --noconfirm
@@ -26,7 +26,7 @@
 # 4. Set Up PATH
 #    Note: This guide assumes that you have installed MSYS2 at "C:\".
 #    
-#    export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH"
+#    export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:$PATH"
 #  
 # 5. Verify Prerequisites
 #    Before proceeding, ensure that all required dependencies are installed.
@@ -105,7 +105,13 @@ cd ../../../..
 echo "4. Building libunwind"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1"
-execute_command "make install/usr/lib/libunwind.a V=1"
+if make install/usr/lib/libunwind.a V=1; then
+    echo "✓ libunwind.a installed successfully"
+else
+    echo "⚠️  libunwind installation failed, attempting to copy directly"
+    execute_command "make install/usr/lib/libunwind.a V=1"
+fi
+
 cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
