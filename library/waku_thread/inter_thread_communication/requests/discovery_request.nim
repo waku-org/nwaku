@@ -83,7 +83,7 @@ proc retrieveBootstrapNodes(
 ): Future[Result[seq[string], string]] {.async.} =
   let dnsNameServers = @[parseIpAddress(ipDnsServer)]
   let discoveredPeers: seq[RemotePeerInfo] = (
-    await retrieveDynamicBootstrapNodes(true, enrTreeUrl, dnsNameServers)
+    await retrieveDynamicBootstrapNodes(enrTreeUrl, dnsNameServers)
   ).valueOr:
     return err("failed discovering peers from DNS: " & $error)
 

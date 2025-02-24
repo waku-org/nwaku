@@ -392,7 +392,7 @@ proc getBootstrapFromDiscDns(
   try:
     let dnsNameServers = @[parseIpAddress("1.1.1.1"), parseIpAddress("1.0.0.1")]
     let dynamicBootstrapNodesRes =
-      await retrieveDynamicBootstrapNodes(true, conf.dnsDiscoveryUrl, dnsNameServers)
+      await retrieveDynamicBootstrapNodes(conf.dnsDiscoveryUrl, dnsNameServers)
     if not dynamicBootstrapNodesRes.isOk():
       error("failed discovering peers from DNS")
     let dynamicBootstrapNodes = dynamicBootstrapNodesRes.get()
