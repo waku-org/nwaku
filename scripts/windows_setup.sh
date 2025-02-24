@@ -112,6 +112,7 @@ else
     execute_command "make install/usr/lib/libunwind.a V=1"
 fi
 
+cd vendor/nim-libbacktrace
 cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
@@ -123,7 +124,7 @@ cd ../../../../..
 
 echo "6. Building libnatpmp"
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-make -f Makefile CC=gcc CXX=g++ libnatpmp.a V=1
+make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
 cd ../../../../
 
 echo "7. Building wakunode2"
