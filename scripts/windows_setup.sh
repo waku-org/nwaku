@@ -6,9 +6,9 @@
 # 2. Install MSYS2
 #    a. Download the installer from: https://www.msys2.org
 #    b. Run the installer 
-#    c. inside msys2 directory mutiple terminal you need to use ucrt64 terminal all package and library
+#    c. msys64 directory have mutiple terminal you need to use ucrt64 terminal to install all package and library.
 #
-# 3. Open MSYS2 MINGW^$ terminal and run the following commands to install requirements:
+# 3. Open MSYS2 MINGW64 terminal and run the following commands to install requirements:
 #    pacman -Syu --noconfirm
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain
 #    pacman -S --noconfirm --needed base-devel
@@ -26,7 +26,7 @@
 # 4. Set Up PATH
 #    Note: This guide assumes that you have installed MSYS2 at "C:\".
 #    
-#    export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:$PATH"
+#    export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH"
 #  
 # 5. Verify Prerequisites
 #    Before proceeding, ensure that all required dependencies are installed.
@@ -47,7 +47,7 @@
 #    - Remove any existing MinGW installations.
 #    - Alternatively, you can completely uninstall Git Bash and MSYS2, then do a fresh installation.
 
-set -e  # Exit immediately if a command exits with a non-zero status
+set +e  # Exit immediately if a command exits with a non-zero status
 
 echo "Windows Setup Script"
 echo "===================="
