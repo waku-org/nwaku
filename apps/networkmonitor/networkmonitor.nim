@@ -354,11 +354,11 @@ proc crawlNetwork(
     await sleepAsync(crawlInterval.millis - elapsed.millis)
 
 proc retrieveDynamicBootstrapNodes(
-    dnsDiscovery: bool, dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
+    dnsDiscoveryUrl: string, dnsDiscoveryNameServers: seq[IpAddress]
 ): Future[Result[seq[RemotePeerInfo], string]] {.async.} =
   ## Retrieve dynamic bootstrap nodes (DNS discovery)
 
-  if dnsDiscovery and dnsDiscoveryUrl != "":
+  if dnsDiscoveryUrl != "":
     # DNS discovery
     debug "Discovering nodes using Waku DNS discovery", url = dnsDiscoveryUrl
 

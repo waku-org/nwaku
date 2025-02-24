@@ -388,8 +388,7 @@ proc startDnsDiscoveryRetryLoop(waku: ptr Waku): Future[void] {.async.} =
   while true:
     await sleepAsync(30.seconds)
     let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-      waku.conf.dnsDiscovery, waku.conf.dnsDiscoveryUrl,
-      waku.conf.dnsDiscoveryNameServers,
+      waku.conf.dnsDiscoveryUrl, waku.conf.dnsDiscoveryNameServers
     )
     if dynamicBootstrapNodesRes.isErr():
       error "Retrieving dynamic bootstrap nodes failed",
@@ -424,7 +423,7 @@ proc startWaku*(waku: ptr Waku): Future[Result[void, string]] {.async.} =
   debug "Retrieve dynamic bootstrap nodes"
 
   let dynamicBootstrapNodesRes = await waku_dnsdisc.retrieveDynamicBootstrapNodes(
-    waku.conf.dnsDiscovery, waku.conf.dnsDiscoveryUrl, waku.conf.dnsDiscoveryNameServers
+    waku.conf.dnsDiscoveryUrl, waku.conf.dnsDiscoveryNameServers
   )
 
   if dynamicBootstrapNodesRes.isErr():
