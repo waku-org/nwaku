@@ -54,9 +54,9 @@ echo "===================="
 execute_command() {
     echo "Executing: $1"
     if eval "$1"; then
-        echo "✓ Command succeeded"
+        echo -e "✓ Command succeeded \n"
     else
-        echo "✗ Command failed"
+        echo -e "✗ Command failed \n"
     fi
 }
 
