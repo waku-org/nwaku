@@ -47,8 +47,6 @@
 #    - Remove any existing MinGW installations.
 #    - Alternatively, you can completely uninstall Git Bash and MSYS2, then do a fresh installation.
 
-set +e  # Exit immediately if a command exits with a non-zero status
-
 echo "Windows Setup Script"
 echo "===================="
 
@@ -108,23 +106,20 @@ execute_command "make all V=1"
 if make install/usr/lib/libunwind.a V=1; then
     echo "✓ libunwind.a installed successfully"
 else
-    echo "⚠️  libunwind installation failed, attempting to copy directly"
-    execute_command "make install/usr/lib/libunwind.a V=1"
+    echo "✗ libunwind installation failed, attempting to copy directly"
+    cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 fi
-
-cd vendor/nim-libbacktrace
-cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
 echo "5. Building miniupnpc"
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
-git checkout little_chore_windows_support
+execute_command "git checkout little_chore_windows_support"
 execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1"
 cd ../../../../..
 
 echo "6. Building libnatpmp"
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
+execute_command "make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1"
 cd ../../../../
 
 echo "7. Building wakunode2"
