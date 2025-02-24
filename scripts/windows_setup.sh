@@ -57,35 +57,6 @@ execute_command() {
         echo "✓ Command succeeded"
     else
         echo "✗ Command failed"
-        exit 1
-    fi
-}
-
-# Function to change directory safely
-change_directory() {
-    echo "Changing to directory: $1"
-    if cd "$1"; then
-        echo "✓ Changed directory successfully"
-    else
-        echo "✗ Failed to change directory"
-        exit 1
-    fi
-}
-
-# Function to build a component
-build_component() {
-    local dir="$1"
-    local command="$2"
-    local name="$3"
-
-    echo "Building $name"
-    if [ -d "$dir" ]; then
-        change_directory "$dir"
-        execute_command "$command"
-        change_directory - > /dev/null
-    else
-        echo "✗ $name directory not found: $dir"
-        exit 1
     fi
 }
 
@@ -103,12 +74,8 @@ cd ../../../..
 echo "4. Building libunwind"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1"
-if make install/usr/lib/libunwind.a V=1; then
-    echo "✓ libunwind.a installed successfully"
-else
-    echo "✗ libunwind installation failed, attempting to copy directly"
-    cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
-fi
+execute_command "make install/usr/lib/libunwind.a V=1"
+cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
 echo "5. Building miniupnpc"
