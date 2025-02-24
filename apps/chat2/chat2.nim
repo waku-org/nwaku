@@ -418,7 +418,7 @@ proc processInput(rfd: AsyncFD, rng: ref HmacDrbgContext) {.async.} =
       dnsDiscoveryUrl = some(
         "enrtree://AIRVQ5DDA4FFWLRBCHJWUWOO6X6S4ZTZ5B667LQ6AJU6PEYDLRD5O@sandbox.waku.nodes.status.im"
       )
-  elif conf.dnsDiscovery and conf.dnsDiscoveryUrl != "":
+  elif conf.dnsDiscoveryUrl != "":
     # No pre-selected fleet. Discover nodes via DNS using user config
     debug "Discovering nodes using Waku DNS discovery", url = conf.dnsDiscoveryUrl
     dnsDiscoveryUrl = some(conf.dnsDiscoveryUrl)
