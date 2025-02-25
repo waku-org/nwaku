@@ -39,7 +39,9 @@
 # 6. Run the Script
 #    Open Git Bash with administrative privileges and run the required script.
 #
-# 7. Troubleshooting: Build Issues
+# 7. If you find more than one failed command at the end, there may be a configuration issue.
+# 
+# 8. Troubleshooting: Build Issues
 #    If "wakunode2.exe" is not generated, there might be conflicting installations on your system.
 #    This often happens if you already have MinGW installed separately.
 #
@@ -50,13 +52,18 @@
 echo "Windows Setup Script"
 echo "===================="
 
+success_count=0
+failure_count=0
+
 # Function to execute a command and check its status
 execute_command() {
     echo "Executing: $1"
     if eval "$1"; then
         echo -e "✓ Command succeeded \n"
+        ((success_count++))
     else
         echo -e "✗ Command failed \n"
+        ((failure_count++))
     fi
 }
 
@@ -93,3 +100,5 @@ echo "7. Building wakunode2"
 execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "Windows setup completed successfully!"
+echo "✓ Successful commands: $success_count"
+echo "✗ Failed commands: $failure_count"
