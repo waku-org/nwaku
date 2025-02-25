@@ -2,7 +2,7 @@
   description = "NWaku build flake";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     zerokit = {
       url = "github:vacp2p/zerokit?rev=4479810968b88d0ef92717524adf5edd23df1869";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -13,6 +13,9 @@
     let
       stableSystems = [
         "x86_64-linux" "aarch64-linux"
+        "x86_64-darwin" "aarch64-darwin"
+        "x86_64-windows" "i686-linux"
+        "i686-windows"
       ];
 
       forAllSystems = f: nixpkgs.lib.genAttrs stableSystems (system: f system);
@@ -36,14 +39,20 @@
 
     in rec {
       packages = forAllSystems (system: let
-        buildTarget = targets: pkgsFor.${system}.callPackage ./nix/default.nix {
-          inherit stableSystems;
-          src = self;
-          zerokitPkg = zerokit.packages.x86_64-linux.default;
-          androidArch = "aarch64-linux-android";
-        };
+        pkgs = pkgsFor.${system};
       in rec {
-        libwaku-android-arm64 = buildTarget "libwaku-android-arm64";
+        libwaku-android-arm64 = pkgs.callPackage ./nix/default.nix {
+          inherit stableSystems;
+          targets = ["libwaku-android-arm64"]; 
+          androidArch = "aarch64-linux-android";
+          zerokitPkg = zerokit.packages.${system}.zerokit-android-arm64;
+        };
+        libwaku-android-amd64 = pkgs.callPackage ./nix/default.nix { 
+          inherit stableSystems;
+          targets = ["libwaku-android-amd64"]; 
+          androidArch = "musl64";
+          zerokitPkg = zerokit.packages.${system}.zerokit-android-amd64;
+        };
         default = libwaku-android-arm64;
       });
 

@@ -2,7 +2,7 @@
   config ? {},
   pkgs ? import ./pkgs.nix { inherit config; },
   src ? ../.,
-  targets ? ["libwaku-android-amd64"],
+  targets ? ["libwaku-android-arm64"],
   verbosity ? 2,
   useSystemNim ? false,
   stableSystems ? [
@@ -49,7 +49,6 @@ in stdenv.mkDerivation rec {
       which
       lsb-release
       zerokitPkg
-      nim-unwrapped-2_0
       fakeGit
       fakeCargo
       fakeRustup
@@ -73,11 +72,6 @@ in stdenv.mkDerivation rec {
 
   preBuild = ''
     ln -s waku.nimble waku.nims
-
-    mkdir -p ./vendor/nimbus-build-system/vendor/Nim/bin/nim
-    USE_SYSTEM_NIM=1 ./vendor/nimbus-build-system/scripts/env.sh nim c vendor/nph/src/nph.nim
-    mv vendor/nph/src/nph ./vendor/nimbus-build-system/vendor/Nim/bin/nim
-
     pushd vendor/nimbus-build-system/vendor/Nim
     mkdir dist
     cp -r ${callPackage ./nimble.nix {}}    dist/nimble
