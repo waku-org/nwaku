@@ -43,12 +43,14 @@
       in rec {
         libwaku-android-arm64 = pkgs.callPackage ./nix/default.nix {
           inherit stableSystems;
+          src = self;
           targets = ["libwaku-android-arm64"]; 
           androidArch = "aarch64-linux-android";
           zerokitPkg = zerokit.packages.${system}.zerokit-android-arm64;
         };
         libwaku-android-amd64 = pkgs.callPackage ./nix/default.nix { 
           inherit stableSystems;
+          src = self;
           targets = ["libwaku-android-amd64"]; 
           androidArch = "musl64";
           zerokitPkg = zerokit.packages.${system}.zerokit-android-amd64;
