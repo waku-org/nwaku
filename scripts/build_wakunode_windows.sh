@@ -9,7 +9,7 @@
 #    b. Run the installer and make sure it's installed at "C:\" because we explicitly set the PATH accordingly (NOTE: the default location is C:\).  
 #    c. The msys64 directory contains multiple terminals; you need to use the ucrt64 terminal to install all packages and libraries.  
 #  
-# 3. Open the MSYS2 MINGW64 terminal and run the following commands to install the required dependencies:  
+# 3. Open the MSYS2 UCRT64 terminal and run the following commands to install the required dependencies:  
 #  
 #    pacman -Syu --noconfirm  
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
@@ -39,7 +39,6 @@
 #       
 #       - If any dependency is missing, you may have skipped a package in Step 3 or installed MSYS2 in a location other than the C: drive.
 #
-#  
 #    2. Conflicts with a previous installation  
 #       - Remove any existing MinGW installations.  
 #       - If you already have MSYS2 and Git Bash installed, remove them and perform a fresh installation.  
@@ -67,6 +66,9 @@ execute_command() {
 
 echo "0. Set PATH"
 execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH""
+
+echo "1. Verify dependencies"
+execute_command "which gcc g++ make cmake cargo upx rustc python"
 
 echo "1. Updating submodules"
 execute_command "git submodule update --init --recursive"
