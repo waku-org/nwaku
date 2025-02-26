@@ -12,18 +12,18 @@
 # 3. Open the MSYS2 UCRT64 terminal and run the following commands to install the required dependencies:  
 #  
 #    pacman -Syu --noconfirm  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-toolchain  
 #    pacman -S --noconfirm --needed base-devel  
 #    pacman -S --noconfirm --needed make  
 #    pacman -S --noconfirm --needed cmake  
 #    pacman -S --noconfirm --needed upx  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-rust  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-postgresql  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc-libs  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-libwinpthread-git  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-zlib  
+#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-openssl  
 #  
 # 4. Run the Script  
 #    Open Git Bash with administrative privileges and run the required script.  
@@ -64,42 +64,42 @@ execute_command() {
     fi
 }
 
-echo "0. Set PATH"
+echo "0. -.-.-.-- Set PATH -.-.-.-"
 execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH""
 
-echo "1. Verify dependencies"
+echo "1. -.-.-.- Verify dependencies -.-.-.-"
 execute_command "which gcc g++ make cmake cargo upx rustc python"
 
-echo "1. Updating submodules"
+echo "1. -.-.-.- Updating submodules -.-.-.-"
 execute_command "git submodule update --init --recursive"
 
-echo "2. Creating tmp directory"
+echo "2. -.-.-.- Creating tmp directory -.-.-.-"
 execute_command "mkdir -p tmp"
 
-echo "3. Building Nim"
+echo "3. -.-.-.- Building Nim -.-.-.-"
 cd vendor/nimbus-build-system/vendor/Nim
 execute_command "./build_all.bat"
 cd ../../../..
 
-echo "4. Building libunwind"
+echo "4. -.-.-.- Building libunwind -.-.-.-"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1"
 execute_command "make install/usr/lib/libunwind.a V=1"
 cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
-echo "5. Building miniupnpc"
+echo "5. -.-.-.- Building miniupnpc -.-.-.- "
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 execute_command "git checkout little_chore_windows_support"
 execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1"
 cd ../../../../..
 
-echo "6. Building libnatpmp"
+echo "6. -.-.-.- Building libnatpmp -.-.-.- "
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
 execute_command "make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1"
 cd ../../../../
 
-echo "7. Building wakunode2"
+echo "7. -.-.-.- Building wakunode2 -.-.-.- "
 execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "Windows setup completed successfully!"
