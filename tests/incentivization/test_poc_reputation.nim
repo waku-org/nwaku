@@ -46,7 +46,7 @@ suite "Waku Incentivization PoC Reputation":
     let peerId = "peerWithInvalidResponse"
     let invalidResp = PushResponse(isSuccess: false, info: none(string))
     manager.updateReputationFromResponse(peerId, invalidResp)
-    check manager.getReputation(peerId) == some(false)
+  check manager.getReputation(peerId) == some(false)
 
   test "incentivization PoC: reputation: default is None":
     let unknownPeerId = "unknown_peer"

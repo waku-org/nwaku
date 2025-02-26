@@ -1,9 +1,8 @@
 import tables, std/options
 import waku/waku_lightpush/rpc
+import libp2p/peerid
 
 type
-  PeerId = string
-
   ResponseQuality* = enum
     BadResponse
     GoodResponse
@@ -13,17 +12,17 @@ type
   #   some(false) => BadRep
   #   none(bool)  => unknown / not set
   ReputationManager* = ref object
-    reputationOf*: Table[PeerId, Option[bool]]
+    reputationOf*: Table[PeerID, Option[bool]]
 
 proc init*(T: type ReputationManager): ReputationManager =
-  return ReputationManager(reputationOf: initTable[PeerId, Option[bool]]())
+  return ReputationManager(reputationOf: initTable[PeerID, Option[bool]]())
 
 proc setReputation*(
-    manager: var ReputationManager, peer: PeerId, repValue: Option[bool]
+    manager: var ReputationManager, peer: PeerID, repValue: Option[bool]
 ) =
   manager.reputationOf[peer] = repValue
 
-proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
+proc getReputation*(manager: ReputationManager, peer: PeerID): Option[bool] =
   if peer in manager.reputationOf:
     result = manager.reputationOf[peer]
   else:
@@ -38,7 +37,7 @@ proc evaluateResponse*(response: PushResponse): ResponseQuality =
 
 # Update reputation of the peer based on the quality of the response
 proc updateReputationFromResponse*(
-    manager: var ReputationManager, peer: PeerId, response: PushResponse
+    manager: var ReputationManager, peer: PeerID, response: PushResponse
 ) =
   let respQuality = evaluateResponse(response)
   case respQuality

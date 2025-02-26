@@ -11,20 +11,27 @@ import
   ./common,
   ./protocol_metrics,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ../incentivization/reputation_manager
 
 logScope:
   topics = "waku lightpush client"
 
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
+  reputationManager*: ReputationManager
   rng*: ref rand.HmacDrbgContext
   publishObservers: seq[PublishObserver]
 
 proc new*(
-    T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
+    T: type WakuLightPushClient,
+    peerManager: PeerManager,
+    reputationManager: ReputationManager,
+    rng: ref rand.HmacDrbgContext,
 ): T =
-  WakuLightPushClient(peerManager: peerManager, rng: rng)
+  WakuLightPushClient(
+    peerManager: peerManager, reputationManager: reputationManager, rng: rng
+  )
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)
@@ -65,6 +72,9 @@ proc sendPushRequest(
     else:
       return err("unknown failure")
 
+  when defined(reputation):
+    wl.reputationManager.updateReputationFromResponse(peer.peerId, response)
+
   return ok()
 
 proc publish*(
@@ -82,12 +92,19 @@ proc publish*(
     obs.onMessagePublished(pubSubTopic, message)
 
   notice "publishing message with lightpush",
-    pubsubTopic = pubsubTopic,
+    pubsubTopic = pubSubTopic,
     contentTopic = message.contentTopic,
     target_peer_id = peer.peerId,
     msg_hash = msg_hash_hex_str
 
   return ok(msg_hash_hex_str)
+
+proc selectPeerFromPeerManager(
+    wl: WakuLightPushClient
+): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
+  let peer = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
+    return err("could not retrieve a peer supporting WakuLightPushCodec")
+  return ok(peer)
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
@@ -97,8 +114,26 @@ proc publishToAny*(
 
   info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
 
-  let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
-    return err("could not retrieve a peer supporting WakuLightPushCodec")
+  var peer: RemotePeerInfo
+
+  when defined(reputation):
+    const maxReputationAttempts = 10
+    var attempts = 0
+    while attempts < maxReputationAttempts:
+      let peerResult = await wl.selectPeerFromPeerManager()
+      if peerResult.isErr:
+        return err(peerResult.error)
+      peer = peerResult.get()
+      if not (wl.reputationManager.getReputation(peer.peerId) == some(false)):
+        break
+      attempts += 1
+    if attempts >= maxReputationAttempts:
+      warn "Maximum reputation-based retries exceeded; continuing with a bad-reputation peer."
+  else:
+    let peerResult = await wl.selectPeerFromPeerManager()
+    if peerResult.isErr:
+      return err(peerResult.error)
+    peer = peerResult.get()
 
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   ?await wl.sendPushRequest(pushRequest, peer)
