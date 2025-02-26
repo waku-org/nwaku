@@ -9,21 +9,23 @@
 #    b. Run the installer and make sure it's installed at "C:\" because we explicitly set the PATH accordingly (NOTE: the default location is C:\).  
 #    c. The msys64 directory contains multiple terminals; you need to use the ucrt64 terminal to install all packages and libraries.  
 #  
-# 3. Open the MSYS2 UCRT64 terminal and run the following commands to install the required dependencies:  
+# 3. Open the MSYS2 mingw64 terminal and run the following commands to install the required dependencies:  
 #  
 #    pacman -Syu --noconfirm  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-toolchain  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
 #    pacman -S --noconfirm --needed base-devel  
 #    pacman -S --noconfirm --needed make  
 #    pacman -S --noconfirm --needed cmake  
 #    pacman -S --noconfirm --needed upx  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-rust  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-postgresql  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-gcc-libs  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-libwinpthread-git  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-zlib  
-#    pacman -S --noconfirm --needed mingw-w64-ucrt-x86_64-openssl  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-python  
+#    pacman -S --noconfirm --needed mingw-w64-x86_64-libgccjit 
 #  
 # 4. Run the Script  
 #    Open Git Bash with administrative privileges and run the required script.  
@@ -65,7 +67,7 @@ execute_command() {
 }
 
 echo "0. -.-.-.-- Set PATH -.-.-.-"
-execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:$PATH""
+execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:$PATH""
 
 echo "1. -.-.-.- Verify dependencies -.-.-.-"
 execute_command "which gcc g++ make cmake cargo upx rustc python"
