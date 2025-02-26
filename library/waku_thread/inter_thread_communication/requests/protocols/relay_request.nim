@@ -3,6 +3,7 @@ import chronicles, chronos, stew/byteutils, results
 import
   ../../../../../waku/waku_core/message/message,
   ../../../../../waku/factory/[external_config, validator_signed, waku],
+  ../../../../../waku/waku_node,
   ../../../../../waku/waku_core/message,
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
@@ -105,6 +106,7 @@ proc process*(
   case self.operation
   of SUBSCRIBE:
     # TO DO: properly perform 'subscribe'
+    waku.node.registerRelayDefaultHandler($self.pubsubTopic)
     discard waku.node.wakuRelay.subscribe($self.pubsubTopic, self.relayEventCallback)
   of UNSUBSCRIBE:
     # TODO: properly perform 'unsubscribe'

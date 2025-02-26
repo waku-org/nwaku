@@ -245,7 +245,7 @@ proc mountStoreSync*(
 
 ## Waku relay
 
-proc registerRelayDefaultHandler(node: WakuNode, topic: PubsubTopic) =
+proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
   if node.wakuRelay.isSubscribed(topic):
     return
 
