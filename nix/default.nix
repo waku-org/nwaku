@@ -49,6 +49,7 @@ in stdenv.mkDerivation rec {
       which
       lsb-release
       zerokitPkg
+      nim-unwrapped-2_0
       fakeGit
       fakeCargo
       fakeRustup
@@ -60,6 +61,7 @@ in stdenv.mkDerivation rec {
   ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
   NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
   XDG_CACHE_HOME = "/tmp";
+  USE_SYSTEM_NIM = "1";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
