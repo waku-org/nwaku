@@ -66,7 +66,7 @@ execute_command() {
 }
 
 echo "0. -.-.-.-- Set PATH -.-.-.-"
-execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$PATH""
+export PATH="/c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$PATH"
 
 echo "1. -.-.-.- Verify dependencies -.-.-.-"
 execute_command "which gcc g++ make cmake cargo upx rustc python"
@@ -97,7 +97,7 @@ cd ../../../../..
 
 echo "6. -.-.-.- Building libnatpmp -.-.-.- "
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
-execute_command "make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1"
+make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
 cd ../../../../
 
 echo "7. -.-.-.- Building wakunode2 -.-.-.- "
