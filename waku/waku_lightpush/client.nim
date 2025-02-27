@@ -26,12 +26,15 @@ type WakuLightPushClient* = ref object
 proc new*(
     T: type WakuLightPushClient,
     peerManager: PeerManager,
-    reputationManager: ReputationManager,
     rng: ref rand.HmacDrbgContext,
+    reputationManager: Option[ReputationManager] = none(ReputationManager),
 ): T =
-  WakuLightPushClient(
-    peerManager: peerManager, reputationManager: reputationManager, rng: rng
-  )
+  if reputationManager.isSome:
+    WakuLightPushClient(
+      peerManager: peerManager, rng: rng, reputationManager: reputationManager.get()
+    )
+  else:
+    WakuLightPushClient(peerManager: peerManager, rng: rng)
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)

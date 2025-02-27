@@ -27,5 +27,7 @@ proc newTestWakuLightpushNode*(
 
 proc newTestWakuLightpushClient*(switch: Switch): WakuLightPushClient =
   let peerManager = PeerManager.new(switch)
-  let reputationManager = ReputationManager.new()
-  WakuLightPushClient.new(peerManager, reputationManager, rng)
+  var reputationManager = none(ReputationManager)
+  when defined(reputation):
+    reputationManager = some(ReputationManager.new())
+  WakuLightPushClient.new(peerManager, rng, reputationManager)
