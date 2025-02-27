@@ -35,7 +35,7 @@ suite "Rate limited push service":
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
     ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return lightpushSuccessResult(1)
+      return lightpushSuccessResult(1) # succeed to publish to 1 peer.
 
     let
       tokenPeriod = 500.millis

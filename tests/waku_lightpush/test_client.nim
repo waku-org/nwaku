@@ -45,6 +45,7 @@ suite "Waku Lightpush Client":
         return
           lighpushErrorResult(PAYLOAD_TOO_LARGE, "length greater than maxMessageSize")
       handlerFuture.complete((pubsubTopic, message))
+      # return that we published the message to 1 peer.
       return ok(1)
 
     serverSwitch = newTestSwitch()

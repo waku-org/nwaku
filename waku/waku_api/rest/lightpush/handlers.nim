@@ -24,7 +24,7 @@ export types
 logScope:
   topics = "waku node rest lightpush api"
 
-const futTimeoutForPushRequestProcessing* = 5.seconds
+const FutTimeoutForPushRequestProcessing* = 5.seconds
 
 const NoPeerNoDiscoError =
   RestApiResponse.serviceUnavailable("No suitable service peer & no discovery method")
@@ -94,7 +94,7 @@ proc installLightPushRequestHandler*(
 
     let subFut = node.lightpushPublish(req.pubsubTopic, msg, toPeer)
 
-    if not await subFut.withTimeout(futTimeoutForPushRequestProcessing):
+    if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"
       return RestApiResponse.serviceUnavailable("Push request timed out")
 

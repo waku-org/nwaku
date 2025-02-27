@@ -985,7 +985,7 @@ proc mountLegacyLightPush*(
 ) {.async.} =
   info "mounting legacy light push"
 
-  var pushHandler =
+  let pushHandler =
     if node.wakuRelay.isNil:
       debug "mounting legacy lightpush without relay (nil)"
       legacy_lightpush_protocol.getNilPushHandler()
@@ -1096,8 +1096,8 @@ proc mountLightPush*(
 ) {.async.} =
   info "mounting light push"
 
-  var pushHandler =
-    if node.wakuRelay.isNil:
+  let pushHandler =
+    if node.wakuRelay.isNil():
       debug "mounting lightpush v2 without relay (nil)"
       lightpush_protocol.getNilPushHandler()
     else:
@@ -1131,7 +1131,7 @@ proc lightpushPublishHandler(
     pubsubTopic: PubsubTopic,
     message: WakuMessage,
     peer: RemotePeerInfo | PeerInfo,
-): Future[lightpush_protocol.WakuLightPushResult] {.async, gcsafe.} =
+): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
     notice "publishing message with legacy lightpush",
@@ -1155,16 +1155,16 @@ proc lightpushPublish*(
     pubsubTopic: Option[PubsubTopic],
     message: WakuMessage,
     peerOpt: Option[RemotePeerInfo] = none(RemotePeerInfo),
-): Future[lightpush_protocol.WakuLightPushResult] {.async, gcsafe.} =
+): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   if node.wakuLightpushClient.isNil() and node.wakuLightPush.isNil():
     error "failed to publish message as lightpush not available"
     return lighpushErrorResult(SERVICE_NOT_AVAILABLE, "Waku lightpush not available")
 
-  var toPeer: RemotePeerInfo = peerOpt.valueOr:
+  let toPeer: RemotePeerInfo = peerOpt.valueOr:
     if not node.wakuLightPush.isNil():
       RemotePeerInfo.init(node.peerId())
     elif not node.wakuLightpushClient.isNil():
-      node.peerManager.selectPeer(WakuLegacyLightPushCodec).valueOr:
+      node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let msg = "no suitable remote peers"
         error "failed to publish message", msg = msg
         return lighpushErrorResult(NO_PEERS_TO_RELAY, msg)

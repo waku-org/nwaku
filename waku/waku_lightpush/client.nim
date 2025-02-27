@@ -31,7 +31,7 @@ proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
 
 proc sendPushRequest(
     wl: WakuLightPushClient, req: LightPushRequest, peer: PeerId | RemotePeerInfo
-): Future[WakuLightPushResult] {.async, gcsafe.} =
+): Future[WakuLightPushResult] {.async.} =
   let connection = (await wl.peerManager.dialPeer(peer, WakuLightPushCodec)).valueOr:
     waku_lightpush_errors.inc(labelValues = [dialFailure])
     return lighpushErrorResult(
@@ -45,8 +45,9 @@ proc sendPushRequest(
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
     error "Failed to read responose from peer", exception = getCurrentExceptionMsg()
-    return
-      lightpushResultInternalError("Exception reading: " & getCurrentExceptionMsg())
+    return lightpushResultInternalError(
+      "Failed to read responose from peer " & getCurrentExceptionMsg()
+    )
 
   let response = LightpushResponse.decode(buffer).valueOr:
     error "failed to decode response"

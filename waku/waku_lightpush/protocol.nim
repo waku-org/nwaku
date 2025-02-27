@@ -47,6 +47,16 @@ proc handleRequest*(
           statusDesc: some(msg),
         )
 
+    # ensure checking topic will not cause error at gossipsub level
+    if pubsubTopic.isEmptyOrWhitespace():
+      let msg = "topic must not be empty"
+      error "lightpush request handling error", msg = msg
+      return LightPushResponse(
+        requestId: pushRequest.requestId,
+        statusCode: LightpushStatusCode.BAD_REQUEST.uint32,
+        statusDesc: some(msg),
+      )
+
     waku_lightpush_messages.inc(labelValues = ["PushRequest"])
 
     notice "handling lightpush request",
@@ -66,14 +76,12 @@ proc handleRequest*(
         if isSuccess:
           LightpushStatusCode.SUCCESS.uint32
         else:
-          handleRes.error.code.uint32
-      ,
+          handleRes.error.code.uint32,
       statusDesc:
         if isSuccess:
           none[string]()
         else:
-          handleRes.error.desc
-      ,
+          handleRes.error.desc,
     )
 
   if not isSuccess:

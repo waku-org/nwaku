@@ -115,12 +115,11 @@ proc process*(
     let msg = self.message.toWakuMessage()
     let pubsubTopic = $self.pubsubTopic
 
-    let publishRes = await waku.node.wakuRelay.publish(pubsubTopic, msg)
-    if publishRes.isErr():
+    (await waku.node.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
       let errorMsg = "Message not sent."
-      error "PUBLISH failed", error = errorMsg, reason = $publishRes.error
+      error "PUBLISH failed", error = errorMsg, reason = $error
       return err(errorMsg)
-    let numPeers = publishRes.get()
+
     let msgHash = computeMessageHash(pubSubTopic, msg).to0xHex
     return ok(msgHash)
   of LIST_CONNECTED_PEERS:
