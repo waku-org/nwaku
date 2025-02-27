@@ -7,7 +7,7 @@
 # 2. Install MSYS2  
 #    a. Download the installer from: https://www.msys2.org  
 #    b. Run the installer and make sure it's installed at "C:\" because we explicitly set the PATH accordingly (NOTE: the default location is C:\).  
-#    c. The msys64 directory contains multiple terminals; you need to use the ucrt64 terminal to install all packages and libraries.  
+#    c. The msys64 directory contains multiple terminals; you need to use the mingw terminal to install all packages and libraries.  
 #  
 # 3. Open the MSYS2 mingw64 terminal and run the following commands to install the required dependencies:  
 #  
@@ -25,12 +25,11 @@
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
 #    pacman -S --noconfirm --needed mingw-w64-x86_64-python  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-libgccjit 
 #  
 # 4. Run the Script  
 #    Open Git Bash with administrative privileges and run the required script.  
 #  
-# 5. If multiple commands fail at the end, there may be an issue. ( 1 failed is expected )
+# 5. If multiple commands fail at the end, there may be an issue. 
 #  
 # 6. Troubleshooting: Build Issues  
 #    If "wakunode2.exe" is not generated, there could be different issues.  
@@ -67,7 +66,7 @@ execute_command() {
 }
 
 echo "0. -.-.-.-- Set PATH -.-.-.-"
-execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/usr/lib:/c/msys64/mingw64/bin:/c/msys64/mingw64/lib:/c/msys64/ucrt64/bin:/c/msys64/ucrt64/lib:$PATH""
+execute_command "export PATH="/c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$PATH""
 
 echo "1. -.-.-.- Verify dependencies -.-.-.-"
 execute_command "which gcc g++ make cmake cargo upx rustc python"
