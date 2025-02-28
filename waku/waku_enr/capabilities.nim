@@ -26,7 +26,7 @@ const capabilityToCodec = {
   Capabilities.Store: WakuStoreCodec,
   Capabilities.Filter: WakuFilterSubscribeCodec,
   Capabilities.Lightpush: WakuLightPushCodec,
-  Capabilities.Sync: WakuSyncCodec,
+  Capabilities.Sync: WakuReconciliationCodec,
 }.toTable
 
 func init*(
