@@ -6,7 +6,8 @@ import
   stew/byteutils,
   stint,
   strutils,
-  tests/testlib/testasync
+  tests/testlib/testasync,
+  libp2p/[peerid, crypto/crypto]
 
 import
   waku/[node/peer_manager, waku_core],
@@ -15,16 +16,18 @@ import
 
 suite "Waku Incentivization PoC Reputation":
   var manager {.threadvar.}: ReputationManager
+  var peerId1 {.threadvar.}: PeerId
 
   setup:
     manager = ReputationManager.init()
+    peerId1 = PeerId.init(PrivateKey.random(ECDSA, (newRng())[]).tryGet()).tryGet()
 
   test "incentivization PoC: reputation: reputation table is empty after initialization":
     check manager.reputationOf.len == 0
 
   test "incentivization PoC: reputation: set and get reputation":
-    manager.setReputation("peer1", some(true)) # Encodes GoodRep
-    check manager.getReputation("peer1") == some(true)
+    manager.setReputation(peerId1, some(true)) # Encodes GoodRep
+    check manager.getReputation(peerId1) == some(true)
 
   test "incentivization PoC: reputation: evaluate PushResponse valid":
     let validLightpushResponse =
@@ -37,18 +40,14 @@ suite "Waku Incentivization PoC Reputation":
     check evaluateResponse(invalidLightpushResponse) == BadResponse
 
   test "incentivization PoC: reputation: updateReputationFromResponse valid":
-    let peerId = "peerWithValidResponse"
     let validResp = PushResponse(isSuccess: true, info: some("All good"))
-    manager.updateReputationFromResponse(peerId, validResp)
-    check manager.getReputation(peerId) == some(true)
+    manager.updateReputationFromResponse(peerId1, validResp)
+    check manager.getReputation(peerId1) == some(true)
 
   test "incentivization PoC: reputation: updateReputationFromResponse invalid":
-    let peerId = "peerWithInvalidResponse"
     let invalidResp = PushResponse(isSuccess: false, info: none(string))
-    manager.updateReputationFromResponse(peerId, invalidResp)
-    check manager.getReputation(peerId) == some(false)
+    manager.updateReputationFromResponse(peerId1, invalidResp)
+    check manager.getReputation(peerId1) == some(false)
 
   test "incentivization PoC: reputation: default is None":
-    let unknownPeerId = "unknown_peer"
-    # The peer is not in the table yet
-    check manager.getReputation(unknownPeerId) == none(bool)
+    check manager.getReputation(peerId1) == none(bool)
