@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import
-  std/strformat,
+  std/[strformat, strutils],
   stew/byteutils,
   results,
   sequtils,
@@ -135,6 +135,13 @@ type
     onTopicHealthChange*: TopicHealthChangeHandler
     topicHealthLoopHandle*: Future[void]
 
+# predefinition for more detailed results from publishing new message
+type PublishOutcome* {.pure.} = enum
+  NoTopicSpecified
+  DuplicateMessage
+  NoPeersToPublish
+  CannotGenerateMessageId
+
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
     ## main protocol handler that gets triggered on every
@@ -255,10 +262,10 @@ proc initRelayObservers(w: WakuRelay) =
       w, shortLog(peer.peerId), msg.topic, msg_id_short, wakuMessage, onRecv = true
     )
 
-  proc onAfterSent(peer: PubSubPeer, msgs: RPCMsg) =
+  proc onSend(peer: PubSubPeer, msgs: var RPCMsg) =
     for msg in msgs.messages:
       let (msg_id_short, topic, wakuMessage, msgSize) = decodeRpcMessageInfo(peer, msg).valueOr:
-        warn "onAfterSent: failed decoding RPC info",
+        warn "onSend: failed decoding RPC info",
           my_peer_id = w.switch.peerInfo.peerId, to_peer_id = peer.peerId
         continue
       logMessageInfo(
@@ -267,7 +274,7 @@ proc initRelayObservers(w: WakuRelay) =
       updateMetrics(peer, topic, wakuMessage, msgSize, onRecv = false)
 
   let administrativeObserver =
-    PubSubObserver(onRecv: onRecv, onAfterSent: onAfterSent, onValidated: onValidated)
+    PubSubObserver(onRecv: onRecv, onSend: onSend, onValidated: onValidated)
 
   w.addObserver(administrativeObserver)
 
@@ -514,20 +521,23 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler)
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
 ): Future[Result[int, PublishOutcome]] {.async.} =
+  if pubsubTopic.isEmptyOrWhitespace():
+    return err(NoTopicSpecified)
+
   let data = message.encode().buffer
 
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
   notice "start publish Waku message", msg_hash = msgHash, pubsubTopic = pubsubTopic
 
-  let publishRes = await procCall GossipSub(w).doPublish(pubsubTopic, data)
+  let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
-  publishRes.isOkOr:
-    return err(error)
+  if relayedPeerCount <= 0:
+    return err(NoPeersToPublish)
 
   for obs in w.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
 
-  return ok(publishRes.get())
+  return ok(relayedPeerCount)
 
 proc getNumConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic

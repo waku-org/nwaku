@@ -18,17 +18,15 @@ import
     waku_filter_v2,
     waku_filter_v2/client,
     waku_filter_v2/subscriptions,
-    waku_lightpush_legacy,
-    waku_lightpush_legacy/common,
-    waku_lightpush_legacy/client,
-    waku_lightpush_legacy/protocol_metrics,
-    waku_lightpush_legacy/rpc,
+    waku_lightpush,
     waku_rln_relay,
   ],
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
 
-suite "Waku Legacy Lightpush - End To End":
+const PublishedToOnePeer = 1
+
+suite "Waku Lightpush - End To End":
   var
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
     handler {.threadvar.}: PushMessageHandler
@@ -45,9 +43,9 @@ suite "Waku Legacy Lightpush - End To End":
     handlerFuture = newPushHandlerFuture()
     handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return ok(PublishedToOnePeer)
 
     let
       serverKey = generateSecp256k1Key()
@@ -60,8 +58,8 @@ suite "Waku Legacy Lightpush - End To End":
     await server.start()
 
     await server.mountRelay()
-    await server.mountLegacyLightpush() # without rln-relay
-    client.mountLegacyLightpushClient()
+    await server.mountLightpush() # without rln-relay
+    client.mountLightpushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
@@ -76,20 +74,20 @@ suite "Waku Legacy Lightpush - End To End":
       # Given a light lightpush client
       let lightpushClient =
         newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      lightpushClient.mountLegacyLightpushClient()
+      lightpushClient.mountLightpushClient()
 
       # When the client publishes a message
-      let publishResponse = await lightpushClient.legacyLightpushPublish(
-        some(pubsubTopic), message, serverRemotePeerInfo
+      let publishResponse = await lightpushClient.lightpushPublish(
+        some(pubsubTopic), message, some(serverRemotePeerInfo)
       )
 
       if not publishResponse.isOk():
-        echo "Publish failed: ", publishResponse.error()
+        echo "Publish failed: ", publishResponse.error.code
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
 
-      assert (publishResponse.error == protocol_metrics.notPublishedAnyPeer),
+      assert (publishResponse.error.code == NO_PEERS_TO_RELAY),
         "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
@@ -100,14 +98,15 @@ suite "Waku Legacy Lightpush - End To End":
       )
 
       # When the client publishes an over-limit message
-      let publishResponse = await client.legacyLightpushPublish(
-        some(pubsubTopic), msgOverLimit, serverRemotePeerInfo
+      let publishResponse = await client.lightpushPublish(
+        some(pubsubTopic), msgOverLimit, some(serverRemotePeerInfo)
       )
 
       check:
         publishResponse.isErr()
-        publishResponse.error ==
-          fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
+        publishResponse.error.code == INVALID_MESSAGE_ERROR
+        publishResponse.error.desc ==
+          some(fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes")
 
 suite "RLN Proofs as a Lightpush Service":
   var
@@ -126,9 +125,9 @@ suite "RLN Proofs as a Lightpush Service":
     handlerFuture = newPushHandlerFuture()
     handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return ok(PublishedToOnePeer)
 
     let
       serverKey = generateSecp256k1Key()
@@ -151,8 +150,8 @@ suite "RLN Proofs as a Lightpush Service":
 
     await server.mountRelay()
     await server.mountRlnRelay(wakuRlnConfig)
-    await server.mountLegacyLightPush()
-    client.mountLegacyLightPushClient()
+    await server.mountLightPush()
+    client.mountLightPushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
@@ -167,11 +166,11 @@ suite "RLN Proofs as a Lightpush Service":
       # Given a light lightpush client
       let lightpushClient =
         newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      lightpushClient.mountLegacyLightPushClient()
+      lightpushClient.mountLightPushClient()
 
       # When the client publishes a message
-      let publishResponse = await lightpushClient.legacyLightpushPublish(
-        some(pubsubTopic), message, serverRemotePeerInfo
+      let publishResponse = await lightpushClient.lightpushPublish(
+        some(pubsubTopic), message, some(serverRemotePeerInfo)
       )
 
       if not publishResponse.isOk():
@@ -179,10 +178,10 @@ suite "RLN Proofs as a Lightpush Service":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      check publishResponse.error == protocol_metrics.notPublishedAnyPeer
+      check publishResponse.error.code == NO_PEERS_TO_RELAY
 
-suite "Waku Legacy Lightpush message delivery":
-  asyncTest "Legacy lightpush message flow succeed":
+suite "Waku Lightpush message delivery":
+  asyncTest "lightpush message flow succeed":
     ## Setup
     let
       lightNodeKey = generateSecp256k1Key()
@@ -196,11 +195,11 @@ suite "Waku Legacy Lightpush message delivery":
 
     await destNode.mountRelay(@[DefaultRelayShard])
     await bridgeNode.mountRelay(@[DefaultRelayShard])
-    await bridgeNode.mountLegacyLightPush()
-    lightNode.mountLegacyLightPushClient()
+    await bridgeNode.mountLightPush()
+    lightNode.mountLightPushClient()
 
     discard await lightNode.peerManager.dialPeer(
-      bridgeNode.peerInfo.toRemotePeerInfo(), WakuLegacyLightPushCodec
+      bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
     )
     await sleepAsync(100.milliseconds)
     await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
@@ -223,7 +222,7 @@ suite "Waku Legacy Lightpush message delivery":
     await sleepAsync(100.millis)
 
     ## When
-    let res = await lightNode.legacyLightpushPublish(some(DefaultPubsubTopic), message)
+    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
     assert res.isOk(), $res.error
 
     ## Then

@@ -1,7 +1,7 @@
 {.push raises: [].}
 
-import std/options, results, chronos, libp2p/peerid, libp2p/protocols/pubsub/errors
-import ../waku_core, ./rpc
+import std/options, results, chronos, libp2p/peerid
+import ../waku_core, ./rpc, ../waku_relay/protocol
 
 from ../waku_core/codecs import WakuLightPushCodec
 export WakuLightPushCodec
@@ -10,13 +10,13 @@ type LightpushStatusCode* = enum
   SUCCESS = uint32(200)
   BAD_REQUEST = uint32(400)
   PAYLOAD_TOO_LARGE = uint32(413)
-  INVALID_MESSAGE_ERROR = uint32(420) # TODO: check proper status code
+  INVALID_MESSAGE_ERROR = uint32(420)
   UNSUPPORTED_PUBSUB_TOPIC = uint32(421)
   TOO_MANY_REQUESTS = uint32(429)
   INTERNAL_SERVER_ERROR = uint32(500)
   NO_PEERS_TO_RELAY = uint32(503)
-  OUT_OF_RLN_PROOF = uint32(504) # TODO: check proper status code
-  SERVICE_NOT_AVAILABLE = uint32(505) # TODO: check proper status code
+  OUT_OF_RLN_PROOF = uint32(504)
+  SERVICE_NOT_AVAILABLE = uint32(505)
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
 type WakuLightPushResult* = Result[uint32, ErrorStatus]

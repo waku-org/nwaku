@@ -37,7 +37,7 @@ proc useSelfHostedLightPush(node: WakuNode): bool =
 
 #### Request handlers
 
-const ROUTE_LIGHTPUSH* = "/lightpush/v1/message"
+const ROUTE_LIGHTPUSH = "/lightpush/v1/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
