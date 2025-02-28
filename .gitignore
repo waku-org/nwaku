@@ -72,3 +72,7 @@ coverage_html_report/
 **/rln_tree/
 **/certs/
 
+# simple qt example
+.qmake.stash
+main-qt
+waku_handler.moc.cpp
