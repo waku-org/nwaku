@@ -17,15 +17,12 @@ import
 
 suite "Waku Store - query handler":
   asyncTest "history query handler should be called":
-    info "check point" # log added to track flaky test
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
-    info "check point" # log added to track flaky test
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    info "check point" # log added to track flaky test
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -55,9 +52,7 @@ suite "Waku Store - query handler":
     )
 
     ## When
-    info "check point" # log added to track flaky test
     let queryRes = await client.query(req, peer = serverPeerInfo)
-    info "check point" # log added to track flaky test
 
     ## Then
     check:
@@ -74,20 +69,15 @@ suite "Waku Store - query handler":
       response.messages == @[kv]
 
     ## Cleanup
-    info "check point" # log added to track flaky test
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
-    info "check point" # log added to track flaky test
 
   asyncTest "history query handler should be called and return an error":
-    info "check point" # log added to track flaky test
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
-    info "check point" # log added to track flaky test
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    info "check point" # log added to track flaky test
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -126,6 +116,4 @@ suite "Waku Store - query handler":
       error.kind == ErrorCode.BAD_REQUEST
 
     ## Cleanup
-    info "check point" # log added to track flaky test
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
-    info "check point" # log added to track flaky test

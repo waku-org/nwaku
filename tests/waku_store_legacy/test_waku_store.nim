@@ -15,19 +15,15 @@ import
 
 suite "Waku Store - query handler legacy":
   asyncTest "history query handler should be called":
-    info "check point" # log added to track flaky test
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
-    info "check point" # log added to track flaky test
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    info "check point" # log added to track flaky test
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
-    info "check point" # log added to track flaky test
 
     let msg = fakeWakuMessage(contentTopic = DefaultContentTopic)
 
@@ -50,9 +46,7 @@ suite "Waku Store - query handler legacy":
     )
 
     ## When
-    info "check point" # log added to track flaky test
     let queryRes = await client.query(req, peer = serverPeerInfo)
-    info "check point" # log added to track flaky test
 
     ## Then
     check:
@@ -69,19 +63,15 @@ suite "Waku Store - query handler legacy":
       response.messages == @[msg]
 
     ## Cleanup
-    info "check point" # log added to track flaky test
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
-    info "check point" # log added to track flaky test
 
   asyncTest "history query handler should be called and return an error":
-    info "check point" # log added to track flaky test
     ## Setup
     let
       serverSwitch = newTestSwitch()
       clientSwitch = newTestSwitch()
 
     await allFutures(serverSwitch.start(), clientSwitch.start())
-    info "check point" # log added to track flaky test
 
     ## Given
     let serverPeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
@@ -103,10 +93,8 @@ suite "Waku Store - query handler legacy":
       requestId: "reqId",
     )
 
-    info "check point" # log added to track flaky test
     ## When
     let queryRes = await client.query(req, peer = serverPeerInfo)
-    info "check point" # log added to track flaky test
 
     ## Then
     check:
@@ -122,6 +110,4 @@ suite "Waku Store - query handler legacy":
       error.kind == HistoryErrorKind.BAD_REQUEST
 
     ## Cleanup
-    info "check point" # log added to track flaky test
     await allFutures(serverSwitch.stop(), clientSwitch.stop())
-    info "check point" # log added to track flaky test
