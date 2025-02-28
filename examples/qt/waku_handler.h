@@ -14,7 +14,7 @@ private:
 public:
     WakuHandler() : QObject(), ctx(nullptr) {}
 
-    void initialize(const QString& jsonConfig, void* event_handler, void* userData) {
+    void initialize(const QString& jsonConfig, WakuCallBack event_handler, void* userData) {
         ctx = waku_new(jsonConfig.toUtf8().constData(), WakuCallBack(event_handler), userData);
         qDebug() << "Waku context initialized, ready to start.";
     }

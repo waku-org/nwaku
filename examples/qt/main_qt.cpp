@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
                                     \"dnsDiscoveryNameServers\": [\"8.8.8.8\", \"1.0.0.1\"] \
                                 }");
     
-    wakuHandler.initialize(jsonConfig, reinterpret_cast<void*>(event_handler), userData);
+    wakuHandler.initialize(jsonConfig, event_handler, userData);
 
     engine.rootContext()->setContextProperty("wakuHandler", &wakuHandler);
 
