@@ -377,24 +377,29 @@ suite "Waku Lightpush Client":
       # Then the response is negative
       check not publishResponse.isOk()
 
-    #[
-    asyncTest "Peer Selection for Lighpush":
+    asyncTest "Peer Selection for Lighpush with Reputation":
+      # add a peer that does not support the Lightpush protocol to the client's PeerManager
+      client.peerManager.addPeer(serverRemotePeerInfoFailsLightpush)
+
+      # try publishing via a failing peer
+      let publishResponse1 = await client.publishToAny(pubsubTopic, message)
+
+      check not publishResponse1.isOk()
+
       # add a peer that supports the Lightpush protocol to the client's PeerManager
       client.peerManager.addPeer(serverRemotePeerInfo) # supports Lightpush
-      client.peerManager.addPeer(serverRemotePeerInfoFailsLightpush) # does not support Lightpush
 
-      # FIXME: we expect the peer selection to select the peer that supports Lightpush
-      # Expected behavior: if the first selected peer does not support Lightpush
-      # (which should be the case for serverRemotePeerInfoFailsLightpush),
-      # then selectPeer tries again and selects serverRemotePeerInfo.
-      # Observed behavior: the test either fails of succeeds randomly
-      # hypothesis: selectPeer return the first random peer from the peer manager
-      # if it is serverRemotePeerInfo, the test succeeds, otherwise it fails
+      # try publishing again - this time another (good) peer will be selected
+      let publishResponse2 = await client.publishToAny(pubsubTopic, message)
 
-      let publishResponse = await client.publishToAny(pubsubTopic, message)
+      check publishResponse2.isOk()
 
-      # Log the publish response
-      echo "Publish response: ", publishResponse
+      when defined(reputation):
+        # the reputation of a failed peer is negative
+        check client.reputationManager.getReputation(
+          serverRemotePeerInfoFailsLightpush.peerId
+        ) == some(false)
 
-      check publishResponse.isOk()
-    ]#
+        # the reputation of a successful peer is positive
+        check client.reputationManager.getReputation(serverRemotePeerInfo.peerId) ==
+          some(true)
