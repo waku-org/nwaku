@@ -90,7 +90,11 @@ proc publish*(
   let msg_hash = computeMessageHash(pubsubTopic, message).to0xHex()
 
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  ?await wl.sendPushRequest(pushRequest, peer)
+  let pushResult = await wl.sendPushRequest(pushRequest, peer)
+  if pushResult.isErr:
+    when defined(reputation):
+      wl.reputationManager.setReputation(peer.peerId, some(false))
+    return err(pushResult.error)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
@@ -126,8 +130,7 @@ proc selectPeerForLightPush*(
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
 ): Future[WakuLightPushResult[string]] {.async, gcsafe.} =
-  ## This proc is similar to the publish one but in this case
-  ## we don't specify a particular peer and instead we get it from peer manager
+  ## Publish a message via a peer that we get from the peer manager
 
   info "publishToAny", msg_hash = computeMessageHash(pubSubTopic, message).to0xHex
 
