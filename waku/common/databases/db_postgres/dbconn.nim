@@ -237,46 +237,10 @@ proc isSecureString(input: string): bool =
 
 proc convertQueryToMetricLabel(query: string): string =
   ## Simple query categorization. The output label is the one that should be used in query metrics
-  if query.contains("contentTopic IN"):
-    return ContentTopicQuery
-  elif query.contains("SELECT version()"):
-    return SelectVersionQuery
-  elif query.contains("WITH min_timestamp"):
-    return MessagesLookupQuery
-  elif query.contains(
-    "SELECT messageHash FROM messages WHERE pubsubTopic = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC, messageHash DESC LIMIT ?"
-  ):
-    return MsgHashWithoutContentTopicQuery
-  elif query.contains("AS partition_name"):
-    return GetPartitionsListQuery
-  elif query.contains("SELECT COUNT(1) FROM messages"):
-    return CountMsgsQuery
-  elif query.contains(
-    "SELECT messageHash FROM messages WHERE (timestamp, messageHash) < (?,?) AND pubsubTopic = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC, messageHash DESC LIMIT ?"
-  ):
-    return MsgHashWithCursorQuery
-  elif query.contains("SELECT pg_database_size(current_database())"):
-    return GetDatabaseSizeQuery
-  elif query.contains("DELETE FROM messages_lookup WHERE timestamp"):
-    return DeleteFromMessagesLookupQuery
-  elif query.contains("DROP TABLE messages_"):
-    return DropPartitionTableQuery
-  elif query.contains("ALTER TABLE messages DETACH PARTITION"):
-    return DetachPartitionQuery
-  elif query.contains("SELECT pg_size_pretty(pg_total_relation_size(C.oid))"):
-    return GetPartitionSizeQuery
-  elif query.contains("pg_try_advisory_lock"):
-    return TryAdvisoryLockQuery
-  elif query.contains(
-    "SELECT messageHash FROM messages ORDER BY timestamp DESC, messageHash DESC LIMIT ?"
-  ):
-    return GetAllMsgHashQuery
-  elif query.contains("SELECT pg_advisory_unlock"):
-    return AdvisoryUnlockQuery
-  elif query.contains("ANALYZE messages"):
-    return AnalyzeMessagesQuery
-  elif query.contains("SELECT EXISTS"):
-    return CheckVersionTableExistsQuery
+  for snippetQuery, metric in QueriesToMetricMap.pairs():
+    if query.contains($snippetQuery):
+      return $metric
+  return "unknown_query_metric"
 
 proc dbConnQuery*(
     dbConnWrapper: DbConnWrapper,
