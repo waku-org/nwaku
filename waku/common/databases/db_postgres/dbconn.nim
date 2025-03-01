@@ -182,12 +182,15 @@ proc waitQueryToFinish(
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
-  asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
-    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
-    return err("failed to add event reader in waitQueryToFinish: " & $error)
-  defer:
-    asyncengine.removeReader2(asyncFd).isOkOr:
-      return err("failed to remove event reader in waitQueryToFinish: " & $error)
+  when not defined(windows):
+    asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
+      dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
+      return err("failed to add event reader in waitQueryToFinish: " & $error)
+    defer:
+      asyncengine.removeReader2(asyncFd).isOkOr:
+        return err("failed to remove event reader in waitQueryToFinish: " & $error)
+  else:
+    return err("Postgres not supported on Windows")
 
   await futDataAvailable
 
