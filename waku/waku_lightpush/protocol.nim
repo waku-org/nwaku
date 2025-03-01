@@ -71,7 +71,7 @@ proc handleRequest*(
       peer_id = peerId,
       requestId = pushRequest.requestId,
       pubsubTopic = pushRequest.pubsubTopic,
-      msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex()
+      msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex(),
       receivedTime = getNowInNanosecondTime()
 
     let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
