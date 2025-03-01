@@ -107,7 +107,7 @@ proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
 
 # Every Nim library must have this function called - the name is derived from
 # the `--nimMainPrefix` command line option
-proc NimMain() {.importc.}
+proc libwakuNimMain() {.importc.}
 
 # To control when the library has been initialized
 var initialized: Atomic[bool]
@@ -122,7 +122,7 @@ if defined(android):
 
 proc initializeLibrary() {.exported.} =
   if not initialized.exchange(true):
-    NimMain() # Every Nim library needs to call `NimMain` once exactly
+    libwakuNimMain() # Every Nim library needs to call `NimMain` once exactly
   when declared(setupForeignThreadGc):
     setupForeignThreadGc()
   when declared(nimGC_setStackBottom):
