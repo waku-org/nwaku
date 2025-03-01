@@ -70,7 +70,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   let node = builder.build().tryGet()
 
   node.mountMetadata(clusterId).expect("failed to mount waku metadata protocol")
-  node.mountLightPushClient()
+  node.mountLegacyLightPushClient()
 
   await node.start()
   node.peerManager.start()
@@ -87,8 +87,9 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
 
     let lightpushPeer = parsePeerInfo(LightpushPeer).get()
 
-    let res =
-      await node.lightpushPublish(some(LightpushPubsubTopic), message, lightpushPeer)
+    let res = await node.legacyLightpushPublish(
+      some(LightpushPubsubTopic), message, lightpushPeer
+    )
 
     if res.isOk:
       notice "published message",

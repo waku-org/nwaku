@@ -5,7 +5,7 @@
 {.push raises: [].}
 
 import
-  std/strformat,
+  std/[strformat, strutils],
   stew/byteutils,
   results,
   sequtils,
@@ -13,7 +13,6 @@ import
   chronicles,
   metrics,
   libp2p/multihash,
-  libp2p/protocols/pubsub/pubsub,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/pubsub/rpc/messages,
   libp2p/stream/connection,
@@ -135,6 +134,13 @@ type
     topicsHealth*: Table[string, TopicHealth]
     onTopicHealthChange*: TopicHealthChangeHandler
     topicHealthLoopHandle*: Future[void]
+
+# predefinition for more detailed results from publishing new message
+type PublishOutcome* {.pure.} = enum
+  NoTopicSpecified
+  DuplicateMessage
+  NoPeersToPublish
+  CannotGenerateMessageId
 
 proc initProtocolHandler(w: WakuRelay) =
   proc handler(conn: Connection, proto: string) {.async.} =
@@ -514,7 +520,10 @@ proc unsubscribe*(w: WakuRelay, pubsubTopic: PubsubTopic, handler: TopicHandler)
 
 proc publish*(
     w: WakuRelay, pubsubTopic: PubsubTopic, message: WakuMessage
-): Future[int] {.async.} =
+): Future[Result[int, PublishOutcome]] {.async.} =
+  if pubsubTopic.isEmptyOrWhitespace():
+    return err(NoTopicSpecified)
+
   let data = message.encode().buffer
 
   let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
@@ -522,11 +531,13 @@ proc publish*(
 
   let relayedPeerCount = await procCall GossipSub(w).publish(pubsubTopic, data)
 
-  if relayedPeerCount > 0:
-    for obs in w.publishObservers:
-      obs.onMessagePublished(pubSubTopic, message)
+  if relayedPeerCount <= 0:
+    return err(NoPeersToPublish)
 
-  return relayedPeerCount
+  for obs in w.publishObservers:
+    obs.onMessagePublished(pubSubTopic, message)
+
+  return ok(relayedPeerCount)
 
 proc getNumConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic
