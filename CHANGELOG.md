@@ -1,4 +1,4 @@
-## v0.35.0 (2025-02-06)
+## v0.35.0 (2025-03-03)
 
 ### Notes
 
@@ -55,6 +55,7 @@
 
 ### Changes
 
+- more efficient metrics usage ([#3298](https://github.com/waku-org/nwaku/issues/3298)) ([6f004d5d4](https://github.com/waku-org/nwaku/commit/6f004d5d4))
 - filter refactor subscription management and react when the remote peer closes the stream. See the following commits in chronological order:
   - issue: [#3281](https://github.com/waku-org/nwaku/issues/3281) commit: [5392b8ea4](https://github.com/waku-org/nwaku/commit/5392b8ea4)
   - issue: [#3198](https://github.com/waku-org/nwaku/issues/3198) commit: [287e9b12c](https://github.com/waku-org/nwaku/commit/287e9b12c)
