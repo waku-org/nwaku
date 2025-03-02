@@ -44,6 +44,10 @@ contract(WakuRlnContract):
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
+  # this function returns the merkleProof for a given index
+  proc merkleProofElements(index: Uint256): seq[Uint256] {.view.}
+  # this function returns the current Merkle root of the on-chain Merkle tree
+  proc root(): UInt256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -66,6 +70,30 @@ type
     validRootBuffer*: Deque[MerkleNode]
     # interval loop to shut down gracefully
     blockFetchingActive*: bool
+    merkleProofCache*: Table[Uint256, seq[Uint256]]
+
+type Witness* = object ## Represents the custom witness for generating an RLN proof
+  identity_secret*: seq[byte] # Identity secret (private key)
+  identity_nullifier*: seq[byte] # Identity nullifier
+  merkle_proof*: seq[Uint256] # Merkle proof elements (retrieved from the smart contract)
+  external_nullifier*: Epoch # Epoch (external nullifier)
+  signal*: seq[byte] # Message data (signal)
+  message_id*: MessageId # Message ID (used for rate limiting)
+  rln_identifier*: RlnIdentifier # RLN identifier (default value provided)
+
+proc SerializeWitness*(witness: Witness): seq[byte] =
+  ## Serializes the witness into a byte array
+  var buffer: seq[byte]
+  buffer.add(witness.identity_secret)
+  buffer.add(witness.identity_nullifier)
+  for element in witness.merkle_proof:
+    buffer.add(element.toBytesBE()) # Convert Uint256 to big-endian bytes
+  buffer.add(witness.external_nullifier)
+  buffer.add(uint8(witness.signal.len)) # Add signal length as a single byte
+  buffer.add(witness.signal)
+  buffer.add(toBytesBE(witness.message_id))
+  buffer.add(witness.rln_identifier)
+  return buffer
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -88,6 +116,21 @@ template retryWrapper(
 ): auto =
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
+
+proc fetchMerkleRootFromContract(g: OnchainGroupManager): Future[UInt256] {.async.} =
+  ## Fetches the latest Merkle root from the smart contract
+  let contract = g.wakuRlnContract.get()
+  let rootInvocation = contract.root() # This returns a ContractInvocation
+  let root =
+    await rootInvocation.call() # Convert ContractInvocation to Future and await
+  return root
+
+proc cacheMerkleProofs*(g: OnchainGroupManager, index: Uint256) {.async.} =
+  ## Fetches and caches the Merkle proof elements for a given index
+  let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+  let merkleProof =
+    await merkleProofInvocation.call() # Await the contract call and extract the result
+  g.merkleProofCache[index] = merkleProof
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -225,6 +268,52 @@ method withdrawBatch*(
     g: OnchainGroupManager, idCommitments: seq[IDCommitment]
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
+
+method generateProof*(
+    g: OnchainGroupManager,
+    data: openArray[byte],
+    epoch: Epoch,
+    messageId: MessageId,
+    rlnIdentifier = DefaultRlnIdentifier,
+): GroupManagerResult[RateLimitProof] {.gcsafe, raises: [].} =
+  ## Generates an RLN proof using the cached Merkle proof and custom witness
+  # Ensure identity credentials and membership index are set
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  if g.userMessageLimit.isNone():
+    return err("user message limit is not set")
+
+  # Retrieve the cached Merkle proof for the membership index
+  let index = g.membershipIndex.get()
+  let merkleProof = g.merkleProofCache.getOrDefault(stuint(uint64(index), 256))
+  if merkleProof.len == 0:
+    return err("Merkle proof not found in cache")
+
+  # Prepare the witness
+  let witness = Witness(
+    identity_secret: g.idCredentials.get().idSecretHash,
+    identity_nullifier: g.idCredentials.get().idNullifier,
+    merkle_proof: merkleProof,
+    external_nullifier: epoch,
+    signal: toSeq(data),
+    message_id: messageId,
+    rln_identifier: rlnIdentifier,
+  )
+  let serializedWitness = SerializeWitness(witness)
+  var inputBuffer = toBuffer(serializedWitness)
+
+  # Generate the proof using the new zerokit API
+  var outputBuffer: Buffer
+  let success =
+    generate_proof_with_witness(g.rlnInstance, addr inputBuffer, addr outputBuffer)
+  if not success:
+    return err("Failed to generate proof")
+
+  # Convert the output buffer to a RateLimitProof
+  let proof = RateLimitProof(outputBuffer)
+  return ok(proof)
 
     # TODO: after slashing is enabled on the contract, use atomicBatch internally
 
