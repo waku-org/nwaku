@@ -130,6 +130,20 @@ proc generate_proof*(
 ## integers wrapped in <> indicate value sizes in bytes
 ## the return bool value indicates the success or failure of the operation
 
+proc generate_proof_with_witness*(
+  ctx: ptr RLN, input_buffer: ptr Buffer, output_buffer: ptr Buffer
+): bool {.importc: "generate_rln_proof_with_witness".}
+
+## rln-v2
+## input_buffer has to be serialized as [ identity_secret<32> | user_message_limit<32> | message_id<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | external_nullifier<32> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+## rln-v1
+## input_buffer has to be serialized as [ id_key<32> | path_elements<Vec<32>> | identity_path_index<Vec<1>> | x<32> | epoch<32> | rln_identifier<32> ]
+## output_buffer holds the proof data and should be parsed as [ proof<128> | root<32> | epoch<32> | share_x<32> | share_y<32> | nullifier<32> | rln_identifier<32> ]
+## integers wrapped in <> indicate value sizes in bytes
+## path_elements and identity_path_index serialize a merkle proof and are vectors of elements of 32 and 1 bytes respectively
+## the return bool value indicates the success or failure of the operation
+
 proc verify*(
   ctx: ptr RLN, proof_buffer: ptr Buffer, proof_is_valid_ptr: ptr bool
 ): bool {.importc: "verify_rln_proof".}
