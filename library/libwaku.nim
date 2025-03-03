@@ -122,7 +122,9 @@ if defined(android):
 
 proc initializeLibrary() {.exported.} =
   if not initialized.exchange(true):
-    libwakuNimMain() # Every Nim library needs to call `NimMain` once exactly
+    ## Every Nim library needs to call `<yourprefix>NimMain` once exactly, to initialize the Nim runtime.
+    ## Being `<yourprefix>` the value given in the optional compilation flag --nimMainPrefix:yourprefix
+    libwakuNimMain()
   when declared(setupForeignThreadGc):
     setupForeignThreadGc()
   when declared(nimGC_setStackBottom):
