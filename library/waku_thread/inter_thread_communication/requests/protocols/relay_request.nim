@@ -116,7 +116,7 @@ proc process*(
     let pubsubTopic = $self.pubsubTopic
 
     (await waku.node.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
-      let errorMsg = "Message not sent." & errorMsg
+      let errorMsg = "Message not sent." & $error
       error "PUBLISH failed", error = errorMsg
       return err(errorMsg)
 
