@@ -47,7 +47,7 @@ proc handleRequest*(
     let pubsubTopic = pushRequest.pubSubTopic.valueOr:
       wl.sharding.getShard(pushRequest.message.contentTopic).valueOr:
         let msg = "Autosharding error: " & error
-        error "lightpush request handling error", msg = msg
+        error "lightpush request handling error", error = msg
         return LightpushResponse(
           requestId: pushRequest.requestId,
           statusCode: LightpushStatusCode.INTERNAL_SERVER_ERROR.uint32,
