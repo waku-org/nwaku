@@ -44,9 +44,9 @@ proc sendPushRequest(
   try:
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
-    error "Failed to read responose from peer", exception = getCurrentExceptionMsg()
+    error "Failed to read responose from peer", error = getCurrentExceptionMsg()
     return lightpushResultInternalError(
-      "Failed to read responose from peer " & getCurrentExceptionMsg()
+      "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
 
   let response = LightpushResponse.decode(buffer).valueOr:
@@ -57,7 +57,7 @@ proc sendPushRequest(
   if response.requestId != req.requestId and
       response.statusCode != TOO_MANY_REQUESTS.uint32:
     error "response failure, requestId mismatch",
-      requestId = req.requestId, responseReqeustId = response.requestId
+      requestId = req.requestId, responseRequestId = response.requestId
     return lightpushResultInternalError("response failure, requestId mismatch")
 
   return toPushResult(response)
@@ -96,7 +96,7 @@ proc publishToAny*(
   info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
 
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
-    # TODO: check if it is matches the situation
+    # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
 
   let pushRequest = LightpushRequest(

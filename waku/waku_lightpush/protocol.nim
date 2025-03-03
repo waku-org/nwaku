@@ -26,7 +26,7 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: RequestRateLimiter
-  sharding*: Sharding
+  sharding: Sharding
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
@@ -45,7 +45,16 @@ proc handleRequest*(
     let pushRequest = reqDecodeRes.get()
 
     let pubsubTopic = pushRequest.pubSubTopic.valueOr:
-      wl.sharding.getShard(pushRequest.message.contentTopic).valueOr:
+      let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
+        let msg = "Invalid content-topic:" & $error
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightpushStatusCode.INVALID_MESSAGE_ERROR.uint32,
+          statusDesc: some(msg),
+        )
+
+      wl.sharding.getShard(parsedTopic).valueOr:
         let msg = "Autosharding error: " & error
         error "lightpush request handling error", error = msg
         return LightpushResponse(
@@ -57,7 +66,7 @@ proc handleRequest*(
     # ensure checking topic will not cause error at gossipsub level
     if pubsubTopic.isEmptyOrWhitespace():
       let msg = "topic must not be empty"
-      error "lightpush request handling error", msg = msg
+      error "lightpush request handling error", error = msg
       return LightPushResponse(
         requestId: pushRequest.requestId,
         statusCode: LightpushStatusCode.BAD_REQUEST.uint32,

@@ -173,7 +173,7 @@ proc processMessages(self: SendMonitor) {.async.} =
       debug "trying to publish again with wakuRelay", msgHash, pubsubTopic
       (await self.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
         error "could not publish with wakuRelay.publish",
-          msgHash, pubsubTopic, reason = $error
+          msgHash, pubsubTopic, error = $error
       continue
 
     if not self.wakuLightpushClient.isNil():

@@ -1171,11 +1171,16 @@ proc lightpushPublish*(
     else:
       return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
 
-  let pubsubForPublish = pubsubTopic.valueOr:
-    node.wakuSharding.getShard(message.contentTopic).valueOr:
+  let pubsubForPublish = pubSubTopic.valueOr:
+    let parsedTopic = NsContentTopic.parse(message.contentTopic).valueOr:
+      let msg = "Invalid content-topic:" & $error
+      error "lightpush request handling error", error = msg
+      return lighpushErrorResult(INVALID_MESSAGE_ERROR, msg)
+
+    node.wakuSharding.getShard(parsedTopic).valueOr:
       let msg = "Autosharding error: " & error
-      error "lightpush publish error", msg = msg
-      return lighpushErrorResult(UNSUPPORTED_PUBSUB_TOPIC, msg)
+      error "lightpush publish error", error = msg
+      return lighpushErrorResult(INTERNAL_SERVER_ERROR, msg)
 
   return await lightpushPublishHandler(node, pubsubForPublish, message, toPeer)
 
