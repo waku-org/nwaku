@@ -311,9 +311,46 @@ method generateProof*(
   if not success:
     return err("Failed to generate proof")
 
-  # Convert the output buffer to a RateLimitProof
-  let proof = RateLimitProof(outputBuffer)
-  return ok(proof)
+
+  # Parse the proof into a RateLimitProof object
+  var proofValue = cast[ptr array[320, byte]](outputBuffer.`ptr`)
+  let proofBytes: array[320, byte] = proofValue[]
+  debug "proof content", proofHex = proofValue[].toHex
+
+  ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+  let
+    proofOffset = 128
+    rootOffset = proofOffset + 32
+    externalNullifierOffset = rootOffset + 32
+    shareXOffset = externalNullifierOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+
+  var
+    zkproof: ZKSNARK
+    proofRoot, shareX, shareY: MerkleNode
+    externalNullifier: ExternalNullifier
+    nullifier: Nullifier
+
+  discard zkproof.copyFrom(proofBytes[0 .. proofOffset - 1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset .. rootOffset - 1])
+  discard externalNullifier.copyFrom(proofBytes[rootOffset .. externalNullifierOffset - 1])
+  discard shareX.copyFrom(proofBytes[externalNullifierOffset .. shareXOffset - 1])
+  discard shareY.copyFrom(proofBytes[shareXOffset .. shareYOffset - 1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset .. nullifierOffset - 1])
+
+  # Create the RateLimitProof object
+  let output = RateLimitProof(
+    proof: zkproof,
+    merkleRoot: proofRoot,
+    externalNullifier: externalNullifier,
+    epoch: epoch,
+    rlnIdentifier: rlnIdentifier,
+    shareX: shareX,
+    shareY: shareY,
+    nullifier: nullifier,
+  )
+  return ok(output)
 
     # TODO: after slashing is enabled on the contract, use atomicBatch internally
 
