@@ -1,4 +1,4 @@
-import metrics
+import metrics, tables
 
 declarePublicGauge query_time_secs,
   "query time measured in nanoseconds", labels = ["query", "phase"]
@@ -7,7 +7,7 @@ declarePublicCounter query_count,
   "number of times a query is being performed", labels = ["query"]
 
 ## Maps parts of the possible known queries with a fixed and shorter query label.
-const QueriesToMetricMap* = {
+const QueriesToMetricMap* = toTable({
   "contentTopic IN": "content_topic",
   "SELECT version()": "select_version",
   "WITH min_timestamp": "messages_lookup",
@@ -28,4 +28,4 @@ const QueriesToMetricMap* = {
   "SELECT pg_advisory_unlock": "advisory_unlock",
   "ANALYZE messages": "analyze_messages",
   "SELECT EXISTS": "check_version_table_exists",
-}
+})
