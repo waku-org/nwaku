@@ -233,10 +233,10 @@ proc isSecureString(input: string): bool =
 
   return true
 
-proc convertQueryToMetricLabel(query: string): string =
+proc convertQueryToMetricLabel*(query: string): string =
   ## Simple query categorization. The output label is the one that should be used in query metrics
   for snippetQuery, metric in QueriesToMetricMap.pairs():
-    if query.contains($snippetQuery):
+    if $snippetQuery in query:
       return $metric
   return "unknown_query_metric"
 
