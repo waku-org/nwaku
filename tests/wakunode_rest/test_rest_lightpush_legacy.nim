@@ -272,7 +272,7 @@ suite "Waku v2 Rest API - lightpush":
 
       let endTime = Moment.now()
       let elapsed: Duration = (endTime - startTime)
-      await sleepAsync(tokenPeriod - elapsed)
+      await sleepAsync(tokenPeriod - elapsed + 10.millis)
 
     await restLightPushTest.shutdown()
 
