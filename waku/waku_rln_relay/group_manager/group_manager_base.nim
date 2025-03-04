@@ -175,7 +175,7 @@ method verifyProof*(
 
 method generateProof*(
     g: GroupManager,
-    data: openArray[byte],
+    data: seq[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
