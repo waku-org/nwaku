@@ -14,7 +14,7 @@ import
   ./rpc_codec
 
 logScope:
-  topics = "waku lightpush client"
+  topics = "waku lightpush legacy client"
 
 type WakuLegacyLightPushClient* = ref object
   peerManager*: PeerManager

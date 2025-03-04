@@ -11,7 +11,7 @@ import
   ../common/rate_limit/request_limiter
 
 logScope:
-  topics = "waku lightpush"
+  topics = "waku lightpush legacy"
 
 type WakuLegacyLightPush* = ref object of LPProtocol
   rng*: ref rand.HmacDrbgContext
