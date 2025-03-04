@@ -70,29 +70,6 @@ type
     blockFetchingActive*: bool
     merkleProofsByIndex*: Table[Uint256, seq[Uint256]]
 
-type Witness* = object ## Represents the custom witness for generating an RLN proof
-  identity_secret*: seq[byte] # Identity secret (private key)
-  identity_nullifier*: seq[byte] # Identity nullifier
-  merkle_proof*: seq[Uint256] # Merkle proof elements (retrieved from the smart contract)
-  external_nullifier*: Epoch # Epoch (external nullifier)
-  signal*: seq[byte] # Message data (signal)
-  message_id*: MessageId # Message ID (used for rate limiting)
-  rln_identifier*: RlnIdentifier # RLN identifier (default value provided)
-
-proc SerializeWitness*(witness: Witness): seq[byte] =
-  ## Serializes the witness into a byte array
-  var buffer: seq[byte]
-  buffer.add(witness.identity_secret)
-  buffer.add(witness.identity_nullifier)
-  for element in witness.merkle_proof:
-    buffer.add(element.toBytesBE()) # Convert Uint256 to big-endian bytes
-  buffer.add(witness.external_nullifier)
-  buffer.add(uint8(witness.signal.len)) # Add signal length as a single byte
-  buffer.add(witness.signal)
-  buffer.add(toBytesBE(witness.message_id))
-  buffer.add(witness.rln_identifier)
-  return buffer
-
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
 
