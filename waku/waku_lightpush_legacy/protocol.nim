@@ -42,7 +42,7 @@ proc handleRequest*(
 
       pubSubTopic = request.get().pubSubTopic
       message = request.get().message
-    waku_legacy_lightpush_messages.inc(labelValues = ["PushRequest"])
+    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
     notice "handling lightpush request",
       peer_id = peerId,
       requestId = requestId,
@@ -55,7 +55,7 @@ proc handleRequest*(
     pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
 
   if not isSuccess:
-    waku_legacy_lightpush_errors.inc(labelValues = [pushResponseInfo])
+    waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
     error "failed to push message", error = pushResponseInfo
   let response = PushResponse(isSuccess: isSuccess, info: some(pushResponseInfo))
   let rpc = PushRPC(requestId: requestId, response: some(response))

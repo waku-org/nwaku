@@ -73,7 +73,7 @@ proc handleRequest*(
         statusDesc: some(msg),
       )
 
-    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
     notice "handling lightpush request",
       my_peer_id = wl.peerManager.switch.peerInfo.peerId,
@@ -101,7 +101,7 @@ proc handleRequest*(
     )
 
   if not isSuccess:
-    waku_lightpush_errors.inc(
+    waku_lightpush_v3_errors.inc(
       labelValues = [pushResponse.statusDesc.valueOr("unknown")]
     )
     error "failed to push message", error = pushResponse.statusDesc

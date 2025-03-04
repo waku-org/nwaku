@@ -13,14 +13,11 @@ import ../../../waku_core, ../serdes, ../responses, ../rest_serdes, ./types
 
 export types
 
-logScope:
-  topics = "waku node rest client v2"
-
 proc encodeBytes*(value: PushRequest, contentType: string): RestResult[seq[byte]] =
   return encodeBytesOf(value, contentType)
 
 proc sendPushRequest*(
   body: PushRequest
 ): RestResponse[PushResponse] {.
-  rest, endpoint: "/lightpush/v2/message", meth: HttpMethod.MethodPost
+  rest, endpoint: "/lightpush/v3/message", meth: HttpMethod.MethodPost
 .}

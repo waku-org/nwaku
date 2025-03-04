@@ -58,7 +58,7 @@ proc makeRestResponse(response: WakuLightPushResult): RestApiResponse =
   return restResp
 
 #### Request handlers
-const ROUTE_LIGHTPUSH = "/lightpush/v2/message"
+const ROUTE_LIGHTPUSH = "/lightpush/v3/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
