@@ -116,6 +116,20 @@ proc serialize*(memIndices: seq[MembershipIndex]): seq[byte] =
 
   return memIndicesBytes
 
+proc serialize*(witness: Witness): seq[byte] =
+  ## Serializes the witness into a byte array
+  var buffer: seq[byte]
+  buffer.add(witness.identity_secret)
+  buffer.add(witness.identity_nullifier)
+  for element in witness.merkle_proof:
+    buffer.add(element.toBytesBE()) # Convert Uint256 to big-endian bytes
+  buffer.add(witness.external_nullifier)
+  buffer.add(uint8(witness.signal.len)) # Add signal length as a single byte
+  buffer.add(witness.signal)
+  buffer.add(toBytesBE(witness.message_id))
+  buffer.add(witness.rln_identifier)
+  return buffer
+
 proc toEpoch*(t: uint64): Epoch =
   ## converts `t` to `Epoch` in little-endian order
   let bytes = toBytes(t, Endianness.littleEndian)
