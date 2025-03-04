@@ -241,7 +241,7 @@ method withdrawBatch*(
 
 method generateProof*(
     g: OnchainGroupManager,
-    data: openArray[byte],
+    data: seq[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
@@ -271,11 +271,11 @@ method generateProof*(
     identity_nullifier: g.idCredentials.get().idNullifier,
     merkle_proof: merkleProof,
     external_nullifier: epoch,
-    signal: toSeq(data),
+    signal: data,
     message_id: messageId,
     rln_identifier: rlnIdentifier,
   )
-  let serializedWitness = SerializeWitness(witness)
+  let serializedWitness = serialize(witness)
   var inputBuffer = toBuffer(serializedWitness)
 
   # Generate the proof using the new zerokit API
