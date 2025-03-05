@@ -1,54 +1,6 @@
-#!/bin/bash
+#!/bin/sh
 
-
-# 1. Install Git Bash terminal  
-#    Download and install it from: https://git-scm.com/download/win  
-#  
-# 2. Install MSYS2  
-#    a. Download the installer from: https://www.msys2.org  
-#    b. Run the installer and make sure it's installed at "C:\" because we explicitly set the PATH accordingly (NOTE: the default location is C:\).  
-#    c. The msys64 directory contains multiple terminals; you need to use the mingw terminal to install all packages and libraries.  
-#  
-# 3. Open the MSYS2 mingw64 terminal and run the following commands to install the required dependencies:  
-#  
-#    pacman -Syu --noconfirm  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
-#    pacman -S --noconfirm --needed base-devel  
-#    pacman -S --noconfirm --needed make  
-#    pacman -S --noconfirm --needed cmake  
-#    pacman -S --noconfirm --needed upx  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
-#    pacman -S --noconfirm --needed mingw-w64-x86_64-python  
-#  
-# 4. Run the Script  
-#    Open Git Bash with administrative privileges and run the required script.  
-#  
-# 5. If multiple commands fail at the end, there may be an issue. 
-#  
-# 6. Troubleshooting: Build Issues  
-#    If "wakunode2.exe" is not generated, there could be different issues.  
-#  
-#    1. Missing required dependencies  
-#       - Check if they are installed by running:  
-#         ``which make cmake gcc g++ rustc cargo python3 upx``
-#       
-#       - If any dependency is missing, you may have skipped a package in Step 3 or installed MSYS2 in a location other than the C: drive.
-#
-#    2. Conflicts with a previous installation  
-#       - Remove any existing MinGW installations.  
-#       - If you already have MSYS2 and Git Bash installed, remove them and perform a fresh installation.  
-#
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
-echo "Windows Setup Script"
-echo "===================="
+echo "- - - - - - - - - - Windows Setup Script - - - - - - - - - -"
 
 success_count=0
 failure_count=0
