@@ -1009,10 +1009,10 @@ proc mountLightPush*(
 
   node.switch.mount(node.wakuLightPush, protocolMatcher(WakuLightPushCodec))
 
-proc mountLightPushClient*(node: WakuNode) =
+proc mountLightPushClient*(node: WakuNode, reputationEnabled: bool = false) =
   info "mounting light push client"
 
-  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng)
+  node.wakuLightpushClient = WakuLightPushClient.new(node.peerManager, node.rng, reputationEnabled)
 
 proc lightpushPublish*(
     node: WakuNode,

@@ -496,6 +496,14 @@ hence would have reachability issues.""",
       name: "lightpushnode"
     .}: string
 
+    ## Reputation config
+    ## FIXME: should be set to false by default
+    reputationEnabled* {.
+      desc: "Enable client-side reputation for light protocols: true|false",
+      defaultValue: true,
+      name: "reputation"
+    .}: bool
+
     ## Reliability config
     reliabilityEnabled* {.
       desc:

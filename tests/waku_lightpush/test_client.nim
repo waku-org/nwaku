@@ -75,7 +75,8 @@ suite "Waku Lightpush Client":
     server = await newTestWakuLightpushNode(serverSwitch, handler)
     serverFailsLightpush =
       await newTestWakuLightpushNode(serverSwitchFailsLightpush, handlerFailsLightpush)
-    client = newTestWakuLightpushClient(clientSwitch)
+    ## FIXME: how to pass reputationEnabled from config to here? should we?
+    client = newTestWakuLightpushClient(clientSwitch, reputationEnabled = true)
 
     await allFutures(
       serverSwitch.start(), serverSwitchFailsLightpush.start(), clientSwitch.start()
@@ -330,8 +331,8 @@ suite "Waku Lightpush Client":
       # Then the response is positive
       assertResultOk publishResponse
 
-      when defined(reputation):
-        check client.reputationManager.getReputation(serverRemotePeerInfo.peerId) ==
+      if client.reputationManager.isSome:
+        check client.reputationManager.get().getReputation(serverRemotePeerInfo.peerId) ==
           some(true)
 
     # TODO: Improve: Add more negative responses variations
@@ -351,8 +352,8 @@ suite "Waku Lightpush Client":
       # Then the response is negative
       check not publishResponse.isOk()
 
-      when defined(reputation):
-        check client.reputationManager.getReputation(
+      if client.reputationManager.isSome:
+        check client.reputationManager.get().getReputation(
           serverRemotePeerInfoFailsLightpush.peerId
         ) == some(false)
 
@@ -386,6 +387,9 @@ suite "Waku Lightpush Client":
 
       check not publishResponse1.isOk()
 
+      if client.reputationManager.isSome:
+        client.reputationManager.get().setReputation(serverRemotePeerInfoFailsLightpush.peerId, some(false))
+
       # add a peer that supports the Lightpush protocol to the client's PeerManager
       client.peerManager.addPeer(serverRemotePeerInfo) # supports Lightpush
 
@@ -394,12 +398,15 @@ suite "Waku Lightpush Client":
 
       check publishResponse2.isOk()
 
-      when defined(reputation):
+      if client.reputationManager.isSome:
+        client.reputationManager.get().setReputation(serverRemotePeerInfo.peerId, some(true))
+
+      if client.reputationManager.isSome:
         # the reputation of a failed peer is negative
-        check client.reputationManager.getReputation(
+        check client.reputationManager.get().getReputation(
           serverRemotePeerInfoFailsLightpush.peerId
         ) == some(false)
 
         # the reputation of a successful peer is positive
-        check client.reputationManager.getReputation(serverRemotePeerInfo.peerId) ==
+        check client.reputationManager.get().getReputation(serverRemotePeerInfo.peerId) ==
           some(true)

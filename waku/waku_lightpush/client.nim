@@ -20,21 +20,18 @@ logScope:
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
   rng*: ref rand.HmacDrbgContext
-  reputationManager*: ReputationManager
+  reputationManager*: Option[ReputationManager]
   publishObservers: seq[PublishObserver]
 
 proc new*(
     T: type WakuLightPushClient,
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
-    reputationManager: Option[ReputationManager] = none(ReputationManager),
+    reputationManager: Option[ReputationManager],
 ): T =
-  if reputationManager.isSome:
-    WakuLightPushClient(
-      peerManager: peerManager, rng: rng, reputationManager: reputationManager.get()
-    )
-  else:
-    WakuLightPushClient(peerManager: peerManager, rng: rng)
+  WakuLightPushClient(
+    peerManager: peerManager, rng: rng, reputationManager: reputationManager
+  )
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)
@@ -75,8 +72,8 @@ proc sendPushRequest(
     else:
       return err("unknown failure")
 
-  when defined(reputation):
-    wl.reputationManager.updateReputationFromResponse(peer.peerId, response)
+  if wl.reputationManager.isSome:
+    wl.reputationManager.get().updateReputationFromResponse(peer.peerId, response)
 
   return ok()
 
@@ -92,8 +89,8 @@ proc publish*(
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
   let pushResult = await wl.sendPushRequest(pushRequest, peer)
   if pushResult.isErr:
-    when defined(reputation):
-      wl.reputationManager.setReputation(peer.peerId, some(false))
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
     return err(pushResult.error)
 
   for obs in wl.publishObservers:
@@ -110,29 +107,27 @@ proc publish*(
 proc selectPeerForLightPush*(
     wl: WakuLightPushClient
 ): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
-  ## If reputation flag is defined, try to ensure the selected peer is not bad-rep.
-  ## Repeat peer selection until either maxAttempts is exceeded,
-  ## or a good-rep or neutral-rep peer is found.
-  ## Note: this procedure CAN return a bad-rep peer if maxAttempts is exceeded.
   let maxAttempts = if defined(reputation): 10 else: 1
   var attempts = 0
   var peerResult: Result[RemotePeerInfo, string]
   while attempts < maxAttempts:
     let candidate = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
       return err("could not retrieve a peer supporting WakuLightPushCodec")
-    if not (wl.reputationManager.getReputation(candidate.peerId) == some(false)):
-      return ok(candidate)
-    attempts += 1
+    if wl.reputationManager.isSome():
+      let reputation = wl.reputationManager.get().getReputation(candidate.peerId)
+      info "Peer selected", peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
+      if (reputation == some(false)):
+        attempts += 1
+        continue
+    return ok(candidate)
   warn "Maximum reputation-based retries exceeded; continuing with a bad-reputation peer."
-  # Return last candidate even if it has bad reputation
   return peerResult
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
 ): Future[WakuLightPushResult[string]] {.async, gcsafe.} =
-  ## Publish a message via a peer that we get from the peer manager
-
   info "publishToAny", msg_hash = computeMessageHash(pubSubTopic, message).to0xHex
-
   let peer = ?await wl.selectPeerForLightPush()
-  return await wl.publish(pubSubTopic, message, peer)
+  let publishResult = await wl.publish(pubSubTopic, message, peer)
+  info "Publish result", result = $publishResult
+  return publishResult
