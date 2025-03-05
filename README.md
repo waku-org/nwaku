@@ -58,11 +58,11 @@ If you encounter difficulties building the project on WSL, consider placing the 
 - **Git Bash Terminal**: Download and install from https://git-scm.com/download/win  
 - **MSYS2**:  
   a. Download installer from https://www.msys2.org  
-  b. Install at "C:\" (default location) for proper PATH configuration. (if you already have msys installtion at this location and remove it)
+  b. Install at "C:\" (default location). Remove/rename the msys folder in case of previous installation.
   c. Use the mingw64 terminal from msys64 directory for package installation.
 
 #### 2. Install Dependencies
-Open MSYS2 mingw64 terminal and run:
+Open MSYS2 mingw64 terminal and run the following one-by-one :
 ```bash
 pacman -Syu --noconfirm  
 pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
