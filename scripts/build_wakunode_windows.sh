@@ -17,42 +17,42 @@ execute_command() {
     fi
 }
 
-echo "0. -.-.-.-- Set PATH -.-.-.-"
+echo "1. -.-.-.-- Set PATH -.-.-.-"
 export PATH="/c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$PATH"
 
-echo "1. -.-.-.- Verify dependencies -.-.-.-"
+echo "2. -.-.-.- Verify dependencies -.-.-.-"
 execute_command "which gcc g++ make cmake cargo upx rustc python"
 
-echo "1. -.-.-.- Updating submodules -.-.-.-"
+echo "3. -.-.-.- Updating submodules -.-.-.-"
 execute_command "git submodule update --init --recursive"
 
-echo "2. -.-.-.- Creating tmp directory -.-.-.-"
+echo "4. -.-.-.- Creating tmp directory -.-.-.-"
 execute_command "mkdir -p tmp"
 
-echo "3. -.-.-.- Building Nim -.-.-.-"
+echo "5. -.-.-.- Building Nim -.-.-.-"
 cd vendor/nimbus-build-system/vendor/Nim
 execute_command "./build_all.bat"
 cd ../../../..
 
-echo "4. -.-.-.- Building libunwind -.-.-.-"
+echo "6. -.-.-.- Building libunwind -.-.-.-"
 cd vendor/nim-libbacktrace
 execute_command "make all V=1"
 execute_command "make install/usr/lib/libunwind.a V=1"
 cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
 cd ../../
 
-echo "5. -.-.-.- Building miniupnpc -.-.-.- "
+echo "7. -.-.-.- Building miniupnpc -.-.-.- "
 cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
 execute_command "git checkout little_chore_windows_support"
 execute_command "make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1"
 cd ../../../../..
 
-echo "6. -.-.-.- Building libnatpmp -.-.-.- "
+echo "8. -.-.-.- Building libnatpmp -.-.-.- "
 cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
 make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
 cd ../../../../
 
-echo "7. -.-.-.- Building wakunode2 -.-.-.- "
+echo "9. -.-.-.- Building wakunode2 -.-.-.- "
 execute_command "make wakunode2 LOG_LEVEL=DEBUG V=1 -j8"
 
 echo "Windows setup completed successfully!"

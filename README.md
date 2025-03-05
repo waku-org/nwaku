@@ -79,6 +79,7 @@ pacman -S --noconfirm --needed mingw-w64-x86_64-python
 
 #### 3. Build Wakunode
 - Open Git Bash as administrator  
+- clone nwaku and cd nwaku
 - Execute: `./scripts/build_wakunode_windows.sh`
 
 #### 4. Troubleshooting
