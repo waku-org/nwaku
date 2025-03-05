@@ -1,9 +1,8 @@
 import tables, std/options
 import waku/waku_lightpush/rpc
+import libp2p/peerid
 
 type
-  PeerId = string
-
   ResponseQuality* = enum
     BadResponse
     GoodResponse

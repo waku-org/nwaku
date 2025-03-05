@@ -11,7 +11,8 @@ import
   ./common,
   ./protocol_metrics,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ../incentivization/reputation_manager
 
 logScope:
   topics = "waku lightpush client"
@@ -19,12 +20,21 @@ logScope:
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
   rng*: ref rand.HmacDrbgContext
+  reputationManager*: ReputationManager
   publishObservers: seq[PublishObserver]
 
 proc new*(
-    T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
+    T: type WakuLightPushClient,
+    peerManager: PeerManager,
+    rng: ref rand.HmacDrbgContext,
+    reputationManager: Option[ReputationManager] = none(ReputationManager),
 ): T =
-  WakuLightPushClient(peerManager: peerManager, rng: rng)
+  if reputationManager.isSome:
+    WakuLightPushClient(
+      peerManager: peerManager, rng: rng, reputationManager: reputationManager.get()
+    )
+  else:
+    WakuLightPushClient(peerManager: peerManager, rng: rng)
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)
@@ -65,6 +75,9 @@ proc sendPushRequest(
     else:
       return err("unknown failure")
 
+  when defined(reputation):
+    wl.reputationManager.updateReputationFromResponse(peer.peerId, response)
+
   return ok()
 
 proc publish*(
@@ -74,36 +87,52 @@ proc publish*(
     peer: RemotePeerInfo,
 ): Future[WakuLightPushResult[string]] {.async, gcsafe.} =
   ## On success, returns the msg_hash of the published message
-  let msg_hash_hex_str = computeMessageHash(pubsubTopic, message).to0xHex()
+  let msg_hash = computeMessageHash(pubsubTopic, message).to0xHex()
+
   let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  ?await wl.sendPushRequest(pushRequest, peer)
+  let pushResult = await wl.sendPushRequest(pushRequest, peer)
+  if pushResult.isErr:
+    when defined(reputation):
+      wl.reputationManager.setReputation(peer.peerId, some(false))
+    return err(pushResult.error)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
 
   notice "publishing message with lightpush",
-    pubsubTopic = pubsubTopic,
+    pubsubTopic = pubSubTopic,
     contentTopic = message.contentTopic,
     target_peer_id = peer.peerId,
-    msg_hash = msg_hash_hex_str
+    msg_hash = msg_hash
 
-  return ok(msg_hash_hex_str)
+  return ok(msg_hash)
+
+proc selectPeerForLightPush*(
+    wl: WakuLightPushClient
+): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
+  ## If reputation flag is defined, try to ensure the selected peer is not bad-rep.
+  ## Repeat peer selection until either maxAttempts is exceeded,
+  ## or a good-rep or neutral-rep peer is found.
+  ## Note: this procedure CAN return a bad-rep peer if maxAttempts is exceeded.
+  let maxAttempts = if defined(reputation): 10 else: 1
+  var attempts = 0
+  var peerResult: Result[RemotePeerInfo, string]
+  while attempts < maxAttempts:
+    let candidate = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
+      return err("could not retrieve a peer supporting WakuLightPushCodec")
+    if not (wl.reputationManager.getReputation(candidate.peerId) == some(false)):
+      return ok(candidate)
+    attempts += 1
+  warn "Maximum reputation-based retries exceeded; continuing with a bad-reputation peer."
+  # Return last candidate even if it has bad reputation
+  return peerResult
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
-): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
-  ## This proc is similar to the publish one but in this case
-  ## we don't specify a particular peer and instead we get it from peer manager
+): Future[WakuLightPushResult[string]] {.async, gcsafe.} =
+  ## Publish a message via a peer that we get from the peer manager
 
-  info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
+  info "publishToAny", msg_hash = computeMessageHash(pubSubTopic, message).to0xHex
 
-  let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
-    return err("could not retrieve a peer supporting WakuLightPushCodec")
-
-  let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  ?await wl.sendPushRequest(pushRequest, peer)
-
-  for obs in wl.publishObservers:
-    obs.onMessagePublished(pubSubTopic, message)
-
-  return ok()
+  let peer = ?await wl.selectPeerForLightPush()
+  return await wl.publish(pubSubTopic, message, peer)

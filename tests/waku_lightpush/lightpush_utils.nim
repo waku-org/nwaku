@@ -8,7 +8,8 @@ import
   waku/waku_lightpush,
   waku/waku_lightpush/[client, common],
   waku/common/rate_limit/setting,
-  ../testlib/[common, wakucore]
+  ../testlib/[common, wakucore],
+  waku/incentivization/reputation_manager
 
 proc newTestWakuLightpushNode*(
     switch: Switch,
@@ -26,4 +27,9 @@ proc newTestWakuLightpushNode*(
 
 proc newTestWakuLightpushClient*(switch: Switch): WakuLightPushClient =
   let peerManager = PeerManager.new(switch)
-  WakuLightPushClient.new(peerManager, rng)
+  let reputationManager =
+    if defined(reputation):
+      some(ReputationManager.new())
+    else:
+      none(ReputationManager)
+  WakuLightPushClient.new(peerManager, rng, reputationManager)
