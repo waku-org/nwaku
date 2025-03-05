@@ -20,7 +20,7 @@ proc new*(
     T: type DeliveryMonitor,
     storeClient: WakuStoreClient,
     wakuRelay: protocol.WakuRelay,
-    wakuLightpushClient: WakuLightPushClient,
+    wakuLightpushClient: WakuLightpushClient,
     wakuFilterClient: WakuFilterClient,
 ): Result[T, string] =
   ## storeClient is needed to give store visitility to DeliveryMonitor

@@ -1,5 +1,5 @@
 import tables, std/options
-import waku/waku_lightpush/rpc
+import ../waku_lightpush_legacy/rpc
 
 type
   PeerId = string
