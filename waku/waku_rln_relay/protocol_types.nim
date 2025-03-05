@@ -52,6 +52,15 @@ type RateLimitProof* = object
   ## the external nullifier used for the generation of the `proof` (derived from poseidon([epoch, rln_identifier]))
   externalNullifier*: ExternalNullifier
 
+type Witness* = object ## Represents the custom witness for generating an RLN proof
+  identity_secret*: seq[byte] # Identity secret (private key)
+  identity_nullifier*: seq[byte] # Identity nullifier
+  merkle_proof*: seq[Uint256] # Merkle proof elements (retrieved from the smart contract)
+  external_nullifier*: Epoch # Epoch (external nullifier)
+  signal*: seq[byte] # Message data (signal)
+  message_id*: MessageId # Message ID (used for rate limiting)
+  rln_identifier*: RlnIdentifier # RLN identifier (default value provided)
+
 type ProofMetadata* = object
   nullifier*: Nullifier
   shareX*: MerkleNode

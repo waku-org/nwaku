@@ -44,6 +44,8 @@ contract(WakuRlnContract):
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
+  # this function returns the merkleProof for a given index
+  proc merkleProofElements(index: Uint256): seq[Uint256] {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
@@ -66,6 +68,7 @@ type
     validRootBuffer*: Deque[MerkleNode]
     # interval loop to shut down gracefully
     blockFetchingActive*: bool
+    merkleProofsByIndex*: Table[Uint256, seq[Uint256]]
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -88,6 +91,16 @@ template retryWrapper(
 ): auto =
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
+
+proc fetchMerkleProof*(g: OnchainGroupManager, index: Uint256) {.async.} =
+  ## Fetches and caches the Merkle proof elements for a given index
+  try:
+    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+    let merkleProof = await merkleProofInvocation.call()
+      # Await the contract call and extract the result
+    g.merkleProofsByIndex[index] = merkleProof
+  except CatchableError:
+    error "Failed to fetch merkle proof: " & getCurrentExceptionMsg()
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -226,6 +239,93 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+method generateProof*(
+    g: OnchainGroupManager,
+    data: seq[byte],
+    epoch: Epoch,
+    messageId: MessageId,
+    rlnIdentifier = DefaultRlnIdentifier,
+): Future[GroupManagerResult[RateLimitProof]] {.async, gcsafe, raises: [].} =
+  ## Generates an RLN proof using the cached Merkle proof and custom witness
+  # Ensure identity credentials and membership index are set
+  if g.idCredentials.isNone():
+    return err("identity credentials are not set")
+  if g.membershipIndex.isNone():
+    return err("membership index is not set")
+  if g.userMessageLimit.isNone():
+    return err("user message limit is not set")
+
+  # Retrieve the cached Merkle proof for the membership index
+  let index = stuint(g.membershipIndex.get(), 256)
+
+  if not g.merkleProofsByIndex.hasKey(index):
+    await g.fetchMerkleProof(index)
+  let merkle_proof = g.merkleProofsByIndex[index]
+
+  if merkle_proof.len == 0:
+    return err("Merkle proof not found")
+
+  # Prepare the witness
+  let witness = Witness(
+    identity_secret: g.idCredentials.get().idSecretHash,
+    identity_nullifier: g.idCredentials.get().idNullifier,
+    merkle_proof: merkleProof,
+    external_nullifier: epoch,
+    signal: data,
+    message_id: messageId,
+    rln_identifier: rlnIdentifier,
+  )
+  let serializedWitness = serialize(witness)
+  var inputBuffer = toBuffer(serializedWitness)
+
+  # Generate the proof using the new zerokit API
+  var outputBuffer: Buffer
+  let success =
+    generate_proof_with_witness(g.rlnInstance, addr inputBuffer, addr outputBuffer)
+  if not success:
+    return err("Failed to generate proof")
+
+  # Parse the proof into a RateLimitProof object
+  var proofValue = cast[ptr array[320, byte]](outputBuffer.`ptr`)
+  let proofBytes: array[320, byte] = proofValue[]
+  debug "proof content", proofHex = proofValue[].toHex
+
+  ## parse the proof as [ proof<128> | root<32> | external_nullifier<32> | share_x<32> | share_y<32> | nullifier<32> ]
+  let
+    proofOffset = 128
+    rootOffset = proofOffset + 32
+    externalNullifierOffset = rootOffset + 32
+    shareXOffset = externalNullifierOffset + 32
+    shareYOffset = shareXOffset + 32
+    nullifierOffset = shareYOffset + 32
+
+  var
+    zkproof: ZKSNARK
+    proofRoot, shareX, shareY: MerkleNode
+    externalNullifier: ExternalNullifier
+    nullifier: Nullifier
+
+  discard zkproof.copyFrom(proofBytes[0 .. proofOffset - 1])
+  discard proofRoot.copyFrom(proofBytes[proofOffset .. rootOffset - 1])
+  discard
+    externalNullifier.copyFrom(proofBytes[rootOffset .. externalNullifierOffset - 1])
+  discard shareX.copyFrom(proofBytes[externalNullifierOffset .. shareXOffset - 1])
+  discard shareY.copyFrom(proofBytes[shareXOffset .. shareYOffset - 1])
+  discard nullifier.copyFrom(proofBytes[shareYOffset .. nullifierOffset - 1])
+
+  # Create the RateLimitProof object
+  let output = RateLimitProof(
+    proof: zkproof,
+    merkleRoot: proofRoot,
+    externalNullifier: externalNullifier,
+    epoch: epoch,
+    rlnIdentifier: rlnIdentifier,
+    shareX: shareX,
+    shareY: shareY,
+    nullifier: nullifier,
+  )
+  return ok(output)
+
     # TODO: after slashing is enabled on the contract, use atomicBatch internally
 
 proc parseEvent(
@@ -347,6 +447,11 @@ proc handleEvents(
         rateCommitments = rateCommitments,
         toRemoveIndices = removalIndices,
       )
+
+      for i in 0 ..< rateCommitments.len:
+        let index = startIndex + MembershipIndex(i)
+        await g.fetchMerkleProof(stuint(index, 256))
+
       g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
       trace "new members added to the Merkle tree",
         commitments = rateCommitments.mapIt(it.inHex)
@@ -366,6 +471,12 @@ proc handleRemovedEvents(
   for blockNumber, members in blockTable.pairs():
     if members.anyIt(it[1]):
       numRemovedBlocks += 1
+
+    # Remove cached merkleProof for each removed member
+    for member in members:
+      if member[1]: # Check if the member is removed
+        let index = member[0].index
+        g.merkleProofsByIndex.del(stuint(index, 256))
 
   await g.backfillRootQueue(numRemovedBlocks)
 
