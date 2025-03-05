@@ -52,14 +52,41 @@ If you encounter difficulties building the project on WSL, consider placing the 
 
 ### How to Build & Run ( Windows )
 
-Note: This is a work in progress. The current setup procedure is as follows:
-Goal: Get rid of windows specific procedures and make the build process the same as linux/macos.
+### Windows Build Instructions
 
-The current setup procedure is as follows:
+#### 1. Install Required Tools
+- **Git Bash Terminal**: Download and install from https://git-scm.com/download/win  
+- **MSYS2**:  
+  a. Download installer from https://www.msys2.org  
+  b. Install at "C:\" (default location) for proper PATH configuration. (if you already have msys installtion at this location and remove it)
+  c. Use the mingw64 terminal from msys64 directory for package installation.
 
-1. Clone the repository and checkout master branch
-2. Ensure prerequisites are installed (Make, GCC, MSYS2/MinGW)
-3. Run scripts/windows_setup.sh
+#### 2. Install Dependencies
+Open MSYS2 mingw64 terminal and run:
+```bash
+pacman -Syu --noconfirm  
+pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
+pacman -S --noconfirm --needed base-devel make cmake upx  
+pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
+pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
+pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
+pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
+pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
+pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
+pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
+pacman -S --noconfirm --needed mingw-w64-x86_64-python
+```
+
+#### 3. Build Wakunode
+- Open Git Bash as administrator  
+- Execute: `./scripts/build_wakunode_windows.sh`
+
+#### 4. Troubleshooting
+If `wakunode2.exe` isn't generated:  
+- **Missing Dependencies**: Verify with:  
+  `which make cmake gcc g++ rustc cargo python3 upx`  
+  If missing, revisit Step 2 or ensure MSYS2 is at `C:\`  
+- **Installation Conflicts**: Remove existing MinGW/MSYS2/Git Bash installations and perform fresh install
 
 ### Developing
 

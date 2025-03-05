@@ -9,33 +9,11 @@ if defined(windows):
   switch("passL", "rln.lib")
   switch("define", "postgres=false")
 
-  # MinGW library paths
-  switch("passL", "-L/mingw64/lib")
-  switch("passC", "-I/mingw64/include")
-
-  # Standard MinGW linking
-  switch("passL", "-static -lws2_32 -lbcrypt -luserenv -lntdll")
-
-  # NAT traversal libraries
-  switch("passL", "-lminiupnpc -Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc")
-  switch("passL", "-lnatpmp -Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream")
-
-  # Disable timestamp in PE headers
-  switch("passL", "-Wl,--no-insert-timestamp")
-  switch("passL", "-Wl,--stack,8388608")
-
-  # Chronicles configuration
-  switch("define", "chronicles_colors=off")
-
   # Automatically add all vendor subdirectories
   for dir in walkDir("./vendor"):
     if dir.kind == pcDir:
       switch("path", dir.path)
       switch("path", dir.path / "src")
-
-  switch("path", "./vendor/nim-nat-traversal")
-  switch("path", "./vendor/nim-nat-traversal/vendor/libnatpmp-upstream")
-  switch("path", "./vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc")
 
   # disable timestamps in Windows PE headers - https://wiki.debian.org/ReproducibleBuilds/TimestampsInPEBinaries
   switch("passL", "-Wl,--no-insert-timestamp")
