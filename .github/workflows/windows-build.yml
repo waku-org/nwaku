@@ -44,7 +44,7 @@ jobs:
     - name: Verify UPX installation
       run: upx --version
       shell: msys2 {0}
- .  
+  
     - name: which upx
       run: which upx
       shell: msys2 {0}
