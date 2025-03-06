@@ -19,36 +19,54 @@ jobs:
       uses: msys2/setup-msys2@v2
       with:
         update: true
-        install: >-
-          base-devel
-          mingw-w64-x86_64-toolchain
-          make
-          cmake
-          upx
-          mingw-w64-x86_64-rust
-          mingw-w64-x86_64-postgresql
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-gcc-libs
-          mingw-w64-x86_64-libwinpthread-git
-          mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-openssl
-          mingw-w64-x86_64-python
+        
+    -name: Install all packages manually 
+      run: msys2 -c "pacman -S --noconfirm --needed upx base-devel mingw-w64-x86_64-toolchain make cmake upx mingw-w64-x86_64-rust mingw-w64-x86_64-postgresql mingw-w64-x86_64-gcc mingw-w64-x86_64-gcc-libs mingw-w64-x86_64-libwinpthread-git  mingw-w64-x86_64-zlib  mingw-w64-x86_64-openssl  mingw-w64-x86_64-python"
     
-    - name: Manually install UPX
-      run: msys2 -c 'pacman -S upx --noconfirm'
+    - name: Set PATH
+      run: echo "/c/msys64/usr/bin:/c/msys64/mingw64/bin:/c/msys64/usr/lib:/c/msys64/mingw64/lib:$PATH" >> $GITHUB_PATH
 
-    - name: Add UPX to PATH
-      run: echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
-
-    - name: Verify UPX installation
-      run: upx --version
-      shell: msys2 {0}
-
-    - name: Build Wakunode2
+    - name: Verify dependencies
       run: |
-        ./scripts/build_wakunode_windows.sh
-      shell: bash
+        which gcc g++ make cmake cargo upx rustc python
 
+    - name: Updating submodules
+      run: git submodule update --init --recursive
+
+    - name: Creating tmp directory
+      run: mkdir -p tmp
+
+    - name: Building Nim
+      run: |
+        cd vendor/nimbus-build-system/vendor/Nim
+        ./build_all.bat
+        cd ../../../..
+
+    - name: Building libunwind
+      run: |
+        cd vendor/nim-libbacktrace
+        make all V=1
+        make install/usr/lib/libunwind.a V=1
+        cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        cd ../../
+
+    - name: Building miniupnpc
+      run: |
+        cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
+        git checkout little_chore_windows_support
+        make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1
+        cd ../../../../..
+
+    - name: Building libnatpmp
+      run: |
+        cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
+        make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
+        cd ../../../../
+
+    - name: Building wakunode2
+      run: |
+        make wakunode2 LOG_LEVEL=DEBUG V=1 -j8
+    
     - name: Check Executable
       run: |
         if [ -f "./build/wakunode2.exe" ]; then
