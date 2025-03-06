@@ -39,12 +39,16 @@ jobs:
       run: msys2 -c 'pacman -S upx --noconfirm'
 
     - name: Add UPX to PATH
-      run: echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
+      run: |
+        echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
+        echo "/c/msys64/mingw64/bin:$PATH" >> $GITHUB_PATH
 
     - name: Verify dependencies
       run: |
         which gcc g++ make cmake cargo rustc python
-      shell: msys2 {0}
+i
+    - name: Print OS type using uname
+      run: echo "Running on $(uname -s)"
 
     - name: Updating submodules
       run: git submodule update --init --recursive
