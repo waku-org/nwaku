@@ -14,9 +14,9 @@ type LightpushStatusCode* = enum
   UNSUPPORTED_PUBSUB_TOPIC = uint32(421)
   TOO_MANY_REQUESTS = uint32(429)
   INTERNAL_SERVER_ERROR = uint32(500)
-  NO_PEERS_TO_RELAY = uint32(503)
+  SERVICE_NOT_AVAILABLE = uint32(503)
   OUT_OF_RLN_PROOF = uint32(504)
-  SERVICE_NOT_AVAILABLE = uint32(505)
+  NO_PEERS_TO_RELAY = uint32(505)
 
 type ErrorStatus* = tuple[code: LightpushStatusCode, desc: Option[string]]
 type WakuLightPushResult* = Result[uint32, ErrorStatus]
