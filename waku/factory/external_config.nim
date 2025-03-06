@@ -497,10 +497,9 @@ hence would have reachability issues.""",
     .}: string
 
     ## Reputation config
-    ## FIXME: should be set to false by default
     reputationEnabled* {.
       desc: "Enable client-side reputation for light protocols: true|false",
-      defaultValue: true,
+      defaultValue: false,
       name: "reputation"
     .}: bool
 

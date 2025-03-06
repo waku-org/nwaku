@@ -75,7 +75,6 @@ suite "Waku Lightpush Client":
     server = await newTestWakuLightpushNode(serverSwitch, handler)
     serverFailsLightpush =
       await newTestWakuLightpushNode(serverSwitchFailsLightpush, handlerFailsLightpush)
-    ## FIXME: how to pass reputationEnabled from config to here? should we?
     client = newTestWakuLightpushClient(clientSwitch, reputationEnabled = true)
 
     await allFutures(
