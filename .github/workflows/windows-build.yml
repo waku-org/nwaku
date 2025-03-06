@@ -33,6 +33,9 @@ jobs:
           mingw-w64-x86_64-zlib
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
+    
+    - name: Manually install UPX
+      run: msys2 -c 'pacman -S upx --noconfirm'
 
     - name: Build Wakunode2
       run: |
