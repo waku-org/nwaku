@@ -47,16 +47,9 @@ jobs:
 
     - name: Add UPX to PATH
       run: |
-        echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
-        echo "/c/msys64/mingw64/bin:$PATH" >> $GITHUB_PATH
+        echo "/usr/bin:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
 
-    - name: Use full paths for tools
-      run: |
-        /c/msys64/mingw64/bin/cmake --version
-        /c/msys64/mingw64/bin/cargo --version
-        /c/msys64/mingw64/bin/rustc --version
-        /c/msys64/mingw64/bin/python --version
-    
     - name: Verify dependencies
       run: |
         which upx gcc g++ make cmake cargo rustc python
