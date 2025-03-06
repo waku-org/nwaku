@@ -254,6 +254,7 @@ proc validateMessage*(
     waku_rln_spam_messages_total.inc()
     return MessageValidationResult.Spam
 
+  trace "testing windows ci"
   trace "message is valid", payloadLen = msg.payload.len
   let rootIndex = rlnPeer.groupManager.indexOfRoot(proof.merkleRoot)
   waku_rln_valid_messages_total.observe(rootIndex.toFloat())

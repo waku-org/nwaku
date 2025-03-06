@@ -7,12 +7,12 @@ on:
       - edited
       - synchronize
 
-# on:
-#   workflow_call:
-#     inputs:
-#       branch:
-#         required: true
-#         type: stringi
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: stringi
 
 jobs:
   build:
