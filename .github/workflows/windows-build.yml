@@ -48,9 +48,3 @@ jobs:
           exit 1
         fi
       shell: bash
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: wakunode2-windows
-        path: build/wakunode2.exe
