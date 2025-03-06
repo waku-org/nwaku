@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        shell: bash  
+        shell: msys2 {0}  
 
     steps:
     - name: Checkout code
@@ -25,6 +25,7 @@ jobs:
         update: true
         install: >-
           upx
+          git
           base-devel
           mingw-w64-x86_64-toolchain
           make
@@ -43,7 +44,6 @@ jobs:
       run: |
         pacman -S --noconfirm upx
         which upx || echo "UPX not found"
-      shell: msys2 {0}
 
     - name: Add UPX to PATH
       run: |
