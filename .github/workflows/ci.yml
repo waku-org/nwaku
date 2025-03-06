@@ -78,6 +78,11 @@ jobs:
 
       - name: Build binaries
         run: make V=1 QUICK_AND_DIRTY_COMPILER=1 all tools
+  
+  trigger-windows-build:
+    uses: ./.github/workflows/windows-build.yml@master
+    with:
+      branch: ${{ github.ref }}
 
   test:
     needs: changes
