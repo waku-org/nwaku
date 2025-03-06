@@ -41,17 +41,9 @@ jobs:
     - name: Add UPX to PATH
       run: echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
 
-    - name: Verify UPX installation
-      run: upx --version
-      shell: msys2 {0}
-  
-    - name: which upx
-      run: which upx
-      shell: msys2 {0}
-
     - name: Verify dependencies
       run: |
-        which gcc g++ make cmake cargo upx rustc python
+        which gcc g++ make cmake cargo rustc python
       shell: msys2 {0}
 
     - name: Updating submodules
