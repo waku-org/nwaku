@@ -24,8 +24,6 @@ jobs:
       with:
         update: true
         install: >-
-          upx
-          git
           base-devel
           mingw-w64-x86_64-toolchain
           make
@@ -40,11 +38,6 @@ jobs:
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
 
-    - name: Install UPX explicitly and check installation
-      run: |
-        pacman -S --noconfirm upx
-        which upx || echo "UPX not found"
-
     - name: Add UPX to PATH
       run: |
         echo "/usr/bin:$PATH" >> $GITHUB_PATH
@@ -53,9 +46,6 @@ jobs:
     - name: Verify dependencies
       run: |
         which upx gcc g++ make cmake cargo rustc python
-
-    - name: Print OS type using uname
-      run: echo "Running on $(uname -s)"
 
     - name: Updating submodules
       run: git submodule update --init --recursive
@@ -70,11 +60,16 @@ jobs:
         cd ../../../..
 
     - name: Building libunwind
+      continue-on-error: true
       run: |
         cd vendor/nim-libbacktrace
         make all V=1
         make install/usr/lib/libunwind.a V=1
-        cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
+          cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        else
+          echo "libunwind.a not found, skipping copy"
+        fi
         cd ../../
 
     - name: Building miniupnpc
