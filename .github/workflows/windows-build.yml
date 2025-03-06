@@ -1,11 +1,18 @@
 name: ci / build-windows (pull_request)
 
 on:
-  workflow_call:
-    inputs:
-      branch:
-        required: true
-        type: stringi
+  pull_request_target:
+    types:
+      - opened
+      - edited
+      - synchronize
+
+# on:
+#   workflow_call:
+#     inputs:
+#       branch:
+#         required: true
+#         type: stringi
 
 jobs:
   build:
