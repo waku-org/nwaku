@@ -43,6 +43,7 @@ jobs:
       run: |
         pacman -S --noconfirm upx
         which upx || echo "UPX not found"
+      shell: msys2 {0}
 
     - name: Add UPX to PATH
       run: |
