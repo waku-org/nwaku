@@ -46,6 +46,7 @@ jobs:
     - name: Verify dependencies
       run: |
         which gcc g++ make cmake cargo rustc python
+        which upx
 
     - name: Print OS type using uname
       run: echo "Running on $(uname -s)"
