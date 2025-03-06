@@ -1,0 +1,56 @@
+name: ci / build-windows (pull_request)
+
+on:
+  workflow_call:
+    inputs:
+      branch:
+        required: true
+        type: stringi
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: >-
+          base-devel
+          mingw-w64-x86_64-toolchain
+          make
+          cmake
+          upx
+          mingw-w64-x86_64-rust
+          mingw-w64-x86_64-postgresql
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-gcc-libs
+          mingw-w64-x86_64-libwinpthread-git
+          mingw-w64-x86_64-zlib
+          mingw-w64-x86_64-openssl
+          mingw-w64-x86_64-python
+
+    - name: Build Wakunode2
+      run: |
+        ./scripts/build_wakunode_windows.sh
+      shell: bash
+
+    - name: Check Executable
+      run: |
+        if [ -f "./build/wakunode2.exe" ]; then
+          echo "wakunode2.exe build successful"
+        else
+          echo "Build failed: wakunode2.exe not found"
+          exit 1
+        fi
+      shell: bash
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: wakunode2-windows
+        path: build/wakunode2.exe
