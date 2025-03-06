@@ -11,6 +11,10 @@ jobs:
   build:
     runs-on: windows-latest
 
+    defaults:
+      run:
+        shell: bash  
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
