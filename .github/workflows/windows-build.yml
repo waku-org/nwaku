@@ -41,7 +41,6 @@ jobs:
     - name: Add UPX to PATH
       run: |
         echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
-        echo "/c/msys64/mingw64/bin:$PATH" >> $GITHUB_PATH
 
     - name: Verify dependencies
       run: |
