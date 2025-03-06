@@ -37,6 +37,13 @@ jobs:
     - name: Manually install UPX
       run: msys2 -c 'pacman -S upx --noconfirm'
 
+    - name: Add UPX to PATH
+      run: echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
+
+    - name: Verify UPX installation
+      run: upx --version
+      shell: msys2 {0}
+
     - name: Build Wakunode2
       run: |
         ./scripts/build_wakunode_windows.sh
