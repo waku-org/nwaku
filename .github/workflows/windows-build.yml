@@ -44,10 +44,15 @@ jobs:
     - name: Verify UPX installation
       run: upx --version
       shell: msys2 {0}
+ .  
+    - name: which upx
+      run: which upx
+      shell: msys2 {0}
 
     - name: Verify dependencies
       run: |
         which gcc g++ make cmake cargo upx rustc python
+      shell: msys2 {0}
 
     - name: Updating submodules
       run: git submodule update --init --recursive
