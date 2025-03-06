@@ -30,9 +30,4 @@ proc newTestWakuLightpushClient*(
   reputationEnabled: bool = false
   ): WakuLightPushClient =
   let peerManager = PeerManager.new(switch)
-  let reputationManager =
-    if reputationEnabled:
-      some(ReputationManager.new())
-    else:
-      none(ReputationManager)
-  WakuLightPushClient.new(peerManager, rng, reputationManager)
+  WakuLightPushClient.new(peerManager, rng, reputationEnabled)

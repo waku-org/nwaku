@@ -27,8 +27,13 @@ proc new*(
     T: type WakuLightPushClient,
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
-    reputationManager: Option[ReputationManager],
+    reputationEnabled: bool,
 ): T =
+  let reputationManager =
+    if reputationEnabled:
+      some(ReputationManager.new())
+    else:
+      none(ReputationManager)
   WakuLightPushClient(
     peerManager: peerManager, rng: rng, reputationManager: reputationManager
   )
