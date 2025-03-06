@@ -40,13 +40,12 @@ jobs:
 
     - name: Add UPX to PATH
       run: |
-        export PATH=/c/msys64/usr/bin:$PATH
-        export PATH=/c/msys64/mingw64/bin:$PATH
+        echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
+        echo "/c/msys64/mingw64/bin:$PATH" >> $GITHUB_PATH
 
     - name: Verify dependencies
       run: |
-        which gcc g++ make cmake cargo rustc python
-        which upx
+        which upx gcc g++ make cmake cargo rustc python
 
     - name: Print OS type using uname
       run: echo "Running on $(uname -s)"
