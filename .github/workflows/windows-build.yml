@@ -24,6 +24,7 @@ jobs:
       with:
         update: true
         install: >-
+          git
           base-devel
           mingw-w64-x86_64-toolchain
           make
