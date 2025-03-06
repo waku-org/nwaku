@@ -39,9 +39,6 @@ jobs:
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
 
-    - name: Manually install UPX
-      run: msys2 -c 'pacman -S upx --noconfirm'
-
     - name: Add UPX to PATH
       run: |
         echo "/c/msys64/usr/bin:$PATH" >> $GITHUB_PATH
