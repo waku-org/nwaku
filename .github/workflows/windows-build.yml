@@ -20,6 +20,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Setup MSYS2 and Install Tools
+      uses: msys2/setup-msys2@v2
       run: |
         pacman -Syu --noconfirm  
         pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
