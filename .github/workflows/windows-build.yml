@@ -18,47 +18,47 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    
-    - name: Setup MSYS2
-      uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        install: >-
-          git
-          base-devel
-          mingw-w64-x86_64-toolchain
-          make
-          cmake
-          upx
-          mingw-w64-x86_64-rust
-          mingw-w64-x86_64-postgresql
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-gcc-libs
-          mingw-w64-x86_64-libwinpthread-git
-          mingw-w64-x86_64-zlib
-          mingw-w64-x86_64-openssl
-          mingw-w64-x86_64-python
+
+    - name: Setup MSYS2 and Install Tools
+      run: |
+        pacman -Syu --noconfirm  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
+        pacman -S --noconfirm --needed base-devel make cmake upx  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
+        pacman -S --noconfirm --needed mingw-w64-x86_64-python
+      shell: msys2 {0}
 
     - name: Add UPX to PATH
       run: |
         echo "/usr/bin:$PATH" >> $GITHUB_PATH
         echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
+      shell: msys2 {0}
 
     - name: Verify dependencies
       run: |
         which upx gcc g++ make cmake cargo rustc python
+      shell: msys2 {0}
 
     - name: Updating submodules
       run: git submodule update --init --recursive
+      shell: msys2 {0}
 
     - name: Creating tmp directory
       run: mkdir -p tmp
+      shell: msys2 {0}
 
     - name: Building Nim
       run: |
         cd vendor/nimbus-build-system/vendor/Nim
         ./build_all.bat
         cd ../../../..
+      shell: msys2 {0}
 
     - name: Building libunwind
       continue-on-error: true
@@ -72,6 +72,7 @@ jobs:
           echo "libunwind.a not found, skipping copy"
         fi
         cd ../../
+      shell: msys2 {0}
 
     - name: Building miniupnpc
       run: |
@@ -79,16 +80,19 @@ jobs:
         git checkout little_chore_windows_support
         make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1
         cd ../../../../..
+      shell: msys2 {0}
 
     - name: Building libnatpmp
       run: |
         cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
         make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
         cd ../../../../
+      shell: msys2 {0}
 
     - name: Building wakunode2
       run: |
-        make wakunode2 LOG_LEVEL=DEBUG V=1 -j8
+        make wakunode2 LOG_LEVEL=DEBUG V=2 -j8
+      shell: msys2 {0}
     
     - name: Check Executable
       run: |
@@ -98,4 +102,4 @@ jobs:
           echo "Build failed: wakunode2.exe not found"
           exit 1
         fi
-      shell: bash
+      shell: msys2 {0}
