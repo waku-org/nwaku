@@ -15,6 +15,9 @@ jobs:
       run:
         shell: msys2 {0}  
 
+    env:
+      MSYSTEM: MINGW64
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -39,20 +42,6 @@ jobs:
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
       
-    - name: Setup MSYS2 and Install Tools
-      run: |
-        pacman -Syu --noconfirm  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-toolchain  
-        pacman -S --noconfirm --needed base-devel make cmake upx  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-rust  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-postgresql  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-gcc  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-gcc-libs  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-libwinpthread-git  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-zlib  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-openssl  
-        pacman -S --noconfirm --needed mingw-w64-x86_64-python
-
     - name: Add UPX to PATH
       run: |
         echo "/usr/bin:$PATH" >> $GITHUB_PATH
@@ -76,6 +65,8 @@ jobs:
 
     - name: Building libunwind
       continue-on-error: true
+      env:
+        MSYSTEM: MINGW64  # Force MINGW64 environment
       run: |
         cd vendor/nim-libbacktrace
         make all V=1
@@ -101,6 +92,8 @@ jobs:
         cd ../../../../
 
     - name: Building wakunode2
+      env:
+        MSYSTEM: MINGW64  # Force MINGW64 environment
       run: |
         make wakunode2 LOG_LEVEL=DEBUG V=2 -j8
       shell: msys2 {0}
