@@ -26,7 +26,7 @@ v0.5.1-0-gde5cd48
     "[nim]": {
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "arnetheduck.vscode-nph"
-    },
+    }
 }
 ```
 
