@@ -41,6 +41,7 @@ jobs:
           mingw-w64-x86_64-zlib
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
+          mingw-w64-x86_64-cmake
       
     - name: Add UPX to PATH
       run: |
