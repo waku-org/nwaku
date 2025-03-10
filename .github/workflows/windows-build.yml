@@ -1,15 +1,22 @@
-name: ci / build-windows (pull_request)
+name: ci / build-windows
 
 on:
   workflow_call:
     inputs:
       branch:
         required: true
-        type: stringi
+        type: string
 
 jobs:
   build:
     runs-on: windows-latest
+
+    defaults:
+      run:
+        shell: msys2 {0}  
+
+    env:
+      MSYSTEM: MINGW64
 
     steps:
     - name: Checkout code
@@ -20,6 +27,7 @@ jobs:
       with:
         update: true
         install: >-
+          git
           base-devel
           mingw-w64-x86_64-toolchain
           make
@@ -33,12 +41,63 @@ jobs:
           mingw-w64-x86_64-zlib
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
-
-    - name: Build Wakunode2
+          mingw-w64-x86_64-cmake
+      
+    - name: Add UPX to PATH
       run: |
-        ./scripts/build_wakunode_windows.sh
-      shell: bash
+        echo "/usr/bin:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
+        echo "/usr/lib:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/lib:$PATH" >> $GITHUB_PATH 
 
+    - name: Verify dependencies
+      run: |
+        which upx gcc g++ make cmake cargo rustc python
+
+    - name: Updating submodules
+      run: git submodule update --init --recursive
+
+    - name: Creating tmp directory
+      run: mkdir -p tmp
+
+    - name: Building Nim
+      run: |
+        cd vendor/nimbus-build-system/vendor/Nim
+        ./build_all.bat
+        cd ../../../..
+ 
+    - name: Building libunwind
+      continue-on-error: true
+      run: |
+        cd vendor/nim-libbacktrace
+        make install/usr/lib/libunwind.a V=2
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        find . -name "*.a"
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
+          cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        else
+          echo "libunwind.a not found, skipping copy"
+        fi
+        cd ../../
+
+    - name: Building miniupnpc
+      run: |
+        cd vendor/nim-nat-traversal/vendor/miniupnp/miniupnpc
+        git checkout little_chore_windows_support
+        make -f Makefile.mingw CC=gcc CXX=g++ libminiupnpc.a V=1
+        cd ../../../../..
+
+    - name: Building libnatpmp
+      run: |
+        cd ./vendor/nim-nat-traversal/vendor/libnatpmp-upstream
+        make CC="gcc -fPIC -D_WIN32_WINNT=0x0600 -DNATPMP_STATICLIB" libnatpmp.a V=1
+        cd ../../../../
+
+    - name: Building wakunode2
+      run: |
+        make wakunode2 LOG_LEVEL=DEBUG V=3 -j8
+    
     - name: Check Executable
       run: |
         if [ -f "./build/wakunode2.exe" ]; then
@@ -47,10 +106,3 @@ jobs:
           echo "Build failed: wakunode2.exe not found"
           exit 1
         fi
-      shell: bash
-
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: wakunode2-windows
-        path: build/wakunode2.exe
