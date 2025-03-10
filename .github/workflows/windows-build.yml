@@ -44,8 +44,10 @@ jobs:
       
     - name: Add UPX to PATH
       run: |
-        echo "/usr/bin:$PATH" >> $GITHUB_PATH
-        echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
+        echo "/usr/bin:$PATH" >> $GITHUB_ENV
+        echo "/mingw64/bin:$PATH" >> $GITHUB_ENV
+        echo "/usr/lib:$PATH" >> $GITHUB_ENV
+        echo "/mingw64/lib:$PATH" >> $GITHUB_ENV
 
     - name: Verify dependencies
       run: |
@@ -65,8 +67,6 @@ jobs:
 
     - name: Building libunwind
       continue-on-error: true
-      env:
-        MSYSTEM: MINGW64  # Force MINGW64 environment
       run: |
         cd vendor/nim-libbacktrace
         make all V=1
@@ -92,11 +92,8 @@ jobs:
         cd ../../../../
 
     - name: Building wakunode2
-      env:
-        MSYSTEM: MINGW64  # Force MINGW64 environment
       run: |
-        make wakunode2 LOG_LEVEL=DEBUG V=2 -j8
-      shell: msys2 {0}
+        make wakunode2 LOG_LEVEL=DEBUG V=3 -j8
     
     - name: Check Executable
       run: |
