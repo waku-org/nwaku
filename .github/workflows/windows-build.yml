@@ -48,7 +48,7 @@ jobs:
         echo "/usr/bin:$PATH" >> $GITHUB_PATH
         echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
         echo "/usr/lib:$PATH" >> $GITHUB_PATH
-        echo "/mingw64/lib:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/lib:$PATH" >> $GITHUB_PATH 
 
     - name: Verify dependencies
       run: |
@@ -65,23 +65,67 @@ jobs:
         cd vendor/nimbus-build-system/vendor/Nim
         ./build_all.bat
         cd ../../../..
-
+ 
     - name: Building libunwind
       continue-on-error: true
       run: |
         cd vendor/nim-libbacktrace
-        make all V=1
-        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        find . -name "*.a"
-        make install/usr/lib/libunwind.a V=1
-        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        find . -name "*.a"
-        if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
-          cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        
+        # Build libbacktrace first
+        echo "Building libbacktrace..."
+        make all V=1 || { echo "libbacktrace build failed"; exit 1; }
+        
+        # Attempt to build libunwind
+        echo "Building libunwind..."
+        mkdir -p vendor/libunwind/build
+        cd vendor/libunwind/build
+        
+        # Clean previous build
+        rm -rf ./*
+        
+        # Configure with CMake
+        cmake -S ../runtimes \
+            -DLLVM_ENABLE_RUNTIMES="libunwind" \
+            -DLIBUNWIND_ENABLE_SHARED=OFF -DLIBUNWIND_ENABLE_STATIC=ON \
+            -DLIBUNWIND_INCLUDE_DOCS=OFF -DLIBUNWIND_INSTALL_HEADERS=ON \
+            -DCMAKE_INSTALL_PREFIX="../../../../install/usr" \
+            -G "MinGW Makefiles" || { echo "CMake configuration failed"; exit 1; }
+        
+        # Build and install
+        make VERBOSE=1 clean || { echo "Clean failed"; exit 1; }
+        make VERBOSE=1 unwind_static || { echo "Build failed"; exit 1; }
+        make VERBOSE=1 install-unwind || { echo "Install failed"; exit 1; }
+        
+        # Check if libunwind.a was generated
+        if [ -f lib/libunwind.a ]; then
+          echo "libunwind.a found, copying to install directory"
+          cp lib/libunwind.a ../../../../install/usr/lib
         else
-          echo "libunwind.a not found, skipping copy"
+          echo "libunwind.a not found, checking build logs..."
+          if [ -f CMakeFiles/CMakeOutput.log ]; then
+            echo "CMake output log:"
+            cat CMakeFiles/CMakeOutput.log
+          fi
+          if [ -f CMakeFiles/CMakeError.log ]; then
+            echo "CMake error log:"
+            cat CMakeFiles/CMakeError.log
+          fi
+          echo "Skipping libunwind copy"
         fi
-        cd ../../
+        cd ../../../../
+    
+    # - name: Building libunwind
+    #   continue-on-error: true
+    #   run: |
+    #     cd vendor/nim-libbacktrace
+    #     make all V=1
+    #     make install/usr/lib/libunwind.a V=1
+    #     if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
+    #       cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+    #     else
+    #       echo "libunwind.a not found, skipping copy"
+    #     fi
+    #     cd ../../
 
     - name: Building miniupnpc
       run: |
