@@ -45,10 +45,10 @@ jobs:
       
     - name: Add UPX to PATH
       run: |
-        echo "/usr/bin:$PATH" >> $GITHUB_ENV
-        echo "/mingw64/bin:$PATH" >> $GITHUB_ENV
-        echo "/usr/lib:$PATH" >> $GITHUB_ENV
-        echo "/mingw64/lib:$PATH" >> $GITHUB_ENV
+        echo "/usr/bin:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/bin:$PATH" >> $GITHUB_PATH
+        echo "/usr/lib:$PATH" >> $GITHUB_PATH
+        echo "/mingw64/lib:$PATH" >> $GITHUB_PATH
 
     - name: Verify dependencies
       run: |
