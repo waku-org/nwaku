@@ -71,7 +71,11 @@ jobs:
       run: |
         cd vendor/nim-libbacktrace
         make all V=1
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        find . -name "*.a"
         make install/usr/lib/libunwind.a V=1
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        find . -name "*.a"
         if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
           cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
         else
