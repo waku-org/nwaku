@@ -237,11 +237,23 @@ proc mountStoreSync*(
 
   node.wakuStoreReconciliation = recon
 
+  let catchable = catch:
+    node.switch.mount(
+      node.wakuStoreReconciliation, protocolMatcher(WakuReconciliationCodec)
+    )
+  if catchable.isErr():
+    return err(catchable.error.msg)
+
   let transfer = SyncTransfer.new(
     node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
   )
 
   node.wakuStoreTransfer = transfer
+
+  let catchable = catch:
+    node.switch.mount(node.wakuStoreTransfer, protocolMatcher(WakuTransferCodec))
+  if catchRes.isErr():
+    return err(catchable.error.msg)
 
   return ok()
 
