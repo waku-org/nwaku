@@ -135,4 +135,6 @@ proc publishWithConn*(
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
 
-    return lightpushSuccessResult(1)
+  #TODO: Implement response handling.
+  
+  return lightpushSuccessResult(1)

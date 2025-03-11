@@ -632,8 +632,15 @@ with the drawback of consuming some more bandwidth.""",
     .}: bool
 
     #Mix config
-    mixkey* {.desc: "ED25519 private key as 64 char hex string.", name: "mixkey".}:
-      Option[string]
+    mix* {.
+      desc: "Enable mix protocol: true|false",
+      defaultValue: false,
+      name: "mix"
+    .}: bool
+    mixkey* {.
+      desc: "ED25519 private key as 64 char hex string.",
+      name: "mixkey"
+    .}: Option[string]
     #TODO: Temp config for simulations.Ideally need to get this info from bootstrap ENRs
 #[     mixBootstrapNodes* {. 
       desc:
