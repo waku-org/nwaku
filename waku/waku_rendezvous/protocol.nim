@@ -32,6 +32,7 @@ type WakuRendezVous* = ref object
   relayShard: RelayShards
   capabilities: seq[Capabilities]
 
+  registrationInterval: timer.Duration
   periodicRegistrationFut: Future[void]
 
 proc batchAdvertise*(
@@ -62,7 +63,7 @@ proc batchAdvertise*(
         fut.read()
 
       if catchable.isErr():
-        trace "rendezvous dial failed", error = catchable.error.msg
+        error "rendezvous dial failed", error = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -91,7 +92,7 @@ proc batchRequest*(
 ): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
   ## Request all records from all rendezvous peers matching a namespace
 
-  # rendezvous.request except already opened connections
+  # rendezvous.request expect already opened connections
   # must dial first
   var futs = collect(newSeq):
     for peerId in peers:
@@ -111,7 +112,7 @@ proc batchRequest*(
         fut.read()
 
       if catchable.isErr():
-        trace "rendezvous dial failed", error = catchable.error.msg
+        error "rendezvous dial failed", error = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -143,13 +144,15 @@ proc advertiseAll(
     for pubsubTopic in pubsubTopics:
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        trace "could not get a peer supporting RendezVousCodec"
         continue
 
       let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
 
       # Advertise yourself on that peer
       self.batchAdvertise(namespace, DefaultRegistrationTTL, @[rpi.peerId])
+
+  if futs.len < 1:
+    return err("could not get a peer supporting RendezVousCodec")
 
   let catchable = catch:
     await allFinished(futs)
@@ -159,7 +162,7 @@ proc advertiseAll(
 
   for fut in catchable.get():
     if fut.failed():
-      trace "rendezvous advertisement failed", error = fut.error.msg
+      error "rendezvous advertisement failed", error = fut.error.msg
 
   debug "waku rendezvous advertisements finished"
 
@@ -178,11 +181,13 @@ proc initialRequestAll*(
 
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        trace "could not get a peer supporting RendezVousCodec"
         continue
 
       # Ask for peer records for that shard
       self.batchRequest(namespace, PeersRequestedCount, @[rpi.peerId])
+
+  if futs.len < 1:
+    return err("could not get a peer supporting RendezVousCodec")
 
   let catchable = catch:
     await allFinished(futs)
@@ -192,7 +197,7 @@ proc initialRequestAll*(
 
   for fut in catchable.get():
     if fut.failed():
-      trace "rendezvous request failed", error = fut.error.msg
+      error "rendezvous request failed", error = fut.error.msg
     elif fut.finished():
       let res = fut.value()
 
@@ -213,10 +218,18 @@ proc periodicRegistration(self: WakuRendezVous) {.async.} =
 
   # infinite loop
   while true:
-    await sleepAsync(DefaultRegistrationInterval)
+    await sleepAsync(self.registrationInterval)
 
     (await self.advertiseAll()).isOkOr:
       debug "waku rendezvous advertisements failed", error = error
+
+      if self.registrationInterval > MaxRegistrationInterval:
+        self.registrationInterval = MaxRegistrationInterval
+      else:
+        self.registrationInterval += self.registrationInterval
+
+    # Back to normal interval if no errors
+    self.registrationInterval = DefaultRegistrationInterval
 
 proc new*(
     T: type WakuRendezVous, switch: Switch, peerManager: PeerManager, enr: Record
@@ -246,6 +259,7 @@ proc new*(
   wrv.peerManager = peerManager
   wrv.relayshard = relayshard
   wrv.capabilities = capabilities
+  wrv.registrationInterval = DefaultRegistrationInterval
 
   debug "waku rendezvous initialized",
     cluster = relayshard.clusterId,
