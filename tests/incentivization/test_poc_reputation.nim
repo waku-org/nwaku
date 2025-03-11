@@ -12,7 +12,7 @@ import
 import
   waku/[node/peer_manager, waku_core],
   waku/incentivization/[rpc, reputation_manager],
-  waku/waku_lightpush_legacy/rpc
+  waku/waku_lightpush/[rpc, common]
 
 suite "Waku Incentivization PoC Reputation":
   var manager {.threadvar.}: ReputationManager
@@ -29,23 +29,38 @@ suite "Waku Incentivization PoC Reputation":
     manager.setReputation(peerId1, some(true)) # Encodes GoodRep
     check manager.getReputation(peerId1) == some(true)
 
-  test "incentivization PoC: reputation: evaluate PushResponse valid":
-    let validLightpushResponse =
-      PushResponse(isSuccess: true, info: some("Everything is OK"))
-    # We expect evaluateResponse to return GoodResponse if isSuccess is true
-    check evaluateResponse(validLightpushResponse) == GoodResponse
+  #[
+    LightPushResponse* = object
+    requestId*: string
+    statusCode*: uint32
+    statusDesc*: Option[string]
+    relayPeerCount*: Option[uint32]
 
-  test "incentivization PoC: reputation: evaluate PushResponse invalid":
-    let invalidLightpushResponse = PushResponse(isSuccess: false, info: none(string))
-    check evaluateResponse(invalidLightpushResponse) == BadResponse
+    LightpushStatusCode
+    ]#
+
+  test "incentivization PoC: reputation: evaluate LightPushResponse valid":
+    let validLightLightPushResponse =
+      LightPushResponse(requestId: "", statusCode: LightpushStatusCode.SUCCESS.uint32)
+    # We expect evaluateResponse to return GoodResponse if isSuccess is true
+    check evaluateResponse(validLightLightPushResponse) == GoodResponse
+
+  test "incentivization PoC: reputation: evaluate LightPushResponse invalid":
+    let invalidLightLightPushResponse = LightPushResponse(
+      requestId: "", statusCode: LightpushStatusCode.SERVICE_NOT_AVAILABLE.uint32
+    )
+    check evaluateResponse(invalidLightLightPushResponse) == BadResponse
 
   test "incentivization PoC: reputation: updateReputationFromResponse valid":
-    let validResp = PushResponse(isSuccess: true, info: some("All good"))
+    let validResp =
+      LightPushResponse(requestId: "", statusCode: LightpushStatusCode.SUCCESS.uint32)
     manager.updateReputationFromResponse(peerId1, validResp)
     check manager.getReputation(peerId1) == some(true)
 
   test "incentivization PoC: reputation: updateReputationFromResponse invalid":
-    let invalidResp = PushResponse(isSuccess: false, info: none(string))
+    let invalidResp = LightPushResponse(
+      requestId: "", statusCode: LightpushStatusCode.SERVICE_NOT_AVAILABLE.uint32
+    )
     manager.updateReputationFromResponse(peerId1, invalidResp)
     check manager.getReputation(peerId1) == some(false)
 
