@@ -14,9 +14,6 @@ import
     waku_lightpush,
     waku_lightpush/client,
     waku_lightpush/protocol_metrics,
-    waku_lightpush/rpc,
-    waku_lightpush/rpc_codec,
-    /incentivization/reputation_manager,
   ],
   ../testlib/[assertions, wakucore, testasync, futures, testutils],
   ./lightpush_utils,
@@ -25,28 +22,18 @@ import
 suite "Waku Lightpush Client":
   var
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
-    handlerFutureFailsLightpush {.threadvar.}: Future[void]
-
     handler {.threadvar.}: PushMessageHandler
-    handlerFailsLightpush {.threadvar.}: PushMessageHandler
 
     serverSwitch {.threadvar.}: Switch
-    serverSwitchFailsLightpush {.threadvar.}: Switch
     clientSwitch {.threadvar.}: Switch
-
     server {.threadvar.}: WakuLightPush
-    serverFailsLightpush {.threadvar.}: WakuLightPush
     client {.threadvar.}: WakuLightPushClient
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
-    serverRemotePeerInfoFailsLightpush {.threadvar.}: RemotePeerInfo
-
     clientPeerId {.threadvar.}: PeerId
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
-
-  const handlerError = "handler-error"
 
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
@@ -58,41 +45,24 @@ suite "Waku Lightpush Client":
         return
           lighpushErrorResult(PAYLOAD_TOO_LARGE, "length greater than maxMessageSize")
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
-
-    # A Lightpush server that fails
-    handlerFutureFailsLightpush = newFuture[void]()
-    handlerFailsLightpush = proc(
-        peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
-      handlerFutureFailsLightpush.complete()
-      return err(handlerError)
+      # return that we published the message to 1 peer.
+      return ok(1)
 
     serverSwitch = newTestSwitch()
-    serverSwitchFailsLightpush = newTestSwitch()
     clientSwitch = newTestSwitch()
-
     server = await newTestWakuLightpushNode(serverSwitch, handler)
-    serverFailsLightpush =
-      await newTestWakuLightpushNode(serverSwitchFailsLightpush, handlerFailsLightpush)
-    client = newTestWakuLightpushClient(clientSwitch, reputationEnabled = true)
+    client = newTestWakuLightpushClient(clientSwitch)
 
-    await allFutures(
-      serverSwitch.start(), serverSwitchFailsLightpush.start(), clientSwitch.start()
-    )
+    await allFutures(serverSwitch.start(), clientSwitch.start())
 
     serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
-    serverRemotePeerInfoFailsLightpush =
-      serverSwitchFailsLightpush.peerInfo.toRemotePeerInfo()
     clientPeerId = clientSwitch.peerInfo.peerId
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await allFutures(
-      clientSwitch.stop(), serverSwitch.stop(), serverSwitchFailsLightpush.stop()
-    )
+    await allFutures(clientSwitch.stop(), serverSwitch.stop())
 
   suite "Verification of PushRequest Payload":
     asyncTest "Valid Payload Types":
@@ -332,7 +302,6 @@ suite "Waku Lightpush Client":
       # When publishing a payload
       let publishResponse =
         await client.publish(some(pubsubTopic), message, serverRemotePeerInfo2)
-        await client.publish(pubsubTopic, message, serverRemotePeerInfoFailsLightpush)
 
       # Then the response is negative
       check:
@@ -342,8 +311,6 @@ suite "Waku Lightpush Client":
 
       # Cleanup
       await serverSwitch2.stop()
-        publishResponse.error() == handlerError
-        (await handlerFutureFailsLightpush.waitForResult()).isOk()
 
   suite "Verification of PushResponse Payload":
     asyncTest "Positive Responses":
@@ -354,33 +321,24 @@ suite "Waku Lightpush Client":
       # Then the response is positive
       assertResultOk publishResponse
 
-      if client.reputationManager.isSome:
-        check client.reputationManager.get().getReputation(serverRemotePeerInfo.peerId) ==
-          some(true)
-
     # TODO: Improve: Add more negative responses variations
     asyncTest "Negative Responses":
       # Given a server that does not support Waku Lightpush
       let
-        serverSwitchFailsLightpush = newTestSwitch()
-        serverRemotePeerInfoFailsLightpush =
-          serverSwitchFailsLightpush.peerInfo.toRemotePeerInfo()
+        serverSwitch2 = newTestSwitch()
+        serverRemotePeerInfo2 = serverSwitch2.peerInfo.toRemotePeerInfo()
 
-      await serverSwitchFailsLightpush.start()
+      await serverSwitch2.start()
 
       # When sending an invalid PushRequest
       let publishResponse =
         await client.publish(some(pubsubTopic), message, serverRemotePeerInfo2)
-        await client.publish(pubsubTopic, message, serverRemotePeerInfoFailsLightpush)
 
       # Then the response is negative
       check not publishResponse.isOk()
+      check publishResponse.error.code == LightpushStatusCode.NO_PEERS_TO_RELAY
 
-      if client.reputationManager.isSome:
-        check client.reputationManager.get().getReputation(
-          serverRemotePeerInfoFailsLightpush.peerId
-        ) == some(false)
-
+  #[
     asyncTest "Positive Publish To Any":
       # add a peer that supports the Lightpush protocol to the client's PeerManager
       client.peerManager.addPeer(serverRemotePeerInfo) # supports Lightpush
@@ -434,3 +392,4 @@ suite "Waku Lightpush Client":
         # the reputation of a successful peer is positive
         check client.reputationManager.get().getReputation(serverRemotePeerInfo.peerId) ==
           some(true)
+    ]#

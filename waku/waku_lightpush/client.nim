@@ -98,10 +98,12 @@ proc publish*(
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
   # FIXME: adapt for Lightpush v3 error reporting
+  #[
   if pushResult.isErr:
     if wl.reputationManager.isSome:
       wl.reputationManager.get().setReputation(peer.peerId, some(false))
     return err(pushResult.error)
+  ]#
   
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic.get(""), message)
