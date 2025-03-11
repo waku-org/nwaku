@@ -4,7 +4,8 @@
   src ? ../.,
   targets ? ["libwaku-android-arm64"],
   verbosity ? 2,
-  useSystemNim ? false,
+  useSystemNim ? true,
+  quickAndDirty ? true,
   stableSystems ? [
     "x86_64-linux" "aarch64-linux"
   ],
@@ -61,10 +62,12 @@ in stdenv.mkDerivation rec {
   ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
   NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
   XDG_CACHE_HOME = "/tmp";
-  USE_SYSTEM_NIM = "1";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
+    "QUICK_AND_DIRTY_COMPILER=${if quickAndDirty then "1" else "0"}"
+    "QUICK_AND_DIRTY_NIMBLE=${if quickAndDirty then "1" else "0"}"
+    "USE_SYSTEM_NIM=${if useSystemNim then "1" else "0"}"
   ];
 
   configurePhase = ''

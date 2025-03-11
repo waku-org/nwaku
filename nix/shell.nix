@@ -9,6 +9,7 @@ pkgs.mkShell {
     openssl
     which
     rustup
+    nim-unwrapped-2_0
     docker
     cargo
   ] ++ lib.optionals stdenv.isDarwin [ 
