@@ -140,14 +140,4 @@ proc publishToAny*(
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
 
-  let pushRequest = LightpushRequest(
-    requestId: generateRequestId(wl.rng),
-    pubSubTopic: some(pubSubTopic),
-    message: message,
-  )
-  let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
-
-  for obs in wl.publishObservers:
-    obs.onMessagePublished(pubSubTopic, message)
-
-  return lightpushSuccessResult(publishedCount)
+  return await wl.publish(some(pubSubTopic), message, peer)
