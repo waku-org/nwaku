@@ -171,9 +171,9 @@ proc processMessages(self: SendMonitor) {.async.} =
     let msg = deliveryInfo.msg
     if not self.wakuRelay.isNil():
       debug "trying to publish again with wakuRelay", msgHash, pubsubTopic
-      let ret = await self.wakuRelay.publish(pubsubTopic, msg)
-      if ret == 0:
-        error "could not publish with wakuRelay.publish", msgHash, pubsubTopic
+      (await self.wakuRelay.publish(pubsubTopic, msg)).isOkOr:
+        error "could not publish with wakuRelay.publish",
+          msgHash, pubsubTopic, error = $error
       continue
 
     if not self.wakuLightpushClient.isNil():

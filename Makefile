@@ -34,14 +34,14 @@ ifneq (,$(findstring MINGW,$(detected_OS)))
 endif
 
 ifeq ($(detected_OS),Windows)
-  # Define a new temporary directory for Windows
-  TMP_DIR := $(CURDIR)/tmp
-  $(shell mkdir -p $(TMP_DIR))
-  export TMP := $(TMP_DIR)
-  export TEMP := $(TMP_DIR)
-
-  # Add the necessary libraries to the linker flags
-  LIBS = -static -lws2_32 -lbcrypt -luserenv -lntdll -lminiupnpc
+  # Update MINGW_PATH to standard MinGW location
+  MINGW_PATH = /mingw64
+  NIM_PARAMS += --passC:"-I$(MINGW_PATH)/include"
+  NIM_PARAMS += --passL:"-L$(MINGW_PATH)/lib"
+  NIM_PARAMS += --passL:"-Lvendor/nim-nat-traversal/vendor/miniupnp/miniupnpc"
+  NIM_PARAMS += --passL:"-Lvendor/nim-nat-traversal/vendor/libnatpmp-upstream"
+  
+  LIBS = -static -lws2_32 -lbcrypt -liphlpapi -luserenv -lntdll -lminiupnpc -lnatpmp -lpq 
   NIM_PARAMS += $(foreach lib,$(LIBS),--passL:"$(lib)")
 endif
 

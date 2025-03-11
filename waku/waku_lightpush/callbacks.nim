@@ -1,5 +1,7 @@
 {.push raises: [].}
 
+import stew/results
+
 import
   ../waku_core,
   ../waku_relay,
@@ -32,28 +34,28 @@ proc checkAndGenerateRLNProof*(
 proc getNilPushHandler*(): PushMessageHandler =
   return proc(
       peer: PeerId, pubsubTopic: string, message: WakuMessage
-  ): Future[WakuLightPushResult[void]] {.async.} =
-    return err("no waku relay found")
+  ): Future[WakuLightPushResult] {.async.} =
+    return lightpushResultInternalError("no waku relay found")
 
 proc getRelayPushHandler*(
     wakuRelay: WakuRelay, rlnPeer: Option[WakuRLNRelay] = none[WakuRLNRelay]()
 ): PushMessageHandler =
   return proc(
       peer: PeerId, pubsubTopic: string, message: WakuMessage
-  ): Future[WakuLightPushResult[void]] {.async.} =
+  ): Future[WakuLightPushResult] {.async.} =
     # append RLN proof
-    let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message)
-    if msgWithProof.isErr():
-      return err(msgWithProof.error)
+    let msgWithProof = checkAndGenerateRLNProof(rlnPeer, message).valueOr:
+      return lighpushErrorResult(OUT_OF_RLN_PROOF, error)
 
-    (await wakuRelay.validateMessage(pubSubTopic, msgWithProof.value)).isOkOr:
-      return err(error)
+    (await wakuRelay.validateMessage(pubSubTopic, msgWithProof)).isOkOr:
+      return lighpushErrorResult(INVALID_MESSAGE_ERROR, $error)
 
-    let publishedCount = await wakuRelay.publish(pubsubTopic, msgWithProof.value)
-    if publishedCount == 0:
-      ## Agreed change expected to the lightpush protocol to better handle such case. https://github.com/waku-org/pm/issues/93
+    let publishedResult = await wakuRelay.publish(pubsubTopic, msgWithProof)
+
+    if publishedResult.isErr():
       let msgHash = computeMessageHash(pubsubTopic, message).to0xHex()
-      notice "Lightpush request has not been published to any peers", msg_hash = msgHash
-      return err(protocol_metrics.notPublishedAnyPeer)
+      notice "Lightpush request has not been published to any peers",
+        msg_hash = msgHash, reason = $publishedResult.error
+      return mapPubishingErrorToPushResult(publishedResult.error)
 
-    return ok()
+    return lightpushSuccessResult(publishedResult.get().uint32)
