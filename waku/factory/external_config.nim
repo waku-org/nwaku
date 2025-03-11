@@ -570,7 +570,8 @@ with the drawback of consuming some more bandwidth.""",
 
     ## DNS discovery config
     dnsDiscovery* {.
-      desc: "Enable discovering nodes via DNS",
+      desc:
+        "Deprecated, please set dns-discovery-url instead. Enable discovering nodes via DNS",
       defaultValue: false,
       name: "dns-discovery"
     .}: bool

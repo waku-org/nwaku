@@ -1,9 +1,17 @@
 {.push raises: [].}
 
-import std/options, results, stew/byteutils, chronicles, chronos, metrics, bearssl/rand
+import
+  std/[options, strutils],
+  results,
+  stew/byteutils,
+  chronicles,
+  chronos,
+  metrics,
+  bearssl/rand
 import
   ../node/peer_manager/peer_manager,
   ../waku_core,
+  ../waku_core/topics/sharding,
   ./common,
   ./rpc,
   ./rpc_codec,
@@ -18,55 +26,90 @@ type WakuLightPush* = ref object of LPProtocol
   peerManager*: PeerManager
   pushHandler*: PushMessageHandler
   requestRateLimiter*: RequestRateLimiter
+  sharding: Sharding
 
 proc handleRequest*(
     wl: WakuLightPush, peerId: PeerId, buffer: seq[byte]
-): Future[PushRPC] {.async.} =
-  let reqDecodeRes = PushRPC.decode(buffer)
-  var
-    isSuccess = false
-    pushResponseInfo = ""
-    requestId = ""
+): Future[LightPushResponse] {.async.} =
+  let reqDecodeRes = LightpushRequest.decode(buffer)
+  var isSuccess = false
+  var pushResponse: LightpushResponse
 
   if reqDecodeRes.isErr():
-    pushResponseInfo = decodeRpcFailure & ": " & $reqDecodeRes.error
-  elif reqDecodeRes.get().request.isNone():
-    pushResponseInfo = emptyRequestBodyFailure
+    pushResponse = LightpushResponse(
+      requestId: "N/A", # due to decode failure we don't know requestId
+      statusCode: LightpushStatusCode.BAD_REQUEST.uint32,
+      statusDesc: some(decodeRpcFailure & ": " & $reqDecodeRes.error),
+    )
   else:
-    let pushRpcRequest = reqDecodeRes.get()
+    let pushRequest = reqDecodeRes.get()
 
-    requestId = pushRpcRequest.requestId
+    let pubsubTopic = pushRequest.pubSubTopic.valueOr:
+      let parsedTopic = NsContentTopic.parse(pushRequest.message.contentTopic).valueOr:
+        let msg = "Invalid content-topic:" & $error
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightpushStatusCode.INVALID_MESSAGE_ERROR.uint32,
+          statusDesc: some(msg),
+        )
 
-    let
-      request = pushRpcRequest.request
+      wl.sharding.getShard(parsedTopic).valueOr:
+        let msg = "Autosharding error: " & error
+        error "lightpush request handling error", error = msg
+        return LightpushResponse(
+          requestId: pushRequest.requestId,
+          statusCode: LightpushStatusCode.INTERNAL_SERVER_ERROR.uint32,
+          statusDesc: some(msg),
+        )
 
-      pubSubTopic = request.get().pubSubTopic
-      message = request.get().message
+    # ensure checking topic will not cause error at gossipsub level
+    if pubsubTopic.isEmptyOrWhitespace():
+      let msg = "topic must not be empty"
+      error "lightpush request handling error", error = msg
+      return LightPushResponse(
+        requestId: pushRequest.requestId,
+        statusCode: LightpushStatusCode.BAD_REQUEST.uint32,
+        statusDesc: some(msg),
+      )
 
-    waku_lightpush_messages.inc(labelValues = ["PushRequest"])
+    waku_lightpush_v3_messages.inc(labelValues = ["PushRequest"])
 
     notice "handling lightpush request",
       my_peer_id = wl.peerManager.switch.peerInfo.peerId,
       peer_id = peerId,
-      requestId = requestId,
-      pubsubTopic = pubsubTopic,
-      msg_hash = pubsubTopic.computeMessageHash(message).to0xHex(),
+      requestId = pushRequest.requestId,
+      pubsubTopic = pushRequest.pubsubTopic,
+      msg_hash = pubsubTopic.computeMessageHash(pushRequest.message).to0xHex(),
       receivedTime = getNowInNanosecondTime()
 
-    let handleRes = await wl.pushHandler(peerId, pubsubTopic, message)
+    let handleRes = await wl.pushHandler(peerId, pubsubTopic, pushRequest.message)
+
     isSuccess = handleRes.isOk()
-    pushResponseInfo = (if isSuccess: "OK" else: handleRes.error)
+    pushResponse = LightpushResponse(
+      requestId: pushRequest.requestId,
+      statusCode:
+        if isSuccess:
+          LightpushStatusCode.SUCCESS.uint32
+        else:
+          handleRes.error.code.uint32,
+      statusDesc:
+        if isSuccess:
+          none[string]()
+        else:
+          handleRes.error.desc,
+    )
 
   if not isSuccess:
-    waku_lightpush_errors.inc(labelValues = [pushResponseInfo])
-    error "failed to push message", error = pushResponseInfo
-  let response = PushResponse(isSuccess: isSuccess, info: some(pushResponseInfo))
-  let rpc = PushRPC(requestId: requestId, response: some(response))
-  return rpc
+    waku_lightpush_v3_errors.inc(
+      labelValues = [pushResponse.statusDesc.valueOr("unknown")]
+    )
+    error "failed to push message", error = pushResponse.statusDesc
+  return pushResponse
 
 proc initProtocolHandler(wl: WakuLightPush) =
   proc handle(conn: Connection, proto: string) {.async.} =
-    var rpc: PushRPC
+    var rpc: LightpushResponse
     wl.requestRateLimiter.checkUsageLimit(WakuLightPushCodec, conn):
       let buffer = await conn.readLp(DefaultMaxRpcSize)
 
@@ -80,13 +123,13 @@ proc initProtocolHandler(wl: WakuLightPush) =
         peerId = conn.peerId, limit = $wl.requestRateLimiter.setting
 
       rpc = static(
-        PushRPC(
+        LightpushResponse(
           ## We will not copy and decode RPC buffer from stream only for requestId
           ## in reject case as it is comparably too expensive and opens possible
           ## attack surface
           requestId: "N/A",
-          response:
-            some(PushResponse(isSuccess: false, info: some(TooManyRequestsMessage))),
+          statusCode: LightpushStatusCode.TOO_MANY_REQUESTS.uint32,
+          statusDesc: some(TooManyRequestsMessage),
         )
       )
 
@@ -103,6 +146,7 @@ proc new*(
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
     pushHandler: PushMessageHandler,
+    sharding: Sharding,
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
 ): T =
   let wl = WakuLightPush(
@@ -110,6 +154,7 @@ proc new*(
     peerManager: peerManager,
     pushHandler: pushHandler,
     requestRateLimiter: newRequestRateLimiter(rateLimitSetting),
+    sharding: sharding,
   )
   wl.initProtocolHandler()
   setServiceLimitMetric(WakuLightpushCodec, rateLimitSetting)

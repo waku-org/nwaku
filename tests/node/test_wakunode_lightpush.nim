@@ -19,14 +19,12 @@ import
     waku_filter_v2/client,
     waku_filter_v2/subscriptions,
     waku_lightpush,
-    waku_lightpush/common,
-    waku_lightpush/client,
-    waku_lightpush/protocol_metrics,
-    waku_lightpush/rpc,
     waku_rln_relay,
   ],
   ../testlib/[assertions, common, wakucore, wakunode, testasync, futures, testutils],
   ../resources/payloads
+
+const PublishedToOnePeer = 1
 
 suite "Waku Lightpush - End To End":
   var
@@ -45,9 +43,9 @@ suite "Waku Lightpush - End To End":
     handlerFuture = newPushHandlerFuture()
     handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return ok(PublishedToOnePeer)
 
     let
       serverKey = generateSecp256k1Key()
@@ -80,16 +78,16 @@ suite "Waku Lightpush - End To End":
 
       # When the client publishes a message
       let publishResponse = await lightpushClient.lightpushPublish(
-        some(pubsubTopic), message, serverRemotePeerInfo
+        some(pubsubTopic), message, some(serverRemotePeerInfo)
       )
 
       if not publishResponse.isOk():
-        echo "Publish failed: ", publishResponse.error()
+        echo "Publish failed: ", publishResponse.error.code
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
 
-      assert (publishResponse.error == protocol_metrics.notPublishedAnyPeer),
+      assert (publishResponse.error.code == NO_PEERS_TO_RELAY),
         "incorrect error response"
 
   suite "Waku LightPush Validation Tests":
@@ -101,13 +99,14 @@ suite "Waku Lightpush - End To End":
 
       # When the client publishes an over-limit message
       let publishResponse = await client.lightpushPublish(
-        some(pubsubTopic), msgOverLimit, serverRemotePeerInfo
+        some(pubsubTopic), msgOverLimit, some(serverRemotePeerInfo)
       )
 
       check:
         publishResponse.isErr()
-        publishResponse.error ==
-          fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes"
+        publishResponse.error.code == INVALID_MESSAGE_ERROR
+        publishResponse.error.desc ==
+          some(fmt"Message size exceeded maximum of {DefaultMaxWakuMessageSize} bytes")
 
 suite "RLN Proofs as a Lightpush Service":
   var
@@ -126,9 +125,9 @@ suite "RLN Proofs as a Lightpush Service":
     handlerFuture = newPushHandlerFuture()
     handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return ok(PublishedToOnePeer)
 
     let
       serverKey = generateSecp256k1Key()
@@ -151,8 +150,8 @@ suite "RLN Proofs as a Lightpush Service":
 
     await server.mountRelay()
     await server.mountRlnRelay(wakuRlnConfig)
-    await server.mountLightpush()
-    client.mountLightpushClient()
+    await server.mountLightPush()
+    client.mountLightPushClient()
 
     serverRemotePeerInfo = server.peerInfo.toRemotePeerInfo()
     pubsubTopic = DefaultPubsubTopic
@@ -167,11 +166,11 @@ suite "RLN Proofs as a Lightpush Service":
       # Given a light lightpush client
       let lightpushClient =
         newTestWakuNode(generateSecp256k1Key(), ValidIpAddress.init("0.0.0.0"), Port(0))
-      lightpushClient.mountLightpushClient()
+      lightpushClient.mountLightPushClient()
 
       # When the client publishes a message
       let publishResponse = await lightpushClient.lightpushPublish(
-        some(pubsubTopic), message, serverRemotePeerInfo
+        some(pubsubTopic), message, some(serverRemotePeerInfo)
       )
 
       if not publishResponse.isOk():
@@ -179,5 +178,55 @@ suite "RLN Proofs as a Lightpush Service":
 
       # Then the message is not relayed but not due to RLN
       assert publishResponse.isErr(), "We expect an error response"
-      assert (publishResponse.error == protocol_metrics.notPublishedAnyPeer),
-        "incorrect error response"
+      check publishResponse.error.code == NO_PEERS_TO_RELAY
+
+suite "Waku Lightpush message delivery":
+  asyncTest "lightpush message flow succeed":
+    ## Setup
+    let
+      lightNodeKey = generateSecp256k1Key()
+      lightNode = newTestWakuNode(lightNodeKey, parseIpAddress("0.0.0.0"), Port(0))
+      bridgeNodeKey = generateSecp256k1Key()
+      bridgeNode = newTestWakuNode(bridgeNodeKey, parseIpAddress("0.0.0.0"), Port(0))
+      destNodeKey = generateSecp256k1Key()
+      destNode = newTestWakuNode(destNodeKey, parseIpAddress("0.0.0.0"), Port(0))
+
+    await allFutures(destNode.start(), bridgeNode.start(), lightNode.start())
+
+    await destNode.mountRelay(@[DefaultRelayShard])
+    await bridgeNode.mountRelay(@[DefaultRelayShard])
+    await bridgeNode.mountLightPush()
+    lightNode.mountLightPushClient()
+
+    discard await lightNode.peerManager.dialPeer(
+      bridgeNode.peerInfo.toRemotePeerInfo(), WakuLightPushCodec
+    )
+    await sleepAsync(100.milliseconds)
+    await destNode.connectToNodes(@[bridgeNode.peerInfo.toRemotePeerInfo()])
+
+    ## Given
+    let message = fakeWakuMessage()
+
+    var completionFutRelay = newFuture[bool]()
+    proc relayHandler(
+        topic: PubsubTopic, msg: WakuMessage
+    ): Future[void] {.async, gcsafe.} =
+      check:
+        topic == DefaultPubsubTopic
+        msg == message
+      completionFutRelay.complete(true)
+
+    destNode.subscribe((kind: PubsubSub, topic: DefaultPubsubTopic), some(relayHandler))
+
+    # Wait for subscription to take effect
+    await sleepAsync(100.millis)
+
+    ## When
+    let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
+    assert res.isOk(), $res.error
+
+    ## Then
+    check await completionFutRelay.withTimeout(5.seconds)
+
+    ## Cleanup
+    await allFutures(lightNode.stop(), bridgeNode.stop(), destNode.stop())

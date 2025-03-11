@@ -14,10 +14,7 @@ import
     waku_core,
     waku_lightpush,
     waku_lightpush/client,
-    waku_lightpush/common,
     waku_lightpush/protocol_metrics,
-    waku_lightpush/rpc,
-    waku_lightpush/rpc_codec,
   ],
   ../testlib/[assertions, wakucore, testasync, futures, testutils],
   ./lightpush_utils,
@@ -36,9 +33,9 @@ suite "Rate limited push service":
     var handlerFuture = newFuture[(string, WakuMessage)]()
     let handler: PushMessageHandler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return lightpushSuccessResult(1) # succeed to publish to 1 peer.
 
     let
       tokenPeriod = 500.millis
@@ -53,12 +50,13 @@ suite "Rate limited push service":
 
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(DefaultPubsubTopic, message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
 
       check await handlerFuture.withTimeout(50.millis)
 
-      assert requestRes.isOk(), requestRes.error
-      check handlerFuture.finished()
+      check:
+        requestRes.isOk()
+        handlerFuture.finished()
 
       let (handledMessagePubsubTopic, handledMessage) = handlerFuture.read()
 
@@ -98,9 +96,9 @@ suite "Rate limited push service":
     var handlerFuture = newFuture[(string, WakuMessage)]()
     let handler = proc(
         peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
-    ): Future[WakuLightPushResult[void]] {.async.} =
+    ): Future[WakuLightPushResult] {.async.} =
       handlerFuture.complete((pubsubTopic, message))
-      return ok()
+      return lightpushSuccessResult(1)
 
     let
       server =
@@ -114,7 +112,7 @@ suite "Rate limited push service":
       let message = fakeWakuMessage()
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(DefaultPubsubTopic, message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
       discard await handlerFuture.withTimeout(10.millis)
 
       check:
@@ -129,12 +127,13 @@ suite "Rate limited push service":
       let message = fakeWakuMessage()
       handlerFuture = newFuture[(string, WakuMessage)]()
       let requestRes =
-        await client.publish(DefaultPubsubTopic, message, peer = serverPeerId)
+        await client.publish(some(DefaultPubsubTopic), message, peer = serverPeerId)
       discard await handlerFuture.withTimeout(10.millis)
 
       check:
         requestRes.isErr()
-        requestRes.error == "TOO_MANY_REQUESTS"
+        requestRes.error.code == TOO_MANY_REQUESTS
+        requestRes.error.desc == some(TooManyRequestsMessage)
 
     for testCnt in 0 .. 2:
       await successProc()

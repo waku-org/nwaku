@@ -24,7 +24,7 @@ export types
 logScope:
   topics = "waku node rest lightpush api"
 
-const futTimeoutForPushRequestProcessing* = 5.seconds
+const FutTimeoutForPushRequestProcessing* = 5.seconds
 
 const NoPeerNoDiscoError =
   RestApiResponse.serviceUnavailable("No suitable service peer & no discovery method")
@@ -33,11 +33,32 @@ const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
 proc useSelfHostedLightPush(node: WakuNode): bool =
-  return node.wakuLightPush != nil and node.wakuLightPushClient == nil
+  return node.wakuLegacyLightPush != nil and node.wakuLegacyLightPushClient == nil
+
+proc convertErrorKindToHttpStatus(statusCode: LightpushStatusCode): HttpCode =
+  ## Lightpush status codes are matching HTTP status codes by design
+  return HttpCode(statusCode.int32)
+
+proc makeRestResponse(response: WakuLightPushResult): RestApiResponse =
+  var httpStatus: HttpCode = Http200
+  var apiResponse: PushResponse
+
+  if response.isOk():
+    apiResponse.relayPeerCount = some(response.get())
+  else:
+    httpStatus = convertErrorKindToHttpStatus(response.error().code)
+    apiResponse.statusDesc = response.error().desc
+
+  let restResp = RestApiResponse.jsonResponse(apiResponse, status = httpStatus).valueOr:
+    error "An error ocurred while building the json respose: ", error = error
+    return RestApiResponse.internalServerError(
+      fmt("An error ocurred while building the json respose: {error}")
+    )
+
+  return restResp
 
 #### Request handlers
-
-const ROUTE_LIGHTPUSH* = "/lightpush/v1/message"
+const ROUTE_LIGHTPUSH = "/lightpush/v3/message"
 
 proc installLightPushRequestHandler*(
     router: var RestRouter,
@@ -50,21 +71,17 @@ proc installLightPushRequestHandler*(
     ## Send a request to push a waku message
     debug "post", ROUTE_LIGHTPUSH, contentBody
 
-    let decodedBody = decodeRequestBody[PushRequest](contentBody)
-
-    if decodedBody.isErr():
-      return decodedBody.error()
-
-    let req: PushRequest = decodedBody.value()
+    let req: PushRequest = decodeRequestBody[PushRequest](contentBody).valueOr:
+      return RestApiResponse.badRequest("Invalid push request: " & $error)
 
     let msg = req.message.toWakuMessage().valueOr:
       return RestApiResponse.badRequest("Invalid message: " & $error)
 
-    var peer = RemotePeerInfo.init($node.switch.peerInfo.peerId)
+    var toPeer = none(RemotePeerInfo)
     if useSelfHostedLightPush(node):
       discard
     else:
-      peer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
+      let aPeer = node.peerManager.selectPeer(WakuLightPushCodec).valueOr:
         let handler = discHandler.valueOr:
           return NoPeerNoDiscoError
 
@@ -73,19 +90,12 @@ proc installLightPushRequestHandler*(
 
         peerOp.valueOr:
           return NoPeerNoneFoundError
+      toPeer = some(aPeer)
 
-    let subFut = node.lightpushPublish(req.pubsubTopic, msg, peer)
+    let subFut = node.lightpushPublish(req.pubsubTopic, msg, toPeer)
 
-    if not await subFut.withTimeout(futTimeoutForPushRequestProcessing):
+    if not await subFut.withTimeout(FutTimeoutForPushRequestProcessing):
       error "Failed to request a message push due to timeout!"
       return RestApiResponse.serviceUnavailable("Push request timed out")
 
-    if subFut.value().isErr():
-      if subFut.value().error == TooManyRequestsMessage:
-        return RestApiResponse.tooManyRequests("Request rate limmit reached")
-
-      return RestApiResponse.serviceUnavailable(
-        fmt("Failed to request a message push: {subFut.value().error}")
-      )
-
-    return RestApiResponse.ok()
+    return makeRestResponse(subFut.value())

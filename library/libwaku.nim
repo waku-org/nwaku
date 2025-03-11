@@ -107,7 +107,7 @@ proc onTopicHealthChange(ctx: ptr WakuContext): TopicHealthChangeHandler =
 
 # Every Nim library must have this function called - the name is derived from
 # the `--nimMainPrefix` command line option
-proc NimMain() {.importc.}
+proc libwakuNimMain() {.importc.}
 
 # To control when the library has been initialized
 var initialized: Atomic[bool]
@@ -122,7 +122,9 @@ if defined(android):
 
 proc initializeLibrary() {.exported.} =
   if not initialized.exchange(true):
-    NimMain() # Every Nim library needs to call `NimMain` once exactly
+    ## Every Nim library needs to call `<yourprefix>NimMain` once exactly, to initialize the Nim runtime.
+    ## Being `<yourprefix>` the value given in the optional compilation flag --nimMainPrefix:yourprefix
+    libwakuNimMain()
   when declared(setupForeignThreadGc):
     setupForeignThreadGc()
   when declared(nimGC_setStackBottom):
@@ -291,18 +293,17 @@ proc waku_relay_publish(
   checkLibwakuParams(ctx, callback, userData)
 
   let jwm = jsonWakuMessage.alloc()
+  defer:
+    deallocShared(jwm)
   var jsonMessage: JsonMessage
   try:
     let jsonContent = parseJson($jwm)
     jsonMessage = JsonMessage.fromJsonNode(jsonContent).valueOr:
       raise newException(JsonParsingError, $error)
   except JsonParsingError:
-    deallocShared(jwm)
     let msg = fmt"Error parsing json message: {getCurrentExceptionMsg()}"
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
     return RET_ERR
-  finally:
-    deallocShared(jwm)
 
   let wakuMessage = jsonMessage.toWakuMessage().valueOr:
     let msg = "Problem building the WakuMessage: " & $error

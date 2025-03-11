@@ -7,6 +7,7 @@ else:
 
 if defined(windows):
   switch("passL", "rln.lib")
+  switch("define", "postgres=false")
 
   # Automatically add all vendor subdirectories
   for dir in walkDir("./vendor"):

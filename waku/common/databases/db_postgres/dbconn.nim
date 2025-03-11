@@ -49,7 +49,9 @@ proc check(db: DbConn): Result[void, string] =
     return err("exception in check: " & getCurrentExceptionMsg())
 
   if message.len > 0:
-    return err($message)
+    let truncatedErr = message[0 .. 80]
+      ## libpq sometimes gives extremely long error messages
+    return err(truncatedErr)
 
   return ok()
 
@@ -180,12 +182,15 @@ proc waitQueryToFinish(
 
   let asyncFd = cast[asyncengine.AsyncFD](pqsocket(dbConnWrapper.dbConn))
 
-  asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
-    dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
-    return err("failed to add event reader in waitQueryToFinish: " & $error)
-  defer:
-    asyncengine.removeReader2(asyncFd).isOkOr:
-      return err("failed to remove event reader in waitQueryToFinish: " & $error)
+  when not defined(windows):
+    asyncengine.addReader2(asyncFd, onDataAvailable).isOkOr:
+      dbConnWrapper.futBecomeFree.fail(newException(ValueError, $error))
+      return err("failed to add event reader in waitQueryToFinish: " & $error)
+    defer:
+      asyncengine.removeReader2(asyncFd).isOkOr:
+        return err("failed to remove event reader in waitQueryToFinish: " & $error)
+  else:
+    return err("Postgres not supported on Windows")
 
   await futDataAvailable
 
