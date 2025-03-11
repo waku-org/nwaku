@@ -122,6 +122,7 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
       store = conf.store,
       relay = conf.relay,
       sync = conf.storeSync,
+      mix = conf.mix,
     )
 
   # Resolve and use DNS domain IP
