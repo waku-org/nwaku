@@ -97,19 +97,19 @@ proc publish*(
   )
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
-  # FIXME: adapt for Lightpush v3 error reporting
-  #[
-  if pushResult.isErr:
-    if wl.reputationManager.isSome:
-      wl.reputationManager.get().setReputation(peer.peerId, some(false))
-    return err(pushResult.error)
-  ]#
-  
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic.get(""), message)
 
+  # FIXME: where is negative result returned?
+  # we should check publish result for adjusting reputation
+  # but it's unclear where to check it, hence checking publishedCount
+  if publishedCount == 0:
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
+
   return lightpushSuccessResult(publishedCount)
 
+# TODO: move selectPeerForLightPush logic into PeerManager
 proc selectPeerForLightPush*(
     wl: WakuLightPushClient
 ): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
@@ -121,7 +121,8 @@ proc selectPeerForLightPush*(
       return err("could not retrieve a peer supporting WakuLightPushCodec")
     if wl.reputationManager.isSome():
       let reputation = wl.reputationManager.get().getReputation(candidate.peerId)
-      info "Peer selected", peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
+      info "Peer selected",
+        peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
       if (reputation == some(false)):
         attempts += 1
         continue
@@ -146,14 +147,6 @@ proc publishToAny*(
     message: message,
   )
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
-
-  # FIXME
-  #[
-  let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
-    return err("could not retrieve a peer supporting WakuLightPushCodec")
-  let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  ?await wl.sendPushRequest(pushRequest, peer)
-  ]#
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
