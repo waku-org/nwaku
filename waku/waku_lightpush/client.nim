@@ -57,6 +57,8 @@ proc sendPushRequest(
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
     error "Failed to read responose from peer", error = getCurrentExceptionMsg()
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
@@ -64,12 +66,16 @@ proc sendPushRequest(
   let response = LightpushResponse.decode(buffer).valueOr:
     error "failed to decode response"
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(decodeRpcFailure)
 
   if response.requestId != req.requestId and
       response.statusCode != TOO_MANY_REQUESTS.uint32:
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError("response failure, requestId mismatch")
 
   if wl.reputationManager.isSome:
@@ -99,13 +105,6 @@ proc publish*(
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic.get(""), message)
-
-  # FIXME: where is negative result returned?
-  # we should check publish result for adjusting reputation
-  # but it's unclear where to check it, hence checking publishedCount
-  if publishedCount == 0:
-    if wl.reputationManager.isSome:
-      wl.reputationManager.get().setReputation(peer.peerId, some(false))
 
   return lightpushSuccessResult(publishedCount)
 
