@@ -1,9 +1,8 @@
 import tables, std/options
-import ../waku_lightpush_legacy/rpc
+import ../waku_lightpush/[rpc, common]
+import libp2p/peerid
 
 type
-  PeerId = string
-
   ResponseQuality* = enum
     BadResponse
     GoodResponse
@@ -29,16 +28,16 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
   else:
     result = none(bool)
 
-# Evaluate the quality of a PushResponse by checking its isSuccess field
-proc evaluateResponse*(response: PushResponse): ResponseQuality =
-  if response.isSuccess:
+# Evaluate the quality of a LightPushResponse by checking its status code
+proc evaluateResponse*(response: LightPushResponse): ResponseQuality =
+  if response.statusCode == LightpushStatusCode.SUCCESS.uint32:
     return GoodResponse
   else:
     return BadResponse
 
 # Update reputation of the peer based on the quality of the response
 proc updateReputationFromResponse*(
-    manager: var ReputationManager, peer: PeerId, response: PushResponse
+    manager: var ReputationManager, peer: PeerId, response: LightPushResponse
 ) =
   let respQuality = evaluateResponse(response)
   case respQuality

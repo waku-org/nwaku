@@ -496,6 +496,13 @@ hence would have reachability issues.""",
       name: "lightpushnode"
     .}: string
 
+    ## Reputation config
+    reputationEnabled* {.
+      desc: "Enable client-side reputation for light protocols: true|false",
+      defaultValue: false,
+      name: "reputation"
+    .}: bool
+
     ## Reliability config
     reliabilityEnabled* {.
       desc:

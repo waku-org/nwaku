@@ -11,7 +11,8 @@ import
   ./common,
   ./protocol_metrics,
   ./rpc,
-  ./rpc_codec
+  ./rpc_codec,
+  ../incentivization/reputation_manager
 
 logScope:
   topics = "waku lightpush client"
@@ -19,12 +20,23 @@ logScope:
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
   rng*: ref rand.HmacDrbgContext
+  reputationManager*: Option[ReputationManager]
   publishObservers: seq[PublishObserver]
 
 proc new*(
-    T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
+    T: type WakuLightPushClient,
+    peerManager: PeerManager,
+    rng: ref rand.HmacDrbgContext,
+    reputationEnabled: bool,
 ): T =
-  WakuLightPushClient(peerManager: peerManager, rng: rng)
+  let reputationManager =
+    if reputationEnabled:
+      some(ReputationManager.new())
+    else:
+      none(ReputationManager)
+  WakuLightPushClient(
+    peerManager: peerManager, rng: rng, reputationManager: reputationManager
+  )
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)
@@ -60,6 +72,9 @@ proc sendPushRequest(
       requestId = req.requestId, responseRequestId = response.requestId
     return lightpushResultInternalError("response failure, requestId mismatch")
 
+  if wl.reputationManager.isSome:
+    wl.reputationManager.get().updateReputationFromResponse(peer.peerId, response)
+
   return toPushResult(response)
 
 proc publish*(
@@ -82,10 +97,35 @@ proc publish*(
   )
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
 
+  # FIXME: adapt for Lightpush v3 error reporting
+  if pushResult.isErr:
+    if wl.reputationManager.isSome:
+      wl.reputationManager.get().setReputation(peer.peerId, some(false))
+    return err(pushResult.error)
+  
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic.get(""), message)
 
   return lightpushSuccessResult(publishedCount)
+
+proc selectPeerForLightPush*(
+    wl: WakuLightPushClient
+): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
+  let maxAttempts = if defined(reputation): 10 else: 1
+  var attempts = 0
+  var peerResult: Result[RemotePeerInfo, string]
+  while attempts < maxAttempts:
+    let candidate = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
+      return err("could not retrieve a peer supporting WakuLightPushCodec")
+    if wl.reputationManager.isSome():
+      let reputation = wl.reputationManager.get().getReputation(candidate.peerId)
+      info "Peer selected", peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
+      if (reputation == some(false)):
+        attempts += 1
+        continue
+    return ok(candidate)
+  warn "Maximum reputation-based retries exceeded; continuing with a bad-reputation peer."
+  return peerResult
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
@@ -94,7 +134,6 @@ proc publishToAny*(
   ## we don't specify a particular peer and instead we get it from peer manager
 
   info "publishToAny", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
-
   let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
     # TODO: check if it is matches the situation - shall we distinguish client side missing peers from server side?
     return lighpushErrorResult(NO_PEERS_TO_RELAY, "no suitable remote peers")
@@ -105,6 +144,14 @@ proc publishToAny*(
     message: message,
   )
   let publishedCount = ?await wl.sendPushRequest(pushRequest, peer)
+
+  # FIXME
+  #[
+  let peer = wl.peerManager.selectPeer(WakuLightPushCodec).valueOr:
+    return err("could not retrieve a peer supporting WakuLightPushCodec")
+  let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
+  ?await wl.sendPushRequest(pushRequest, peer)
+  ]#
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)
