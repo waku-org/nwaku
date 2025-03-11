@@ -62,7 +62,7 @@ proc batchAdvertise*(
         fut.read()
 
       if catchable.isErr():
-        error "rendezvous dial failed", error = catchable.error.msg
+        trace "rendezvous dial failed", error = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -111,7 +111,7 @@ proc batchRequest*(
         fut.read()
 
       if catchable.isErr():
-        error "rendezvous dial failed", error = catchable.error.msg
+        trace "rendezvous dial failed", error = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -143,7 +143,7 @@ proc advertiseAll(
     for pubsubTopic in pubsubTopics:
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        error "could not get a peer supporting RendezVousCodec"
+        trace "could not get a peer supporting RendezVousCodec"
         continue
 
       let namespace = computeNamespace(pubsubTopic.clusterId, pubsubTopic.shardId)
@@ -159,7 +159,7 @@ proc advertiseAll(
 
   for fut in catchable.get():
     if fut.failed():
-      error "rendezvous advertisement failed", error = fut.error.msg
+      trace "rendezvous advertisement failed", error = fut.error.msg
 
   debug "waku rendezvous advertisements finished"
 
@@ -178,7 +178,7 @@ proc initialRequestAll*(
 
       # Get a random RDV peer for that shard
       let rpi = self.peerManager.selectPeer(RendezVousCodec, some($pubsubTopic)).valueOr:
-        error "could not get a peer supporting RendezVousCodec"
+        trace "could not get a peer supporting RendezVousCodec"
         continue
 
       # Ask for peer records for that shard
@@ -192,7 +192,7 @@ proc initialRequestAll*(
 
   for fut in catchable.get():
     if fut.failed():
-      error "rendezvous request failed", error = fut.error.msg
+      trace "rendezvous request failed", error = fut.error.msg
     elif fut.finished():
       let res = fut.value()
 
