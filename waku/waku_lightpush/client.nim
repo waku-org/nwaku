@@ -23,9 +23,7 @@ type WakuLightPushClient* = ref object
   publishObservers: seq[PublishObserver]
 
 proc new*(
-    T: type WakuLightPushClient,
-    peerManager: PeerManager,
-    rng: ref rand.HmacDrbgContext,
+    T: type WakuLightPushClient, peerManager: PeerManager, rng: ref rand.HmacDrbgContext
 ): T =
   WakuLightPushClient(peerManager: peerManager, rng: rng)
 
@@ -70,7 +68,9 @@ proc sendPushRequest(
     return lightpushResultInternalError("response failure, requestId mismatch")
 
   if wl.peerManager.reputationManager.isSome:
-    wl.peerManager.reputationManager.get().updateReputationFromResponse(peer.peerId, response)
+    wl.peerManager.reputationManager.get().updateReputationFromResponse(
+      peer.peerId, response
+    )
 
   return toPushResult(response)
 
@@ -98,27 +98,6 @@ proc publish*(
     obs.onMessagePublished(pubSubTopic.get(""), message)
 
   return lightpushSuccessResult(publishedCount)
-
-# TODO: move selectPeerForLightPush logic into PeerManager
-proc selectPeerForLightPush*(
-    wl: WakuLightPushClient
-): Future[Result[RemotePeerInfo, string]] {.async, gcsafe.} =
-  let maxAttempts = if defined(reputation): 10 else: 1
-  var attempts = 0
-  var peerResult: Result[RemotePeerInfo, string]
-  while attempts < maxAttempts:
-    let candidate = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
-      return err("could not retrieve a peer supporting WakuLightPushCodec")
-    if wl.peerManager.reputationManager.isSome():
-      let reputation = wl.peerManager.reputationManager.get().getReputation(candidate.peerId)
-      info "Peer selected",
-        peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
-      if (reputation == some(false)):
-        attempts += 1
-        continue
-    return ok(candidate)
-  warn "Maximum reputation-based retries exceeded; continuing with a bad-reputation peer."
-  return peerResult
 
 proc publishToAny*(
     wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage
