@@ -367,10 +367,9 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let proofResult = manager.generateProof(
+    let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
-    let validProof = proofResult.valueOr:
+    ).valueOr:
       raiseAssert $error
 
     # validate the root (should be false)
@@ -413,7 +412,7 @@ suite "Onchain group manager":
     # generate proof
     let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr
+    ).valueOr:
       raiseAssert $error
 
     # verify the proof (should be true)
