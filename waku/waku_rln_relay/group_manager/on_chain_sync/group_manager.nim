@@ -12,7 +12,7 @@ import
 logScope:
   topics = "waku rln_relay onchain_sync_group_manager"
 
-type OnChainSyncGroupManager* = ref object of onchain.OnchainGroupManager
+type OnChainSyncGroupManager* = ref object of OnchainGroupManager
   # Cache for merkle proofs by index
   merkleProofsByIndex*: Table[Uint256, seq[Uint256]]
 
@@ -106,23 +106,3 @@ method generateProof*(
     nullifier: nullifier,
   )
   return ok(output)
-
-method register*(
-    g: OnChainSyncGroupManager,
-    identityCredential: IdentityCredential,
-    userMessageLimit: UserMessageLimit,
-): Future[void] {.async: (raises: [Exception]).} =
-  # Call parent's register method first
-  await procCall onchain.OnchainGroupManager(g).register(
-    identityCredential, userMessageLimit
-  )
-
-  # After registration, fetch and cache the merkle proof
-  let membershipIndex = g.membershipIndex.get()
-  try:
-    let merkleProofInvocation =
-      g.wakuRlnContract.get().merkleProofElements(stuint(membershipIndex, 256))
-    let merkleProof = await merkleProofInvocation.call()
-    g.merkleProofsByIndex[stuint(membershipIndex, 256)] = merkleProof
-  except CatchableError:
-    error "Failed to fetch initial merkle proof: " & getCurrentExceptionMsg()
