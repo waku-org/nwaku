@@ -20,23 +20,14 @@ logScope:
 type WakuLightPushClient* = ref object
   peerManager*: PeerManager
   rng*: ref rand.HmacDrbgContext
-  reputationManager*: Option[ReputationManager]
   publishObservers: seq[PublishObserver]
 
 proc new*(
     T: type WakuLightPushClient,
     peerManager: PeerManager,
     rng: ref rand.HmacDrbgContext,
-    reputationEnabled: bool,
 ): T =
-  let reputationManager =
-    if reputationEnabled:
-      some(ReputationManager.new())
-    else:
-      none(ReputationManager)
-  WakuLightPushClient(
-    peerManager: peerManager, rng: rng, reputationManager: reputationManager
-  )
+  WakuLightPushClient(peerManager: peerManager, rng: rng)
 
 proc addPublishObserver*(wl: WakuLightPushClient, obs: PublishObserver) =
   wl.publishObservers.add(obs)
@@ -57,8 +48,8 @@ proc sendPushRequest(
     buffer = await connection.readLp(DefaultMaxRpcSize.int)
   except LPStreamRemoteClosedError:
     error "Failed to read responose from peer", error = getCurrentExceptionMsg()
-    if wl.reputationManager.isSome:
-      wl.reputationManager.get().setReputation(peer.peerId, some(false))
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(
       "Failed to read response from peer: " & getCurrentExceptionMsg()
     )
@@ -66,20 +57,20 @@ proc sendPushRequest(
   let response = LightpushResponse.decode(buffer).valueOr:
     error "failed to decode response"
     waku_lightpush_v3_errors.inc(labelValues = [decodeRpcFailure])
-    if wl.reputationManager.isSome:
-      wl.reputationManager.get().setReputation(peer.peerId, some(false))
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError(decodeRpcFailure)
 
   if response.requestId != req.requestId and
       response.statusCode != TOO_MANY_REQUESTS.uint32:
     error "response failure, requestId mismatch",
       requestId = req.requestId, responseRequestId = response.requestId
-    if wl.reputationManager.isSome:
-      wl.reputationManager.get().setReputation(peer.peerId, some(false))
+    if wl.peerManager.reputationManager.isSome:
+      wl.peerManager.reputationManager.get().setReputation(peer.peerId, some(false))
     return lightpushResultInternalError("response failure, requestId mismatch")
 
-  if wl.reputationManager.isSome:
-    wl.reputationManager.get().updateReputationFromResponse(peer.peerId, response)
+  if wl.peerManager.reputationManager.isSome:
+    wl.peerManager.reputationManager.get().updateReputationFromResponse(peer.peerId, response)
 
   return toPushResult(response)
 
@@ -118,8 +109,8 @@ proc selectPeerForLightPush*(
   while attempts < maxAttempts:
     let candidate = wl.peerManager.selectPeer(WakuLightPushCodec, none(PubsubTopic)).valueOr:
       return err("could not retrieve a peer supporting WakuLightPushCodec")
-    if wl.reputationManager.isSome():
-      let reputation = wl.reputationManager.get().getReputation(candidate.peerId)
+    if wl.peerManager.reputationManager.isSome():
+      let reputation = wl.peerManager.reputationManager.get().getReputation(candidate.peerId)
       info "Peer selected",
         peerId = candidate.peerId, reputation = $reputation, attempts = $attempts
       if (reputation == some(false)):

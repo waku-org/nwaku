@@ -43,6 +43,9 @@ suite "Waku Lightpush Client":
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
 
+  # Use reputation manager (inside the peer manager) for Lightpush Client test instanse
+  const reputationEnabled = true
+
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
     handler = proc(
@@ -73,7 +76,7 @@ suite "Waku Lightpush Client":
     server = await newTestWakuLightpushNode(serverSwitch, handler)
     serverFailsLightpush =
       await newTestWakuLightpushNode(serverSwitchFailsLightpush, handlerFailsLightpush)
-    client = newTestWakuLightpushClient(clientSwitch)
+    client = newTestWakuLightpushClient(clientSwitch, reputationEnabled)
 
     await allFutures(
       serverSwitch.start(), serverSwitchFailsLightpush.start(), clientSwitch.start()
@@ -386,39 +389,3 @@ suite "Waku Lightpush Client":
 
       # Then the response is negative
       check not publishResponse.isOk()
-
-    #[
-    # TODO: adapt test for reputation-based peer selection after reputation logic is moved into PeerManager
-    asyncTest "Peer Selection for Lighpush with Reputation":
-      # add a peer that does not support the Lightpush protocol to the client's PeerManager
-      client.peerManager.addPeer(serverRemotePeerInfoFailsLightpush)
-
-      # try publishing via a failing peer
-      let publishResponse1 = await client.publishToAny(pubsubTopic, message)
-
-      check not publishResponse1.isOk()
-
-      if client.reputationManager.isSome:
-        client.reputationManager.get().setReputation(serverRemotePeerInfoFailsLightpush.peerId, some(false))
-
-      # add a peer that supports the Lightpush protocol to the client's PeerManager
-      client.peerManager.addPeer(serverRemotePeerInfo) # supports Lightpush
-
-      # try publishing again - this time another (good) peer will be selected
-      let publishResponse2 = await client.publishToAny(pubsubTopic, message)
-
-      check publishResponse2.isOk()
-
-      if client.reputationManager.isSome:
-        client.reputationManager.get().setReputation(serverRemotePeerInfo.peerId, some(true))
-
-      if client.reputationManager.isSome:
-        # the reputation of a failed peer is negative
-        check client.reputationManager.get().getReputation(
-          serverRemotePeerInfoFailsLightpush.peerId
-        ) == some(false)
-
-        # the reputation of a successful peer is positive
-        check client.reputationManager.get().getReputation(serverRemotePeerInfo.peerId) ==
-          some(true)
-    ]#
