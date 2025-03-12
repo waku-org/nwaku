@@ -92,7 +92,7 @@ proc batchRequest*(
 ): Future[Result[seq[PeerRecord], string]] {.async: (raises: []).} =
   ## Request all records from all rendezvous peers matching a namespace
 
-  # rendezvous.request expect already opened connections
+  # rendezvous.request expects already opened connections
   # must dial first
   var futs = collect(newSeq):
     for peerId in peers:
