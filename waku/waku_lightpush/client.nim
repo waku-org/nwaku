@@ -122,15 +122,19 @@ proc publishToAny*(
 
 proc publishWithConn*(
   wl: WakuLightPushClient, pubSubTopic: PubsubTopic, message: WakuMessage, conn: Connection
-): Future[WakuLightPushResult[void]] {.async, gcsafe.} =
+): Future[WakuLightPushResult] {.async, gcsafe.} =
   ## This proc is similar to the publish one but in this case
   ## we use existing connection to publish.
 
   info "publishWithConn", msg_hash = computeMessageHash(pubsubTopic, message).to0xHex
 
-  let pushRequest = PushRequest(pubSubTopic: pubSubTopic, message: message)
-  let rpc = PushRPC(requestId: generateRequestId(wl.rng), request: some(pushRequest))
-  await conn.writeLP(rpc.encode().buffer)
+  let pushRequest = LightpushRequest(
+    requestId: generateRequestId(wl.rng),
+    pubSubTopic: some(pubSubTopic),
+    message: message,
+  )
+
+  await conn.writeLP(pushRequest.encode().buffer)
 
   for obs in wl.publishObservers:
     obs.onMessagePublished(pubSubTopic, message)

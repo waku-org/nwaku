@@ -33,6 +33,9 @@ proc enrConfiguration*(
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
+  if conf.mix and conf.mixKey.isSome():
+    enrBuilder.withMixKey(conf.mixKey.get())
+
   let recordRes = enrBuilder.build()
   let record =
     if recordRes.isErr():
