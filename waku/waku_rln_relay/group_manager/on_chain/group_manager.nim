@@ -68,7 +68,6 @@ type
     validRootBuffer*: Deque[MerkleNode]
     # interval loop to shut down gracefully
     blockFetchingActive*: bool
-    merkleProofsByIndex*: Table[Uint256, seq[Uint256]]
 
 const DefaultKeyStorePath* = "rlnKeystore.json"
 const DefaultKeyStorePassword* = "password"
@@ -91,16 +90,6 @@ template retryWrapper(
 ): auto =
   retryWrapper(res, RetryStrategy.new(), errStr, g.onFatalErrorAction):
     body
-
-proc fetchMerkleProof*(g: OnchainGroupManager, index: Uint256) {.async.} =
-  ## Fetches and caches the Merkle proof elements for a given index
-  try:
-    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
-    let merkleProof = await merkleProofInvocation.call()
-      # Await the contract call and extract the result
-    g.merkleProofsByIndex[index] = merkleProof
-  except CatchableError:
-    error "Failed to fetch merkle proof: " & getCurrentExceptionMsg()
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -361,10 +350,6 @@ proc handleEvents(
         toRemoveIndices = removalIndices,
       )
 
-      for i in 0 ..< rateCommitments.len:
-        let index = startIndex + MembershipIndex(i)
-        await g.fetchMerkleProof(stuint(index, 256))
-
       g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
       trace "new members added to the Merkle tree",
         commitments = rateCommitments.mapIt(it.inHex)
@@ -384,12 +369,6 @@ proc handleRemovedEvents(
   for blockNumber, members in blockTable.pairs():
     if members.anyIt(it[1]):
       numRemovedBlocks += 1
-
-    # Remove cached merkleProof for each removed member
-    for member in members:
-      if member[1]: # Check if the member is removed
-        let index = member[0].index
-        g.merkleProofsByIndex.del(stuint(index, 256))
 
   await g.backfillRootQueue(numRemovedBlocks)
 
