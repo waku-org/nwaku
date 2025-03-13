@@ -42,6 +42,8 @@ jobs:
           mingw-w64-x86_64-openssl
           mingw-w64-x86_64-python
           mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-llvm
+          mingw-w64-x86_64-clang
       
     - name: Add UPX to PATH
       run: |
@@ -65,21 +67,59 @@ jobs:
         cd vendor/nimbus-build-system/vendor/Nim
         ./build_all.bat
         cd ../../../..
- 
+
     - name: Building libunwind
       continue-on-error: true
       run: |
         cd vendor/nim-libbacktrace
-        make install/usr/lib/libunwind.a V=2
+        
+        # Add additional CMake flags for Windows
+        export CMAKE_ARGS="$CMAKE_ARGS \
+          -DCMAKE_C_COMPILER=gcc \
+          -DCMAKE_CXX_COMPILER=g++ \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_BUILD_TYPE=Release"
+        
+        # Build with verbose output
+        make install/usr/lib/libunwind.a V=3
+        
+        # Search for the built library in multiple locations
         echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        find . -name "*.a"
+        echo "Searching for libunwind.a..."
+        find . -name "libunwind.a" -print
         echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        
+        # Try to copy from different possible locations
         if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
+          echo "Found libunwind.a in build/lib"
           cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+        elif [ -f ./vendor/libunwind/build/libunwind.a ]; then
+          echo "Found libunwind.a in build directory"
+          cp ./vendor/libunwind/build/libunwind.a install/usr/lib
+        elif [ -f ./vendor/libunwind/build/runtimes/libunwind/lib/libunwind.a ]; then
+          echo "Found libunwind.a in runtimes directory"
+          cp ./vendor/libunwind/build/runtimes/libunwind/lib/libunwind.a install/usr/lib
         else
-          echo "libunwind.a not found, skipping copy"
+          echo "libunwind.a not found in any expected location"
+          exit 1
         fi
+        
         cd ../../
+
+    # - name: Building libunwind
+    #   continue-on-error: true
+    #   run: |
+    #     cd vendor/nim-libbacktrace
+    #     make install/usr/lib/libunwind.a V=2
+    #     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    #     find . -name "*.a"
+    #     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    #     if [ -f ./vendor/libunwind/build/lib/libunwind.a ]; then
+    #       cp ./vendor/libunwind/build/lib/libunwind.a install/usr/lib
+    #     else
+    #       echo "libunwind.a not found, skipping copy"
+    #     fi
+    #     cd ../../
 
     - name: Building miniupnpc
       run: |
