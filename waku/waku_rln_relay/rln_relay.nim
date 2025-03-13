@@ -408,7 +408,7 @@ proc monitorEpochs(wakuRlnRelay: WakuRLNRelay) {.async.} =
   while true:
     try:
       waku_rln_remaining_proofs_per_epoch.set(
-        wakuRlnRelay.groupManager.userMessageLimit.get().flaot64
+        wakuRlnRelay.groupManager.userMessageLimit.get().float64
       )
     except CatchableError:
       error "Error in epoch monitoring", error = getCurrentExceptionMsg()
