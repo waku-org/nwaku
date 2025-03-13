@@ -89,6 +89,7 @@ type WakuRLNRelay* = ref object of RootObj
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
   nonceManager*: NonceManager
+  epochMonitorFuture*: Future[void]
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
@@ -478,7 +479,8 @@ proc mount(
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
-
+   
+  # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
   return ok(wakuRlnRelay)
 
