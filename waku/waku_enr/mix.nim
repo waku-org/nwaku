@@ -20,3 +20,13 @@ func mixKey*(record: TypedRecord): Option[seq[byte]] =
   if field.isNone():
     return none(seq[byte])
   return field
+
+func mixKey*(record: Record): Option[seq[byte]] =
+  let recordRes = record.toTyped()
+  if recordRes.isErr():
+    return none(seq[byte])
+
+  let field = recordRes.value.tryGet(MixKeyEnrField, seq[byte])
+  if field.isNone():
+    return none(seq[byte])
+  return field
