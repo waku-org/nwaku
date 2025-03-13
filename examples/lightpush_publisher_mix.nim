@@ -82,6 +82,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   ).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return 
+  discard node.setMixBootStrapNodes()
 
   let destPeerId = PeerId.init("16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o").valueOr:
     error "Failed to initialize PeerId", err = error
@@ -97,8 +98,11 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   node.peerManager.start()
 
   notice "publisher service started"
-  while true:
-    let text = "hi there i'm a publisher using mix"
+  var numMsgs = 2
+  var i = 0
+  while i < numMsgs:
+    i = i + 1
+    let text = "hi there i'm a publisher using mix, this is msg number " & $i
     let message = WakuMessage(
       payload: toBytes(text), # content of the message
       contentTopic: LightpushContentTopic, # content topic to publish to
@@ -118,8 +122,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     else:
       error "failed to publish message", error = res.error
 
-    await sleepAsync(5000)
-    break
+    await sleepAsync(500)
+
 
 when isMainModule:
   let rng = crypto.newRng()
