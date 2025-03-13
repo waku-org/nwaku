@@ -43,7 +43,7 @@ proc batchAdvertise*(
 ): Future[Result[void, string]] {.async: (raises: []).} =
   ## Register with all rendezvous peers under a namespace
 
-  # rendezvous.advertise except already opened connections
+  # rendezvous.advertise expects already opened connections
   # must dial first
   var futs = collect(newSeq):
     for peerId in peers:
@@ -63,7 +63,7 @@ proc batchAdvertise*(
         fut.read()
 
       if catchable.isErr():
-        error "rendezvous dial failed", error = catchable.error.msg
+        warn "a rendezvous dial failed", cause = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -112,7 +112,7 @@ proc batchRequest*(
         fut.read()
 
       if catchable.isErr():
-        error "rendezvous dial failed", error = catchable.error.msg
+        warn "a rendezvous dial failed", cause = catchable.error.msg
         continue
 
       let connOpt = catchable.get()
@@ -162,7 +162,7 @@ proc advertiseAll(
 
   for fut in catchable.get():
     if fut.failed():
-      error "rendezvous advertisement failed", error = fut.error.msg
+      warn "a rendezvous advertisement failed", cause = fut.error.msg
 
   debug "waku rendezvous advertisements finished"
 
@@ -197,12 +197,13 @@ proc initialRequestAll*(
 
   for fut in catchable.get():
     if fut.failed():
-      error "rendezvous request failed", error = fut.error.msg
+      warn "a rendezvous request failed", cause = fut.error.msg
     elif fut.finished():
       let res = fut.value()
 
       let records = res.valueOr:
-        return err($res.error)
+        warn "a rendezvous request failed", cause = $res.error
+        continue
 
       for record in records:
         rendezvousPeerFoundTotal.inc()
@@ -214,7 +215,7 @@ proc initialRequestAll*(
 
 proc periodicRegistration(self: WakuRendezVous) {.async.} =
   debug "waku rendezvous periodic registration started",
-    interval = DefaultRegistrationInterval
+    interval = self.registrationInterval
 
   # infinite loop
   while true:
