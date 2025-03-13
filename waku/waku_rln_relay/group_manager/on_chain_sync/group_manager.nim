@@ -13,8 +13,16 @@ logScope:
   topics = "waku rln_relay onchain_sync_group_manager"
 
 type OnChainSyncGroupManager* = ref object of OnchainGroupManager
-  # Cache for merkle proofs by index
-  merkleProofsByIndex*: Table[Uint256, seq[Uint256]]
+
+proc fetchMerkleProof*(g: OnchainSyncGroupManager) {.async.} =
+  let index = stuint(g.membershipIndex.get(), 256)
+  try:
+    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+    let merkleProof = await merkleProofInvocation.call()
+      # Await the contract call and extract the result
+    return merkleProof
+  except CatchableError:
+    error "Failed to fetch merkle proof: " & getCurrentExceptionMsg()
 
 method generateProof*(
     g: OnChainSyncGroupManager,
@@ -32,20 +40,7 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  # Retrieve the cached Merkle proof for the membership index
-  let index = stuint(g.membershipIndex.get(), 256)
-
-  if not g.merkleProofsByIndex.hasKey(index):
-    try:
-      let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
-      let merkleProof = await merkleProofInvocation.call()
-      g.merkleProofsByIndex[index] = merkleProof
-    except CatchableError:
-      return err("Failed to fetch merkle proof: " & getCurrentExceptionMsg())
-
-  let merkleProof = g.merkleProofsByIndex[index]
-  if merkleProof.len == 0:
-    return err("Merkle proof not found")
+  let merkleProof = g.fetchMerkleProof()
 
   # Prepare the witness
   let witness = Witness(
