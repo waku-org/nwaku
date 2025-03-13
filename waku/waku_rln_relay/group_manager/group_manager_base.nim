@@ -201,7 +201,7 @@ method generateProof*(
     ).valueOr:
       return err("proof generation failed: " & $error)
 
-  waku_rln_remaining_proofs_per_epoch.inc()
+  waku_rln_remaining_proofs_per_epoch.dec()
   waku_rln_total_generated_proofs.inc()
   return ok(proof)
 
