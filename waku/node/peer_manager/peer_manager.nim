@@ -230,6 +230,8 @@ proc selectPeer*(
 ): Option[RemotePeerInfo] =
   trace "Selecting peer from peerstore", protocol = proto
 
+  debug "dumping all peers", peers = pm.wakuPeerStore.peers()
+
   # Selects the best peer for a given protocol
   var peers = pm.wakuPeerStore.getPeersByProtocol(proto)
 
