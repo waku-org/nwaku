@@ -14,6 +14,7 @@ type NodeLifecycleMsgType* = enum
   CREATE_NODE
   START_NODE
   STOP_NODE
+  DESTROY_NODE
 
 type NodeLifecycleRequest* = object
   operation: NodeLifecycleMsgType
@@ -99,5 +100,8 @@ proc process*(
     except Exception:
       error "STOP_NODE failed", error = getCurrentExceptionMsg()
       return err("exception stopping node: " & getCurrentExceptionMsg())
+  of DESTROY_NODE:
+    echo "----------- calling GC_fullCollect in waku thread"
+    GC_fullCollect()
 
   return ok("")

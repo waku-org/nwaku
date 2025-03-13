@@ -183,6 +183,17 @@ proc waku_destroy(
   initializeLibrary()
   checkLibwakuParams(ctx, callback, userData)
 
+  let retCode = handleRequest(
+    ctx,
+    RequestType.LIFECYCLE,
+    NodeLifecycleRequest.createShared(NodeLifecycleMsgType.DESTROY_NODE, nil, nil),
+    callback,
+    userData,
+  )
+
+  if retCode != RET_OK:
+    return RET_ERR
+
   waku_thread.destroyWakuThread(ctx).isOkOr:
     let msg = "libwaku error: " & $error
     callback(RET_ERR, unsafeAddr msg[0], cast[csize_t](len(msg)), userData)
@@ -191,6 +202,8 @@ proc waku_destroy(
   ## always need to invoke the callback although we don't retrieve value to the caller
   callback(RET_OK, nil, 0, userData)
 
+  echo "----------- calling GC_fullCollect in host thread"
+  GC_fullCollect()
   return RET_OK
 
 proc waku_version(
