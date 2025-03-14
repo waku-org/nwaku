@@ -28,8 +28,7 @@ proc newTestWakuLightpushNode*(
   return proto
 
 proc newTestWakuLightpushClient*(
-  switch: Switch,
-  reputationEnabled: bool = false
+  switch: Switch, reputationEnabled: bool = false
   ): WakuLightPushClient =
-  let peerManager = PeerManager.new(switch)
-  WakuLightPushClient.new(peerManager, rng, reputationEnabled)
+  let peerManager = PeerManager.new(switch, reputationEnabled = reputationEnabled)
+  WakuLightPushClient.new(peerManager, rng)

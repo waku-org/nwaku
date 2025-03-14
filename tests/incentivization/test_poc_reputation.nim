@@ -29,16 +29,6 @@ suite "Waku Incentivization PoC Reputation":
     manager.setReputation(peerId1, some(true)) # Encodes GoodRep
     check manager.getReputation(peerId1) == some(true)
 
-  #[
-    LightPushResponse* = object
-    requestId*: string
-    statusCode*: uint32
-    statusDesc*: Option[string]
-    relayPeerCount*: Option[uint32]
-
-    LightpushStatusCode
-    ]#
-
   test "incentivization PoC: reputation: evaluate LightPushResponse valid":
     let validLightLightPushResponse =
       LightPushResponse(requestId: "", statusCode: LightpushStatusCode.SUCCESS.uint32)

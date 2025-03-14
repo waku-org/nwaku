@@ -21,7 +21,8 @@ import
   ../../waku_enr/capabilities,
   ../../waku_metadata,
   ./peer_store/peer_storage,
-  ./waku_peer_store
+  ./waku_peer_store,
+  ../../incentivization/reputation_manager
 
 export waku_peer_store, peer_storage, peers
 
@@ -96,6 +97,7 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
+  reputationManager*: Option[ReputationManager]
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -256,9 +258,23 @@ proc selectPeer*(
 
   # If not slotted, we select a random peer for the given protocol
   if peers.len > 0:
+    # if reputation is enabled, filter out bad-reputation peers
+    var preSelectedPeers =
+      if pm.reputationManager.isSome():
+        peers.filterIt:
+          let rep =
+            try:
+              pm.reputationManager.get().getReputation(it.peerId)
+            except KeyError:
+              none(bool)
+          rep == none(bool) or rep == some(true)
+      else:
+        peers
+    let selectedPeer = preSelectedPeers[0]
     trace "Got peer from peerstore",
-      peerId = peers[0].peerId, multi = peers[0].addrs[0], protocol = proto
-    return some(peers[0])
+      peerId = selectedPeer.peerId, multi = selectedPeer.addrs[0], protocol = proto
+    return some(selectedPeer)
+
   trace "No peer found for protocol", protocol = proto
   return none(RemotePeerInfo)
 
@@ -1020,6 +1036,7 @@ proc new*(
     maxFailedAttempts = MaxFailedAttempts,
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
+    reputationEnabled = false,
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1093,5 +1110,11 @@ proc new*(
     pm.loadFromStorage() # Load previously managed peers.
   else:
     trace "no peer storage found"
+
+  pm.reputationManager =
+    if reputationEnabled:
+      some(ReputationManager.new())
+    else:
+      none(ReputationManager)
 
   return pm

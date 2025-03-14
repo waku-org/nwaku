@@ -28,6 +28,8 @@ proc getReputation*(manager: ReputationManager, peer: PeerId): Option[bool] =
   else:
     result = none(bool)
 
+### Lightpush-specific functionality ###
+
 # Evaluate the quality of a LightPushResponse by checking its status code
 proc evaluateResponse*(response: LightPushResponse): ResponseQuality =
   if response.statusCode == LightpushStatusCode.SUCCESS.uint32:
@@ -35,7 +37,7 @@ proc evaluateResponse*(response: LightPushResponse): ResponseQuality =
   else:
     return BadResponse
 
-# Update reputation of the peer based on the quality of the response
+# Update reputation of the peer based on LightPushResponse quality
 proc updateReputationFromResponse*(
     manager: var ReputationManager, peer: PeerId, response: LightPushResponse
 ) =
