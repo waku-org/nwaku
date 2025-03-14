@@ -13,7 +13,9 @@ Confirmed for topologies of up to 2000 Relay nodes.
 > - Average time for a message to propagate to 100% of nodes: **0.4s** for topologies of up to 2000 Relay nodes.
 > - Average per-node bandwidth usage of the discv5 protocol: **8 KB/s** for incoming traffic and **7.4 KB/s** for outgoing traffic,   
  in a network with 100 continuously online nodes.
-> - Relevancy to Status App: **TODO**
+> - Future improvements: A messaging API is currently in development to streamline interactions with the Waku protocol suite.  
+Once completed, it will enable benchmarking at the messaging API level, allowing applications to more easily compare their  
+own performance results.
 
 
 ## Insights
