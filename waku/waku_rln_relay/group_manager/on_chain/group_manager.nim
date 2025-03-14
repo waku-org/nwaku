@@ -46,6 +46,8 @@ contract(WakuRlnContract):
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
   proc merkleProofElements(index: Uint256): seq[Uint256] {.view.}
+  # this function returns the Merkle root
+  proc root(): Uint256 {.view.}
 
 type
   WakuRlnContractWithSender = Sender[WakuRlnContract]
