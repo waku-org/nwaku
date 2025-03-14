@@ -11,6 +11,7 @@ import
   ../common/utils/nat,
   ../node/config,
   ../waku_enr/capabilities,
+  ../waku_enr/mix,
   ../waku_enr,
   ../waku_core
 
@@ -32,6 +33,9 @@ proc enrConfiguration*(
     RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
+
+  if conf.mix and conf.mixKey.isSome():
+    enrBuilder.withMixKey(conf.mixKey.get())
 
   let recordRes = enrBuilder.build()
   let record =
@@ -122,6 +126,7 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
       store = conf.store,
       relay = conf.relay,
       sync = conf.storeSync,
+      mix = conf.mix,
     )
 
   # Resolve and use DNS domain IP
