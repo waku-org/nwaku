@@ -54,12 +54,12 @@ type RateLimitProof* = object
 
 type Witness* = object ## Represents the custom witness for generating an RLN proof
   identity_secret*: seq[byte] # Identity secret (private key)
-  identity_nullifier*: seq[byte] # Identity nullifier
-  merkle_proof*: seq[Uint256] # Merkle proof elements (retrieved from the smart contract)
-  external_nullifier*: Epoch # Epoch (external nullifier)
-  signal*: seq[byte] # Message data (signal)
+  user_message_limit*: UserMessageLimit # Maximum number of messages a user can send
   message_id*: MessageId # Message ID (used for rate limiting)
-  rln_identifier*: RlnIdentifier # RLN identifier (default value provided)
+  path_elements*: seq[seq[byte]] # Merkle proof path elements
+  identity_path_index*: seq[byte] # Merkle proof path indices
+  x*: seq[byte] # Hash of the signal data
+  external_nullifier*: seq[byte] # Hash of epoch and RLN identifier
 
 type ProofMetadata* = object
   nullifier*: Nullifier

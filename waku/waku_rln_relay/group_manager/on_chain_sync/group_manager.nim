@@ -40,18 +40,17 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  let merkleProof = g.fetchMerkleProof()
-
   # Prepare the witness
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash,
-    identity_nullifier: g.idCredentials.get().idNullifier,
-    merkle_proof: merkleProof,
-    external_nullifier: epoch,
-    signal: data,
+    user_message_limit: g.userMessageLimit.get(),
     message_id: messageId,
-    rln_identifier: rlnIdentifier,
+    path_elements: g.fetchMerkleProof(),
+    identity_path_index: g.membershipIndex.get(),
+    x: data,
+    external_nullifier: poseidon_hash([epoch, rln_identifier]),
   )
+  
   let serializedWitness = serialize(witness)
   var inputBuffer = toBuffer(serializedWitness)
 
