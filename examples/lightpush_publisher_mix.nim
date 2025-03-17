@@ -98,7 +98,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   node.peerManager.start()
 
   notice "publisher service started"
-  var numMsgs = 2
+  var numMsgs = 1
   var i = 0
   while i < numMsgs:
     i = i + 1
@@ -122,7 +122,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     else:
       error "failed to publish message", error = res.error
 
-    await sleepAsync(500)
+    await sleepAsync(5000)
+    break
 
 
 when isMainModule:
