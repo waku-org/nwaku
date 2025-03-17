@@ -1146,7 +1146,7 @@ proc lightpushPublishHandler(
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
-    notice "publishing message with legacy lightpush",
+    notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
@@ -1154,7 +1154,7 @@ proc lightpushPublishHandler(
     return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
 
   if not node.wakuLightPush.isNil():
-    notice "publishing message with self hosted legacy lightpush",
+    notice "publishing message with self hosted lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,

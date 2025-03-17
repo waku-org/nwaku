@@ -33,7 +33,7 @@ const NoPeerNoneFoundError =
   RestApiResponse.serviceUnavailable("No suitable service peer & none discovered")
 
 proc useSelfHostedLightPush(node: WakuNode): bool =
-  return node.wakuLegacyLightPush != nil and node.wakuLegacyLightPushClient == nil
+  return node.wakuLightPush != nil and node.wakuLightPushClient == nil
 
 proc convertErrorKindToHttpStatus(statusCode: LightpushStatusCode): HttpCode =
   ## Lightpush status codes are matching HTTP status codes by design
