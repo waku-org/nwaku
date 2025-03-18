@@ -73,6 +73,21 @@ proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
     numberFailedConn: wps[NumberFailedConnBook][peerId],
   )
 
+proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
+  wps[AddressBook][peer.peerId] = peer.addrs
+  wps[ProtoBook][peer.peerId] = peer.protocols
+  wps[AgentBook][peer.peerId] = peer.agent
+  wps[ProtoVersionBook][peer.peerId] = peer.protoVersion
+  wps[KeyBook][peer.peerId] = peer.publicKey
+  wps[ConnectionBook][peer.peerId] = peer.connectedness
+  wps[DisconnectBook][peer.peerId] = peer.disconnectTime
+  wps[SourceBook][peer.peerId] = peer.origin
+  wps[DirectionBook][peer.peerId] = peer.direction
+  wps[LastFailedConnBook][peer.peerId] = peer.lastFailedConn
+  wps[NumberFailedConnBook][peer.peerId] = peer.numberFailedConn
+  if peer.enr.isSome():
+    wps[ENRBook][peer.peerId] = peer.enr.get()
+
 proc delete*(wps: WakuPeerStore, peerId: PeerId) =
   # Delete all the information of a given peer.
   wps.peerStore.del(peerId)
