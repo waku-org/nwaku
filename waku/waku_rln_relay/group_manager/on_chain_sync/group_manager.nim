@@ -12,17 +12,6 @@ import
 logScope:
   topics = "waku rln_relay onchain_sync_group_manager"
 
-type OnchainSyncGroupManager* = ref object of GroupManager
-  ethClientUrl*: string
-  ethContractAddress*: string
-  ethRpc*: Option[Web3]
-  wakuRlnContract*: Option[WakuRlnContractWithSender]
-  chainId*: uint
-  keystorePath*: Option[string]
-  keystorePassword*: Option[string]
-  registrationHandler*: Option[RegistrationHandler]
-  validRootBuffer*: Deque[MerkleNode]
-
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -43,6 +32,17 @@ contract(WakuRlnContract):
   proc merkleProofElements(index: Uint256): seq[Uint256] {.view.}
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
+
+type OnchainSyncGroupManager* = ref object of GroupManager
+  ethClientUrl*: string
+  ethContractAddress*: string
+  ethRpc*: Option[Web3]
+  wakuRlnContract*: Option[WakuRlnContractWithSender]
+  chainId*: uint
+  keystorePath*: Option[string]
+  keystorePassword*: Option[string]
+  registrationHandler*: Option[RegistrationHandler]
+  validRootBuffer*: Deque[MerkleNode]
 
 proc fetchMerkleProof*(g: OnchainSyncGroupManager) {.async.} =
   let index = stuint(g.membershipIndex.get(), 256)
