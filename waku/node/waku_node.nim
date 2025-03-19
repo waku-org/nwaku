@@ -285,8 +285,7 @@ proc registerRelayDefaultHandler*(node: WakuNode, topic: PubsubTopic) =
     if node.wakuStoreReconciliation.isNil():
       return
 
-    node.wakuStoreReconciliation.messageIngress(topic, msg).isOkOr:
-      error "message ingress failed", error = error
+    node.wakuStoreReconciliation.messageIngress(topic, msg)
 
   let defaultHandler = proc(
       topic: PubsubTopic, msg: WakuMessage

@@ -69,39 +69,33 @@ type SyncReconciliation* = ref object of LPProtocol
 
 proc messageIngress*(
     self: SyncReconciliation, pubsubTopic: PubsubTopic, msg: WakuMessage
-): Result[void, string] =
+) =
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
   let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id, pubsubTopic, msg.contentTopic).isOkOr:
-    return err(
-      "failed to insert new message: msg_hash: " & $msgHash.toHex() & " error: " & $error
-    )
+    error "failed to insert new message", msg_hash = $id.hash.toHex(), error = $error
 
 proc messageIngress*(
     self: SyncReconciliation,
     msgHash: WakuMessageHash,
     pubsubTopic: PubsubTopic,
     msg: WakuMessage,
-): Result[void, string] =
+) =
   let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id, pubsubTopic, msg.contentTopic).isOkOr:
-    return err(
-      "failed to insert new message: msg_hash: " & $id.hash.toHex() & " error: " & $error
-    )
+    error "failed to insert new message", msg_hash = $id.hash.toHex(), error = $error
 
 proc messageIngress*(
     self: SyncReconciliation,
     id: SyncID,
     pubsubTopic: PubsubTopic,
     contentTopic: ContentTopic,
-): Result[void, string] =
+) =
   self.storage.insert(id, pubsubTopic, contentTopic).isOkOr:
-    return err(
-      "failed to insert new message: msg_hash: " & $id.hash.toHex() & " error: " & $error
-    )
+    error "failed to insert new message", msg_hash = $id.hash.toHex(), error = $error
 
 proc preProcessPayload(
     self: SyncReconciliation, payload: RangesData
@@ -454,8 +448,7 @@ proc idsReceiverLoop(self: SyncReconciliation) {.async.} =
   while true: # infinite loop
     let (id, pubsub, content) = await self.idsRx.popfirst()
 
-    self.messageIngress(id, pubsub, content).isOkOr:
-      error "message ingress failed", error = error
+    self.messageIngress(id, pubsub, content)
 
 proc start*(self: SyncReconciliation) =
   if self.started:
