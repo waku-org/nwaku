@@ -479,7 +479,7 @@ proc mount(
     rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
     onFatalErrorAction: conf.onFatalErrorAction,
   )
-   
+
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
   return ok(wakuRlnRelay)
