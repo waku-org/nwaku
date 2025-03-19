@@ -148,7 +148,7 @@ proc startRestServerProtocolSupport*(
       "/relay endpoints are not available. Please check your configuration: --relay"
 
   ## Filter REST API
-  if conf.filternode != "" and node.wakuFilterClient != nil:
+  if node.wakuFilterClient != nil:
     let filterCache = MessageCache.init()
 
     let filterDiscoHandler =
@@ -161,8 +161,7 @@ proc startRestServerProtocolSupport*(
       router, node, filterCache, filterDiscoHandler
     )
   else:
-    restServerNotInstalledTab["filter"] =
-      "/filter endpoints are not available. Please check your configuration: --filternode"
+    restServerNotInstalledTab["filter"] = "/filter endpoints are not available."
 
   ## Store REST API
   let storeDiscoHandler =
@@ -175,9 +174,10 @@ proc startRestServerProtocolSupport*(
   rest_store_legacy_api.installStoreApiHandlers(router, node, storeDiscoHandler)
 
   ## Light push API
-  ## Install it either if lightpushnode (lightpush service node) is configured and client is mounted)
+  ## Install it either if client is mounted)
   ## or install it to be used with self-hosted lightpush service
-  if (conf.lightpushnode != "" and node.wakuLegacyLightpushClient != nil) or
+  ## We either get lightpushnode (lightpush service node) from config or discovered or self served
+  if (node.wakuLegacyLightpushClient != nil) or
       (conf.lightpush and node.wakuLegacyLightPush != nil and node.wakuRelay != nil):
     let lightDiscoHandler =
       if not wakuDiscv5.isNil():
@@ -190,8 +190,7 @@ proc startRestServerProtocolSupport*(
     )
     rest_lightpush_api.installLightPushRequestHandler(router, node, lightDiscoHandler)
   else:
-    restServerNotInstalledTab["lightpush"] =
-      "/lightpush endpoints are not available. Please check your configuration: --lightpushnode"
+    restServerNotInstalledTab["lightpush"] = "/lightpush endpoints are not available."
 
   info "REST services are installed"
   return ok()
