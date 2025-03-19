@@ -39,8 +39,8 @@ const DefaultStorageCap = 50_000
 
 type SyncReconciliation* = ref object of LPProtocol
   cluster: uint16
-  pubsubTopics: HashSet[PubsubTopic]
-  contentTopics: HashSet[ContentTopic]
+  pubsubTopics: HashSet[PubsubTopic] # Empty set means accept all. See spec.
+  contentTopics: HashSet[ContentTopic] # Empty set means accept all. See spec.
 
   peerManager: PeerManager
 
