@@ -33,7 +33,7 @@ proc testWakuNode(): WakuNode =
   newTestWakuNode(privkey, bindIp, port, some(extIp), some(port))
 
 suite "Waku v2 REST API - Debug":
-  asyncTest "Get node info - GET /debug/v1/info":
+  asyncTest "Get node info - GET /info":
     # Given
     let node = testWakuNode()
     await node.start()
@@ -62,7 +62,7 @@ suite "Waku v2 REST API - Debug":
     await restServer.closeWait()
     await node.stop()
 
-  asyncTest "Get node version - GET /debug/v1/version":
+  asyncTest "Get node version - GET /version":
     # Given
     let node = testWakuNode()
     await node.start()
