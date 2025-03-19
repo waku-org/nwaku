@@ -10,7 +10,7 @@ import
     waku_core,
     waku_core/message/digest,
     waku_archive/driver/sqlite_driver,
-    waku_archive
+    waku_archive,
   ],
   ../waku_archive/archive_utils,
   ../testlib/wakucore
@@ -113,15 +113,18 @@ suite "Waku Archive - message handling":
   test "convert query to label":
     check:
       convertQueryToMetricLabel("SELECT version();") == "select_version"
-      convertQueryToMetricLabel("SELECT messageHash FROM messages WHERE pubsubTopic = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC, messageHash DESC LIMIT ?") == "msg_hash_no_ctopic"
-      convertQueryToMetricLabel("""                      SELECT child.relname       AS partition_name
+      convertQueryToMetricLabel(
+        "SELECT messageHash FROM messages WHERE pubsubTopic = ? AND timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC, messageHash DESC LIMIT ?"
+      ) == "msg_hash_no_ctopic"
+      convertQueryToMetricLabel(
+        """                      SELECT child.relname       AS partition_name
                           FROM pg_inherits
                           JOIN pg_class parent            ON pg_inherits.inhparent = parent.oid
                           JOIN pg_class child             ON pg_inherits.inhrelid   = child.oid
                           JOIN pg_namespace nmsp_parent   ON nmsp_parent.oid  = parent.relnamespace
                           JOIN pg_namespace nmsp_child    ON nmsp_child.oid   = child.relnamespace
-                          WHERE parent.relname='messages""") == "get_partitions_list"
-
+                          WHERE parent.relname='messages"""
+      ) == "get_partitions_list"
 
 procSuite "Waku Archive - find messages":
   ## Fixtures
