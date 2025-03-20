@@ -64,6 +64,30 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     validRootBuffer*: Deque[MerkleNode]
+    latestProcessedBlock*: BlockNumber
+
+proc setMetadata*(
+    g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
+): GroupManagerResult[void] =
+  let normalizedBlock =
+    if lastProcessedBlock.isSome():
+      lastProcessedBlock.get()
+    else:
+      g.latestProcessedBlock
+  try:
+    let metadataSetRes = g.rlnInstance.setMetadata(
+      RlnMetadata(
+        lastProcessedBlock: normalizedBlock.uint64,
+        chainId: g.chainId,
+        contractAddress: g.ethContractAddress,
+        validRoots: g.validRootBuffer.toSeq(),
+      )
+    )
+    if metadataSetRes.isErr():
+      return err("failed to persist rln metadata: " & metadataSetRes.error)
+  except CatchableError:
+    return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
+  return ok()
 
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
@@ -368,6 +392,12 @@ method verifyProof*(
     return ok(false)
   else:
     return ok(true)
+
+method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
+  g.registerCb = some(cb)
+
+method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
+  g.withdrawCb = some(cb)
 
 method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
