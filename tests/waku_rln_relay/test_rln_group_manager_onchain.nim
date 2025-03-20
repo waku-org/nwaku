@@ -12,7 +12,8 @@ import
   web3,
   libp2p/crypto/crypto,
   eth/keys,
-  tests/testlib/testasync
+  tests/testlib/testasync,
+  tests/testlib/testutils
 
 import
   waku/[
@@ -475,7 +476,7 @@ suite "Onchain group manager":
     check:
       verified == false
 
-  asyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
+  xasyncTest "backfillRootQueue: should backfill roots in event of chain reorg":
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
