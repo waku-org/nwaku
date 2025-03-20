@@ -333,7 +333,7 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = manager.generateProof(
+    let validProofRes = await manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
     )
 
@@ -367,10 +367,13 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProof = manager.generateProof(
+    let validProofRes = await manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr:
-      raiseAssert $error
+    )
+
+    check:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
 
     # validate the root (should be false)
     let validated = manager.validateRoot(validProof.merkleRoot)
@@ -410,10 +413,13 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProof = manager.generateProof(
+    let validProofRes = await manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr:
-      raiseAssert $error
+    )
+
+    check:
+      validProofRes.isOk()
+    let validProof = validProofRes.get()
 
     # verify the proof (should be true)
     let verified = manager.verifyProof(messageBytes, validProof).valueOr:
@@ -454,7 +460,7 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let invalidProofRes = manager.generateProof(
+    let invalidProofRes = await manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
     )
 
