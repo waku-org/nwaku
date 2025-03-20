@@ -229,7 +229,7 @@ proc populateEnrCache(wpx: WakuPeerExchange) =
 
   # swap cache for new
   wpx.enrCache = newEnrCache
-  debug "ENR cache populated"
+  trace "ENR cache populated"
 
 proc updatePxEnrCache(wpx: WakuPeerExchange) {.async.} =
   # try more aggressively to fill the cache at startup
