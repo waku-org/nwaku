@@ -129,10 +129,10 @@ proc processRequest(
       sendPayload.shards = self.shards.toSeq()
 
       for hash in hashToSend:
-        await self.remoteNeedsTx.addLast((conn.peerId, hash))
+        self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
 
       for hash in hashToRecv:
-        await self.localWantstx.addLast((conn.peerId, hash))
+        self.localWantsTx.addLastNoWait((conn.peerId, hash))
 
       rawPayload = sendPayload.deltaEncode()
 
