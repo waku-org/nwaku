@@ -4,6 +4,8 @@
 
 import std/[options], chronos/timer, libp2p/stream/connection, libp2p/utility
 
+import std/times except TimeInterval, Duration
+
 import ./[token_bucket, setting, service_metrics]
 export token_bucket, setting, service_metrics
 
@@ -43,8 +45,15 @@ template checkUsageLimit*(
     bodyWithinLimit, bodyRejected: untyped,
 ) =
   if t.checkUsage(proto):
+    let requestStartTime = getTime().toUnixFloat()
     waku_service_requests.inc(labelValues = [proto, "served"])
+
     bodyWithinLimit
+
+    let requestDurationSec = getTime().toUnixFloat() - requestStartTime
+    waku_service_request_handling_duration_seconds.observe(
+      requestDurationSec, labelValues = [proto]
+    )
   else:
     waku_service_requests.inc(labelValues = [proto, "rejected"])
     bodyRejected
