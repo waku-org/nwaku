@@ -68,6 +68,9 @@ type SyncReconciliation* = ref object of LPProtocol
 proc messageIngress*(
     self: SyncReconciliation, pubsubTopic: PubsubTopic, msg: WakuMessage
 ) =
+  if msg.ephemeral:
+    return
+
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
   let id = SyncID(time: msg.timestamp, hash: msgHash)
@@ -78,6 +81,9 @@ proc messageIngress*(
 proc messageIngress*(
     self: SyncReconciliation, msgHash: WakuMessageHash, msg: WakuMessage
 ) =
+  if msg.ephemeral:
+    return
+
   let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id).isOkOr:

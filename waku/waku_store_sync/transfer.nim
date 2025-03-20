@@ -118,6 +118,10 @@ proc needsReceiverLoop(self: SyncTransfer) {.async.} =
       error "failed to query archive", error = error
       continue
 
+    if response.messages.len < 1:
+      error "failed to fetch message from db"
+      continue
+
     let msg =
       WakuMessageAndTopic(pubsub: response.topics[0], message: response.messages[0])
 
