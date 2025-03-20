@@ -4,6 +4,8 @@
 
 import std/[options], chronos/timer, libp2p/stream/connection, libp2p/utility
 
+import std/times except TimeInterval, Duration
+
 import ./[token_bucket, setting, service_metrics]
 export token_bucket, setting, service_metrics
 

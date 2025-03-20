@@ -22,6 +22,8 @@ import
   libp2p/stream/connection,
   libp2p/utility
 
+import std/times except TimeInterval, Duration, seconds, minutes
+
 import ./[single_token_limiter, service_metrics, timed_map]
 
 export token_bucket, setting, service_metrics
