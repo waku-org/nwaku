@@ -76,12 +76,12 @@ template checkUsageLimit*(
     bodyWithinLimit, bodyRejected: untyped,
 ) =
   if t.checkUsage(proto, conn):
-    let requestStartTime = Moment.now()
+    let requestStartTime = getTime().toUnixFloat()
     waku_service_requests.inc(labelValues = [proto, "served"])
 
     bodyWithinLimit
 
-    let requestDurationSec = (Moment.now() - requestStartTime).milliseconds.float / 1000
+    let requestDurationSec = getTime().toUnixFloat() - requestStartTime
     waku_service_request_handling_duration_seconds.observe(
       requestDurationSec, labelValues = [proto]
     )
