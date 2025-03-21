@@ -498,3 +498,13 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   g.initialized = true
 
   return ok()
+
+method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
+  if g.ethRpc.isSome():
+    g.ethRpc.get().ondisconnect = nil
+    await g.ethRpc.get().close()
+  let flushed = g.rlnInstance.flush()
+  if not flushed:
+    error "failed to flush to the tree db"
+
+  g.initialized = false
