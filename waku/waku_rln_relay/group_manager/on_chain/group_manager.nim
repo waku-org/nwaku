@@ -63,7 +63,6 @@ type
     keystorePath*: Option[string]
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
-    validRootBuffer*: Deque[MerkleNode]
     latestProcessedBlock*: BlockNumber
 
 proc setMetadata*(
@@ -80,7 +79,7 @@ proc setMetadata*(
         lastProcessedBlock: normalizedBlock.uint64,
         chainId: g.chainId,
         contractAddress: g.ethContractAddress,
-        validRoots: g.validRootBuffer.toSeq(),
+        validRoots: g.validRoots.toSeq(),
       )
     )
     if metadataSetRes.isErr():
@@ -121,7 +120,7 @@ template retryWrapper(
     body
 
 method validateRoot*(g: OnchainGroupManager, root: MerkleNode): bool =
-  if g.validRootBuffer.find(root) >= 0:
+  if g.validRoots.find(root) >= 0:
     return true
   return false
 
@@ -143,12 +142,12 @@ proc slideRootQueue*(g: OnchainGroupManager) {.async.} =
 
   let merkleRoot = toMerkleNode(rootRes.get())
 
-  let overflowCount = g.validRootBuffer.len - AcceptableRootWindowSize + 1
+  let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
   if overflowCount > 0:
     for i in 0 ..< overflowCount:
-      discard g.validRootBuffer.popFirst()
+      discard g.validRoots.popFirst()
 
-  g.validRootBuffer.addLast(merkleRoot)
+  g.validRoots.addLast(merkleRoot)
 
 method atomicBatch*(
     g: OnchainGroupManager,
@@ -375,7 +374,7 @@ method verifyProof*(
     proofBytes = serialize(normalizedProof, input)
     proofBuffer = proofBytes.toBuffer()
     validProof: bool
-    rootsBytes = serialize(g.validRootBuffer.items().toSeq())
+    rootsBytes = serialize(g.validRoots.items().toSeq())
     rootsBuffer = rootsBytes.toBuffer()
 
   trace "serialized proof", proof = byteutils.toHex(proofBytes)
