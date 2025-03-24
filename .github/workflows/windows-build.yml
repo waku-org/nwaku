@@ -71,11 +71,35 @@ jobs:
     - name: Building libunwind
       run: |
         cd vendor/nim-libbacktrace
-        make install/usr/lib/libunwind.a V=1
+        # First setup the cmake build
+        mkdir -p vendor/libunwind/build
+        pushd vendor/libunwind
+        
+        # Use MSYS2 cmake directly
+        cmake -S runtimes \
+          -DLLVM_ENABLE_RUNTIMES="libunwind" \
+          -DLIBUNWIND_ENABLE_SHARED=OFF -DLIBUNWIND_ENABLE_STATIC=ON \
+          -DLIBUNWIND_INCLUDE_DOCS=OFF -DLIBUNWIND_INSTALL_HEADERS=ON \
+          -DCMAKE_INSTALL_PREFIX="$(pwd)/../install/usr" \
+          -G "MinGW Makefiles" -B build
+          
+        # Now explicitly use mingw32-make in the build directory
+        cd build
+        mingw32-make VERBOSE=1 clean
+        mingw32-make VERBOSE=1 unwind_static
+        mingw32-make VERBOSE=1 install-unwind
+        
+        popd
+        # Verify the build succeeded
+        if [ -f "./install/usr/lib/libunwind.a" ]; then
+          echo "Successfully built libunwind.a"
+        else
+          echo "Failed to build libunwind.a"
+        fi
+
         echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         find . -name "*.a"
         echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        cd ../../
 
     - name: Building miniupnpc
       run: |
