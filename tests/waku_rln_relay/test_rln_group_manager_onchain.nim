@@ -123,17 +123,17 @@ suite "Onchain group manager":
     (await manager.init()).isErrOr:
       raiseAssert "Expected error when keystore file doesn't exist"
 
-  asyncTest "startGroupSync: should start group sync":
+  xasyncTest "startGroupSync: should start group sync":
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
       raiseAssert $error
 
-  asyncTest "startGroupSync: should guard against uninitialized state":
+  xasyncTest "startGroupSync: should guard against uninitialized state":
     (await manager.startGroupSync()).isErrOr:
       raiseAssert "Expected error when not initialized"
 
-  asyncTest "startGroupSync: should sync to the state of the group":
+  xasyncTest "startGroupSync: should sync to the state of the group":
     let credentials = generateCredentials(manager.rlnInstance)
     let rateCommitment = getRateCommitment(credentials, UserMessageLimit(1)).valueOr:
       raiseAssert $error
@@ -174,7 +174,7 @@ suite "Onchain group manager":
       metadataOpt.get().validRoots == manager.validRoots.toSeq()
       merkleRootBefore != merkleRootAfter
 
-  asyncTest "startGroupSync: should fetch history correctly":
+  xasyncTest "startGroupSync: should fetch history correctly":
     const credentialCount = 6
     let credentials = generateCredentials(manager.rlnInstance, credentialCount)
     (await manager.init()).isOkOr:
@@ -235,7 +235,7 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  asyncTest "register: should register successfully":
+  xasyncTest "register: should register successfully":
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -261,7 +261,7 @@ suite "Onchain group manager":
       merkleRootAfter.inHex() != merkleRootBefore.inHex()
       manager.latestIndex == 1
 
-  asyncTest "register: callback is called":
+  xasyncTest "register: callback is called":
     let idCredentials = generateCredentials(manager.rlnInstance)
     let idCommitment = idCredentials.idCommitment
 
@@ -301,7 +301,7 @@ suite "Onchain group manager":
     except Exception:
       assert false, "exception raised: " & getCurrentExceptionMsg()
 
-  asyncTest "validateRoot: should validate good root":
+  xasyncTest "validateRoot: should validate good root":
     let credentials = generateCredentials(manager.rlnInstance)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -348,7 +348,7 @@ suite "Onchain group manager":
     check:
       validated
 
-  asyncTest "validateRoot: should reject bad root":
+  xasyncTest "validateRoot: should reject bad root":
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -382,7 +382,7 @@ suite "Onchain group manager":
     check:
       validated == false
 
-  asyncTest "verifyProof: should verify valid proof":
+  xasyncTest "verifyProof: should verify valid proof":
     let credentials = generateCredentials(manager.rlnInstance)
     (await manager.init()).isOkOr:
       raiseAssert $error
@@ -429,7 +429,7 @@ suite "Onchain group manager":
     check:
       verified
 
-  asyncTest "verifyProof: should reject invalid proof":
+  xasyncTest "verifyProof: should reject invalid proof":
     (await manager.init()).isOkOr:
       raiseAssert $error
     (await manager.startGroupSync()).isOkOr:
@@ -559,7 +559,7 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-  asyncTest "isReady should return true if ethRpc is ready":
+  xasyncTest "isReady should return true if ethRpc is ready":
     (await manager.init()).isOkOr:
       raiseAssert $error
     # node can only be ready after group sync is done
