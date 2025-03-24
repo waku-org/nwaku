@@ -467,9 +467,6 @@ proc mount(
   # Initialize the groupManager
   (await groupManager.init()).isOkOr:
     return err("could not initialize the group manager: " & $error)
-  # Start the group sync
-  (await groupManager.startGroupSync()).isOkOr:
-    return err("could not start the group sync: " & $error)
 
   wakuRlnRelay = WakuRLNRelay(
     groupManager: groupManager,
