@@ -413,10 +413,6 @@ suite "Onchain group manager":
     ).valueOr:
       raiseAssert $error
 
-    check:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
-
     # verify the proof (should be true)
     let verified = manager.verifyProof(messageBytes, validProof).valueOr:
       raiseAssert $error
@@ -458,8 +454,7 @@ suite "Onchain group manager":
     # generate proof
     let invalidProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    ).valueOr:
-      raiseAssert $error
+    )
 
     check:
       invalidProofRes.isOk()
