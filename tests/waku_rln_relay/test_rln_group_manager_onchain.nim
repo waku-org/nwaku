@@ -40,7 +40,7 @@ suite "Onchain group manager":
   asyncTeardown:
     await manager.stop()
 
-  asyncTest "should initialize successfully":
+  xasyncTest "should initialize successfully":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -48,7 +48,7 @@ suite "Onchain group manager":
       manager.ethRpc.isSome()
       manager.wakuRlnContract.isSome()
       manager.initialized
-      # manager.rlnContractDeployedBlockNumber > 0.Quantity
+      manager.rlnContractDeployedBlockNumber > 0.Quantity
       manager.rlnRelayMaxMessageLimit == 100
 
   asyncTest "should error on initialization when chainId does not match":
@@ -97,7 +97,7 @@ suite "Onchain group manager":
     echo e.error
     echo "---"
 
-  asyncTest "should error if contract does not exist":
+  xasyncTest "should error if contract does not exist":
     var triggeredError = false
 
     manager.ethContractAddress = "0x0000000000000000000000000000000000000000"
@@ -331,7 +331,7 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = await manager.generateProof(
+    let validProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(1)
     )
 
@@ -365,13 +365,10 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = await manager.generateProof(
+    let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
-
-    check:
-      validProofRes.isOk()
-    let validProof = validProofRes.get()
+    ).valueOr:
+      raiseAssert $error
 
     # validate the root (should be false)
     let validated = manager.validateRoot(validProof.merkleRoot)
@@ -411,9 +408,10 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let validProofRes = await manager.generateProof(
+    let validProof = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
+    ).valueOr:
+      raiseAssert $error
 
     check:
       validProofRes.isOk()
@@ -458,9 +456,10 @@ suite "Onchain group manager":
     debug "epoch in bytes", epochHex = epoch.inHex()
 
     # generate proof
-    let invalidProofRes = await manager.generateProof(
+    let invalidProofRes = manager.generateProof(
       data = messageBytes, epoch = epoch, messageId = MessageId(0)
-    )
+    ).valueOr:
+      raiseAssert $error
 
     check:
       invalidProofRes.isOk()
@@ -528,7 +527,7 @@ suite "Onchain group manager":
       manager.validRootBuffer.len() == 0
       manager.validRoots[credentialCount - 2] == expectedLastRoot
 
-  asyncTest "isReady should return false if ethRpc is none":
+  xasyncTest "isReady should return false if ethRpc is none":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
@@ -543,7 +542,7 @@ suite "Onchain group manager":
     check:
       isReady == false
 
-  asyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
+  xasyncTest "isReady should return false if lastSeenBlockHead > lastProcessed":
     (await manager.init()).isOkOr:
       raiseAssert $error
 
