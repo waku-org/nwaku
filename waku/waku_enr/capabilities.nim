@@ -28,9 +28,8 @@ const capabilityToCodec = {
   Capabilities.Store: WakuStoreCodec,
   Capabilities.Filter: WakuFilterSubscribeCodec,
   Capabilities.Lightpush: WakuLightPushCodec,
-  Capabilities.Sync: WakuSyncCodec,
-  Capabilities.Mix: MixProtocolID
   Capabilities.Sync: WakuReconciliationCodec,
+  Capabilities.Mix: MixProtocolID,
 }.toTable
 
 func init*(
