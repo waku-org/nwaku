@@ -215,7 +215,7 @@ proc mountSharding*(
   node.wakuSharding = Sharding(clusterId: clusterId, shardCountGenZero: shardCount)
   return ok()
 
-proc getBootStrapMixNodes*(node: WakuNode): Table[PeerId, MixPubInfo] =
+#[ proc getBootStrapMixNodes*(node: WakuNode): Table[PeerId, MixPubInfo] =
   var mixNodes = initTable[PeerId, MixPubInfo]()
   # MixNode Multiaddrs and PublicKeys:
   let bootNodesMultiaddrs = [
@@ -246,6 +246,8 @@ proc getBootStrapMixNodes*(node: WakuNode): Table[PeerId, MixPubInfo] =
     mixNodes[peerId] = mixNodePubInfo
   info "using mix bootstrap nodes ", bootNodes = mixNodes
   return mixNodes
+
+ ]#
 
 #TODO: Ideally these procs should be moved out into mix specific file, but keeping it here for now.
 proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
@@ -331,17 +333,17 @@ proc startMixNodePoolMgr*(node: WakuNode) {.async.} =
 proc getMixNodePoolSize*(node: WakuNode): int =
   return node.mix.getNodePoolSize()
 
-proc setMixBootStrapNodes*(node: WakuNode) {.async.} =
+#[ proc setMixBootStrapNodes*(node: WakuNode,){.async}=
   node.mix.setNodePool(node.getBootStrapMixNodes())
-
+ ]#
+# Mix Protocol
 proc mountMix*(
-    node: WakuNode, mixPrivKey: string
+    node: WakuNode, mixPrivKey: Curve25519Key
 ): Future[Result[void, string]] {.async.} =
   info "mounting mix protocol", nodeId = node.info #TODO log the config used
-  info "mixPrivKey", mixPrivKey = mixPrivKey
+  let mixPubKey = public(mixPrivKey)
 
-  let mixKey = intoCurve25519Key(ncrutils.fromHex(mixPrivKey))
-  let mixPubKey = public(mixKey)
+  info "mixPrivKey", mixPrivKey = mixPrivKey, mixPubKey = mixPubKey
 
   let localaddrStr = node.announcedAddresses[0].toString().valueOr:
     return err("Failed to convert multiaddress to string.")
@@ -350,7 +352,7 @@ proc mountMix*(
   let localMixNodeInfo = initMixNodeInfo(
     localaddrStr & "/p2p/" & $node.peerId,
     mixPubKey,
-    mixKey,
+    mixPrivKey,
     node.switch.peerInfo.publicKey.skkey,
     node.switch.peerInfo.privateKey.skkey,
   )

@@ -9,6 +9,7 @@ import
   libp2p/protocols/connectivity/relay/client,
   libp2p/wire,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/protocols/pubsub/gossipsub,
   libp2p/services/autorelayservice,
   libp2p/services/hpservice,
@@ -266,7 +267,7 @@ proc getRunningNetConfig(waku: ptr Waku): Result[NetConfig, string] =
 proc updateEnr(waku: ptr Waku): Result[void, string] =
   let netConf: NetConfig = getRunningNetConfig(waku).valueOr:
     return err("error calling updateNetConfig: " & $error)
-  let record = enrConfiguration(waku[].conf, netConf).valueOr:
+  let record = enrConfiguration(waku[].conf, netConf, none(Curve25519Key)).valueOr:
     return err("ENR setup failed: " & error)
 
   if isClusterMismatched(record, waku[].conf.clusterId):

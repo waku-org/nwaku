@@ -10,9 +10,8 @@ import ../common/enr
 
 const MixKeyEnrField* = "mix-key"
 
-func withMixKey*(builder: var EnrBuilder, mixPrivKey:string) =
-  let mixKey = intoCurve25519Key(ncrutils.fromHex(mixPrivKey))
-  let mixPubKey = public(mixKey)
+
+func withMixKey*(builder: var EnrBuilder, mixPubKey: Curve25519Key) =
   builder.addFieldPair(MixKeyEnrField, getBytes(mixPubKey))
 
 func mixKey*(record: TypedRecord): Option[seq[byte]] =

@@ -6,7 +6,8 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/dnsresolver,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  libp2p/crypto/curve25519
 
 import
   ./internal_config,
@@ -36,7 +37,8 @@ import
   ../node/peer_manager/peer_store/migrations as peer_store_sqlite_migrations,
   ../waku_lightpush_legacy/common,
   ../common/rate_limit/setting,
-  ../common/databases/dburl
+  ../common/databases/dburl,
+  ../../vendor/mix/src/curve25519
 
 ## Peer persistence
 
@@ -145,7 +147,7 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuConf
+    node: WakuNode, conf: WakuConf, mixPrivKey: Curve25519Key
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -417,15 +419,7 @@ proc setupProtocols(
 
   #mount mix
   if conf.mix:
-    let mixPrivKey:string =
-      if conf.mixkey.isSome():
-        conf.mixkey.get()
-      else:
-        error "missing mix key"
-        return err("missing mix key")
-    (
-      await node.mountMix(mixPrivKey)
-    ).isOkOr:
+    (await node.mountMix(mixPrivKey)).isOkOr:
       return err("failed to mount waku mix protocol: " & $error)
   return ok()
 
@@ -487,6 +481,18 @@ proc startNode*(
 proc setupNode*(
     wakuConf: WakuConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
 ): Result[WakuNode, string] =
+  var mixPubKey, mixPrivKey: Curve25519Key
+  if conf.mix:
+    if conf.mixKey.isSome():
+      mixPrivKey = intoCurve25519Key(ncrutils.fromHex(conf.mixKey.get()))
+      mixPubKey = public(mixPrivKey)
+    else:
+      warn "missing mix key, generating new"
+      let keyPairResult = generateKeyPair()
+      if keyPairResult.isErr:
+        return err("Generate key pair error: " & $keyPairResult.error)
+      (mixPrivKey, mixPubKey) = keyPairResult.get()
+
   let netConfig = networkConfiguration(
     wakuConf.clusterId, wakuConf.networkConf, wakuConf.discv5Conf,
     wakuConf.webSocketConf, wakuConf.wakuFlags, wakuConf.dnsAddrsNameServers,
@@ -495,7 +501,7 @@ proc setupNode*(
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  let record = enrConfiguration(wakuConf, netConfig).valueOr:
+  let record = enrConfiguration(wakuConf, netConfig, some(mixPubKey)).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)
 
@@ -521,7 +527,7 @@ proc setupNode*(
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(wakuConf)).isOkOr:
+    (waitFor node.setupProtocols(wakuConf, mixPrivKey)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:

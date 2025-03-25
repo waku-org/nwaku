@@ -2,9 +2,10 @@ import
   chronicles,
   chronos,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils, net],
+  std/[options, sequtils, net, strutils],
   results
 import
   ../common/utils/nat,
@@ -15,7 +16,7 @@ import
   ./networks_config
 
 proc enrConfiguration*(
-    conf: WakuConf, netConfig: NetConfig
+    conf: WakuConf, netConfig: NetConfig, mixPubKey: Option[Curve25519Key]
 ): Result[enr.Record, string] =
   var enrBuilder = EnrBuilder.init(conf.nodeKey)
 
@@ -33,8 +34,8 @@ proc enrConfiguration*(
   ).isOkOr:
     return err("could not initialize ENR with shards")
 
-  if conf.mix and conf.mixKey.isSome():
-    enrBuilder.withMixKey(conf.mixKey.get())
+  if conf.mix and mixPubKey.isSome():
+    enrBuilder.withMixKey(mixPubKey.get())
 
   let recordRes = enrBuilder.build()
   let record =
