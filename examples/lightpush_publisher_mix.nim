@@ -7,6 +7,7 @@ import
   chronos,
   confutils,
   libp2p/crypto/crypto,
+  libp2p/multiaddress,
   eth/keys,
   eth/p2p/discoveryv5/enr
 
@@ -37,7 +38,7 @@ const shardId = @[0'u16]
 
 const
   LightpushPeer =
-    "/ip4/127.0.0.1/tcp/60005/p2p/16Uiu2HAmRhxmCHBYdXt1RibXrjAUNJbduAhzaTHwFCZT4qWnqZAu"
+    "/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o"
   LightpushPubsubTopic = PubsubTopic("/waku/2/rs/2/0")
   LightpushContentTopic = ContentTopic("/examples/1/light-pubsub-mix-example/proto")
 
@@ -73,16 +74,35 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   builder.withNodeKey(nodeKey)
   builder.withRecord(record)
   builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
+
   let node = builder.build().tryGet()
 
   node.mountMetadata(clusterId).expect("failed to mount waku metadata protocol")
   node.mountLightPushClient()
+  try:
+    await node.mountPeerExchange(
+      some(uint16(clusterId))
+    )
+  except CatchableError:
+    error "failed to mount waku peer-exchange protocol: ", errmsg = getCurrentExceptionMsg()
+    return
+
+  let pxPeerInfo = RemotePeerInfo.init(
+    "16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o",
+    @[MultiAddress.init("/ip4/127.0.0.1/tcp/60001").get()]
+  )
+  node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
+  let pxPeerInfo2 = RemotePeerInfo.init(
+    "16Uiu2HAmRhxmCHBYdXt1RibXrjAUNJbduAhzaTHwFCZT4qWnqZAu",
+    @[MultiAddress.init("/ip4/127.0.0.1/tcp/60005").get()]
+  )
+  node.peerManager.addServicePeer(pxPeerInfo2, WakuPeerExchangeCodec)
   (
     await node.mountMix("401dd1eb5582f6dc9488d424aa26ed1092becefcf8543172e6d92c17ed07265a")
   ).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return 
-  discard node.setMixBootStrapNodes()
+  #discard node.setMixBootStrapNodes()
 
   let destPeerId = PeerId.init("16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o").valueOr:
     error "Failed to initialize PeerId", err = error
@@ -96,9 +116,17 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
 
   await node.start()
   node.peerManager.start()
+  node.startPeerExchangeLoop()
+
+  (await node.fetchPeerExchangePeers()).isOkOr:
+    warn "Cannot fetch peers from peer exchange", cause = error
+
+  while node.getMixNodePoolSize() < 3:
+    info "waiting for mix nodes to be discovered", currentpoolSize = node.getMixNodePoolSize()
+    await sleepAsync(1000)
 
   notice "publisher service started"
-  var numMsgs = 1
+  var numMsgs = 4
   var i = 0
   while i < numMsgs:
     i = i + 1
@@ -122,8 +150,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     else:
       error "failed to publish message", error = res.error
 
-    await sleepAsync(5000)
-    break
+    await sleepAsync(1000)
 
 
 when isMainModule:
