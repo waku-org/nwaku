@@ -250,7 +250,8 @@ proc getBootStrapMixNodes*(node: WakuNode): Table[PeerId, MixPubInfo] =
 
 #TODO: Ideally these procs should be moved out into mix specific file, but keeping it here for now.
 proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
-
+  # Note that origin based(discv5) filtering is not done intentionally 
+  # so that more mix nodes can be discovered.
   if peer.enr.isNone():
     trace "peer has no ENR", peer = $peer
     return false
@@ -259,11 +260,14 @@ proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
     debug "peer has mismatching cluster", peer = $peer
     return false
 
-  #TODO: Filter if mix is enabled
+  # Filter if mix is enabled
+  if not peer.enr.get().supportsCapability(Capabilities.Mix):
+    debug "peer doesn't support mix", peer = $peer
+    return false
 
   return true
 
-proc addPeerId*(multiaddr: MultiAddress, peerId:PeerId): MultiAddress =
+proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId:PeerId): MultiAddress =
   if multiaddr.contains(multiCodec("p2p")).get():
     return multiaddr
 
@@ -296,7 +300,7 @@ proc populateMixNodePool*(node: WakuNode){.async} =
   for i in 0 ..< min(remotePeers.len, 100):
     let remotePeerENR = remotePeers[i].enr.get()
     # TODO: use the most exposed/external multiaddr of the peer, right now using the first
-    let maddrWithPeerId = toString(addPeerId(remotePeers[i].addrs[0],remotePeers[i].peerId))
+    let maddrWithPeerId = toString(appendPeerIdToMultiaddr(remotePeers[i].addrs[0],remotePeers[i].peerId))
     trace "remote peer ENR", peerId = remotePeers[i].peerId, enr = remotePeerENR, maddr = maddrWithPeerId
 
     let peerMixPubKey = mixKey(remotePeerENR).get()
