@@ -30,6 +30,7 @@ import
     waku_lightpush/common,
     waku_peer_exchange,
     waku_metadata,
+    incentivization/reputation_manager,
   ],
   ./testlib/common,
   ./testlib/testutils,
@@ -902,39 +903,57 @@ procSuite "Peer Manager":
     # Add a peer[0] to the peerstore
     pm.wakuPeerStore[AddressBook][peers[0].peerId] = peers[0].addrs
     pm.wakuPeerStore[ProtoBook][peers[0].peerId] =
-      @[WakuRelayCodec, WakuStoreCodec, WakuFilterSubscribeCodec]
+      @[WakuRelayCodec, WakuStoreCodec, WakuFilterSubscribeCodec, WakuLightPushCodec]
 
     # When no service peers, we get one from the peerstore
-    let selectedPeer1 = pm.selectPeer(WakuStoreCodec)
+    let selectedPeerWakuStore = pm.selectPeer(WakuStoreCodec)
     check:
-      selectedPeer1.isSome() == true
-      selectedPeer1.get().peerId == peers[0].peerId
+      selectedPeerWakuStore.isSome() == true
+      selectedPeerWakuStore.get().peerId == peers[0].peerId
 
     # Same for other protocol
-    let selectedPeer2 = pm.selectPeer(WakuFilterSubscribeCodec)
+    let selectedPeerWakuFilter = pm.selectPeer(WakuFilterSubscribeCodec)
     check:
-      selectedPeer2.isSome() == true
-      selectedPeer2.get().peerId == peers[0].peerId
+      selectedPeerWakuFilter.isSome() == true
+      selectedPeerWakuFilter.get().peerId == peers[0].peerId
 
     # And return none if we dont have any peer for that protocol
-    let selectedPeer3 = pm.selectPeer(WakuLegacyLightPushCodec)
+    let selectedPeerWakuLegacyLightpush = pm.selectPeer(WakuLegacyLightPushCodec)
     check:
-      selectedPeer3.isSome() == false
+      selectedPeerWakuLegacyLightpush.isSome() == false
 
-    # Now we add service peers for different protocols peer[1..3]
-    pm.addServicePeer(peers[1], WakuStoreCodec)
-    pm.addServicePeer(peers[2], WakuLegacyLightPushCodec)
+    # Reputation: if no reputation is set (neutral-rep), return a peer
+    let selectedPeerWakuLightpush = pm.selectPeer(WakuLightPushCodec)
+    check:
+      selectedPeerWakuLightpush.isSome() == true
 
+    # Reputation: avoid negative-reputation peers
+    if pm.reputationManager.isSome():
+      var rm = pm.reputationManager.get()
+      # assign negative reputation to the peer
+      rm.setReputation(selectedPeerWakuLightpush.get().peerId, some(false))
+      # the peer is not selected because of negative reputation
+      check:
+        pm.selectPeer(WakuLightPushCodec).isNone()
+      # revert reputation to neutral
+      rm.setReputation(selectedPeerWakuLightpush.get().peerId, none(bool))
+      # the peer is selected again
+      check:
+        pm.selectPeer(WakuLightPushCodec).isSome()
+
+    # Now we add service peers for different protocols
     # We no longer get one from the peerstore. Slots are being used instead.
-    let selectedPeer4 = pm.selectPeer(WakuStoreCodec)
+    pm.addServicePeer(peers[1], WakuStoreCodec)
+    let selectedPeerWakuStoreSlotted = pm.selectPeer(WakuStoreCodec)
     check:
-      selectedPeer4.isSome() == true
-      selectedPeer4.get().peerId == peers[1].peerId
+      selectedPeerWakuStoreSlotted.isSome() == true
+      selectedPeerWakuStoreSlotted.get().peerId == peers[1].peerId
 
-    let selectedPeer5 = pm.selectPeer(WakuLegacyLightPushCodec)
+    pm.addServicePeer(peers[2], WakuLegacyLightPushCodec)
+    let selectedPeerWakuLegacyLightpushSlotted = pm.selectPeer(WakuLegacyLightPushCodec)
     check:
-      selectedPeer5.isSome() == true
-      selectedPeer5.get().peerId == peers[2].peerId
+      selectedPeerWakuLegacyLightpushSlotted.isSome() == true
+      selectedPeerWakuLegacyLightpushSlotted.get().peerId == peers[2].peerId
 
   test "peer manager cant have more max connections than peerstore size":
     # Peerstore size can't be smaller than max connections

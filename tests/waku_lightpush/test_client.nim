@@ -22,18 +22,29 @@ import
 suite "Waku Lightpush Client":
   var
     handlerFuture {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
+    handlerFutureFailsLightpush {.threadvar.}: Future[(PubsubTopic, WakuMessage)]
+
     handler {.threadvar.}: PushMessageHandler
+    handlerFailsLightpush {.threadvar.}: PushMessageHandler
 
     serverSwitch {.threadvar.}: Switch
+    serverSwitchFailsLightpush {.threadvar.}: Switch
     clientSwitch {.threadvar.}: Switch
+
     server {.threadvar.}: WakuLightPush
+    serverFailsLightpush {.threadvar.}: WakuLightPush
     client {.threadvar.}: WakuLightPushClient
 
     serverRemotePeerInfo {.threadvar.}: RemotePeerInfo
+    serverRemotePeerInfoFailsLightpush {.threadvar.}: RemotePeerInfo
+
     clientPeerId {.threadvar.}: PeerId
     pubsubTopic {.threadvar.}: PubsubTopic
     contentTopic {.threadvar.}: ContentTopic
     message {.threadvar.}: WakuMessage
+
+  # Use reputation manager (inside the peer manager) for Lightpush Client test instanse
+  const reputationEnabled = true
 
   asyncSetup:
     handlerFuture = newPushHandlerFuture()
@@ -48,21 +59,41 @@ suite "Waku Lightpush Client":
       # return that we published the message to 1 peer.
       return ok(1)
 
-    serverSwitch = newTestSwitch()
-    clientSwitch = newTestSwitch()
-    server = await newTestWakuLightpushNode(serverSwitch, handler)
-    client = newTestWakuLightpushClient(clientSwitch)
+    # A Lightpush server that fails
+    handlerFutureFailsLightpush = newPushHandlerFuture()
+    handlerFailsLightpush = proc(
+        peer: PeerId, pubsubTopic: PubsubTopic, message: WakuMessage
+    ): Future[WakuLightPushResult] {.async.} =
+      handlerFutureFailsLightpush.complete((pubsubTopic, message))
+      return lighpushErrorResult(
+        SERVICE_NOT_AVAILABLE, "a bad test server failed to push a lightpush message"
+      )
 
-    await allFutures(serverSwitch.start(), clientSwitch.start())
+    serverSwitch = newTestSwitch()
+    serverSwitchFailsLightpush = newTestSwitch()
+    clientSwitch = newTestSwitch()
+
+    server = await newTestWakuLightpushNode(serverSwitch, handler)
+    serverFailsLightpush =
+      await newTestWakuLightpushNode(serverSwitchFailsLightpush, handlerFailsLightpush)
+    client = newTestWakuLightpushClient(clientSwitch, reputationEnabled)
+
+    await allFutures(
+      serverSwitch.start(), serverSwitchFailsLightpush.start(), clientSwitch.start()
+    )
 
     serverRemotePeerInfo = serverSwitch.peerInfo.toRemotePeerInfo()
+    serverRemotePeerInfoFailsLightpush =
+      serverSwitchFailsLightpush.peerInfo.toRemotePeerInfo()
     clientPeerId = clientSwitch.peerInfo.peerId
     pubsubTopic = DefaultPubsubTopic
     contentTopic = DefaultContentTopic
     message = fakeWakuMessage()
 
   asyncTeardown:
-    await allFutures(clientSwitch.stop(), serverSwitch.stop())
+    await allFutures(
+      clientSwitch.stop(), serverSwitch.stop(), serverSwitchFailsLightpush.stop()
+    )
 
   suite "Verification of PushRequest Payload":
     asyncTest "Valid Payload Types":
@@ -337,3 +368,24 @@ suite "Waku Lightpush Client":
       # Then the response is negative
       check not publishResponse.isOk()
       check publishResponse.error.code == LightpushStatusCode.NO_PEERS_TO_RELAY
+
+    asyncTest "Positive Publish To Any":
+      # add a peer that supports the Lightpush protocol to the client's PeerManager
+      client.peerManager.addPeer(serverRemotePeerInfo) # supports Lightpush
+
+      # When sending a valid PushRequest using publishToAny
+      let publishResponse = await client.publishToAny(pubsubTopic, message)
+
+      # Then the response is positive
+      check publishResponse.isOk()
+
+    asyncTest "Negative Publish To Any":
+      # add a peer that does not support the Lightpush protocol to the client's PeerManager
+      client.peerManager.addPeer(serverRemotePeerInfoFailsLightpush)
+        # does not support Lightpush
+
+      # When sending a PushRequest using publishToAny to the only peer that doesn't support Lightpush
+      let publishResponse = await client.publishToAny(pubsubTopic, message)
+
+      # Then the response is negative
+      check not publishResponse.isOk()
