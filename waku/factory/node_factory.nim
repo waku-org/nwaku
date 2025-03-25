@@ -6,7 +6,8 @@ import
   libp2p/protocols/pubsub/gossipsub,
   libp2p/protocols/connectivity/relay/relay,
   libp2p/nameresolving/dnsresolver,
-  libp2p/crypto/crypto
+  libp2p/crypto/crypto,
+  libp2p/crypto/curve25519
 
 import
   ./internal_config,
@@ -37,7 +38,8 @@ import
   ../waku_lightpush_legacy/common,
   ../common/utils/parse_size_units,
   ../common/rate_limit/setting,
-  ../common/databases/dburl
+  ../common/databases/dburl,
+  ../../vendor/mix/src/curve25519
 
 ## Peer persistence
 
@@ -155,7 +157,8 @@ proc getAutoshards*(
   return ok(autoshards)
 
 proc setupProtocols(
-    node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey
+    node: WakuNode, conf: WakuNodeConf, nodeKey: crypto.PrivateKey,
+    mixPrivKey: Curve25519Key
 ): Future[Result[void, string]] {.async.} =
   ## Setup configured protocols on an existing Waku v2 node.
   ## Optionally include persistent message storage.
@@ -428,12 +431,6 @@ proc setupProtocols(
 
   #mount mix
   if conf.mix:
-    let mixPrivKey:string =
-      if conf.mixkey.isSome():
-        conf.mixkey.get()
-      else:
-        error "missing mix key"
-        return err("missing mix key")
     (
       await node.mountMix(mixPrivKey)
     ).isOkOr:
@@ -506,11 +503,23 @@ proc setupNode*(
         error "Failed to generate key", error = error
         return err("Failed to generate key: " & $error)
 
+  var mixPubKey, mixPrivKey: Curve25519Key
+  if conf.mix:
+    if conf.mixKey.isSome():
+      mixPrivKey = intoCurve25519Key(ncrutils.fromHex(conf.mixKey.get()))
+      mixPubKey = public(mixPrivKey)
+    else:
+      warn "missing mix key, generating new"
+      let keyPairResult = generateKeyPair()
+      if keyPairResult.isErr:
+        return err("Generate key pair error: " & $keyPairResult.error)
+      (mixPrivKey, mixPubKey) = keyPairResult.get()
+
   let netConfig = networkConfiguration(conf, clientId).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  let record = enrConfiguration(conf, netConfig, key).valueOr:
+  let record = enrConfiguration(conf, netConfig, key, some(mixPubKey)).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)
 
@@ -536,7 +545,7 @@ proc setupNode*(
   debug "Mounting protocols"
 
   try:
-    (waitFor node.setupProtocols(conf, key)).isOkOr:
+    (waitFor node.setupProtocols(conf, key, mixPrivKey)).isOkOr:
       error "Mounting protocols failed", error = error
       return err("Mounting protocols failed: " & error)
   except CatchableError:
