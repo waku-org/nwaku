@@ -89,12 +89,25 @@ type WakuRLNRelay* = ref object of RootObj
   groupManager*: GroupManager
   onFatalErrorAction*: OnFatalErrorHandler
   nonceManager*: NonceManager
+  epochMonitorFuture*: Future[void]
 
 proc calcEpoch*(rlnPeer: WakuRLNRelay, t: float64): Epoch =
   ## gets time `t` as `flaot64` with subseconds resolution in the fractional part
   ## and returns its corresponding rln `Epoch` value
   let e = uint64(t / rlnPeer.rlnEpochSizeSec.float64)
   return toEpoch(e)
+
+proc nextEpoch*(rlnPeer: WakuRLNRelay, time: float64): float64 =
+  let
+    currentEpoch = uint64(time / rlnPeer.rlnEpochSizeSec.float64)
+    nextEpochTime = float64(currentEpoch + 1) * rlnPeer.rlnEpochSizeSec.float64
+    currentTime = epochTime()
+
+  # Ensure we always return a future time
+  if nextEpochTime > currentTime:
+    return nextEpochTime
+  else:
+    return epochTime()
 
 proc stop*(rlnPeer: WakuRLNRelay) {.async: (raises: [Exception]).} =
   ## stops the rln-relay protocol
@@ -392,6 +405,19 @@ proc generateRlnValidator*(
 
   return validator
 
+proc monitorEpochs(wakuRlnRelay: WakuRLNRelay) {.async.} =
+  while true:
+    try:
+      waku_rln_remaining_proofs_per_epoch.set(
+        wakuRlnRelay.groupManager.userMessageLimit.get().float64
+      )
+    except CatchableError:
+      error "Error in epoch monitoring", error = getCurrentExceptionMsg()
+
+    let nextEpochTime = wakuRlnRelay.nextEpoch(epochTime())
+    let sleepDuration = int((nextEpochTime - epochTime()) * 1000)
+    await sleepAsync(sleepDuration)
+
 proc mount(
     conf: WakuRlnConfig, registrationHandler = none(RegistrationHandler)
 ): Future[RlnRelayResult[WakuRlnRelay]] {.async.} =
@@ -445,16 +471,18 @@ proc mount(
   (await groupManager.startGroupSync()).isOkOr:
     return err("could not start the group sync: " & $error)
 
-  return ok(
-    WakuRLNRelay(
-      groupManager: groupManager,
-      nonceManager:
-        NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
-      rlnEpochSizeSec: conf.rlnEpochSizeSec,
-      rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
-      onFatalErrorAction: conf.onFatalErrorAction,
-    )
+  wakuRlnRelay = WakuRLNRelay(
+    groupManager: groupManager,
+    nonceManager:
+      NonceManager.init(conf.rlnRelayUserMessageLimit, conf.rlnEpochSizeSec.float),
+    rlnEpochSizeSec: conf.rlnEpochSizeSec,
+    rlnMaxEpochGap: max(uint64(MaxClockGapSeconds / float64(conf.rlnEpochSizeSec)), 1),
+    onFatalErrorAction: conf.onFatalErrorAction,
   )
+
+  # Start epoch monitoring in the background
+  wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
+  return ok(wakuRlnRelay)
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
   ## returns true if the rln-relay protocol is ready to relay messages

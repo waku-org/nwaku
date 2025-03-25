@@ -132,6 +132,9 @@ proc syncMessageIngress*(
     pubsubTopic: PubsubTopic,
     msg: WakuMessage,
 ): Future[Result[void, string]] {.async.} =
+  if msg.ephemeral:
+    return err("ephemeral message, will not store")
+
   let msgHashHex = msgHash.to0xHex()
 
   trace "handling message in syncMessageIngress",

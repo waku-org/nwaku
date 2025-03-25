@@ -74,6 +74,7 @@ proc getPeer*(wps: WakuPeerStore, peerId: PeerId): RemotePeerInfo =
   )
 
 proc addPeer*(wps: WakuPeerStore, peer: RemotePeerInfo) =
+  ## Only used in tests
   wps[AddressBook][peer.peerId] = peer.addrs
   wps[ProtoBook][peer.peerId] = peer.protocols
   wps[AgentBook][peer.peerId] = peer.agent

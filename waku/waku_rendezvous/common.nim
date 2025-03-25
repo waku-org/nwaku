@@ -7,6 +7,7 @@ import ../common/enr, ../waku_enr/capabilities, ../waku_enr/sharding
 const DiscoverLimit* = 1000
 const DefaultRegistrationTTL* = 60.seconds
 const DefaultRegistrationInterval* = 10.seconds
+const MaxRegistrationInterval* = 5.minutes
 const PeersRequestedCount* = 12
 
 proc computeNamespace*(clusterId: uint16, shard: uint16): string =

@@ -374,9 +374,9 @@ proc mountStoreSync*(
     storeSyncInterval = 300,
     storeSyncRelayJitter = 20,
 ): Future[Result[void, string]] {.async.} =
-  let idsChannel = newAsyncQueue[SyncID](100)
-  let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
-  let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](100)
+  let idsChannel = newAsyncQueue[SyncID](0)
+  let wantsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
+  let needsChannel = newAsyncQueue[(PeerId, WakuMessageHash)](0)
 
   var cluster: uint16
   var shards: seq[uint16]
@@ -397,11 +397,23 @@ proc mountStoreSync*(
 
   node.wakuStoreReconciliation = recon
 
+  let reconMountRes = catch:
+    node.switch.mount(
+      node.wakuStoreReconciliation, protocolMatcher(WakuReconciliationCodec)
+    )
+  if reconMountRes.isErr():
+    return err(reconMountRes.error.msg)
+
   let transfer = SyncTransfer.new(
     node.peerManager, node.wakuArchive, idsChannel, wantsChannel, needsChannel
   )
 
   node.wakuStoreTransfer = transfer
+
+  let transMountRes = catch:
+    node.switch.mount(node.wakuStoreTransfer, protocolMatcher(WakuTransferCodec))
+  if transMountRes.isErr():
+    return err(transMountRes.error.msg)
 
   return ok()
 
@@ -1294,7 +1306,7 @@ proc lightpushPublishHandler(
 ): Future[lightpush_protocol.WakuLightPushResult] {.async.} =
   let msgHash = pubsubTopic.computeMessageHash(message).to0xHex()
   if not node.wakuLightpushClient.isNil():
-    notice "publishing message with legacy lightpush",
+    notice "publishing message with lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
@@ -1302,7 +1314,7 @@ proc lightpushPublishHandler(
     return await node.wakuLightpushClient.publish(some(pubsubTopic), message, peer)
 
   if not node.wakuLightPush.isNil():
-    notice "publishing message with self hosted legacy lightpush",
+    notice "publishing message with self hosted lightpush",
       pubsubTopic = pubsubTopic,
       contentTopic = message.contentTopic,
       target_peer_id = peer.peerId,
