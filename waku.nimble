@@ -132,7 +132,6 @@ task example2, "Build Waku examples":
   buildBinary "subscriber", "examples/"
   buildBinary "filter_subscriber", "examples/"
   buildBinary "lightpush_publisher", "examples/"
-  buildBinary "lightpush_publisher_mix", "examples/"
 
 task chat2, "Build example Waku chat usage":
   # NOTE For debugging, set debug level. For chat usage we want minimal log
@@ -149,6 +148,10 @@ task chat2bridge, "Build chat2bridge":
 task liteprotocoltester, "Build liteprotocoltester":
   let name = "liteprotocoltester"
   buildBinary name, "apps/liteprotocoltester/"
+
+task lightpushwithmix, "Build lightpushwithmix":
+  let name = "lightpush_publisher_mix"
+  buildBinary name, "examples/"
 
 task buildone, "Build custom target":
   let filepath = paramStr(paramCount())
