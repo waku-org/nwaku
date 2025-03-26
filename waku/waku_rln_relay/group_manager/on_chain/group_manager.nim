@@ -131,7 +131,7 @@ method atomicBatch*(
 
   echo "-------------- atomicBatch 3"
   if not operationSuccess:
-    echo "-------------- atomicBatch "
+    echo "-------------- atomicBatch 4"
     raise newException(CatchableError, "atomic batch operation failed")
   # TODO: when slashing is enabled, we need to track slashed members
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
@@ -351,16 +351,20 @@ proc handleEvents(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
+  echo "--------- handleEvents 1"
+  echo "--------- handleEvents len(blockTable): ", len(blockTable)
   for blockNumber, members in blockTable.pairs():
     try:
       let startIndex = blockTable[blockNumber].filterIt(not it[1])[0][0].index
       let removalIndices = members.filterIt(it[1]).mapIt(it[0].index)
       let rateCommitments = members.mapIt(it[0].rateCommitment)
+      echo "--------- handleEvents 4"
       await g.atomicBatch(
         start = startIndex,
         rateCommitments = rateCommitments,
         toRemoveIndices = removalIndices,
       )
+      echo "--------- handleEvents 5"
       g.latestIndex = startIndex + MembershipIndex(rateCommitments.len)
       trace "new members added to the Merkle tree",
         commitments = rateCommitments.mapIt(it.inHex)
@@ -368,6 +372,7 @@ proc handleEvents(
       error "failed to insert members into the tree", error = getCurrentExceptionMsg()
       raise newException(ValueError, "failed to insert members into the tree")
 
+  echo "--------- handleEvents 6"
   return
 
 proc handleRemovedEvents(
