@@ -177,17 +177,10 @@ method register*(
 
   try:
     let leaf = rateCommitment.toLeaf().get()
-    await g.registerBatch(@[leaf])
+    await g.atomicBatch(g.latestIndex, @[leaf])
+    g.latestIndex += MembershipIndex(1)
   except CatchableError:
     raise newException(ValueError, getCurrentExceptionMsg())
-
-method registerBatch*(
-    g: OnchainGroupManager, rateCommitments: seq[RawRateCommitment]
-): Future[void] {.async: (raises: [Exception]).} =
-  initializedGuard(g)
-
-  await g.atomicBatch(g.latestIndex, rateCommitments)
-  g.latestIndex += MembershipIndex(rateCommitments.len)
 
 method register*(
     g: OnchainGroupManager,
