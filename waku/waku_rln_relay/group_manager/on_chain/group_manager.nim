@@ -122,9 +122,13 @@ method atomicBatch*(
   initializedGuard(g)
   echo "-------------- atomicBatch 2"
 
+  let startTime = Moment.now()
   waku_rln_membership_insertion_duration_seconds.nanosecondTime:
     let operationSuccess =
       g.rlnInstance.atomicWrite(some(start), rateCommitments, toRemoveIndices)
+  let insertionTime = (Moment.now() - startTime).seconds()
+  echo "------- insertion time in seconds: ", insertionTime
+
   echo "-------------- atomicBatch 3"
   if not operationSuccess:
     echo "-------------- atomicBatch "

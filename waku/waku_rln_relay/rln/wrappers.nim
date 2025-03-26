@@ -357,24 +357,29 @@ proc atomicWrite*(
   ## returns true if the operation is successful
   ## returns false if the operation fails
 
+  echo "------ atomicWrite 1"
   let startIndex =
     if index.isNone():
       MembershipIndex(0)
     else:
       index.get()
 
+  echo "------ atomicWrite 2"
   # serialize the idComms
   let idCommsBytes = serialize(idComms)
   var idCommsBuffer = idCommsBytes.toBuffer()
   let idCommsBufferPtr = addr idCommsBuffer
+  echo "------ atomicWrite 3"
 
   # serialize the toRemoveIndices
   let indicesBytes = serialize(toRemoveIndices)
   var indicesBuffer = indicesBytes.toBuffer()
   let indicesBufferPtr = addr indicesBuffer
+  echo "------ atomicWrite 4"
 
   let operationSuccess =
     atomic_write(rlnInstance, startIndex, idCommsBufferPtr, indicesBufferPtr)
+  echo "------ atomicWrite 5"
   return operationSuccess
 
 proc insertMembers*(
