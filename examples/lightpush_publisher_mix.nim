@@ -7,6 +7,7 @@ import
   chronos,
   confutils,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/multiaddress,
   eth/keys,
   eth/p2p/discoveryv5/enr
@@ -98,7 +99,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   )
   node.peerManager.addServicePeer(pxPeerInfo2, WakuPeerExchangeCodec)
   (
-    await node.mountMix("401dd1eb5582f6dc9488d424aa26ed1092becefcf8543172e6d92c17ed07265a")
+    await node.mountMix(intoCurve25519Key(ncrutils.fromHex("401dd1eb5582f6dc9488d424aa26ed1092becefcf8543172e6d92c17ed07265a")))
   ).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return 
