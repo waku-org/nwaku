@@ -136,6 +136,18 @@ proc toMerkleNode*(uint256Value: UInt256): MerkleNode =
 
   return merkleNode
 
+proc updateRoots*(g: OnchainGroupManager, root: MerkleNode): bool =
+  if g.validRoots.len > 0 and g.validRoots[^1] == root:
+    return false
+
+  let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
+  if overflowCount > 0:
+    for i in 0 ..< overflowCount:
+      discard g.validRoots.popFirst()
+
+  g.validRoots.addLast(root)
+  return true
+
 proc slideRootQueue*(g: OnchainGroupManager) {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
@@ -168,7 +180,16 @@ method atomicBatch*(
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
-  await g.slideRootQueue()
+  let rootRes = await g.fetchMerkleRoot()
+  if rootRes.isErr():
+    raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
+
+  let merkleRoot = toMerkleNode(rootRes.get())
+
+  let rootUpdated = g.updateRoots(merkleRoot)
+  if rootUpdated:
+    info "Detected new Merkle root",
+      root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
@@ -393,29 +414,24 @@ proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
 
   while true:
     try:
-      # Fetch the current root
       let rootRes = await g.fetchMerkleRoot()
       if rootRes.isErr():
-        error "Failed to fetch Merkle root", error = rootRes.error
-        await sleepAsync(rpcDelay)
+        raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
         continue
 
-      let currentRoot = toMerkleNode(rootRes.get())
+      let merkleRoot = toMerkleNode(rootRes.get())
 
-      if g.validRoots.len == 0 or g.validRoots[g.validRoots.len - 1] != currentRoot:
-        let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
-        if overflowCount > 0:
-          for i in 0 ..< overflowCount:
-            discard g.validRoots.popFirst()
-
-        g.validRoots.addLast(currentRoot)
+      let rootUpdated = g.updateRoots(merkleRoot)
+      if rootUpdated:
         info "Detected new Merkle root",
-          root = currentRoot.toHex, totalRoots = g.validRoots.len
+          root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
-      let proofResult = await g.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      g.merkleProofCache = proofResult.get()
+        let proofResult = await g.fetchMerkleProofElements()
+        if proofResult.isErr():
+          error "Failed to fetch Merkle proof", error = proofResult.error
+        g.merkleProofCache = proofResult.get()
+
+      await sleepAsync(rpcDelay)
     except CatchableError as e:
       error "Error while tracking Merkle root", error = e.msg
 
