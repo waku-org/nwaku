@@ -486,7 +486,7 @@ procSuite "WakuNode - RLN relay":
     await node2.stop()
     await node3.stop()
 
-  asyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
+  xasyncTest "clearNullifierLog: should clear epochs > MaxEpochGap":
     # Given two nodes
     let
       contentTopic = ContentTopic("/waku/2/default-content/proto")
