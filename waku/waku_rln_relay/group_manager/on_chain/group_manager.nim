@@ -356,6 +356,8 @@ method generateProof*(
     shareY: shareY,
     nullifier: nullifier,
   )
+  waku_rln_remaining_proofs_per_epoch.dec()
+  waku_rln_total_generated_proofs.inc()
   return ok(output)
 
 method verifyProof*(
