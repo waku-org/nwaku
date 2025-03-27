@@ -248,22 +248,16 @@ method withdrawBatch*(
 ): Future[void] {.async: (raises: [Exception]).} =
   initializedGuard(g)
 
-proc convertUint256SeqToByteSeq(input: seq[UInt256]): seq[seq[byte]] =
-  result = newSeq[seq[byte]](input.len)
-  for i, uint256val in input:
-    # Convert UInt256 to a byte sequence (big endian)
-    let bytes = uint256val.toBytesBE()
-    result[i] = @bytes
+proc toArray32*(s: seq[byte]): array[32, byte] =
+  var output: array[32, byte]
+  discard output.copyFrom(s)
+  return output
 
-proc uinttoSeqByte*(value: uint64): seq[byte] =
-  ## Converts a uint64 to a sequence of bytes (big-endian)
-  result = newSeq[byte](8)
-  for i in 0 ..< 8:
-    result[7 - i] = byte((value shr (i * 8)) and 0xFF)
-
-proc toSeqByte*(value: array[32, byte]): seq[byte] =
-  ## Converts an array[32, byte] to a sequence of bytes
-  result = @value
+proc toArray32Seq*(values: seq[UInt256]): seq[array[32, byte]] =
+  ## Converts a sequence of UInt256 to a sequence of 32-byte arrays
+  result = newSeqOfCap[array[32, byte]](values.len)
+  for value in values:
+    result.add(value.toBytesLE())
 
 method generateProof*(
     g: OnchainGroupManager,
@@ -281,17 +275,16 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
-  let pathElements = convertUint256SeqToByteSeq(g.merkleProofCache)
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
   let witness = Witness(
-    identity_secret: g.idCredentials.get().idSecretHash,
-    user_message_limit: g.userMessageLimit.get(),
-    message_id: messageId,
-    path_elements: pathElements,
-    identity_path_index: uinttoSeqByte(g.membershipIndex.get()),
-    x: data,
-    external_nullifier: toSeqByte(externalNullifierRes.get()),
+    identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
+    user_message_limit: serialize(g.userMessageLimit.get()),
+    message_id: serialize(messageId),
+    path_elements: toArray32Seq(g.merkleProofCache),
+    identity_path_index: @(toBytes(g.membershipIndex.get(), littleEndian)),
+    x: toArray32(data),
+    external_nullifier: externalNullifierRes.get(),
   )
 
   let serializedWitness = serialize(witness)
