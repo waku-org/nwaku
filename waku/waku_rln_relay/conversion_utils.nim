@@ -119,15 +119,19 @@ proc serialize*(memIndices: seq[MembershipIndex]): seq[byte] =
 proc serialize*(witness: Witness): seq[byte] =
   ## Serializes the witness into a byte array according to the RLN protocol format
   var buffer: seq[byte]
-  buffer.add(witness.identity_secret)
-  buffer.add(witness.user_message_limit.toBytesBE())
-  buffer.add(witness.message_id.toBytesBE())
+  # Convert Fr types to bytes and add them to buffer
+  buffer.add(@(witness.identity_secret))
+  buffer.add(@(witness.user_message_limit))
+  buffer.add(@(witness.message_id))
+  # Add path elements length as uint64 in little-endian
   buffer.add(toBytes(uint64(witness.path_elements.len), Endianness.littleEndian))
+  # Add each path element
   for element in witness.path_elements:
-    buffer.add(element)
+    buffer.add(@element)
+  # Add remaining fields
   buffer.add(witness.identity_path_index)
-  buffer.add(witness.x)
-  buffer.add(witness.external_nullifier)
+  buffer.add(@(witness.x))
+  buffer.add(@(witness.external_nullifier))
   return buffer
 
 proc toEpoch*(t: uint64): Epoch =
