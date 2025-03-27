@@ -27,7 +27,7 @@ RUN make -j$(nproc) ${NIM_COMMIT} $MAKE_TARGET LOG_LEVEL=${LOG_LEVEL} NIMFLAGS="
 
 # PRODUCTION IMAGE -------------------------------------------------------------
 
-FROM alpine:3.18 as prod
+FROM alpine:3.18 AS prod
 
 ARG MAKE_TARGET=wakunode2
 

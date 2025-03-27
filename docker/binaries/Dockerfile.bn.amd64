@@ -1,5 +1,5 @@
 # Dockerfile to build a distributable container image from pre-existing binaries
-FROM debian:stable-slim as prod
+FROM debian:stable-slim AS prod
 
 ARG MAKE_TARGET=wakunode2
 
