@@ -39,7 +39,7 @@ import
   ../common/utils/parse_size_units,
   ../common/rate_limit/setting,
   ../common/databases/dburl,
-  ../../vendor/mix/src/curve25519_utils
+  curve25519_utils
 
 ## Peer persistence
 

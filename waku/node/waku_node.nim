@@ -25,10 +25,10 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
-  ../../vendor/mix/src/mix_node,
-  ../../vendor/mix/src/mix_protocol,
-  ../../vendor/mix/src/curve25519_utils,
-  ../../vendor/mix/src/app_protocols
+  mix_node,
+  mix_protocol,
+  curve25519_utils,
+  app_protocols
 
 
 import
