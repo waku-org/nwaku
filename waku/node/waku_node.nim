@@ -25,8 +25,8 @@ import
   libp2p/utility,
   mix/mix_node,
   mix/mix_protocol,
-  mix/curve25519_utils,
-  mix/app_protocols
+  mix/curve25519,
+  mix/protocol
 
 import
   ../waku_core,
