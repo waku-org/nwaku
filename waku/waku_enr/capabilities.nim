@@ -3,7 +3,7 @@
 import
   std/[options, bitops, sequtils, net, tables], results, eth/keys, libp2p/crypto/crypto
 import ../common/enr, ../waku_core/codecs
-import mix_protocol
+import mix/mix_protocol
 
 const CapabilitiesEnrField* = "waku2"
 
@@ -33,7 +33,8 @@ const capabilityToCodec = {
 }.toTable
 
 func init*(
-    T: type CapabilitiesBitfield, lightpush, filter, store, relay, sync, mix: bool = false
+    T: type CapabilitiesBitfield,
+    lightpush, filter, store, relay, sync, mix: bool = false,
 ): T =
   ## Creates an waku2 ENR flag bit field according to RFC 31 (https://rfc.vac.dev/spec/31/)
   var bitfield: uint8

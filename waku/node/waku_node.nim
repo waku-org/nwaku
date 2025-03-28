@@ -25,11 +25,10 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
-  mix_node,
-  mix_protocol,
-  curve25519_utils,
-  app_protocols
-
+  mix/mix_node,
+  mix/mix_protocol,
+  mix/curve25519_utils,
+  mix/app_protocols
 
 import
   ../waku_core,
@@ -250,7 +249,7 @@ proc mountSharding*(
 
 #TODO: Ideally these procs should be moved out into mix specific file, but keeping it here for now.
 proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
-  # Note that origin based(discv5) filtering is not done intentionally 
+  # Note that origin based(discv5) filtering is not done intentionally
   # so that more mix nodes can be discovered.
   if peer.enr.isNone():
     trace "peer has no ENR", peer = $peer
@@ -267,7 +266,7 @@ proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
 
   return true
 
-proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId:PeerId): MultiAddress =
+proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId: PeerId): MultiAddress =
   if multiaddr.contains(multiCodec("p2p")).get():
     return multiaddr
 
@@ -280,7 +279,7 @@ proc appendPeerIdToMultiaddr*(multiaddr: MultiAddress, peerId:PeerId): MultiAddr
     return multiaddr
   return cleanAddr
 
-proc populateMixNodePool*(node: WakuNode){.async} =
+proc populateMixNodePool*(node: WakuNode) {.async.} =
   var cluster: uint16
   let enrRes = node.enr.toTyped()
   if enrRes.isOk():
@@ -293,18 +292,21 @@ proc populateMixNodePool*(node: WakuNode){.async} =
 
   # populate only peers that i) are reachable ii) share cluster iii) support mix
   let remotePeers = node.peerManager.wakuPeerStore.getReachablePeers().filterIt(
-    mixPoolFilter(some(cluster), it)
+      mixPoolFilter(some(cluster), it)
     )
   var mixNodes = initTable[PeerId, MixPubInfo]()
 
   for i in 0 ..< min(remotePeers.len, 100):
     let remotePeerENR = remotePeers[i].enr.get()
     # TODO: use the most exposed/external multiaddr of the peer, right now using the first
-    let maddrWithPeerId = toString(appendPeerIdToMultiaddr(remotePeers[i].addrs[0],remotePeers[i].peerId))
-    trace "remote peer ENR", peerId = remotePeers[i].peerId, enr = remotePeerENR, maddr = maddrWithPeerId
+    let maddrWithPeerId =
+      toString(appendPeerIdToMultiaddr(remotePeers[i].addrs[0], remotePeers[i].peerId))
+    trace "remote peer ENR",
+      peerId = remotePeers[i].peerId, enr = remotePeerENR, maddr = maddrWithPeerId
 
     let peerMixPubKey = mixKey(remotePeerENR).get()
-    let mixNodePubInfo = createMixPubInfo(maddrWithPeerId.value, intoCurve25519Key(peerMixPubKey))
+    let mixNodePubInfo =
+      createMixPubInfo(maddrWithPeerId.value, intoCurve25519Key(peerMixPubKey))
     mixNodes[remotePeers[i].peerId] = mixNodePubInfo
 
   # set the mix node pool
@@ -312,8 +314,7 @@ proc populateMixNodePool*(node: WakuNode){.async} =
   trace "mix node pool updated", poolSize = node.mix.getNodePoolSize()
   return
 
-
-proc startMixNodePoolMgr*(node: WakuNode ){.async} =
+proc startMixNodePoolMgr*(node: WakuNode) {.async.} =
   info "starting mix node pool manager"
   # try more aggressively to populate the pool at startup
   var attempts = 50
@@ -333,10 +334,12 @@ proc getMixNodePoolSize*(node: WakuNode): int =
 #[ proc setMixBootStrapNodes*(node: WakuNode,){.async}=
   node.mix.setNodePool(node.getBootStrapMixNodes())
  ]#
- # Mix Protocol
-proc mountMix*(node: WakuNode, mixPrivKey: Curve25519Key): Future[Result[void, string]] {.async.}  =
+# Mix Protocol
+proc mountMix*(
+    node: WakuNode, mixPrivKey: Curve25519Key
+): Future[Result[void, string]] {.async.} =
   info "mounting mix protocol", nodeId = node.info #TODO log the config used
-  let  mixPubKey = public(mixPrivKey)
+  let mixPubKey = public(mixPrivKey)
 
   info "mixPrivKey", mixPrivKey = mixPrivKey, mixPubKey = mixPubKey
 
@@ -345,12 +348,16 @@ proc mountMix*(node: WakuNode, mixPrivKey: Curve25519Key): Future[Result[void, s
   info "local addr", localaddr = localaddrStr
 
   let localMixNodeInfo = initMixNodeInfo(
-    localaddrStr & "/p2p/" & $node.peerId, mixPubKey, mixPrivKey, node.switch.peerInfo.publicKey.skkey,
+    localaddrStr & "/p2p/" & $node.peerId,
+    mixPubKey,
+    mixPrivKey,
+    node.switch.peerInfo.publicKey.skkey,
     node.switch.peerInfo.privateKey.skkey,
   )
-  # TODO: Pass bootnodes from config, 
+  # TODO: Pass bootnodes from config,
   # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
-  let protoRes = MixProtocol.initMix(localMixNodeInfo, node.switch, initTable[PeerId, MixPubInfo]())
+  let protoRes =
+    MixProtocol.initMix(localMixNodeInfo, node.switch, initTable[PeerId, MixPubInfo]())
   if protoRes.isErr:
     error "Mix protocol initialization failed", err = protoRes.error
     return
