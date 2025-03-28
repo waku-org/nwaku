@@ -175,7 +175,7 @@ method verifyProof*(
 
 method generateProof*(
     g: GroupManager,
-    data: openArray[byte],
+    data: seq[byte],
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
@@ -201,8 +201,6 @@ method generateProof*(
     ).valueOr:
       return err("proof generation failed: " & $error)
 
-  waku_rln_remaining_proofs_per_epoch.dec()
-  waku_rln_total_generated_proofs.inc()
   return ok(proof)
 
 method isReady*(g: GroupManager): Future[bool] {.base, async.} =
