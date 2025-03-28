@@ -12,8 +12,8 @@ import
   eth/keys,
   eth/p2p/discoveryv5/enr
 
-import ../vendor/mix/src/entry_connection, 
-  ../vendor/mix/src/protocol
+import entry_connection, 
+  app_protocols
 
 import
   waku/[
