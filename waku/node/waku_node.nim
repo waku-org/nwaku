@@ -23,10 +23,10 @@ import
   libp2p/transports/tcptransport,
   libp2p/transports/wstransport,
   libp2p/utility,
-  mix_node,
-  mix_protocol,
-  curve25519_utils,
-  app_protocols
+  mix/mix_node,
+  mix/mix_protocol,
+  mix/curve25519_utils,
+  mix/app_protocols
 
 import
   ../waku_core,
@@ -251,7 +251,7 @@ proc mountSharding*(
 
 #TODO: Ideally these procs should be moved out into mix specific file, but keeping it here for now.
 proc mixPoolFilter*(cluster: Option[uint16], peer: RemotePeerInfo): bool =
-  # Note that origin based(discv5) filtering is not done intentionally 
+  # Note that origin based(discv5) filtering is not done intentionally
   # so that more mix nodes can be discovered.
   if peer.enr.isNone():
     trace "peer has no ENR", peer = $peer
@@ -356,7 +356,7 @@ proc mountMix*(
     node.switch.peerInfo.publicKey.skkey,
     node.switch.peerInfo.privateKey.skkey,
   )
-  # TODO: Pass bootnodes from config, 
+  # TODO: Pass bootnodes from config,
   # TODO : ideally mix should not be marked ready until certain min pool of mixNodes are discovered
   let protoRes =
     MixProtocol.initMix(localMixNodeInfo, node.switch, initTable[PeerId, MixPubInfo]())
