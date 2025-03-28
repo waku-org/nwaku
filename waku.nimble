@@ -60,6 +60,7 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
   if not dirExists "build":
     mkDir "build"
   # allow something like "nim nimbus --verbosity:0 --hints:off nimbus.nims"
+  const sharedLibExt = when defined(windows): ".dll" else: ".so"
   var extra_params = params
   for i in 2 ..< paramCount():
     extra_params &= " " & paramStr(i)
@@ -69,7 +70,7 @@ proc buildLibrary(name: string, srcDir = "./", params = "", `type` = "static") =
       extra_params & " " & srcDir & name & ".nim"
   else:
     exec "nim c" & " --out:build/" & name &
-      ".so --threads:on --app:lib --opt:size --noMain --mm:refc --header --undef:metrics --nimMainPrefix:libwaku --skipParentCfg:on " &
+      sharedLibExt & " --threads:on --app:lib --opt:size --noMain --mm:refc --header --undef:metrics --nimMainPrefix:libwaku --skipParentCfg:on " &
       extra_params & " " & srcDir & name & ".nim"
 
 proc buildMobileAndroid(srcDir = ".", params = "") =
