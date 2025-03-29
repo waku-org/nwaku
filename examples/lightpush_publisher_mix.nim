@@ -24,29 +24,26 @@ import
     waku_enr,
     discovery/waku_discv5,
     factory/builder,
-    waku_lightpush/client,
-  ]
+    waku_lightpush/client
+  ],
+  ./lightpush_publisher_mix_config
+
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
 
-# careful if running pub and sub in the same machine
-const wakuPort = 60000
-
-const clusterId = 2
+const clusterId = 66
 const shardId = @[0'u16]
 
 const
-  LightpushPeer =
-    "/ip4/127.0.0.1/tcp/60001/p2p/16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o"
-  LightpushPubsubTopic = PubsubTopic("/waku/2/rs/2/0")
+  LightpushPubsubTopic = PubsubTopic("/waku/2/rs/66/0")
   LightpushContentTopic = ContentTopic("/examples/1/light-pubsub-mix-example/proto")
 
-proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
+proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   # use notice to filter all waku messaging
   setupLog(logging.LogLevel.DEBUG, logging.LogFormat.TEXT)
 
-  notice "starting publisher", wakuPort = wakuPort
+  notice "starting publisher", wakuPort = conf.port
 
   let
     nodeKey = crypto.PrivateKey.random(Secp256k1, rng[]).get()
@@ -73,7 +70,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
   var builder = WakuNodeBuilder.init()
   builder.withNodeKey(nodeKey)
   builder.withRecord(record)
-  builder.withNetworkConfigurationDetails(ip, Port(wakuPort)).tryGet()
+  builder.withNetworkConfigurationDetails(ip, Port(conf.port)).tryGet()
 
   let node = builder.build().tryGet()
 
@@ -87,16 +84,16 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     return
 
   let pxPeerInfo = RemotePeerInfo.init(
-    "16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o",
-    @[MultiAddress.init("/ip4/127.0.0.1/tcp/60001").get()],
+    conf.destPeerId,
+    @[MultiAddress.init(conf.destPeerAddr).get()],
   )
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
-  let pxPeerInfo2 = RemotePeerInfo.init(
+#[   let pxPeerInfo2 = RemotePeerInfo.init(
     "16Uiu2HAmRhxmCHBYdXt1RibXrjAUNJbduAhzaTHwFCZT4qWnqZAu",
     @[MultiAddress.init("/ip4/127.0.0.1/tcp/60005").get()],
   )
   node.peerManager.addServicePeer(pxPeerInfo2, WakuPeerExchangeCodec)
-
+ ]#
   (
     await node.mountMix(
       intoCurve25519Key(
@@ -110,12 +107,12 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     return
   #discard node.setMixBootStrapNodes()
 
-  let destPeerId = PeerId.init("16Uiu2HAmPiEs2ozjjJF2iN2Pe2FYeMC9w4caRHKYdLdAfjgbWM6o").valueOr:
+  let destPeerId = PeerId.init(conf.destPeerId).valueOr:
     error "Failed to initialize PeerId", err = error
     return
 
   let conn = MixEntryConnection.newConn(
-    "/ip4/127.0.0.1/tcp/60001",
+    conf.destPeerAddr,
     destPeerId,
     ProtocolType.fromString(WakuLightPushCodec),
     node.mix,
@@ -162,6 +159,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext) {.async.} =
     await sleepAsync(1000)
 
 when isMainModule:
+  let conf = LPMixConf.load()
   let rng = crypto.newRng()
-  asyncSpawn setupAndPublish(rng)
+  asyncSpawn setupAndPublish(rng, conf)
   runForever()
