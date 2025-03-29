@@ -90,6 +90,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     @[MultiAddress.init(conf.destPeerAddr).get()],
   )
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
+
+
+  let pxPeerInfo1 = RemotePeerInfo.init(
+    conf.pxId,
+    @[MultiAddress.init(conf.pxAddr).get()],
+  )
+  node.peerManager.addServicePeer(pxPeerInfo1, WakuPeerExchangeCodec)
+
   let keyPairResult = generateKeyPair()
   if keyPairResult.isErr:
     return

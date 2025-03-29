@@ -15,6 +15,17 @@ type
         name: "dp-id",
     }: string
 
+    pxAddr* {.
+        desc: "Peer exchange address.",
+        defaultValue: "localhost:50001",
+        name: "px-addr",
+    }: string
+    pxId* {.
+        desc: "Peer exchange ID.",
+        defaultValue: "waku-v2-peer-exchange",
+        name: "px-id",
+    }: string
+
     port* {.
         desc: "Port to listen on.",
         defaultValue: 50000,
