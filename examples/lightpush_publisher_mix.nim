@@ -13,7 +13,7 @@ import
   eth/p2p/discoveryv5/enr,
   metrics
 
-import mix/entry_connection, mix/protocol
+import mix/entry_connection, mix/protocol, mix/curve25519
 
 import
   waku/[
@@ -90,15 +90,13 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     @[MultiAddress.init(conf.destPeerAddr).get()],
   )
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
+  let keyPairResult = generateKeyPair()
+  if keyPairResult.isErr:
+    return
+  let (mixPrivKey, mixPubKey) = keyPairResult.get()
 
   (
-    await node.mountMix(
-      intoCurve25519Key(
-        ncrutils.fromHex(
-          "401dd1eb5582f6dc9488d424aa26ed1092becefcf8543172e6d92c17ed07265a"
-        )
-      )
-    )
+    await node.mountMix(mixPrivKey)
   ).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return
@@ -154,6 +152,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       lp_mix_failed.inc(labelValues = ["publish_error"])
 
     await sleepAsync(1000)
+  info "###########Sent all messages via mix"
+  quit(0)
 
 when isMainModule:
   let conf = LPMixConf.load()

@@ -30,5 +30,5 @@ type
     minMixPoolSize* {.
         desc: "Number of messages to wait for before sending.",
         defaultValue: 3,
-        name: "mix-mix-pool-size",
+        name: "min-mix-pool-size",
     }: int
