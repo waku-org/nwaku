@@ -10,7 +10,8 @@ import
   libp2p/crypto/curve25519,
   libp2p/multiaddress,
   eth/keys,
-  eth/p2p/discoveryv5/enr
+  eth/p2p/discoveryv5/enr,
+  metrics
 
 import mix/entry_connection, mix/protocol
 
@@ -26,7 +27,8 @@ import
     factory/builder,
     waku_lightpush/client
   ],
-  ./lightpush_publisher_mix_config
+  ./lightpush_publisher_mix_config,
+  ./lightpush_publisher_mix_metrics
 
 
 proc now*(): Timestamp =
@@ -88,12 +90,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     @[MultiAddress.init(conf.destPeerAddr).get()],
   )
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
-#[   let pxPeerInfo2 = RemotePeerInfo.init(
-    "16Uiu2HAmRhxmCHBYdXt1RibXrjAUNJbduAhzaTHwFCZT4qWnqZAu",
-    @[MultiAddress.init("/ip4/127.0.0.1/tcp/60005").get()],
-  )
-  node.peerManager.addServicePeer(pxPeerInfo2, WakuPeerExchangeCodec)
- ]#
+
   (
     await node.mountMix(
       intoCurve25519Key(
@@ -105,7 +102,6 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   ).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return
-  #discard node.setMixBootStrapNodes()
 
   let destPeerId = PeerId.init(conf.destPeerId).valueOr:
     error "Failed to initialize PeerId", err = error
@@ -125,15 +121,14 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   (await node.fetchPeerExchangePeers()).isOkOr:
     warn "Cannot fetch peers from peer exchange", cause = error
 
-  while node.getMixNodePoolSize() < 3:
+  while node.getMixNodePoolSize() < conf.minMixPoolSize:
     info "waiting for mix nodes to be discovered",
       currentpoolSize = node.getMixNodePoolSize()
     await sleepAsync(1000)
 
-  notice "publisher service started"
-  var numMsgs = 4
+  notice "publisher service started with mix node pool size ", currentpoolSize = node.getMixNodePoolSize()
   var i = 0
-  while i < numMsgs:
+  while i < conf.numMsgs:
     i = i + 1
     let text = "hi there i'm a publisher using mix, this is msg number " & $i
     let message = WakuMessage(
@@ -148,6 +143,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     )
 
     if res.isOk:
+      lp_mix_success.inc()
       notice "published message",
         text = text,
         timestamp = message.timestamp,
@@ -155,6 +151,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
         contentTopic = LightpushContentTopic
     else:
       error "failed to publish message", error = res.error
+      lp_mix_failed.inc(labelValues = ["publish_error"])
 
     await sleepAsync(1000)
 

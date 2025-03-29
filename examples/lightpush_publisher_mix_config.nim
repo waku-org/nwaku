@@ -20,3 +20,15 @@ type
         defaultValue: 50000,
         name: "port",
     }: int
+
+    numMsgs* {.
+        desc: "Number of messages to send.",
+        defaultValue: 1,
+        name: "num-msgs",
+    }: int
+
+    minMixPoolSize* {.
+        desc: "Number of messages to wait for before sending.",
+        defaultValue: 3,
+        name: "mix-mix-pool-size",
+    }: int
