@@ -2,20 +2,22 @@ import
   chronicles,
   chronos,
   libp2p/crypto/crypto,
+  libp2p/crypto/curve25519,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils, net],
+  std/[options, sequtils, net, strutils],
   results
 import
   ./external_config,
   ../common/utils/nat,
   ../node/config,
   ../waku_enr/capabilities,
+  ../waku_enr/mix,
   ../waku_enr,
   ../waku_core
 
 proc enrConfiguration*(
-    conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey
+    conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey, mixPubKey: Option[Curve25519Key]
 ): Result[enr.Record, string] =
   var enrBuilder = EnrBuilder.init(key)
 
@@ -32,6 +34,9 @@ proc enrConfiguration*(
     RelayShards(clusterId: conf.clusterId, shardIds: conf.shards)
   ).isOkOr:
     return err("could not initialize ENR with shards")
+
+  if conf.mix and mixPubKey.isSome():
+    enrBuilder.withMixKey(mixPubKey.get())
 
   let recordRes = enrBuilder.build()
   let record =
@@ -122,6 +127,7 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
       store = conf.store,
       relay = conf.relay,
       sync = conf.storeSync,
+      mix = conf.mix,
     )
 
   # Resolve and use DNS domain IP
