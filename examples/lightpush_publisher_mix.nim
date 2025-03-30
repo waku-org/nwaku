@@ -159,7 +159,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       error "failed to publish message", error = res.error
       lp_mix_failed.inc(labelValues = ["publish_error"])
 
-    await sleepAsync(1000)
+    await sleepAsync(conf.msgInterval)
   info "###########Sent all messages via mix"
   quit(0)
 

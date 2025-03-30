@@ -38,6 +38,12 @@ type
         name: "num-msgs",
     }: int
 
+    msgInterval*{.
+        desc: "Interval between messages in milliseconds.",
+        defaultValue: 1000,
+        name: "msg-interval",
+    }: int
+
     minMixPoolSize* {.
         desc: "Number of messages to wait for before sending.",
         defaultValue: 3,
