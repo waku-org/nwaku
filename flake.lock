@@ -1,0 +1,49 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1740603184,
+        "narHash": "sha256-t+VaahjQAWyA+Ctn2idyo1yxRIYpaDxMgHkgCNiMJa4=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f44bd8ca21e026135061a0a57dcf3d0775b67a49",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "f44bd8ca21e026135061a0a57dcf3d0775b67a49",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "zerokit": "zerokit"
+      }
+    },
+    "zerokit": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1743756626,
+        "narHash": "sha256-SvhfEl0bJcRsCd79jYvZbxQecGV2aT+TXjJ57WVv7Aw=",
+        "owner": "vacp2p",
+        "repo": "zerokit",
+        "rev": "c60e0c33fc6350a4b1c20e6b6727c44317129582",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vacp2p",
+        "repo": "zerokit",
+        "rev": "c60e0c33fc6350a4b1c20e6b6727c44317129582",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
