@@ -62,6 +62,7 @@ in stdenv.mkDerivation rec {
   ANDROID_NDK_HOME="${pkgs.androidPkgs.ndk}";
   NIMFLAGS = "-d:disableMarchNative -d:git_revision_override=${revision}";
   XDG_CACHE_HOME = "/tmp";
+  EXCLUDED_NIM_PACKAGES="vendor/nim-dnsdisc/vendor";
 
   makeFlags = targets ++ [
     "V=${toString verbosity}"
