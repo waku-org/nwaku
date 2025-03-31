@@ -73,6 +73,8 @@ in stdenv.mkDerivation rec {
   configurePhase = ''
     patchShebangs . vendor/nimbus-build-system > /dev/null
     make nimbus-build-system-paths
+    # Generate ./vendor/.nimble dir structure
+    ./nix/generate-nimble-paths.sh
   '';
 
   preBuild = ''
