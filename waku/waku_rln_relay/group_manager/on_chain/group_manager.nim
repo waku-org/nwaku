@@ -523,6 +523,8 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
   g.rlnRelayMaxMessageLimit =
     cast[uint64](await wakuRlnContract.MAX_MESSAGE_LIMIT().call())
 
+  asyncSpawn g.trackRootChanges()
+
   proc onDisconnect() {.async.} =
     error "Ethereum client disconnected"
     var newEthRpc: Web3
