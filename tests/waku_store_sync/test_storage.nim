@@ -155,6 +155,52 @@ suite "Waku Sync Storage":
       pruned == 500
       afterCount == 500
 
+  test "topics recycling":
+    var rng = initRand()
+    let count = 1000
+    var elements = newSeqOfCap[SyncID](count)
+    var pubsub = newSeqOfCap[PubsubTopic](count)
+    var content = newSeqOfCap[ContentTopic](count)
+
+    var emptySet = @[0].toPackedSet()
+    emptySet.excl(0)
+
+    for i in 0 ..< (count div 2):
+      let id = SyncID(time: Timestamp(i), hash: randomHash(rng))
+
+      elements.add(id)
+      pubsub.add(DefaultPubsubTopic)
+      content.add("my/custom/topic")
+
+    for i in (count div 2) ..< count:
+      let id = SyncID(time: Timestamp(i), hash: randomHash(rng))
+
+      elements.add(id)
+      pubsub.add(DefaultPubsubTopic)
+      content.add(DefaultContentTopic)
+
+    let storage = SeqStorage.new(elements, pubsub, content)
+
+    let beforeCount = storage.unusedContentTopicsLen()
+
+    let pruned = storage.prune(Timestamp(500))
+
+    let afterCount = storage.unusedContentTopicsLen()
+
+    check:
+      beforeCount == 0
+      pruned == 500
+      afterCount == 1
+
+    let id = SyncID(time: Timestamp(1001), hash: randomHash(rng))
+    let res = storage.insert(id, DefaultPubsubTopic, "my/other/topic")
+    assert res.isOk(), $res.error
+
+    let reuseCount = storage.unusedContentTopicsLen()
+
+    check:
+      reuseCount == 0
+
   ## disabled tests are rough benchmark 
   #[ test "10M fingerprint":
     var rng = initRand()

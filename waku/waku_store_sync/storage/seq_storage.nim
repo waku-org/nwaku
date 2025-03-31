@@ -34,6 +34,18 @@ type SeqStorage* = ref object of SyncStorage
 method length*(self: SeqStorage): int {.raises: [].} =
   return self.elements.len
 
+proc pubsubTopicsLen*(self: SeqStorage): int {.raises: [].} =
+  return self.pubsubTopics.len
+
+proc contentTopicsLen*(self: SeqStorage): int {.raises: [].} =
+  return self.contentTopics.len
+
+proc unusedPubsubTopicsLen*(self: SeqStorage): int {.raises: [].} =
+  return self.unusedPubsubTopicSet.len
+
+proc unusedContentTopicsLen*(self: SeqStorage): int {.raises: [].} =
+  return self.unusedContentTopicSet.len
+
 proc getPubsubTopicIndex(self: SeqStorage, pubsubTopic: PubSubTopic): int =
   for i, selfTopic in self.pubsubTopics:
     if pubsubTopic == selfTopic:
