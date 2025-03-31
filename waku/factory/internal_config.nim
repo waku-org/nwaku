@@ -4,7 +4,7 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils, net],
+  std/[options, sequtils, strutils, net],
   results
 import
   ./external_config,
@@ -12,7 +12,8 @@ import
   ../node/config,
   ../waku_enr/capabilities,
   ../waku_enr,
-  ../waku_core
+  ../waku_core,
+  ./networks_config
 
 proc enrConfiguration*(
     conf: WakuNodeConf, netConfig: NetConfig, key: crypto.PrivateKey
@@ -157,3 +158,71 @@ proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResul
   )
 
   return netConfigRes
+
+proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, string] =
+  var resConf = srcConf
+
+  if resConf.clusterId == 1:
+    warn(
+      "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
+    )
+    resConf.preset = "twn"
+
+  case toLowerAscii(resConf.preset)
+  of "twn":
+    let twnClusterConf = ClusterConf.TheWakuNetworkConf()
+
+    # Override configuration
+    resConf.maxMessageSize = twnClusterConf.maxMessageSize
+    resConf.clusterId = twnClusterConf.clusterId
+    resConf.rlnRelay = twnClusterConf.rlnRelay
+    resConf.rlnRelayEthContractAddress = twnClusterConf.rlnRelayEthContractAddress
+    resConf.rlnRelayChainId = twnClusterConf.rlnRelayChainId
+    resConf.rlnRelayDynamic = twnClusterConf.rlnRelayDynamic
+    resConf.rlnRelayBandwidthThreshold = twnClusterConf.rlnRelayBandwidthThreshold
+    resConf.discv5Discovery = twnClusterConf.discv5Discovery
+    resConf.discv5BootstrapNodes =
+      resConf.discv5BootstrapNodes & twnClusterConf.discv5BootstrapNodes
+    resConf.rlnEpochSizeSec = twnClusterConf.rlnEpochSizeSec
+    resConf.rlnRelayUserMessageLimit = twnClusterConf.rlnRelayUserMessageLimit
+    resConf.numShardsInNetwork = twnClusterConf.numShardsInNetwork
+
+    if resConf.relay:
+      resConf.rlnRelay = twnClusterConf.rlnRelay
+  else:
+    discard
+
+  return ok(resConf)
+
+# TODO: numShardsInNetwork should be mandatory with autosharding, and unneeded otherwise
+proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
+  if conf.numShardsInNetwork != 0:
+    return conf.numShardsInNetwork
+  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
+  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
+  return uint32(MaxShardIndex + 1)
+
+proc validateShards*(conf: WakuNodeConf): Result[void, string] =
+  let numShardsInNetwork = getNumShardsInNetwork(conf)
+
+  for shard in conf.shards:
+    if shard >= numShardsInNetwork:
+      let msg =
+        "validateShards invalid shard: " & $shard & " when numShardsInNetwork: " &
+        $numShardsInNetwork # fmt doesn't work
+      error "validateShards failed", error = msg
+      return err(msg)
+
+  return ok()
+
+proc getNodeKey*(
+    conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng()
+): Result[PrivateKey, string] =
+  if conf.nodekey.isSome():
+    return ok(conf.nodekey.get())
+
+  warn "missing node key, generating new set"
+  let key = crypto.PrivateKey.random(Secp256k1, rng[]).valueOr:
+    error "Failed to generate key", error = error
+    return err("Failed to generate key: " & $error)
+  return ok(key)
