@@ -35,6 +35,10 @@ find . -name .gitmodules | while read -r gitmodules_file; do
             if should_exclude "$abs_path"; then
                 continue
             fi
+            # Append /src if it exists in the submodule directory
+            if [[ -d "$abs_path/src" ]]; then
+                abs_path="$abs_path/src"
+            fi
 
             # Write the absolute path of the submodule to the output file
             echo "$abs_path" >> "$output_file"
@@ -52,16 +56,28 @@ mkdir -p "$nimble_pkgs_dir"
 
 # Read each submodule path and process it
 while IFS= read -r submodule_path; do
-    # Extract the submodule name (last part of the path)
-    submodule_name=$(basename "$submodule_path")
+    if [[ "$submodule_path" == */src ]]; then
+        submodule_name=$(basename "$(dirname "$submodule_path")")
+    else
+        submodule_name=$(basename "$submodule_path")
+    fi
 
-    # Create the directory for the submodule
-    submodule_dir="$nimble_pkgs_dir/${submodule_name}-#head"
-    mkdir -p "$submodule_dir"
+    # Check if the submodule directory (without /src) contains at least one .nimble file
+    base_dir="${submodule_path%/src}"
+    # Check if there is at least one .nimble file in the directory (excluding empty matches)
+    nimble_files_count=$(find "$base_dir" -maxdepth 1 -type f -name "*.nimble" | wc -l)
 
-    # Create the .nimble-link file with the absolute path
-    nimble_link_file="$submodule_dir/${submodule_name}.nimble-link"
-    echo "$submodule_path" > "$nimble_link_file"
+    # Proceed only if there is at least one .nimble file
+    if [ "$nimble_files_count" -gt 0 ]; then
+        # Create the directory for the submodule
+        submodule_dir="$nimble_pkgs_dir/${submodule_name}-#head"
+        mkdir -p "$submodule_dir"
+
+        # Create the .nimble-link file with the absolute path
+        nimble_link_file="$submodule_dir/${submodule_name}.nimble-link"
+        echo "$submodule_path" > "$nimble_link_file"
+        echo "$submodule_path" >> "$nimble_link_file"
+    fi
 done < "$output_file"
 
 echo "Nimble packages prepared in $nimble_pkgs_dir"
