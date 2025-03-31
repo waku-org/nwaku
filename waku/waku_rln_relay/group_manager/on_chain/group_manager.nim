@@ -236,6 +236,9 @@ method register*(
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
 
+  # Start tracking root changes after registration is complete
+  asyncSpawn g.trackRootChanges()
+
   return
 
 method withdraw*(
@@ -520,7 +523,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
-  asyncSpawn g.trackRootChanges()
   return ok()
 
 method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =
