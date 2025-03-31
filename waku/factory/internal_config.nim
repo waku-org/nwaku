@@ -4,7 +4,7 @@ import
   libp2p/crypto/crypto,
   libp2p/multiaddress,
   libp2p/nameresolving/dnsresolver,
-  std/[options, sequtils, net],
+  std/[options, sequtils, strutils, net],
   results
 import
   ./external_config,
@@ -164,12 +164,12 @@ proc applyPresetConfiguration*(srcConf: WakuNodeConf): Result[WakuNodeConf, stri
 
   if resConf.clusterId == 1:
     warn(
-      "Default (The Waku Network) configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=sandbox` instead."
+      "TWN - The Waku Network configuration will not be applied when `--cluster-id=1` is passed in future releases. Use `--preset=twn` instead."
     )
-    resConf.preset = "default"
+    resConf.preset = "twn"
 
-  case resConf.preset
-  of "default":
+  case toLowerAscii(resConf.preset)
+  of "twn":
     let twnClusterConf = ClusterConf.TheWakuNetworkConf()
 
     # Override configuration

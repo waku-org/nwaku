@@ -148,7 +148,7 @@ type WakuNodeConf* = object
     ## General node config
     preset* {.
       desc:
-        "Network preset to use. 'default' is The RLN-protected Waku Network (cluster 1).",
+        "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1).",
       defaultValue: "",
       name: "preset"
     .}: string
