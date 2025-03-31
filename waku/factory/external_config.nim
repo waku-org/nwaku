@@ -76,7 +76,7 @@ type WakuNodeConf* = object
   .}: EthRpcUrl
 
   rlnRelayEthContractAddress* {.
-    desc: "Address of membership contract on an Ethereum testnet",
+    desc: "Address of membership contract on an Ethereum testnet.",
     defaultValue: "",
     name: "rln-relay-eth-contract-address"
   .}: string
@@ -100,6 +100,7 @@ type WakuNodeConf* = object
     name: "rln-relay-eth-private-key"
   .}: string
 
+  # TODO: Remove "Default is" when it's already visible on the CLI
   rlnRelayUserMessageLimit* {.
     desc:
       "Set a user message limit for the rln membership registration. Must be a positive integer. Default is 1.",
@@ -145,6 +146,13 @@ type WakuNodeConf* = object
     .}: seq[ProtectedShard]
 
     ## General node config
+    preset* {.
+      desc:
+        "Network preset to use. 'twn' is The RLN-protected Waku Network (cluster 1).",
+      defaultValue: "",
+      name: "preset"
+    .}: string
+
     clusterId* {.
       desc:
         "Cluster id that the node is running in. Node in a different cluster id is disconnected.",
@@ -276,7 +284,7 @@ hence would have reachability issues.""",
     .}: bool
 
     rlnRelay* {.
-      desc: "Enable spam protection through rln-relay: true|false",
+      desc: "Enable spam protection through rln-relay: true|false.",
       defaultValue: false,
       name: "rln-relay"
     .}: bool
@@ -287,7 +295,7 @@ hence would have reachability issues.""",
     .}: Option[uint]
 
     rlnRelayDynamic* {.
-      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false",
+      desc: "Enable  waku-rln-relay with on-chain dynamic group management: true|false.",
       defaultValue: false,
       name: "rln-relay-dynamic"
     .}: bool
@@ -311,7 +319,8 @@ hence would have reachability issues.""",
     .}: string
 
     rlnRelayBandwidthThreshold* {.
-      desc: "Message rate in bytes/sec after which verification of proofs should happen",
+      desc:
+        "Message rate in bytes/sec after which verification of proofs should happen.",
       defaultValue: 0, # to maintain backwards compatibility
       name: "rln-relay-bandwidth-threshold"
     .}: int
@@ -327,6 +336,7 @@ hence would have reachability issues.""",
       name: "keep-alive"
     .}: bool
 
+    # TODO: This is trying to do too much, this should only be used for autosharding, which itself should be configurable
     # If numShardsInNetwork is not set, we use the number of shards configured as numShardsInNetwork
     numShardsInNetwork* {.
       desc: "Number of shards in the network",
@@ -590,7 +600,7 @@ with the drawback of consuming some more bandwidth.""",
 
     ## Discovery v5 config
     discv5Discovery* {.
-      desc: "Enable discovering nodes via Node Discovery v5",
+      desc: "Enable discovering nodes via Node Discovery v5.",
       defaultValue: false,
       name: "discv5-discovery"
     .}: bool
