@@ -138,31 +138,53 @@ proc toMerkleNode*(uint256Value: UInt256): MerkleNode =
 
   return merkleNode
 
-proc updateRoots*(g: OnchainGroupManager, root: MerkleNode): bool =
-  if g.validRoots.len > 0 and g.validRoots[^1] == root:
-    return false
-
-  let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
-  if overflowCount > 0:
-    for i in 0 ..< overflowCount:
-      discard g.validRoots.popFirst()
-
-  g.validRoots.addLast(root)
-  return true
-
-proc slideRootQueue*(g: OnchainGroupManager) {.async.} =
+proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
-    raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
+    return false
 
   let merkleRoot = toMerkleNode(rootRes.get())
+  if g.validRoots.len > 0 and g.validRoots[g.validRoots.len - 1] != merkleRoot:
+    let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
+    if overflowCount > 0:
+      for i in 0 ..< overflowCount:
+        discard g.validRoots.popFirst()
 
-  let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
-  if overflowCount > 0:
-    for i in 0 ..< overflowCount:
-      discard g.validRoots.popFirst()
+    g.validRoots.addLast(merkleRoot)
+    debug "~~~~~~~~~~~~~ Detected new Merkle root ~~~~~~~~~~~~~~~~",
+      root = merkleRoot.toHex, totalRoots = g.validRoots.len
+    return true
+  else:
+    debug "~~~~~~~~~~~~~ No new Merkle root ~~~~~~~~~~~~~~~~",
+      root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
-  g.validRoots.addLast(merkleRoot)
+  return false
+
+proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
+  ## Continuously track changes to the Merkle root
+  initializedGuard(g)
+
+  let ethRpc = g.ethRpc.get()
+  let wakuRlnContract = g.wakuRlnContract.get()
+
+  # Set up the polling interval - more frequent to catch roots
+  const rpcDelay = 5.seconds
+
+  info "Starting to track Merkle root changes"
+
+  while true:
+    debug "starting to update roots"
+    let rootUpdated = await g.updateRoots()
+
+    if rootUpdated:
+      let proofResult = await g.fetchMerkleProofElements()
+      if proofResult.isErr():
+        error "Failed to fetch Merkle proof", error = proofResult.error
+      g.merkleProofCache = proofResult.get()
+
+    debug "sleeping for 5 seconds"
+    await sleepAsync(rpcDelay)
+
 
 method atomicBatch*(
     g: OnchainGroupManager,
@@ -182,16 +204,7 @@ method atomicBatch*(
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
-  let rootRes = await g.fetchMerkleRoot()
-  if rootRes.isErr():
-    raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
-
-  let merkleRoot = toMerkleNode(rootRes.get())
-
-  let rootUpdated = g.updateRoots(merkleRoot)
-  if rootUpdated:
-    info "Detected new Merkle root",
-      root = merkleRoot.toHex, totalRoots = g.validRoots.len
+  discard await g.updateRoots()
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
@@ -404,43 +417,6 @@ method onRegister*(g: OnchainGroupManager, cb: OnRegisterCallback) {.gcsafe.} =
 method onWithdraw*(g: OnchainGroupManager, cb: OnWithdrawCallback) {.gcsafe.} =
   g.withdrawCb = some(cb)
 
-proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
-  ## Continuously track changes to the Merkle root
-  initializedGuard(g)
-
-  let ethRpc = g.ethRpc.get()
-  let wakuRlnContract = g.wakuRlnContract.get()
-
-  # Set up the polling interval - more frequent to catch roots
-  const rpcDelay = 1.seconds
-
-  info "Starting to track Merkle root changes"
-
-  while true:
-    try:
-      let rootRes = await g.fetchMerkleRoot()
-      if rootRes.isErr():
-        raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
-        continue
-
-      let merkleRoot = toMerkleNode(rootRes.get())
-
-      let rootUpdated = g.updateRoots(merkleRoot)
-      if rootUpdated:
-        info "Detected new Merkle root",
-          root = merkleRoot.toHex, totalRoots = g.validRoots.len
-
-        let proofResult = await g.fetchMerkleProofElements()
-        if proofResult.isErr():
-          error "Failed to fetch Merkle proof", error = proofResult.error
-        g.merkleProofCache = proofResult.get()
-
-      await sleepAsync(rpcDelay)
-    except CatchableError as e:
-      error "Error while tracking Merkle root", error = e.msg
-
-    await sleepAsync(rpcDelay)
-
 method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.} =
   # check if the Ethereum client is reachable
   var ethRpc: Web3
@@ -540,7 +516,6 @@ method init*(g: OnchainGroupManager): Future[GroupManagerResult[void]] {.async.}
 
   waku_rln_number_registered_memberships.set(int64(g.rlnInstance.leavesSet()))
   g.initialized = true
-
   return ok()
 
 method stop*(g: OnchainGroupManager): Future[void] {.async, gcsafe.} =

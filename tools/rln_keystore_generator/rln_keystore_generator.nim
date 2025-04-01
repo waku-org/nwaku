@@ -55,6 +55,8 @@ proc doRlnKeystoreGenerator*(conf: WakuNodeConf) =
     quit(QuitFailure)
 
   # 4. initialize OnchainGroupManager
+  info "attempting to  initialize OnchainGroupManager"
+  
   let groupManager = OnchainGroupManager(
     ethClientUrl: string(conf.rlnRelayethClientAddress),
     chainId: conf.rlnRelayChainId,
