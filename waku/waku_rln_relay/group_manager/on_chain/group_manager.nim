@@ -269,9 +269,6 @@ method register*(
   g.userMessageLimit = some(userMessageLimit)
   g.membershipIndex = some(membershipIndex.toMembershipIndex())
 
-  # Start tracking root changes after registration is complete
-  asyncSpawn g.trackRootChanges()
-
   return
 
 method withdraw*(

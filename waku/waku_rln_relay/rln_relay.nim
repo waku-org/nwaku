@@ -479,6 +479,16 @@ proc mount(
 
   # Start epoch monitoring in the background
   wakuRlnRelay.epochMonitorFuture = monitorEpochs(wakuRlnRelay)
+
+  # Start tracking root changes after successful initialization and registration
+  debug "~~~~~~~~~~~~~ Starting root tracking ~~~~~~~~~~~~~~~~"
+  debug "~~~~~~~~~~~~~ groupManager ~~~~~~~~~~~~~~~~"
+
+  if conf.rlnRelayDynamic:
+    debug "~~~~~~~~~~~~~ groupManager is dynamic ~~~~~~~~~~~~~~~~"
+    let onchainGroupManager = cast[OnchainGroupManager](groupManager)
+    asyncSpawn onchainGroupManager.trackRootChanges()
+
   return ok(wakuRlnRelay)
 
 proc isReady*(rlnPeer: WakuRLNRelay): Future[bool] {.async: (raises: [Exception]).} =
