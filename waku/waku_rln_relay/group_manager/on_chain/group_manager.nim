@@ -171,6 +171,7 @@ proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
   info "Starting to track Merkle root changes"
 
   while true:
+    debug "starting to update roots"
     let rootUpdated = await g.updateRoots()
 
     if rootUpdated:
@@ -178,6 +179,8 @@ proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
       if proofResult.isErr():
         error "Failed to fetch Merkle proof", error = proofResult.error
       g.merkleProofCache = proofResult.get()
+
+    debug "sleeping for 5 seconds"
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
