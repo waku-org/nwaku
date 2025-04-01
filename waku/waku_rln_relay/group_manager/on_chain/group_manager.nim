@@ -136,19 +136,27 @@ proc toMerkleNode*(uint256Value: UInt256): MerkleNode =
 
   return merkleNode
 
-proc slideRootQueue*(g: OnchainGroupManager) {.async.} =
+proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
   let rootRes = await g.fetchMerkleRoot()
   if rootRes.isErr():
-    raise newException(ValueError, "failed to get merkle root: " & rootRes.error)
+    return false
 
   let merkleRoot = toMerkleNode(rootRes.get())
+  if g.validRoots.len > 0 and g.validRoots[g.validRoots.len - 1] != merkleRoot:
+    let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
+    if overflowCount > 0:
+      for i in 0 ..< overflowCount:
+        discard g.validRoots.popFirst()
 
-  let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
-  if overflowCount > 0:
-    for i in 0 ..< overflowCount:
-      discard g.validRoots.popFirst()
+    g.validRoots.addLast(merkleRoot)
+    debug "~~~~~~~~~~~~~ Detected new Merkle root ~~~~~~~~~~~~~~~~",
+      root = merkleRoot.toHex, totalRoots = g.validRoots.len
+    return true
+  else:
+    debug "~~~~~~~~~~~~~ No new Merkle root ~~~~~~~~~~~~~~~~",
+      root = merkleRoot.toHex, totalRoots = g.validRoots.len
 
-  g.validRoots.addLast(merkleRoot)
+  return false
 
 proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
   ## Continuously track changes to the Merkle root
@@ -158,38 +166,18 @@ proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
   let wakuRlnContract = g.wakuRlnContract.get()
 
   # Set up the polling interval - more frequent to catch roots
-  const rpcDelay = 1.seconds
+  const rpcDelay = 5.seconds
 
   info "Starting to track Merkle root changes"
 
   while true:
-    try:
-      # Fetch the current root
-      let rootRes = await g.fetchMerkleRoot()
-      if rootRes.isErr():
-        error "Failed to fetch Merkle root", error = rootRes.error
-        await sleepAsync(rpcDelay)
-        continue
+    let rootUpdated = await g.updateRoots()
 
-      let currentRoot = toMerkleNode(rootRes.get())
-
-      if g.validRoots.len == 0 or g.validRoots[g.validRoots.len - 1] != currentRoot:
-        let overflowCount = g.validRoots.len - AcceptableRootWindowSize + 1
-        if overflowCount > 0:
-          for i in 0 ..< overflowCount:
-            discard g.validRoots.popFirst()
-
-        g.validRoots.addLast(currentRoot)
-        info "Detected new Merkle root",
-          root = currentRoot.toHex, totalRoots = g.validRoots.len
-
+    if rootUpdated:
       let proofResult = await g.fetchMerkleProofElements()
       if proofResult.isErr():
         error "Failed to fetch Merkle proof", error = proofResult.error
       g.merkleProofCache = proofResult.get()
-    except CatchableError as e:
-      error "Error while tracking Merkle root", error = e.msg
-
     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
@@ -210,7 +198,7 @@ method atomicBatch*(
       membersSeq.add(member)
     await g.registerCb.get()(membersSeq)
 
-  await g.slideRootQueue()
+  discard await g.updateRoots()
 
 method register*(
     g: OnchainGroupManager, rateCommitment: RateCommitment
