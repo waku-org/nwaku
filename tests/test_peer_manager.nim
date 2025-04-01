@@ -1155,3 +1155,20 @@ procSuite "Peer Manager":
       nodes[0].peerManager.wakuPeerStore.peers().len == 1
 
     await allFutures(nodes.mapIt(it.stop()))
+
+  asyncTest "Retrieve peer that mounted peer exchange":
+    let
+      node1 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(55048))
+      node2 = newTestWakuNode(generateSecp256k1Key(), getPrimaryIPAddr(), Port(55023))
+
+    await allFutures(node1.start(), node2.start())
+    await allFutures(node1.mountRelay(), node2.mountRelay())
+    await allFutures(node1.mountPeerExchange(), node2.mountPeerExchange())
+
+    await node1.connectToNodes(@[node2.switch.peerInfo.toRemotePeerInfo()])
+
+    var r = node1.peerManager.selectPeer(WakuRelayCodec)
+    assert r.isSome(), "could not retrieve peer mounting WakuRelayCodec"
+
+    r = node1.peerManager.selectPeer(WakuPeerExchangeCodec)
+    assert r.isSome(), "could not retrieve peer mounting WakuPeerExchangeCodec"
