@@ -478,6 +478,27 @@ proc waku_relay_get_num_peers_in_mesh(
   handleRequest(
     ctx,
     RequestType.RELAY,
+    RelayRequest.createShared(RelayMsgType.NUM_MESH_PEERS, pst),
+    callback,
+    userData,
+  )
+
+proc waku_relay_get_peers_in_mesh(
+    ctx: ptr WakuContext,
+    pubSubTopic: cstring,
+    callback: WakuCallBack,
+    userData: pointer,
+): cint {.dynlib, exportc.} =
+  initializeLibrary()
+  checkLibwakuParams(ctx, callback, userData)
+
+  let pst = pubSubTopic.alloc()
+  defer:
+    deallocShared(pst)
+
+  handleRequest(
+    ctx,
+    RequestType.RELAY,
     RelayRequest.createShared(RelayMsgType.LIST_MESH_PEERS, pst),
     callback,
     userData,

@@ -127,6 +127,11 @@ int waku_relay_get_num_peers_in_mesh(void* ctx,
                            WakuCallBack callback,
                            void* userData);
 
+int waku_relay_get_peers_in_mesh(void* ctx,
+                           const char* pubSubTopic,
+                           WakuCallBack callback,
+                           void* userData);
+
 int waku_store_query(void* ctx,
                         const char* jsonQuery,
                         const char* peerAddr,
