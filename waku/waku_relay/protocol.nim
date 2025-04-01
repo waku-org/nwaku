@@ -539,6 +539,36 @@ proc publish*(
 
   return ok(relayedPeerCount)
 
+proc getConnectedPeers*(
+    w: WakuRelay, pubsubTopic: PubsubTopic
+): Result[seq[PeerId], string] =
+  ## Returns the list of peerIds of connected peers and subscribed to the passed pubsub topic.
+  ## The 'gossipsub' atribute is defined in the GossipSub ref object.
+
+  if pubsubTopic == "":
+    ## Return all the connected peers
+    var peerIds = newSeq[PeerId]()
+    for k, v in w.gossipsub:
+      peerIds.add(toSeq(v).mapIt(it.peerId))
+      # alternatively: peerIds &= toSeq(v).mapIt(it.peerId)
+    return ok(peerIds)
+
+  if not w.gossipsub.hasKey(pubsubTopic):
+    return err(
+      "getConnectedPeers - there is no gossipsub peer for the given pubsub topic: " &
+        pubsubTopic
+    )
+
+  let peersRes = catch:
+    w.gossipsub[pubsubTopic]
+
+  let peers: HashSet[PubSubPeer] = peersRes.valueOr:
+    return
+      err("getConnectedPeers - exception accessing " & pubsubTopic & ": " & error.msg)
+
+  let peerIds = toSeq(peers).mapIt(it.peerId)
+  return ok(peerIds)
+
 proc getNumConnectedPeers*(
     w: WakuRelay, pubsubTopic: PubsubTopic
 ): Result[int, string] =
