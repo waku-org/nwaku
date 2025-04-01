@@ -142,10 +142,10 @@ proc process*(
       return err($error)
     return ok($numPeersInMesh)
   of LIST_MESH_PEERS:
-    let numPeersInMesh = waku.node.wakuRelay.getPeersInMesh($self.pubsubTopic).valueOr:
+    let meshPeers = waku.node.wakuRelay.getPeersInMesh($self.pubsubTopic).valueOr:
       error "LIST_MESH_PEERS failed", error = error
       return err($error)
-    return ok($numPeersInMesh)
+    return ok($meshPeers)
   of ADD_PROTECTED_SHARD:
     try:
       let relayShard =
