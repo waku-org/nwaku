@@ -145,7 +145,8 @@ proc process*(
     let meshPeers = waku.node.wakuRelay.getPeersInMesh($self.pubsubTopic).valueOr:
       error "LIST_MESH_PEERS failed", error = error
       return err($error)
-    return ok($meshPeers)
+    ## returns a comma-separated string of peerIDs
+    return ok(meshPeers.mapIt($it).join(","))
   of ADD_PROTECTED_SHARD:
     try:
       let relayShard =
