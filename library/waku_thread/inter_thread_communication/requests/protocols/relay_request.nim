@@ -8,6 +8,7 @@ import
   ../../../../../waku/waku_core/time, # Timestamp
   ../../../../../waku/waku_core/topics/pubsub_topic,
   ../../../../../waku/waku_relay/protocol,
+  ../../../../../waku/node/peer_manager,
   ../../../../alloc
 
 type RelayMsgType* = enum
