@@ -69,7 +69,7 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       quit(QuitFailure)
     else:
       recordRes.get()
-
+  setLogLevel(logging.LogLevel.TRACE)
   var builder = WakuNodeBuilder.init()
   builder.withNodeKey(nodeKey)
   builder.withRecord(record)
