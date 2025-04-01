@@ -68,6 +68,9 @@ type SyncReconciliation* = ref object of LPProtocol
 proc messageIngress*(
     self: SyncReconciliation, pubsubTopic: PubsubTopic, msg: WakuMessage
 ) =
+  if msg.ephemeral:
+    return
+
   let msgHash = computeMessageHash(pubsubTopic, msg)
 
   let id = SyncID(time: msg.timestamp, hash: msgHash)
@@ -78,6 +81,9 @@ proc messageIngress*(
 proc messageIngress*(
     self: SyncReconciliation, msgHash: WakuMessageHash, msg: WakuMessage
 ) =
+  if msg.ephemeral:
+    return
+
   let id = SyncID(time: msg.timestamp, hash: msgHash)
 
   self.storage.insert(id).isOkOr:
@@ -129,10 +135,10 @@ proc processRequest(
       sendPayload.shards = self.shards.toSeq()
 
       for hash in hashToSend:
-        await self.remoteNeedsTx.addLast((conn.peerId, hash))
+        self.remoteNeedsTx.addLastNoWait((conn.peerId, hash))
 
       for hash in hashToRecv:
-        await self.localWantstx.addLast((conn.peerId, hash))
+        self.localWantsTx.addLastNoWait((conn.peerId, hash))
 
       rawPayload = sendPayload.deltaEncode()
 

@@ -98,6 +98,11 @@ proc handleRequest*(
           none[string]()
         else:
           handleRes.error.desc,
+      relayPeerCount:
+        if isSuccess:
+          some(handleRes.get())
+        else:
+          none[uint32](),
     )
 
   if not isSuccess:

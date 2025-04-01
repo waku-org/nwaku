@@ -224,6 +224,7 @@ suite "Waku Lightpush message delivery":
     ## When
     let res = await lightNode.lightpushPublish(some(DefaultPubsubTopic), message)
     assert res.isOk(), $res.error
+    assert res.get() == 1, "Expected to relay the message to 1 node"
 
     ## Then
     check await completionFutRelay.withTimeout(5.seconds)

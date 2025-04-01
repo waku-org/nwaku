@@ -137,13 +137,6 @@ proc initNode(
 
 ## Mount protocols
 
-proc getNumShardsInNetwork*(conf: WakuNodeConf): uint32 =
-  if conf.numShardsInNetwork != 0:
-    return conf.numShardsInNetwork
-  # If conf.numShardsInNetwork is not set, use 1024 - the maximum possible as per the static sharding spec
-  # https://github.com/waku-org/specs/blob/master/standards/core/relay-sharding.md#static-sharding
-  return uint32(MaxShardIndex + 1)
-
 proc getAutoshards*(
     node: WakuNode, contentTopics: seq[string]
 ): Result[seq[RelayShard], string] =
@@ -265,6 +258,7 @@ proc setupProtocols(
 
   if conf.numShardsInNetwork == 0:
     warn "Number of shards in network not configured, setting it to",
+      # TODO: If not configured, it mounts 1024 shards! Make it a mandatory configuration instead
       numShardsInNetwork = $numShardsInNetwork
 
   node.mountSharding(conf.clusterId, numShardsInNetwork).isOkOr:
