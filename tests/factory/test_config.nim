@@ -21,7 +21,7 @@ suite "Waku config - apply preset":
     let expectedConf = ClusterConf.TheWakuNetworkConf()
 
     ## Given
-    let preConfig = WakuNodeConf(cmd: noCommand, preset: "default")
+    let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn")
 
     ## When
     let res = applyPresetConfiguration(preConfig)
@@ -41,13 +41,13 @@ suite "Waku config - apply preset":
     assert conf.numShardsInNetwork == expectedConf.numShardsInNetwork
     assert conf.discv5BootstrapNodes == expectedConf.discv5BootstrapNodes
 
-  test "Subscribes to all valid shards in default network":
+  test "Subscribes to all valid shards in twn":
     ## Setup
     let expectedConf = ClusterConf.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 1, 2, 3, 4, 5, 6, 7]
-    let preConfig = WakuNodeConf(cmd: noCommand, preset: "default", shards: shards)
+    let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
 
     ## When
     let res = applyPresetConfiguration(preConfig)
@@ -57,13 +57,13 @@ suite "Waku config - apply preset":
     let conf = res.get()
     assert conf.shards.len == expectedConf.numShardsInNetwork.int
 
-  test "Subscribes to some valid shards in default network":
+  test "Subscribes to some valid shards in twn":
     ## Setup
     let expectedConf = ClusterConf.TheWakuNetworkConf()
 
     ## Given
     let shards: seq[uint16] = @[0, 4, 7]
-    let preConfig = WakuNodeConf(cmd: noCommand, preset: "default", shards: shards)
+    let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
 
     ## When
     let resConf = applyPresetConfiguration(preConfig)
@@ -76,12 +76,12 @@ suite "Waku config - apply preset":
     for index, shard in shards:
       assert shard in conf.shards
 
-  test "Subscribes to invalid shards in default network":
+  test "Subscribes to invalid shards in twn":
     ## Setup
 
     ## Given
     let shards: seq[uint16] = @[0, 4, 7, 10]
-    let preConfig = WakuNodeConf(cmd: noCommand, preset: "default", shards: shards)
+    let preConfig = WakuNodeConf(cmd: noCommand, preset: "twn", shards: shards)
     let postConfig = applyPresetConfiguration(preConfig)
 
     ## When
