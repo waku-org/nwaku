@@ -11,7 +11,8 @@ import
   libp2p/multiaddress,
   eth/keys,
   eth/p2p/discoveryv5/enr,
-  metrics
+  metrics,
+  metrics/chronos_httpserver
 
 import mix/entry_connection, mix/protocol, mix/curve25519
 
@@ -123,7 +124,10 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   await node.start()
   node.peerManager.start()
   node.startPeerExchangeLoop()
-
+  try:
+    startMetricsHttpServer("0.0.0.0", Port(8008))
+  except Exception:
+    error "failed to start metrics server: ", error = getCurrentExceptionMsg()
   (await node.fetchPeerExchangePeers()).isOkOr:
     warn "Cannot fetch peers from peer exchange", cause = error
 
