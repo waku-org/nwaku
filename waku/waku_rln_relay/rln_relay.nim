@@ -484,10 +484,12 @@ proc mount(
   debug "~~~~~~~~~~~~~ Starting root tracking ~~~~~~~~~~~~~~~~"
   debug "~~~~~~~~~~~~~ groupManager ~~~~~~~~~~~~~~~~"
 
+  await sleepAsync(5 * 60 * 1000)
   if conf.rlnRelayDynamic:
     debug "~~~~~~~~~~~~~ groupManager is dynamic ~~~~~~~~~~~~~~~~"
     let onchainGroupManager = cast[OnchainGroupManager](groupManager)
     asyncSpawn onchainGroupManager.trackRootChanges()
+  await sleepAsync(5 * 60 * 1000)
 
   return ok(wakuRlnRelay)
 
