@@ -98,7 +98,7 @@ proc fetchMerkleProofElements*(
     let merkleProof = await merkleProofInvocation.call()
     return ok(merkleProof)
   except CatchableError:
-    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof - 1", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -314,14 +314,22 @@ method generateProof*(
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
   try:
+    let rootRes = waitFor g.fetchMerkleRoot()
+    if rootRes.isErr():
+      return err("Failed to fetch Merkle root")
+    debug "Merkle root fetched", root = rootRes.get().toHex
+  except CatchableError:
+    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+
+  try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err("Failed to fetch Merkle proof: " & $proofResult.error)
+      return err("Failed to fetch Merkle proof - 2: " & $proofResult.error)
     g.merkleProofCache = proofResult.get()
     debug "Merkle proof fetched",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
   except CatchableError:
-    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof - 3", error = getCurrentExceptionMsg()
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
