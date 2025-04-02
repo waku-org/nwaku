@@ -47,7 +47,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  proc merkleProofElements(index: UInt256): seq[UInt256] {.view.}
+  proc merkleProofElements(index: UInt40): seq[UInt256] {.view.}
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
@@ -93,13 +93,17 @@ proc setMetadata*(
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[Uint256], string]] {.async.} =
-  let index = stuint(g.membershipIndex.get(), 256)
+  let membershipIndex = g.membershipIndex.get()
+  debug "Fetching merkle proof", index = membershipIndex
   try:
+    let index = stuint(membershipIndex, 40)
+
     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
     let merkleProof = await merkleProofInvocation.call()
+    debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
     return ok(merkleProof)
   except CatchableError:
-    error "Failed to fetch merkle proof - 1", errMsg = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -325,12 +329,12 @@ method generateProof*(
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err("Failed to fetch Merkle proof - 2: " & $proofResult.error)
+      return err("Failed to fetch Merkle proof" & $proofResult.error)
     g.merkleProofCache = proofResult.get()
     debug "Merkle proof fetched",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
   except CatchableError:
-    error "Failed to fetch merkle proof - 3", error = getCurrentExceptionMsg()
+    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
