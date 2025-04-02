@@ -1,5 +1,5 @@
 import
-  std/[tables, times, sequtils],
+  std/[tables, times, sequtils, strutils],
   stew/byteutils,
   stew/shims/net,
   chronicles,
@@ -26,11 +26,10 @@ import
     waku_enr,
     discovery/waku_discv5,
     factory/builder,
-    waku_lightpush/client
+    waku_lightpush/client,
   ],
   ./lightpush_publisher_mix_config,
   ./lightpush_publisher_mix_metrics
-
 
 proc now*(): Timestamp =
   getNanosecondTime(getTime().toUnixFloat())
@@ -41,6 +40,17 @@ const shardId = @[0'u16]
 const
   LightpushPubsubTopic = PubsubTopic("/waku/2/rs/66/0")
   LightpushContentTopic = ContentTopic("/examples/1/light-pubsub-mix-example/proto")
+
+proc splitPeerIdAndAddr(maddr: string): (string, string) =
+  let parts = maddr.split("/p2p/")
+  if parts.len != 2:
+    error "Invalid multiaddress format", parts = parts
+    return
+
+  let
+    address = parts[0]
+    peerId = parts[1]
+  return (address, peerId)
 
 proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
   # use notice to filter all waku messaging
@@ -86,17 +96,15 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       errmsg = getCurrentExceptionMsg()
     return
 
-  let pxPeerInfo = RemotePeerInfo.init(
-    conf.destPeerId,
-    @[MultiAddress.init(conf.destPeerAddr).get()],
-  )
+  let (destPeerAddr, destPeerId) = splitPeerIdAndAddr(conf.destPeerAddr)
+  let (pxPeerAddr, pxPeerId) = splitPeerIdAndAddr(conf.pxAddr)
+
+  let pxPeerInfo =
+    RemotePeerInfo.init(destPeerId, @[MultiAddress.init(destPeerAddr).get()])
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)
 
-
-  let pxPeerInfo1 = RemotePeerInfo.init(
-    conf.pxId,
-    @[MultiAddress.init(conf.pxAddr).get()],
-  )
+  let pxPeerInfo1 =
+    RemotePeerInfo.init(pxPeerId, @[MultiAddress.init(pxPeerAddr).get()])
   node.peerManager.addServicePeer(pxPeerInfo1, WakuPeerExchangeCodec)
 
   let keyPairResult = generateKeyPair()
@@ -104,21 +112,15 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
     return
   let (mixPrivKey, mixPubKey) = keyPairResult.get()
 
-  (
-    await node.mountMix(mixPrivKey)
-  ).isOkOr:
+  (await node.mountMix(mixPrivKey)).isOkOr:
     error "failed to mount waku mix protocol: ", error = $error
     return
-
-  let destPeerId = PeerId.init(conf.destPeerId).valueOr:
+  let dPeerId = PeerId.init(destPeerId).valueOr:
     error "Failed to initialize PeerId", err = error
     return
 
   let conn = MixEntryConnection.newConn(
-    conf.destPeerAddr,
-    destPeerId,
-    ProtocolType.fromString(WakuLightPushCodec),
-    node.mix,
+    destPeerAddr, dPeerId, ProtocolType.fromString(WakuLightPushCodec), node.mix
   )
 
   await node.start()
@@ -136,7 +138,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
       currentpoolSize = node.getMixNodePoolSize()
     await sleepAsync(1000)
 
-  notice "publisher service started with mix node pool size ", currentpoolSize = node.getMixNodePoolSize()
+  notice "publisher service started with mix node pool size ",
+    currentpoolSize = node.getMixNodePoolSize()
   var i = 0
   while i < conf.numMsgs:
     i = i + 1

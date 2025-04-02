@@ -1,51 +1,24 @@
-import
-  confutils/defs
+import confutils/defs
 
+type LPMixConf* = object
+  destPeerAddr* {.desc: "Destination peer address with peerId.", name: "dp-addr".}:
+    string
 
-type
-  LPMixConf* = object
+  pxAddr* {.desc: "Peer exchange address with peerId.", name: "px-addr".}: string
 
-    destPeerAddr* {.
-        desc: "Destination peer address.",
-        name: "dp-addr",
-    }: string
+  port* {.desc: "Port to listen on.", defaultValue: 50000, name: "port".}: int
 
-    destPeerId* {.
-        desc: "Destination peer ID.",
-        name: "dp-id",
-    }: string
+  numMsgs* {.desc: "Number of messages to send.", defaultValue: 1, name: "num-msgs".}:
+    int
 
-    pxAddr* {.
-        desc: "Peer exchange address.",
-        defaultValue: "localhost:50001",
-        name: "px-addr",
-    }: string
-    pxId* {.
-        desc: "Peer exchange ID.",
-        defaultValue: "waku-v2-peer-exchange",
-        name: "px-id",
-    }: string
+  msgInterval* {.
+    desc: "Interval between messages in milliseconds.",
+    defaultValue: 1000,
+    name: "msg-interval"
+  .}: int
 
-    port* {.
-        desc: "Port to listen on.",
-        defaultValue: 50000,
-        name: "port",
-    }: int
-
-    numMsgs* {.
-        desc: "Number of messages to send.",
-        defaultValue: 1,
-        name: "num-msgs",
-    }: int
-
-    msgInterval*{.
-        desc: "Interval between messages in milliseconds.",
-        defaultValue: 1000,
-        name: "msg-interval",
-    }: int
-
-    minMixPoolSize* {.
-        desc: "Number of messages to wait for before sending.",
-        defaultValue: 3,
-        name: "min-mix-pool-size",
-    }: int
+  minMixPoolSize* {.
+    desc: "Number of messages to wait for before sending.",
+    defaultValue: 3,
+    name: "min-mix-pool-size"
+  .}: int
