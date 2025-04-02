@@ -7,9 +7,9 @@ import metrics
 
 declarePublicGauge waku_legacy_archive_messages,
   "number of historical messages", ["type"]
-declarePublicGauge waku_legacy_archive_errors,
+declarePublicCounter waku_legacy_archive_errors,
   "number of store protocol errors", ["type"]
-declarePublicGauge waku_legacy_archive_queries, "number of store queries received"
+declarePublicCounter waku_legacy_archive_queries, "number of store queries received"
 declarePublicHistogram waku_legacy_archive_insert_duration_seconds,
   "message insertion duration"
 declarePublicHistogram waku_legacy_archive_query_duration_seconds,

@@ -30,7 +30,7 @@ declareCounter waku_peers_dials, "Number of peer dials", ["outcome"]
 # TODO: Populate from PeerStore.Source when ready
 declarePublicCounter waku_node_conns_initiated,
   "Number of connections initiated", ["source"]
-declarePublicGauge waku_peers_errors, "Number of peer manager errors", ["type"]
+declarePublicCounter waku_peers_errors, "Number of peer manager errors", ["type"]
 declarePublicGauge waku_connected_peers,
   "Number of physical connections per direction and protocol",
   labels = ["direction", "protocol"]

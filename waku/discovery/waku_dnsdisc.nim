@@ -23,7 +23,7 @@ import ../waku_core
 export client
 
 declarePublicGauge waku_dnsdisc_discovered, "number of nodes discovered"
-declarePublicGauge waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"]
+declarePublicCounter waku_dnsdisc_errors, "number of waku dnsdisc errors", ["type"]
 
 logScope:
   topics = "waku dnsdisc"

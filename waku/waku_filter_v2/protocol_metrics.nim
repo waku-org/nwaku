@@ -4,8 +4,8 @@ import metrics
 
 export metrics
 
-declarePublicGauge waku_filter_errors, "number of filter protocol errors", ["type"]
-declarePublicGauge waku_filter_requests,
+declarePublicCounter waku_filter_errors, "number of filter protocol errors", ["type"]
+declarePublicCounter waku_filter_requests,
   "number of filter subscribe requests received", ["type"]
 declarePublicGauge waku_filter_subscriptions, "number of subscribed filter clients"
 declarePublicHistogram waku_filter_request_duration_seconds,
