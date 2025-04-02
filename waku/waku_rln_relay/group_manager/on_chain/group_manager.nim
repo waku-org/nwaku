@@ -97,8 +97,8 @@ proc fetchMerkleProofElements*(
     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
     let merkleProof = await merkleProofInvocation.call()
     return ok(merkleProof)
-  except CatchableError as e:
-    error "Failed to fetch merkle proof", errMsg = e.msg
+  except CatchableError:
+    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -107,8 +107,8 @@ proc fetchMerkleRoot*(
     let merkleRootInvocation = g.wakuRlnContract.get().root()
     let merkleRoot = await merkleRootInvocation.call()
     return ok(merkleRoot)
-  except CatchableError as e:
-    error "Failed to fetch Merkle root", errMsg = e.msg
+  except CatchableError:
+    error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -312,6 +312,16 @@ method generateProof*(
     data = data
 
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
+
+  try:
+    let proofResult = waitFor g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      return err("Failed to fetch Merkle proof: " & $proofResult.error)
+    g.merkleProofCache = proofResult.get()
+    debug "Merkle proof fetched",
+      membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
+  except CatchableError:
+    error "Failed to fetch merkle proof", error = getCurrentExceptionMsg()
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
