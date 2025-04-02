@@ -193,6 +193,8 @@ proc validateMessage*(
   ## `timeOption` indicates Unix epoch time (fractional part holds sub-seconds)
   ## if `timeOption` is supplied, then the current epoch is calculated based on that
 
+  debug "calling validateMessage from rln_relay", msg = msg
+
   let decodeRes = RateLimitProof.init(msg.proof)
   if decodeRes.isErr():
     return MessageValidationResult.Invalid
@@ -315,6 +317,8 @@ proc appendRLNProof*(
 
   let input = msg.toRLNSignal()
   let epoch = rlnPeer.calcEpoch(senderEpochTime)
+
+  debug "calling generateProof from appendRLNProof from rln_relay", input = input
 
   let nonce = rlnPeer.nonceManager.getNonce().valueOr:
     return err("could not get new message id to generate an rln proof: " & $error)
