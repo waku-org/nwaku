@@ -4,7 +4,7 @@ import
   ../protocol_metrics,
   ../constants,
   ../rln
-import options, chronos, results, std/[deques, sequtils]
+import options, chronos, results, std/[deques, sequtils], chronicles
 
 export options, chronos, results, protocol_types, protocol_metrics, deques
 
@@ -145,6 +145,17 @@ method validateRoot*(
     g: GroupManager, root: MerkleNode
 ): bool {.base, gcsafe, raises: [].} =
   ## validates the root against the valid roots queue
+  # Print all validRoots in one line with square brackets
+  var rootsStr = "["
+  var first = true
+  for r in g.validRoots.items():
+    if not first:
+      rootsStr.add(", ")
+    rootsStr.add($r)
+    first = false
+  rootsStr.add("]")
+  debug "Valid Merkle roots in validateRoot", roots = rootsStr, root_to_validate = root
+  
   # Check if the root is in the valid roots queue
   if g.indexOfRoot(root) >= 0:
     return true
@@ -189,6 +200,9 @@ method generateProof*(
     return err("membership index is not set")
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
+
+  debug "calling proofGen from generateProof from group_manager_base", data = data
+
   waku_rln_proof_generation_duration_seconds.nanosecondTime:
     let proof = proofGen(
       rlnInstance = g.rlnInstance,
