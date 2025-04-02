@@ -14,6 +14,7 @@ proc checkAndGenerateRLNProof*(
     rlnPeer: Option[WakuRLNRelay], message: WakuMessage
 ): Result[WakuMessage, string] =
   # check if the message already has RLN proof
+  debug "calling appendRLNProof from checkAndGenerateRLNProof from waku_lightpush_legacy"
   if message.proof.len > 0:
     return ok(message)
 
