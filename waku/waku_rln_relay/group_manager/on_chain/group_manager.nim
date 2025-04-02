@@ -97,8 +97,8 @@ proc fetchMerkleProofElements*(
     let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(index)
     let merkleProof = await merkleProofInvocation.call()
     return ok(merkleProof)
-  except CatchableError as e:
-    error "Failed to fetch merkle proof", errMsg = e.msg
+  except CatchableError:
+    error "Failed to fetch merkle proof - 1", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -107,8 +107,8 @@ proc fetchMerkleRoot*(
     let merkleRootInvocation = g.wakuRlnContract.get().root()
     let merkleRoot = await merkleRootInvocation.call()
     return ok(merkleRoot)
-  except CatchableError as e:
-    error "Failed to fetch Merkle root", errMsg = e.msg
+  except CatchableError:
+    error "Failed to fetch Merkle root", errMsg = getCurrentExceptionMsg()
 
 template initializedGuard(g: OnchainGroupManager): untyped =
   if not g.initialized:
@@ -298,7 +298,7 @@ method generateProof*(
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
-): Future[GroupManagerResult[RateLimitProof]] {.async.} =
+): GroupManagerResult[RateLimitProof] {.gcsafe, raises: [].} =
   ## Generates an RLN proof using the cached Merkle proof and custom witness
   # Ensure identity credentials and membership index are set
   if g.idCredentials.isNone():
@@ -308,7 +308,28 @@ method generateProof*(
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
 
+  debug "calling generateProof from generateProof from group_manager onchain",
+    data = data
+
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
+
+  try:
+    let rootRes = waitFor g.fetchMerkleRoot()
+    if rootRes.isErr():
+      return err("Failed to fetch Merkle root")
+    debug "Merkle root fetched", root = rootRes.get().toHex
+  except CatchableError:
+    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
+
+  try:
+    let proofResult = waitFor g.fetchMerkleProofElements()
+    if proofResult.isErr():
+      return err("Failed to fetch Merkle proof - 2: " & $proofResult.error)
+    g.merkleProofCache = proofResult.get()
+    debug "Merkle proof fetched",
+      membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
+  except CatchableError:
+    error "Failed to fetch merkle proof - 3", error = getCurrentExceptionMsg()
 
   let witness = Witness(
     identity_secret: g.idCredentials.get().idSecretHash.toArray32(),
