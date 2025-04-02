@@ -298,7 +298,7 @@ method generateProof*(
     epoch: Epoch,
     messageId: MessageId,
     rlnIdentifier = DefaultRlnIdentifier,
-): Future[GroupManagerResult[RateLimitProof]] {.async.} =
+): GroupManagerResult[RateLimitProof] {.gcsafe, raises: [].} =
   ## Generates an RLN proof using the cached Merkle proof and custom witness
   # Ensure identity credentials and membership index are set
   if g.idCredentials.isNone():
@@ -307,6 +307,9 @@ method generateProof*(
     return err("membership index is not set")
   if g.userMessageLimit.isNone():
     return err("user message limit is not set")
+
+  debug "calling generateProof from generateProof from group_manager onchain",
+    data = data
 
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
