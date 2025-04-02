@@ -94,16 +94,44 @@ proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[Uint256], string]] {.async.} =
   let membershipIndex = g.membershipIndex.get()
-  debug "Fetching merkle proof", index = membershipIndex
+  debug " ------ Fetching merkle proof", index = membershipIndex
   try:
-    let index = stuint(membershipIndex, 40)
+    # First check if the index is valid
+    let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+    let currentCommitmentIndex = await commitmentIndexInvocation.call()
+    let membershipIndexUint256 = stuint(membershipIndex, 256)
 
-    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+    debug " ------ Checking membership index validity",
+      membershipIndex = membershipIndex,
+      membershipIndexAsUint256 = membershipIndexUint256.toHex(),
+      currentCommitmentIndex = currentCommitmentIndex.toHex()
+
+    # Convert to UInt40 for contract call (merkleProofElements takes UInt40)
+    let indexUint40 = stuint(membershipIndex, 40)
+    debug " ------ Converting membershipIndex to UInt40",
+      originalIndex = membershipIndex, asUint40 = indexUint40.toHex()
+
+    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(indexUint40)
     let merkleProof = await merkleProofInvocation.call()
     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
     return ok(merkleProof)
   except CatchableError:
     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+
+# proc fetchMerkleProofElements*(
+#     g: OnchainGroupManager
+# ): Future[Result[seq[Uint256], string]] {.async.} =
+#   let membershipIndex = g.membershipIndex.get()
+#   debug "Fetching merkle proof", index = membershipIndex
+#   try:
+#     let index = stuint(membershipIndex, 40)
+# 
+#     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
+#     let merkleProof = await merkleProofInvocation.call()
+#     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
+#     return ok(merkleProof)
+#   except CatchableError:
+#     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
