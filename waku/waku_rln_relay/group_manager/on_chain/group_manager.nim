@@ -29,6 +29,7 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
+type UInt40* = StUint[40]
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -46,7 +47,7 @@ contract(WakuRlnContract):
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
   # this function returns the merkleProof for a given index
-  proc merkleProofElements(index: Uint256): seq[Uint256] {.view.}
+  proc merkleProofElements(index: UInt256): seq[UInt256] {.view.}
   # this function returns the Merkle root
   proc root(): Uint256 {.view.}
 
