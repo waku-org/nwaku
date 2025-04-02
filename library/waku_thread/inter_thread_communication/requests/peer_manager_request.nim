@@ -9,7 +9,7 @@ import
 type PeerManagementMsgType* {.pure.} = enum
   CONNECT_TO
   GET_ALL_PEER_IDS
-  GET_ALL_PEER_INFO
+  GET_CONNECTED_PEERS_INFO
   GET_PEER_IDS_BY_PROTOCOL
   DISCONNECT_PEER_BY_ID
   DIAL_PEER
@@ -25,7 +25,7 @@ type PeerManagementRequest* = object
 
 type PeerInfo = object
   protocols: seq[string]
-  addresses: seq[MultiAddress]
+  addresses: seq[string]
 
 proc createShared*(
     T: type PeerManagementRequest,
@@ -88,16 +88,19 @@ proc process*(
     let peerIDs =
       waku.node.peerManager.wakuPeerStore.peers().mapIt($it.peerId).join(",")
     return ok(peerIDs)
-  of GET_ALL_PEER_INFO:
+  of GET_CONNECTED_PEERS_INFO:
     ## returns a JSON string mapping peerIDs to objects with protocols and addresses
 
     var peersMap = initTable[string, PeerInfo]()
-    let peers = waku.node.peerManager.wakuPeerStore.peers()
+    let peers = waku.node.peerManager.wakuPeerStore.peers().filterIt(
+        it.connectedness == Connected
+      )
 
     # Build a map of peer IDs to peer info objects
     for peer in peers:
       let peerIdStr = $peer.peerId
-      peersMap[peerIdStr] = PeerInfo(protocols: peer.protocols, addresses: peer.addrs)
+      peersMap[peerIdStr] =
+        PeerInfo(protocols: peer.protocols, addresses: peer.addrs.mapIt($it))
 
     # Convert the map to JSON string
     let jsonObj = %*peersMap

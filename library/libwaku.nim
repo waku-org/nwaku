@@ -692,7 +692,7 @@ proc waku_get_peerids_from_peerstore(
     userData,
   )
 
-proc waku_get_all_peer_info(
+proc waku_get_connected_peers_info(
     ctx: ptr WakuContext, callback: WakuCallBack, userData: pointer
 ): cint {.dynlib, exportc.} =
   initializeLibrary()
@@ -701,7 +701,7 @@ proc waku_get_all_peer_info(
   handleRequest(
     ctx,
     RequestType.PEER_MANAGER,
-    PeerManagementRequest.createShared(PeerManagementMsgType.GET_ALL_PEER_INFO),
+    PeerManagementRequest.createShared(PeerManagementMsgType.GET_CONNECTED_PEERS_INFO),
     callback,
     userData,
   )

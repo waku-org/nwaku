@@ -168,7 +168,7 @@ int waku_get_peerids_from_peerstore(void* ctx,
                                     WakuCallBack callback,
                                     void* userData);
 
-int waku_get_all_peer_info(void* ctx,
+int waku_get_connected_peers_info(void* ctx,
                                     WakuCallBack callback,
                                     void* userData);
 
