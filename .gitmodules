@@ -179,16 +179,6 @@
 	url = https://github.com/status-im/nim-minilru.git
 	ignore = untracked
 	branch = master
-[submodule "vendor/nim-quic"]
-	path = vendor/nim-quic
-	url = https://github.com/status-im/nim-quic.git
-	ignore = untracked
-	branch = master
-[submodule "vendor/nim-ngtcp2"]
-	path = vendor/nim-ngtcp2
-	url = https://github.com/vacp2p/nim-ngtcp2.git
-	ignore = untracked
-	branch = master
 [submodule "vendor/waku-rlnv2-contract"]
 	path = vendor/waku-rlnv2-contract
 	url = https://github.com/waku-org/waku-rlnv2-contract.git
