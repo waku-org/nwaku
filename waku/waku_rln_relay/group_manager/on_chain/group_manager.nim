@@ -96,8 +96,6 @@ proc fetchMerkleProofElements*(
   try:
     let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(index)
     let merkleProof = await merkleProofInvocation.call()
-    debug "Fetched Merkle proof",
-      index = index, merkleProof = merkleProof
     return ok(merkleProof)
   except CatchableError as e:
     error "Failed to fetch merkle proof", errMsg = e.msg
@@ -160,31 +158,30 @@ proc updateRoots*(g: OnchainGroupManager): Future[bool] {.async.} =
 
   return false
 
-proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
-  ## Continuously track changes to the Merkle root
-  initializedGuard(g)
-
-  let ethRpc = g.ethRpc.get()
-  let wakuRlnContract = g.wakuRlnContract.get()
-
-  # Set up the polling interval - more frequent to catch roots
-  const rpcDelay = 5.seconds
-
-  info "Starting to track Merkle root changes"
-
-  while true:
-    debug "starting to update roots"
-    let rootUpdated = await g.updateRoots()
-
-    if rootUpdated:
-      let proofResult = await g.fetchMerkleProofElements()
-      if proofResult.isErr():
-        error "Failed to fetch Merkle proof", error = proofResult.error
-      g.merkleProofCache = proofResult.get()
-
-    debug "sleeping for 5 seconds"
-    await sleepAsync(rpcDelay)
-
+# proc trackRootChanges*(g: OnchainGroupManager): Future[void] {.async.} =
+#   ## Continuously track changes to the Merkle root
+#   initializedGuard(g)
+# 
+#   let ethRpc = g.ethRpc.get()
+#   let wakuRlnContract = g.wakuRlnContract.get()
+# 
+#   # Set up the polling interval - more frequent to catch roots
+#   const rpcDelay = 5.seconds
+# 
+#   info "Starting to track Merkle root changes"
+# 
+#   while true:
+#     debug "starting to update roots"
+#     let rootUpdated = await g.updateRoots()
+# 
+#     if rootUpdated:
+#       let proofResult = await g.fetchMerkleProofElements()
+#       if proofResult.isErr():
+#         error "Failed to fetch Merkle proof", error = proofResult.error
+#       g.merkleProofCache = proofResult.get()
+# 
+#     debug "sleeping for 5 seconds"
+#     await sleepAsync(rpcDelay)
 
 method atomicBatch*(
     g: OnchainGroupManager,
