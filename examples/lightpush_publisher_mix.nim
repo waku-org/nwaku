@@ -98,7 +98,8 @@ proc setupAndPublish(rng: ref HmacDrbgContext, conf: LPMixConf) {.async.} =
 
   let (destPeerAddr, destPeerId) = splitPeerIdAndAddr(conf.destPeerAddr)
   let (pxPeerAddr, pxPeerId) = splitPeerIdAndAddr(conf.pxAddr)
-
+  info "dest peer address: ", destPeerAddr = destPeerAddr, destPeerId = destPeerId
+  info "peer exchange address: ", pxPeerAddr = pxPeerAddr, pxPeerId = pxPeerId
   let pxPeerInfo =
     RemotePeerInfo.init(destPeerId, @[MultiAddress.init(destPeerAddr).get()])
   node.peerManager.addServicePeer(pxPeerInfo, WakuPeerExchangeCodec)

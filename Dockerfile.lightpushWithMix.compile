@@ -43,7 +43,8 @@ EXPOSE 30303 60000 8545
 RUN apk add --no-cache libgcc pcre-dev libpq-dev \
   wget \
   iproute2 \
-  python3
+  python3 \
+  jq
 
 # Fix for 'Error loading shared library libpcre.so.3: No such file or directory'
 RUN ln -s /usr/lib/libpcre.so /usr/lib/libpcre.so.3

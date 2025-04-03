@@ -327,7 +327,7 @@ proc startMixNodePoolMgr*(node: WakuNode) {.async.} =
     await sleepAsync(1.seconds)
 
   # TODO: make interval configurable
-  heartbeat "Updating mix node pool", 10.minutes:
+  heartbeat "Updating mix node pool", 5.seconds:
     discard node.populateMixNodePool()
 
 proc getMixNodePoolSize*(node: WakuNode): int =
