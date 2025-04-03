@@ -1,7 +1,7 @@
 {.push raises: [].}
 
 import
-  std/[hashes, options, sugar, tables, strutils, sequtils, os, net],
+  std/[hashes, options, sugar, tables, strutils, sequtils, os, net, asyncnet],
   chronos,
   chronicles,
   metrics,
@@ -118,6 +118,7 @@ type
     topicSubscriptionQueue*: AsyncEventQueue[SubscriptionEvent]
     contentTopicHandlers: Table[ContentTopic, TopicHandler]
     rateLimitSettings*: ProtocolRateLimitSettings
+    netConfig*: NetConfig
 
 proc new*(
     T: type WakuNode,
@@ -142,6 +143,7 @@ proc new*(
     announcedAddresses: netConfig.announcedAddresses,
     topicSubscriptionQueue: queue,
     rateLimitSettings: DefaultProtocolRateLimit,
+    netConfig: netConfig,
   )
 
   return node
@@ -1523,3 +1525,36 @@ proc setRateLimits*(node: WakuNode, limits: seq[string]): Result[void, string] =
     return err("invalid rate limit settings:" & rateLimitConfig.error)
   node.rateLimitSettings = rateLimitConfig.get()
   return ok()
+
+proc checkDnsServerSimple(ip: IpAddress, timeout = 2.seconds): Future[bool] {.async.} =
+  var socket = newAsyncSocket()
+  try:
+    # Create a timeout future
+    let connectFut = await socket.connect($ip, Port(53))
+
+    result = true
+  except:
+    result = false
+  finally:
+    socket.close()
+
+proc isOnline*(node: WakuNode): Future[bool] {.async.} =
+  let numConnectedPeers =
+    node.peerManager.wakuPeerStore.peers().countIt(it.connectedness == Connected)
+
+  if numConnectedPeers > 0:
+    return true
+
+  if node.netConfig.dnsNameServers.isNone():
+    return false
+
+  var isConnected = false
+  let dnsNameServers = node.netConfig.dnsNameServers.get()
+
+  for dnsServer in dnsNameServers:
+    let res = await checkDnsServerSimple(dnsServer)
+
+    if res == true:
+      isConnected = true
+
+  return isConnected
