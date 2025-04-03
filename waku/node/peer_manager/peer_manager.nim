@@ -22,7 +22,7 @@ import
   ../../waku_metadata,
   ./peer_store/peer_storage,
   ./waku_peer_store,
-  ../../incentivization/reputation_manager
+  ../../incentivization/[reputation_manager, eligibility_manager]
 
 export waku_peer_store, peer_storage, peers
 
@@ -97,7 +97,10 @@ type PeerManager* = ref object of RootObj
   started: bool
   shardedPeerManagement: bool # temp feature flag
   onConnectionChange*: ConnectionChangeHandler
+  # clients of light protocols (like Lightpush) may track servers' reputation
   reputationManager*: Option[ReputationManager]
+  # servers of light protocols (like Lightpush) may track client requests' eligibility
+  eligibilityManager*: Option[EligibilityManager]
 
 #~~~~~~~~~~~~~~~~~~~#
 # Helper Functions  #
@@ -1037,6 +1040,7 @@ proc new*(
     colocationLimit = DefaultColocationLimit,
     shardedPeerManagement = false,
     reputationEnabled = false,
+    eligibilityEnabled = false,
 ): PeerManager {.gcsafe.} =
   let capacity = switch.peerStore.capacity
   let maxConnections = switch.connManager.inSema.size
@@ -1116,5 +1120,11 @@ proc new*(
       some(ReputationManager.new())
     else:
       none(ReputationManager)
+
+  pm.eligibilityManager =
+    if eligibilityEnabled:
+      some(EligibilityManager.new())
+    else:
+      none(EligibilityManager)
 
   return pm

@@ -16,6 +16,7 @@ proc newTestWakuLightpushNode*(
     switch: Switch,
     handler: PushMessageHandler,
     rateLimitSetting: Option[RateLimitSetting] = none[RateLimitSetting](),
+    eligibilityEnabled: bool = false,
 ): Future[WakuLightPush] {.async.} =
   let
     peerManager = PeerManager.new(switch)
@@ -28,7 +29,7 @@ proc newTestWakuLightpushNode*(
   return proto
 
 proc newTestWakuLightpushClient*(
-  switch: Switch, reputationEnabled: bool = false
-  ): WakuLightPushClient =
+    switch: Switch, reputationEnabled: bool = false
+): WakuLightPushClient =
   let peerManager = PeerManager.new(switch, reputationEnabled = reputationEnabled)
   WakuLightPushClient.new(peerManager, rng)
