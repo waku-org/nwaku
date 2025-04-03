@@ -2,12 +2,14 @@
 
 import std/options
 import ../waku_core
+import waku/incentivization/rpc
 
 type
   LightpushRequest* = object
     requestId*: string
     pubSubTopic*: Option[PubsubTopic]
     message*: WakuMessage
+    eligibilityProof*: Option[EligibilityProof]
 
   LightPushResponse* = object
     requestId*: string
