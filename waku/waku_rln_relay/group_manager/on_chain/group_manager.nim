@@ -92,7 +92,16 @@ proc setMetadata*(
 proc fetchMerkleProofElements*(
     g: OnchainGroupManager
 ): Future[Result[seq[Uint256], string]] {.async.} =
-  let index = stuint(g.membershipIndex.get(), 256)
+  let membershipIdx = g.membershipIndex.get()
+  # Ensure it's within uint40 range (0 to 2^40-1)
+  let maxUint40 = 1099511627775'u64  # 2^40-1
+  if membershipIdx > maxUint40:
+    return err("Index exceeds uint40 range")
+  # Convert to Uint256 but ensure it's "clean" (no high bits set)
+  let index = stuint(membershipIdx, 256)
+  debug "fetching merkle proof for index",
+    index = index, membershipIndex = membershipIdx
+    
   try:
     let merkleProofInvocation = g.wakuRlnContract.get().getMerkleProof(index)
     let merkleProof = await merkleProofInvocation.call()
@@ -258,12 +267,12 @@ method register*(
     raise newException(ValueError, "register: unexpected event signature")
 
   # the arguments of the raised event i.e., MembershipRegistered are encoded inside the data field
-  # data = rateCommitment encoded as 256 bits || index encoded as 32 bits
+  # data = rateCommitment encoded as 256 bits || membershipRateLimit encoded as 256 bits || index encoded as 32 bits
   let arguments = tsReceipt.logs[2].data
   debug "tx log data", arguments = arguments
   let
     # In TX log data, uints are encoded in big endian
-    membershipIndex = UInt256.fromBytesBE(arguments[32 ..^ 1])
+    membershipIndex = UInt256.fromBytesBE(arguments[64..95])
 
   debug "parsed membershipIndex", membershipIndex
   g.userMessageLimit = some(userMessageLimit)
@@ -324,7 +333,7 @@ method generateProof*(
   try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
-      return err("Failed to fetch Merkle proof - 2: " & $proofResult.error)
+      return err(" proof - 2: " & $proofResult.error)
     g.merkleProofCache = proofResult.get()
     debug "Merkle proof fetched",
       membershipIndex = g.membershipIndex.get(), elementCount = g.merkleProofCache.len
