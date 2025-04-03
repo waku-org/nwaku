@@ -29,7 +29,10 @@ export group_manager_base
 logScope:
   topics = "waku rln_relay onchain_group_manager"
 
-type UInt40* = StUint[40]
+type EthereumUInt40* = StUint[40]
+type EthereumUInt32* = StUint[32]
+type EthereumUInt16* = StUint[16]
+
 # using the when predicate does not work within the contract macro, hence need to dupe
 contract(WakuRlnContract):
   # this serves as an entrypoint into the rln membership set
@@ -46,9 +49,9 @@ contract(WakuRlnContract):
   proc deployedBlockNumber(): UInt256 {.view.}
   # this constant describes max message limit of rln contract
   proc MAX_MESSAGE_LIMIT(): UInt256 {.view.}
-  # this function returns the merkleProof for a given index
-  proc merkleProofElements(index: UInt40): seq[UInt256] {.view.}
-  # this function returns the Merkle root
+  # this function returns the merkleProof for a given index 
+  proc merkleProofElements(index: EthereumUInt40): seq[UInt256] {.view.}
+  # this function returns the merkle root 
   proc root(): Uint256 {.view.}
 
 type
@@ -65,7 +68,7 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
-    merkleProofCache*: seq[Uint256]
+    merkleProofCache*: array[20, UInt256]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -90,48 +93,79 @@ proc setMetadata*(
     return err("failed to persist rln metadata: " & getCurrentExceptionMsg())
   return ok()
 
-proc fetchMerkleProofElements*(
-    g: OnchainGroupManager
-): Future[Result[seq[Uint256], string]] {.async.} =
-  let membershipIndex = g.membershipIndex.get()
-  debug " ------ Fetching merkle proof", index = membershipIndex
-  try:
-    # First check if the index is valid
-    let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
-    let currentCommitmentIndex = await commitmentIndexInvocation.call()
-    let membershipIndexUint256 = stuint(membershipIndex, 256)
-
-    debug " ------ Checking membership index validity",
-      membershipIndex = membershipIndex,
-      membershipIndexAsUint256 = membershipIndexUint256.toHex(),
-      currentCommitmentIndex = currentCommitmentIndex.toHex()
-
-    # Convert to UInt40 for contract call (merkleProofElements takes UInt40)
-    let indexUint40 = stuint(membershipIndex, 40)
-    debug " ------ Converting membershipIndex to UInt40",
-      originalIndex = membershipIndex, asUint40 = indexUint40.toHex()
-
-    let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(indexUint40)
-    let merkleProof = await merkleProofInvocation.call()
-    debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
-    return ok(merkleProof)
-  except CatchableError:
-    error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+# proc fetchMerkleProofElements*(
+#     g: OnchainGroupManager
+# ): Future[Result[seq[Uint256], string]] {.async.} =
+#   let membershipIndex = g.membershipIndex.get()
+#   debug " ------ Fetching merkle proof", index = membershipIndex
+#   try:
+#     # First check if the index is valid
+#     let commitmentIndexInvocation = g.wakuRlnContract.get().commitmentIndex()
+#     let currentCommitmentIndex = await commitmentIndexInvocation.call()
+#     let membershipIndexUint256 = stuint(membershipIndex, 256)
+# 
+#     debug " ------ Checking membership index validity",
+#       membershipIndex = membershipIndex,
+#       membershipIndexAsUint256 = membershipIndexUint256.toHex(),
+#       currentCommitmentIndex = currentCommitmentIndex.toHex()
+# 
+#     # Convert to UInt40 for contract call (merkleProofElements takes UInt40)
+#     let indexUint40 = stuint(membershipIndex, 40)
+#     debug " ------ Converting membershipIndex to UInt40",
+#       originalIndex = membershipIndex, asUint40 = indexUint40.toHex()
+# 
+#     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(indexUint40)
+#     let merkleProof = await merkleProofInvocation.call()
+#     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
+#     return ok(merkleProof)
+#   except CatchableError:
+#     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
 
 # proc fetchMerkleProofElements*(
 #     g: OnchainGroupManager
 # ): Future[Result[seq[Uint256], string]] {.async.} =
 #   let membershipIndex = g.membershipIndex.get()
-#   debug "Fetching merkle proof", index = membershipIndex
+#   debug " ------Fetching merkle proof", index = membershipIndex
 #   try:
 #     let index = stuint(membershipIndex, 40)
-# 
 #     let merkleProofInvocation = g.wakuRlnContract.get().merkleProofElements(index)
 #     let merkleProof = await merkleProofInvocation.call()
 #     debug "Successfully fetched merkle proof", elementsCount = merkleProof.len
 #     return ok(merkleProof)
 #   except CatchableError:
 #     error "Failed to fetch merkle proof", errMsg = getCurrentExceptionMsg()
+
+proc fetchMerkleProofElements*(
+    g: OnchainGroupManager
+): Future[Result[array[20, UInt256], string]] {.async.} =
+  try:
+    let membershipIndex = g.membershipIndex.get()
+    let ethereumIndex = stuint(membershipIndex, 40).EthereumUInt40
+    debug "------ Converted index to EthereumUInt40 ------",
+      originalIndex = membershipIndex, ethereumIndex = ethereumIndex
+
+    let merkleProofInvocation =
+      g.wakuRlnContract.get().merkleProofElements(ethereumIndex)
+    let merkleProofSeq = await merkleProofInvocation.call()
+
+    # Convert sequence to fixed-size array
+    if merkleProofSeq.len != 20:
+      return err("Expected proof of length 20, got " & $merkleProofSeq.len)
+
+    var merkleProof: array[20, UInt256]
+    for i in 0 ..< 20:
+      if i < merkleProofSeq.len:
+        merkleProof[i] = merkleProofSeq[i]
+
+    debug "------ Successfully fetched merkle proof elements ------",
+      originalIndex = membershipIndex,
+      ethereumIndex = ethereumIndex,
+      proofLength = merkleProof.len
+
+    return ok(merkleProof)
+  except CatchableError:
+    error "Failed to fetch Merkle proof elements",
+      errMsg = getCurrentExceptionMsg(), index = g.membershipIndex.get()
 
 proc fetchMerkleRoot*(
     g: OnchainGroupManager
@@ -319,8 +353,8 @@ proc toArray32*(s: seq[byte]): array[32, byte] =
   discard output.copyFrom(s)
   return output
 
-proc toArray32Seq*(values: seq[UInt256]): seq[array[32, byte]] =
-  ## Converts a sequence of UInt256 to a sequence of 32-byte arrays
+proc toArray32Seq*(values: array[20, UInt256]): seq[array[32, byte]] =
+  ## Converts a fixed-size array of UInt256 to a sequence of 32-byte arrays
   result = newSeqOfCap[array[32, byte]](values.len)
   for value in values:
     result.add(value.toBytesLE())
