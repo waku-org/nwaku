@@ -319,14 +319,19 @@ method withdrawBatch*(
 
 proc toArray32*(s: seq[byte]): array[32, byte] =
   var output: array[32, byte]
-  discard output.copyFrom(s)
+  for i in 0 ..< 32:
+    output[i] = 0
+  let len = min(s.len, 32)
+  for i in 0 ..< len:
+    output[i] = s[s.len - 1 - i]
   return output
 
-proc toArray32Seq*(values: array[20, UInt256]): seq[array[32, byte]] =
-  ## Converts a MerkleProof (fixed array of 20 UInt256 values) to a sequence of 32-byte arrays
-  result = newSeqOfCap[array[32, byte]](values.len)
-  for value in values:
-    result.add(value.toBytesLE())
+proc indexToPath(index: uint64): seq[byte] =
+  # Fixed tree height of 32 for RLN
+  const treeHeight = 32
+  result = newSeq[byte](treeHeight)
+  for i in 0 ..< treeHeight:
+    result[i] = byte((index shr i) and 1)
 
 method generateProof*(
     g: OnchainGroupManager,
@@ -352,15 +357,6 @@ method generateProof*(
   let externalNullifierRes = poseidon(@[@(epoch), @(rlnIdentifier)])
 
   try:
-    let rootRes = waitFor g.fetchMerkleRoot()
-    if rootRes.isErr():
-      return err("Failed to fetch Merkle root: " & rootRes.error)
-    debug "Merkle root fetched", root = rootRes.get().toHex
-  except CatchableError:
-    error "Failed to fetch Merkle root", error = getCurrentExceptionMsg()
-    return err("Failed to fetch Merkle root: " & getCurrentExceptionMsg())
-
-  try:
     let proofResult = waitFor g.fetchMerkleProofElements()
     if proofResult.isErr():
       return err("Failed to fetch Merkle proof: " & proofResult.error)
@@ -376,10 +372,28 @@ method generateProof*(
     user_message_limit: serialize(g.userMessageLimit.get()),
     message_id: serialize(messageId),
     path_elements: g.merkleProofCache,
-    identity_path_index: @(toBytes(g.membershipIndex.get(), littleEndian)),
+    identity_path_index: indexToPath(g.membershipIndex.get()),
     x: toArray32(data),
     external_nullifier: externalNullifierRes.get(),
   )
+
+  debug "------ Generating proof with witness ------",
+    identity_secret = inHex(witness.identity_secret),
+    user_message_limit = inHex(witness.user_message_limit),
+    message_id = inHex(witness.message_id),
+    path_elements = witness.path_elements.map(inHex),
+    identity_path_index = witness.identity_path_index.mapIt($it),
+    x = inHex(witness.x),
+    external_nullifier = inHex(witness.external_nullifier)
+
+  debug "------ Witness parameters ------",
+    identity_secret_len = witness.identity_secret.len,
+    user_message_limit_len = witness.user_message_limit.len,
+    message_id_len = witness.message_id.len,
+    path_elements_count = witness.path_elements.len,
+    identity_path_index_len = witness.identity_path_index.len,
+    x_len = witness.x.len,
+    external_nullifier_len = witness.external_nullifier.len
 
   let serializedWitness = serialize(witness)
   var inputBuffer = toBuffer(serializedWitness)
