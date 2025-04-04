@@ -60,7 +60,7 @@ type RemotePeerInfo* = ref object
   numberFailedConn*: int
 
 func `$`*(remotePeerInfo: RemotePeerInfo): string =
-  $remotePeerInfo.peerId
+  $remotePeerInfo.peerId & " protocols: " & $remotePeerInfo.protocols
 
 proc writeValue*(
     w: var JsonWriter, value: RemotePeerInfo
