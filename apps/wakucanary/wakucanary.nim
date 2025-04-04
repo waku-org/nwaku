@@ -246,7 +246,7 @@ proc main(rng: ref HmacDrbgContext): Future[int] {.async.} =
     return 1
 
   let lp2pPeerStore = node.switch.peerStore
-  let conStatus = node.peerManager.wakuPeerStore[ConnectionBook][peer.peerId]
+  let conStatus = node.peerManager.switch.peerStore[ConnectionBook][peer.peerId]
 
   if conf.ping:
     discard await pingFut
