@@ -475,28 +475,16 @@ proc startNode*(
 
   return ok()
 
-proc setupNode*(
-    conf: WakuNodeConf, rng: ref HmacDrbgContext = crypto.newRng(), relay: Relay
-): Result[WakuNode, string] =
-  # Use provided key only if corresponding rng is also provided
-  let key =
-    if conf.nodeKey.isSome():
-      conf.nodeKey.get()
-    else:
-      warn "missing key, generating new"
-      crypto.PrivateKey.random(Secp256k1, rng[]).valueOr:
-        error "Failed to generate key", error = error
-        return err("Failed to generate key: " & $error)
-
-  let netConfig = networkConfiguration(conf, clientId).valueOr:
+proc setupNode*(wakuConf: WakuConf, relay: Relay): Result[WakuNode, string] =
+  let netConfig = networkConfiguration(wakuConf, clientId).valueOr:
     error "failed to create internal config", error = error
     return err("failed to create internal config: " & error)
 
-  let record = enrConfiguration(conf, netConfig, key).valueOr:
+  let record = enrConfiguration(wakuConf, netConfig, key).valueOr:
     error "failed to create record", error = error
     return err("failed to create record: " & error)
 
-  if isClusterMismatched(record, conf.clusterId):
+  if isClusterMismatched(record, wakuConf.clusterId):
     error "cluster id mismatch configured shards"
     return err("cluster id mismatch configured shards")
 

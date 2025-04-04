@@ -1,4 +1,4 @@
-import std/[options, sequtils], chronicles, libp2p/crypto/crypto, results
+import std/[options, sequtils, net], chronicles, libp2p/crypto/crypto, results
 
 import ../common/logging, ../common/utils/parse_size_units
 
@@ -11,6 +11,7 @@ type
   TextEnr* = distinct string
   ContractAddress* = distinct string
   EthRpcUrl* = distinct string
+  NatStrategy* = distinct string
 
 # TODO: this should come from RLN relay module
 type RlnRelayConf* = ref object
@@ -43,6 +44,11 @@ type WakuConf* = ref object
 
   logLevel*: logging.LogLevel
   logFormat*: logging.LogFormat
+
+  natStrategy*: NatStrategy
+
+  tcpPort*: Port
+  portsShift*: uint16
 
 proc log*(conf: WakuConf) =
   info "Configuration: Enabled protocols",
@@ -183,6 +189,11 @@ type WakuConfBuilder* = ref object
   logLevel: Option[logging.LogLevel]
   logFormat: Option[logging.LogFormat]
 
+  natStrategy: Option[NatStrategy]
+
+  tcpPort: Option[Port]
+  portsShift: Option[uint16]
+
 proc init*(T: type WakuConfBuilder): WakuConfBuilder =
   WakuConfBuilder(rlnRelayConf: RlnRelayConfBuilder.init())
 
@@ -218,6 +229,9 @@ proc withRlnRelayEthContractAddress*(
 
 proc withMaxMessageSizeBytes*(builder: WakuConfBuilder, maxMessageSizeBytes: int) =
   builder.maxMessageSizeBytes = some(maxMessageSizeBytes)
+
+proc withTcpPort*(builder: WakuConfBuilder, tcpPort: uint16) =
+  builder.tcpPort = some(tcpPort.Port)
 
 proc validateShards*(wakuConf: WakuConf): Result[void, string] =
   let numShardsInNetwork = wakuConf.numShardsInNetwork
@@ -257,8 +271,6 @@ proc build*(
   ## of libwaku. It aims to be agnostic so it does not apply a 
   ## default when it is opinionated.
 
-  let nodeKey = ?nodeKey(builder, rng)
-
   let relay =
     if builder.relay.isSome:
       builder.relay.get()
@@ -295,6 +307,7 @@ proc build*(
       false
 
   # Apply cluster conf - values passed manually override cluster conf
+  # Should be applied **first**, before individual values are pulled
   if builder.clusterConf.isSome:
     var clusterConf = builder.clusterConf.get()
 
@@ -380,6 +393,8 @@ proc build*(
       )
   # Apply preset - end
 
+  let nodeKey = ?nodeKey(builder, rng)
+
   let clusterId =
     if builder.clusterId.isSome:
       builder.clusterId.get()
@@ -431,6 +446,26 @@ proc build*(
       warn "Log Format not specified, defaulting to TEXT"
       logging.LogFormat.TEXT
 
+  let natStrategy =
+    if builder.natStrategy.isSome:
+      builder.natStrategy.get()
+    else:
+      warn "Nat Strategy is not specified, defaulting to none"
+      "none".NatStrategy
+
+  let tcpPort =
+    if builder.tcpPort.isSome:
+      builder.tcpPort.get()
+    else:
+      return err("TCP Port is missing")
+
+  let portsShift =
+    if builder.portsShift.isSome:
+      builder.portsShift.get()
+    else:
+      warn "Ports Shift is not specified, defaulting to 0"
+      0.uint16
+
   let wakuConf = WakuConf(
     nodeKey: nodeKey,
     clusterId: clusterId,
@@ -446,6 +481,9 @@ proc build*(
     maxMessageSizeBytes: maxMessageSizeBytes,
     logLevel: logLevel,
     logFormat: logFormat,
+    natStrategy: natStrategy,
+    tcpPort: tcpPort,
+    portsShift: portsShift,
   )
 
   ?validate(wakuConf)
