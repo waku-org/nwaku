@@ -25,7 +25,7 @@ suite "Extended nim-libp2p Peer Store":
 
   setup:
     # Setup a nim-libp2p peerstore with some peers
-    let peerStore = WakuPeerStore.new(nil, capacity = 50)
+    let peerStore = PeerStore.new(nil, capacity = 50)
     var p1, p2, p3, p4, p5, p6: PeerId
 
     # create five peers basePeerId + [1-5]
@@ -320,7 +320,7 @@ suite "Extended nim-libp2p Peer Store":
 
   test "del() successfully deletes waku custom books":
     # Given
-    let peerStore = WakuPeerStore.new(nil, capacity = 5)
+    let peerStore = PeerStore.new(nil, capacity = 5)
     var p1: PeerId
     require p1.init("QmeuZJbXrszW2jdT7GdduSjQskPU3S7vvGWKtKgDfkDvW1")
 

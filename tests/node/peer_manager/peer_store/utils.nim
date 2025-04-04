@@ -7,6 +7,3 @@ import
 proc newTestWakuPeerStorage*(path: Option[string] = string.none()): WakuPeerStorage =
   let db = newSqliteDatabase(path)
   WakuPeerStorage.new(db).value()
-
-proc peerExists*(peerStore: PeerStore, peerId: PeerId): bool =
-  return peerStore[AddressBook].contains(peerId)
