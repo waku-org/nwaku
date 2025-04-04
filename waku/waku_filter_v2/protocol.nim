@@ -225,7 +225,7 @@ proc maintainSubscriptions*(wf: WakuFilter) {.async.} =
   ## Remove subscriptions for peers that have been removed from peer store
   var peersToRemove: seq[PeerId]
   for peerId in wf.subscriptions.peersSubscribed.keys:
-    if not wf.peerManager.wakuPeerStore.hasPeer(peerId, WakuFilterPushCodec):
+    if not wf.peerManager.switch.peerStore.hasPeer(peerId, WakuFilterPushCodec):
       debug "peer has been removed from peer store, we will remove subscription",
         peerId = peerId
       peersToRemove.add(peerId)
