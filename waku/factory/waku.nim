@@ -145,6 +145,8 @@ proc setupAppCallbacks(
 
   return ok()
 
+# TODO: This should probably accept a `WakuConf` instead, and have the caller use `WakuConfBuilder`
+# Or whatever they prefer to build a valid conf
 proc new*(
     T: type Waku, wakuNodeConf: WakuNodeConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
@@ -157,12 +159,6 @@ proc new*(
   applyPresetConfiguration(wakuNodeConf, confBuilder)
 
   info "Running nwaku node", version = git_version
-
-  let keyRes = getNodeKey(confCopy, rng)
-  if keyRes.isErr():
-    error "Failed to generate key", error = $keyRes.error
-    return err("Failed to generate key: " & $keyRes.error)
-  confCopy.nodeKey = some(keyRes.get())
 
   var relay = newCircuitRelay(confCopy.isRelayClient)
 

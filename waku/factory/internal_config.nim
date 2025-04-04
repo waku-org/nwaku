@@ -70,11 +70,11 @@ proc dnsResolve*(
   else:
     return err("Could not resolve IP from DNS: empty response")
 
-proc networkConfiguration*(conf: WakuNodeConf, clientId: string): NetConfigResult =
+proc networkConfiguration*(conf: WakuConf, clientId: string): NetConfigResult =
   ## `udpPort` is only supplied to satisfy underlying APIs but is not
   ## actually a supported transport for libp2p traffic.
   let natRes = setupNat(
-    conf.nat,
+    conf.natStrategy.string,
     clientId,
     Port(uint16(conf.tcpPort) + conf.portsShift),
     Port(uint16(conf.tcpPort) + conf.portsShift),

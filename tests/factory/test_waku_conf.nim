@@ -16,6 +16,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
+    builder.withTcpPort(3000)
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
@@ -59,9 +60,9 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
-
-    let # Mount all shards in network
-      expectedShards = toSeq[0.uint16 .. 7.uint16]
+    builder.withTcpPort(3000)
+    # Mount all shards in network
+    let expectedShards = toSeq[0.uint16 .. 7.uint16]
 
     ## Given
     builder.withRlnRelayEthClientAddress("https://my_eth_rpc_url/")
@@ -90,6 +91,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
+    builder.withTcpPort(3000)
 
     let # Mount all shards in network
       expectedShards = toSeq[0.uint16 .. 7.uint16]
@@ -121,6 +123,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
+    builder.withTcpPort(3000)
     let shards = @[2.uint16, 3.uint16]
 
     ## Given
@@ -148,6 +151,7 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
+    builder.withTcpPort(3000)
     let shards = @[2.uint16, 10.uint16]
 
     ## Given
@@ -165,12 +169,14 @@ suite "Waku Conf - build with cluster conf":
     ## Setup
     let clusterConf = ClusterConf.TheWakuNetworkConf()
     var builder = WakuConfBuilder.init()
+    builder.withTcpPort(3000)
+    builder.withRlnRelayEthClientAddress("https://my_eth_rpc_url/")
+
     # Mount all shards in network
     let expectedShards = toSeq[0.uint16 .. 7.uint16]
     let contractAddress = "0x0123456789ABCDEF"
 
     ## Given
-    builder.withRlnRelayEthClientAddress("https://my_eth_rpc_url/")
     builder.withRlnRelayEthContractAddress(contractAddress)
     builder.withClusterConf(clusterConf)
     builder.withRelay(true)
@@ -211,6 +217,7 @@ suite "Waku Conf - node key":
     var builder = WakuConfBuilder.init()
     builder.withClusterId(1)
     builder.withMaxMessageSizeBytes(1)
+    builder.withTcpPort(3000)
 
     ## Given
 
@@ -233,6 +240,7 @@ suite "Waku Conf - node key":
     var builder = WakuConfBuilder.init()
     builder.withClusterId(1)
     builder.withMaxMessageSizeBytes(1)
+    builder.withTcpPort(3000)
 
     ## Given
     builder.withNodeKey(nodeKey)
