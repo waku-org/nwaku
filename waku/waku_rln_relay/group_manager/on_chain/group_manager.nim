@@ -68,7 +68,7 @@ type
     keystorePassword*: Option[string]
     registrationHandler*: Option[RegistrationHandler]
     latestProcessedBlock*: BlockNumber
-    merkleProofCache*: seq[UInt256]
+    merkleProofCache*: array[20, UInt256]
 
 proc setMetadata*(
     g: OnchainGroupManager, lastProcessedBlock = none(BlockNumber)
@@ -106,7 +106,7 @@ proc fetchMerkleProofElements*(
     debug "------ checking if membership index is validity ------",
       membershipIndex = membershipIndex,
       membershipIndexUint256 = membershipIndexUint256,
-      currentCommitmentIndex = currentCommitmentIndex,    
+      currentCommitmentIndex = currentCommitmentIndex,
       index40 = index40
 
     if membershipIndexUint256 >= currentCommitmentIndex:
@@ -135,13 +135,16 @@ proc fetchMerkleProofElements*(
 
     let responseBytes = await g.ethRpc.get().provider.eth_call(tx, "latest")
 
-    var merkleProof: seq[UInt256]
+    var merkleProof: array[20, UInt256]
 
-    for i in 0 .. 19:
-      let startindex = 32 + (i * 32) # skip initial 32 bytes for the array offset
+    for i in 0 ..< 20:
+      merkleProof[i] = UInt256.fromBytes(newSeq[byte](32))
+
+    for i in 0 ..< 20:
+      let startindex = 32 + (i * 32)
       if startindex + 32 <= responseBytes.len:
         let elementbytes = responseBytes[startindex ..< startindex + 32]
-        merkleProof.add(UInt256.fromBytesBE(elementbytes))
+        merkleProof[i] = UInt256.fromBytesBE(elementbytes)
 
     return ok(merkleProof)
   except CatchableError:
@@ -379,8 +382,8 @@ proc toArray32*(s: seq[byte]): array[32, byte] =
   discard output.copyFrom(s)
   return output
 
-proc toArray32Seq*(values: seq[UInt256]): seq[array[32, byte]] =
-  ## Converts a MerkleProof (array of 20 UInt256 values) to a sequence of 32-byte arrays
+proc toArray32Seq*(values: array[20, UInt256]): seq[array[32, byte]] =
+  ## Converts a MerkleProof (fixed array of 20 UInt256 values) to a sequence of 32-byte arrays
   result = newSeqOfCap[array[32, byte]](values.len)
   for value in values:
     result.add(value.toBytesLE())
