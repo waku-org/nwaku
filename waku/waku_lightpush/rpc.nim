@@ -2,7 +2,7 @@
 
 import std/options
 import ../waku_core
-import waku/incentivization/rpc
+import ../incentivization/rpc
 
 type
   LightpushRequest* = object

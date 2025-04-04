@@ -2,7 +2,7 @@
 
 import std/options
 import ../common/protobuf, ../waku_core, ./rpc
-import waku/incentivization/[rpc, rpc_codec]
+import ../incentivization/[rpc, rpc_codec]
 
 const DefaultMaxRpcSize* = -1
 
@@ -13,7 +13,6 @@ proc encode*(rpc: LightpushRequest): ProtoBuffer =
   pb.write3(20, rpc.pubSubTopic)
   pb.write3(21, rpc.message.encode())
 
-  # Only encode eligibilityProof if it exists
   if rpc.eligibilityProof.isSome():
     pb.write3(22, rpc.eligibilityProof.get().encode())
 
@@ -42,7 +41,6 @@ proc decode*(T: type LightpushRequest, buffer: seq[byte]): ProtobufResult[T] =
   else:
     rpc.message = ?WakuMessage.decode(messageBuf)
 
-  # Decode eligibilityProof only if the field is present
   var eligibilityProofBytes: seq[byte]
   if not ?pb.getField(22, eligibilityProofBytes):
     rpc.eligibilityProof = none(EligibilityProof)

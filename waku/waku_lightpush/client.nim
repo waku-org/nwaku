@@ -89,6 +89,10 @@ proc publish*(
       peerId = shortLog(peer.peerId),
       msg_hash = computeMessageHash(pubsubTopic.get(""), message).to0xHex
 
+  # TODO: i13n POC: add eligibilityProof to the request
+  # (if expected by the server - how does the client know?..)
+  # The tx must have already been sent at this point?
+
   let pushRequest = LightpushRequest(
     requestId: generateRequestId(wl.rng), pubSubTopic: pubSubTopic, message: message
   )
