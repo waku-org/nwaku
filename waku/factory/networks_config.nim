@@ -22,7 +22,7 @@ proc TheWakuNetworkConf*(T: type ClusterConf): ClusterConf =
     maxMessageSize: "150KiB",
     clusterId: 1,
     rlnRelay: true,
-    rlnRelayEthContractAddress: "0xCB33Aa5B38d79E3D9Fa8B10afF38AA201399a7e3",
+    rlnRelayEthContractAddress: "0xfe7a9eabcE779a090FD702346Fd0bFAc02ce6Ac8",
     rlnRelayDynamic: true,
     rlnRelayChainId: 11155111,
     rlnRelayBandwidthThreshold: 0,
