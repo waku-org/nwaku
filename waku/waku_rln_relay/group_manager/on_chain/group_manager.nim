@@ -103,6 +103,12 @@ proc fetchMerkleProofElements*(
     let membershipIndexUint256 = stuint(membershipIndex, 256)
     let index40 = stuint(membershipIndex, 40)
 
+    debug "------ checking if membership index is validity ------",
+      membershipIndex = membershipIndex,
+      membershipIndexUint256 = membershipIndexUint256,
+      currentCommitmentIndex = currentCommitmentIndex,    
+      index40 = index40
+
     if membershipIndexUint256 >= currentCommitmentIndex:
       return err(
         "Invalid membership index: " & $membershipIndex &
