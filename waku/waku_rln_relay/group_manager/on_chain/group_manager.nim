@@ -129,6 +129,9 @@ proc fetchMerkleProofElements*(
           if startIndex + j < responseBytes.len:
             element[j] = responseBytes[startIndex + j]
         merkleProof.add(element)
+      else:
+        var element: array[32, byte]
+        merkleProof.add(element)
 
     return ok(merkleProof)
   except CatchableError:
@@ -328,7 +331,7 @@ proc toArray32*(s: seq[byte]): array[32, byte] =
 
 proc indexToPath(index: uint64): seq[byte] =
   # Fixed tree height of 32 for RLN
-  const treeHeight = 32
+  const treeHeight = 20
   result = newSeq[byte](treeHeight)
   for i in 0 ..< treeHeight:
     result[i] = byte((index shr i) and 1)
@@ -382,7 +385,7 @@ method generateProof*(
     user_message_limit = inHex(witness.user_message_limit),
     message_id = inHex(witness.message_id),
     path_elements = witness.path_elements.map(inHex),
-    identity_path_index = witness.identity_path_index.mapIt($it),
+    identity_path_index = witness.identity_path_index.mapIt($it).join(", "),
     x = inHex(witness.x),
     external_nullifier = inHex(witness.external_nullifier)
 
