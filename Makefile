@@ -152,6 +152,14 @@ endif
 
 clean: | clean-libbacktrace
 
+### Create nimble links (used when building with Nix)
+
+nimble-dir:
+	NIMBLE_DIR="$(CURDIR)/$(NIMBLE_DIR)" \
+	PWD_CMD="$(PWD)" \
+	EXCLUDED_NIM_PACKAGES="$(EXCLUDED_NIM_PACKAGES)" \
+	BUILD_SYSTEM_DIR="$(BUILD_SYSTEM_DIR)" \
+	$(CURDIR)/scripts/generate_nimble_links.sh
 
 ##################
 ##     RLN      ##
