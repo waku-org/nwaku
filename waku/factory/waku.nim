@@ -43,7 +43,8 @@ import
   ../factory/internal_config,
   ../factory/external_config,
   ../factory/app_callbacks,
-  ../waku_enr/multiaddr
+  ../waku_enr/multiaddr,
+  ./waku_conf
 
 logScope:
   topics = "wakunode waku"
@@ -53,7 +54,7 @@ const git_version* {.strdefine.} = "n/a"
 
 type Waku* = ref object
   version: string
-  conf: WakuNodeConf
+  conf: WakuConf
   rng: ref HmacDrbgContext
   key: crypto.PrivateKey
 
@@ -69,32 +70,6 @@ type Waku* = ref object
   restServer*: WakuRestServerRef
   metricsServer*: MetricsHttpServerRef
   appCallbacks*: AppCallbacks
-
-proc logConfig(conf: WakuNodeConf) =
-  info "Configuration: Enabled protocols",
-    relay = conf.relay,
-    rlnRelay = conf.rlnRelay,
-    store = conf.store,
-    filter = conf.filter,
-    lightpush = conf.lightpush,
-    peerExchange = conf.peerExchange
-
-  info "Configuration. Network", cluster = conf.clusterId
-
-  for shard in conf.shards:
-    info "Configuration. Shards", shard = shard
-
-  for i in conf.discv5BootstrapNodes:
-    info "Configuration. Bootstrap nodes", node = i
-
-  if conf.rlnRelay and conf.rlnRelayDynamic:
-    info "Configuration. Validation",
-      mechanism = "onchain rln",
-      contract = conf.rlnRelayEthContractAddress,
-      maxMessageSize = conf.maxMessageSize,
-      rlnEpochSizeSec = conf.rlnEpochSizeSec,
-      rlnRelayUserMessageLimit = conf.rlnRelayUserMessageLimit,
-      rlnRelayEthClientAddress = string(conf.rlnRelayEthClientAddress)
 
 func version*(waku: Waku): string =
   waku.version
@@ -170,34 +145,20 @@ proc setupAppCallbacks(
 
   return ok()
 
+# TODO: This should probably accept a `WakuConf` instead, and have the caller use `WakuConfBuilder`
+# Or whatever they prefer to build a valid conf
 proc new*(
-    T: type Waku, confCopy: var WakuNodeConf, appCallbacks: AppCallbacks = nil
+    T: type Waku, wakuNodeConf: WakuNodeConf, appCallbacks: AppCallbacks = nil
 ): Result[Waku, string] =
   let rng = crypto.newRng()
 
-  logging.setupLog(confCopy.logLevel, confCopy.logFormat)
+  logging.setupLog(wakuNodeConf.logLevel, wakuNodeConf.logFormat)
 
-  confCopy = block:
-    let res = applyPresetConfiguration(confCopy)
-    if res.isErr():
-      error "Failed to complete the config", error = res.error
-      return err("Failed to complete the config:" & $res.error)
-    res.get()
+  var confBuilder = WakuConfBuilder.init()
 
-  logConfig(confCopy)
+  applyPresetConfiguration(wakuNodeConf, confBuilder)
 
   info "Running nwaku node", version = git_version
-
-  let validateShardsRes = validateShards(confCopy)
-  if validateShardsRes.isErr():
-    error "Failed validating shards", error = $validateShardsRes.error
-    return err("Failed validating shards: " & $validateShardsRes.error)
-
-  let keyRes = getNodeKey(confCopy, rng)
-  if keyRes.isErr():
-    error "Failed to generate key", error = $keyRes.error
-    return err("Failed to generate key: " & $keyRes.error)
-  confCopy.nodeKey = some(keyRes.get())
 
   var relay = newCircuitRelay(confCopy.isRelayClient)
 
